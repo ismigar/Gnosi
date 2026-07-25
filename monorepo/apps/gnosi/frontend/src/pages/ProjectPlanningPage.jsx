@@ -3,14 +3,37 @@ import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, RefreshCw, Route, Wallet } from 'lucide-react';
 import { VaultTimeline } from '../components/Vault/VaultTimeline';
+import { usePlugins } from '../plugins/usePlugins';
 
 export default function ProjectPlanningPage() {
     const { t } = useTranslation();
+    const { getPluginSettings } = usePlugins();
+    const planningSettings = getPluginSettings('project-planning');
+    const [projects, setProjects] = useState([]);
     const [projectId, setProjectId] = useState('default');
     const [schedule, setSchedule] = useState(null);
     const [allocation, setAllocation] = useState(null);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        const tableId = planningSettings.project_table_id;
+        if (!tableId) {
+            setProjects([]);
+            setProjectId('default');
+            return;
+        }
+        let active = true;
+        axios.get(`/api/vault/pages/by-table/${encodeURIComponent(tableId)}`, { params: { include_templates: false } })
+            .then((response) => {
+                if (!active) return;
+                const next = Array.isArray(response.data) ? response.data : [];
+                setProjects(next);
+                setProjectId((current) => next.some((project) => project.id === current) ? current : (next[0]?.id || 'default'));
+            })
+            .catch(() => { if (active) setProjects([]); });
+        return () => { active = false; };
+    }, [planningSettings.project_table_id]);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -41,7 +64,7 @@ export default function ProjectPlanningPage() {
         <main className="mx-auto max-w-7xl space-y-6 p-6">
             <header className="flex flex-wrap items-end justify-between gap-3">
                 <div><h1 className="text-2xl font-semibold">{t('planning_page.title', 'Project planning')}</h1><p className="text-sm text-[var(--text-tertiary)]">{t('planning_page.subtitle', 'Schedule, critical path, resources and planning diagnostics.')}</p></div>
-                <div className="flex gap-2"><input value={projectId} onChange={(event) => setProjectId(event.target.value || 'default')} aria-label={t('planning_page.project_id', 'Project ID')} className="rounded border bg-[var(--bg-primary)] px-3 py-2 text-sm" /><button onClick={() => void load()} className="flex items-center gap-2 rounded bg-[var(--accent-primary)] px-3 py-2 text-sm text-white"><RefreshCw size={15} />{t('planning_page.refresh', 'Refresh')}</button></div>
+                <div className="flex gap-2"><select value={projectId} onChange={(event) => setProjectId(event.target.value)} aria-label={t('planning_page.project', 'Project')} className="rounded border bg-[var(--bg-primary)] px-3 py-2 text-sm">{projects.length === 0 ? <option value="default">{t('planning_page.default_project', 'Default project')}</option> : projects.map((project) => <option key={project.id} value={project.id}>{project.title || project.id}</option>)}</select><button onClick={() => void load()} className="flex items-center gap-2 rounded bg-[var(--accent-primary)] px-3 py-2 text-sm text-white"><RefreshCw size={15} />{t('planning_page.refresh', 'Refresh')}</button></div>
             </header>
             {error && <p className="rounded border border-red-400 p-3 text-sm text-red-600">{error}</p>}
             <section className="grid gap-4 md:grid-cols-3">

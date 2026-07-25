@@ -3949,7 +3949,7 @@
     "no_files": "No se han encontrado archivos"
   },
   "planning_page": {
-    "title": "Planificación de proyectos", "subtitle": "Calendario, ruta crítica, recursos y diagnósticos.", "project_id": "ID del proyecto", "refresh": "Actualizar", "load_error": "No se ha podido cargar la planificación.", "critical_tasks": "Tareas críticas", "estimated_cost": "Coste estimado", "warnings": "Avisos", "schedule": "Calendario", "task": "Tarea", "start": "Inicio", "finish": "Fin", "slack": "Holgura", "diagnostics": "Diagnósticos"
+    "title": "Planificación de proyectos", "subtitle": "Calendario, ruta crítica, recursos y diagnósticos.", "project_id": "ID del proyecto", "project": "Proyecto", "default_project": "Proyecto predeterminado", "refresh": "Actualizar", "load_error": "No se ha podido cargar la planificación.", "critical_tasks": "Tareas críticas", "estimated_cost": "Coste estimado", "warnings": "Avisos", "schedule": "Calendario", "task": "Tarea", "start": "Inicio", "finish": "Fin", "slack": "Holgura", "diagnostics": "Diagnósticos"
   },
   "vault_date": {
     "days_placeholder": "días",

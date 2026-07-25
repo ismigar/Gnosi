@@ -3917,7 +3917,7 @@
     "no_files": "No files found"
   },
   "planning_page": {
-    "title": "Project planning", "subtitle": "Schedule, critical path, resources and diagnostics.", "project_id": "Project ID", "refresh": "Refresh", "load_error": "Could not load the project schedule.", "critical_tasks": "Critical tasks", "estimated_cost": "Estimated cost", "warnings": "Warnings", "schedule": "Schedule", "task": "Task", "start": "Start", "finish": "Finish", "slack": "Slack", "diagnostics": "Diagnostics"
+    "title": "Project planning", "subtitle": "Schedule, critical path, resources and diagnostics.", "project_id": "Project ID", "project": "Project", "default_project": "Default project", "refresh": "Refresh", "load_error": "Could not load the project schedule.", "critical_tasks": "Critical tasks", "estimated_cost": "Estimated cost", "warnings": "Warnings", "schedule": "Schedule", "task": "Task", "start": "Start", "finish": "Finish", "slack": "Slack", "diagnostics": "Diagnostics"
   },
   "vault_date": {
     "days_placeholder": "days",

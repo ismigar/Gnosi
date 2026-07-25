@@ -3949,7 +3949,7 @@
     "no_files": "No s'han trobat fitxers"
   },
   "planning_page": {
-    "title": "Planificació de projectes", "subtitle": "Calendari, camí crític, recursos i diagnòstics.", "project_id": "ID del projecte", "refresh": "Actualitza", "load_error": "No s'ha pogut carregar la planificació.", "critical_tasks": "Tasques crítiques", "estimated_cost": "Cost estimat", "warnings": "Avisos", "schedule": "Calendari", "task": "Tasca", "start": "Inici", "finish": "Fi", "slack": "Folgança", "diagnostics": "Diagnòstics"
+    "title": "Planificació de projectes", "subtitle": "Calendari, camí crític, recursos i diagnòstics.", "project_id": "ID del projecte", "project": "Projecte", "default_project": "Projecte predeterminat", "refresh": "Actualitza", "load_error": "No s'ha pogut carregar la planificació.", "critical_tasks": "Tasques crítiques", "estimated_cost": "Cost estimat", "warnings": "Avisos", "schedule": "Calendari", "task": "Tasca", "start": "Inici", "finish": "Fi", "slack": "Folgança", "diagnostics": "Diagnòstics"
   },
   "vault_date": {
     "days_placeholder": "dies",
