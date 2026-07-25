@@ -145,6 +145,7 @@ function ProjectPlanningConfig() {
         config.holiday_descriptions,
         Number(config.holiday_year) || defaultHolidayYear,
     ));
+    const [hoursPerDayInput, setHoursPerDayInput] = useState(String(config.hours_per_day ?? 8));
     const [planningState, setPlanningState] = useState(null);
     const [planningLoading, setPlanningLoading] = useState(true);
     const [planningError, setPlanningError] = useState('');
@@ -235,6 +236,10 @@ function ProjectPlanningConfig() {
         setHolidayRows(getHolidayRowsForYear(config.holidays, config.holiday_descriptions, nextYear));
     }, [config.holiday_year, config.holidays, config.holiday_descriptions, defaultHolidayYear]);
 
+    useEffect(() => {
+        setHoursPerDayInput(String(config.hours_per_day ?? 8));
+    }, [config.hours_per_day]);
+
     const setPlanningSettings = (patch) => {
         setPluginSettings('project-planning', patch);
         const calendarPatch = {};
@@ -289,6 +294,13 @@ function ProjectPlanningConfig() {
         setHolidayYearInput(String(nextYear));
         setHolidayRows(getHolidayRowsForYear(config.holidays, config.holiday_descriptions, nextYear));
         setPlanningSettings({ holiday_year: nextYear });
+    };
+    const commitHoursPerDay = (value) => {
+        const parsed = Number(String(value).replace(',', '.'));
+        const fallback = Number(config.hours_per_day) || 8;
+        const nextHours = Math.min(24, Math.max(0.25, Number.isFinite(parsed) ? parsed : fallback));
+        setHoursPerDayInput(String(nextHours));
+        setPlanningSettings({ hours_per_day: nextHours });
     };
     const saveHolidays = (rows = holidayRows) => {
         const yearPrefix = `${holidayYear}-`;
@@ -486,18 +498,16 @@ function ProjectPlanningConfig() {
                         {tp('planning_hours_per_day', { defaultValue: "Working hours per day" })}
                     </span>
                     <input
-                        type="number"
+                        type="text"
+                        inputMode="decimal"
                         min="0.25"
                         max="24"
                         step="0.25"
                         style={SELECT_STYLE}
-                        value={config.hours_per_day ?? 8}
-                        onChange={(event) => setPlanningSettings({
-                            hours_per_day: Math.min(
-                                24,
-                                Math.max(0.25, Number(event.target.value) || 8),
-                            ),
-                        })}
+                        value={hoursPerDayInput}
+                        aria-label={tp('planning_hours_per_day', { defaultValue: 'Working hours per day' })}
+                        onChange={(event) => setHoursPerDayInput(event.target.value)}
+                        onBlur={(event) => commitHoursPerDay(event.target.value)}
                     />
                 </label>
                 <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
