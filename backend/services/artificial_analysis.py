@@ -248,7 +248,7 @@ def fetch_all_models() -> Dict[str, Any]:
 
     # Artificial Analysis is authoritative for benchmark/pricing/performance.
     # models.dev only fills fields omitted by the Free API.
-    catalog = load_catalog(refresh=True)
+    catalog = load_catalog(force_refresh=True)
     return build_comparison_payload(
         rows,
         catalog,
