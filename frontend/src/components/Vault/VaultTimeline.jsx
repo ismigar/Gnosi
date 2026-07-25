@@ -10,6 +10,15 @@ import { formatDate, resolveFieldFormat } from './formatUtils';
 import i18n from '../../i18n';
 import { useLocaleSettings } from '../../hooks/useLocaleSettings';
 import { parsePeriod } from './VaultDateProperty';
+import {
+    addWorkingDuration,
+    formatLocalDateTime,
+    nextWorkingInstant,
+    serializePeriod,
+    withPeriodBoundaries,
+    workingDurationDays,
+} from '../../utils/projectPlanning';
+import { usePlugins } from '../../plugins/usePlugins';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
@@ -52,6 +61,9 @@ const resolveParentId = (note, schema, getEntriesFn) => {
 
 export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, idToTitle = {}, activeView = {}, onUpdateView, onEditSchema, onCreateRecord, onDeleteSelected, onDeletePage, searchTerm: externalSearchTerm }) {
     const { t } = useTranslation();
+    const { isEnabled: isPluginEnabled, getPluginSettings } = usePlugins();
+    const projectPlanningEnabled = isPluginEnabled('project-planning');
+    const projectPlanningSettings = getPluginSettings('project-planning');
     // Content preview when hovering over a row's title (label).
     const titlePreview = useTitlePreview({ onOpenPage: onNoteSelect });
     const scrollContainerRef = useRef(null);
@@ -157,6 +169,21 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
         (d) => formatDate(d, { dateFormat: tlDateFmt.dateFormat, type: 'date', locale: tlDateFmt.dateLocale }),
         [tlDateFmt]
     );
+    const periodFieldConfig = getFieldConfig(schema, datePropertyFound);
+    const enhancedPeriod = projectPlanningEnabled
+        && getFieldType(schema, datePropertyFound) === 'period';
+    const skipNonWorkingDays = periodFieldConfig.skip_non_working_days !== false;
+    const getPeriodValue = useCallback(
+        (note) => note?.metadata?.[datePropertyFound] ?? '',
+        [datePropertyFound],
+    );
+    const getPredecessors = useCallback((note) => {
+        if (enhancedPeriod) {
+            const structured = parsePeriod(getPeriodValue(note));
+            if (structured.version === 2) return structured.predecessorIds;
+        }
+        return note?.metadata?.predecessor_ids || [];
+    }, [enhancedPeriod, getPeriodValue]);
 
     // Data logic for the Gantt
     const { chartData, timeScale } = useMemo(() => {
@@ -315,12 +342,33 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
         // start and end together and it's reserialized as "start/end" (before it used to write a
         // toISOString() that destroyed the range); an END field of type `period` (an
         // atypical config) is left untouched.
-        const buildDateMetadata = (start, end) => {
+        const buildDateMetadata = (start, end, targetNote) => {
             const md = {};
             if (datePropertyFound) {
-                md[datePropertyFound] = getFieldType(schema, datePropertyFound) === 'period'
-                    ? `${fmtDay(start)}/${fmtDay(end)}`
-                    : fmtForField(start, datePropertyFound);
+                if (getFieldType(schema, datePropertyFound) === 'period') {
+                    if (enhancedPeriod) {
+                        const current = getPeriodValue(targetNote);
+                        const next = parsePeriod(withPeriodBoundaries(
+                            current,
+                            formatLocalDateTime(start),
+                            formatLocalDateTime(end),
+                            { startMode: 'manual', endMode: 'manual' },
+                        ));
+                        if (periodFieldConfig.duration_enabled !== false) {
+                            next.durationDays = workingDurationDays(
+                                next.start,
+                                next.end,
+                                projectPlanningSettings,
+                                skipNonWorkingDays,
+                            );
+                        }
+                        md[datePropertyFound] = serializePeriod(next);
+                    } else {
+                        md[datePropertyFound] = `${fmtDay(start)}/${fmtDay(end)}`;
+                    }
+                } else {
+                    md[datePropertyFound] = fmtForField(start, datePropertyFound);
+                }
             }
             if (endPropertyFound && getFieldType(schema, endPropertyFound) !== 'period') {
                 md[endPropertyFound] = fmtForField(end, endPropertyFound);
@@ -336,9 +384,11 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
         // If the root save fails, stop: don't cascade successor writes off a move
         // the backend rejected (onUpdateNote now rethrows on failure).
         try {
-            await onUpdateNote(noteId, { metadata: buildDateMetadata(newStart, newEnd) });
+            await onUpdateNote(noteId, { metadata: buildDateMetadata(newStart, newEnd, note) });
             for (const updatedNote of updatedNotes) {
-                await onUpdateNote(updatedNote.id, { metadata: buildDateMetadata(updatedNote.start, updatedNote.end) });
+                await onUpdateNote(updatedNote.id, {
+                    metadata: buildDateMetadata(updatedNote.start, updatedNote.end, updatedNote),
+                });
             }
         } catch (err) {
             console.error('Error updating timeline dates:', err);
@@ -353,17 +403,32 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
         const note = allProcessedNotes.find(n => n.id === updatedNoteId);
         if (!note) return affected;
 
-        const successors = allProcessedNotes.filter(n =>
-            n.metadata?.predecessor_ids?.includes(updatedNoteId)
-        );
+        const successors = allProcessedNotes.filter(n => getPredecessors(n).includes(updatedNoteId));
 
         successors.forEach(succ => {
             if (visited.has(succ.id)) return;
-            const minStart = new Date(newEnd);
+            const normalizedStart = enhancedPeriod
+                ? nextWorkingInstant(
+                    formatLocalDateTime(newEnd),
+                    projectPlanningSettings,
+                    skipNonWorkingDays,
+                )
+                : newEnd;
+            const minStart = new Date(normalizedStart);
             if (succ.start < minStart) {
-                const duration = succ.end - succ.start;
                 const newSuccStart = new Date(minStart);
-                const newSuccEnd = new Date(minStart.getTime() + duration);
+                const successorPeriod = parsePeriod(getPeriodValue(succ));
+                const scheduledEnd = enhancedPeriod && successorPeriod.durationDays !== null
+                    ? addWorkingDuration(
+                        normalizedStart,
+                        successorPeriod.durationDays,
+                        projectPlanningSettings,
+                        skipNonWorkingDays,
+                    )
+                    : '';
+                const newSuccEnd = scheduledEnd
+                    ? new Date(scheduledEnd)
+                    : new Date(minStart.getTime() + (succ.end - succ.start));
 
                 const succCopy = { ...succ, start: newSuccStart, end: newSuccEnd };
                 affected.push(succCopy);
@@ -388,7 +453,7 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
         while (stack.length) {
             const cur = stack.pop();
             chartData.forEach(n => {
-                if (!out.has(n.id) && n.metadata?.predecessor_ids?.includes(cur)) {
+                if (!out.has(n.id) && getPredecessors(n).includes(cur)) {
                     out.add(n.id);
                     stack.push(n.id);
                 }
@@ -401,22 +466,46 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
         const note = notes.find(n => n.id === noteId);
         if (!note || !onUpdateNote) return;
 
-        const predecessors = [...(note.metadata?.predecessor_ids || [])];
+        const predecessors = [...getPredecessors(note)];
         if (!predecessors.includes(predId)) {
             predecessors.push(predId);
-            const metadata = { ...note.metadata, predecessor_ids: predecessors };
-            await onUpdateNote(noteId, { metadata });
-
-            // Recalculem dates immediatament
             const predNote = chartData.find(n => n.id === predId);
             const currentProcessed = chartData.find(n => n.id === noteId);
-            if (predNote && currentProcessed) {
-                const minStart = new Date(predNote.end);
-                if (currentProcessed.start < minStart) {
-                    const duration = currentProcessed.end - currentProcessed.start;
-                    const newStart = new Date(minStart);
-                    const newEnd = new Date(minStart.getTime() + duration);
-                    await handleUpdateDates(noteId, newStart, newEnd);
+            if (enhancedPeriod) {
+                const next = parsePeriod(getPeriodValue(note));
+                next.predecessorIds = predecessors;
+                if ((!next.start || next.startMode === 'auto') && predNote) {
+                    next.start = nextWorkingInstant(
+                        formatLocalDateTime(predNote.end),
+                        projectPlanningSettings,
+                        skipNonWorkingDays,
+                    );
+                    next.startMode = 'auto';
+                    if (next.durationDays !== null) {
+                        next.end = addWorkingDuration(
+                            next.start,
+                            next.durationDays,
+                            projectPlanningSettings,
+                            skipNonWorkingDays,
+                        );
+                        next.endMode = 'auto';
+                    }
+                }
+                await onUpdateNote(noteId, {
+                    metadata: { [datePropertyFound]: serializePeriod(next) },
+                });
+            } else {
+                await onUpdateNote(noteId, {
+                    metadata: { ...note.metadata, predecessor_ids: predecessors },
+                });
+                if (predNote && currentProcessed) {
+                    const minStart = new Date(predNote.end);
+                    if (currentProcessed.start < minStart) {
+                        const duration = currentProcessed.end - currentProcessed.start;
+                        const newStart = new Date(minStart);
+                        const newEnd = new Date(minStart.getTime() + duration);
+                        await handleUpdateDates(noteId, newStart, newEnd);
+                    }
                 }
             }
         }
@@ -602,7 +691,7 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                                 const endPos = calculatePosition(barEnd);
                                 const width = Math.max(endPos - startPos, 0.5);
                                 const depth = note.depth || 0;
-                                const predecessors = note.metadata?.predecessor_ids || [];
+                                const predecessors = getPredecessors(note);
 
                                 return (
                                     <div

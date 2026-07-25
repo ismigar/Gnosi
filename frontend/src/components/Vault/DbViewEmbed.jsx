@@ -12,6 +12,7 @@ import { VIEW_TYPES } from './viewConstants';
 import ConfirmModal from '../ConfirmModal';
 import PromptModal from '../PromptModal';
 import { toast } from '../../lib/toast';
+import { periodBoundary } from '../../utils/projectPlanning';
 
 // Scrollable container to fit the full view components (which
 // assume a height) within the embed's document flow. At module level
@@ -103,9 +104,15 @@ function applyFilter(row, pageId, f) {
     // `title` lives in the ROW, not in metadata (parity with matchesFilters):
     // without the special case, a filter by title —the default field of the
     // modal— emptied the embedded view while the table tab filtered correctly.
-    const v = f.field === 'title'
+    let v = f.field === 'title'
         ? (row?.title || '')
         : metaValueForField(row?.metadata || {}, f.field);
+    if (
+        f.periodPart
+        || (v && typeof v === 'object' && !Array.isArray(v) && 'start' in v)
+    ) {
+        v = periodBoundary(v, f.periodPart || 'start');
+    }
     const arr = Array.isArray(v) ? v.map(String) : v == null || v === '' ? [] : [String(v)];
     if (op === 'is_empty') return arr.length === 0;
     if (op === 'is_not_empty') return arr.length > 0;

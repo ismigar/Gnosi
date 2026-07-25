@@ -412,6 +412,16 @@ def _meta_value_for_field(meta: Dict[str, Any], field: str) -> Any:
     return None
 
 
+def _period_boundary(value: Any, part: str) -> Any:
+    """Returns one boundary from legacy or structured period values."""
+    if isinstance(value, dict):
+        start = value.get("start") or ""
+        end = value.get("end") or ""
+    else:
+        start, _, end = str(value or "").partition("/")
+    return (end or start) if part == "end" else start
+
+
 def apply_filter(meta: Dict[str, Any], page_id: Optional[str], f: Dict[str, Any]) -> bool:
     """1:1 port of ``applyFilter`` (DbViewEmbed.jsx). ``value == 'this'`` →
     ``page_id``. Metadata values: list → set of strings; scalar →
@@ -428,6 +438,8 @@ def apply_filter(meta: Dict[str, Any], page_id: Optional[str], f: Dict[str, Any]
     raw = page_id if f.get("value") == "this" else f.get("value")
     target = None if raw is None else str(raw)
     v = _meta_value_for_field(meta or {}, field)
+    if f.get("periodPart") or (isinstance(v, dict) and "start" in v):
+        v = _period_boundary(v, f.get("periodPart") or "start")
     if isinstance(v, list):
         arr = [str(x) for x in v]
     elif v is None or v == "":
@@ -586,6 +598,12 @@ def _js_str(value: Any) -> str:
     if isinstance(value, list):
         return ",".join(_js_str(x) for x in value)
     if isinstance(value, dict):
+        # Structured period values sort by their start boundary, matching the
+        # frontend comparator. Named objects keep their usual readable key.
+        if "start" in value:
+            return str(value.get("start") or "")
+        if "name" in value or "title" in value:
+            return str(value.get("name") or value.get("title") or "")
         return "[object Object]"
     return str(value)
 

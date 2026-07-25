@@ -18,6 +18,7 @@ import { ConfirmModal } from '../ConfirmModal';
 import { pushModalLayer } from '../../hooks/useModalKeyboard';
 import PromptModal from '../PromptModal';
 import { useTranslation } from 'react-i18next';
+import { usePlugins } from '../../plugins/usePlugins';
 
 // Immutable ID for properties: 'fld_' + 8 hex chars. It is persisted in the
 // table schema and is preserved across field name renames.
@@ -482,7 +483,7 @@ function OptionsEditor({ options = [], onChange, fieldType = 'select', groups = 
 }
 
 // Child component for each draggable property
-function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveField, allTables = [], currentTableName = '', virtualComputers = [], enableTranslation = false, enableDrupalSync = false, drupalBundle = '', drupalFields = [], drupalFieldMapping = {}, setDrupalFieldMapping = () => {}, optionTools = null }) {
+function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveField, allTables = [], currentTableName = '', virtualComputers = [], enableTranslation = false, enableDrupalSync = false, drupalBundle = '', drupalFields = [], drupalFieldMapping = {}, setDrupalFieldMapping = () => {}, optionTools = null, projectPlanningEnabled = false }) {
     const { t } = useTranslation();
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.id });
 
@@ -701,6 +702,58 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                             <option value="MM/DD/YYYY">{t('schema.date_format_mdy', "MM/DD/YYYY")}</option>
                             <option value="YYYY-MM-DD">{t('schema.date_format_iso', "YYYY-MM-DD (ISO)")}</option>
                         </select>
+                    </div>
+                </div>
+            )}
+
+            {field.type === 'period' && projectPlanningEnabled && (
+                <div className="px-3 pb-3 pt-1 border-t border-[var(--border-primary)] bg-[var(--gnosi-primary)]/5 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <div className="space-y-3 rounded-lg border border-[var(--gnosi-primary)]/20 bg-[var(--bg-primary)] p-3 shadow-inner">
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--gnosi-primary)]">
+                            {t('schema.period_planning', "Project planning")}
+                        </label>
+                        <label className="flex items-start gap-2 text-xs text-[var(--text-secondary)]">
+                            <input
+                                type="checkbox"
+                                checked={field.duration_enabled !== false}
+                                onChange={(event) => handleUpdateField(idx, 'duration_enabled', event.target.checked)}
+                                className="mt-0.5 rounded border-[var(--border-primary)] text-[var(--gnosi-primary)]"
+                            />
+                            <span>
+                                <strong className="block text-[var(--text-primary)]">
+                                    {t('schema.period_duration_enabled', "Add working-day duration")}
+                                </strong>
+                                {t('schema.period_duration_hint', "Calculate finish from start and duration.")}
+                            </span>
+                        </label>
+                        <label className="flex items-start gap-2 text-xs text-[var(--text-secondary)]">
+                            <input
+                                type="checkbox"
+                                checked={field.predecessors_enabled !== false}
+                                onChange={(event) => handleUpdateField(idx, 'predecessors_enabled', event.target.checked)}
+                                className="mt-0.5 rounded border-[var(--border-primary)] text-[var(--gnosi-primary)]"
+                            />
+                            <span>
+                                <strong className="block text-[var(--text-primary)]">
+                                    {t('schema.period_predecessors_enabled', "Add predecessors")}
+                                </strong>
+                                {t('schema.period_predecessors_hint', "Calculate an empty start from the latest predecessor finish.")}
+                            </span>
+                        </label>
+                        <label className="flex items-start gap-2 text-xs text-[var(--text-secondary)]">
+                            <input
+                                type="checkbox"
+                                checked={field.skip_non_working_days !== false}
+                                onChange={(event) => handleUpdateField(idx, 'skip_non_working_days', event.target.checked)}
+                                className="mt-0.5 rounded border-[var(--border-primary)] text-[var(--gnosi-primary)]"
+                            />
+                            <span>
+                                <strong className="block text-[var(--text-primary)]">
+                                    {t('schema.period_skip_non_working', "Skip non-working time")}
+                                </strong>
+                                {t('schema.period_skip_non_working_hint', "Use the plugin's work week and holiday calendar.")}
+                            </span>
+                        </label>
                     </div>
                 </div>
             )}
@@ -1023,6 +1076,8 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
 
 export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', currentSchema, onSchemaUpdated, onSave, initialEnableSubitems = false, initialVisibleProperties = null, initialEnableTranslation = false, initialEnableDrupalSync = false, initialDrupalBundle = '', initialDrupalFieldMapping = null, tableId = null, availableTables = null }) {
     const { t } = useTranslation();
+    const { isEnabled: isPluginEnabled } = usePlugins();
+    const projectPlanningEnabled = isPluginEnabled('project-planning');
     const [fields, setFields] = useState([]);
     const [allTables, setAllTables] = useState([]);
     const [virtualComputers, setVirtualComputers] = useState([]);
@@ -1108,6 +1163,9 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                     system: !!cfg.system,
                     button_action: cfg.button_action || '',
                     button_label: cfg.button_label || '',
+                    duration_enabled: cfg.duration_enabled !== false,
+                    predecessors_enabled: cfg.predecessors_enabled !== false,
+                    skip_non_working_days: cfg.skip_non_working_days !== false,
                     format: (cfg.format && typeof cfg.format === 'object') ? cfg.format : {},
                     // Rich catalog: normalizes legacy strings into {name,color,group}.
                     options: normalizeOptions(cfg.options),
@@ -1501,6 +1559,9 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             translatable: false,
             button_action: '',
             button_label: '',
+            duration_enabled: true,
+            predecessors_enabled: true,
+            skip_non_working_days: true,
             options: [],
             visible: true,
         }]);
@@ -1542,6 +1603,11 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         if (key === 'type' && value === 'status' && normalizeOptions(newFields[index].options).length === 0) {
             // A newly created `status` field starts with the base catalog (decision §9.1).
             newFields[index].options = seedOptionsForFeature('base');
+        }
+        if (key === 'type' && value === 'period') {
+            if (newFields[index].duration_enabled === undefined) newFields[index].duration_enabled = true;
+            if (newFields[index].predecessors_enabled === undefined) newFields[index].predecessors_enabled = true;
+            if (newFields[index].skip_non_working_days === undefined) newFields[index].skip_non_working_days = true;
         }
         setFields(newFields);
     };
@@ -1601,7 +1667,8 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         'aggregation', 'limit', 'fallbackValue', 'defaultFormula',
         'relation_database_id', 'cardinality', 'file_mode', 'storage_folder',
         'name_pattern', 'button_action', 'button_label', 'format', 'options',
-        'translatable', 'default_option', 'catalog_ref',
+        'translatable', 'default_option', 'catalog_ref', 'duration_enabled',
+        'predecessors_enabled', 'skip_non_working_days',
     ];
 
     // Builds the serializable schema sent to the backend from
@@ -1665,6 +1732,11 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                 if (f.button_label?.trim()) {
                     config.button_label = f.button_label.trim();
                 }
+            }
+            if (f.type === 'period') {
+                config.duration_enabled = f.duration_enabled !== false;
+                config.predecessors_enabled = f.predecessors_enabled !== false;
+                config.skip_non_working_days = f.skip_non_working_days !== false;
             }
             // Per-field format (override of the global one): only persisted if it has
             // meaningful values, so that a field without a format derives from the global one.
@@ -2151,6 +2223,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                                         drupalFieldMapping={drupalFieldMapping}
                                         setDrupalFieldMapping={setDrupalFieldMapping}
                                         optionTools={optionTools}
+                                        projectPlanningEnabled={projectPlanningEnabled}
                                     />
                                 ))}
                             </div>

@@ -8,6 +8,7 @@
  *
  * See the directive: docs/dev_memory/directives/vault_table_cell_grid.md
  */
+import { parsePeriod, serializePeriod } from '../../utils/projectPlanning';
 
 /** Computed or action types: never edited or pasted. */
 export function isComputedType(type) {
@@ -28,6 +29,11 @@ export function isPasteableType(type) {
  */
 export function serializeCellForClipboard(value, type, idToTitle = {}) {
     if (value === undefined || value === null) return '';
+
+    if (type === 'period') {
+        const period = parsePeriod(value);
+        return period.end ? `${period.start}/${period.end}` : period.start;
+    }
 
     if (type === 'autoria' && Array.isArray(value)) {
         return value
@@ -190,8 +196,13 @@ export function coerceValueForField(raw, type, ctx = {}) {
 
         case 'period': {
             if (isEmptyRaw(raw)) return { value: '' };
+            if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+                return { value: serializePeriod(raw) };
+            }
             const s = String(raw).trim();
-            return /^\d{4}-\d{2}-\d{2}\/\d{4}-\d{2}-\d{2}$/.test(s) ? { value: s } : SKIP;
+            return /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2})?)?\/\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2})?)?$/.test(s)
+                ? { value: s }
+                : SKIP;
         }
 
         case 'autoria': {
@@ -211,6 +222,15 @@ export function sameCellValue(a, b) {
     if (a === b) return true;
     if (Array.isArray(a) && Array.isArray(b)) {
         return a.length === b.length && a.every((x, i) => x === b[i]);
+    }
+    if (
+        a && b
+        && typeof a === 'object'
+        && typeof b === 'object'
+        && !Array.isArray(a)
+        && !Array.isArray(b)
+    ) {
+        return JSON.stringify(a) === JSON.stringify(b);
     }
     return false;
 }
