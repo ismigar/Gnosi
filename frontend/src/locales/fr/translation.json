@@ -3949,7 +3949,7 @@
     "no_files": "Aucun fichier trouvé"
   },
   "planning_page": {
-    "title": "Planification de projets", "subtitle": "Planning, chemin critique, ressources et diagnostics.", "project_id": "ID du projet", "refresh": "Actualiser", "load_error": "Impossible de charger le planning du projet.", "critical_tasks": "Tâches critiques", "estimated_cost": "Coût estimé", "warnings": "Avertissements", "schedule": "Planning", "task": "Tâche", "start": "Début", "finish": "Fin", "slack": "Marge", "diagnostics": "Diagnostics"
+    "title": "Planification de projets", "subtitle": "Planning, chemin critique, ressources et diagnostics.", "project_id": "ID du projet", "project": "Projet", "default_project": "Projet par défaut", "refresh": "Actualiser", "load_error": "Impossible de charger le planning du projet.", "critical_tasks": "Tâches critiques", "estimated_cost": "Coût estimé", "warnings": "Avertissements", "schedule": "Planning", "task": "Tâche", "start": "Début", "finish": "Fin", "slack": "Marge", "diagnostics": "Diagnostics"
   },
   "vault_date": {
     "days_placeholder": "jours",
