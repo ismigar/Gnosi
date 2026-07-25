@@ -12,6 +12,7 @@ from backend.services.project_planning import (
     default_state,
     normalize_assignment,
     normalize_resource,
+    propose_leveling,
 )
 
 
@@ -61,6 +62,19 @@ def test_allocation_reports_cost_and_resource_overallocation():
     }]
     assert report["warnings"][0]["code"] == "resource_overallocated"
     assert report["warnings"][0]["assignment_ids"] == ["a1", "a2"]
+
+
+def test_leveling_proposal_is_review_only_and_skips_weekends():
+    state = default_state()
+    state["resources"] = [_resource()]
+    state["assignments"] = [_assignment(), _assignment("a2", task_id="task-2")]
+
+    proposal = propose_leveling(state)
+
+    assert proposal["automatic_apply_supported"] is False
+    assert proposal["proposals"][0]["assignment_id"] == "a2"
+    assert proposal["proposals"][0]["suggested_start"] == "2026-07-28T09:00"
+    assert proposal["proposals"][0]["requires_review"] is True
 
 
 def test_assignment_requires_existing_resource_and_valid_range():

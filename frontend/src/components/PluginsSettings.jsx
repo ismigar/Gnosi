@@ -131,6 +131,7 @@ function ProjectPlanningConfig() {
     const [assignmentDraft, setAssignmentDraft] = useState({
         task_id: '', resource_id: '', planned_work_hours: 0, start: '', end: '',
     });
+    const [levelingProposal, setLevelingProposal] = useState(null);
 
     const refreshPlanning = useCallback(async () => {
         setPlanningLoading(true);
@@ -297,6 +298,16 @@ function ProjectPlanningConfig() {
             await refreshPlanning();
         } catch (error) {
             setPlanningError(error.response?.data?.detail || tp('planning_assignment_delete_error', { defaultValue: 'Could not delete the assignment.' }));
+        }
+    };
+
+    const previewLeveling = async () => {
+        try {
+            const response = await axios.get('/api/planning/leveling/proposal');
+            setLevelingProposal(response.data);
+            setPlanningError('');
+        } catch (error) {
+            setPlanningError(error.response?.data?.detail || tp('planning_leveling_load_error', { defaultValue: 'Could not generate the leveling proposal.' }));
         }
     };
 
@@ -495,6 +506,16 @@ function ProjectPlanningConfig() {
                         {warning.message}
                     </div>
                 ))}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <button type="button" className="gnosi-btn-secondary" disabled={!(planningState?.allocation?.warnings || []).length} onClick={previewLeveling}>{tp('planning_preview_leveling', { defaultValue: 'Preview leveling' })}</button>
+                    <span style={{ fontSize: 11, color: 'var(--text-tertiary, #94a3b8)' }}>{tp('planning_leveling_review_only', { defaultValue: 'Suggestions never change task dates automatically.' })}</span>
+                </div>
+                {(levelingProposal?.proposals || []).map((proposal) => (
+                    <div key={proposal.id} style={{ fontSize: 12, color: 'var(--text-secondary, #475569)' }}>
+                        {tp('planning_leveling_proposal', { defaultValue: 'Move task {{task}} to {{start}} after reviewing the proposal.', task: proposal.task_id, start: proposal.suggested_start })}
+                    </div>
+                ))}
+                {levelingProposal && !(levelingProposal.proposals || []).length && <div style={{ fontSize: 12, color: 'var(--text-tertiary, #94a3b8)' }}>{tp('planning_no_leveling_proposal', { defaultValue: 'No dated assignment can be safely proposed for leveling.' })}</div>}
                 {!planningLoading && planningState && <div style={{ fontSize: 12, color: 'var(--text-tertiary, #94a3b8)' }}>{tp('planning_estimated_cost', { defaultValue: 'Estimated assignment cost: {{cost}}', cost: planningState.allocation?.total_estimated_cost ?? 0 })}</div>}
                 {planningError && <div style={{ fontSize: 12, color: '#dc2626' }}>{planningError}</div>}
             </div>

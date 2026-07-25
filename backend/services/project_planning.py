@@ -11,6 +11,7 @@ from __future__ import annotations
 from collections import defaultdict
 from copy import deepcopy
 from datetime import date, datetime, time, timedelta
+from math import ceil
 from pathlib import Path
 from threading import Lock
 from typing import Any
@@ -226,6 +227,79 @@ def calculate_allocation(state: dict[str, Any]) -> dict[str, Any]:
         "buckets": sorted(buckets.values(), key=lambda item: (item["date"], item["resource_name"])),
         "warnings": warnings,
         "total_estimated_cost": round(sum(item["estimated_cost"] for item in assignment_summaries), 2),
+    }
+
+
+def _shift_to_next_working_date(value: datetime, calendar: dict[str, Any], days: int) -> datetime:
+    """Moves a timestamp by working dates while preserving the local clock time."""
+    current = value.date()
+    remaining = days
+    while remaining:
+        current += timedelta(days=1)
+        if _calendar_is_working(current, calendar):
+            remaining -= 1
+    return datetime.combine(current, value.timetz().replace(tzinfo=None))
+
+
+def propose_leveling(state: dict[str, Any]) -> dict[str, Any]:
+    """Creates conservative, non-mutating delay suggestions for overloads.
+
+    The current resource layer has no task constraints, dependencies, or split
+    task model yet.  A proposal therefore picks the latest dated assignment in
+    an overloaded bucket and moves the whole assignment forward by the minimum
+    number of working dates.  The caller must review the proposal before any
+    future schedule write is allowed.
+    """
+    allocation = calculate_allocation(state)
+    resources = {item["id"]: item for item in state.get("resources", [])}
+    calendars = {item["id"]: item for item in state.get("calendars", [])}
+    assignments = {item["id"]: item for item in state.get("assignments", [])}
+    proposals: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    for warning in allocation["warnings"]:
+        candidates = [
+            assignments.get(assignment_id)
+            for assignment_id in warning["assignment_ids"]
+        ]
+        dated = [item for item in candidates if item and item.get("start") and item.get("end")]
+        if not dated:
+            continue
+        candidate = max(dated, key=lambda item: (item["start"], item["id"]))
+        key = (candidate["id"], warning["date"])
+        if key in seen:
+            continue
+        seen.add(key)
+        resource = resources.get(candidate["resource_id"])
+        calendar = calendars.get((resource or {}).get("calendar_id") or DEFAULT_CALENDAR_ID)
+        bucket = next(
+            (
+                item for item in allocation["buckets"]
+                if item["resource_id"] == candidate["resource_id"] and item["date"] == warning["date"]
+            ),
+            None,
+        )
+        if not resource or not calendar or not bucket or bucket["capacity_hours"] <= 0:
+            continue
+        delay_days = max(1, ceil(bucket["overallocated_hours"] / bucket["capacity_hours"]))
+        start = _iso_datetime(candidate["start"], "start")
+        end = _iso_datetime(candidate["end"], "end")
+        proposals.append({
+            "id": f"level-{candidate['id']}-{warning['date']}",
+            "assignment_id": candidate["id"],
+            "task_id": candidate["task_id"],
+            "resource_id": candidate["resource_id"],
+            "reason": "resource_overallocated",
+            "source_date": warning["date"],
+            "delay_working_days": delay_days,
+            "suggested_start": _shift_to_next_working_date(start, calendar, delay_days).isoformat(timespec="minutes"),
+            "suggested_end": _shift_to_next_working_date(end, calendar, delay_days).isoformat(timespec="minutes"),
+            "requires_review": True,
+        })
+    return {
+        "revision": state.get("revision", 0),
+        "warnings": allocation["warnings"],
+        "proposals": proposals,
+        "automatic_apply_supported": False,
     }
 
 
