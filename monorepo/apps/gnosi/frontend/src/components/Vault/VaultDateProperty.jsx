@@ -433,25 +433,18 @@ export const VaultDateProperty = ({
                         </label>
                     )}
                     {predecessorsEnabled && period.dependencies.length > 0 && (
-                        <label className="flex flex-col gap-1">
+                        <div className="col-span-2 flex flex-col gap-1">
                             <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
-                                {t('vault_date.period_dependency_type', 'Dependency type')}
+                                {t('vault_date.period_dependency_details', 'Dependency details')}
                             </span>
-                            <select
-                                value={period.dependencies[0]?.type || 'FS'}
-                                onChange={(event) => commit({
-                                    ...period,
-                                    dependencies: period.dependencies.map((dependency) => ({
-                                        ...dependency,
-                                        type: event.target.value,
-                                    })),
-                                })}
-                                className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]"
-                            >
-                                <option value="FS">FS</option><option value="SS">SS</option>
-                                <option value="FF">FF</option><option value="SF">SF</option>
-                            </select>
-                        </label>
+                            {period.dependencies.map((dependency, index) => (
+                                <div key={dependency.predecessorId} className="grid grid-cols-[1fr_76px_96px] gap-1">
+                                    <span className="truncate rounded bg-[var(--bg-secondary)] px-2 py-1 text-[var(--text-secondary)]">{idToTitle[dependency.predecessorId] || dependency.predecessorId}</span>
+                                    <select value={dependency.type || 'FS'} onChange={(event) => commit({ ...period, dependencies: period.dependencies.map((item, itemIndex) => itemIndex === index ? { ...item, type: event.target.value } : item) })} className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]"><option value="FS">FS</option><option value="SS">SS</option><option value="FF">FF</option><option value="SF">SF</option></select>
+                                    <input type="number" step="15" value={dependency.lagMinutes ?? 0} onChange={(event) => commit({ ...period, dependencies: period.dependencies.map((item, itemIndex) => itemIndex === index ? { ...item, lagMinutes: Number(event.target.value) || 0 } : item) })} aria-label={t('vault_date.period_dependency_lag', 'Lag minutes')} className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]" />
+                                </div>
+                            ))}
+                        </div>
                     )}
                     <label className="flex flex-col gap-1">
                         <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
