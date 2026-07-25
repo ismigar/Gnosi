@@ -14,6 +14,7 @@ from backend.services.project_planning import (
     PlanningStore,
     PlanningValidationError,
     calculate_allocation,
+    propose_leveling,
     normalize_assignment,
     normalize_calendar,
     normalize_resource,
@@ -87,6 +88,13 @@ async def get_allocation():
     """Returns a rebuildable allocation/cost report without writing task data."""
     state = await asyncio.to_thread(_store().load)
     return calculate_allocation(state)
+
+
+@router.get("/planning/leveling/proposal")
+async def get_leveling_proposal():
+    """Returns review-only delay suggestions; it never changes task dates."""
+    state = await asyncio.to_thread(_store().load)
+    return propose_leveling(state)
 
 
 @router.post("/planning/calendars", dependencies=[Depends(require_role("editor"))])
