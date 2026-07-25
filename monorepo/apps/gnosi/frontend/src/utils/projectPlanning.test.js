@@ -36,11 +36,12 @@ describe('project planning periods', () => {
             durationDays: 1,
             predecessorIds: ['task-a'],
         })).toMatchObject({
-            version: 2,
+            version: 3,
             start: '2026-07-27T09:00',
             end: '2026-07-27T17:00',
             durationDays: 1,
             predecessorIds: ['task-a'],
+            dependencies: [{ predecessorId: 'task-a', type: 'FS', lagMinutes: 0 }],
         });
     });
 
@@ -62,6 +63,11 @@ describe('project planning periods', () => {
             '2026-07-28T17:00',
             { startMode: 'manual', endMode: 'manual' },
         )).toMatchObject({ startMode: 'manual', endMode: 'manual' });
+    });
+
+    it('reads backend automatic modes without converting them to manual', () => {
+        expect(parsePeriod({ startMode: 'automatic', endMode: 'automatic' }))
+            .toMatchObject({ startMode: 'auto', endMode: 'auto' });
     });
 
     it('skips weekends and configured holidays', () => {

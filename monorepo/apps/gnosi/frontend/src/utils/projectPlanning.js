@@ -53,16 +53,39 @@ function normalizedIds(value) {
     return [...new Set(input.map((item) => String(item || '').trim()).filter(Boolean))];
 }
 
+function normalizedDependencies(value, legacyIds = []) {
+    const input = Array.isArray(value) ? value : [];
+    const dependencies = input.length > 0 ? input : legacyIds.map((predecessorId) => ({ predecessorId }));
+    const seen = new Set();
+    return dependencies.map((dependency) => {
+        const predecessorId = String(dependency?.predecessorId || '').trim();
+        if (!predecessorId || seen.has(predecessorId)) return null;
+        seen.add(predecessorId);
+        const type = ['FS', 'SS', 'FF', 'SF'].includes(String(dependency?.type || '').toUpperCase())
+            ? String(dependency.type).toUpperCase() : 'FS';
+        const lagMinutes = Number(dependency?.lagMinutes);
+        return { predecessorId, type, lagMinutes: Number.isFinite(lagMinutes) ? lagMinutes : 0 };
+    }).filter(Boolean);
+}
+
 export function parsePeriod(value) {
     if (value && typeof value === 'object' && !Array.isArray(value)) {
         return {
-            version: 2,
+            version: 3,
             start: String(value.start || ''),
             end: String(value.end || ''),
             durationDays: validDuration(value.durationDays),
             predecessorIds: normalizedIds(value.predecessorIds),
-            startMode: value.startMode === 'auto' ? 'auto' : 'manual',
-            endMode: value.endMode === 'auto' ? 'auto' : 'manual',
+            dependencies: normalizedDependencies(value.dependencies, normalizedIds(value.predecessorIds)),
+            startMode: ['auto', 'automatic'].includes(value.startMode) ? 'auto' : 'manual',
+            endMode: ['auto', 'automatic'].includes(value.endMode) ? 'auto' : 'manual',
+            mode: value.mode === 'manual' ? 'manual' : 'automatic',
+            constraintType: String(value.constraintType || 'ASAP').toUpperCase(),
+            constraintDate: String(value.constraintDate || ''),
+            deadline: String(value.deadline || ''),
+            percentComplete: Math.min(100, Math.max(0, Number(value.percentComplete) || 0)),
+            actualStart: String(value.actualStart || ''),
+            actualEnd: String(value.actualEnd || ''),
         };
     }
 
@@ -73,8 +96,16 @@ export function parsePeriod(value) {
         end,
         durationDays: null,
         predecessorIds: [],
+        dependencies: [],
         startMode: 'manual',
         endMode: 'manual',
+        mode: 'manual',
+        constraintType: 'ASAP',
+        constraintDate: '',
+        deadline: '',
+        percentComplete: 0,
+        actualStart: '',
+        actualEnd: '',
     };
 }
 
@@ -84,18 +115,26 @@ export function serializePeriod(value) {
         !period.start
         && !period.end
         && period.durationDays === null
-        && period.predecessorIds.length === 0
+        && period.dependencies.length === 0
     ) {
         return '';
     }
     return {
-        version: 2,
+        version: 3,
         start: period.start,
         end: period.end,
         durationDays: period.durationDays,
-        predecessorIds: period.predecessorIds,
+        predecessorIds: period.dependencies.map((dependency) => dependency.predecessorId),
+        dependencies: period.dependencies,
         startMode: period.startMode,
         endMode: period.endMode,
+        mode: period.mode,
+        constraintType: period.constraintType,
+        constraintDate: period.constraintDate,
+        deadline: period.deadline,
+        percentComplete: period.percentComplete,
+        actualStart: period.actualStart,
+        actualEnd: period.actualEnd,
     };
 }
 

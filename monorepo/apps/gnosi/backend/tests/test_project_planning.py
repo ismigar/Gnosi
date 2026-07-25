@@ -85,6 +85,22 @@ def test_assignment_requires_existing_resource_and_valid_range():
             {"task_id": "task", "resource_id": "r1", "start": "2026-07-27T10:00", "end": "2026-07-27T09:00"},
             {"r1"},
         )
+    with pytest.raises(PlanningValidationError, match="task_type"):
+        normalize_assignment({"task_id": "task", "resource_id": "r1", "task_type": "other"}, {"r1"})
+
+
+def test_allocation_includes_overtime_material_and_fixed_costs():
+    state = default_state()
+    state["resources"] = [_resource(standard_rate=10, overtime_rate=20)]
+    state["assignments"] = [_assignment(overtime_work_hours=2, fixed_cost=7)]
+    assert calculate_allocation(state)["total_estimated_cost"] == 112
+
+
+def test_allocation_uses_rate_effective_on_assignment_start():
+    state = default_state()
+    state["resources"] = [_resource(standard_rate=10, cost_per_use=0, rate_history=[{"effective_from": "2026-07-01", "standard_rate": 20}])]
+    state["assignments"] = [_assignment(planned_work_hours=2)]
+    assert calculate_allocation(state)["total_estimated_cost"] == 40
 
 
 def test_resource_rejects_missing_calendar():
@@ -137,3 +153,48 @@ def test_api_rejects_assignment_with_unknown_resource(route_store):
 
     error = asyncio.run(scenario())
     assert getattr(error, "status_code", None) == 422
+
+
+def test_leveling_proposal_requires_current_revision_and_etags(route_store, monkeypatch):
+    class Index:
+        def load(self):
+            return {"projects": {"p1": {"scheduleRevision": 4, "tasks": [{"id": "task-1", "sourceEtag": "etag-1"}]}}}
+
+    monkeypatch.setattr(routes, "_index", lambda: Index())
+    state = route_store.load()
+    state["resources"] = [_resource()]
+    state["assignments"] = [_assignment(), _assignment("a2", task_id="task-2")]
+    route_store.save(state)
+
+    async def scenario():
+        proposal = await routes.create_leveling_proposal("p1")
+        accepted = await routes.apply_leveling_proposal(
+            proposal["id"], routes.ProposalApplyPayload(schedule_revision=4, etags={"task-1": "etag-1"}),
+        )
+        return proposal, accepted
+
+    proposal, accepted = asyncio.run(scenario())
+    assert proposal["status"] == "pending"
+    assert accepted["updatedAssignments"][0]["assignmentId"] == proposal["proposals"][0]["assignment_id"]
+    assert route_store.load()["assignments"][1]["start"] == proposal["proposals"][0]["suggested_start"]
+
+
+def test_baseline_variance_compares_derived_schedule(route_store, monkeypatch):
+    class Index:
+        def load(self):
+            return {"projects": {"p1": {"scheduleRevision": 2, "tasks": [{"id": "task-1", "start": "2026-07-28T09:00", "end": "2026-07-29T17:00", "durationDays": 2}]}}}
+
+    monkeypatch.setattr(routes, "_index", lambda: Index())
+    route_store.append_history({"id": "b1", "type": "baseline", "projectId": "p1", "scheduleRevision": 1, "schedule": {"tasks": [{"id": "task-1", "start": "2026-07-27T09:00", "end": "2026-07-27T17:00", "durationDays": 1}]}})
+
+    variance = asyncio.run(routes.get_baseline_variance("p1", "b1"))
+    assert variance["tasks"] == [{"taskId": "task-1", "baselineStart": "2026-07-27T09:00", "currentStart": "2026-07-28T09:00", "baselineEnd": "2026-07-27T17:00", "currentEnd": "2026-07-29T17:00", "durationDaysVariance": 1.0, "workHoursVariance": 0.0, "costVariance": 0.0}]
+
+
+def test_worklogs_return_append_only_derived_totals(route_store):
+    async def scenario():
+        await routes.create_worklog(routes.WorklogPayload(task_id="task-1", date="2026-07-27", hours=3))
+        await routes.create_worklog(routes.WorklogPayload(task_id="task-1", date="2026-07-28", hours=-1, correction_of="entry"))
+        return await routes.list_worklogs("task-1")
+
+    assert asyncio.run(scenario())["actualHoursByTask"] == {"task-1": 2.0}

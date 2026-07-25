@@ -26,6 +26,7 @@ const ContactsPage = lazy(() => import('./pages/ContactsPage'));
 const SchedulerPage = lazy(() => import('./pages/SchedulerPage'));
 const ComposerPage = lazy(() => import('./pages/ComposerPage'));
 const SharedPage = lazy(() => import('./pages/SharedPage'));
+const ProjectPlanningPage = lazy(() => import('./pages/ProjectPlanningPage'));
 import { Toaster } from './lib/toast';
 
 import AgentChat from './components/AgentChat';
@@ -119,6 +120,7 @@ function App() {
           <Route path="/social-dashboard" element={<SocialDashboard />} />
           <Route path="/media" element={<MediaCenter />} />
           <Route path="/contacts" element={<ContactsPage />} />
+          <Route path="/planning" element={<ProjectPlanningPage />} />
           {/* Catch-all: a non-existent URL (typo, stale link, route wrongly
               written by code) used to render ONLY the layout with a blank body.
               We redirect to the home page (replace so as not to leave the bad URL in

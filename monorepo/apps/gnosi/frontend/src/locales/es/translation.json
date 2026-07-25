@@ -410,6 +410,7 @@
     "nav_reader": "Lector",
     "nav_social": "Social",
     "nav_media": "Fotos",
+    "nav_planning": "Planificación",
     "nav_dashboard": "Panel",
     "nav_settings": "Configuración",
     "favorites": "Favoritos",
@@ -3947,6 +3948,9 @@
     "indexing": "Indexando…",
     "no_files": "No se han encontrado archivos"
   },
+  "planning_page": {
+    "title": "Planificación de proyectos", "subtitle": "Calendario, ruta crítica, recursos y diagnósticos.", "project_id": "ID del proyecto", "project": "Proyecto", "default_project": "Proyecto predeterminado", "refresh": "Actualizar", "load_error": "No se ha podido cargar la planificación.", "critical_tasks": "Tareas críticas", "estimated_cost": "Coste estimado", "warnings": "Avisos", "schedule": "Calendario", "task": "Tarea", "start": "Inicio", "finish": "Fin", "slack": "Holgura", "diagnostics": "Diagnósticos"
+  },
   "vault_date": {
     "days_placeholder": "días",
     "days_count_hint": "Número de días (recalcula la fecha de fin)",
@@ -3955,6 +3959,15 @@
     "period_end": "Fecha y hora de fin",
     "period_duration": "Días laborables",
     "period_predecessors": "Predecesoras",
+    "period_dependency_type": "Tipo de dependencia",
+    "period_dependency_details": "Detalles de dependencia",
+    "period_dependency_lag": "Retraso en minutos",
+    "period_constraint": "Restricción",
+    "period_constraint_date": "Fecha de restricción",
+    "period_deadline": "Fecha límite",
+    "period_complete": "Completado (%)",
+    "period_actual_start": "Inicio real",
+    "period_actual_end": "Fin real",
     "period_predecessors_hint": "Selecciona una o más tareas que deben terminar antes",
     "period_predecessor_count_one": "{{count}} predecesora",
     "period_predecessor_count_many": "{{count}} predecesoras",
