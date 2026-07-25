@@ -21,7 +21,7 @@ from backend.services.project_planning import (
     normalize_calendar,
     normalize_resource,
 )
-from backend.services.planning_engine import ScheduleIndex, build_schedule
+from backend.services.planning_engine import ScheduleIndex, build_schedule, normalize_period
 from backend.services.context_vars import get_active_vault_path
 from backend.services.workspace_service import get_workspace_context, require_role
 
@@ -234,7 +234,10 @@ async def list_worklogs(task_id: Optional[str] = None):
     entries = await asyncio.to_thread(_store().history, "worklog")
     if task_id:
         entries = [entry for entry in entries if entry.get("taskId") == task_id]
-    return {"worklogs": entries}
+    totals: dict[str, float] = {}
+    for entry in entries:
+        totals[entry["taskId"]] = round(totals.get(entry["taskId"], 0) + float(entry["hours"]), 4)
+    return {"worklogs": entries, "actualHoursByTask": totals}
 
 
 @router.post("/planning/projects/{project_id}/leveling/proposals")
@@ -302,17 +305,59 @@ async def create_recurrence(payload: RecurrencePayload):
 
 
 @router.post("/planning/recurrences/{recurrence_id}/materialize", dependencies=[Depends(require_role("editor"))])
-async def materialize_recurrence(recurrence_id: str):
-    """Returns a reviewed materialization instruction without editing Markdown.
-
-    Page creation stays with the vault writer so generated tasks receive normal
-    page IDs and ETags; each is marked with this immutable origin identifier.
-    """
-    state = await asyncio.to_thread(_store().load)
+async def materialize_recurrence(recurrence_id: str, limit: int = 50):
+    """Materializes bounded RRULE occurrences as stable Markdown task pages."""
+    if limit < 1 or limit > 200:
+        raise HTTPException(status_code=422, detail="limit must be between 1 and 200")
+    store = _store()
+    state = await asyncio.to_thread(store.load)
     recurrence = next((item for item in state["recurrences"] if item["id"] == recurrence_id), None)
     if not recurrence:
         raise _not_found("recurrence")
-    return {"recurrence": recurrence, "materialization": {"recurrenceOriginId": recurrence_id, "sourceTaskId": recurrence["task_id"], "requiresPageWriter": True}}
+    from backend.api.vault_routes import find_page_path, parse_frontmatter, save_page_md
+    from dateutil.rrule import rrulestr
+
+    source_path = await asyncio.to_thread(find_page_path, recurrence["task_id"])
+    if not source_path:
+        raise HTTPException(status_code=404, detail="recurrence source task not found")
+    metadata, content = await asyncio.to_thread(lambda: parse_frontmatter(source_path.read_text(encoding="utf-8"), source_path))
+    period_key = next((key for key, value in metadata.items() if isinstance(value, dict) and "durationDays" in value), None)
+    if not period_key:
+        raise HTTPException(status_code=422, detail="recurrence source has no enhanced period")
+    period = normalize_period(metadata[period_key])
+    source_start = datetime.fromisoformat(str(period["start"])) if period["start"] else None
+    if not source_start:
+        raise HTTPException(status_code=422, detail="recurrence source needs a start date")
+    try:
+        rule = rrulestr(recurrence["rrule"], dtstart=source_start)
+        occurrences = list(rule[:limit])
+    except (ValueError, TypeError) as error:
+        raise HTTPException(status_code=422, detail="invalid recurrence rule") from error
+    excluded = set(recurrence.get("exdates") or [])
+    materialized = set(recurrence.get("materialized_occurrences") or [])
+    created = []
+    for occurrence in occurrences:
+        occurrence_key = occurrence.isoformat(timespec="minutes")
+        if occurrence_key in excluded or occurrence_key in materialized:
+            continue
+        task_id = str(uuid.uuid4())
+        copy = dict(metadata)
+        copy["id"] = task_id
+        copy["title"] = f"{metadata.get('title') or 'Task'} · {occurrence.date().isoformat()}"
+        copy["recurrenceOriginId"] = recurrence_id
+        occurrence_period = dict(period)
+        occurrence_period["start"] = occurrence_key
+        occurrence_period["end"] = None
+        occurrence_period["startMode"] = "manual"
+        occurrence_period["endMode"] = "automatic"
+        copy[period_key] = occurrence_period
+        target = source_path.parent / f"{task_id}.md"
+        await asyncio.to_thread(save_page_md, target, copy, content)
+        materialized.add(occurrence_key)
+        created.append({"id": task_id, "occurrence": occurrence_key, "title": copy["title"]})
+    recurrence["materialized_occurrences"] = sorted(materialized)
+    await asyncio.to_thread(store.save, state)
+    return {"recurrence": recurrence, "created": created}
 
 
 @router.post("/planning/calendars", dependencies=[Depends(require_role("editor"))])
