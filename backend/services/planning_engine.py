@@ -145,6 +145,19 @@ def _apply_dependency(candidate: datetime, predecessor: dict[str, Any], dependen
     return calendar.add_duration(calendar.add_working_minutes(pred_start, lag), -duration)
 
 
+def _backward_bound(successor: dict[str, Any], dependency: dict[str, Any], predecessor_duration: float, calendar: WorkingCalendar) -> tuple[str, datetime]:
+    """Returns the predecessor boundary constrained by one successor link."""
+    lag = float(dependency.get("lagMinutes") or 0)
+    kind = dependency["type"]
+    if kind == "FS":
+        return "end", calendar.add_working_minutes(successor["lateStart"], -lag)
+    if kind == "SS":
+        return "start", calendar.add_working_minutes(successor["lateStart"], -lag)
+    if kind == "FF":
+        return "end", calendar.add_working_minutes(successor["lateEnd"], -lag)
+    return "start", calendar.add_working_minutes(successor["lateEnd"], -lag)
+
+
 def build_schedule(task_facts: list[dict[str, Any]], calendar_data: dict[str, Any] | None = None, *, status_date: str | None = None) -> dict[str, Any]:
     """Calculates dates, diagnostics, slack and critical tasks for a task graph."""
     calendar = WorkingCalendar.from_dict(calendar_data)
@@ -191,8 +204,6 @@ def build_schedule(task_facts: list[dict[str, Any]], calendar_data: dict[str, An
         if constraint == "MFO" and constraint_date:
             end = constraint_date
             start = calendar.add_duration(end, -duration)
-        if constraint == "ALAP":
-            diagnostics.append({"code": "alap_pending", "severity": "info", "taskId": task_id, "message": "ALAP is resolved during the backward scheduling pass"})
         if constraint in {"SNLT", "FNLT"} and constraint_date and ((constraint == "SNLT" and start > constraint_date) or (constraint == "FNLT" and end > constraint_date)):
             diagnostics.append({"code": "constraint_violation", "severity": "warning", "taskId": task_id, "message": f"{constraint} cannot be met"})
         deadline = parse_datetime(period["deadline"])
@@ -200,10 +211,33 @@ def build_schedule(task_facts: list[dict[str, Any]], calendar_data: dict[str, An
             diagnostics.append({"code": "deadline_missed", "severity": "warning", "taskId": task_id, "message": "Deadline is missed"})
         calculated[task_id] = {"id": task_id, "title": task.get("title") or task_id, "start": start, "end": end, "durationDays": duration, "percentComplete": period["percentComplete"], "actualStart": period["actualStart"], "actualEnd": period["actualEnd"], "trace": trace, "sourceEtag": task.get("etag"), "period": period}
     finish = max((item["end"] for item in calculated.values()), default=epoch)
-    for task in calculated.values():
-        task["freeSlackMinutes"] = round((finish - task["end"]).total_seconds() / 60, 2)
-        task["critical"] = task["freeSlackMinutes"] == 0
-    return {"scheduleRevision": None, "generatedAt": datetime.now().isoformat(timespec="seconds"), "tasks": [{**item, "start": item["start"].isoformat(timespec="minutes"), "end": item["end"].isoformat(timespec="minutes"), "period": None} for item in calculated.values()], "diagnostics": diagnostics, "criticalTaskIds": [item["id"] for item in calculated.values() if item["critical"]], "cycles": cycles}
+    successors: dict[str, list[tuple[str, dict[str, Any]]]] = defaultdict(list)
+    for successor_id, task in tasks.items():
+        for dependency in task["period"]["dependencies"]:
+            if dependency["predecessorId"] in calculated:
+                successors[dependency["predecessorId"]].append((successor_id, dependency))
+    for task_id in reversed(order):
+        task = calculated[task_id]
+        late_start = calendar.add_duration(finish, -task["durationDays"])
+        late_end = finish
+        for successor_id, dependency in successors[task_id]:
+            successor = calculated[successor_id]
+            boundary, value = _backward_bound(successor, dependency, task["durationDays"], calendar)
+            if boundary == "start":
+                late_start = min(late_start, value)
+                late_end = calendar.add_duration(late_start, task["durationDays"])
+            else:
+                late_end = min(late_end, value)
+                late_start = calendar.add_duration(late_end, -task["durationDays"])
+        task["lateStart"] = late_start
+        task["lateEnd"] = late_end
+        task["freeSlackMinutes"] = round((late_start - task["start"]).total_seconds() / 60, 2)
+        task["critical"] = task["freeSlackMinutes"] <= 0
+        if task["period"]["constraintType"] == "ALAP" and task["period"]["startMode"] == "automatic" and not task["actualStart"]:
+            task["start"] = late_start
+            if task["period"]["endMode"] == "automatic" and not task["actualEnd"]:
+                task["end"] = late_end
+    return {"scheduleRevision": None, "generatedAt": datetime.now().isoformat(timespec="seconds"), "tasks": [{**item, "start": item["start"].isoformat(timespec="minutes"), "end": item["end"].isoformat(timespec="minutes"), "lateStart": item["lateStart"].isoformat(timespec="minutes"), "lateEnd": item["lateEnd"].isoformat(timespec="minutes"), "period": None} for item in calculated.values()], "diagnostics": diagnostics, "criticalTaskIds": [item["id"] for item in calculated.values() if item["critical"]], "cycles": cycles}
 
 
 class ScheduleIndex:
