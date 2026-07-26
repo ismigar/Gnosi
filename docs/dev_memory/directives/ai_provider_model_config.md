@@ -300,7 +300,9 @@ Data API, never HTML scraping. The backend owns the API key and follows every
 pagination page so the UI receives the complete language-model set tracked by
 Artificial Analysis rather than a hand-maintained shortlist.
 
-- Fetch `/api/v2/language/models/free` on every dashboard open.
+- Fetch `/api/v2/language/models/free` only when the 24-hour complete cache is
+  absent or expired. The observed organization quota is 100 requests per reset
+  window, and a complete pagination pass consumes multiple requests.
 - Keep `ARTIFICIAL_ANALYSIS_API_KEY` server-side; never send it to the browser.
 - Merge optional context-window and capability metadata from the existing live
   models.dev catalog when the Free response omits Pro-only fields.
@@ -308,6 +310,8 @@ Artificial Analysis rather than a hand-maintained shortlist.
   performance, context, and reasoning signals; return the reasons with the role.
 - Surface authentication, quota, and network failures as localized dashboard
   states. Never silently present the former five-row sample as current data.
+  When no complete cache exists, say so explicitly and include the upstream
+  `X-Ratelimit-Reset` time when Artificial Analysis returns it.
 - Persist the last complete Artificial Analysis payload outside the vault. When
   quota or transient upstream access fails, serve that attributed cache; if no
   cache exists yet, build an explicitly attributed models.dev comparison feed.
