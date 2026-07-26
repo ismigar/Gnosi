@@ -4201,13 +4201,13 @@
     }
   },
   "model_comparison": {
-    "launch_title": "Compare AI models",
-    "launch_description": "Explore cost, context, speed and recommended task profiles in one interactive dashboard.",
-    "open": "Open comparison",
+    "launch_title": "Compare and configure AI models",
+    "launch_description": "Enable or disable models directly from the comparison. The assistant asks for the provider, local or remote execution, and an API key only when needed.",
+    "open": "Compare and configure",
     "close": "Close model comparison",
     "eyebrow": "AI model intelligence",
     "title": "AI Model Comparison",
-    "subtitle": "Find the right model for each role, workload and budget.",
+    "subtitle": "Compare models and enable or disable the ones you want from the same table.",
     "loading": "Loading every tracked model…",
     "loading_description": "Fetching all Artificial Analysis pages and enriching the live model catalog.",
     "retry": "Try again",
