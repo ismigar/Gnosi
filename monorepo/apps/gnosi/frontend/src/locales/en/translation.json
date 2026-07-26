@@ -4232,6 +4232,7 @@
     "table_scroll_hint": "Scroll horizontally to see all columns",
     "scroll_left": "Scroll table left",
     "scroll_right": "Scroll table right",
+    "keyboard_scroll_hint": "Use ↑/↓ or Page Up/Page Down for vertical scrolling",
     "no_results": "No models match these filters.",
     "data_note": "Live benchmark, pricing and performance data. Attribution:",
     "errors": {

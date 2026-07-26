@@ -6,6 +6,7 @@
 .model-comparison-header h2 { margin: 0; font-size: clamp(1.5rem, 3vw, 2.2rem); letter-spacing: -.04em; }
 .model-comparison-header span { display: block; margin-top: 6px; color: var(--text-secondary); }
 .model-comparison-body { min-height: 0; overflow: auto; padding: 24px 32px 28px; }
+.model-comparison-body:focus-visible { outline: 2px solid var(--gnosi-blue); outline-offset: -3px; }
 .model-comparison-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 18px; margin-bottom: 15px; color: var(--text-secondary); font-size: .78rem; }
 .model-comparison-meta strong { color: var(--text-primary); font-size: .86rem; }
 .model-comparison-status { min-height: 380px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; color: var(--text-secondary); }
@@ -34,6 +35,7 @@
 .model-cost-title { align-self: center; display: flex; align-items: center; gap: 10px; color: var(--text-primary); }
 .model-cost-hint { grid-column: 1 / -1; margin: -2px 0 0; color: var(--text-secondary); font-size: .75rem; line-height: 1.45; }
 .model-table-controls { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 2px 8px; color: var(--text-secondary); font-size: .75rem; }
+.model-table-controls > span { flex: 1; min-width: 0; line-height: 1.4; }
 .model-table-controls > span { display: inline-flex; align-items: center; gap: 7px; }
 .model-table-controls > div { display: inline-flex; gap: 6px; }
 .model-table-controls button { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 30px; padding: 0; border: 1px solid var(--settings-border); border-radius: 9px; background: var(--settings-sidebar-bg); color: var(--text-primary); cursor: pointer; }

@@ -320,6 +320,10 @@ Artificial Analysis rather than a hand-maintained shortlist.
   model column and monthly-cost column sticky, and expose explicit horizontal
   navigation controls; a scrollbar at the bottom of hundreds of rows is not
   discoverable enough on desktop or mobile.
+- The comparison modal must handle keyboard scrolling at the window level while
+  leaving inputs, selects, buttons, links and editable fields untouched. Map
+  ArrowUp/Down and PageUp/PageDown to incremental scrolling, and Home/End to
+  the top or bottom of the modal body.
 - Note: Never persist `api_key` in `params.yaml`, including during environment
   migrations. Store only `credential_ref` and resolve secrets from Keychain or
   the secret store at runtime.
