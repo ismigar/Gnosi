@@ -91,14 +91,14 @@
 .model-comparison-empty { padding: 48px; text-align: center; color: var(--text-secondary); }
 .model-comparison-note { margin: 12px 2px 0; color: var(--text-secondary); font-size: .75rem; }
 .model-comparison-note a { color: var(--gnosi-blue); font-weight: 700; text-decoration: none; }
-.model-setup-layer { position: absolute; inset: 0; z-index: 6; display: grid; place-items: center; padding: 24px; }
-.model-setup-backdrop { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; background: rgba(6,12,24,.7); backdrop-filter: blur(10px); cursor: default; }
 .model-setup-dialog { position: relative; width: min(680px, 94vw); max-height: min(820px, 90vh); display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--settings-border); border-radius: 26px; background: var(--settings-bg); box-shadow: 0 30px 90px rgba(0,0,0,.4); }
+.model-setup-inline { width: 100%; max-height: none; margin: 10px 0; overflow: visible; border-radius: 18px; box-shadow: none; }
 .model-setup-dialog > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 22px 24px 18px; border-bottom: 1px solid var(--settings-border); background: linear-gradient(135deg, rgba(59,130,246,.12), transparent 65%); }
 .model-setup-dialog > header p { margin: 0 0 4px; color: var(--gnosi-blue); font-size: .68rem; font-weight: 900; letter-spacing: .11em; text-transform: uppercase; }
 .model-setup-dialog > header h3 { margin: 0; font-size: 1.35rem; }
 .model-setup-dialog > header span { display: block; margin-top: 5px; color: var(--text-secondary); font-size: .82rem; }
 .model-setup-content { min-height: 0; display: flex; flex-direction: column; gap: 16px; overflow: auto; padding: 20px 24px; }
+.model-setup-inline .model-setup-content { overflow: visible; }
 .model-execution-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 0; border: 0; }
 .model-execution-choice legend { grid-column: 1 / -1; margin-bottom: 8px; color: var(--text-secondary); font-size: .72rem; font-weight: 900; text-transform: uppercase; }
 .model-execution-choice button { display: flex; align-items: flex-start; gap: 11px; padding: 14px; border: 1px solid var(--settings-border); border-radius: 14px; background: var(--settings-sidebar-bg); color: var(--text-primary); text-align: start; cursor: pointer; }
@@ -135,10 +135,9 @@
     .model-comparison-toolbar, .model-cost-calculator { grid-template-columns: 1fr; }
     .model-search, .model-cost-title { grid-column: auto; }
     .model-comparison-key-form { align-items: stretch; flex-direction: column; }
-    .model-setup-layer { padding: 0; }
-    .model-setup-dialog { width: 100vw; max-height: 100dvh; border-radius: 0; }
+    .model-setup-inline { width: 100%; max-height: none; border-radius: 16px; }
     .model-execution-choice { grid-template-columns: 1fr; }
-    .model-setup-dialog > footer { align-items: stretch; flex-direction: column; }
-    .model-setup-dialog > footer > span { max-width: none; }
-    .model-setup-dialog > footer > div { justify-content: flex-end; }
+    .model-setup-inline > footer { align-items: stretch; flex-direction: column; }
+    .model-setup-inline > footer > span { max-width: none; }
+    .model-setup-inline > footer > div { justify-content: flex-end; }
 }
