@@ -112,6 +112,7 @@ def test_build_payload_enriches_context_from_models_dev():
     payload = aa.build_comparison_payload([row], catalog)
     model = payload["models"][0]
     assert model["context_window"] == 1_000_000
+    assert model["metric_sources"]["context_window"] == "models_dev"
     assert model["profile"] == "expert"
     assert model["routes"] == [{
         "provider": "cloud-host",
@@ -125,6 +126,85 @@ def test_build_payload_enriches_context_from_models_dev():
         "quality": 3,
         "tags": ["long"],
     }]
+
+
+def test_build_payload_enriches_missing_prices_from_models_dev():
+    row = _row(1, "Catalog Priced", 25, 50, None, None)
+    catalog = {"providers": [{
+        "id": "cloud-host",
+        "name": "Cloud Host",
+        "is_local": False,
+        "models": [{
+            "id": "catalog-priced",
+            "name": "Catalog Priced",
+            "cost_in": 0.8,
+            "cost_out": 4,
+            "context_window": 200_000,
+        }],
+    }]}
+
+    model = aa.build_comparison_payload([row], catalog)["models"][0]
+
+    assert model["input_price"] == 0.8
+    assert model["output_price"] == 4
+    assert model["metric_sources"]["input_price"] == "models_dev"
+    assert model["metric_sources"]["output_price"] == "models_dev"
+
+
+def test_refresh_preserves_missing_metrics_from_last_cache():
+    previous = {
+        "models": [{
+            "id": "stable-id",
+            "slug": "stable-model",
+            "name": "Stable Model",
+            "speed": 88,
+            "latency": 0.4,
+            "coding": 42,
+        }],
+    }
+    current = {
+        "models": [{
+            "id": "stable-id",
+            "slug": "stable-model",
+            "name": "Stable Model",
+            "speed": None,
+            "latency": None,
+            "coding": None,
+        }],
+    }
+
+    result = aa._merge_cached_metrics(current, previous)
+
+    assert result["models"][0]["speed"] == 88
+    assert result["models"][0]["latency"] == 0.4
+    assert result["models"][0]["coding"] == 42
+    assert result["models"][0]["metric_sources"] == {
+        "speed": "artificial_analysis_cache",
+        "latency": "artificial_analysis_cache",
+        "coding": "artificial_analysis_cache",
+    }
+
+
+def test_refresh_does_not_replace_current_metrics_with_cache():
+    previous = {
+        "models": [{
+            "id": "stable-id",
+            "name": "Stable Model",
+            "speed": 50,
+        }],
+    }
+    current = {
+        "models": [{
+            "id": "stable-id",
+            "name": "Stable Model",
+            "speed": 90,
+        }],
+    }
+
+    result = aa._merge_cached_metrics(current, previous)
+
+    assert result["models"][0]["speed"] == 90
+    assert "metric_sources" not in result["models"][0]
 
 
 def test_fetch_all_models_follows_every_page(monkeypatch):

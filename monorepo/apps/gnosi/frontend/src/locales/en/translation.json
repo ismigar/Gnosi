@@ -4261,6 +4261,10 @@
     "model_disabled": "{{model}} was disabled.",
     "no_results": "No models match these filters.",
     "data_note": "Live benchmark, pricing and performance data. Attribution:",
+    "metric_sources": {
+      "models_dev": "Value completed with models.dev",
+      "artificial_analysis_cache": "Last available value from the Artificial Analysis cache"
+    },
     "errors": {
       "api_key_missing": "Artificial Analysis is not configured on this server.",
       "api_key_invalid": "The Artificial Analysis API key is invalid.",
