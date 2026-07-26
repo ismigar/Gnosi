@@ -45,17 +45,36 @@ def test_build_payload_includes_every_row_and_assigns_frontier_profile():
 
 def test_build_payload_enriches_context_from_models_dev():
     row = _row(1, "Long Model", 25, 50, 1, 2)
-    catalog = {"providers": [{"models": [{
+    catalog = {"providers": [{
+        "id": "cloud-host",
+        "name": "Cloud Host",
+        "is_local": False,
+        "models": [{
         "id": "long-model",
         "name": "Long Model",
+        "cost_in": 1,
+        "cost_out": 2,
         "context_window": 1_000_000,
         "tags": ["long"],
+        "quality": 3,
         "release_date": "2026-07-01",
     }]}]}
     payload = aa.build_comparison_payload([row], catalog)
     model = payload["models"][0]
     assert model["context_window"] == 1_000_000
     assert model["profile"] == "expert"
+    assert model["routes"] == [{
+        "provider": "cloud-host",
+        "provider_name": "Cloud Host",
+        "model_id": "long-model",
+        "model_name": "Long Model",
+        "is_local": False,
+        "cost_in": 1.0,
+        "cost_out": 2.0,
+        "context_window": 1_000_000,
+        "quality": 3,
+        "tags": ["long"],
+    }]
 
 
 def test_fetch_all_models_follows_every_page(monkeypatch):

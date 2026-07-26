@@ -1,4 +1,5 @@
 import asyncio
+import os
 from typing import Optional
 
 import yaml
@@ -323,7 +324,11 @@ async def get_model_catalog(refresh: bool = False):
     the loader does blocking I/O (disk + short HTTP fetches) and must not
     freeze the event loop."""
     from backend.agent.model_catalog import load_catalog
-    from backend.security.ai_credentials import is_provider_connected
+    from backend.security.ai_credentials import (
+        env_keys_for_provider,
+        has_provider_api_key,
+        is_provider_connected,
+    )
 
     def _load():
         catalog = load_catalog(refresh)
@@ -333,13 +338,26 @@ async def get_model_catalog(refresh: bool = False):
         # dict across requests — mutating it would freeze a stale connection
         # state into the cache.
         annotated = dict(catalog)
-        annotated["providers"] = [
-            {**p, "connected": is_provider_connected(
-                p.get("id", ""),
-                providers_cfg.get(p.get("id")) if p.get("id") in providers_cfg else None,
-            )}
-            for p in catalog.get("providers", [])
-        ]
+        annotated_providers = []
+        for entry in catalog.get("providers", []):
+            provider_id = entry.get("id", "")
+            configured = provider_id in providers_cfg
+            provider_cfg = providers_cfg.get(provider_id) if configured else None
+            connected = is_provider_connected(provider_id, provider_cfg)
+            has_api_key = (
+                has_provider_api_key(provider_id, provider_cfg)
+                if configured
+                else any(os.environ.get(key) for key in env_keys_for_provider(provider_id))
+            )
+            annotated_providers.append({
+                **entry,
+                "connected": connected,
+                "configured": configured,
+                "enabled": (provider_cfg or {}).get("enabled", True),
+                "has_api_key": has_api_key,
+                "base_url": (provider_cfg or {}).get("base_url", ""),
+            })
+        annotated["providers"] = annotated_providers
         return annotated
 
     return await asyncio.to_thread(_load)
