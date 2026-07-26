@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
     ArrowDown, ArrowLeftRight, ArrowUp, ArrowUpDown, CheckCircle2,
-    ChevronLeft, ChevronRight, Cloud, KeyRound, Loader2, RefreshCw, Search,
+    Cloud, KeyRound, Loader2, RefreshCw, Search,
     Server, X,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -60,8 +60,10 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
     const [busyModelId, setBusyModelId] = useState('');
     const [actionMessage, setActionMessage] = useState(null);
     const [fallbackNoticeDismissed, setFallbackNoticeDismissed] = useState(false);
+    const [tableScrollWidth, setTableScrollWidth] = useState(0);
     const bodyRef = React.useRef(null);
     const tableWrapRef = React.useRef(null);
+    const scrollbarRef = React.useRef(null);
 
     useEffect(() => {
         if (!isOpen) return undefined;
@@ -90,6 +92,19 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
             });
         return () => controller.abort();
     }, [isOpen, requestVersion]);
+
+    useEffect(() => {
+        if (!isOpen || !feed || !tableWrapRef.current || !bodyRef.current) return undefined;
+        const body = bodyRef.current;
+        const table = tableWrapRef.current;
+        const syncBar = () => { if (scrollbarRef.current) scrollbarRef.current.scrollLeft = body.scrollLeft; };
+        const updateWidth = () => setTableScrollWidth(table.scrollWidth);
+        updateWidth();
+        body.addEventListener('scroll', syncBar, { passive: true });
+        const observer = new ResizeObserver(updateWidth);
+        observer.observe(table);
+        return () => { body.removeEventListener('scroll', syncBar); observer.disconnect(); };
+    }, [feed, isOpen, models.length]);
 
     useEffect(() => {
         if (!isOpen) return undefined;
@@ -232,9 +247,6 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
         } finally {
             setSavingApiKey(false);
         }
-    };
-    const scrollTable = (distance) => {
-        bodyRef.current?.scrollBy({ left: distance, behavior: 'smooth' });
     };
     const setupProviders = (model, mode) => {
         const isLocal = mode === 'local';
@@ -533,14 +545,6 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
 
                             <div className="model-table-controls" aria-label={t('model_comparison.table_navigation')}>
                                 <span><ArrowLeftRight size={16} /> {t('model_comparison.table_scroll_hint')} · {t('model_comparison.keyboard_scroll_hint')}</span>
-                                <div>
-                                    <button type="button" onClick={() => scrollTable(-640)} aria-label={t('model_comparison.scroll_left')}>
-                                        <ChevronLeft size={17} />
-                                    </button>
-                                    <button type="button" onClick={() => scrollTable(640)} aria-label={t('model_comparison.scroll_right')}>
-                                        <ChevronRight size={17} />
-                                    </button>
-                                </div>
                             </div>
                             <div className="model-table-wrap" ref={tableWrapRef}>
                                 <table className="model-comparison-table">
@@ -611,6 +615,11 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                                     </tbody>
                                 </table>
                                 {models.length === 0 && <div className="model-comparison-empty">{t('model_comparison.no_results')}</div>}
+                            </div>
+                            <div className="model-table-scrollbar" ref={scrollbarRef} aria-label={t('model_comparison.table_scroll_hint')} onScroll={(event) => {
+                                if (bodyRef.current) bodyRef.current.scrollLeft = event.currentTarget.scrollLeft;
+                            }}>
+                                <div style={{ width: `${Math.max(tableScrollWidth, 1)}px`, height: '1px' }} />
                             </div>
                             <p className="model-comparison-note">
                                 {t('model_comparison.data_note')}{' '}
