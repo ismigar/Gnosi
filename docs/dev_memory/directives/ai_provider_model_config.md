@@ -350,6 +350,12 @@ Artificial Analysis rather than a hand-maintained shortlist.
 - Comparison mutations must preserve the complete budget payload and notify
   the router-registry Settings component through `gnosi-ai-models-changed`, so
   both configuration surfaces stay synchronized.
+- Task profiles are five disjoint benchmark-percentile bands. Use lower-inclusive
+  and upper-exclusive bounds for every intermediate band: Worker `<20`, Administrative
+  `20–40`, Documentalist `40–60`, All-rounder `60–80`, and Expert `≥80`. Models
+  without an intelligence benchmark are `unrated`; never force them into an
+  intermediate band from price, speed, context, name, or capability signals.
+  Those overrides make a selected middle profile leak models from above or below.
 - Do not present provider cards and router-registry rows as parallel primary
   model-management surfaces once the comparison can enable and configure a
   route. This duplicates the workflow and makes users question which surface
