@@ -13,6 +13,8 @@
 .model-configuration-banner.success { border-color: rgba(16,185,129,.28); background: rgba(16,185,129,.08); color: var(--status-success); }
 .model-configuration-banner.error { border-color: rgba(239,68,68,.28); background: rgba(239,68,68,.08); color: var(--status-error); }
 .model-configuration-banner.warning { border-color: rgba(245,158,11,.3); background: rgba(245,158,11,.09); color: #b56a00; }
+.model-configuration-banner.warning > span { flex: 1; }
+.model-configuration-banner.warning > button { display: inline-flex; flex: 0 0 auto; padding: 2px; border: 0; background: transparent; color: inherit; cursor: pointer; }
 .model-comparison-status { min-height: 380px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; color: var(--text-secondary); }
 .model-comparison-status strong { color: var(--text-primary); font-size: 1.05rem; }
 .model-comparison-status span { max-width: 560px; line-height: 1.55; }
