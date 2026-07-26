@@ -3,7 +3,7 @@ import {
     X, Globe, Palette, RefreshCw, Info, ExternalLink, Monitor, BookOpen,
     Check, FolderOpen, Database, Cpu, Zap, Settings as SettingsIcon,
     Sliders, Calendar, Mail, Trash2, Plus, Users, Rss, Share2, Inbox,
-    ChevronRight, Search, FileUp, Shield, Activity, Bot, FileText,
+    ChevronRight, ChevronDown, Search, FileUp, Shield, Activity, Bot, FileText,
     PenTool, Image, Paperclip, Eye, EyeOff, User, Languages, Loader2
 } from 'lucide-react';
 import { useTranslation, Trans } from 'react-i18next';
@@ -3752,7 +3752,19 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         </button>
                                     </div>
 
-                                    <Section 
+                                    <details className="ai-advanced-settings">
+                                        <summary>
+                                            <span className="ai-advanced-settings__label">
+                                                <span className="ai-advanced-settings__icon"><SettingsIcon size={19} /></span>
+                                                <span>
+                                                    <strong>{t('model_comparison.advanced_title')}</strong>
+                                                    <small>{t('model_comparison.advanced_description')}</small>
+                                                </span>
+                                            </span>
+                                            <ChevronDown className="ai-advanced-settings__chevron" size={20} aria-hidden="true" />
+                                        </summary>
+                                        <div className="ai-advanced-settings__content">
+                                    <Section
                                         title={tn('ai.providers_section')} 
                                         icon={Database} 
                                         extra={
@@ -3885,12 +3897,14 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
                                     <div style={{ height: '30px' }} />
 
-                                    {/* Order: Providers → Models → Agents. The registry sits
-                                        right under the providers it depends on; agents (which
-                                        pick provider+model) come last. */}
+                                    {/* Provider and registry controls remain available for
+                                        credential maintenance and manual router tuning, but
+                                        the comparison is the primary model-management surface. */}
                                     <Section title={tn('ai.model_registry.title')} icon={Cpu}>
                                         <ModelRegistrySettings />
                                     </Section>
+                                        </div>
+                                    </details>
 
                                     <div style={{ height: '30px' }} />
 
