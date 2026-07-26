@@ -372,10 +372,11 @@ Artificial Analysis rather than a hand-maintained shortlist.
   exposes the effective enabled state; enabling opens a guided local/remote
   route picker, while disabling keeps the registry row but marks it disabled.
 - Keep activation inside the comparison modal's normal document flow. Expand
-  the guided route form above the table and let it use the modal body's scroll;
-  do not open a second modal/backdrop over the comparison because its sticky
-  table surfaces can cross the nested dialog and the interaction diverges from
-  the rest of Settings.
+  the guided route form as a detail row immediately after the selected model
+  and before the next model, without a duplicated setup header, and let it use
+  the modal body's scroll. Do not open a second modal/backdrop over the
+  comparison because its sticky table surfaces can cross the nested dialog and
+  the interaction diverges from the rest of Settings.
 - Artificial Analysis benchmark variants do not contain deployable provider
   ids. Match them to exact models.dev provider/model routes server-side and
   send those routes with the comparison payload. If no exact route exists,

@@ -429,6 +429,144 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
     const activeSetupProviders = setup ? setupProviders(setup.model, setup.mode) : [];
     const activeSetupModels = activeSetupProvider?.models || [];
     const setupNeedsApiKey = setup?.mode === 'remote' && activeSetupProvider && !activeSetupProvider.has_api_key;
+    const setupPanel = setup && (
+        <section className="model-setup-dialog model-setup-inline" aria-label={t('model_comparison.setup.activate')}>
+            <div className="model-setup-content">
+                <fieldset className="model-execution-choice">
+                    <legend>{t('model_comparison.setup.execution')}</legend>
+                    <button
+                        type="button"
+                        className={setup.mode === 'remote' ? 'active' : ''}
+                        onClick={() => changeSetupMode('remote')}
+                    >
+                        <Cloud size={20} />
+                        <span><strong>{t('model_comparison.setup.remote')}</strong><small>{t('model_comparison.setup.remote_help')}</small></span>
+                    </button>
+                    <button
+                        type="button"
+                        className={setup.mode === 'local' ? 'active' : ''}
+                        onClick={() => changeSetupMode('local')}
+                    >
+                        <Server size={20} />
+                        <span><strong>{t('model_comparison.setup.local')}</strong><small>{t('model_comparison.setup.local_help')}</small></span>
+                    </button>
+                </fieldset>
+
+                {activeSetupProviders.length === 0 ? (
+                    <div className="model-setup-empty" role="status">
+                        <Server size={22} />
+                        <strong>{t('model_comparison.setup.no_local_models')}</strong>
+                        <span>{t('model_comparison.setup.no_local_models_help')}</span>
+                    </div>
+                ) : (
+                    <>
+                        <label className="model-setup-field">
+                            <span>{t('model_comparison.setup.provider')}</span>
+                            <select value={setup.providerId} onChange={(event) => changeSetupProvider(event.target.value)}>
+                                <option value="">{t('model_comparison.setup.choose_provider')}</option>
+                                {activeSetupProviders.map((provider) => (
+                                    <option key={provider.id} value={provider.id}>
+                                        {provider.name}{provider.connected ? ` · ${t('model_comparison.setup.connected')}` : ''}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+
+                        <label className="model-setup-field">
+                            <span>{t('model_comparison.setup.model_route')}</span>
+                            <select
+                                value={setup.modelId}
+                                disabled={!activeSetupProvider}
+                                onChange={(event) => setSetup((current) => ({ ...current, modelId: event.target.value, error: '' }))}
+                            >
+                                <option value="">{t('model_comparison.setup.choose_model')}</option>
+                                {activeSetupModels.map((model) => (
+                                    <option key={model.id} value={model.id}>{model.name} · {model.id}</option>
+                                ))}
+                            </select>
+                            {activeSetupProvider && !setup.modelId && (
+                                <small>{t('model_comparison.setup.confirm_route_help')}</small>
+                            )}
+                        </label>
+
+                        {activeSetupProvider && setup.mode === 'remote' && (
+                            <div className={`model-provider-state ${setupNeedsApiKey ? 'needs-key' : 'connected'}`}>
+                                {setupNeedsApiKey ? <KeyRound size={18} /> : <CheckCircle2 size={18} />}
+                                <span>
+                                    <strong>
+                                        {setupNeedsApiKey
+                                            ? t('model_comparison.setup.key_required')
+                                            : t('model_comparison.setup.credentials_ready')}
+                                    </strong>
+                                    <small>
+                                        {setupNeedsApiKey
+                                            ? t('model_comparison.setup.key_required_help')
+                                            : t('model_comparison.setup.credentials_ready_help')}
+                                    </small>
+                                </span>
+                            </div>
+                        )}
+
+                        {setupNeedsApiKey && (
+                            <label className="model-setup-field">
+                                <span>{t('model_comparison.setup.api_key', { provider: activeSetupProvider.name })}</span>
+                                <input
+                                    type="password"
+                                    value={setup.apiKey}
+                                    autoComplete="off"
+                                    placeholder="sk-…"
+                                    onChange={(event) => setSetup((current) => ({ ...current, apiKey: event.target.value, error: '' }))}
+                                />
+                                <small>{t('model_comparison.setup.api_key_help')}</small>
+                            </label>
+                        )}
+
+                        {setupNeedsApiKey && (
+                            <label className="model-setup-field">
+                                <span>{t('model_comparison.setup.base_url')}</span>
+                                <input
+                                    type="url"
+                                    value={setup.baseUrl}
+                                    placeholder={activeSetupProvider.api || 'https://api.example.com/v1'}
+                                    onChange={(event) => setSetup((current) => ({ ...current, baseUrl: event.target.value, error: '' }))}
+                                />
+                                <small>{t('model_comparison.setup.base_url_help')}</small>
+                            </label>
+                        )}
+                    </>
+                )}
+
+                {setup.error && (
+                    <div className="model-setup-error" role="alert">
+                        {t(`model_comparison.errors.${setup.error}`)}
+                    </div>
+                )}
+            </div>
+
+            <footer>
+                <span>{t('model_comparison.setup.router_help')}</span>
+                <div>
+                    <button type="button" className="btn-gnosi-secondary" onClick={() => setSetup(null)}>
+                        {t('common.cancel')}
+                    </button>
+                    <button
+                        type="button"
+                        className="btn-gnosi-primary"
+                        disabled={
+                            !activeSetupProvider
+                            || !setup.modelId
+                            || (setupNeedsApiKey && !setup.apiKey.trim())
+                            || busyModelId === setup.model.id
+                        }
+                        onClick={activateModel}
+                    >
+                        {busyModelId === setup.model.id && <Loader2 className="animate-spin" size={16} />}
+                        {t('model_comparison.setup.activate')}
+                    </button>
+                </div>
+            </footer>
+        </section>
+    );
 
     return (
         <div className="model-comparison-layer" role="presentation">
@@ -576,155 +714,6 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                                 <label><span>{t('model_comparison.output_tokens')}</span><input type="number" min="0" value={outputTokens} onChange={(event) => setOutputTokens(event.target.value)} /></label>
                             </div>
 
-                            {setup && (
-                                <section className="model-setup-dialog model-setup-inline" aria-labelledby="model-setup-title">
-                                    <header>
-                                        <div>
-                                            <p>{t('model_comparison.setup.eyebrow')}</p>
-                                            <h3 id="model-setup-title">{setup.model.name}</h3>
-                                            <span>{t('model_comparison.setup.subtitle')}</span>
-                                        </div>
-                                        <button type="button" className="gnosi-close-btn" onClick={() => setSetup(null)} aria-label={t('common.cancel')}>
-                                            <X />
-                                        </button>
-                                    </header>
-
-                                    <div className="model-setup-content">
-                                        <fieldset className="model-execution-choice">
-                                            <legend>{t('model_comparison.setup.execution')}</legend>
-                                            <button
-                                                type="button"
-                                                className={setup.mode === 'remote' ? 'active' : ''}
-                                                onClick={() => changeSetupMode('remote')}
-                                            >
-                                                <Cloud size={20} />
-                                                <span><strong>{t('model_comparison.setup.remote')}</strong><small>{t('model_comparison.setup.remote_help')}</small></span>
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className={setup.mode === 'local' ? 'active' : ''}
-                                                onClick={() => changeSetupMode('local')}
-                                            >
-                                                <Server size={20} />
-                                                <span><strong>{t('model_comparison.setup.local')}</strong><small>{t('model_comparison.setup.local_help')}</small></span>
-                                            </button>
-                                        </fieldset>
-
-                                        {activeSetupProviders.length === 0 ? (
-                                            <div className="model-setup-empty" role="status">
-                                                <Server size={22} />
-                                                <strong>{t('model_comparison.setup.no_local_models')}</strong>
-                                                <span>{t('model_comparison.setup.no_local_models_help')}</span>
-                                            </div>
-                                        ) : (
-                                            <>
-                                                <label className="model-setup-field">
-                                                    <span>{t('model_comparison.setup.provider')}</span>
-                                                    <select value={setup.providerId} onChange={(event) => changeSetupProvider(event.target.value)}>
-                                                        <option value="">{t('model_comparison.setup.choose_provider')}</option>
-                                                        {activeSetupProviders.map((provider) => (
-                                                            <option key={provider.id} value={provider.id}>
-                                                                {provider.name}{provider.connected ? ` · ${t('model_comparison.setup.connected')}` : ''}
-                                                            </option>
-                                                        ))}
-                                                    </select>
-                                                </label>
-
-                                                <label className="model-setup-field">
-                                                    <span>{t('model_comparison.setup.model_route')}</span>
-                                                    <select
-                                                        value={setup.modelId}
-                                                        disabled={!activeSetupProvider}
-                                                        onChange={(event) => setSetup((current) => ({ ...current, modelId: event.target.value, error: '' }))}
-                                                    >
-                                                        <option value="">{t('model_comparison.setup.choose_model')}</option>
-                                                        {activeSetupModels.map((model) => (
-                                                            <option key={model.id} value={model.id}>{model.name} · {model.id}</option>
-                                                        ))}
-                                                    </select>
-                                                    {activeSetupProvider && !setup.modelId && (
-                                                        <small>{t('model_comparison.setup.confirm_route_help')}</small>
-                                                    )}
-                                                </label>
-
-                                                {activeSetupProvider && setup.mode === 'remote' && (
-                                                    <div className={`model-provider-state ${setupNeedsApiKey ? 'needs-key' : 'connected'}`}>
-                                                        {setupNeedsApiKey ? <KeyRound size={18} /> : <CheckCircle2 size={18} />}
-                                                        <span>
-                                                            <strong>
-                                                                {setupNeedsApiKey
-                                                                    ? t('model_comparison.setup.key_required')
-                                                                    : t('model_comparison.setup.credentials_ready')}
-                                                            </strong>
-                                                            <small>
-                                                                {setupNeedsApiKey
-                                                                    ? t('model_comparison.setup.key_required_help')
-                                                                    : t('model_comparison.setup.credentials_ready_help')}
-                                                            </small>
-                                                        </span>
-                                                    </div>
-                                                )}
-
-                                                {setupNeedsApiKey && (
-                                                    <label className="model-setup-field">
-                                                        <span>{t('model_comparison.setup.api_key', { provider: activeSetupProvider.name })}</span>
-                                                        <input
-                                                            type="password"
-                                                            value={setup.apiKey}
-                                                            autoComplete="off"
-                                                            placeholder="sk-…"
-                                                            onChange={(event) => setSetup((current) => ({ ...current, apiKey: event.target.value, error: '' }))}
-                                                        />
-                                                        <small>{t('model_comparison.setup.api_key_help')}</small>
-                                                    </label>
-                                                )}
-
-                                                {setupNeedsApiKey && (
-                                                    <label className="model-setup-field">
-                                                        <span>{t('model_comparison.setup.base_url')}</span>
-                                                        <input
-                                                            type="url"
-                                                            value={setup.baseUrl}
-                                                            placeholder={activeSetupProvider.api || 'https://api.example.com/v1'}
-                                                            onChange={(event) => setSetup((current) => ({ ...current, baseUrl: event.target.value, error: '' }))}
-                                                        />
-                                                        <small>{t('model_comparison.setup.base_url_help')}</small>
-                                                    </label>
-                                                )}
-                                            </>
-                                        )}
-
-                                        {setup.error && (
-                                            <div className="model-setup-error" role="alert">
-                                                {t(`model_comparison.errors.${setup.error}`)}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <footer>
-                                        <span>{t('model_comparison.setup.router_help')}</span>
-                                        <div>
-                                            <button type="button" className="btn-gnosi-secondary" onClick={() => setSetup(null)}>
-                                                {t('common.cancel')}
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="btn-gnosi-primary"
-                                                disabled={
-                                                    !activeSetupProvider
-                                                    || !setup.modelId
-                                                    || (setupNeedsApiKey && !setup.apiKey.trim())
-                                                    || busyModelId === setup.model.id
-                                                }
-                                                onClick={activateModel}
-                                            >
-                                                {busyModelId === setup.model.id && <Loader2 className="animate-spin" size={16} />}
-                                                {t('model_comparison.setup.activate')}
-                                            </button>
-                                        </div>
-                                    </footer>
-                                </section>
-                            )}
                             <div className="model-table-controls" aria-label={t('model_comparison.table_navigation')}>
                                 <span><ArrowLeftRight size={16} /> {t('model_comparison.table_scroll_hint')} · {t('model_comparison.keyboard_scroll_hint')}</span>
                             </div>
@@ -751,47 +740,54 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                                                 .join(', ');
                                             const isBusy = busyModelId === model.id;
                                             return (
-                                                <tr key={model.id}>
-                                                    <td className="model-comparison-sticky-start"><strong>{model.name}</strong><small>{model.release_date || '—'}</small></td>
-                                                    <td>{model.creator || '—'}</td>
-                                                    {metricAvailability.intelligence && <td>{formatMetric(model.intelligence)}</td>}
-                                                    {metricAvailability.coding && <td>{formatMetric(model.coding)}</td>}
-                                                    {metricAvailability.agentic && <td>{formatMetric(model.agentic)}</td>}
-                                                    <td>{model.input_price == null ? '—' : `$${formatMetric(model.input_price, 3)}`}</td>
-                                                    <td>{model.output_price == null ? '—' : `$${formatMetric(model.output_price, 3)}`}</td>
-                                                    <td>{formatContext(model.context_window)}</td>
-                                                    {metricAvailability.speed && <td>{model.speed == null ? '—' : `${formatMetric(model.speed)} t/s`}</td>}
-                                                    {metricAvailability.latency && <td>{model.latency == null ? '—' : `${formatMetric(model.latency, 2)} s`}</td>}
-                                                    {metricAvailability.profile && <td><span className={`model-profile-badge ${model.profile}`}>{PROFILE_ICONS[model.profile]} {t(`model_comparison.profiles.${model.profile}`)}</span></td>}
-                                                    <td><strong>{cost == null ? '—' : `$${formatMetric(cost, 2)}`}</strong></td>
-                                                    <td className="model-comparison-sticky-end">
-                                                        <div className="model-availability-cell">
-                                                            <button
-                                                                type="button"
-                                                                role="switch"
-                                                                aria-checked={isActive}
-                                                                aria-label={t(
-                                                                    isActive
-                                                                        ? 'model_comparison.disable_model'
-                                                                        : 'model_comparison.enable_model',
-                                                                    { model: model.name },
-                                                                )}
-                                                                className={`model-availability-toggle ${isActive ? 'active' : ''}`}
-                                                                disabled={configurationLoading || Boolean(configurationError) || isBusy}
-                                                                onClick={() => (isActive ? deactivateModel(model) : beginActivation(model))}
-                                                            >
-                                                                {isBusy ? <Loader2 className="animate-spin" size={15} /> : <span />}
-                                                            </button>
-                                                            <small title={routeLabel}>
-                                                                {configurationLoading
-                                                                    ? t('model_comparison.configuration_loading')
-                                                                    : isActive
-                                                                        ? routeLabel || t('model_comparison.active')
-                                                                        : t('model_comparison.inactive')}
-                                                            </small>
-                                                        </div>
-                                                    </td>
-                                                </tr>
+                                                <React.Fragment key={model.id}>
+                                                    <tr>
+                                                        <td className="model-comparison-sticky-start"><strong>{model.name}</strong><small>{model.release_date || '—'}</small></td>
+                                                        <td>{model.creator || '—'}</td>
+                                                        {metricAvailability.intelligence && <td>{formatMetric(model.intelligence)}</td>}
+                                                        {metricAvailability.coding && <td>{formatMetric(model.coding)}</td>}
+                                                        {metricAvailability.agentic && <td>{formatMetric(model.agentic)}</td>}
+                                                        <td>{model.input_price == null ? '—' : `$${formatMetric(model.input_price, 3)}`}</td>
+                                                        <td>{model.output_price == null ? '—' : `$${formatMetric(model.output_price, 3)}`}</td>
+                                                        <td>{formatContext(model.context_window)}</td>
+                                                        {metricAvailability.speed && <td>{model.speed == null ? '—' : `${formatMetric(model.speed)} t/s`}</td>}
+                                                        {metricAvailability.latency && <td>{model.latency == null ? '—' : `${formatMetric(model.latency, 2)} s`}</td>}
+                                                        {metricAvailability.profile && <td><span className={`model-profile-badge ${model.profile}`}>{PROFILE_ICONS[model.profile]} {t(`model_comparison.profiles.${model.profile}`)}</span></td>}
+                                                        <td><strong>{cost == null ? '—' : `$${formatMetric(cost, 2)}`}</strong></td>
+                                                        <td className="model-comparison-sticky-end">
+                                                            <div className="model-availability-cell">
+                                                                <button
+                                                                    type="button"
+                                                                    role="switch"
+                                                                    aria-checked={isActive}
+                                                                    aria-label={t(
+                                                                        isActive
+                                                                            ? 'model_comparison.disable_model'
+                                                                            : 'model_comparison.enable_model',
+                                                                        { model: model.name },
+                                                                    )}
+                                                                    className={`model-availability-toggle ${isActive ? 'active' : ''}`}
+                                                                    disabled={configurationLoading || Boolean(configurationError) || isBusy}
+                                                                    onClick={() => (isActive ? deactivateModel(model) : beginActivation(model))}
+                                                                >
+                                                                    {isBusy ? <Loader2 className="animate-spin" size={15} /> : <span />}
+                                                                </button>
+                                                                <small title={routeLabel}>
+                                                                    {configurationLoading
+                                                                        ? t('model_comparison.configuration_loading')
+                                                                        : isActive
+                                                                            ? routeLabel || t('model_comparison.active')
+                                                                            : t('model_comparison.inactive')}
+                                                                </small>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                    {setup?.model.id === model.id && (
+                                                        <tr className="model-setup-row">
+                                                            <td className="model-setup-cell" colSpan={columns.length + 2}>{setupPanel}</td>
+                                                        </tr>
+                                                    )}
+                                                </React.Fragment>
                                             );
                                         })}
                                     </tbody>
