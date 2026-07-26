@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-    catalogModelToRegistryEntry,
+    comparisonRoutesForMode,
+    comparisonRouteToRegistryEntry,
     matchingRegistryIndexes,
     registryEntryMatchesModel,
-    suggestedCatalogModel,
 } from './modelComparisonRegistry';
 
 const comparisonModel = {
@@ -37,18 +37,17 @@ describe('model comparison registry helpers', () => {
         expect(indexes).toEqual([0]);
     });
 
-    it('builds a router row exclusively from catalog-owned metadata', () => {
-        expect(catalogModelToRegistryEntry(
-            { id: 'ollama', is_local: true },
-            {
-                id: 'qwen3:8b',
-                cost_in: 0,
-                cost_out: 0,
-                context_window: 32768,
-                quality: 2,
-                tags: ['code'],
-            },
-        )).toEqual({
+    it('builds a router row directly from an exact comparison route', () => {
+        expect(comparisonRouteToRegistryEntry({
+            provider: 'ollama',
+            model_id: 'qwen3:8b',
+            is_local: true,
+            cost_in: 0,
+            cost_out: 0,
+            context_window: 32768,
+            quality: 2,
+            tags: ['code'],
+        })).toEqual({
             provider: 'ollama',
             model_id: 'qwen3:8b',
             is_local: true,
@@ -62,14 +61,37 @@ describe('model comparison registry helpers', () => {
         });
     });
 
-    it('prefers the exact route offered by the selected provider', () => {
-        const provider = {
-            id: 'openai',
-            models: [
-                { id: 'gpt-5.6-terra', name: 'GPT-5.6 Terra' },
-                { id: 'gpt-5.6-sol', name: 'GPT-5.6 Sol' },
+    it('returns one exact route per provider and prefers connected providers', () => {
+        const routes = comparisonRoutesForMode({
+            routes: [
+                { provider: 'gateway', model_id: 'vendor/model-v1', is_local: false },
+                { provider: 'gateway', model_id: 'vendor/model-v2', is_local: false },
+                { provider: 'direct', model_id: 'model', is_local: false },
             ],
-        };
-        expect(suggestedCatalogModel(provider, comparisonModel)?.id).toBe('gpt-5.6-sol');
+        }, [
+            { id: 'gateway', name: 'Gateway', connected: false },
+            { id: 'direct', name: 'Direct', connected: true },
+        ], 'remote');
+
+        expect(routes.map((route) => [route.provider, route.model_id])).toEqual([
+            ['direct', 'model'],
+            ['gateway', 'vendor/model-v1'],
+        ]);
+    });
+
+    it('exposes only installed or configured local routes', () => {
+        const routes = comparisonRoutesForMode({
+            routes: [
+                { provider: 'ollama', model_id: 'installed', is_local: true },
+                { provider: 'lmstudio', model_id: 'not-installed', is_local: true },
+                { provider: 'remote', model_id: 'hosted', is_local: false },
+            ],
+        }, [
+            { id: 'ollama', name: 'Ollama', live: true },
+            { id: 'lmstudio', name: 'LM Studio', live: false, configured: false },
+            { id: 'remote', name: 'Remote' },
+        ], 'local');
+
+        expect(routes.map((route) => route.model_id)).toEqual(['installed']);
     });
 });

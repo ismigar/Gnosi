@@ -379,9 +379,13 @@ Artificial Analysis rather than a hand-maintained shortlist.
   the interaction diverges from the rest of Settings.
 - Artificial Analysis benchmark variants do not contain deployable provider
   ids. Match them to exact models.dev provider/model routes server-side and
-  send those routes with the comparison payload. If no exact route exists,
-  require an explicit provider and catalog-model choice rather than inventing
-  an id from the display name.
+  send those routes with the comparison payload. Treat each exact route as the
+  source of truth: activate a single route directly, ask only for the provider
+  when several providers expose the same compared model, and derive the model
+  id silently from the selected route. Deduplicate same-provider aliases
+  deterministically. Never ask the user to select the model again. If no exact
+  route exists, block automatic activation instead of offering an unrelated
+  catalog model or inventing an id from the display name.
 - Reuse an existing provider credential silently. Request an API key only when
   the chosen remote provider has no configured or environment credential, and
   persist it through the secure credentials endpoint before enabling the
