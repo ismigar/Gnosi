@@ -3657,7 +3657,7 @@
     "profile_help_open": "Mostrar explicaciones de los perfiles",
     "profile_help_title": "Perfiles del equipo de trabajo",
     "profile_help_intro": "Elige un perfil según la complejidad, el volumen y el coste de la tarea.",
-    "profile_help": {"worker": {"objective": "Tareas masivas, sencillas y muy baratas.", "examples": "Clasificar correos, corregir ortografía o traducir etiquetas cortas."}, "administrative": {"objective": "Ejecución directa y salida estructurada.", "examples": "Extraer facturas a JSON, ordenar notas o responder preguntas frecuentes."}, "documentalist": {"objective": "Analizar grandes volúmenes de texto con contexto amplio.", "examples": "Revisar PDFs extensos, repositorios completos o libros y transcripciones."}, "allrounder": {"objective": "Equilibrio para el trabajo diario.", "examples": "Redactar contenido, hacer brainstorming o crear material educativo."}, "expert": {"objective": "Razonamiento profundo para problemas complejos y críticos.", "examples": "Depurar código, analizar riesgos o resolver matemáticas avanzadas."}},
+    "profile_help": {"worker": {"objective": "Tareas masivas, sencillas y muy baratas.", "examples": "Clasificar correos, corregir ortografía o traducir etiquetas cortas."}, "administrative": {"objective": "Ejecución directa y salida estructurada.", "examples": "Extraer facturas a JSON, ordenar notas o responder preguntas frecuentes."}, "documentalist": {"objective": "Analizar grandes volúmenes de texto con contexto amplio.", "examples": "Revisar PDFs extensos, repositorios completos o libros y transcripciones."}, "allrounder": {"objective": "Equilibrio para el trabajo diario.", "examples": "Redactar contenido, hacer brainstorming o crear material educativo."}, "expert": {"objective": "Razonamiento profundo para problemas complejos y críticos.", "examples": "Depurar código, analizar riesgos o resolver matemáticas avanzadas."}, "unrated": {"objective": "Modèles sans indice d’intelligence comparable.", "examples": "Examinez les autres métriques avant de leur attribuer une tâche."}},
     "profile_help_flow_title": "Combinación recomendada",
     "profile_help_flow": "Documentalista extrae los puntos clave → Perito decide la estrategia → Totterreno redacta → Peón o Administrativo traduce y formatea.",
     "all_profiles": "Tous les profils",
@@ -3731,7 +3731,7 @@
       "router_help": "Le modèle sera disponible pour le routeur automatique et dans Modèles du routeur.",
       "activate": "Activer le modèle"
     },
-    "profiles": { "worker": "Exécutant", "administrative": "Administratif", "documentalist": "Documentaliste", "allrounder": "Polyvalent", "expert": "Expert / Directeur" },
+    "profiles": { "worker": "Exécutant", "administrative": "Administratif", "documentalist": "Documentaliste", "allrounder": "Polyvalent", "expert": "Expert / Directeur", "unrated": "Non évalué" },
     "columns": { "model": "Modèle", "creator": "Créateur", "provider": "Fournisseur", "intelligence": "Intelligence", "coding": "Code", "agentic": "Agents", "input_price": "Entrée $/1M", "output_price": "Sortie $/1M", "context": "Contexte", "speed": "Vitesse", "latency": "Latence", "uptime": "Disponibilité", "profile": "Usage recommandé", "quantization": "Quantification", "monthly_cost": "Est. $/mois", "available": "Disponible" }
   },
   "tags": {
