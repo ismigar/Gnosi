@@ -3634,6 +3634,8 @@
     "launch_title": "Compara i configura models d’IA",
     "launch_description": "Activa o desactiva models directament des de la comparativa. L’assistent et demanarà el proveïdor, si l’execució és local o remota i la clau API només quan calgui.",
     "open": "Comparar i configurar",
+    "advanced_title": "Connexions i configuració avançada",
+    "advanced_description": "Gestiona credencials, prova proveïdors o ajusta manualment el router.",
     "close": "Tancar la comparativa de models",
     "eyebrow": "Intel·ligència de models d’IA",
     "title": "Comparativa de models d’IA",

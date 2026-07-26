@@ -342,6 +342,12 @@ Artificial Analysis rather than a hand-maintained shortlist.
 - Comparison mutations must preserve the complete budget payload and notify
   the router-registry Settings component through `gnosi-ai-models-changed`, so
   both configuration surfaces stay synchronized.
+- Do not present provider cards and router-registry rows as parallel primary
+  model-management surfaces once the comparison can enable and configure a
+  route. This duplicates the workflow and makes users question which surface
+  is authoritative. Keep credential maintenance, connection diagnostics and
+  manual router tuning in one collapsed advanced section; the comparison is
+  the default model-management path.
 - Note: Never persist `api_key` in `params.yaml`, including during environment
   migrations. Store only `credential_ref` and resolve secrets from Keychain or
   the secret store at runtime.
