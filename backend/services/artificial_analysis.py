@@ -46,7 +46,7 @@ def _normalize_name(value: str) -> str:
 
 
 def _catalog_enrichment_index(catalog: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
-    """Index models.dev metadata by normalized id/name, keeping richest values."""
+    """Index metadata and usable router routes by normalized model id/name."""
     index: Dict[str, Dict[str, Any]] = {}
     for provider in catalog.get("providers") or []:
         for model in provider.get("models") or []:
@@ -55,13 +55,34 @@ def _catalog_enrichment_index(catalog: Dict[str, Any]) -> Dict[str, Dict[str, An
                 "tags": list(model.get("tags") or []),
                 "release_date": model.get("release_date") or "",
             }
+            route = {
+                "provider": str(provider.get("id") or ""),
+                "provider_name": str(provider.get("name") or provider.get("id") or ""),
+                "model_id": str(model.get("id") or ""),
+                "model_name": str(model.get("name") or model.get("id") or ""),
+                "is_local": bool(provider.get("is_local")),
+                "cost_in": _number(model.get("cost_in")) or 0,
+                "cost_out": _number(model.get("cost_out")) or 0,
+                "context_window": int(model.get("context_window") or 8192),
+                "quality": int(model.get("quality") or 2),
+                "tags": list(model.get("tags") or []),
+            }
             for raw_key in (model.get("id"), model.get("name")):
                 key = _normalize_name(str(raw_key or ""))
                 if not key:
                     continue
                 current = index.get(key)
-                if current is None or candidate["context_window"] > current["context_window"]:
-                    index[key] = candidate
+                if current is None:
+                    current = {**candidate, "routes": []}
+                    index[key] = current
+                elif candidate["context_window"] > current["context_window"]:
+                    current.update(candidate)
+                route_key = (route["provider"], route["model_id"])
+                if route["provider"] and route["model_id"] and not any(
+                    (item["provider"], item["model_id"]) == route_key
+                    for item in current["routes"]
+                ):
+                    current["routes"].append(route)
     return index
 
 
@@ -132,11 +153,24 @@ def build_comparison_payload(
         performance = row.get("performance") or {}
         evaluations = row.get("evaluations") or {}
         creator = row.get("model_creator") or {}
-        match = (
-            enrichment.get(_normalize_name(str(row.get("slug") or "")))
-            or enrichment.get(_normalize_name(str(row.get("name") or "")))
-            or {}
+        matched_entries = []
+        for raw_key in (row.get("slug"), row.get("name")):
+            entry = enrichment.get(_normalize_name(str(raw_key or "")))
+            if entry is not None and entry not in matched_entries:
+                matched_entries.append(entry)
+        match = max(
+            matched_entries,
+            key=lambda item: item.get("context_window") or 0,
+            default={},
         )
+        routes = []
+        route_keys = set()
+        for entry in matched_entries:
+            for route in entry.get("routes") or []:
+                route_key = (route.get("provider"), route.get("model_id"))
+                if route_key not in route_keys:
+                    route_keys.add(route_key)
+                    routes.append(route)
         context_window = int(row.get("context_window_tokens") or match.get("context_window") or 0)
         models.append({
             "id": str(row.get("id") or row.get("slug") or row.get("name") or ""),
@@ -154,6 +188,7 @@ def build_comparison_payload(
             "coding": _number(evaluations.get("artificial_analysis_coding_index")),
             "agentic": _number(evaluations.get("artificial_analysis_agentic_index")),
             "tags": list(match.get("tags") or []),
+            "routes": routes,
         })
 
     intelligence_values = [
