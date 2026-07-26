@@ -3720,8 +3720,6 @@
       "choose_model": "Tria el model exacte",
       "confirm_route_help": "Confirma la versió exacta per evitar configurar un model diferent del comparat.",
       "connected": "connectat",
-      "key_required": "Cal una clau API",
-      "key_required_help": "La clau es desarà al magatzem segur del backend, mai al navegador ni a params.yaml.",
       "credentials_ready": "Credencials preparades",
       "credentials_ready_help": "Gnosi reutilitzarà la connexió segura que ja tens configurada.",
       "api_key": "Clau API de {{provider}}",

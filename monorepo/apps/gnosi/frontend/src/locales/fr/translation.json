@@ -3720,8 +3720,6 @@
       "choose_model": "Choisir le modèle exact",
       "confirm_route_help": "Confirmez la version exacte pour éviter de configurer un modèle différent de celui comparé.",
       "connected": "connecté",
-      "key_required": "Clé API requise",
-      "key_required_help": "La clé est stockée dans le magasin sécurisé du backend, jamais dans le navigateur ni dans params.yaml.",
       "credentials_ready": "Identifiants prêts",
       "credentials_ready_help": "Gnosi réutilisera votre connexion sécurisée existante.",
       "api_key": "Clé API {{provider}}",
