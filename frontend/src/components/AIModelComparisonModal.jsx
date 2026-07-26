@@ -104,7 +104,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
         const observer = new ResizeObserver(updateWidth);
         observer.observe(table);
         return () => { body.removeEventListener('scroll', syncBar); observer.disconnect(); };
-    }, [feed, isOpen, models.length]);
+    }, [feed, isOpen]);
 
     useEffect(() => {
         if (!isOpen) return undefined;
