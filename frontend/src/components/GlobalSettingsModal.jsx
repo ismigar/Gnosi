@@ -362,7 +362,14 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
     const [activeTab, setActiveTab] = useState(initialTab);
     const [integrations, setIntegrations] = useState({ calendars: [], contacts: [], mail_accounts: [] });
-    const integrationsLoadedRef = useRef(false); // Prevents auto-save from firing with empty data
+    // Prevent autosave until every request that hydrates the unified draft has
+    // settled. Saving a partially hydrated draft can remove protected agents or
+    // overwrite identity/integration data with the initial empty values.
+    const configLoadedRef = useRef(false);
+    const aiCatalogLoadedRef = useRef(false);
+    const integrationsLoadedRef = useRef(false);
+    const identityLoadedRef = useRef(false);
+    const hydrationGenerationRef = useRef(0);
     const [googleSubCalendars, setGoogleSubCalendars] = useState([]);
     const [databases, setDatabases] = useState([]);
     const [tables, setTables] = useState([]);
@@ -837,28 +844,41 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
     useEffect(() => {
         if (isOpen) {
-            integrationsLoadedRef.current = false; // Reset when opening the modal
+            const hydrationGeneration = ++hydrationGenerationRef.current;
+            configLoadedRef.current = false;
+            aiCatalogLoadedRef.current = false;
+            integrationsLoadedRef.current = false;
+            identityLoadedRef.current = false;
             lastSavedData.current = null; // Reset baseline to avoid spurious saves
-            loadConfig();
-            loadAiCatalog();
+            loadConfig(hydrationGeneration);
+            loadAiCatalog(hydrationGeneration);
             loadAiRegistry();
             loadTablesAndDatabases();
-            loadIntegrations();
+            loadIntegrations(hydrationGeneration);
             loadNewsletterSources();
             loadNewsletterAccount();
             checkGoogleAuth();
-            loadIdentity();
+            loadIdentity(hydrationGeneration);
             loadSocialSettings();
         }
     }, [isOpen]);
 
-    const loadIdentity = async () => {
+    const loadIdentity = async (hydrationGeneration = null) => {
         try {
             const res = await axios.get('/api/identity');
             if (res.data) {
                 setDraft(prev => ({ ...prev, identity: { ...prev.identity, ...res.data } }));
             }
-        } catch (err) { console.error("Error loading identity:", err); }
+        } catch (err) {
+            console.error("Error loading identity:", err);
+        } finally {
+            if (
+                hydrationGeneration === null
+                || hydrationGeneration === hydrationGenerationRef.current
+            ) {
+                identityLoadedRef.current = true;
+            }
+        }
     };
 
     useEffect(() => {
@@ -1162,7 +1182,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         } catch (err) { console.error("Error checking Google Auth:", err); }
     };
 
-    const loadConfig = async () => {
+    const loadConfig = async (hydrationGeneration = null) => {
         try {
             const res = await fetch('/api/config');
             if (res.ok) {
@@ -1185,35 +1205,38 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                     window.dispatchEvent(new Event('db-theme-changed'));
                 }
             }
-        } catch (err) { console.error("Error loading config:", err); }
+        } catch (err) {
+            console.error("Error loading config:", err);
+        } finally {
+            if (
+                hydrationGeneration === null
+                || hydrationGeneration === hydrationGenerationRef.current
+            ) {
+                configLoadedRef.current = true;
+            }
+        }
     };
 
-    const loadIntegrations = async () => {
+    const loadIntegrations = async (hydrationGeneration = null) => {
         try {
             const res = await fetch(`/api/integrations?t=${Date.now()}`);
             if (res.ok) {
                 const data = await res.json();
                 setIntegrations(data);
-                lastSavedData.current = JSON.stringify({
-                    settings: draft.settings,
-                    paths: draft.paths,
-                    graph: draft.graph,
-                    ai: { 
-                        agents: draft.ai.agents, 
-                        active_agent_id: draft.ai.active_agent_id,
-                        providers: draft.ai.providers
-                    },
-                    integrations: data,
-                });
-                // Mark as loaded only AFTER setIntegrations
-                setTimeout(() => {
-                    integrationsLoadedRef.current = true;
-                }, 100);
             }
-        } catch (err) { console.error("Error loading integrations:", err); }
+        } catch (err) {
+            console.error("Error loading integrations:", err);
+        } finally {
+            if (
+                hydrationGeneration === null
+                || hydrationGeneration === hydrationGenerationRef.current
+            ) {
+                integrationsLoadedRef.current = true;
+            }
+        }
     };
 
-    const loadAiCatalog = async () => {
+    const loadAiCatalog = async (hydrationGeneration = null) => {
         try {
             const res = await fetch('/api/ai/catalog');
             if (res.ok) {
@@ -1227,7 +1250,16 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                     }));
                 }
             }
-        } catch (err) { console.error("Error loading AI catalog:", err); }
+        } catch (err) {
+            console.error("Error loading AI catalog:", err);
+        } finally {
+            if (
+                hydrationGeneration === null
+                || hydrationGeneration === hydrationGenerationRef.current
+            ) {
+                aiCatalogLoadedRef.current = true;
+            }
+        }
     };
 
     const loadAiRegistry = async () => {
@@ -1459,9 +1491,15 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             return;
         }
 
-        // Critical safeguard: don't save integrations if they haven't been loaded from the server yet
-        if (!integrationsLoadedRef.current) {
-            console.warn('[AutoSave] Ignoring save: integrations not loaded yet.');
+        // The draft is hydrated by independent requests. Treat their completion
+        // as one initialization gate so the first autosave pass only records a
+        // complete baseline and never persists initial placeholder values.
+        if (
+            !configLoadedRef.current
+            || !aiCatalogLoadedRef.current
+            || !integrationsLoadedRef.current
+            || !identityLoadedRef.current
+        ) {
             return;
         }
 
