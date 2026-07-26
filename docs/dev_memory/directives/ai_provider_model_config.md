@@ -316,6 +316,10 @@ Artificial Analysis rather than a hand-maintained shortlist.
 - Call the models.dev loader with its public `force_refresh` parameter. Do not
   invent a `refresh` keyword: unit tests must exercise the same keyword used in
   production so a permissive mock cannot hide a runtime signature mismatch.
+- The comparison table is intentionally wider than the modal. Keep the first
+  model column and monthly-cost column sticky, and expose explicit horizontal
+  navigation controls; a scrollbar at the bottom of hundreds of rows is not
+  discoverable enough on desktop or mobile.
 - Note: Never persist `api_key` in `params.yaml`, including during environment
   migrations. Store only `credential_ref` and resolve secrets from Keychain or
   the secret store at runtime.

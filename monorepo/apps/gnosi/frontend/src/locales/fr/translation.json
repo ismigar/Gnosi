@@ -3658,6 +3658,11 @@
     "calculator": "Calculateur de coût mensuel",
     "input_tokens": "Jetons d’entrée / mois",
     "output_tokens": "Jetons de sortie / mois",
+    "calculator_hint": "Coût estimé = (entrée ÷ 1M × prix d’entrée) + (sortie ÷ 1M × prix de sortie). Le calcul est effectué pour chaque ligne du tableau.",
+    "table_navigation": "Navigation du tableau",
+    "table_scroll_hint": "Faites défiler horizontalement pour voir toutes les colonnes",
+    "scroll_left": "Faire défiler le tableau vers la gauche",
+    "scroll_right": "Faire défiler le tableau vers la droite",
     "no_results": "Aucun modèle ne correspond à ces filtres.",
     "data_note": "Données actives de benchmarks, prix et performances. Attribution :",
     "errors": {
