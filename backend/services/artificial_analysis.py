@@ -7,13 +7,13 @@ single page is only a partial model list.
 
 from __future__ import annotations
 
+from bisect import bisect_left, bisect_right
 import json
 import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
-from statistics import median
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, List, Optional
 
 import requests
 
@@ -25,6 +25,12 @@ ARTIFICIAL_ANALYSIS_URL = (
 )
 _TIMEOUT_SECONDS = 12
 _FALLBACK_CODES = {"rate_limited", "network_error", "upstream_error"}
+_PROFILE_PERCENTILE_CEILINGS = (
+    ("worker", 0.2),
+    ("administrative", 0.4),
+    ("documentalist", 0.6),
+    ("allrounder", 0.8),
+)
 
 
 def _cache_path() -> Optional[Path]:
@@ -127,56 +133,32 @@ def _catalog_enrichment_index(catalog: Dict[str, Any]) -> Dict[str, Dict[str, An
     return index
 
 
-def _percentile(values: Iterable[float], fraction: float) -> float:
-    ordered = sorted(values)
-    if not ordered:
-        return 0
-    position = min(len(ordered) - 1, round((len(ordered) - 1) * fraction))
-    return ordered[position]
+def _intelligence_percentile(
+    intelligence: float,
+    ordered_intelligence: List[float],
+) -> float:
+    """Return a stable zero-to-one percentile, assigning ties to one band."""
+    if len(ordered_intelligence) == 1:
+        return 1.0
+    lower = bisect_left(ordered_intelligence, intelligence)
+    upper = bisect_right(ordered_intelligence, intelligence)
+    midpoint = (lower + upper - 1) / 2
+    return midpoint / (len(ordered_intelligence) - 1)
 
 
 def _recommended_profile(
     model: Dict[str, Any],
-    intelligence_frontier: float,
-    intelligence_typical: float,
-    speed_fast: float,
+    ordered_intelligence: List[float],
 ) -> str:
+    """Assign one closed task-profile band from benchmark percentile."""
     intelligence = model.get("intelligence")
-    context = int(model.get("context_window") or 0)
-    speed = model.get("speed")
-    input_price = model.get("input_price")
-    output_price = model.get("output_price")
-    name = (model.get("name") or "").lower()
-    tags = set(model.get("tags") or [])
-    reasoning = (
-        "reasoning" in tags
-        or any(marker in name for marker in ("reasoning", "(high)", "(max)", "xhigh", "thinking"))
-    )
-    blended_price = None
-    if input_price is not None and output_price is not None:
-        blended_price = (3 * input_price + output_price) / 4
-
-    if intelligence is not None and (
-        intelligence >= intelligence_frontier
-        or (reasoning and intelligence >= intelligence_typical)
-    ):
-        return "expert"
-    if context >= 500_000:
-        return "documentalist"
-    if (
-        blended_price is not None
-        and blended_price <= 0.25
-        and (intelligence is None or intelligence < intelligence_typical)
-    ):
-        return "worker"
-    if (
-        blended_price is not None
-        and blended_price <= 1.5
-        and speed is not None
-        and speed >= speed_fast
-    ):
-        return "administrative"
-    return "allrounder"
+    if intelligence is None or not ordered_intelligence:
+        return "unrated"
+    percentile = _intelligence_percentile(intelligence, ordered_intelligence)
+    for profile, ceiling in _PROFILE_PERCENTILE_CEILINGS:
+        if percentile < ceiling:
+            return profile
+    return "expert"
 
 
 def build_comparison_payload(
@@ -232,15 +214,11 @@ def build_comparison_payload(
             "routes": routes,
         })
 
-    intelligence_values = [
+    intelligence_values = sorted(
         model["intelligence"] for model in models if model["intelligence"] is not None
-    ]
-    speed_values = [model["speed"] for model in models if model["speed"] is not None]
-    frontier = _percentile(intelligence_values, 0.8)
-    typical = median(intelligence_values) if intelligence_values else 0
-    fast = _percentile(speed_values, 0.65)
+    )
     for model in models:
-        model["profile"] = _recommended_profile(model, frontier, typical, fast)
+        model["profile"] = _recommended_profile(model, intelligence_values)
 
     models.sort(key=lambda model: (
         model["intelligence"] is not None,

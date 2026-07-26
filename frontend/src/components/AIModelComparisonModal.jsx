@@ -12,13 +12,14 @@ import {
 } from '../lib/modelComparisonRegistry';
 import './AIModelComparisonModal.css';
 
-const PROFILE_KEYS = ['worker', 'administrative', 'documentalist', 'allrounder', 'expert'];
+const PROFILE_KEYS = ['worker', 'administrative', 'documentalist', 'allrounder', 'expert', 'unrated'];
 const PROFILE_ICONS = {
     worker: '🟢',
     administrative: '🔵',
     documentalist: '📑',
     allrounder: '🟡',
     expert: '🟣',
+    unrated: '⚪',
 };
 
 const parseNumber = (value) => {

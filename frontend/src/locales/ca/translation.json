@@ -3657,7 +3657,7 @@
     "profile_help_open": "Mostra l'explicació dels perfils",
     "profile_help_title": "Perfils de l’equip de treball",
     "profile_help_intro": "Tria el perfil segons la complexitat, el volum i el cost de la tasca.",
-    "profile_help": {"worker": {"objective": "Tasques massives, senzilles i molt barates.", "examples": "Classificar correus, corregir ortografia o traduir etiquetes curtes."}, "administrative": {"objective": "Execució directa i sortida estructurada.", "examples": "Extreure factures a JSON, ordenar apunts o respondre preguntes freqüents."}, "documentalist": {"objective": "Analitzar grans volums de text amb context ampli.", "examples": "Revisar PDFs extensos, repositoris sencers o molts llibres i transcripcions."}, "allrounder": {"objective": "Equilibri per al treball diari.", "examples": "Redactar contingut, fer brainstorming o crear material educatiu."}, "expert": {"objective": "Raonament profund per a problemes complexos i crítics.", "examples": "Depurar codi, analitzar riscos i resoldre matemàtiques avançades."}},
+    "profile_help": {"worker": {"objective": "Tasques massives, senzilles i molt barates.", "examples": "Classificar correus, corregir ortografia o traduir etiquetes curtes."}, "administrative": {"objective": "Execució directa i sortida estructurada.", "examples": "Extreure factures a JSON, ordenar apunts o respondre preguntes freqüents."}, "documentalist": {"objective": "Analitzar grans volums de text amb context ampli.", "examples": "Revisar PDFs extensos, repositoris sencers o molts llibres i transcripcions."}, "allrounder": {"objective": "Equilibri per al treball diari.", "examples": "Redactar contingut, fer brainstorming o crear material educatiu."}, "expert": {"objective": "Raonament profund per a problemes complexos i crítics.", "examples": "Depurar codi, analitzar riscos i resoldre matemàtiques avançades."}, "unrated": {"objective": "Models sense benchmark d’intel·ligència comparable.", "examples": "Consulta les altres mètriques abans d’assignar-los una tasca."}},
     "profile_help_flow_title": "Combinació recomanada",
     "profile_help_flow": "Documentalista extreu els punts clau → Perit decideix l’estratègia → Totterreny redacta → Peó o Administratiu tradueix i formata.",
     "all_profiles": "Tots els perfils",
@@ -3731,7 +3731,7 @@
       "router_help": "El model quedarà disponible per al router automàtic i també a Models del router.",
       "activate": "Activa el model"
     },
-    "profiles": { "worker": "Peó", "administrative": "Administratiu", "documentalist": "Documentalista", "allrounder": "Totterreny", "expert": "Perit / Director" },
+    "profiles": { "worker": "Peó", "administrative": "Administratiu", "documentalist": "Documentalista", "allrounder": "Totterreny", "expert": "Perit / Director", "unrated": "Sense puntuació" },
     "columns": { "model": "Model", "creator": "Creador", "provider": "Proveïdor", "intelligence": "Intel·ligència", "coding": "Codi", "agentic": "Agents", "input_price": "Entrada $/1M", "output_price": "Sortida $/1M", "context": "Context", "speed": "Velocitat", "latency": "Latència", "uptime": "Disponibilitat", "profile": "Ús recomanat", "quantization": "Quantització", "monthly_cost": "Est. $/mes", "available": "Disponible" }
   },
   "tags": {
