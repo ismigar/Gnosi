@@ -12,7 +12,9 @@ def _row(index, name, intelligence, speed, input_price, output_price):
         "model_creator": {"name": "Frontier Lab"},
         "evaluations": {
             "artificial_analysis_intelligence_index": intelligence,
-            "artificial_analysis_coding_index": intelligence + 1,
+            "artificial_analysis_coding_index": (
+                intelligence + 1 if intelligence is not None else None
+            ),
         },
         "pricing": {
             "price_1m_input_tokens": input_price,
@@ -41,6 +43,52 @@ def test_build_payload_includes_every_row_and_assigns_frontier_profile():
     assert frontier["profile"] == "expert"
     assert cheap["profile"] == "worker"
     assert payload["intelligence_index_version"] == 4.1
+
+
+def test_profile_intervals_cut_off_models_above_and_below():
+    rows = [
+        _row(index, f"Model {index}", index * 10, 50, 1, 2)
+        for index in range(1, 11)
+    ]
+
+    payload = aa.build_comparison_payload(rows)
+    names_by_profile = {
+        profile: {
+            model["name"]
+            for model in payload["models"]
+            if model["profile"] == profile
+        }
+        for profile in (
+            "worker",
+            "administrative",
+            "documentalist",
+            "allrounder",
+            "expert",
+        )
+    }
+
+    assert names_by_profile == {
+        "worker": {"Model 1", "Model 2"},
+        "administrative": {"Model 3", "Model 4"},
+        "documentalist": {"Model 5", "Model 6"},
+        "allrounder": {"Model 7", "Model 8"},
+        "expert": {"Model 9", "Model 10"},
+    }
+
+
+def test_unbenchmarked_model_does_not_leak_into_middle_profile():
+    rows = [
+        _row(1, "Low", 10, 10, 0.01, 0.01),
+        _row(2, "Unknown Fast Long", None, 500, 0.01, 0.01),
+        _row(3, "High", 90, 10, 10, 10),
+    ]
+
+    payload = aa.build_comparison_payload(rows)
+    unknown = next(
+        model for model in payload["models"] if model["name"] == "Unknown Fast Long"
+    )
+
+    assert unknown["profile"] == "unrated"
 
 
 def test_build_payload_enriches_context_from_models_dev():

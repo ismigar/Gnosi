@@ -4226,7 +4226,7 @@
     "profile_help_open": "Show profile explanations",
     "profile_help_title": "AI work-team profiles",
     "profile_help_intro": "Choose a profile based on task complexity, volume, and cost.",
-    "profile_help": {"worker": {"objective": "Massive, simple, very low-cost tasks.", "examples": "Classify emails, fix spelling, or translate short labels."}, "administrative": {"objective": "Direct execution with structured output.", "examples": "Extract invoices to JSON, organize notes, or answer FAQs."}, "documentalist": {"objective": "Analyze large text volumes with a large context window.", "examples": "Review long PDFs, whole repositories, or books and transcripts."}, "allrounder": {"objective": "Balanced everyday work.", "examples": "Write content, brainstorm, or create learning material."}, "expert": {"objective": "Deep reasoning for complex, critical problems.", "examples": "Debug code, analyze risks, or solve advanced mathematics."}},
+    "profile_help": {"worker": {"objective": "Massive, simple, very low-cost tasks.", "examples": "Classify emails, fix spelling, or translate short labels."}, "administrative": {"objective": "Direct execution with structured output.", "examples": "Extract invoices to JSON, organize notes, or answer FAQs."}, "documentalist": {"objective": "Analyze large text volumes with a large context window.", "examples": "Review long PDFs, whole repositories, or books and transcripts."}, "allrounder": {"objective": "Balanced everyday work.", "examples": "Write content, brainstorm, or create learning material."}, "expert": {"objective": "Deep reasoning for complex, critical problems.", "examples": "Debug code, analyze risks, or solve advanced mathematics."}, "unrated": {"objective": "Models without a comparable intelligence benchmark.", "examples": "Review the other metrics before assigning them a task."}},
     "profile_help_flow_title": "Recommended workflow",
     "profile_help_flow": "Documentalist extracts key points → Expert decides the strategy → All-rounder writes → Worker or Administrative translates and formats.",
     "all_profiles": "All profiles",
@@ -4299,7 +4299,7 @@
       "router_help": "The model will be available to the automatic router and under Router models.",
       "activate": "Enable model"
     },
-    "profiles": { "worker": "Worker", "administrative": "Administrative", "documentalist": "Documentalist", "allrounder": "All-rounder", "expert": "Expert / Director" },
+    "profiles": { "worker": "Worker", "administrative": "Administrative", "documentalist": "Documentalist", "allrounder": "All-rounder", "expert": "Expert / Director", "unrated": "Unrated" },
     "columns": { "model": "Model", "creator": "Creator", "provider": "Provider", "intelligence": "Intelligence", "coding": "Coding", "agentic": "Agentic", "input_price": "Input $/1M", "output_price": "Output $/1M", "context": "Context", "speed": "Speed", "latency": "Latency", "uptime": "Uptime", "profile": "Recommended use", "quantization": "Quantization", "monthly_cost": "Est. $/month", "available": "Available" }
   }
 }
