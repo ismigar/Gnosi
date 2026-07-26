@@ -498,7 +498,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                                     <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('model_comparison.search')} />
                                 </label>
                                 <label className="model-profile-filter">
-                                    <span>{t('model_comparison.profile')} <button type="button" className="model-profile-help" onClick={() => setShowProfileHelp(true)} aria-label={t('model_comparison.profile_help_open')}>?</button></span>
+                                    <span>{t('model_comparison.profile')} <button type="button" className="model-profile-help" onMouseEnter={() => setShowProfileHelp(true)} onClick={() => setShowProfileHelp(true)} aria-label={t('model_comparison.profile_help_open')}>?</button></span>
                                     <select value={profile} onChange={(event) => setProfile(event.target.value)}>
                                         <option value="all">{t('model_comparison.all_profiles')}</option>
                                         {PROFILE_KEYS.map((key) => <option key={key} value={key}>{t(`model_comparison.profiles.${key}`)}</option>)}
@@ -515,7 +515,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                             </div>
 
                             {showProfileHelp && (
-                                <div className="model-profile-help-backdrop" role="presentation" onClick={() => setShowProfileHelp(false)}>
+                                <div className="model-profile-help-backdrop" role="presentation" onMouseLeave={() => setShowProfileHelp(false)} onClick={() => setShowProfileHelp(false)}>
                                     <section className="model-profile-help-dialog" role="dialog" aria-modal="true" aria-labelledby="model-profile-help-title" onClick={(event) => event.stopPropagation()}>
                                         <header><div><h2 id="model-profile-help-title">{t('model_comparison.profile_help_title')}</h2><p>{t('model_comparison.profile_help_intro')}</p></div><button type="button" onClick={() => setShowProfileHelp(false)} aria-label={t('model_comparison.close')}><X size={20} /></button></header>
                                         <div className="model-profile-help-content">
