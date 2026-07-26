@@ -37,7 +37,7 @@
 .model-cost-calculator { display: grid; grid-template-columns: minmax(210px, 1fr) repeat(2, minmax(180px, 1fr)); align-items: end; gap: 14px; margin: 18px 0 12px; padding: 16px 18px; border: 1px solid rgba(59,130,246,.22); border-radius: 18px; background: rgba(59,130,246,.07); }
 .model-cost-title { align-self: center; display: flex; align-items: center; gap: 10px; color: var(--text-primary); }
 .model-cost-hint { grid-column: 1 / -1; margin: -2px 0 0; color: var(--text-secondary); font-size: .75rem; line-height: 1.45; }
-.model-table-controls { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 2px 8px; color: var(--text-secondary); font-size: .75rem; }
+.model-table-controls { position: sticky; top: 0; z-index: 8; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 -2px 8px; padding: 8px 2px; border-bottom: 1px solid var(--settings-border); background: var(--settings-bg); color: var(--text-secondary); font-size: .75rem; }
 .model-table-controls > span { flex: 1; min-width: 0; line-height: 1.4; }
 .model-table-controls > span { display: inline-flex; align-items: center; gap: 7px; }
 .model-table-controls > div { display: inline-flex; gap: 6px; }
@@ -45,7 +45,7 @@
 .model-table-controls button:hover { border-color: var(--gnosi-blue); color: var(--gnosi-blue); }
 .model-table-wrap { overflow: auto; overscroll-behavior-x: contain; scrollbar-color: var(--gnosi-blue) var(--settings-sidebar-bg); scrollbar-width: thin; border: 1px solid var(--settings-border); border-radius: 18px; }
 .model-comparison-table { width: 100%; min-width: 1760px; border-collapse: collapse; font-size: .82rem; }
-.model-comparison-table th { position: sticky; top: 0; z-index: 1; padding: 0; background: var(--settings-sidebar-bg); border-bottom: 1px solid var(--settings-border); text-align: start; white-space: nowrap; }
+.model-comparison-table th { position: sticky; top: 48px; z-index: 1; padding: 0; background: var(--settings-sidebar-bg); border-bottom: 1px solid var(--settings-border); text-align: start; white-space: nowrap; }
 .model-comparison-table th > button { display: flex; align-items: center; gap: 6px; width: 100%; padding: 14px; border: 0; background: transparent; color: var(--text-secondary); font: inherit; font-weight: 900; cursor: pointer; }
 .model-comparison-table th:not(:has(button)) { padding: 14px; color: var(--text-secondary); }
 .model-comparison-table td { padding: 15px 14px; border-bottom: 1px solid var(--settings-border); white-space: nowrap; }
