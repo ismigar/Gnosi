@@ -198,6 +198,13 @@ context window, capabilities and quality, all editable afterwards.
   made the router keep using a "deleted" provider (resolve falls back to the
   keychain with no config entry); leaving the rows recreates the
   models-without-provider confusion.
+- Provider deletion must also remove every provider API-key variable from
+  Gnosi-managed `.env_shared`/`.env` files and the live process environment.
+  Environment-backed legacy migration must additionally respect the persisted
+  `ai.disconnected_providers` tombstone because values injected externally by
+  a service manager cannot be edited by the backend. Without both actions,
+  `load_params()` can add the provider back on the next Settings open.
+  Explicit credential save or re-enabling clears the tombstone.
 - `is_provider_connected` must honour `enabled: false` → a toggled-off
   provider is NOT connected, whatever credentials it has, matching the
   router's availability semantics (otherwise the UI groups it as usable while

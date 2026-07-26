@@ -1,8 +1,11 @@
 # backend/config/env_config.py
 import os
+import re
 import sys
 from pathlib import Path
 from dotenv import load_dotenv
+
+from backend.utils.safe_io import safe_write_text
 
 try:
     PROJECTES_ROOT = (
@@ -18,9 +21,59 @@ ENV_LOCATIONS = [
     Path.cwd() / ".env",
     Path(__file__).resolve().parents[1] / ".env",
 ]
+_ENV_ASSIGNMENT_RE = re.compile(r"^\s*([A-Z_][A-Z0-9_]*)\s*=")
 
 _loaded = False
 _keychain_loaded = False
+
+
+def remove_env_keys(env_keys, env_paths=None) -> list[str]:
+    """Remove secret variables from managed env files and the live process.
+
+    Values injected by an external service manager cannot be edited from the
+    backend, so provider tombstones remain the final guard for those sources.
+    """
+    keys = {
+        str(key).strip().upper()
+        for key in (env_keys or [])
+        if str(key).strip()
+    }
+    if not keys:
+        return []
+
+    removed = set()
+    paths = ENV_LOCATIONS if env_paths is None else env_paths
+    seen_paths = set()
+    for candidate in paths:
+        path = Path(candidate)
+        try:
+            resolved = path.resolve()
+        except OSError:
+            resolved = path
+        if resolved in seen_paths:
+            continue
+        seen_paths.add(resolved)
+        if not path.exists():
+            continue
+
+        original = path.read_text(encoding="utf-8")
+        kept_lines = []
+        changed = False
+        for line in original.splitlines(keepends=True):
+            match = _ENV_ASSIGNMENT_RE.match(line)
+            if match and match.group(1).upper() in keys:
+                removed.add(match.group(1).upper())
+                changed = True
+                continue
+            kept_lines.append(line)
+        if changed:
+            safe_write_text(path, "".join(kept_lines))
+
+    for key in keys:
+        if key in os.environ:
+            removed.add(key)
+            os.environ.pop(key, None)
+    return sorted(removed)
 
 
 def _is_docker() -> bool:
