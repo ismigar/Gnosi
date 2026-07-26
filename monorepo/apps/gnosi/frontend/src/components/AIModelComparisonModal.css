@@ -12,6 +12,7 @@
 .model-configuration-banner { display: flex; align-items: center; gap: 8px; margin: 0 0 14px; padding: 10px 13px; border: 1px solid var(--settings-border); border-radius: 12px; background: var(--settings-sidebar-bg); color: var(--text-secondary); font-size: .8rem; }
 .model-configuration-banner.success { border-color: rgba(16,185,129,.28); background: rgba(16,185,129,.08); color: var(--status-success); }
 .model-configuration-banner.error { border-color: rgba(239,68,68,.28); background: rgba(239,68,68,.08); color: var(--status-error); }
+.model-configuration-banner.warning { border-color: rgba(245,158,11,.3); background: rgba(245,158,11,.09); color: #b56a00; }
 .model-comparison-status { min-height: 380px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; color: var(--text-secondary); }
 .model-comparison-status strong { color: var(--text-primary); font-size: 1.05rem; }
 .model-comparison-status span { max-width: 560px; line-height: 1.55; }
