@@ -45,6 +45,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
     const [requestVersion, setRequestVersion] = useState(0);
     const [apiKeyInput, setApiKeyInput] = useState('');
     const [savingApiKey, setSavingApiKey] = useState(false);
+    const bodyRef = React.useRef(null);
     const tableWrapRef = React.useRef(null);
 
     useEffect(() => {
@@ -80,6 +81,25 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
             if (event.key === 'Escape') {
                 event.stopPropagation();
                 onClose();
+                return;
+            }
+            const targetTag = event.target?.tagName;
+            if (['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON', 'A'].includes(targetTag) || event.target?.isContentEditable) return;
+            const body = bodyRef.current;
+            if (!body) return;
+            const distance = event.key === 'ArrowDown' ? 80
+                : event.key === 'ArrowUp' ? -80
+                    : event.key === 'PageDown' ? body.clientHeight * 0.85
+                        : event.key === 'PageUp' ? -body.clientHeight * 0.85
+                            : null;
+            if (distance != null) {
+                event.preventDefault();
+                event.stopPropagation();
+                body.scrollBy({ top: distance, behavior: 'smooth' });
+            } else if (event.key === 'Home' || event.key === 'End') {
+                event.preventDefault();
+                event.stopPropagation();
+                body.scrollTo({ top: event.key === 'Home' ? 0 : body.scrollHeight, behavior: 'smooth' });
             }
         };
         window.addEventListener('keydown', handleKeyDown, true);
@@ -179,7 +199,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                     </button>
                 </header>
 
-                <div className="model-comparison-body">
+                <div className="model-comparison-body" ref={bodyRef} tabIndex={0} aria-label={t('model_comparison.keyboard_scroll_hint')}>
                     {loading && (
                         <div className="model-comparison-status" role="status">
                             <Loader2 className="animate-spin" size={28} />
@@ -267,7 +287,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                             </div>
 
                             <div className="model-table-controls" aria-label={t('model_comparison.table_navigation')}>
-                                <span><ArrowLeftRight size={16} /> {t('model_comparison.table_scroll_hint')}</span>
+                                <span><ArrowLeftRight size={16} /> {t('model_comparison.table_scroll_hint')} · {t('model_comparison.keyboard_scroll_hint')}</span>
                                 <div>
                                     <button type="button" onClick={() => scrollTable(-640)} aria-label={t('model_comparison.scroll_left')}>
                                         <ChevronLeft size={17} />

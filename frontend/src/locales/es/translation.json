@@ -3663,6 +3663,7 @@
     "table_scroll_hint": "Desplázate horizontalmente para ver todas las columnas",
     "scroll_left": "Desplazar la tabla a la izquierda",
     "scroll_right": "Desplazar la tabla a la derecha",
+    "keyboard_scroll_hint": "Usa ↑/↓ o Re Pág/Av Pág para el desplazamiento vertical",
     "no_results": "Ningún modelo coincide con estos filtros.",
     "data_note": "Datos vivos de benchmarks, precios y rendimiento. Atribución:",
     "errors": {

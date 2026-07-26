@@ -3663,6 +3663,7 @@
     "table_scroll_hint": "Desplaça horitzontalment per veure totes les columnes",
     "scroll_left": "Desplaça la taula cap a l’esquerra",
     "scroll_right": "Desplaça la taula cap a la dreta",
+    "keyboard_scroll_hint": "Usa ↑/↓ o Re Pàg/Av Pàg per al desplaçament vertical",
     "no_results": "Cap model coincideix amb aquests filtres.",
     "data_note": "Dades vives de benchmarks, preus i rendiment. Atribució:",
     "errors": {

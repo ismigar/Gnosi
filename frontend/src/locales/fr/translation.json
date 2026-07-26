@@ -3663,6 +3663,7 @@
     "table_scroll_hint": "Faites défiler horizontalement pour voir toutes les colonnes",
     "scroll_left": "Faire défiler le tableau vers la gauche",
     "scroll_right": "Faire défiler le tableau vers la droite",
+    "keyboard_scroll_hint": "Utilisez ↑/↓ ou Page précédente/Page suivante pour le défilement vertical",
     "no_results": "Aucun modèle ne correspond à ces filtres.",
     "data_note": "Données actives de benchmarks, prix et performances. Attribution :",
     "errors": {
