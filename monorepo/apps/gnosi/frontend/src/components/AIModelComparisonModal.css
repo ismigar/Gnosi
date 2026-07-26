@@ -64,7 +64,7 @@
 .model-table-wrap { --model-table-scroll-left: 0px; box-sizing: border-box; width: 100%; min-width: 0; overflow: clip; margin: 0; border: 1px solid var(--settings-border); border-radius: 18px; padding: 0; }
 .model-table-scrollbar { position: sticky; bottom: -20px; z-index: 10; display: block; height: 20px; overflow-x: auto; overflow-y: hidden; border-top: 1px solid var(--settings-border); background: var(--settings-sidebar-bg); box-shadow: 0 20px 0 var(--settings-bg); scrollbar-color: var(--text-tertiary) transparent; }
 .model-table-scrollbar > div { min-height: 1px; }
-.model-comparison-table { width: 100%; min-width: 1760px; border-collapse: collapse; font-size: .82rem; }
+.model-comparison-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
 .model-comparison-table thead { position: relative; z-index: 11; }
 .model-comparison-table th { position: sticky; top: 35px; z-index: 6; padding: 0; background: var(--settings-sidebar-bg); border-bottom: 1px solid var(--settings-border); box-shadow: 0 2px 0 var(--settings-border); text-align: start; white-space: nowrap; }
 .model-comparison-table th:first-child, .model-comparison-table td:first-child { width: 1%; min-width: 220px; white-space: nowrap; }

@@ -324,6 +324,10 @@ Artificial Analysis rather than a hand-maintained shortlist.
 - The Free tier does not include every Pro metadata field. Missing values must
   remain unknown or come from an explicitly attributed models.dev enrichment;
   they must never be invented.
+- Do not render source-wide unavailable metrics as columns full of em dashes →
+  this makes the fallback look broken and obscures its useful data → derive
+  column visibility from the active payload and hide task-profile controls when
+  every model is unrated. Keep sporadic missing values visible as unknown.
 - Call the models.dev loader with its public `force_refresh` parameter. Do not
   invent a `refresh` keyword: unit tests must exercise the same keyword used in
   production so a permissive mock cannot hide a runtime signature mismatch.
