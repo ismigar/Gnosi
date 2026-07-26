@@ -312,6 +312,10 @@ Artificial Analysis rather than a hand-maintained shortlist.
   quota or transient upstream access fails, serve that attributed cache; if no
   cache exists yet, build an explicitly attributed models.dev comparison feed.
   The UI must warn that Artificial Analysis-only benchmark fields may be absent.
+- Reuse a complete Artificial Analysis cache for 24 hours before requesting all
+  pagination pages again. On any configuration or upstream failure, prefer the
+  last complete cache even when it is older; only use models.dev when no
+  complete Artificial Analysis cache exists.
 
 ### Restrictions / Edge Cases
 
@@ -319,11 +323,21 @@ Artificial Analysis rather than a hand-maintained shortlist.
   scraping violates the integration architecture.
 - Do not stop at page one → the Free endpoint currently paginates at 200 rows,
   so frontier or long-tail models may otherwise be omitted.
+- Do not refetch every pagination page on each modal open → repeated UI checks
+  consume the daily quota and can prevent the first complete cache from being
+  produced → reuse a complete cache for 24 hours, then refresh it atomically.
+- Tests that exercise a successful fetch must mock both cache reads and cache
+  writes → mocking only `_read_cache` still lets `_write_cache` persist fixture
+  rows into the native runtime cache → capture writes in memory and assert them.
 - Do not call Artificial Analysis from React → exposes the API key and shares
   the organisation quota with every browser client.
 - The Free tier does not include every Pro metadata field. Missing values must
   remain unknown or come from an explicitly attributed models.dev enrichment;
   they must never be invented.
+- Do not render source-wide unavailable metrics as columns full of em dashes →
+  this makes the fallback look broken and obscures its useful data → derive
+  column visibility from the active payload and hide task-profile controls when
+  every model is unrated. Keep sporadic missing values visible as unknown.
 - Call the models.dev loader with its public `force_refresh` parameter. Do not
   invent a `refresh` keyword: unit tests must exercise the same keyword used in
   production so a permissive mock cannot hide a runtime signature mismatch.
@@ -342,6 +356,9 @@ Artificial Analysis rather than a hand-maintained shortlist.
   Instead, keep the wrapper clipped and synchronize the scrollbar with a CSS
   translation applied only to non-sticky cells. Use opaque sticky masks above
   and below so rows cannot bleed through the navigation and scrollbar surfaces.
+  The upper mask must extend below the navigation control and sit below the
+  table header in the stacking order; matching only the control's own box
+  leaves a responsive gap where the preceding data row remains visible.
 - The comparison modal must handle keyboard scrolling at the window level while
   leaving inputs, selects, buttons, links and editable fields untouched. Map
   ArrowLeft/Right to the table's horizontal scrollbar, ArrowUp/Down and

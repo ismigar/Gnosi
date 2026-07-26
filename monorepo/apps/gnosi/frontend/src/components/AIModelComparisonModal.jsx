@@ -228,19 +228,29 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
             + (parseNumber(outputTokens) / 1000000) * model.output_price
         );
     };
+    const feedModels = feed?.models || [];
+    const metricAvailability = {
+        intelligence: feedModels.some((model) => model.intelligence != null),
+        coding: feedModels.some((model) => model.coding != null),
+        agentic: feedModels.some((model) => model.agentic != null),
+        speed: feedModels.some((model) => model.speed != null),
+        latency: feedModels.some((model) => model.latency != null),
+        profile: feedModels.some((model) => model.profile && model.profile !== 'unrated'),
+    };
     const columns = [
         ['name', 'model'],
         ['creator', 'creator'],
-        ['intelligence', 'intelligence'],
-        ['coding', 'coding'],
-        ['agentic', 'agentic'],
+        ...(metricAvailability.intelligence ? [['intelligence', 'intelligence']] : []),
+        ...(metricAvailability.coding ? [['coding', 'coding']] : []),
+        ...(metricAvailability.agentic ? [['agentic', 'agentic']] : []),
         ['input_price', 'input_price'],
         ['output_price', 'output_price'],
         ['context_window', 'context'],
-        ['speed', 'speed'],
-        ['latency', 'latency'],
-        ['profile', 'profile'],
+        ...(metricAvailability.speed ? [['speed', 'speed']] : []),
+        ...(metricAvailability.latency ? [['latency', 'latency']] : []),
+        ...(metricAvailability.profile ? [['profile', 'profile']] : []),
     ];
+    const tableMinWidth = Math.max(1050, 380 + ((columns.length - 1) * 125));
     const saveApiKey = async () => {
         if (!apiKeyInput.trim()) return;
         setSavingApiKey(true);
@@ -520,13 +530,15 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                                     <Search size={18} />
                                     <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('model_comparison.search')} />
                                 </label>
-                                <label className="model-profile-filter">
-                                    <span>{t('model_comparison.profile')} <button type="button" className="model-profile-help" onMouseEnter={() => setShowProfileHelp(true)} onClick={() => setShowProfileHelp(true)} aria-label={t('model_comparison.profile_help_open')}>?</button></span>
-                                    <select value={profile} onChange={(event) => setProfile(event.target.value)}>
-                                        <option value="all">{t('model_comparison.all_profiles')}</option>
-                                        {PROFILE_KEYS.map((key) => <option key={key} value={key}>{t(`model_comparison.profiles.${key}`)}</option>)}
-                                    </select>
-                                </label>
+                                {metricAvailability.profile && (
+                                    <label className="model-profile-filter">
+                                        <span>{t('model_comparison.profile')} <button type="button" className="model-profile-help" onMouseEnter={() => setShowProfileHelp(true)} onClick={() => setShowProfileHelp(true)} aria-label={t('model_comparison.profile_help_open')}>?</button></span>
+                                        <select value={profile} onChange={(event) => setProfile(event.target.value)}>
+                                            <option value="all">{t('model_comparison.all_profiles')}</option>
+                                            {PROFILE_KEYS.map((key) => <option key={key} value={key}>{t(`model_comparison.profiles.${key}`)}</option>)}
+                                        </select>
+                                    </label>
+                                )}
                                 <label>
                                     <span>{t('model_comparison.max_price')}</span>
                                     <input type="number" min="0" step="0.01" value={maxPrice} onChange={(event) => setMaxPrice(event.target.value)} placeholder="1.00" />
@@ -558,7 +570,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                                 <span><ArrowLeftRight size={16} /> {t('model_comparison.table_scroll_hint')} · {t('model_comparison.keyboard_scroll_hint')}</span>
                             </div>
                             <div className="model-table-wrap" ref={tableWrapRef}>
-                                <table className="model-comparison-table">
+                                <table className="model-comparison-table" style={{ minWidth: `${tableMinWidth}px` }}>
                                     <thead><tr>
                                         {columns.map(([key, label]) => (
                                             <th key={key} className={key === 'name' ? 'model-comparison-sticky-start' : ''}><button type="button" onClick={() => changeSort(key)}>{t(`model_comparison.columns.${label}`)} {sortIcon(key)}</button></th>
@@ -583,15 +595,15 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                                                 <tr key={model.id}>
                                                     <td className="model-comparison-sticky-start"><strong>{model.name}</strong><small>{model.release_date || '—'}</small></td>
                                                     <td>{model.creator || '—'}</td>
-                                                    <td>{formatMetric(model.intelligence)}</td>
-                                                    <td>{formatMetric(model.coding)}</td>
-                                                    <td>{formatMetric(model.agentic)}</td>
+                                                    {metricAvailability.intelligence && <td>{formatMetric(model.intelligence)}</td>}
+                                                    {metricAvailability.coding && <td>{formatMetric(model.coding)}</td>}
+                                                    {metricAvailability.agentic && <td>{formatMetric(model.agentic)}</td>}
                                                     <td>{model.input_price == null ? '—' : `$${formatMetric(model.input_price, 3)}`}</td>
                                                     <td>{model.output_price == null ? '—' : `$${formatMetric(model.output_price, 3)}`}</td>
                                                     <td>{formatContext(model.context_window)}</td>
-                                                    <td>{model.speed == null ? '—' : `${formatMetric(model.speed)} t/s`}</td>
-                                                    <td>{model.latency == null ? '—' : `${formatMetric(model.latency, 2)} s`}</td>
-                                                    <td><span className={`model-profile-badge ${model.profile}`}>{PROFILE_ICONS[model.profile]} {t(`model_comparison.profiles.${model.profile}`)}</span></td>
+                                                    {metricAvailability.speed && <td>{model.speed == null ? '—' : `${formatMetric(model.speed)} t/s`}</td>}
+                                                    {metricAvailability.latency && <td>{model.latency == null ? '—' : `${formatMetric(model.latency, 2)} s`}</td>}
+                                                    {metricAvailability.profile && <td><span className={`model-profile-badge ${model.profile}`}>{PROFILE_ICONS[model.profile]} {t(`model_comparison.profiles.${model.profile}`)}</span></td>}
                                                     <td><strong>{cost == null ? '—' : `$${formatMetric(cost, 2)}`}</strong></td>
                                                     <td className="model-comparison-sticky-end">
                                                         <div className="model-availability-cell">
