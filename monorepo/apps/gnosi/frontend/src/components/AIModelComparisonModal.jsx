@@ -59,7 +59,6 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
     const [busyModelId, setBusyModelId] = useState('');
     const [actionMessage, setActionMessage] = useState(null);
     const bodyRef = React.useRef(null);
-    const tableWrapRef = React.useRef(null);
 
     useEffect(() => {
         if (!isOpen) return undefined;
@@ -231,7 +230,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
         }
     };
     const scrollTable = (distance) => {
-        tableWrapRef.current?.scrollBy({ left: distance, behavior: 'smooth' });
+        bodyRef.current?.scrollBy({ left: distance, behavior: 'smooth' });
     };
     const setupProviders = (model, mode) => {
         const isLocal = mode === 'local';
@@ -522,7 +521,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                                     </button>
                                 </div>
                             </div>
-                            <div className="model-table-wrap" ref={tableWrapRef}>
+                            <div className="model-table-wrap">
                                 <table className="model-comparison-table">
                                     <thead><tr>
                                         {columns.map(([key, label]) => (
