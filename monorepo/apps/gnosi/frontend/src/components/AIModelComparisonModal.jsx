@@ -59,6 +59,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
     const [setup, setSetup] = useState(null);
     const [busyModelId, setBusyModelId] = useState('');
     const [actionMessage, setActionMessage] = useState(null);
+    const [fallbackNoticeDismissed, setFallbackNoticeDismissed] = useState(false);
     const bodyRef = React.useRef(null);
     const tableWrapRef = React.useRef(null);
 
@@ -67,6 +68,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
         const controller = new AbortController();
         setLoading(true);
         setErrorCode('');
+        setFallbackNoticeDismissed(false);
         fetch('/api/ai/model-comparison', { signal: controller.signal })
             .then(async (response) => {
                 const payload = await response.json().catch(() => ({}));
@@ -466,11 +468,12 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                                 )}
                             </div>
 
-                            {feed.fallback && (
+                            {feed.fallback && !fallbackNoticeDismissed && (
                                 <div className="model-configuration-banner warning" role="status">
-                                    {t(feed.stale
+                                    <span>{t(feed.stale
                                         ? 'model_comparison.cached_fallback'
-                                        : 'model_comparison.catalog_fallback_active', { source: feed.source })}
+                                        : 'model_comparison.catalog_fallback_active', { source: feed.source })}</span>
+                                    <button type="button" onClick={() => setFallbackNoticeDismissed(true)} aria-label={t('model_comparison.close')}><X size={15} /></button>
                                 </div>
                             )}
 
