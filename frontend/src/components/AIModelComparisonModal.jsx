@@ -589,29 +589,27 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                             <a className="model-comparison-api-link" href="https://artificialanalysis.ai/data-api" target="_blank" rel="noreferrer">
                                 {t('model_comparison.get_api_key')} ↗
                             </a>
-                            {(errorCode === 'api_key_missing' || errorCode === 'api_key_invalid' || errorCode === 'credential_save_error') && (
-                                <div className="model-comparison-key-form">
-                                    <label>
-                                        <span>{t('model_comparison.api_key_label')}</span>
-                                        <input
-                                            type="password"
-                                            value={apiKeyInput}
-                                            onChange={(event) => setApiKeyInput(event.target.value)}
-                                            placeholder={t('model_comparison.api_key_placeholder')}
-                                            autoComplete="off"
-                                        />
-                                    </label>
-                                    <button
-                                        type="button"
-                                        className="btn-gnosi-primary"
-                                        disabled={!apiKeyInput.trim() || savingApiKey}
-                                        onClick={saveApiKey}
-                                    >
-                                        {savingApiKey ? <Loader2 className="animate-spin" size={17} /> : null}
-                                        {t('model_comparison.save_and_load')}
-                                    </button>
-                                </div>
-                            )}
+                            <div className="model-comparison-key-form">
+                                <label>
+                                    <span>{t('model_comparison.api_key_label')}</span>
+                                    <input
+                                        type="password"
+                                        value={apiKeyInput}
+                                        onChange={(event) => setApiKeyInput(event.target.value)}
+                                        placeholder={t('model_comparison.api_key_placeholder')}
+                                        autoComplete="off"
+                                    />
+                                </label>
+                                <button
+                                    type="button"
+                                    className="btn-gnosi-primary"
+                                    disabled={!apiKeyInput.trim() || savingApiKey}
+                                    onClick={saveApiKey}
+                                >
+                                    {savingApiKey ? <Loader2 className="animate-spin" size={17} /> : null}
+                                    {t('model_comparison.save_and_load')}
+                                </button>
+                            </div>
                             <button type="button" className="btn-gnosi-primary" onClick={() => setRequestVersion((value) => value + 1)}>
                                 <RefreshCw size={17} />
                                 {t('model_comparison.retry')}
