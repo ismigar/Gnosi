@@ -3669,6 +3669,8 @@
     "results_count_many": "{{count}} models visibles",
     "loading_catalog": "Carregant el catàleg complet…",
     "catalog_fallback": "El catàleg en directe no està disponible; es mostren models de referència.",
+    "catalog_fallback_active": "Quota d’Artificial Analysis esgotada. Es mostren dades alternatives actualitzades de {{source}}; les mètriques exclusives d’Artificial Analysis poden no estar disponibles.",
+    "cached_fallback": "Quota d’Artificial Analysis esgotada. Es mostra l’última comparativa completa desada localment.",
     "max_price": "Preu màx. entrada ($/1M)",
     "min_context": "Context mínim (K tokens)",
     "calculator": "Calculadora de cost mensual",

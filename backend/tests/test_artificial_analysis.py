@@ -133,3 +133,56 @@ def test_fetch_requires_server_side_key(monkeypatch):
         assert exc.code == "api_key_missing"
     else:
         raise AssertionError("Missing key must not silently return stale sample data")
+
+
+def test_rate_limit_falls_back_to_models_dev_catalog(monkeypatch):
+    monkeypatch.setenv("ARTIFICIAL_ANALYSIS_API_KEY", "test-key")
+    monkeypatch.setattr(aa, "_read_cache", lambda: None)
+
+    class Response:
+        status_code = 429
+        ok = False
+
+    monkeypatch.setattr(aa.requests.Session, "get", lambda *_args, **_kwargs: Response())
+    monkeypatch.setattr(aa, "load_catalog", lambda force_refresh=False: {
+        "providers": [{
+            "id": "openai",
+            "name": "OpenAI",
+            "is_local": False,
+            "models": [{
+                "id": "fallback-model",
+                "name": "Fallback Model",
+                "cost_in": 1,
+                "cost_out": 2,
+                "context_window": 128_000,
+                "quality": 2,
+                "tags": ["long"],
+                "release_date": "2026-07-01",
+            }],
+        }],
+    })
+
+    result = aa.fetch_all_models()
+
+    assert result["fallback"] is True
+    assert result["fallback_reason"] == "rate_limited"
+    assert result["source"] == "models.dev"
+    assert result["count"] == 1
+    assert result["models"][0]["name"] == "Fallback Model"
+
+
+def test_rate_limit_prefers_last_successful_cache(monkeypatch):
+    monkeypatch.setenv("ARTIFICIAL_ANALYSIS_API_KEY", "test-key")
+    cached = {"source": "Artificial Analysis", "count": 1, "models": [{"id": "cached"}]}
+    monkeypatch.setattr(aa, "_read_cache", lambda: cached)
+
+    class Response:
+        status_code = 429
+        ok = False
+
+    monkeypatch.setattr(aa.requests.Session, "get", lambda *_args, **_kwargs: Response())
+    result = aa.fetch_all_models()
+
+    assert result["models"] == [{"id": "cached"}]
+    assert result["fallback"] is True
+    assert result["stale"] is True

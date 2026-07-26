@@ -468,6 +468,14 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                                 )}
                             </div>
 
+                            {feed.fallback && (
+                                <div className="model-configuration-banner warning" role="status">
+                                    {t(feed.stale
+                                        ? 'model_comparison.cached_fallback'
+                                        : 'model_comparison.catalog_fallback_active', { source: feed.source })}
+                                </div>
+                            )}
+
                             {configurationError && (
                                 <div className="model-configuration-banner error" role="alert">
                                     {t(`model_comparison.errors.${configurationError}`)}

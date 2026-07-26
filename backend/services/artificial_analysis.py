@@ -7,9 +7,11 @@ single page is only a partial model list.
 
 from __future__ import annotations
 
+import json
 import os
 import re
 from datetime import datetime, timezone
+from pathlib import Path
 from statistics import median
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -22,6 +24,45 @@ ARTIFICIAL_ANALYSIS_URL = (
     "https://artificialanalysis.ai/api/v2/language/models/free"
 )
 _TIMEOUT_SECONDS = 12
+_FALLBACK_CODES = {"rate_limited", "network_error", "upstream_error"}
+
+
+def _cache_path() -> Optional[Path]:
+    """Return a local cache path outside the vault and OneDrive."""
+    try:
+        from backend.config.app_config import load_params
+
+        paths = load_params(strict_env=False).paths
+        base = paths.get("LOCAL_CACHE") or paths.get("LOCAL_DATA")
+    except Exception:
+        base = None
+    root = Path(base) if base else Path.home() / ".cache" / "gnosi"
+    if root.name != "cache":
+        root = root / "cache"
+    try:
+        root.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return None
+    return root / "artificial_analysis_comparison.json"
+
+
+def _read_cache() -> Optional[Dict[str, Any]]:
+    path = _cache_path()
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8")) if path else None
+    except (OSError, ValueError, TypeError):
+        return None
+    return payload if isinstance(payload, dict) and payload.get("models") else None
+
+
+def _write_cache(payload: Dict[str, Any]) -> None:
+    path = _cache_path()
+    if not path:
+        return
+    try:
+        path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        return
 
 
 class ArtificialAnalysisError(RuntimeError):
@@ -216,6 +257,53 @@ def build_comparison_payload(
     }
 
 
+def build_catalog_fallback_payload(catalog: Dict[str, Any], reason: str) -> Dict[str, Any]:
+    """Build an explicitly attributed comparison feed from models.dev metadata."""
+    rows: List[Dict[str, Any]] = []
+    seen = set()
+    for provider in catalog.get("providers") or []:
+        for model in provider.get("models") or []:
+            key = _normalize_name(str(model.get("id") or model.get("name") or ""))
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            rows.append({
+                "id": str(model.get("id") or model.get("name") or ""),
+                "slug": str(model.get("id") or ""),
+                "name": str(model.get("name") or model.get("id") or ""),
+                "release_date": model.get("release_date") or "",
+                "context_window_tokens": int(model.get("context_window") or 0),
+                "model_creator": {"name": str(provider.get("name") or "")},
+                "pricing": {
+                    "price_1m_input_tokens": model.get("cost_in"),
+                    "price_1m_output_tokens": model.get("cost_out"),
+                },
+            })
+    payload = build_comparison_payload(rows, catalog)
+    payload.update({
+        "source": "models.dev",
+        "source_url": "https://models.dev",
+        "fallback": True,
+        "fallback_reason": reason,
+    })
+    return payload
+
+
+def _fallback_payload(error: ArtificialAnalysisError) -> Dict[str, Any]:
+    if error.code not in _FALLBACK_CODES:
+        raise error
+    cached = _read_cache()
+    if cached:
+        return {
+            **cached,
+            "fallback": True,
+            "fallback_reason": error.code,
+            "stale": True,
+        }
+    catalog = load_catalog(force_refresh=False)
+    return build_catalog_fallback_payload(catalog, error.code)
+
+
 def fetch_all_models() -> Dict[str, Any]:
     """Fetch every page from Artificial Analysis and build the comparison feed."""
     api_key = (
@@ -245,47 +333,50 @@ def fetch_all_models() -> Dict[str, Any]:
     page = 1
     index_version = None
     session = requests.Session()
-    while True:
-        try:
+    try:
+        while True:
             response = session.get(
                 ARTIFICIAL_ANALYSIS_URL,
                 headers={"x-api-key": api_key},
                 params={"page": page},
                 timeout=_TIMEOUT_SECONDS,
             )
-        except requests.RequestException as exc:
-            raise ArtificialAnalysisError("network_error", 502) from exc
+            if response.status_code == 401:
+                raise ArtificialAnalysisError("api_key_invalid", 401)
+            if response.status_code == 403:
+                raise ArtificialAnalysisError("tier_forbidden", 403)
+            if response.status_code == 429:
+                raise ArtificialAnalysisError("rate_limited", 429)
+            if not response.ok:
+                raise ArtificialAnalysisError("upstream_error", 502)
+            try:
+                payload = response.json()
+            except ValueError as exc:
+                raise ArtificialAnalysisError("invalid_response", 502) from exc
 
-        if response.status_code == 401:
-            raise ArtificialAnalysisError("api_key_invalid", 401)
-        if response.status_code == 403:
-            raise ArtificialAnalysisError("tier_forbidden", 403)
-        if response.status_code == 429:
-            raise ArtificialAnalysisError("rate_limited", 429)
-        if not response.ok:
-            raise ArtificialAnalysisError("upstream_error", 502)
-        try:
-            payload = response.json()
-        except ValueError as exc:
-            raise ArtificialAnalysisError("invalid_response", 502) from exc
-
-        data = payload.get("data")
-        if not isinstance(data, list):
-            raise ArtificialAnalysisError("invalid_response", 502)
-        rows.extend(data)
-        index_version = payload.get("intelligence_index_version", index_version)
-        pagination = payload.get("pagination") or {}
-        if not pagination.get("has_more"):
-            break
-        page += 1
-        if page > int(pagination.get("total_pages") or page):
-            break
+            data = payload.get("data")
+            if not isinstance(data, list):
+                raise ArtificialAnalysisError("invalid_response", 502)
+            rows.extend(data)
+            index_version = payload.get("intelligence_index_version", index_version)
+            pagination = payload.get("pagination") or {}
+            if not pagination.get("has_more"):
+                break
+            page += 1
+            if page > int(pagination.get("total_pages") or page):
+                break
+    except requests.RequestException as exc:
+        return _fallback_payload(ArtificialAnalysisError("network_error", 502))
+    except ArtificialAnalysisError as exc:
+        return _fallback_payload(exc)
 
     # Artificial Analysis is authoritative for benchmark/pricing/performance.
     # models.dev only fills fields omitted by the Free API.
     catalog = load_catalog(force_refresh=True)
-    return build_comparison_payload(
+    result = build_comparison_payload(
         rows,
         catalog,
         intelligence_index_version=index_version,
     )
+    _write_cache(result)
+    return result
