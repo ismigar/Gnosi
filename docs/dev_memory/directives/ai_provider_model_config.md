@@ -324,6 +324,24 @@ Artificial Analysis rather than a hand-maintained shortlist.
   leaving inputs, selects, buttons, links and editable fields untouched. Map
   ArrowUp/Down and PageUp/PageDown to incremental scrolling, and Home/End to
   the top or bottom of the modal body.
+- The comparison is also a configuration surface for the router. Every row
+  exposes the effective enabled state; enabling opens a guided local/remote
+  route picker, while disabling keeps the registry row but marks it disabled.
+- Artificial Analysis benchmark variants do not contain deployable provider
+  ids. Match them to exact models.dev provider/model routes server-side and
+  send those routes with the comparison payload. If no exact route exists,
+  require an explicit provider and catalog-model choice rather than inventing
+  an id from the display name.
+- Reuse an existing provider credential silently. Request an API key only when
+  the chosen remote provider has no configured or environment credential, and
+  persist it through the secure credentials endpoint before enabling the
+  provider and registry row.
+- A local route must come from a live or explicitly configured local provider.
+  Do not present static local-provider catalog entries as installed models;
+  this otherwise makes an unavailable LM Studio/Ollama model look runnable.
+- Comparison mutations must preserve the complete budget payload and notify
+  the router-registry Settings component through `gnosi-ai-models-changed`, so
+  both configuration surfaces stay synchronized.
 - Note: Never persist `api_key` in `params.yaml`, including during environment
   migrations. Store only `credential_ref` and resolve secrets from Keychain or
   the secret store at runtime.
