@@ -93,6 +93,13 @@ configuration autosave.
 
 - Invalid paths fall back to the project default and produce an English
   developer warning.
+- Do not enable unified autosave after only one Settings request completes:
+  independent config, AI catalog, integration, and identity hydration can still
+  be in flight, causing protected agents or persisted account data to be
+  replaced by initial empty values. Gate autosave on all draft sources and use
+  the first complete snapshot as the baseline. Ignore completions from stale
+  hydration generations because React Strict Mode can start initialization
+  twice during development.
 - Missing translation keys fall back to English, but catalog parity must still
   be treated as required QA.
 - Formatting may follow an explicit decimal/date setting independently of the
