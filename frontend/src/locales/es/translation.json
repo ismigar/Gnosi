@@ -3658,6 +3658,11 @@
     "calculator": "Calculadora de coste mensual",
     "input_tokens": "Tokens de entrada / mes",
     "output_tokens": "Tokens de salida / mes",
+    "calculator_hint": "Coste estimado = (entrada ÷ 1M × precio de entrada) + (salida ÷ 1M × precio de salida). Se calcula para cada fila de la tabla.",
+    "table_navigation": "Navegación de la tabla",
+    "table_scroll_hint": "Desplázate horizontalmente para ver todas las columnas",
+    "scroll_left": "Desplazar la tabla a la izquierda",
+    "scroll_right": "Desplazar la tabla a la derecha",
     "no_results": "Ningún modelo coincide con estos filtros.",
     "data_note": "Datos vivos de benchmarks, precios y rendimiento. Atribución:",
     "errors": {

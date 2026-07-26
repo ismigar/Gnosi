@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-    ArrowDown, ArrowUp, ArrowUpDown, Calculator, Loader2, RefreshCw, Search, X,
+    ArrowDown, ArrowLeftRight, ArrowUp, ArrowUpDown, Calculator, ChevronLeft,
+    ChevronRight, Loader2, RefreshCw, Search, X,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import './AIModelComparisonModal.css';
@@ -44,6 +45,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
     const [requestVersion, setRequestVersion] = useState(0);
     const [apiKeyInput, setApiKeyInput] = useState('');
     const [savingApiKey, setSavingApiKey] = useState(false);
+    const tableWrapRef = React.useRef(null);
 
     useEffect(() => {
         if (!isOpen) return undefined;
@@ -158,6 +160,9 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
             setSavingApiKey(false);
         }
     };
+    const scrollTable = (distance) => {
+        tableWrapRef.current?.scrollBy({ left: distance, behavior: 'smooth' });
+    };
 
     return (
         <div className="model-comparison-layer" role="presentation">
@@ -258,22 +263,34 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                                 <div className="model-cost-title"><Calculator size={19} /><strong>{t('model_comparison.calculator')}</strong></div>
                                 <label><span>{t('model_comparison.input_tokens')}</span><input type="number" min="0" value={inputTokens} onChange={(event) => setInputTokens(event.target.value)} /></label>
                                 <label><span>{t('model_comparison.output_tokens')}</span><input type="number" min="0" value={outputTokens} onChange={(event) => setOutputTokens(event.target.value)} /></label>
+                                <p className="model-cost-hint">{t('model_comparison.calculator_hint')}</p>
                             </div>
 
-                            <div className="model-table-wrap">
+                            <div className="model-table-controls" aria-label={t('model_comparison.table_navigation')}>
+                                <span><ArrowLeftRight size={16} /> {t('model_comparison.table_scroll_hint')}</span>
+                                <div>
+                                    <button type="button" onClick={() => scrollTable(-640)} aria-label={t('model_comparison.scroll_left')}>
+                                        <ChevronLeft size={17} />
+                                    </button>
+                                    <button type="button" onClick={() => scrollTable(640)} aria-label={t('model_comparison.scroll_right')}>
+                                        <ChevronRight size={17} />
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="model-table-wrap" ref={tableWrapRef}>
                                 <table className="model-comparison-table">
                                     <thead><tr>
                                         {columns.map(([key, label]) => (
-                                            <th key={key}><button type="button" onClick={() => changeSort(key)}>{t(`model_comparison.columns.${label}`)} {sortIcon(key)}</button></th>
+                                            <th key={key} className={key === 'name' ? 'model-comparison-sticky-start' : ''}><button type="button" onClick={() => changeSort(key)}>{t(`model_comparison.columns.${label}`)} {sortIcon(key)}</button></th>
                                         ))}
-                                        <th>{t('model_comparison.columns.monthly_cost')}</th>
+                                        <th className="model-comparison-sticky-end">{t('model_comparison.columns.monthly_cost')}</th>
                                     </tr></thead>
                                     <tbody>
                                         {models.map((model) => {
                                             const cost = monthlyCost(model);
                                             return (
                                                 <tr key={model.id}>
-                                                    <td><strong>{model.name}</strong><small>{model.release_date || '—'}</small></td>
+                                                    <td className="model-comparison-sticky-start"><strong>{model.name}</strong><small>{model.release_date || '—'}</small></td>
                                                     <td>{model.creator || '—'}</td>
                                                     <td>{formatMetric(model.intelligence)}</td>
                                                     <td>{formatMetric(model.coding)}</td>
@@ -284,7 +301,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                                                     <td>{model.speed == null ? '—' : `${formatMetric(model.speed)} t/s`}</td>
                                                     <td>{model.latency == null ? '—' : `${formatMetric(model.latency, 2)} s`}</td>
                                                     <td><span className={`model-profile-badge ${model.profile}`}>{PROFILE_ICONS[model.profile]} {t(`model_comparison.profiles.${model.profile}`)}</span></td>
-                                                    <td><strong>{cost == null ? '—' : `$${formatMetric(cost, 2)}`}</strong></td>
+                                                    <td className="model-comparison-sticky-end"><strong>{cost == null ? '—' : `$${formatMetric(cost, 2)}`}</strong></td>
                                                 </tr>
                                             );
                                         })}
