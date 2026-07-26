@@ -94,16 +94,15 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
     }, [isOpen, requestVersion]);
 
     useEffect(() => {
-        if (!isOpen || !feed || !tableWrapRef.current || !bodyRef.current) return undefined;
-        const body = bodyRef.current;
-        const table = tableWrapRef.current;
-        const syncBar = () => { if (scrollbarRef.current) scrollbarRef.current.scrollLeft = body.scrollLeft; };
+        if (!isOpen || !feed || !tableWrapRef.current) return undefined;
+        const tableWrap = tableWrapRef.current;
+        const table = tableWrap.querySelector('.model-comparison-table');
+        if (!table) return undefined;
         const updateWidth = () => setTableScrollWidth(table.scrollWidth);
         updateWidth();
-        body.addEventListener('scroll', syncBar, { passive: true });
         const observer = new ResizeObserver(updateWidth);
         observer.observe(table);
-        return () => { body.removeEventListener('scroll', syncBar); observer.disconnect(); };
+        return () => observer.disconnect();
     }, [feed, isOpen]);
 
     useEffect(() => {
@@ -617,7 +616,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                                 {models.length === 0 && <div className="model-comparison-empty">{t('model_comparison.no_results')}</div>}
                             </div>
                             <div className="model-table-scrollbar" ref={scrollbarRef} aria-label={t('model_comparison.table_scroll_hint')} onScroll={(event) => {
-                                if (bodyRef.current) bodyRef.current.scrollLeft = event.currentTarget.scrollLeft;
+                                tableWrapRef.current?.style.setProperty('--model-table-scroll-left', `${event.currentTarget.scrollLeft}px`);
                             }}>
                                 <div style={{ width: `${Math.max(tableScrollWidth, 1)}px`, height: '1px' }} />
                             </div>

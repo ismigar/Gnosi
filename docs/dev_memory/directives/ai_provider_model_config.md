@@ -328,13 +328,20 @@ Artificial Analysis rather than a hand-maintained shortlist.
   invent a `refresh` keyword: unit tests must exercise the same keyword used in
   production so a permissive mock cannot hide a runtime signature mismatch.
 - The comparison table is intentionally wider than the modal. Keep the first
-  model column and monthly-cost column sticky, and expose explicit horizontal
+  model column and the final availability column sticky, and expose explicit horizontal
   navigation controls. Keep those controls sticky while the table body is
   vertically scrolled; a control row that scrolls away, or a scrollbar only at
   the bottom of hundreds of rows, is not discoverable enough on desktop or
   mobile. The sticky control surface must also cover the comparison body's
   top padding so table rows cannot show through between the modal header and
   the navigation bar.
+- Do not synchronize the horizontal scrollbar with the modal body → the body
+  owns vertical scrolling and moving it leaves the table columns unchanged.
+  Do not make the table wrapper a horizontal scroll container either → that
+  captures the vertically sticky header and offsets it inside the wrapper.
+  Instead, keep the wrapper clipped and synchronize the scrollbar with a CSS
+  translation applied only to non-sticky cells. Use opaque sticky masks above
+  and below so rows cannot bleed through the navigation and scrollbar surfaces.
 - The comparison modal must handle keyboard scrolling at the window level while
   leaving inputs, selects, buttons, links and editable fields untouched. Map
   ArrowUp/Down and PageUp/PageDown to incremental scrolling, and Home/End to
