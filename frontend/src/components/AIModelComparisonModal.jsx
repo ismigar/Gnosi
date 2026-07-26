@@ -527,7 +527,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                                         {columns.map(([key, label]) => (
                                             <th key={key} className={key === 'name' ? 'model-comparison-sticky-start' : ''}><button type="button" onClick={() => changeSort(key)}>{t(`model_comparison.columns.${label}`)} {sortIcon(key)}</button></th>
                                         ))}
-                                        <th className="model-comparison-sticky-cost">{t('model_comparison.columns.monthly_cost')}</th>
+                                        <th>{t('model_comparison.columns.monthly_cost')}</th>
                                         <th className="model-comparison-sticky-end">{t('model_comparison.columns.available')}</th>
                                     </tr></thead>
                                     <tbody>
@@ -556,7 +556,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                                                     <td>{model.speed == null ? '—' : `${formatMetric(model.speed)} t/s`}</td>
                                                     <td>{model.latency == null ? '—' : `${formatMetric(model.latency, 2)} s`}</td>
                                                     <td><span className={`model-profile-badge ${model.profile}`}>{PROFILE_ICONS[model.profile]} {t(`model_comparison.profiles.${model.profile}`)}</span></td>
-                                                    <td className="model-comparison-sticky-cost"><strong>{cost == null ? '—' : `$${formatMetric(cost, 2)}`}</strong></td>
+                                                    <td><strong>{cost == null ? '—' : `$${formatMetric(cost, 2)}`}</strong></td>
                                                     <td className="model-comparison-sticky-end">
                                                         <div className="model-availability-cell">
                                                             <button
