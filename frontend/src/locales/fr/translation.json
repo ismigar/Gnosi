@@ -3631,13 +3631,13 @@
     }
   },
   "model_comparison": {
-    "launch_title": "Comparer les modèles d’IA",
-    "launch_description": "Explorez le coût, le contexte, la vitesse et les profils de tâches recommandés dans un tableau de bord interactif.",
-    "open": "Ouvrir le comparatif",
+    "launch_title": "Comparer et configurer les modèles d’IA",
+    "launch_description": "Activez ou désactivez les modèles directement depuis le comparatif. L’assistant demande le fournisseur, l’exécution locale ou distante et une clé API uniquement si nécessaire.",
+    "open": "Comparer et configurer",
     "close": "Fermer le comparatif des modèles",
     "eyebrow": "Intelligence des modèles d’IA",
     "title": "Comparatif des modèles d’IA",
-    "subtitle": "Trouvez le modèle adapté à chaque rôle, charge de travail et budget.",
+    "subtitle": "Comparez les modèles et activez ou désactivez ceux de votre choix depuis le même tableau.",
     "loading": "Chargement de tous les modèles suivis…",
     "loading_description": "Consultation de toutes les pages d’Artificial Analysis et enrichissement du catalogue actif des modèles.",
     "retry": "Réessayer",
