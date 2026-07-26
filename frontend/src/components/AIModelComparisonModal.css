@@ -6,7 +6,7 @@
 .model-comparison-header h2 { margin: 0; font-size: 1.15rem; letter-spacing: -.02em; }
 .model-comparison-header span { display: block; margin-top: 6px; color: var(--text-secondary); }
 .model-comparison-body { min-height: 0; overflow: auto; padding: 14px 32px 20px; }
-.model-comparison-body:focus-visible { outline: 2px solid var(--gnosi-blue); outline-offset: -3px; }
+.model-comparison-body:focus-visible { outline: none; }
 .model-comparison-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 8px; color: var(--text-secondary); font-size: .76rem; }
 .model-comparison-meta strong { color: var(--text-primary); font-size: .86rem; }
 .model-configuration-banner { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; padding: 7px 11px; border: 1px solid var(--settings-border); border-radius: 10px; background: var(--settings-sidebar-bg); color: var(--text-secondary); font-size: .75rem; }
