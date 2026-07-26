@@ -4238,6 +4238,8 @@
     "loading_catalog": "Loading the complete catalog…",
     "catalog_fallback": "The live catalog is unavailable; showing reference models.",
     "catalog_fallback_active": "The Artificial Analysis quota is exhausted. Showing updated fallback data from {{source}} and hiding columns this source does not provide.",
+    "catalog_fallback_no_cache": "Artificial Analysis is unavailable and there is no previous complete cache yet. Showing data from {{source}} in the meantime and hiding columns this source does not provide.",
+    "catalog_fallback_no_cache_until": "The Artificial Analysis quota is exhausted and there is no previous complete cache yet. The quota resets on {{date}}. Showing data from {{source}} in the meantime.",
     "cached_fallback": "The Artificial Analysis quota is exhausted. Showing the last complete comparison saved locally.",
     "max_price": "Max. input price ($/1M)",
     "min_context": "Min. context (K tokens)",

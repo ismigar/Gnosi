@@ -197,6 +197,7 @@ def test_rate_limit_falls_back_to_models_dev_catalog(monkeypatch):
     class Response:
         status_code = 429
         ok = False
+        headers = {"X-Ratelimit-Reset": "1785107576"}
 
     monkeypatch.setattr(aa.requests.Session, "get", lambda *_args, **_kwargs: Response())
     monkeypatch.setattr(aa, "load_catalog", lambda force_refresh=False: {
@@ -224,6 +225,7 @@ def test_rate_limit_falls_back_to_models_dev_catalog(monkeypatch):
     assert result["source"] == "models.dev"
     assert result["count"] == 1
     assert result["models"][0]["name"] == "Fallback Model"
+    assert result["retry_at"] == "2026-07-26T23:12:56+00:00"
 
 
 def test_rate_limit_prefers_last_successful_cache(monkeypatch):
