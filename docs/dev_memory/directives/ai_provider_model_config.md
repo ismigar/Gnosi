@@ -342,6 +342,9 @@ Artificial Analysis rather than a hand-maintained shortlist.
   Instead, keep the wrapper clipped and synchronize the scrollbar with a CSS
   translation applied only to non-sticky cells. Use opaque sticky masks above
   and below so rows cannot bleed through the navigation and scrollbar surfaces.
+  The upper mask must extend below the navigation control and sit below the
+  table header in the stacking order; matching only the control's own box
+  leaves a responsive gap where the preceding data row remains visible.
 - The comparison modal must handle keyboard scrolling at the window level while
   leaving inputs, selects, buttons, links and editable fields untouched. Map
   ArrowLeft/Right to the table's horizontal scrollbar, ArrowUp/Down and

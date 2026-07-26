@@ -55,6 +55,7 @@
 .model-cost-title { align-self: center; display: flex; align-items: center; gap: 10px; color: var(--text-primary); }
 .model-cost-hint { grid-column: 1 / -1; margin: -2px 0 0; color: var(--text-secondary); font-size: .75rem; line-height: 1.45; }
 .model-table-controls { position: sticky; top: -14px; z-index: 10; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0; padding: 6px 0; border-bottom: 1px solid var(--settings-border); background: var(--settings-bg); color: var(--text-secondary); font-size: .75rem; box-shadow: 0 -14px 0 var(--settings-bg); }
+.model-table-controls::after { content: ''; position: absolute; inset-inline: 0; top: 100%; height: 36px; background: var(--settings-bg); pointer-events: none; }
 .model-table-controls > span { flex: 1; min-width: 0; line-height: 1.4; }
 .model-table-controls > span { display: inline-flex; align-items: center; gap: 7px; }
 .model-table-controls > div { display: inline-flex; gap: 6px; }
@@ -64,7 +65,7 @@
 .model-table-scrollbar { position: sticky; bottom: -20px; z-index: 10; display: block; height: 20px; overflow-x: auto; overflow-y: hidden; border-top: 1px solid var(--settings-border); background: var(--settings-sidebar-bg); box-shadow: 0 20px 0 var(--settings-bg); scrollbar-color: var(--text-tertiary) transparent; }
 .model-table-scrollbar > div { min-height: 1px; }
 .model-comparison-table { width: 100%; min-width: 1760px; border-collapse: collapse; font-size: .82rem; }
-.model-comparison-table thead { position: relative; z-index: 5; }
+.model-comparison-table thead { position: relative; z-index: 11; }
 .model-comparison-table th { position: sticky; top: 35px; z-index: 6; padding: 0; background: var(--settings-sidebar-bg); border-bottom: 1px solid var(--settings-border); box-shadow: 0 2px 0 var(--settings-border); text-align: start; white-space: nowrap; }
 .model-comparison-table th:first-child, .model-comparison-table td:first-child { width: 1%; min-width: 220px; white-space: nowrap; }
 .model-comparison-table th > button { display: flex; align-items: center; gap: 6px; width: 100%; padding: 14px 0 14px 8px; border: 0; background: transparent; color: var(--text-secondary); font: inherit; font-weight: 900; cursor: pointer; }
