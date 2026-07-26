@@ -62,7 +62,8 @@
 .model-table-controls button:hover { border-color: var(--gnosi-blue); color: var(--gnosi-blue); }
 .model-table-wrap { box-sizing: border-box; width: 100%; min-width: 0; overflow: visible; margin: 0; border: 1px solid var(--settings-border); border-radius: 18px; padding: 0; }
 .model-comparison-table { width: 100%; min-width: 1760px; border-collapse: collapse; font-size: .82rem; }
-.model-comparison-table th { position: sticky; top: 22px; z-index: 1; padding: 0; background: var(--settings-sidebar-bg); border-bottom: 1px solid var(--settings-border); text-align: start; white-space: nowrap; }
+.model-comparison-table thead { position: relative; z-index: 5; }
+.model-comparison-table th { position: sticky; top: 22px; z-index: 6; padding: 0; background: var(--settings-sidebar-bg); border-bottom: 1px solid var(--settings-border); box-shadow: 0 2px 0 var(--settings-border); text-align: start; white-space: nowrap; }
 .model-comparison-table th:first-child, .model-comparison-table td:first-child { width: 1%; min-width: 220px; white-space: nowrap; }
 .model-comparison-table th > button { display: flex; align-items: center; gap: 6px; width: 100%; padding: 14px 0 14px 8px; border: 0; background: transparent; color: var(--text-secondary); font: inherit; font-weight: 900; cursor: pointer; }
 .model-comparison-table th:not(:has(button)) { padding: 14px 0 14px 8px; color: var(--text-secondary); }
@@ -70,7 +71,7 @@
 .model-comparison-table td small { display: block; margin-top: 4px; color: var(--text-secondary); font-size: .7rem; font-weight: 500; }
 .model-comparison-table tbody tr:hover { background: rgba(59,130,246,.055); }
 .model-comparison-table .model-comparison-sticky-start, .model-comparison-table .model-comparison-sticky-end { position: sticky; z-index: 2; background: var(--settings-bg); }
-.model-comparison-table th.model-comparison-sticky-start, .model-comparison-table th.model-comparison-sticky-end { z-index: 4; background: var(--settings-sidebar-bg); }
+.model-comparison-table th.model-comparison-sticky-start, .model-comparison-table th.model-comparison-sticky-end { z-index: 8; background: var(--settings-sidebar-bg); }
 .model-comparison-table .model-comparison-sticky-start { left: 0; box-shadow: 8px 0 14px -14px rgba(0,0,0,.8); }
 .model-comparison-table .model-comparison-sticky-end { right: 0; width: 148px; min-width: 148px; }
 .model-availability-cell { display: flex; align-items: center; gap: 9px; min-width: 118px; }
