@@ -388,6 +388,10 @@ Artificial Analysis rather than a hand-maintained shortlist.
   provider and registry row. Do not add a separate "API key required" notice
   immediately before the API-key field: the field label and helper already
   communicate that requirement, so the extra notice is redundant.
+- When the comparison error screen tells the user to paste an Artificial
+  Analysis key, always render the key field. Do not restrict it to selected
+  backend error codes: unknown or normalized upstream failures otherwise show
+  a "paste it below" instruction with no input below it.
 - A local route must come from a live or explicitly configured local provider.
   Do not present static local-provider catalog entries as installed models;
   this otherwise makes an unavailable LM Studio/Ollama model look runnable.
