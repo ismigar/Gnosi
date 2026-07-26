@@ -1,10 +1,12 @@
-# Restore afternoon AI Settings version
+# Persist AI provider deletion
 
 - [x] Read the Settings, environment, and QA directives.
-- [x] Identify the final afternoon commit and the missing merge range.
-- [x] Restore the missing commits on top of the current `main`.
-- [x] Preserve the Settings hydration autosave guard.
+- [x] Trace provider deletion through frontend, API, and config loading.
+- [x] Prevent environment migration from recreating disconnected providers.
+- [x] Remove provider API keys from Keychain, managed env files, and runtime.
+- [x] Clear the tombstone when a provider is explicitly reconnected.
+- [x] Verify backend provider-deletion tests.
 - [x] Verify integrity with `npm run build`.
-- [x] Validate the restored AI Settings and model comparison in the browser.
+- [x] Validate deletion persistence in the browser.
 - [x] Check for Z-index conflicts and visual overlapping.
-- [x] Consolidate staging memory into the corresponding directive or skill.
+- [x] Consolidate the learned constraint into the AI provider directive.

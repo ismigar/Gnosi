@@ -1,10 +1,17 @@
 """Unit tests for provider disconnection semantics.
 
-Pure pieces only — the cascade filter, the connected/enabled gate and the
-api_key hygiene in the secrets migration. No keychain, no params.yaml.
+The tests cover pure cascade/config helpers and isolated managed-env cleanup.
+They never access the real keychain, params file, or environment files.
 """
+import os
+
 import backend.security.ai_credentials as creds
-from backend.api.ai_routes import _registry_rows_without_provider
+from backend.api.ai_routes import (
+    _registry_rows_without_provider,
+    _set_provider_disconnected,
+)
+from backend.config.app_config import apply_env_provider_migration
+from backend.config.env_config import remove_env_keys
 
 
 def test_registry_rows_without_provider_filters_and_counts():
@@ -44,3 +51,55 @@ def test_migrate_pops_empty_api_key(monkeypatch):
     assert changed is True
     assert "api_key" not in migrated["providers"]["groq"]
     assert migrated["providers"]["groq"]["base_url"] == "https://x"
+
+
+def test_disconnected_provider_is_not_recreated_from_environment():
+    params = {
+        "ai": {
+            "providers": {},
+            "disconnected_providers": ["openrouter"],
+        }
+    }
+    changed = apply_env_provider_migration(
+        params,
+        {"OPENROUTER_API_KEY": "legacy-environment-key"},
+    )
+    assert changed is False
+    assert params["ai"]["providers"] == {}
+
+
+def test_provider_reconnect_clears_persistent_tombstone():
+    ai_cfg = {"disconnected_providers": ["groq", "openrouter"]}
+    assert _set_provider_disconnected(ai_cfg, "openrouter", False) is True
+    assert ai_cfg["disconnected_providers"] == ["groq"]
+    assert _set_provider_disconnected(ai_cfg, "openrouter", False) is False
+
+
+def test_provider_delete_adds_persistent_tombstone_once():
+    ai_cfg = {}
+    assert _set_provider_disconnected(ai_cfg, "openrouter", True) is True
+    assert ai_cfg["disconnected_providers"] == ["openrouter"]
+    assert _set_provider_disconnected(ai_cfg, "openrouter", True) is False
+
+
+def test_remove_env_keys_deletes_managed_secret_and_preserves_other_lines(
+    tmp_path,
+    monkeypatch,
+):
+    env_path = tmp_path / ".env_shared"
+    env_path.write_text(
+        "# Provider credentials\n"
+        "OPENROUTER_API_KEY=secret\n"
+        "OTHER_SETTING=keep\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("OPENROUTER_API_KEY", "secret")
+
+    removed = remove_env_keys(["OPENROUTER_API_KEY"], [env_path])
+
+    assert removed == ["OPENROUTER_API_KEY"]
+    assert env_path.read_text(encoding="utf-8") == (
+        "# Provider credentials\n"
+        "OTHER_SETTING=keep\n"
+    )
+    assert "OPENROUTER_API_KEY" not in os.environ
