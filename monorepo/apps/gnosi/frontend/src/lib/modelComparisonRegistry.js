@@ -21,30 +21,45 @@ export function matchingRegistryIndexes(models, comparisonModel) {
     }, []);
 }
 
-export function catalogModelToRegistryEntry(provider, model) {
-    return {
-        provider: provider.id,
-        model_id: model.id,
-        is_local: Boolean(provider.is_local),
-        enabled: true,
-        priority: 100,
-        cost_in: Number(model.cost_in) || 0,
-        cost_out: Number(model.cost_out) || 0,
-        context_window: Number(model.context_window) || 8192,
-        quality: Number(model.quality) || 2,
-        tags: [...(model.tags || [])],
-    };
+export function comparisonRoutesForMode(comparisonModel, providers, mode) {
+    const isLocal = mode === 'local';
+    const providersById = Object.fromEntries(
+        (providers || []).map((provider) => [provider.id, provider]),
+    );
+    const routesByProvider = new Map();
+
+    for (const route of comparisonModel?.routes || []) {
+        const provider = providersById[route.provider];
+        if (!provider || Boolean(route.is_local) !== isLocal) continue;
+        if (isLocal && !provider.live && !provider.configured) continue;
+        if (!routesByProvider.has(provider.id)) {
+            routesByProvider.set(provider.id, {
+                ...route,
+                provider_name: provider.name || route.provider_name || provider.id,
+                provider_connected: Boolean(provider.connected),
+            });
+        }
+    }
+
+    return [...routesByProvider.values()].sort((first, second) => {
+        if (first.provider_connected !== second.provider_connected) {
+            return Number(second.provider_connected) - Number(first.provider_connected);
+        }
+        return first.provider_name.localeCompare(second.provider_name);
+    });
 }
 
-export function suggestedCatalogModel(provider, comparisonModel) {
-    if (!provider) return null;
-    const route = (comparisonModel?.routes || []).find((item) => item.provider === provider.id);
-    if (route) {
-        const exact = (provider.models || []).find((model) => model.id === route.model_id);
-        if (exact) return exact;
-    }
-    const comparisonKeys = [comparisonModel?.slug, comparisonModel?.name].map(normalize).filter(Boolean);
-    return (provider.models || []).find((model) => (
-        comparisonKeys.includes(normalize(model.id)) || comparisonKeys.includes(normalize(model.name))
-    )) || null;
+export function comparisonRouteToRegistryEntry(route) {
+    return {
+        provider: route.provider,
+        model_id: route.model_id,
+        is_local: Boolean(route.is_local),
+        enabled: true,
+        priority: 100,
+        cost_in: Number(route.cost_in) || 0,
+        cost_out: Number(route.cost_out) || 0,
+        context_window: Number(route.context_window) || 8192,
+        quality: Number(route.quality) || 2,
+        tags: [...(route.tags || [])],
+    };
 }
