@@ -321,7 +321,9 @@ Artificial Analysis rather than a hand-maintained shortlist.
   navigation controls. Keep those controls sticky while the table body is
   vertically scrolled; a control row that scrolls away, or a scrollbar only at
   the bottom of hundreds of rows, is not discoverable enough on desktop or
-  mobile.
+  mobile. The sticky control surface must also cover the comparison body's
+  top padding so table rows cannot show through between the modal header and
+  the navigation bar.
 - The comparison modal must handle keyboard scrolling at the window level while
   leaving inputs, selects, buttons, links and editable fields untouched. Map
   ArrowUp/Down and PageUp/PageDown to incremental scrolling, and Home/End to
