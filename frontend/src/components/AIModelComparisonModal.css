@@ -61,6 +61,8 @@
 .model-table-controls button { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 30px; padding: 0; border: 1px solid var(--settings-border); border-radius: 9px; background: var(--settings-sidebar-bg); color: var(--text-primary); cursor: pointer; }
 .model-table-controls button:hover { border-color: var(--gnosi-blue); color: var(--gnosi-blue); }
 .model-table-wrap { box-sizing: border-box; width: 100%; min-width: 0; overflow: clip; margin: 0; border: 1px solid var(--settings-border); border-radius: 18px; padding: 0; }
+.model-table-scrollbar { position: sticky; bottom: 0; z-index: 9; display: block; height: 14px; overflow-x: auto; overflow-y: hidden; border-top: 1px solid var(--settings-border); background: var(--settings-sidebar-bg); scrollbar-color: var(--text-tertiary) transparent; }
+.model-table-scrollbar > div { min-height: 1px; }
 .model-comparison-table { width: 100%; min-width: 1760px; border-collapse: collapse; font-size: .82rem; }
 .model-comparison-table thead { position: relative; z-index: 5; }
 .model-comparison-table th { position: sticky; top: 22px; z-index: 6; padding: 0; background: var(--settings-sidebar-bg); border-bottom: 1px solid var(--settings-border); box-shadow: 0 2px 0 var(--settings-border); text-align: start; white-space: nowrap; }
