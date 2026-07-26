@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-    ArrowDown, ArrowLeftRight, ArrowUp, ArrowUpDown, Calculator, CheckCircle2,
+    ArrowDown, ArrowLeftRight, ArrowUp, ArrowUpDown, CheckCircle2,
     ChevronLeft, ChevronRight, Cloud, KeyRound, Loader2, RefreshCw, Search,
     Server, X,
 } from 'lucide-react';
@@ -401,9 +401,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
             <section className="model-comparison-modal" role="dialog" aria-modal="true" aria-labelledby="model-comparison-title">
                 <header className="model-comparison-header">
                     <div>
-                        <p>{t('model_comparison.eyebrow')}</p>
                         <h2 id="model-comparison-title">{t('model_comparison.title')}</h2>
-                        <span>{t('model_comparison.subtitle')}</span>
                     </div>
                     <button type="button" className="gnosi-close-btn" onClick={onClose} aria-label={t('model_comparison.close')}>
                         <X />
@@ -526,10 +524,8 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                             )}
 
                             <div className="model-cost-calculator">
-                                <div className="model-cost-title"><Calculator size={19} /><strong>{t('model_comparison.calculator')}</strong></div>
                                 <label><span>{t('model_comparison.input_tokens')}</span><input type="number" min="0" value={inputTokens} onChange={(event) => setInputTokens(event.target.value)} /></label>
                                 <label><span>{t('model_comparison.output_tokens')}</span><input type="number" min="0" value={outputTokens} onChange={(event) => setOutputTokens(event.target.value)} /></label>
-                                <p className="model-cost-hint">{t('model_comparison.calculator_hint')}</p>
                             </div>
 
                             <div className="model-table-controls" aria-label={t('model_comparison.table_navigation')}>
