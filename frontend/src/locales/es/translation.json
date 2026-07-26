@@ -3634,6 +3634,8 @@
     "launch_title": "Compara y configura modelos de IA",
     "launch_description": "Activa o desactiva modelos directamente desde la comparativa. El asistente te pedirá el proveedor, si la ejecución es local o remota y la clave API solo cuando sea necesario.",
     "open": "Comparar y configurar",
+    "advanced_title": "Conexiones y configuración avanzada",
+    "advanced_description": "Gestiona credenciales, prueba proveedores o ajusta manualmente el router.",
     "close": "Cerrar la comparativa de modelos",
     "eyebrow": "Inteligencia de modelos de IA",
     "title": "Comparativa de modelos de IA",
