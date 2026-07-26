@@ -24,6 +24,7 @@ ARTIFICIAL_ANALYSIS_URL = (
     "https://artificialanalysis.ai/api/v2/language/models/free"
 )
 _TIMEOUT_SECONDS = 12
+_CACHE_MAX_AGE_SECONDS = 24 * 3600
 _FALLBACK_CODES = {"rate_limited", "network_error", "upstream_error"}
 _PROFILE_PERCENTILE_CEILINGS = (
     ("worker", 0.2),
@@ -69,6 +70,27 @@ def _write_cache(payload: Dict[str, Any]) -> None:
         path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
     except OSError:
         return
+
+
+def _cache_is_fresh(
+    payload: Dict[str, Any],
+    *,
+    now: Optional[datetime] = None,
+) -> bool:
+    """Return whether a complete cached feed is recent enough to reuse."""
+    raw_fetched_at = payload.get("fetched_at")
+    if not raw_fetched_at:
+        return False
+    try:
+        fetched_at = datetime.fromisoformat(
+            str(raw_fetched_at).replace("Z", "+00:00")
+        )
+    except ValueError:
+        return False
+    if fetched_at.tzinfo is None:
+        fetched_at = fetched_at.replace(tzinfo=timezone.utc)
+    current = now or datetime.now(timezone.utc)
+    return (current - fetched_at).total_seconds() <= _CACHE_MAX_AGE_SECONDS
 
 
 class ArtificialAnalysisError(RuntimeError):
@@ -268,8 +290,6 @@ def build_catalog_fallback_payload(catalog: Dict[str, Any], reason: str) -> Dict
 
 
 def _fallback_payload(error: ArtificialAnalysisError) -> Dict[str, Any]:
-    if error.code not in _FALLBACK_CODES:
-        raise error
     cached = _read_cache()
     if cached:
         return {
@@ -278,12 +298,18 @@ def _fallback_payload(error: ArtificialAnalysisError) -> Dict[str, Any]:
             "fallback_reason": error.code,
             "stale": True,
         }
+    if error.code not in _FALLBACK_CODES:
+        raise error
     catalog = load_catalog(force_refresh=False)
     return build_catalog_fallback_payload(catalog, error.code)
 
 
 def fetch_all_models() -> Dict[str, Any]:
     """Fetch every page from Artificial Analysis and build the comparison feed."""
+    cached = _read_cache()
+    if cached and _cache_is_fresh(cached):
+        return cached
+
     api_key = (
         os.getenv("ARTIFICIAL_ANALYSIS_API_KEY")
         or os.getenv("AA_API_KEY")
@@ -305,7 +331,7 @@ def fetch_all_models() -> Dict[str, Any]:
         except Exception:
             api_key = ""
     if not api_key:
-        raise ArtificialAnalysisError("api_key_missing", 503)
+        return _fallback_payload(ArtificialAnalysisError("api_key_missing", 503))
 
     rows: List[Dict[str, Any]] = []
     page = 1
