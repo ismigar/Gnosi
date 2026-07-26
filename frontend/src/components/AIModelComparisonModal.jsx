@@ -234,7 +234,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
         }
     };
     const scrollTable = (distance) => {
-        tableWrapRef.current?.scrollBy({ left: distance, behavior: 'smooth' });
+        bodyRef.current?.scrollBy({ left: distance, behavior: 'smooth' });
     };
     const setupProviders = (model, mode) => {
         const isLocal = mode === 'local';
