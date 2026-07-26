@@ -96,10 +96,17 @@ def _cache_is_fresh(
 class ArtificialAnalysisError(RuntimeError):
     """Structured upstream failure safe to map to a localized UI state."""
 
-    def __init__(self, code: str, status_code: int = 502) -> None:
+    def __init__(
+        self,
+        code: str,
+        status_code: int = 502,
+        *,
+        retry_at: Optional[str] = None,
+    ) -> None:
         super().__init__(code)
         self.code = code
         self.status_code = status_code
+        self.retry_at = retry_at
 
 
 def _number(value: Any) -> Optional[float]:
@@ -301,7 +308,10 @@ def _fallback_payload(error: ArtificialAnalysisError) -> Dict[str, Any]:
     if error.code not in _FALLBACK_CODES:
         raise error
     catalog = load_catalog(force_refresh=False)
-    return build_catalog_fallback_payload(catalog, error.code)
+    payload = build_catalog_fallback_payload(catalog, error.code)
+    if error.retry_at:
+        payload["retry_at"] = error.retry_at
+    return payload
 
 
 def fetch_all_models() -> Dict[str, Any]:
@@ -350,7 +360,21 @@ def fetch_all_models() -> Dict[str, Any]:
             if response.status_code == 403:
                 raise ArtificialAnalysisError("tier_forbidden", 403)
             if response.status_code == 429:
-                raise ArtificialAnalysisError("rate_limited", 429)
+                reset_value = getattr(response, "headers", {}).get(
+                    "X-Ratelimit-Reset"
+                )
+                try:
+                    retry_at = datetime.fromtimestamp(
+                        float(reset_value),
+                        timezone.utc,
+                    ).isoformat(timespec="seconds")
+                except (TypeError, ValueError, OSError):
+                    retry_at = None
+                raise ArtificialAnalysisError(
+                    "rate_limited",
+                    429,
+                    retry_at=retry_at,
+                )
             if not response.ok:
                 raise ArtificialAnalysisError("upstream_error", 502)
             try:

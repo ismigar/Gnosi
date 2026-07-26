@@ -503,9 +503,19 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
 
                             {feed.fallback && !fallbackNoticeDismissed && (
                                 <div className="model-configuration-banner warning" role="status">
-                                    <span>{t(feed.stale
-                                        ? 'model_comparison.cached_fallback'
-                                        : 'model_comparison.catalog_fallback_active', { source: feed.source })}</span>
+                                    <span>{t(
+                                        feed.stale
+                                            ? 'model_comparison.cached_fallback'
+                                            : feed.retry_at
+                                                ? 'model_comparison.catalog_fallback_no_cache_until'
+                                                : 'model_comparison.catalog_fallback_no_cache',
+                                        {
+                                            source: feed.source,
+                                            date: feed.retry_at
+                                                ? new Date(feed.retry_at).toLocaleString()
+                                                : '',
+                                        },
+                                    )}</span>
                                     <button type="button" onClick={() => setFallbackNoticeDismissed(true)} aria-label={t('model_comparison.close')}><X size={15} /></button>
                                 </div>
                             )}

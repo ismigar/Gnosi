@@ -3670,6 +3670,8 @@
     "loading_catalog": "Cargando el catálogo completo…",
     "catalog_fallback": "El catálogo en directo no está disponible; se muestran modelos de referencia.",
     "catalog_fallback_active": "La cuota de Artificial Analysis está agotada. Se muestran datos alternativos actualizados de {{source}} y se ocultan las columnas que esta fuente no proporciona.",
+    "catalog_fallback_no_cache": "Artificial Analysis no está disponible y todavía no existe una caché completa anterior. Mientras tanto se muestran datos de {{source}} y se ocultan las columnas que esta fuente no proporciona.",
+    "catalog_fallback_no_cache_until": "La cuota de Artificial Analysis está agotada y todavía no existe una caché completa anterior. La cuota se restablece el {{date}}. Mientras tanto se muestran datos de {{source}}.",
     "cached_fallback": "La cuota de Artificial Analysis está agotada. Se muestra la última comparativa completa guardada localmente.",
     "max_price": "Precio máx. entrada ($/1M)",
     "min_context": "Contexto mínimo (K tokens)",
