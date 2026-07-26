@@ -7,7 +7,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from backend.config.app_config import load_params
+from backend.config.env_config import remove_env_keys
 from backend.security.ai_credentials import (
+    env_keys_for_provider,
     get_ai_catalog_with_status,
     migrate_ai_provider_secrets,
     resolve_provider_api_key,
@@ -105,6 +107,25 @@ class ProviderCredentialPayload(BaseModel):
     base_url: Optional[str] = ""
 
 
+def _set_provider_disconnected(ai_cfg: dict, provider: str, disconnected: bool) -> bool:
+    """Update the persistent provider tombstone and report whether it changed."""
+    current = {
+        str(item).strip().lower()
+        for item in (ai_cfg.get("disconnected_providers") or [])
+        if str(item).strip()
+    }
+    before = set(current)
+    if disconnected:
+        current.add(provider)
+    else:
+        current.discard(provider)
+    if current:
+        ai_cfg["disconnected_providers"] = sorted(current)
+    else:
+        ai_cfg.pop("disconnected_providers", None)
+    return current != before
+
+
 @router.get("/catalog")
 async def get_ai_catalog():
     # to_thread: the provider list is now fed by the model catalog, whose
@@ -148,6 +169,7 @@ async def set_provider_credentials(provider_id: str, payload: ProviderCredential
         provider_cfg["base_url"] = payload.base_url
     providers[provider] = provider_cfg
     ai_cfg["providers"] = providers
+    _set_provider_disconnected(ai_cfg, provider, False)
 
     migrated_ai_cfg, _ = migrate_ai_provider_secrets(ai_cfg)
     current_config["ai"] = migrated_ai_cfg
@@ -217,6 +239,7 @@ async def delete_provider(provider_id: str):
         existed = provider in providers
         providers.pop(provider, None)
         ai_cfg["providers"] = providers
+        tombstone_changed = _set_provider_disconnected(ai_cfg, provider, True)
 
         # Cascade: drop the provider's rows from the effective registry
         # (raw stored prices — this is persisted config, not display data)
@@ -226,7 +249,7 @@ async def delete_provider(provider_id: str):
             ai_cfg["models"] = filtered
 
         current_config["ai"] = ai_cfg
-        if existed or removed_models:
+        if existed or removed_models or tombstone_changed:
             yaml_text = yaml.safe_dump(
                 current_config, default_flow_style=False,
                 allow_unicode=True, sort_keys=False,
@@ -241,14 +264,18 @@ async def delete_provider(provider_id: str):
                 credential_deleted = bool(get_keychain().delete_credential(key))
             except Exception:
                 credential_deleted = False
+        env_keys_deleted = remove_env_keys(env_keys_for_provider(provider))
 
-        if not existed and not removed_models:
+        if not existed and not removed_models and not tombstone_changed:
             return {"status": "skipped",
                     "message": f"Provider {provider} not found in config",
-                    "removed_models": 0, "credential_deleted": credential_deleted}
+                    "removed_models": 0,
+                    "credential_deleted": credential_deleted,
+                    "env_keys_deleted": env_keys_deleted}
         return {"status": "success", "message": f"Provider {provider} deleted",
                 "removed_models": removed_models,
-                "credential_deleted": credential_deleted}
+                "credential_deleted": credential_deleted,
+                "env_keys_deleted": env_keys_deleted}
 
     # to_thread: params.yaml I/O + registry load + keychain access are blocking
     return await asyncio.to_thread(_delete)
@@ -274,6 +301,8 @@ async def update_provider_status(provider_id: str, payload: ProviderStatusPayloa
     provider_cfg["enabled"] = payload.enabled
     providers[provider] = provider_cfg
     ai_cfg["providers"] = providers
+    if payload.enabled:
+        _set_provider_disconnected(ai_cfg, provider, False)
     current_config["ai"] = ai_cfg
 
     yaml_text = yaml.safe_dump(
