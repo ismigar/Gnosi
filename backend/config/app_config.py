@@ -11,6 +11,13 @@ log = logging.getLogger(__name__)
 
 DEFAULT_INTERFACE_LANGUAGE = "en"
 SUPPORTED_INTERFACE_LANGUAGES = frozenset({"ca", "en", "es", "fr"})
+ENV_PROVIDER_MIGRATIONS = {
+    "OPENAI_API_KEY": ("openai", "__keychain__:openai_api_key"),
+    "GROQ_API_KEY": ("groq", "__keychain__:groq_api_key"),
+    "ANTHROPIC_API_KEY": ("anthropic", "__keychain__:anthropic_api_key"),
+    "OPENROUTER_API_KEY": ("openrouter", "__keychain__:openrouter_api_key"),
+    "GOOGLE_API_KEY": ("google", "__keychain__:google_api_key"),
+}
 
 
 def normalize_interface_language(value) -> str:
@@ -29,6 +36,33 @@ def deep_merge(dict1, dict2):
         else:
             dict1[k] = v
     return dict1
+
+
+def apply_env_provider_migration(params: dict, environ=None) -> bool:
+    """Add legacy environment-backed providers unless explicitly disconnected.
+
+    Provider deletion cannot remove a LaunchAgent or ``.env`` variable. The
+    persisted ``disconnected_providers`` tombstone therefore prevents the
+    legacy migration from recreating a provider on every config load.
+    """
+    environ = os.environ if environ is None else environ
+    ai_cfg = params.setdefault("ai", {})
+    providers = ai_cfg.setdefault("providers", {})
+    disconnected = {
+        str(provider).strip().lower()
+        for provider in (ai_cfg.get("disconnected_providers") or [])
+        if str(provider).strip()
+    }
+
+    migrated = False
+    for env_var, (provider_id, credential_ref) in ENV_PROVIDER_MIGRATIONS.items():
+        if not environ.get(env_var) or provider_id in disconnected:
+            continue
+        provider_cfg = providers.setdefault(provider_id, {})
+        if not provider_cfg.get("credential_ref"):
+            provider_cfg["credential_ref"] = credential_ref
+            migrated = True
+    return migrated
 
 class Config:
     def __init__(self, params: dict, params_source: Path, strict_env: bool = True):
@@ -153,31 +187,7 @@ def load_params(strict_env: bool = True) -> Config:
         params_path = active_params_path
 
     # --- Maintenance and Migration ---
-    migrated = False
-    env_migration_map = {
-        "OPENAI_API_KEY": ("openai", "__keychain__:openai_api_key"),
-        "GROQ_API_KEY": ("groq", "__keychain__:groq_api_key"),
-        "ANTHROPIC_API_KEY": ("anthropic", "__keychain__:anthropic_api_key"),
-        "OPENROUTER_API_KEY": ("openrouter", "__keychain__:openrouter_api_key"),
-        "GOOGLE_API_KEY": ("google", "__keychain__:google_api_key"),
-    }
-
-    if "ai" not in params:
-        params["ai"] = {}
-    if "providers" not in params["ai"]:
-        params["ai"]["providers"] = {}
-
-    providers = params["ai"]["providers"]
-    
-    for env_var, (p_id, credential_ref) in env_migration_map.items():
-        env_val = os.environ.get(env_var)
-        if env_val:
-            if p_id not in providers:
-                providers[p_id] = {}
-            current_ref = providers[p_id].get("credential_ref")
-            if not current_ref:
-                providers[p_id]["credential_ref"] = credential_ref
-                migrated = True
+    migrated = apply_env_provider_migration(params)
 
     # Persist migrations with an atomic write.
     if migrated:
