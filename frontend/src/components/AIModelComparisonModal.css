@@ -25,6 +25,20 @@
 .model-comparison-key-form button { flex-shrink: 0; }
 .model-comparison-toolbar { display: grid; grid-template-columns: minmax(250px, 2fr) repeat(4, minmax(145px, 1fr)); gap: 12px; }
 .model-comparison-toolbar label, .model-cost-calculator label { display: flex; flex-direction: column; gap: 7px; color: var(--text-secondary); font-size: .76rem; font-weight: 800; }
+.model-profile-filter > span { display: inline-flex; align-items: center; gap: 6px; }
+.model-profile-help { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; padding: 0; border: 1px solid var(--settings-border); border-radius: 50%; background: var(--settings-sidebar-bg); color: var(--text-secondary); font-size: .7rem; font-weight: 900; cursor: pointer; }
+.model-profile-help:hover { border-color: var(--gnosi-blue); color: var(--gnosi-blue); }
+.model-profile-help-backdrop { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(15,23,42,.45); }
+.model-profile-help-dialog { width: min(760px, 100%); max-height: min(760px, 90vh); overflow: auto; border: 1px solid var(--settings-border); border-radius: 18px; background: var(--settings-bg); box-shadow: 0 24px 70px rgba(15,23,42,.28); }
+.model-profile-help-dialog > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 22px 24px 16px; border-bottom: 1px solid var(--settings-border); }
+.model-profile-help-dialog h2 { margin: 0; color: var(--text-primary); font-size: 1.15rem; }
+.model-profile-help-dialog header p { margin: 6px 0 0; color: var(--text-secondary); font-size: .78rem; }
+.model-profile-help-dialog header button { display: inline-flex; padding: 7px; border: 1px solid var(--settings-border); border-radius: 9px; background: transparent; color: var(--text-secondary); cursor: pointer; }
+.model-profile-help-content { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 20px 24px 24px; }
+.model-profile-help-content article { padding: 14px; border: 1px solid var(--settings-border); border-radius: 13px; background: var(--settings-sidebar-bg); }
+.model-profile-help-content article:last-child { grid-column: 1 / -1; }
+.model-profile-help-content h3 { margin: 0 0 8px; color: var(--text-primary); font-size: .88rem; }
+.model-profile-help-content p { margin: 5px 0 0; color: var(--text-secondary); font-size: .76rem; line-height: 1.45; }
 .model-comparison-toolbar input, .model-comparison-toolbar select, .model-cost-calculator input { box-sizing: border-box; width: 100%; min-height: 42px; padding: 9px 12px; border: 1px solid var(--settings-border); border-radius: 12px; background: var(--bg-primary); color: var(--text-primary); outline: none; }
 .model-comparison-toolbar input:focus, .model-comparison-toolbar select:focus, .model-cost-calculator input:focus { border-color: var(--gnosi-blue); }
 .model-comparison-toolbar .model-search { position: relative; justify-content: flex-end; }

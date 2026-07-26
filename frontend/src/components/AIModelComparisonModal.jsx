@@ -40,6 +40,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
     const { t } = useTranslation();
     const [query, setQuery] = useState('');
     const [profile, setProfile] = useState('all');
+    const [showProfileHelp, setShowProfileHelp] = useState(false);
     const [maxPrice, setMaxPrice] = useState('');
     const [minContext, setMinContext] = useState('');
     const [inputTokens, setInputTokens] = useState(5000000);
@@ -486,8 +487,8 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                                     <Search size={18} />
                                     <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('model_comparison.search')} />
                                 </label>
-                                <label>
-                                    <span>{t('model_comparison.profile')}</span>
+                                <label className="model-profile-filter">
+                                    <span>{t('model_comparison.profile')} <button type="button" className="model-profile-help" onClick={() => setShowProfileHelp(true)} aria-label={t('model_comparison.profile_help_open')}>?</button></span>
                                     <select value={profile} onChange={(event) => setProfile(event.target.value)}>
                                         <option value="all">{t('model_comparison.all_profiles')}</option>
                                         {PROFILE_KEYS.map((key) => <option key={key} value={key}>{t(`model_comparison.profiles.${key}`)}</option>)}
@@ -502,6 +503,18 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                                     <input type="number" min="0" value={minContext} onChange={(event) => setMinContext(event.target.value)} placeholder="100" />
                                 </label>
                             </div>
+
+                            {showProfileHelp && (
+                                <div className="model-profile-help-backdrop" role="presentation" onClick={() => setShowProfileHelp(false)}>
+                                    <section className="model-profile-help-dialog" role="dialog" aria-modal="true" aria-labelledby="model-profile-help-title" onClick={(event) => event.stopPropagation()}>
+                                        <header><div><h2 id="model-profile-help-title">{t('model_comparison.profile_help_title')}</h2><p>{t('model_comparison.profile_help_intro')}</p></div><button type="button" onClick={() => setShowProfileHelp(false)} aria-label={t('model_comparison.close')}><X size={20} /></button></header>
+                                        <div className="model-profile-help-content">
+                                            {PROFILE_KEYS.map((key) => <article key={key}><h3>{PROFILE_ICONS[key]} {t(`model_comparison.profiles.${key}`)}</h3><p><strong>{t(`model_comparison.profile_help.${key}.objective`)}</strong></p><p>{t(`model_comparison.profile_help.${key}.examples`)}</p></article>)}
+                                            <article><h3>{t('model_comparison.profile_help_flow_title')}</h3><p>{t('model_comparison.profile_help_flow')}</p></article>
+                                        </div>
+                                    </section>
+                                </div>
+                            )}
 
                             <div className="model-cost-calculator">
                                 <div className="model-cost-title"><Calculator size={19} /><strong>{t('model_comparison.calculator')}</strong></div>
