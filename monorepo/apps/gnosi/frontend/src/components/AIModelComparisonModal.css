@@ -60,9 +60,9 @@
 .model-table-wrap { box-sizing: border-box; width: 100%; min-width: 0; overflow: hidden; margin: 0; border: 1px solid var(--settings-border); border-radius: 18px; padding: 0; }
 .model-comparison-table { width: 100%; min-width: 1760px; border-collapse: collapse; font-size: .82rem; }
 .model-comparison-table th { position: sticky; top: 48px; z-index: 1; padding: 0; background: var(--settings-sidebar-bg); border-bottom: 1px solid var(--settings-border); text-align: start; white-space: nowrap; }
-.model-comparison-table th > button { display: flex; align-items: center; gap: 6px; width: 100%; padding: 14px 0; border: 0; background: transparent; color: var(--text-secondary); font: inherit; font-weight: 900; cursor: pointer; }
-.model-comparison-table th:not(:has(button)) { padding: 14px 0; color: var(--text-secondary); }
-.model-comparison-table td { padding: 15px 0; border-bottom: 1px solid var(--settings-border); white-space: nowrap; }
+.model-comparison-table th > button { display: flex; align-items: center; gap: 6px; width: 100%; padding: 14px 0 14px 8px; border: 0; background: transparent; color: var(--text-secondary); font: inherit; font-weight: 900; cursor: pointer; }
+.model-comparison-table th:not(:has(button)) { padding: 14px 0 14px 8px; color: var(--text-secondary); }
+.model-comparison-table td { padding: 15px 0 15px 8px; border-bottom: 1px solid var(--settings-border); white-space: nowrap; }
 .model-comparison-table td small { display: block; margin-top: 4px; color: var(--text-secondary); font-size: .7rem; font-weight: 500; }
 .model-comparison-table tbody tr:hover { background: rgba(59,130,246,.055); }
 .model-comparison-table .model-comparison-sticky-start, .model-comparison-table .model-comparison-sticky-end { position: sticky; z-index: 2; background: var(--settings-bg); }
