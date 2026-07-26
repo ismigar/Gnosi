@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-    ArrowDown, ArrowLeftRight, ArrowUp, ArrowUpDown, Calculator, CheckCircle2,
-    ChevronLeft, ChevronRight, Cloud, KeyRound, Loader2, RefreshCw, Search,
+    ArrowDown, ArrowLeftRight, ArrowUp, ArrowUpDown, CheckCircle2,
+    Cloud, KeyRound, Loader2, RefreshCw, Search,
     Server, X,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -40,6 +40,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
     const { t } = useTranslation();
     const [query, setQuery] = useState('');
     const [profile, setProfile] = useState('all');
+    const [showProfileHelp, setShowProfileHelp] = useState(false);
     const [maxPrice, setMaxPrice] = useState('');
     const [minContext, setMinContext] = useState('');
     const [inputTokens, setInputTokens] = useState(5000000);
@@ -58,14 +59,18 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
     const [setup, setSetup] = useState(null);
     const [busyModelId, setBusyModelId] = useState('');
     const [actionMessage, setActionMessage] = useState(null);
+    const [fallbackNoticeDismissed, setFallbackNoticeDismissed] = useState(false);
+    const [tableScrollWidth, setTableScrollWidth] = useState(0);
     const bodyRef = React.useRef(null);
     const tableWrapRef = React.useRef(null);
+    const scrollbarRef = React.useRef(null);
 
     useEffect(() => {
         if (!isOpen) return undefined;
         const controller = new AbortController();
         setLoading(true);
         setErrorCode('');
+        setFallbackNoticeDismissed(false);
         fetch('/api/ai/model-comparison', { signal: controller.signal })
             .then(async (response) => {
                 const payload = await response.json().catch(() => ({}));
@@ -87,6 +92,19 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
             });
         return () => controller.abort();
     }, [isOpen, requestVersion]);
+
+    useEffect(() => {
+        if (!isOpen || !feed || !tableWrapRef.current || !bodyRef.current) return undefined;
+        const body = bodyRef.current;
+        const table = tableWrapRef.current;
+        const syncBar = () => { if (scrollbarRef.current) scrollbarRef.current.scrollLeft = body.scrollLeft; };
+        const updateWidth = () => setTableScrollWidth(table.scrollWidth);
+        updateWidth();
+        body.addEventListener('scroll', syncBar, { passive: true });
+        const observer = new ResizeObserver(updateWidth);
+        observer.observe(table);
+        return () => { body.removeEventListener('scroll', syncBar); observer.disconnect(); };
+    }, [feed, isOpen]);
 
     useEffect(() => {
         if (!isOpen) return undefined;
@@ -229,9 +247,6 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
         } finally {
             setSavingApiKey(false);
         }
-    };
-    const scrollTable = (distance) => {
-        tableWrapRef.current?.scrollBy({ left: distance, behavior: 'smooth' });
     };
     const setupProviders = (model, mode) => {
         const isLocal = mode === 'local';
@@ -400,9 +415,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
             <section className="model-comparison-modal" role="dialog" aria-modal="true" aria-labelledby="model-comparison-title">
                 <header className="model-comparison-header">
                     <div>
-                        <p>{t('model_comparison.eyebrow')}</p>
                         <h2 id="model-comparison-title">{t('model_comparison.title')}</h2>
-                        <span>{t('model_comparison.subtitle')}</span>
                     </div>
                     <button type="button" className="gnosi-close-btn" onClick={onClose} aria-label={t('model_comparison.close')}>
                         <X />
@@ -467,6 +480,15 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                                 )}
                             </div>
 
+                            {feed.fallback && !fallbackNoticeDismissed && (
+                                <div className="model-configuration-banner warning" role="status">
+                                    <span>{t(feed.stale
+                                        ? 'model_comparison.cached_fallback'
+                                        : 'model_comparison.catalog_fallback_active', { source: feed.source })}</span>
+                                    <button type="button" onClick={() => setFallbackNoticeDismissed(true)} aria-label={t('model_comparison.close')}><X size={15} /></button>
+                                </div>
+                            )}
+
                             {configurationError && (
                                 <div className="model-configuration-banner error" role="alert">
                                     {t(`model_comparison.errors.${configurationError}`)}
@@ -487,8 +509,8 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                                     <Search size={18} />
                                     <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('model_comparison.search')} />
                                 </label>
-                                <label>
-                                    <span>{t('model_comparison.profile')}</span>
+                                <label className="model-profile-filter">
+                                    <span>{t('model_comparison.profile')} <button type="button" className="model-profile-help" onMouseEnter={() => setShowProfileHelp(true)} onClick={() => setShowProfileHelp(true)} aria-label={t('model_comparison.profile_help_open')}>?</button></span>
                                     <select value={profile} onChange={(event) => setProfile(event.target.value)}>
                                         <option value="all">{t('model_comparison.all_profiles')}</option>
                                         {PROFILE_KEYS.map((key) => <option key={key} value={key}>{t(`model_comparison.profiles.${key}`)}</option>)}
@@ -504,23 +526,25 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                                 </label>
                             </div>
 
+                            {showProfileHelp && (
+                                <div className="model-profile-help-backdrop" role="presentation" onMouseLeave={() => setShowProfileHelp(false)} onClick={() => setShowProfileHelp(false)}>
+                                    <section className="model-profile-help-dialog" role="dialog" aria-modal="true" aria-labelledby="model-profile-help-title" onClick={(event) => event.stopPropagation()}>
+                                        <header><div><h2 id="model-profile-help-title">{t('model_comparison.profile_help_title')}</h2><p>{t('model_comparison.profile_help_intro')}</p></div><button type="button" onClick={() => setShowProfileHelp(false)} aria-label={t('model_comparison.close')}><X size={20} /></button></header>
+                                        <div className="model-profile-help-content">
+                                            {PROFILE_KEYS.map((key) => <article key={key}><h3>{PROFILE_ICONS[key]} {t(`model_comparison.profiles.${key}`)}</h3><p><strong>{t(`model_comparison.profile_help.${key}.objective`)}</strong></p><p>{t(`model_comparison.profile_help.${key}.examples`)}</p></article>)}
+                                            <article><h3>{t('model_comparison.profile_help_flow_title')}</h3><p>{t('model_comparison.profile_help_flow')}</p></article>
+                                        </div>
+                                    </section>
+                                </div>
+                            )}
+
                             <div className="model-cost-calculator">
-                                <div className="model-cost-title"><Calculator size={19} /><strong>{t('model_comparison.calculator')}</strong></div>
                                 <label><span>{t('model_comparison.input_tokens')}</span><input type="number" min="0" value={inputTokens} onChange={(event) => setInputTokens(event.target.value)} /></label>
                                 <label><span>{t('model_comparison.output_tokens')}</span><input type="number" min="0" value={outputTokens} onChange={(event) => setOutputTokens(event.target.value)} /></label>
-                                <p className="model-cost-hint">{t('model_comparison.calculator_hint')}</p>
                             </div>
 
                             <div className="model-table-controls" aria-label={t('model_comparison.table_navigation')}>
                                 <span><ArrowLeftRight size={16} /> {t('model_comparison.table_scroll_hint')} · {t('model_comparison.keyboard_scroll_hint')}</span>
-                                <div>
-                                    <button type="button" onClick={() => scrollTable(-640)} aria-label={t('model_comparison.scroll_left')}>
-                                        <ChevronLeft size={17} />
-                                    </button>
-                                    <button type="button" onClick={() => scrollTable(640)} aria-label={t('model_comparison.scroll_right')}>
-                                        <ChevronRight size={17} />
-                                    </button>
-                                </div>
                             </div>
                             <div className="model-table-wrap" ref={tableWrapRef}>
                                 <table className="model-comparison-table">
@@ -528,7 +552,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                                         {columns.map(([key, label]) => (
                                             <th key={key} className={key === 'name' ? 'model-comparison-sticky-start' : ''}><button type="button" onClick={() => changeSort(key)}>{t(`model_comparison.columns.${label}`)} {sortIcon(key)}</button></th>
                                         ))}
-                                        <th className="model-comparison-sticky-cost">{t('model_comparison.columns.monthly_cost')}</th>
+                                        <th>{t('model_comparison.columns.monthly_cost')}</th>
                                         <th className="model-comparison-sticky-end">{t('model_comparison.columns.available')}</th>
                                     </tr></thead>
                                     <tbody>
@@ -557,7 +581,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                                                     <td>{model.speed == null ? '—' : `${formatMetric(model.speed)} t/s`}</td>
                                                     <td>{model.latency == null ? '—' : `${formatMetric(model.latency, 2)} s`}</td>
                                                     <td><span className={`model-profile-badge ${model.profile}`}>{PROFILE_ICONS[model.profile]} {t(`model_comparison.profiles.${model.profile}`)}</span></td>
-                                                    <td className="model-comparison-sticky-cost"><strong>{cost == null ? '—' : `$${formatMetric(cost, 2)}`}</strong></td>
+                                                    <td><strong>{cost == null ? '—' : `$${formatMetric(cost, 2)}`}</strong></td>
                                                     <td className="model-comparison-sticky-end">
                                                         <div className="model-availability-cell">
                                                             <button
@@ -591,6 +615,11 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                                     </tbody>
                                 </table>
                                 {models.length === 0 && <div className="model-comparison-empty">{t('model_comparison.no_results')}</div>}
+                            </div>
+                            <div className="model-table-scrollbar" ref={scrollbarRef} aria-label={t('model_comparison.table_scroll_hint')} onScroll={(event) => {
+                                if (bodyRef.current) bodyRef.current.scrollLeft = event.currentTarget.scrollLeft;
+                            }}>
+                                <div style={{ width: `${Math.max(tableScrollWidth, 1)}px`, height: '1px' }} />
                             </div>
                             <p className="model-comparison-note">
                                 {t('model_comparison.data_note')}{' '}

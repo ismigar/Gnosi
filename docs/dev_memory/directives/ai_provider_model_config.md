@@ -301,6 +301,10 @@ Artificial Analysis rather than a hand-maintained shortlist.
   performance, context, and reasoning signals; return the reasons with the role.
 - Surface authentication, quota, and network failures as localized dashboard
   states. Never silently present the former five-row sample as current data.
+- Persist the last complete Artificial Analysis payload outside the vault. When
+  quota or transient upstream access fails, serve that attributed cache; if no
+  cache exists yet, build an explicitly attributed models.dev comparison feed.
+  The UI must warn that Artificial Analysis-only benchmark fields may be absent.
 
 ### Restrictions / Edge Cases
 
