@@ -3693,6 +3693,10 @@
     "model_disabled": "{{model}} s’ha desactivat.",
     "no_results": "Cap model coincideix amb aquests filtres.",
     "data_note": "Dades vives de benchmarks, preus i rendiment. Atribució:",
+    "metric_sources": {
+      "models_dev": "Valor completat amb models.dev",
+      "artificial_analysis_cache": "Últim valor disponible a la memòria cau d’Artificial Analysis"
+    },
     "errors": {
       "api_key_missing": "Artificial Analysis no està configurat en aquest servidor.",
       "api_key_invalid": "La clau API d’Artificial Analysis no és vàlida.",

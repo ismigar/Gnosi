@@ -3693,6 +3693,10 @@
     "model_disabled": "{{model}} a été désactivé.",
     "no_results": "Aucun modèle ne correspond à ces filtres.",
     "data_note": "Données actives de benchmarks, prix et performances. Attribution :",
+    "metric_sources": {
+      "models_dev": "Valeur complétée avec models.dev",
+      "artificial_analysis_cache": "Dernière valeur disponible dans le cache d’Artificial Analysis"
+    },
     "errors": {
       "api_key_missing": "Artificial Analysis n’est pas configuré sur ce serveur.",
       "api_key_invalid": "La clé API Artificial Analysis n’est pas valide.",
