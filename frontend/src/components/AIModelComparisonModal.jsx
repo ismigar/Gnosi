@@ -6,9 +6,9 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
-    catalogModelToRegistryEntry,
+    comparisonRoutesForMode,
+    comparisonRouteToRegistryEntry,
     matchingRegistryIndexes,
-    suggestedCatalogModel,
 } from '../lib/modelComparisonRegistry';
 import './AIModelComparisonModal.css';
 
@@ -269,45 +269,26 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
             setSavingApiKey(false);
         }
     };
-    const setupProviders = (model, mode) => {
-        const isLocal = mode === 'local';
-        const routeProviders = new Set((model.routes || [])
-            .filter((route) => Boolean(route.is_local) === isLocal)
-            .map((route) => route.provider));
-        return (catalog?.providers || [])
-            .filter((provider) => (
-                Boolean(provider.is_local) === isLocal
-                && (provider.models || []).length
-                && (!isLocal || provider.live || provider.configured)
-            ))
-            .sort((first, second) => {
-                const firstRoute = routeProviders.has(first.id) ? 1 : 0;
-                const secondRoute = routeProviders.has(second.id) ? 1 : 0;
-                if (firstRoute !== secondRoute) return secondRoute - firstRoute;
-                if (first.connected !== second.connected) return Number(second.connected) - Number(first.connected);
-                return first.name.localeCompare(second.name);
-            });
-    };
+    const setupRoutes = (model, mode) => comparisonRoutesForMode(
+        model,
+        catalog?.providers || [],
+        mode,
+    );
     const setupForMode = (model, mode) => {
-        const providers = setupProviders(model, mode);
-        const routeProviderIds = (model.routes || [])
-            .filter((route) => Boolean(route.is_local) === (mode === 'local'))
-            .map((route) => route.provider);
+        const routes = setupRoutes(model, mode);
         const creator = String(model.creator || '').toLocaleLowerCase();
-        const provider = providers.find((item) => routeProviderIds.includes(item.id) && item.connected)
-            || providers.find((item) => routeProviderIds.includes(item.id))
-            || providers.find((item) => (
-                item.id.toLocaleLowerCase() === creator
-                || item.name.toLocaleLowerCase().includes(creator)
+        const route = routes.find((item) => item.provider_connected)
+            || routes.find((item) => (
+                item.provider.toLocaleLowerCase() === creator
+                || item.provider_name.toLocaleLowerCase().includes(creator)
             ))
-            || (mode === 'local' && providers.length === 1 ? providers[0] : null)
+            || routes[0]
             || null;
-        const suggested = suggestedCatalogModel(provider, model);
+        const provider = route ? providersById[route.provider] : null;
         return {
             model,
             mode,
-            providerId: provider?.id || '',
-            modelId: suggested?.id || '',
+            providerId: route?.provider || '',
             apiKey: '',
             baseUrl: provider?.base_url || provider?.api || '',
             error: '',
@@ -315,7 +296,12 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
     };
     const beginActivation = (model) => {
         setActionMessage(null);
-        setSetup(setupForMode(model, 'remote'));
+        const mode = setupRoutes(model, 'remote').length > 0
+            ? 'remote'
+            : setupRoutes(model, 'local').length > 0
+                ? 'local'
+                : 'remote';
+        setSetup(setupForMode(model, mode));
     };
     const changeSetupMode = (mode) => {
         setSetup((current) => current ? setupForMode(current.model, mode) : current);
@@ -324,11 +310,9 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
         setSetup((current) => {
             if (!current) return current;
             const provider = providersById[providerId];
-            const suggested = suggestedCatalogModel(provider, current.model);
             return {
                 ...current,
                 providerId,
-                modelId: suggested?.id || '',
                 apiKey: '',
                 baseUrl: provider?.base_url || provider?.api || '',
                 error: '',
@@ -367,9 +351,10 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
     const activateModel = async () => {
         if (!setup) return;
         const provider = providersById[setup.providerId];
-        const selectedModel = (provider?.models || []).find((model) => model.id === setup.modelId);
+        const selectedRoute = setupRoutes(setup.model, setup.mode)
+            .find((route) => route.provider === setup.providerId);
         const needsApiKey = setup.mode === 'remote' && !provider?.has_api_key;
-        if (!provider || !selectedModel || (needsApiKey && !setup.apiKey.trim())) return;
+        if (!provider || !selectedRoute || (needsApiKey && !setup.apiKey.trim())) return;
         setBusyModelId(setup.model.id);
         setSetup((current) => ({ ...current, error: '' }));
         try {
@@ -394,9 +379,9 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
             }
 
             const existingIndex = registry.models.findIndex((entry) => (
-                entry.provider === provider.id && entry.model_id === selectedModel.id
+                entry.provider === provider.id && entry.model_id === selectedRoute.model_id
             ));
-            const newEntry = catalogModelToRegistryEntry(provider, selectedModel);
+            const newEntry = comparisonRouteToRegistryEntry(selectedRoute);
             const nextModels = existingIndex >= 0
                 ? registry.models.map((entry, index) => (
                     index === existingIndex ? { ...entry, ...newEntry, enabled: true } : entry
@@ -426,68 +411,57 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
     };
 
     const activeSetupProvider = setup ? providersById[setup.providerId] : null;
-    const activeSetupProviders = setup ? setupProviders(setup.model, setup.mode) : [];
-    const activeSetupModels = activeSetupProvider?.models || [];
+    const activeSetupRoutes = setup ? setupRoutes(setup.model, setup.mode) : [];
+    const activeSetupRoute = activeSetupRoutes.find((route) => route.provider === setup?.providerId) || null;
+    const activeSetupModes = setup
+        ? ['remote', 'local'].filter((mode) => setupRoutes(setup.model, mode).length > 0)
+        : [];
     const setupNeedsApiKey = setup?.mode === 'remote' && activeSetupProvider && !activeSetupProvider.has_api_key;
     const setupPanel = setup && (
         <section className="model-setup-dialog model-setup-inline" aria-label={t('model_comparison.setup.activate')}>
             <div className="model-setup-content">
-                <fieldset className="model-execution-choice">
-                    <legend>{t('model_comparison.setup.execution')}</legend>
-                    <button
-                        type="button"
-                        className={setup.mode === 'remote' ? 'active' : ''}
-                        onClick={() => changeSetupMode('remote')}
-                    >
-                        <Cloud size={20} />
-                        <span><strong>{t('model_comparison.setup.remote')}</strong><small>{t('model_comparison.setup.remote_help')}</small></span>
-                    </button>
-                    <button
-                        type="button"
-                        className={setup.mode === 'local' ? 'active' : ''}
-                        onClick={() => changeSetupMode('local')}
-                    >
-                        <Server size={20} />
-                        <span><strong>{t('model_comparison.setup.local')}</strong><small>{t('model_comparison.setup.local_help')}</small></span>
-                    </button>
-                </fieldset>
+                {activeSetupModes.length > 1 && (
+                    <fieldset className="model-execution-choice">
+                        <legend>{t('model_comparison.setup.execution')}</legend>
+                        <button
+                            type="button"
+                            className={setup.mode === 'remote' ? 'active' : ''}
+                            onClick={() => changeSetupMode('remote')}
+                        >
+                            <Cloud size={20} />
+                            <span><strong>{t('model_comparison.setup.remote')}</strong><small>{t('model_comparison.setup.remote_help')}</small></span>
+                        </button>
+                        <button
+                            type="button"
+                            className={setup.mode === 'local' ? 'active' : ''}
+                            onClick={() => changeSetupMode('local')}
+                        >
+                            <Server size={20} />
+                            <span><strong>{t('model_comparison.setup.local')}</strong><small>{t('model_comparison.setup.local_help')}</small></span>
+                        </button>
+                    </fieldset>
+                )}
 
-                {activeSetupProviders.length === 0 ? (
+                {activeSetupRoutes.length === 0 ? (
                     <div className="model-setup-empty" role="status">
                         <Server size={22} />
-                        <strong>{t('model_comparison.setup.no_local_models')}</strong>
-                        <span>{t('model_comparison.setup.no_local_models_help')}</span>
+                        <strong>{t('model_comparison.setup.no_exact_route')}</strong>
+                        <span>{t('model_comparison.setup.no_exact_route_help')}</span>
                     </div>
                 ) : (
                     <>
-                        <label className="model-setup-field">
-                            <span>{t('model_comparison.setup.provider')}</span>
-                            <select value={setup.providerId} onChange={(event) => changeSetupProvider(event.target.value)}>
-                                <option value="">{t('model_comparison.setup.choose_provider')}</option>
-                                {activeSetupProviders.map((provider) => (
-                                    <option key={provider.id} value={provider.id}>
-                                        {provider.name}{provider.connected ? ` · ${t('model_comparison.setup.connected')}` : ''}
-                                    </option>
-                                ))}
-                            </select>
-                        </label>
-
-                        <label className="model-setup-field">
-                            <span>{t('model_comparison.setup.model_route')}</span>
-                            <select
-                                value={setup.modelId}
-                                disabled={!activeSetupProvider}
-                                onChange={(event) => setSetup((current) => ({ ...current, modelId: event.target.value, error: '' }))}
-                            >
-                                <option value="">{t('model_comparison.setup.choose_model')}</option>
-                                {activeSetupModels.map((model) => (
-                                    <option key={model.id} value={model.id}>{model.name} · {model.id}</option>
-                                ))}
-                            </select>
-                            {activeSetupProvider && !setup.modelId && (
-                                <small>{t('model_comparison.setup.confirm_route_help')}</small>
-                            )}
-                        </label>
+                        {activeSetupRoutes.length > 1 && (
+                            <label className="model-setup-field">
+                                <span>{t('model_comparison.setup.provider')}</span>
+                                <select value={setup.providerId} onChange={(event) => changeSetupProvider(event.target.value)}>
+                                    {activeSetupRoutes.map((route) => (
+                                        <option key={route.provider} value={route.provider}>
+                                            {route.provider_name}{route.provider_connected ? ` · ${t('model_comparison.setup.connected')}` : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+                        )}
 
                         {activeSetupProvider && setup.mode === 'remote' && !setupNeedsApiKey && (
                             <div className="model-provider-state connected">
@@ -536,7 +510,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
             </div>
 
             <footer>
-                <span>{t('model_comparison.setup.router_help')}</span>
+                <span>{activeSetupRoute ? t('model_comparison.setup.router_help') : ''}</span>
                 <div>
                     <button type="button" className="btn-gnosi-secondary" onClick={() => setSetup(null)}>
                         {t('common.cancel')}
@@ -546,7 +520,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                         className="btn-gnosi-primary"
                         disabled={
                             !activeSetupProvider
-                            || !setup.modelId
+                            || !activeSetupRoute
                             || (setupNeedsApiKey && !setup.apiKey.trim())
                             || busyModelId === setup.model.id
                         }
