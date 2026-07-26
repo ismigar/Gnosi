@@ -3670,6 +3670,8 @@
     "loading_catalog": "Chargement du catalogue complet…",
     "catalog_fallback": "Le catalogue en direct est indisponible ; affichage des modèles de référence.",
     "catalog_fallback_active": "Le quota Artificial Analysis est épuisé. Les données alternatives mises à jour de {{source}} sont affichées et les colonnes que cette source ne fournit pas sont masquées.",
+    "catalog_fallback_no_cache": "Artificial Analysis est indisponible et il n’existe pas encore de cache complet antérieur. Les données de {{source}} sont affichées provisoirement et les colonnes que cette source ne fournit pas sont masquées.",
+    "catalog_fallback_no_cache_until": "Le quota Artificial Analysis est épuisé et il n’existe pas encore de cache complet antérieur. Le quota sera réinitialisé le {{date}}. Les données de {{source}} sont affichées provisoirement.",
     "cached_fallback": "Le quota Artificial Analysis est épuisé. La dernière comparaison complète enregistrée localement est affichée.",
     "max_price": "Prix d’entrée max. ($/1M)",
     "min_context": "Contexte min. (K jetons)",

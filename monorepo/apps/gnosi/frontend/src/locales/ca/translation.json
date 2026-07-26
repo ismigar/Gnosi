@@ -3670,6 +3670,8 @@
     "loading_catalog": "Carregant el catàleg complet…",
     "catalog_fallback": "El catàleg en directe no està disponible; es mostren models de referència.",
     "catalog_fallback_active": "Quota d’Artificial Analysis esgotada. Es mostren dades alternatives actualitzades de {{source}} i s’oculten les columnes que aquesta font no proporciona.",
+    "catalog_fallback_no_cache": "Artificial Analysis no està disponible i encara no hi ha cap caché completa anterior. Mentrestant es mostren dades de {{source}} i s’oculten les columnes que aquesta font no proporciona.",
+    "catalog_fallback_no_cache_until": "Quota d’Artificial Analysis esgotada i encara no hi ha cap caché completa anterior. La quota es restableix el {{date}}. Mentrestant es mostren dades de {{source}}.",
     "cached_fallback": "Quota d’Artificial Analysis esgotada. Es mostra l’última comparativa completa desada localment.",
     "max_price": "Preu màx. entrada ($/1M)",
     "min_context": "Context mínim (K tokens)",
