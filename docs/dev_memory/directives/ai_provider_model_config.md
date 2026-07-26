@@ -312,6 +312,10 @@ Artificial Analysis rather than a hand-maintained shortlist.
   quota or transient upstream access fails, serve that attributed cache; if no
   cache exists yet, build an explicitly attributed models.dev comparison feed.
   The UI must warn that Artificial Analysis-only benchmark fields may be absent.
+- Reuse a complete Artificial Analysis cache for 24 hours before requesting all
+  pagination pages again. On any configuration or upstream failure, prefer the
+  last complete cache even when it is older; only use models.dev when no
+  complete Artificial Analysis cache exists.
 
 ### Restrictions / Edge Cases
 
@@ -319,6 +323,12 @@ Artificial Analysis rather than a hand-maintained shortlist.
   scraping violates the integration architecture.
 - Do not stop at page one → the Free endpoint currently paginates at 200 rows,
   so frontier or long-tail models may otherwise be omitted.
+- Do not refetch every pagination page on each modal open → repeated UI checks
+  consume the daily quota and can prevent the first complete cache from being
+  produced → reuse a complete cache for 24 hours, then refresh it atomically.
+- Tests that exercise a successful fetch must mock both cache reads and cache
+  writes → mocking only `_read_cache` still lets `_write_cache` persist fixture
+  rows into the native runtime cache → capture writes in memory and assert them.
 - Do not call Artificial Analysis from React → exposes the API key and shares
   the organisation quota with every browser client.
 - The Free tier does not include every Pro metadata field. Missing values must

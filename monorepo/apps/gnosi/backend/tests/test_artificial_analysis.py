@@ -1,5 +1,7 @@
 """Pure transformation and paginated-fetch tests for Artificial Analysis."""
 
+from datetime import datetime, timedelta, timezone
+
 from backend.services import artificial_analysis as aa
 
 
@@ -127,6 +129,9 @@ def test_build_payload_enriches_context_from_models_dev():
 
 def test_fetch_all_models_follows_every_page(monkeypatch):
     monkeypatch.setenv("ARTIFICIAL_ANALYSIS_API_KEY", "test-key")
+    monkeypatch.setattr(aa, "_read_cache", lambda: None)
+    written = []
+    monkeypatch.setattr(aa, "_write_cache", written.append)
     pages = {
         1: {"data": [_row(1, "One", 10, 10, 1, 1)],
             "pagination": {"has_more": True, "total_pages": 2},
@@ -166,6 +171,7 @@ def test_fetch_all_models_follows_every_page(monkeypatch):
     assert requested_pages == [1, 2]
     assert refresh_requests == [True]
     assert result["count"] == 2
+    assert written == [result]
 
 
 def test_fetch_requires_server_side_key(monkeypatch):
@@ -175,6 +181,7 @@ def test_fetch_requires_server_side_key(monkeypatch):
         "backend.security.ai_credentials.resolve_provider_api_key",
         lambda *_args, **_kwargs: None,
     )
+    monkeypatch.setattr(aa, "_read_cache", lambda: None)
     try:
         aa.fetch_all_models()
     except aa.ArtificialAnalysisError as exc:
@@ -233,4 +240,86 @@ def test_rate_limit_prefers_last_successful_cache(monkeypatch):
 
     assert result["models"] == [{"id": "cached"}]
     assert result["fallback"] is True
+    assert result["stale"] is True
+
+
+def test_fresh_cache_avoids_repeated_upstream_requests(monkeypatch):
+    cached = {
+        "source": "Artificial Analysis",
+        "fetched_at": datetime.now(timezone.utc).isoformat(),
+        "count": 1,
+        "models": [{"id": "cached"}],
+    }
+    monkeypatch.setattr(aa, "_read_cache", lambda: cached)
+    monkeypatch.setattr(
+        aa.requests.Session,
+        "get",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("Fresh cache must avoid an upstream request")
+        ),
+    )
+
+    assert aa.fetch_all_models() == cached
+
+
+def test_expired_cache_is_refreshed_when_upstream_is_available(monkeypatch):
+    monkeypatch.setenv("ARTIFICIAL_ANALYSIS_API_KEY", "test-key")
+    cached = {
+        "source": "Artificial Analysis",
+        "fetched_at": (
+            datetime.now(timezone.utc) - timedelta(days=2)
+        ).isoformat(),
+        "count": 1,
+        "models": [{"id": "old"}],
+    }
+    monkeypatch.setattr(aa, "_read_cache", lambda: cached)
+
+    class Response:
+        status_code = 200
+        ok = True
+
+        @staticmethod
+        def json():
+            return {
+                "data": [_row(1, "Fresh", 10, 10, 1, 1)],
+                "pagination": {"has_more": False, "total_pages": 1},
+            }
+
+    monkeypatch.setattr(
+        aa.requests.Session,
+        "get",
+        lambda *_args, **_kwargs: Response(),
+    )
+    monkeypatch.setattr(aa, "load_catalog", lambda force_refresh=False: {
+        "providers": [],
+    })
+    written = []
+    monkeypatch.setattr(aa, "_write_cache", written.append)
+
+    result = aa.fetch_all_models()
+
+    assert result["models"][0]["name"] == "Fresh"
+    assert written == [result]
+
+
+def test_missing_key_prefers_last_successful_cache(monkeypatch):
+    monkeypatch.delenv("ARTIFICIAL_ANALYSIS_API_KEY", raising=False)
+    monkeypatch.delenv("AA_API_KEY", raising=False)
+    monkeypatch.setattr(
+        "backend.security.ai_credentials.resolve_provider_api_key",
+        lambda *_args, **_kwargs: None,
+    )
+    cached = {
+        "source": "Artificial Analysis",
+        "fetched_at": "2026-07-01T00:00:00+00:00",
+        "count": 1,
+        "models": [{"id": "cached"}],
+    }
+    monkeypatch.setattr(aa, "_read_cache", lambda: cached)
+
+    result = aa.fetch_all_models()
+
+    assert result["models"] == [{"id": "cached"}]
+    assert result["fallback"] is True
+    assert result["fallback_reason"] == "api_key_missing"
     assert result["stale"] is True
