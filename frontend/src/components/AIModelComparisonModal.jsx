@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
     ArrowDown, ArrowLeftRight, ArrowUp, ArrowUpDown, CheckCircle2,
-    Cloud, KeyRound, Loader2, RefreshCw, Search,
+    Cloud, Loader2, RefreshCw, Search,
     Server, X,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -489,20 +489,12 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                             )}
                         </label>
 
-                        {activeSetupProvider && setup.mode === 'remote' && (
-                            <div className={`model-provider-state ${setupNeedsApiKey ? 'needs-key' : 'connected'}`}>
-                                {setupNeedsApiKey ? <KeyRound size={18} /> : <CheckCircle2 size={18} />}
+                        {activeSetupProvider && setup.mode === 'remote' && !setupNeedsApiKey && (
+                            <div className="model-provider-state connected">
+                                <CheckCircle2 size={18} />
                                 <span>
-                                    <strong>
-                                        {setupNeedsApiKey
-                                            ? t('model_comparison.setup.key_required')
-                                            : t('model_comparison.setup.credentials_ready')}
-                                    </strong>
-                                    <small>
-                                        {setupNeedsApiKey
-                                            ? t('model_comparison.setup.key_required_help')
-                                            : t('model_comparison.setup.credentials_ready_help')}
-                                    </small>
+                                    <strong>{t('model_comparison.setup.credentials_ready')}</strong>
+                                    <small>{t('model_comparison.setup.credentials_ready_help')}</small>
                                 </span>
                             </div>
                         )}
