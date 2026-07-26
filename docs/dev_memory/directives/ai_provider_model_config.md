@@ -318,8 +318,10 @@ Artificial Analysis rather than a hand-maintained shortlist.
   production so a permissive mock cannot hide a runtime signature mismatch.
 - The comparison table is intentionally wider than the modal. Keep the first
   model column and monthly-cost column sticky, and expose explicit horizontal
-  navigation controls; a scrollbar at the bottom of hundreds of rows is not
-  discoverable enough on desktop or mobile.
+  navigation controls. Keep those controls sticky while the table body is
+  vertically scrolled; a control row that scrolls away, or a scrollbar only at
+  the bottom of hundreds of rows, is not discoverable enough on desktop or
+  mobile.
 - The comparison modal must handle keyboard scrolling at the window level while
   leaving inputs, selects, buttons, links and editable fields untouched. Map
   ArrowUp/Down and PageUp/PageDown to incremental scrolling, and Home/End to
