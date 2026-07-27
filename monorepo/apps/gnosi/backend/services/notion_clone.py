@@ -122,6 +122,11 @@ def clone_table_schema(notion_db: Dict[str, Any]) -> Dict[str, Any]:
     namespaced to the clone."""
     t = map_database_schema(notion_db)
     t["id"] = clone_table_id(notion_db.get("id"))
+    t["schema_source"] = {
+        "provider": "notion",
+        "database_id": str(notion_db.get("id") or ""),
+        "mode": "exact_clone",
+    }
     for p in t.get("properties", []):
         p["name"] = _clean(p.get("name"))
         if p.get("type") == "relation" and p.get("relation_database_id"):

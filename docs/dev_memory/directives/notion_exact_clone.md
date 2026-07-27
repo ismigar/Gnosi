@@ -104,6 +104,11 @@ Raw details tags remain allowed because BlockNote normalizes them to toggles.
   Brain while requiring exact schema and row parity. Brain maintenance adds
   managed fields and generated pages. Disable that designation or use a
   separate Brain table before exact reconciliation.
+- Do not accept a full-table schema save from a browser snapshot older than
+  the current clone revision. A tab left open during reconciliation can
+  otherwise restore the pre-clone property list through the schema modal's
+  autosave. Exact clones must increment `schema_revision`; schema writes based
+  on any other revision fail with HTTP 409 and require a reload.
 
 ## QA
 
