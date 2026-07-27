@@ -451,8 +451,18 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
                         existing.get("name"), table.get("id"), len(existing["properties"]),
                     )
                     table["properties"] = existing["properties"]
+                previous_revision = vault_routes._schema_revision(
+                    existing.get("schema_revision")
+                )
+                if vault_routes._table_schema_signature(
+                    table.get("properties")
+                ) != vault_routes._table_schema_signature(existing.get("properties")):
+                    table["schema_revision"] = previous_revision + 1
+                elif previous_revision:
+                    table["schema_revision"] = previous_revision
                 tables[idx] = table
             else:
+                table["schema_revision"] = 1
                 tables.append(table)
             # The registry stores the LEAF (table["folder"], e.g. "Àrees"); the physical path goes under BD/ as
             # Gnosi's native tables do (cf. _ensure_table_vault_folder / _resolve_table_folder_
