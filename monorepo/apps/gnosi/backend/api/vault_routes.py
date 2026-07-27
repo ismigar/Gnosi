@@ -15356,6 +15356,59 @@ async def create_table(table: dict = Body(...)):
         return _create_table_locked(table)
 
 
+def _table_schema_signature(properties: object) -> str:
+    """Return a deterministic signature for one ordered property schema."""
+    return json.dumps(
+        properties if isinstance(properties, list) else [],
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+
+
+def _schema_revision(value: object) -> int:
+    """Parse a non-negative schema revision without trusting client types."""
+    try:
+        return max(0, int(value or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _reconcile_table_schema_revision(old_table: dict, incoming_table: dict) -> None:
+    """Reject a stale full-table update before it can restore an old schema.
+
+    The schema modal sends the complete table object. A browser tab that was
+    already open during an external reconciliation can therefore hold an old
+    property list. Once a table has a schema revision, any property change must
+    be based on that exact revision. Non-schema updates remain compatible with
+    older clients because they cannot overwrite the current property list.
+    """
+    old_revision = _schema_revision(old_table.get("schema_revision"))
+    incoming_revision = _schema_revision(incoming_table.get("schema_revision"))
+    schema_changed = _table_schema_signature(
+        old_table.get("properties")
+    ) != _table_schema_signature(incoming_table.get("properties"))
+
+    if schema_changed and old_revision and incoming_revision != old_revision:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "The table schema changed after this editor loaded it. "
+                "Reload the table before saving schema changes."
+            ),
+        )
+
+    if schema_changed:
+        incoming_table["schema_revision"] = old_revision + 1
+    elif old_revision:
+        incoming_table["schema_revision"] = old_revision
+
+    # Source provenance belongs to the authoritative table, not to a browser
+    # snapshot. Preserve it across compatible legacy non-schema updates.
+    if old_table.get("schema_source") and not incoming_table.get("schema_source"):
+        incoming_table["schema_source"] = old_table["schema_source"]
+
+
 def _create_table_locked(table: dict):
     registry = load_registry()
     if "id" not in table:
@@ -15389,6 +15442,7 @@ def _create_table_locked(table: dict):
             _old_p = _old_props_by_id.get(_p.get("id"))
             if _old_p and _old_p.get("aliases") and not _p.get("aliases"):
                 _p["aliases"] = list(_old_p["aliases"])
+        _reconcile_table_schema_revision(old_table, table)
         # Detect removed properties to delete their assets folders
         old_asset_props = {
             str(p.get("name") or "").strip()

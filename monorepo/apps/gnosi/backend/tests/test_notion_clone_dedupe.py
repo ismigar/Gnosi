@@ -174,3 +174,54 @@ def test_reclone_empty_schema_does_not_wipe_existing_properties(tmp_path, monkey
 
     table = next(t for t in registry["tables"] if t["id"] == TID)
     assert table["properties"] == rich_props  # Schema remains intact.
+
+
+def test_reclone_advances_schema_revision(tmp_path, monkeypatch):
+    """An authoritative clone invalidates schema editors opened before it."""
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    registry = {
+        "tables": [{
+            "id": TID,
+            "name": "Tasques",
+            "folder": "Tasques",
+            "database_id": "notion_clone_db",
+            "schema_revision": 7,
+            "properties": [{"id": "old", "name": "Old", "type": "text"}],
+        }],
+        "views": [],
+        "databases": [{"id": "notion_clone_db", "name": "Notion", "folder": "BD"}],
+    }
+    monkeypatch.setattr(notion_routes, "_get_token", lambda: "tok")
+    monkeypatch.setattr(notion_routes.notion_mcp, "is_connected", lambda: True)
+    monkeypatch.setattr(notion_routes, "get_active_vault_path", lambda: vault)
+    monkeypatch.setattr(notion_routes, "NotionClient", lambda tok: object())
+    monkeypatch.setattr(notion_routes.vault_routes, "load_registry", lambda: registry)
+    monkeypatch.setattr(notion_routes.vault_routes, "save_registry", lambda reg: None)
+    monkeypatch.setattr(notion_routes.vault_routes, "register_page_in_index", lambda p: None)
+    monkeypatch.setitem(notion_routes._CLONE_CANCEL, "flag", False)
+
+    def fake(rest, *, write_table, write_page, write_view, **kw):
+        write_table({
+            "id": TID,
+            "name": "Tasques",
+            "folder": "Tasques",
+            "properties": [{"id": "new", "name": "New", "type": "text"}],
+        })
+        return {
+            "tables": 1,
+            "pages": 0,
+            "views": 0,
+            "attachments": 0,
+            "collected": 0,
+            "errors": [],
+            "warnings": [],
+            "truncated": False,
+        }
+
+    monkeypatch.setattr(notion_routes.notion_clone, "clone_workspace", fake)
+    notion_routes._run_clone_sync(["db1"], target_folder="")
+
+    table = next(item for item in registry["tables"] if item["id"] == TID)
+    assert table["schema_revision"] == 8
+    assert table["properties"] == [{"id": "new", "name": "New", "type": "text"}]
