@@ -76,6 +76,20 @@ configuration autosave.
   yet an item.
 - Existing-item configuration opens the same inline form populated with that
   item. Successful creation or update closes the form.
+- Render an existing item's editor immediately after its owning row and before
+  the next row. Use a keyed fragment or an equivalent row-plus-editor wrapper
+  inside the collection map so DOM order always remains `item, editor, next
+  item`.
+- Do not render one shared existing-item editor above or below the complete
+  collection. The visual separation makes it unclear which item owns the draft,
+  especially when the collection scrolls.
+- A create-only form has no owning row and may remain at the section action or
+  empty-state position. Components whose editable controls are already part of
+  each row also satisfy this rule without a separate editor.
+- Do not nest service-specific `<form>` elements inside a collection editor's
+  submit form: React reports invalid HTML and browser submission behavior
+  becomes ambiguous. Use styled `<div>` sections for IMAP, SMTP, or other field
+  groups and keep one owning form with one submit action.
 - Collection rows use the full section width and keep controls in the shared
   order: enable toggle, item identity, configure, then delete. Configure opens
   the inline editor; delete always asks for confirmation.
@@ -117,3 +131,5 @@ configuration autosave.
   immediately and survives reload.
 - Confirm `/api/config` returns `settings.language: en` when the source value is
   missing or invalid.
+- For every Settings collection editor, verify in the DOM and visually that the
+  edited row is immediately followed by its editor and then by the next row.
