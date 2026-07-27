@@ -30,7 +30,7 @@ const normalizeVaultAssetUrl = (value) => {
  * 2. Lucide Icon (format "lucide:IconName:color")
  * 3. URL/Image (https://... or Assets/...)
  */
-export const IconRenderer = ({ icon, size = 16, className = "" }) => {
+export const IconRenderer = ({ icon, size = 16, className = "", color }) => {
     if (!icon) return null;
 
     // 1. Check if it's a Lucide Icon string "lucide:IconName:color"
@@ -55,7 +55,7 @@ export const IconRenderer = ({ icon, size = 16, className = "" }) => {
 
         const IconComponent = LucideIcons[iconName];
         if (IconComponent) {
-            return <IconComponent size={size} color={colorMap[colorName]} className={className} />;
+            return <IconComponent size={size} color={color || colorMap[colorName]} className={className} />;
         }
     }
 
