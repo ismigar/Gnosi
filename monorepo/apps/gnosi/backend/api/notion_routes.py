@@ -276,6 +276,8 @@ class ClonePayload(BaseModel):
     schema_overrides: Optional[dict] = None  # {db_id: SchemaConfigModal schema}
     loose_page_types: Optional[dict] = None  # {notion_page_id: "wiki"|"dashboard"}
     download_assets: bool = True  # False = doesn't download attachments (leaves the Notion URLs); fast clone
+    prune_orphans: bool = False  # explicit source-of-truth repair: soft-delete rows absent from Notion
+    follow_subpages: bool = True
 
 
 # Progress of the ongoing clone: the clone runs in a (blocking) thread and the frontend polls it
@@ -358,7 +360,8 @@ async def clone_abort():
 
 
 def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=None,
-                    loose_page_types=None, download_assets=True) -> dict:
+                    loose_page_types=None, download_assets=True, prune_orphans=False,
+                    follow_subpages=True) -> dict:
     token = _get_token()
     if not token:
         raise RuntimeError("No Notion integration token is configured")
@@ -556,12 +559,15 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
         progress_cb=_clone_progress_cb,
         should_cancel=lambda: _CLONE_CANCEL["flag"],
         registry_tables=vault_routes.load_registry().get("tables", []),
+        follow_subpages=follow_subpages,
     )
 
     # ORPHAN FILES have a cloned table_id but an id that no longer exists in
-    # Notion (deleted or recreated rows). Report them as warnings but never
-    # delete them automatically. Skip this diagnosis for truncated, cancelled,
-    # or failed clones because unwritten pages would look like false orphans.
+    # Notion (deleted or recreated rows). The default remains report-only. An
+    # explicit source-of-truth repair can soft-delete them to `.trash`, but only
+    # after a complete, error-free clone; otherwise unwritten pages would look
+    # like false orphans and valid content could be removed.
+    report["orphan_rows_pruned"] = 0
     if not report.get("truncated") and not report.get("errors") and not _CLONE_CANCEL["flag"]:
         for table_id, phys in folder_by_table.items():
             table_dir = vault / phys
@@ -571,6 +577,18 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
             for p in sorted(table_dir.glob("*.md")):
                 m = _frontmatter_meta(p)
                 if str(m.get("table_id")) == str(table_id) and str(m.get("id")) not in written:
+                    page_id = str(m.get("id") or "")
+                    if prune_orphans and page_id:
+                        try:
+                            vault_routes._move_page_to_trash(page_id, p)
+                            vault_routes.remove_from_link_index(page_id)
+                            vault_routes._remove_page_from_index_cache(page_id, p)
+                            report["orphan_rows_pruned"] += 1
+                            continue
+                        except Exception as exc:  # noqa: BLE001
+                            report["warnings"].append(
+                                f"Could not move orphan row «{p.relative_to(vault)}» "
+                                f"(id {page_id}) to trash: {exc}")
                     report["warnings"].append(
                         f"Orphan row (id no longer exists in Notion): «{p.relative_to(vault)}» "
                         f"(id {m.get('id')}). It was not deleted automatically.")
@@ -625,7 +643,8 @@ async def run_clone(payload: ClonePayload, x_vault_id: Optional[str] = Header(de
     try:
         report = await asyncio.to_thread(_run_clone_sync, payload.database_ids,
                                          payload.target_folder, payload.schema_overrides,
-                                         payload.loose_page_types, payload.download_assets)
+                                         payload.loose_page_types, payload.download_assets,
+                                         payload.prune_orphans, payload.follow_subpages)
     except notion_clone.CloneAborted:
         # Aborted by the user: whatever has been cloned so far stays on disk. We return the
         # partial counters (from _CLONE_PROGRESS) so the frontend can show what was done before stopping.

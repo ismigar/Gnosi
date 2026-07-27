@@ -28,6 +28,22 @@ required.
 | Script | Use |
 |---|---|
 | [`scripts/backfill_notion_views.py`](./scripts/backfill_notion_views.py) | Recover tabs 2 through N that clone v1 omitted without recloning or overwriting edited content |
+| [`scripts/verify_notion_table_exact.py`](./scripts/verify_notion_table_exact.py) | Compare one live Notion database with its Gnosi clone schema and values |
+
+### `verify_notion_table_exact.py`
+
+The verifier uses the configured Notion REST integration and the deterministic
+clone IDs. It compares property definitions and order, row IDs, structured
+values, and undeclared frontmatter keys. Relation wikilink labels are treated
+as storage decoration; the relation IDs must still match.
+
+```bash
+GNOSI_LOCAL_DATA="$PWD/local_data" \
+DIGITAL_BRAIN_VAULT_PATH="/path/to/vault" \
+.venv/bin/python pipeline/skills/notion_clone/scripts/verify_notion_table_exact.py \
+    --database-id <notion-db-id> \
+    --vault "/path/to/vault"
+```
 
 ### `backfill_notion_views.py`
 
