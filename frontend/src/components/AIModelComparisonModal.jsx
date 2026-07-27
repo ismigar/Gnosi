@@ -41,6 +41,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
     const { t } = useTranslation();
     const [query, setQuery] = useState('');
     const [profile, setProfile] = useState('all');
+    const [availability, setAvailability] = useState('all');
     const [showProfileHelp, setShowProfileHelp] = useState(false);
     const [maxPrice, setMaxPrice] = useState('');
     const [minContext, setMinContext] = useState('');
@@ -198,6 +199,11 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
             .filter((model) => (
                 (!normalizedQuery || `${model.name} ${model.creator}`.toLocaleLowerCase().includes(normalizedQuery))
                 && (profile === 'all' || model.profile === profile)
+                && (
+                    availability === 'all'
+                    || matchingRegistryIndexes(registry.models, model)
+                        .some((index) => registry.models[index]?.enabled !== false) === (availability === 'active')
+                )
                 && (maxPrice === '' || (model.input_price != null && model.input_price <= priceLimit))
                 && (minContext === '' || (model.context_window != null && model.context_window >= contextFloor))
             ))
@@ -212,7 +218,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                     : first - second;
                 return sort.direction === 'asc' ? comparison : -comparison;
             });
-    }, [feed, maxPrice, minContext, profile, query, sort]);
+    }, [availability, feed, maxPrice, minContext, profile, query, registry.models, sort]);
 
     if (!isOpen) return null;
 
@@ -664,6 +670,14 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                                         </select>
                                     </label>
                                 )}
+                                <label>
+                                    <span>{t('model_comparison.availability')}</span>
+                                    <select value={availability} onChange={(event) => setAvailability(event.target.value)}>
+                                        <option value="all">{t('model_comparison.all_availability')}</option>
+                                        <option value="active">{t('model_comparison.active')}</option>
+                                        <option value="inactive">{t('model_comparison.inactive')}</option>
+                                    </select>
+                                </label>
                                 <label>
                                     <span>{t('model_comparison.max_price')}</span>
                                     <input type="number" min="0" step="0.01" value={maxPrice} onChange={(event) => setMaxPrice(event.target.value)} placeholder="1.00" />

@@ -3685,6 +3685,8 @@
     "scroll_right": "Desplaça la taula cap a la dreta",
     "keyboard_scroll_hint": "Usa ↑/↓ o Re Pàg/Av Pàg per al desplaçament vertical",
     "configuration_loading": "Carregant…",
+    "availability": "Estat",
+    "all_availability": "Actius i inactius",
     "active": "Actiu",
     "inactive": "Inactiu",
     "enable_model": "Activa {{model}}",
