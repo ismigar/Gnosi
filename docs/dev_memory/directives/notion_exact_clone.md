@@ -90,6 +90,21 @@ Raw details tags remain allowed because BlockNote normalizes them to toggles.
 - Complex Notion OR filters cannot map to Gnosi's AND-only filters and are
   omitted rather than changed semantically.
 
+## Restrictions and repair edge cases
+
+- Do not persist values for properties absent from the effective cloned table
+  schema. Doing so creates undeclared, page-specific metadata and leaves
+  omitted relation values as raw Notion IDs. Filter row values through the
+  effective schema instead.
+- Do not prune orphan rows after a truncated, cancelled, or failed clone.
+  Unwritten source rows are indistinguishable from real orphans in those
+  states. Use the explicit `prune_orphans` repair option only after an
+  error-free complete pass; it must soft-delete to `.trash`.
+- Do not designate a source-faithful Notion table as the managed LLM Wiki
+  Brain while requiring exact schema and row parity. Brain maintenance adds
+  managed fields and generated pages. Disable that designation or use a
+  separate Brain table before exact reconciliation.
+
 ## QA
 
 1. Pure converter and view-recreation tests use real representative MCP text.

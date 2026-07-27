@@ -51,10 +51,12 @@ def clone_env(tmp_path, monkeypatch):
     monkeypatch.setattr(notion_routes.vault_routes, "register_page_in_index", lambda p: None)
     monkeypatch.setitem(notion_routes._CLONE_CANCEL, "flag", False)
 
-    def run(pages):
+    def run(pages, *, prune_orphans=False):
         monkeypatch.setattr(notion_routes.notion_clone, "clone_workspace",
                             _fake_clone_workspace(pages))
-        return notion_routes._run_clone_sync(["db1"], target_folder="")
+        return notion_routes._run_clone_sync(
+            ["db1"], target_folder="", prune_orphans=prune_orphans
+        )
 
     return vault, run
 
@@ -103,6 +105,33 @@ def test_ghost_rows_reported_not_deleted(clone_env):
     assert ghost.exists()                      # Never deleted automatically.
     assert any("bbbb2222-id" in w and "orphan" in w.lower() for w in rep["warnings"])
     assert not any("aaaa1111-id" in w for w in rep["warnings"])
+
+
+def test_ghost_rows_soft_deleted_when_pruning_is_explicit(clone_env, monkeypatch):
+    vault, run = clone_env
+    trash = vault / ".trash"
+
+    def soft_delete(page_id, path):
+        target = trash / page_id / "page.md"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        path.replace(target)
+        return {"id": page_id}
+
+    monkeypatch.setattr(notion_routes.vault_routes, "_move_page_to_trash", soft_delete)
+    monkeypatch.setattr(notion_routes.vault_routes, "remove_from_link_index", lambda page_id: None)
+    monkeypatch.setattr(
+        notion_routes.vault_routes,
+        "_remove_page_from_index_cache",
+        lambda page_id, path: None,
+    )
+
+    run([_page("aaaa1111-id", "Viva"), _page("bbbb2222-id", "Esborrada a Notion")])
+    rep = run([_page("aaaa1111-id", "Viva")], prune_orphans=True)
+
+    assert _md_files(vault) == ["Viva.md"]
+    assert (trash / "bbbb2222-id" / "page.md").exists()
+    assert rep["orphan_rows_pruned"] == 1
+    assert rep["warnings"] == []
 
 
 def test_reclone_empty_schema_does_not_wipe_existing_properties(tmp_path, monkeypatch):

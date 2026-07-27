@@ -132,12 +132,21 @@ def clone_table_schema(notion_db: Dict[str, Any]) -> Dict[str, Any]:
 def clone_values(values: Dict[str, Any], schema: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Re-keys the values to CLEAN names (without emoji) and remaps relations to the clone's
     page ids. Dates are left AS-IS (Notion's granularity is preserved: date or date+time).
-    Decorating relations as `[[Títol|id]]` is done in write_page (needs the title map)."""
+    Decorating relations as `[[Títol|id]]` is done in write_page (needs the title map).
+
+    Only fields present in the effective table schema are returned. A schema override can
+    intentionally omit a Notion property; persisting that property's value anyway would turn
+    it into undeclared per-page metadata, which the table editor exposes as a page-specific
+    property. It also prevents relation IDs in omitted fields from leaking through unconverted.
+    """
     by_clean = {p.get("name"): p for p in (schema or [])}
     out: Dict[str, Any] = {}
     for k, v in values.items():
         ck = _clean(k)
-        t = (by_clean.get(ck) or {}).get("type")
+        field = by_clean.get(ck)
+        if field is None:
+            continue
+        t = field.get("type")
         if t == "relation" and isinstance(v, list):
             out[ck] = [clone_page_id(x) for x in v if x]
         else:
