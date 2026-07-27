@@ -129,7 +129,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                     catalogResponse.json(),
                 ]);
                 setRegistry({
-                    models: registryPayload.models || [],
+                    models: registryPayload.configured_models || [],
                     budget: registryPayload.budget || {},
                 });
                 setCatalog(catalogPayload);

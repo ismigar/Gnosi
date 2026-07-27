@@ -36,3 +36,24 @@ def test_model_registry_returns_explicit_rows_separately(monkeypatch):
     response = asyncio.run(ai_routes.get_model_registry())
 
     assert response["configured_models"] == configured
+
+
+def test_model_registry_excludes_unchanged_persisted_defaults(monkeypatch):
+    default = dict(model_router.LEGACY_DEFAULT_REGISTRY[2])
+    activated = {
+        "provider": "mistral",
+        "model_id": "devstral-latest",
+        "enabled": True,
+        "priority": 100,
+    }
+    configured = [default, activated]
+    monkeypatch.setattr(
+        ai_routes,
+        "load_params",
+        lambda strict_env=False: {"ai": {"models": configured}},
+    )
+    monkeypatch.setattr(model_router, "load_registry", lambda: configured)
+
+    response = asyncio.run(ai_routes.get_model_registry())
+
+    assert response["configured_models"] == [activated]
