@@ -45,6 +45,11 @@ def test_clone_table_schema_relations_namespaced():
     }}
     t = clone_table_schema(db)
     assert t["id"] == clone_table_id("projects")
+    assert t["schema_source"] == {
+        "provider": "notion",
+        "database_id": "projects",
+        "mode": "exact_clone",
+    }
     rel = next(p for p in t["properties"] if p["name"] == "Tasks")
     assert rel["relation_database_id"] == clone_table_id("tasks")   # points to the CLONED table
 
