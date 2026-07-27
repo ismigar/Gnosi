@@ -4045,7 +4045,7 @@
     "attachments_only_label": "(Attachments)",
     "tool_start": "🛠️ *Calling tool: {{tool}}...*",
     "tool_end": "✅ *Tool {{tool}} finished.*",
-    "rate_limit_message": "You've exceeded the current model's quota. Try using a different model (like gpt-4o-mini) or wait a few minutes.",
+    "rate_limit_message": "You've exceeded this agent model's quota. Try a different agent or wait a few minutes.",
     "error_prefix": "Error",
     "open_chat": "Open chat",
     "online": "Online",
@@ -4072,7 +4072,10 @@
     "send_message": "Send message",
     "remove_attachment_aria": "Remove attachment {{name}}",
     "remove_attachment_title": "Remove attachment",
-    "llm_auto": "Auto",
+    "agent_model": "Model: {{model}}",
+    "model_not_configured": "Model not configured",
+    "model_required": "Configure this agent before sending a message",
+    "agent_model_unavailable": "The selected agent model is unavailable. Configure the agent and try again.",
     "new_session": "New session"
   },
   "bulk_actions": {

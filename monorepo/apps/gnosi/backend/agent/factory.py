@@ -462,7 +462,7 @@ async def create_agent_workflow(
         return None, {}
 
     # 2. Configure LLM for the agent
-    provider_name = agent_data.get("provider", "groq")
+    provider_name = agent_data.get("provider") or ""
     model_name = agent_data.get("model")
 
     if llm_mode == "manual":
@@ -478,6 +478,16 @@ async def create_agent_workflow(
             fallback_model=model_name,
         )
 
+    # The normal conversation path is agent_default: an agent is an atomic
+    # profile of model, instructions, and context. Do not let an incomplete
+    # profile implicitly reach an unrelated provider default.
+    if llm_mode == "agent_default" and (not provider_name or not model_name):
+        return None, {
+            "mode": llm_mode,
+            "provider": provider_name,
+            "model": model_name,
+        }
+
     p_cfg = providers.get(provider_name, {})
     resolved_api_key = resolve_provider_api_key(provider_name, p_cfg)
 
@@ -487,6 +497,16 @@ async def create_agent_workflow(
         api_key=resolved_api_key,
         base_url=p_cfg.get("base_url"),
     )
+
+    if not llm and llm_mode == "agent_default":
+        # A configured agent must either run with its own model or fail
+        # transparently. Hybrid fallback is retained only for explicit router
+        # and compatibility modes.
+        return None, {
+            "mode": llm_mode,
+            "provider": provider_name,
+            "model": model_name,
+        }
 
     if not llm:
         llm, fallback_provider, fallback_model = _get_hybrid_llm()
