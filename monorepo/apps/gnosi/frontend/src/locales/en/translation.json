@@ -4253,6 +4253,8 @@
     "scroll_right": "Scroll table right",
     "keyboard_scroll_hint": "Use ↑/↓ or Page Up/Page Down for vertical scrolling",
     "configuration_loading": "Loading…",
+    "availability": "Status",
+    "all_availability": "Active and inactive",
     "active": "Active",
     "inactive": "Inactive",
     "enable_model": "Enable {{model}}",

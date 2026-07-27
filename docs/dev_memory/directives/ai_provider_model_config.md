@@ -424,6 +424,10 @@ Artificial Analysis rather than a hand-maintained shortlist.
   `ai.models` configuration means that no model is active. Keep the retired
   seed list only as a migration signature for discarding unchanged rows
   persisted by older clients; never route through it.
+- The comparison's active/inactive filter must use the same registry matching
+  and enabled-state rule as each row switch. Do not infer availability from
+  catalog metadata, because the filter would then disagree with the state
+  displayed in the table.
 - Task profiles are five disjoint benchmark-percentile bands. Use lower-inclusive
   and upper-exclusive bounds for every intermediate band: Worker `<20`, Administrative
   `20–40`, Documentalist `40–60`, All-rounder `60–80`, and Expert `≥80`. Models
