@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
     X, Globe, Palette, RefreshCw, Info, ExternalLink, Monitor, BookOpen,
     Check, FolderOpen, Database, Cpu, Zap, Settings as SettingsIcon,
@@ -136,6 +137,16 @@ export const FormGroup = ({ label, children, description, horizontal = false }) 
     </div>
 );
 
+/**
+ * Keeps a collection editor next to its owning row without duplicating the
+ * editor's stateful form. Creation forms render at their normal section
+ * position; existing-item editors move into the matching row anchor.
+ */
+const InlineEditorPlacement = ({ target, waitForTarget = false, children }) => {
+    if (target) return createPortal(children, target);
+    return waitForTarget ? null : children;
+};
+
 // Inline autosave status for the Translate tab inputs: a spinner while a
 // debounced save is in flight, a transient check once it lands, nothing idle.
 // Fixed width so the input doesn't shift as the indicator appears.
@@ -264,11 +275,11 @@ const AliasEditor = ({ aliases, onChange }) => {
     );
 };
 
-const AccountRow = ({ name, description, status, type, provider, onSync, onEdit, onDelete, onToggleEnabled, enabled = true, color = '#3b82f6', isSyncing = false }) => {
+const AccountRow = ({ itemId, name, description, status, type, provider, onSync, onEdit, onDelete, onToggleEnabled, enabled = true, color = '#3b82f6', isSyncing = false }) => {
     const { t } = useTranslation();
     const ta = (k, opts) => t('settings.accounts.' + k, opts);
     return (
-    <div className="account-row hover-scale" style={{
+    <div className="account-row hover-scale" data-settings-item-id={itemId} style={{
         padding: '18px 24px', borderRadius: '20px', border: '1px solid var(--settings-border)',
         background: 'var(--settings-sidebar-bg)', display: 'flex', justifyContent: 'space-between',
         alignItems: 'center', marginBottom: '14px', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -588,6 +599,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [editingAgent, setEditingAgent] = useState(null);
     const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
     const [providerToEdit, setProviderToEdit] = useState(null);
+    const [providerEditorTarget, setProviderEditorTarget] = useState(null);
+    const [agentEditorTarget, setAgentEditorTarget] = useState(null);
     const [isModelComparisonOpen, setIsModelComparisonOpen] = useState(false);
 
     // Newsletter State
@@ -619,6 +632,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [manualServer, setManualServer] = useState('');
     const [manualPassword, setManualPassword] = useState('');
     const [editingAccountId, setEditingAccountId] = useState(null); // ID of the account being edited
+    const [accountEditorTarget, setAccountEditorTarget] = useState(null);
+    const [tableColorEditorTarget, setTableColorEditorTarget] = useState(null);
     const [syncingAccounts, setSyncingAccounts] = useState({}); // Tracking individual syncs
     const [syncErrorAccounts, setSyncErrorAccounts] = useState(() => {
         try { return new Set(JSON.parse(localStorage.getItem('gnosi_mail_sync_errors') || '[]')); } catch { return new Set(); }
@@ -650,6 +665,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     });
     const [snippetDraft, setSnippetDraft] = useState({ title: '', content: '' });
     const [editingSnippetId, setEditingSnippetId] = useState(null);
+    const [snippetEditorTarget, setSnippetEditorTarget] = useState(null);
 
     const saveSnippets = (list) => {
         setSnippets(list);
@@ -2519,11 +2535,19 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             </div>
                                         )}
                                         {addAccountType === activeTab && (
-                                            <div className="animate-in" style={{ 
-                                                marginBottom: '32px', padding: '28px', borderRadius: '28px', 
-                                                background: 'var(--settings-sidebar-bg)', border: '1px solid rgba(59, 130, 246, 0.18)',
-                                                boxShadow: '0 15px 40px rgba(59, 130, 246, 0.12)'
-                                            }}>
+                                            <InlineEditorPlacement
+                                                target={editingAccountId ? accountEditorTarget : null}
+                                                waitForTarget={Boolean(editingAccountId)}
+                                            >
+                                                <div
+                                                    className="animate-in"
+                                                    data-settings-editor-for={editingAccountId ? `account:${editingAccountId}` : 'account:new'}
+                                                    style={{
+                                                        marginBottom: '32px', padding: '28px', borderRadius: '28px',
+                                                        background: 'var(--settings-sidebar-bg)', border: '1px solid rgba(59, 130, 246, 0.18)',
+                                                        boxShadow: '0 15px 40px rgba(59, 130,246,0.12)'
+                                                    }}
+                                                >
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                                                     <span style={{ fontSize: '0.85rem', fontWeight: '1000', color: 'var(--gnosi-blue)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{tn('accounts.account_config')}</span>
                                                     <button onClick={() => { setAddAccountType(null); setAddAccountEmail(''); setAddAccountEmailBlurred(false); setIsManualGoogle(false); setManualServer(''); setManualPassword(''); setEditingAccountId(null); }} aria-label={t('settings.footer.close')} title={t('settings.footer.close')} className="icon-btn hover-bg-strong" style={{ padding: '8px', borderRadius: '12px' }}><X size={18} /></button>
@@ -2735,7 +2759,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             </div>
 
                                                             {/* IMAP SECTION */}
-                                                            <form onSubmit={e => e.preventDefault()} autoComplete="on" style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '20px', background: 'var(--settings-bg)', borderRadius: '20px', border: '1px solid var(--settings-border)' }}>
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '20px', background: 'var(--settings-bg)', borderRadius: '20px', border: '1px solid var(--settings-border)' }}>
                                                                 <h4 style={{ margin: '0 0 5px 0', fontSize: '0.85rem', color: 'var(--gnosi-blue)', fontWeight: '900', textTransform: 'uppercase' }}>{tn('accounts.imap_section')}</h4>
                                                                 <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '10px' }}>
                                                                     <FormGroup label={tn('accounts.server')}><input type="text" className="gnosi-input" value={mailImapHost} onChange={e => setMailImapHost(e.target.value)} placeholder="imap.pangea.org" /></FormGroup>
@@ -2750,10 +2774,10 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                         <option value="none">{tn('accounts.security_none')}</option>
                                                                     </select>
                                                                 </FormGroup>
-                                                            </form>
+                                                            </div>
 
                                                             {/* SMTP SECTION */}
-                                                            <form onSubmit={e => e.preventDefault()} autoComplete="on" style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '20px', background: 'var(--settings-bg)', borderRadius: '20px', border: '1px solid var(--settings-border)' }}>
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '20px', background: 'var(--settings-bg)', borderRadius: '20px', border: '1px solid var(--settings-border)' }}>
                                                                 <h4 style={{ margin: '0 0 5px 0', fontSize: '0.85rem', color: 'var(--gnosi-blue)', fontWeight: '900', textTransform: 'uppercase' }}>{tn('accounts.smtp_section')}</h4>
                                                                 <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '10px' }}>
                                                                     <FormGroup label={tn('accounts.server')}><input type="text" className="gnosi-input" value={mailSmtpHost} onChange={e => setMailSmtpHost(e.target.value)} placeholder="smtp.pangea.org" /></FormGroup>
@@ -2768,7 +2792,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                         <option value="none">{tn('accounts.security_none')}</option>
                                                                     </select>
                                                                 </FormGroup>
-                                                            </form>
+                                                            </div>
 
                                                             <div style={{ gridColumn: 'span 2' }}>
                                                                 <FormGroup label={tn('accounts.signature_label')} description={tn('accounts.signature_desc')}>
@@ -2886,7 +2910,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                         </form>
                                                     )}
                                                 </div>
-                                            </div>
+                                                </div>
+                                            </InlineEditorPlacement>
                                         )}
 
                                         {(() => {
@@ -2916,68 +2941,95 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 return (
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                                         {/* External Accounts / Integrations */}
-                                                        {uniqueAccounts.map((acc, idx) => (
-                                                            <AccountRow
-                                                                key={`acc-${idx}`}
-                                                                name={acc.name || acc.email}
-                                                                description={acc.username || acc.email}
-                                                                status={(activeTab === 'calendar' ? calendarAuthErrors : activeTab === 'contacts' ? contactsSyncErrors : syncErrorAccounts).has(acc.email || acc.username) ? 'error' : 'connected'}
-                                                                type={activeTab}
-                                                                provider={acc.provider}
-                                                                enabled={acc.enabled !== false}
-                                                                onToggleEnabled={activeTab === 'mail' ? async (val) => {
-                                                                    const emailAddr = acc.email || acc.username;
-                                                                    await axios.patch(`/api/mail/accounts/${encodeURIComponent(emailAddr)}/enabled`, { enabled: val });
-                                                                    setIntegrations(prev => {
-                                                                        const updated = { ...prev };
-                                                                        for (const section of ['mail_accounts', 'emails']) {
-                                                                            if (updated[section]) {
-                                                                                updated[section] = updated[section].map(a =>
-                                                                                    (a.email || a.username) === emailAddr ? { ...a, enabled: val } : a
-                                                                                );
-                                                                            }
-                                                                        }
-                                                                        return updated;
-                                                                    });
-                                                                } : undefined}
-                                                                onSync={() => handleSyncAccount(activeTab, acc)}
-                                                                isSyncing={syncingAccounts[acc.id]}
-                                                                onEdit={() => handleEditAccount(activeTab, acc)}
-                                                                onDelete={() => handleDeleteAccount(activeTab, acc.id)}
-                                                                color={activeTab === 'calendar' ? '#3b82f6' : (activeTab === 'contacts' ? '#10b981' : '#f59e0b')}
-                                                            />
-                                                        ))}
+                                                        {uniqueAccounts.map((acc, idx) => {
+                                                            const accountItemId = acc.id || acc.email || acc.username || `account-${idx}`;
+                                                            return (
+                                                                <React.Fragment key={`acc-${accountItemId}`}>
+                                                                    <AccountRow
+                                                                        itemId={`account:${accountItemId}`}
+                                                                        name={acc.name || acc.email}
+                                                                        description={acc.username || acc.email}
+                                                                        status={(activeTab === 'calendar' ? calendarAuthErrors : activeTab === 'contacts' ? contactsSyncErrors : syncErrorAccounts).has(acc.email || acc.username) ? 'error' : 'connected'}
+                                                                        type={activeTab}
+                                                                        provider={acc.provider}
+                                                                        enabled={acc.enabled !== false}
+                                                                        onToggleEnabled={activeTab === 'mail' ? async (val) => {
+                                                                            const emailAddr = acc.email || acc.username;
+                                                                            await axios.patch(`/api/mail/accounts/${encodeURIComponent(emailAddr)}/enabled`, { enabled: val });
+                                                                            setIntegrations(prev => {
+                                                                                const updated = { ...prev };
+                                                                                for (const section of ['mail_accounts', 'emails']) {
+                                                                                    if (updated[section]) {
+                                                                                        updated[section] = updated[section].map(a =>
+                                                                                            (a.email || a.username) === emailAddr ? { ...a, enabled: val } : a
+                                                                                        );
+                                                                                    }
+                                                                                }
+                                                                                return updated;
+                                                                            });
+                                                                        } : undefined}
+                                                                        onSync={() => handleSyncAccount(activeTab, acc)}
+                                                                        isSyncing={syncingAccounts[acc.id]}
+                                                                        onEdit={() => handleEditAccount(activeTab, acc)}
+                                                                        onDelete={() => handleDeleteAccount(activeTab, acc.id)}
+                                                                        color={activeTab === 'calendar' ? '#3b82f6' : (activeTab === 'contacts' ? '#10b981' : '#f59e0b')}
+                                                                    />
+                                                                    {editingAccountId === acc.id && (
+                                                                        <div
+                                                                            ref={setAccountEditorTarget}
+                                                                            data-settings-editor-anchor-for={`account:${accountItemId}`}
+                                                                        />
+                                                                    )}
+                                                                </React.Fragment>
+                                                            );
+                                                        })}
                                                         
                                                         {/* Vault tables (Calendar only) */}
                                                         {vaultCalendars.map((tbl, idx) => {
                                                             const tblColor = integrations.calendar_colors?.[tbl.id] || integrations.calendar_colors?.[`${tbl.name}`] || '#6366f1';
                                                             return (
-                                                                <AccountRow 
-                                                                    key={`vault-${idx}`} 
-                                                                    name={tbl.name} 
-                                                                    description={tn('accounts.vault_table')} 
-                                                                    status="connected" 
-                                                                    type="calendar" 
-                                                                    provider="vault"
-                                                                    onEdit={() => setEditingTableColor({ id: tbl.id, name: tbl.name, color: tblColor })}
-                                                                    onDelete={() => {
-                                                                        const newList = integrations.vault_calendar?.enabled_tables?.filter(id => id !== tbl.id) || [];
-                                                                        const updated = { ...integrations, vault_calendar: { ...integrations.vault_calendar, enabled_tables: newList } };
-                                                                        setIntegrations(updated);
-                                                                        axios.post('/api/integrations/bulk', updated).catch(console.error);
-                                                                    }}
-                                                                    color={tblColor} 
-                                                                />
+                                                                <React.Fragment key={`vault-${tbl.id || idx}`}>
+                                                                    <AccountRow
+                                                                        itemId={`vault-calendar:${tbl.id}`}
+                                                                        name={tbl.name}
+                                                                        description={tn('accounts.vault_table')}
+                                                                        status="connected"
+                                                                        type="calendar"
+                                                                        provider="vault"
+                                                                        onEdit={() => setEditingTableColor({ id: tbl.id, name: tbl.name, color: tblColor })}
+                                                                        onDelete={() => {
+                                                                            const newList = integrations.vault_calendar?.enabled_tables?.filter(id => id !== tbl.id) || [];
+                                                                            const updated = { ...integrations, vault_calendar: { ...integrations.vault_calendar, enabled_tables: newList } };
+                                                                            setIntegrations(updated);
+                                                                            axios.post('/api/integrations/bulk', updated).catch(console.error);
+                                                                        }}
+                                                                        color={tblColor}
+                                                                    />
+                                                                    {editingTableColor?.id === tbl.id && (
+                                                                        <div
+                                                                            ref={setTableColorEditorTarget}
+                                                                            data-settings-editor-anchor-for={`vault-calendar:${tbl.id}`}
+                                                                        />
+                                                                    )}
+                                                                </React.Fragment>
                                                             );
                                                         })}
 
-                                                        {/* Sub-modal for changing the table's color */}
+                                                        {/* Inline color editor for the selected vault calendar */}
                                                         {editingTableColor && (
-                                                            <div className="account-edit-overlay" style={{
-                                                                position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', 
-                                                                display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000
-                                                            }}>
-                                                                <div style={{ background: 'var(--settings-bg)', padding: '30px', borderRadius: '24px', width: '400px', boxShadow: '0 20px 50px rgba(0,0,0,0.2)' }}>
+                                                            <InlineEditorPlacement
+                                                                target={tableColorEditorTarget}
+                                                                waitForTarget
+                                                            >
+                                                                <div
+                                                                    className="animate-in"
+                                                                    data-settings-editor-for={`vault-calendar:${editingTableColor.id}`}
+                                                                    style={{
+                                                                        background: 'var(--settings-bg)', padding: '30px', borderRadius: '24px',
+                                                                        border: '1px solid rgba(59, 130, 246, 0.18)',
+                                                                        boxShadow: '0 15px 40px rgba(59, 130, 246, 0.12)'
+                                                                    }}
+                                                                >
                                                                     <h3 style={{ margin: '0 0 20px 0', fontSize: '1.2rem', fontWeight: 800 }}>{tn('accounts.table_color_title', { name: editingTableColor.name })}</h3>
                                                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px', marginBottom: '25px' }}>
                                                                         {['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#6366f1', '#ec4899', '#8b5cf6', '#06b6d4', '#f97316', '#71717a'].map(c => (
@@ -3005,7 +3057,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                         <button onClick={() => setEditingTableColor(null)} className="btn-gnosi-secondary" style={{ flex: 1, padding: '12px' }}>{t('common.cancel')}</button>
                                                                     </div>
                                                                 </div>
-                                                            </div>
+                                                            </InlineEditorPlacement>
                                                         )}
                                                     </div>
                                                 );
@@ -3036,40 +3088,58 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                     {snippets.length > 0 && (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
                                             {snippets.map(s => (
-                                                <div key={s.id} style={{
-                                                    display: 'flex', alignItems: 'flex-start', gap: '12px',
-                                                    padding: '14px 16px', background: 'var(--settings-bg)',
-                                                    borderRadius: '14px', border: `1px solid ${editingSnippetId === s.id ? 'var(--gnosi-blue)' : 'var(--settings-border)'}`
-                                                }}>
-                                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                                        <div style={{ fontWeight: '700', fontSize: '0.85rem', color: 'var(--text-primary)', marginBottom: '4px' }}>{s.title}</div>
-                                                        <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', lineHeight: '1.4', overflow: 'hidden', maxHeight: '3.6em' }}>{s.content}</div>
+                                                <React.Fragment key={s.id}>
+                                                    <div
+                                                        data-settings-item-id={`snippet:${s.id}`}
+                                                        style={{
+                                                            display: 'flex', alignItems: 'flex-start', gap: '12px',
+                                                            padding: '14px 16px', background: 'var(--settings-bg)',
+                                                            borderRadius: '14px', border: `1px solid ${editingSnippetId === s.id ? 'var(--gnosi-blue)' : 'var(--settings-border)'}`
+                                                        }}
+                                                    >
+                                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                                            <div style={{ fontWeight: '700', fontSize: '0.85rem', color: 'var(--text-primary)', marginBottom: '4px' }}>{s.title}</div>
+                                                            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', lineHeight: '1.4', overflow: 'hidden', maxHeight: '3.6em' }}>{s.content}</div>
+                                                        </div>
+                                                        <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                                                            <button
+                                                                onClick={() => handleEditSnippet(s)}
+                                                                style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'transparent', color: 'var(--gnosi-blue)', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
+                                                            >
+                                                                {t('common.edit')}
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDeleteSnippet(s.id)}
+                                                                style={{ padding: '6px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                                            >
+                                                                <Trash2 size={14} />
+                                                            </button>
+                                                        </div>
                                                     </div>
-                                                    <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
-                                                        <button
-                                                            onClick={() => handleEditSnippet(s)}
-                                                            style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'transparent', color: 'var(--gnosi-blue)', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
-                                                        >
-                                                            {t('common.edit')}
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDeleteSnippet(s.id)}
-                                                            style={{ padding: '6px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                                                        >
-                                                            <Trash2 size={14} />
-                                                        </button>
-                                                    </div>
-                                                </div>
+                                                    {editingSnippetId === s.id && (
+                                                        <div
+                                                            ref={setSnippetEditorTarget}
+                                                            data-settings-editor-anchor-for={`snippet:${s.id}`}
+                                                        />
+                                                    )}
+                                                </React.Fragment>
                                             ))}
                                         </div>
                                     )}
 
                                     {/* Add/edit form */}
-                                    <div style={{
-                                        padding: '20px', background: 'var(--settings-bg)',
-                                        borderRadius: '16px', border: '1px solid var(--settings-border)',
-                                        display: 'flex', flexDirection: 'column', gap: '14px'
-                                    }}>
+                                    <InlineEditorPlacement
+                                        target={editingSnippetId ? snippetEditorTarget : null}
+                                        waitForTarget={Boolean(editingSnippetId)}
+                                    >
+                                        <div
+                                            data-settings-editor-for={editingSnippetId ? `snippet:${editingSnippetId}` : 'snippet:new'}
+                                            style={{
+                                                padding: '20px', background: 'var(--settings-bg)',
+                                                borderRadius: '16px', border: '1px solid var(--settings-border)',
+                                                display: 'flex', flexDirection: 'column', gap: '14px'
+                                            }}
+                                        >
                                         <h4 style={{ margin: 0, fontSize: '0.82rem', fontWeight: '900', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                                             {editingSnippetId ? tn('snippets.edit_snippet') : tn('snippets.new_snippet')}
                                         </h4>
@@ -3111,7 +3181,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 {editingSnippetId ? tn('snippets.update') : tn('snippets.add')}
                                             </button>
                                         </div>
-                                    </div>
+                                        </div>
+                                    </InlineEditorPlacement>
                                 </Section>
                             )}
 
@@ -3843,27 +3914,35 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         }
                                     >
                                         {isConnectModalOpen && (
-                                            <UnifiedAIProviderForm
-                                                aiCatalog={aiCatalog}
-                                                editingProvider={providerToEdit}
-                                                aiValidationStatus={aiValidationStatus}
-                                                onValidate={validateAIProvider}
-                                                onSave={(pId, data) => {
-                                                    setDraft(prev => ({
-                                                        ...prev,
-                                                        ai: {
-                                                            ...prev.ai,
-                                                            providers: {
-                                                                ...prev.ai.providers,
-                                                                [pId]: { ...(prev.ai.providers?.[pId] || {}), ...data, enabled: true }
-                                                            }
-                                                        }
-                                                    }));
-                                                    triggerAutoSave(false);
-                                                    setIsConnectModalOpen(false);
-                                                    setProviderToEdit(null);
-                                                }}
-                                            />
+                                            <InlineEditorPlacement
+                                                target={providerToEdit ? providerEditorTarget : null}
+                                                waitForTarget={Boolean(providerToEdit)}
+                                            >
+                                                <div data-settings-editor-for={providerToEdit ? `provider:${providerToEdit.id}` : 'provider:new'}>
+                                                    <UnifiedAIProviderForm
+                                                        key={providerToEdit?.id || 'new-provider'}
+                                                        aiCatalog={aiCatalog}
+                                                        editingProvider={providerToEdit}
+                                                        aiValidationStatus={aiValidationStatus}
+                                                        onValidate={validateAIProvider}
+                                                        onSave={(pId, data) => {
+                                                            setDraft(prev => ({
+                                                                ...prev,
+                                                                ai: {
+                                                                    ...prev.ai,
+                                                                    providers: {
+                                                                        ...prev.ai.providers,
+                                                                        [pId]: { ...(prev.ai.providers?.[pId] || {}), ...data, enabled: true }
+                                                                    }
+                                                                }
+                                                            }));
+                                                            triggerAutoSave(false);
+                                                            setIsConnectModalOpen(false);
+                                                            setProviderToEdit(null);
+                                                        }}
+                                                    />
+                                                </div>
+                                            </InlineEditorPlacement>
                                         )}
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                                             {Object.entries(draft.ai.providers).map(([pId, p]) => {
@@ -3871,12 +3950,17 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 const pName = catalogItem.name || pId.toUpperCase();
                                                 const pIcon = catalogItem.icon || p.icon;
                                                 return (
-                                                    <div key={pId} className="hover-scale" style={{ 
-                                                        padding: '24px', borderRadius: '24px', border: '1px solid var(--settings-border)', 
-                                                        background: 'var(--settings-sidebar-bg)', display: 'flex', justifyContent: 'space-between', 
-                                                        alignItems: 'center', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                                        opacity: p.enabled === false ? 0.6 : 1
-                                                    }}>
+                                                    <React.Fragment key={pId}>
+                                                    <div
+                                                        className="hover-scale"
+                                                        data-settings-item-id={`provider:${pId}`}
+                                                        style={{
+                                                            padding: '24px', borderRadius: '24px', border: '1px solid var(--settings-border)',
+                                                            background: 'var(--settings-sidebar-bg)', display: 'flex', justifyContent: 'space-between',
+                                                            alignItems: 'center', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                            opacity: p.enabled === false ? 0.6 : 1
+                                                        }}
+                                                    >
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                                                             <GnosiToggle
                                                                 active={p.enabled !== false}
@@ -3919,7 +4003,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             <button 
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    setProviderToEdit({ ...catalogItem, base_url: p.base_url });
+                                                                    setProviderToEdit({ ...catalogItem, id: pId, base_url: p.base_url });
                                                                     setIsConnectModalOpen(true);
                                                                 }}
                                                                 aria-label={tn('ai.configure_name', { name: pName })}
@@ -3943,6 +4027,13 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             </button>
                                                         </div>
                                                     </div>
+                                                    {providerToEdit?.id === pId && (
+                                                        <div
+                                                            ref={setProviderEditorTarget}
+                                                            data-settings-editor-anchor-for={`provider:${pId}`}
+                                                        />
+                                                    )}
+                                                    </React.Fragment>
                                                 );
                                             })}
                                         </div>
@@ -3979,34 +4070,49 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         }
                                     >
                                         {editingAgent && (
-                                            <AIAgentForm
-                                                agent={editingAgent}
-                                                onSave={(newAgent) => {
-                                                    const isNew = !newAgent.id;
-                                                    const id = isNew ? `agent_${Date.now()}` : newAgent.id;
-                                                    const agentToSave = { ...newAgent, id };
-                                                    setDraft(prev => ({
-                                                        ...prev,
-                                                        ai: {
-                                                            ...prev.ai,
-                                                            agents: isNew
-                                                                ? [...prev.ai.agents, agentToSave]
-                                                                : prev.ai.agents.map(a => a.id === id ? agentToSave : a)
-                                                        }
-                                                    }));
-                                                    setEditingAgent(null);
-                                                }}
-                                                aiRegistry={aiRegistry}
-                                            />
+                                            <InlineEditorPlacement
+                                                target={editingAgent.id ? agentEditorTarget : null}
+                                                waitForTarget={Boolean(editingAgent.id)}
+                                            >
+                                                <div data-settings-editor-for={editingAgent.id ? `agent:${editingAgent.id}` : 'agent:new'}>
+                                                    <AIAgentForm
+                                                        key={editingAgent.id || 'new-agent'}
+                                                        agent={editingAgent}
+                                                        onSave={(newAgent) => {
+                                                            const isNew = !newAgent.id;
+                                                            const id = isNew ? `agent_${Date.now()}` : newAgent.id;
+                                                            const agentToSave = { ...newAgent, id };
+                                                            setDraft(prev => ({
+                                                                ...prev,
+                                                                ai: {
+                                                                    ...prev.ai,
+                                                                    agents: isNew
+                                                                        ? [...prev.ai.agents, agentToSave]
+                                                                        : prev.ai.agents.map(a => a.id === id ? agentToSave : a)
+                                                                }
+                                                            }));
+                                                            setEditingAgent(null);
+                                                        }}
+                                                        aiRegistry={aiRegistry}
+                                                    />
+                                                </div>
+                                            </InlineEditorPlacement>
                                         )}
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                                             {draft.ai.agents.map(agent => (
-                                                <div key={agent.id} className="hover-scale" onClick={() => setEditingAgent(agent)} title={tn('ai.edit_agent_title')} style={{
+                                                <React.Fragment key={agent.id}>
+                                                <div
+                                                    className="hover-scale"
+                                                    data-settings-item-id={`agent:${agent.id}`}
+                                                    onClick={() => setEditingAgent(agent)}
+                                                    title={tn('ai.edit_agent_title')}
+                                                    style={{
                                                     width: '100%', padding: '24px', borderRadius: '24px', border: '1px solid var(--settings-border)',
                                                     background: 'var(--settings-sidebar-bg)', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                                                     gap: '20px', transition: 'all 0.2s', cursor: 'pointer', boxSizing: 'border-box',
                                                     opacity: agent.enabled ? 1 : 0.6
-                                                }}>
+                                                    }}
+                                                >
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '20px', minWidth: 0 }}>
                                                         <div onClick={event => event.stopPropagation()}>
                                                             <GnosiToggle
@@ -4035,6 +4141,13 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                         </button>
                                                     </div>
                                                 </div>
+                                                {editingAgent?.id === agent.id && (
+                                                    <div
+                                                        ref={setAgentEditorTarget}
+                                                        data-settings-editor-anchor-for={`agent:${agent.id}`}
+                                                    />
+                                                )}
+                                                </React.Fragment>
                                             ))}
                                         </div>
                                     </Section>
