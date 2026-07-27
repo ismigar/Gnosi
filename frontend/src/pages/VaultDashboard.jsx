@@ -32,10 +32,11 @@ import { PageComments } from '../components/Vault/PageComments';
 import { ShareModal } from '../components/Vault/ShareModal';
 import { usePlugins } from '../plugins/usePlugins';
 import { MAIN_VIEW_NAME, isMainView, isPageEmbedView } from '../components/Vault/viewConstants';
-import { buildSchemaFromTableProperties, buildTablePropertiesFromSchema, getSchemaFieldNames, isCalendarPage } from '../components/Vault/schemaUtils';
+import { buildSchemaFromTableProperties, buildTablePropertiesFromSchema, getFieldConfig, getSchemaFieldNames, isCalendarPage } from '../components/Vault/schemaUtils';
 import { applyDefaultFormulasToMetadata } from '../components/Vault/defaultFormulaUtils';
 import { Palette } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
+import { ProcessResourceModal } from '../components/Vault/ProcessResourceModal';
 // The drawing editor (tldraw) is very heavy and is only used in 'drawing' mode:
 // we load it lazily so it doesn't end up in the Vault chunk.
 const TldrawEditor = lazy(() => import('../components/Vault/TldrawEditor'));
@@ -82,6 +83,37 @@ export default function VaultDashboard() {
 
     // Plugins (optional features): per-vault activation (internal registry).
     const { isEnabled: isPluginEnabled } = usePlugins();
+    const [llmWikiConfig, setLlmWikiConfig] = useState(null);
+    const [llmWikiJobs, setLlmWikiJobs] = useState({});
+    const [resourceToProcess, setResourceToProcess] = useState(null);
+
+    useEffect(() => {
+        let alive = true;
+        if (!isPluginEnabled('llm-wiki')) {
+            setLlmWikiConfig(null);
+            setLlmWikiJobs({});
+            return () => { alive = false; };
+        }
+        axios.get('/api/vault/llm-wiki/config')
+            .then((response) => {
+                if (!alive) return;
+                setLlmWikiConfig(response.data?.config
+                    ? {
+                        ...response.data.config,
+                        processed_resources: response.data.processed_resources || {},
+                    }
+                    : null);
+                setLlmWikiJobs(response.data?.resource_statuses || {});
+            })
+            .catch((error) => {
+                if (alive) {
+                    setLlmWikiConfig(null);
+                    setLlmWikiJobs({});
+                }
+                console.warn('Could not load the LLM Wiki page-action configuration:', error);
+            });
+        return () => { alive = false; };
+    }, [isPluginEnabled]);
 
     // For now we support "editor" for all pages.
     // You can add "table" directly here or via custom blocks.
@@ -2703,6 +2735,42 @@ export default function VaultDashboard() {
     const openPageTable = openPageTableId ? registry.tables?.find(t => t.id === openPageTableId) : null;
     const openPageIsTranslatableRecord = Boolean(openPageTable?.translation_enabled)
         && !currentOpenPage?.metadata?.translation_lang;
+    const llmWikiSourceConfig = (llmWikiConfig?.source_tables || []).find(
+        (source) => source.table_id === openPageTableId,
+    ) || null;
+    const llmWikiSourceSchema = openPageTableId ? getSchemaFromTableId(openPageTableId) : {};
+    const llmWikiInputIds = [
+        ...(llmWikiSourceConfig?.attachment_property_ids || []),
+        ...(llmWikiSourceConfig?.url_property_ids || []),
+    ];
+    const llmWikiHasMappedInput = llmWikiInputIds.some((fieldId) => {
+        const fieldName = getSchemaFieldNames(llmWikiSourceSchema).find(
+            (name) => getFieldConfig(llmWikiSourceSchema, name)?.id === fieldId,
+        );
+        const value = currentOpenPage?.metadata?.[fieldId]
+            ?? currentOpenPage?.metadata?.[fieldName];
+        return value !== undefined && value !== null && value !== ''
+            && (!Array.isArray(value) || value.length > 0);
+    });
+    const llmWikiResourceJob = llmWikiJobs?.[openPageTableId]?.[currentOpenPage?.id] || null;
+    const llmWikiResourceRunning = Boolean(llmWikiResourceJob?.running);
+    const llmWikiResourceRetryable = ['partial', 'error'].includes(llmWikiResourceJob?.phase);
+    const llmWikiResourceProcessed = currentOpenPage?.metadata?.['Processat pel Cervell']
+        || currentOpenPage?.metadata?.['processat pel cervell']
+        || llmWikiConfig?.processed_resources?.[openPageTableId]?.[currentOpenPage?.id];
+    const canProcessOpenResource = isPluginEnabled('llm-wiki')
+        && Boolean(llmWikiSourceConfig)
+        && !llmWikiResourceRunning
+        && (llmWikiHasMappedInput || llmWikiSourceConfig?.include_body);
+    const llmWikiResourceLabel = llmWikiResourceRetryable
+        ? t('table.reprocess_resource_error', "Resume interrupted processing")
+        : !llmWikiResourceProcessed
+            ? t('table.process_resource', "Process resource (Brain)")
+            : t('table.reprocess_resource', "Reprocess resource (processed on {{date}})", {
+                date: typeof llmWikiResourceProcessed === 'number'
+                    ? new Date(llmWikiResourceProcessed * 1000).toLocaleDateString()
+                    : llmWikiResourceProcessed,
+            });
 
     // Page-level actions, formerly the VaultShell top-bar "…" menu. They now
     // render as inline icon buttons next to the page title (PageActionsBar,
@@ -2761,6 +2829,17 @@ export default function VaultDashboard() {
             if (!canTranslatePage || !currentOpenPage?.id) return;
             setTranslatePageMode(openPageIsTranslatableRecord ? 'row' : 'page');
             setTranslatePageModalId(currentOpenPage.id);
+        },
+        canProcessResource: canProcessOpenResource,
+        processResourceLabel: llmWikiResourceLabel,
+        onProcessResource: () => {
+            if (!canProcessOpenResource || !currentOpenPage?.id) return;
+            setResourceToProcess({
+                noteId: currentOpenPage.id,
+                title: currentOpenPage.title || '',
+                sourceTableId: openPageTableId,
+                force: Boolean(llmWikiResourceProcessed) && !llmWikiResourceRetryable,
+            });
         },
         canDeleteCurrentPage: Boolean(currentOpenPage),
         onDeleteCurrentPage: () => {
@@ -3702,6 +3781,27 @@ export default function VaultDashboard() {
                     schema={openPageTableId ? getSchemaFromTableId(openPageTableId) : {}}
                     onClose={() => setTranslatePageModalId(null)}
                     onTranslated={(data) => { setTranslatePageModalId(null); refreshTableAfterTranslate(openPageTableId, data); }}
+                />
+            )}
+
+            {resourceToProcess && (
+                <ProcessResourceModal
+                    isOpen={true}
+                    onClose={() => setResourceToProcess(null)}
+                    noteId={resourceToProcess.noteId}
+                    title={resourceToProcess.title}
+                    sourceTableId={resourceToProcess.sourceTableId}
+                    force={resourceToProcess.force}
+                    onJobUpdate={(nextJob) => {
+                        setLlmWikiJobs((current) => ({
+                            ...current,
+                            [resourceToProcess.sourceTableId]: {
+                                ...(current[resourceToProcess.sourceTableId] || {}),
+                                [resourceToProcess.noteId]: nextJob,
+                            },
+                        }));
+                    }}
+                    onProcessed={fetchPages}
                 />
             )}
 

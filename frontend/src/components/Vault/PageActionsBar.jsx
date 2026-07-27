@@ -11,6 +11,7 @@ import {
     Unlock,
     Code2,
     Trash2,
+    BrainCircuit,
     MoreHorizontal,
 } from 'lucide-react';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
@@ -88,6 +89,12 @@ function buildItems(pa, t) {
             Icon: Languages,
             label: pa.translateLabel || t('shell.translate_page', "Translate page"),
             onClick: pa.onTranslatePage,
+        },
+        pa.canProcessResource && {
+            key: 'process-resource',
+            Icon: BrainCircuit,
+            label: pa.processResourceLabel || t('table.process_resource', "Process resource (Brain)"),
+            onClick: pa.onProcessResource,
         },
         pa.canDeleteCurrentPage && {
             key: 'delete',
