@@ -98,7 +98,9 @@ only through explicit manual maintenance to avoid unexpected model costs.
 ## 5. Ingestion and provenance
 
 The `Process` action is visible only when the LLM Wiki plugin is enabled, the current
-table is configured as a source, and the row contains a mapped attachment or URL. Persistent
+table is configured as a source, and the row contains a mapped attachment or URL. It is
+available both from a source-table row and from that record's page-action menu, with the
+same eligibility and process/reprocess state. Persistent
 jobs expose **Process**, **In progress**, **Processed**, **Partial/Error**, and
 **Reprocess**. The historical `Processat pel Cervell` field remains for compatibility but
 does not control visibility.
@@ -201,4 +203,3 @@ overwrite user-edited instructions.
   `cat`, `spa`, `eng`, and `fra` tessdata models are installed. The capability report
   must show no missing OCR languages. Re-check after a Homebrew Tesseract update because
   the versioned tessdata directory may change.
-
