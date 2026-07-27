@@ -412,6 +412,11 @@ Artificial Analysis rather than a hand-maintained shortlist.
 - Comparison mutations must preserve the complete budget payload and notify
   the router-registry Settings component through `gnosi-ai-models-changed`, so
   both configuration surfaces stay synchronized.
+- Agent-specific model selectors must use only explicitly configured registry
+  rows whose `enabled` value is exactly true. Do not populate them from the
+  router's effective/default registry: those defaults are an internal runtime
+  fallback, not models the user activated in Settings. Reload the selector on
+  `gnosi-ai-models-changed` so an open Settings modal stays synchronized.
 - Task profiles are five disjoint benchmark-percentile bands. Use lower-inclusive
   and upper-exclusive bounds for every intermediate band: Worker `<20`, Administrative
   `20–40`, Documentalist `40–60`, All-rounder `60–80`, and Expert `≥80`. Models

@@ -336,8 +336,12 @@ async def get_model_registry():
     from backend.agent.model_router import load_registry, DEFAULT_REGISTRY
     cfg = load_params(strict_env=False)
     ai_cfg = dict(cfg.get("ai", {}) or {})
+    configured_models = ai_cfg.get("models")
     return {
         "models": await asyncio.to_thread(load_registry),
+        "configured_models": (
+            configured_models if isinstance(configured_models, list) else []
+        ),
         "budget": dict(ai_cfg.get("budget") or {}),
         "default": DEFAULT_REGISTRY,
     }
