@@ -420,6 +420,15 @@ Artificial Analysis rather than a hand-maintained shortlist.
   mutations on the explicit rows so defaults are not copied again. Reload the
   selector on `gnosi-ai-models-changed` so an open Settings modal stays
   synchronized.
+- In the conversation UI, the selected agent is the sole model-selection
+  control. Send `llm_mode: agent_default`; do not show a second model picker
+  backed by the provider catalog, because it exposes unactivated models and
+  can override the agent's instructions, context, and assigned model.
+- Show the selected agent's provider/model as read-only provenance in the chat.
+  If an agent has no executable model, disable sending and direct the user to
+  configure that agent; do not silently use a hybrid/default fallback. An
+  automatic routing policy, if introduced later, belongs to an explicit agent
+  strategy and may choose only enabled registry rows.
 - The router has no executable default model registry. An absent or empty
   `ai.models` configuration means that no model is active. Keep the retired
   seed list only as a migration signature for discarding unchanged rows
