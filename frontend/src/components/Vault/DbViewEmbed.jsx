@@ -101,12 +101,6 @@ function localToday() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
-function periodBoundary(value, part) {
-    if (!part) return value;
-    const [start = '', end = ''] = String(value ?? '').split('/');
-    return part === 'end' ? (end || start) : start;
-}
-
 function applyFilter(row, pageId, f) {
     if (!f?.field) return true;
     const op = (f.operator || 'equals').toLowerCase();
