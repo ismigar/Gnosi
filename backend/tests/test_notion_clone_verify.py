@@ -4,7 +4,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from services.notion_clone_verify import verify_clone, relation_ids  # noqa: E402
+from services.notion_clone_verify import (  # noqa: E402
+    relation_ids,
+    verify_clone,
+    verify_exact_table,
+)
 
 
 def test_relation_ids_accepts_all_shapes():
@@ -42,6 +46,105 @@ def test_empty_bodies_and_orphans_and_assets():
     assert s["empty_bodies"] == 1
     assert s["orphan_relations"] == 1 and r["orphan_relations"][0]["rel"] == "ghost"
     assert s["missing_assets"] == 1 and r["missing_assets"][0]["asset"] == "Assets/x.png"
+
+
+def test_exact_table_detects_schema_rows_values_and_page_only_properties():
+    expected_table = {
+        "properties": [
+            {"id": "title", "name": "Nota", "type": "title"},
+            {
+                "id": "links",
+                "name": "Enllaça a",
+                "type": "relation",
+                "relation_database_id": "table",
+            },
+        ]
+    }
+    clone_table = {
+        "properties": [
+            {"id": "title", "name": "Nota", "type": "title"},
+            {"id": "extra", "name": "Local", "type": "text"},
+        ]
+    }
+    expected_rows = {
+        "a": {
+            "id": "a",
+            "title": "A",
+            "table_id": "table",
+            "Nota": "A",
+            "Enllaça a": ["b"],
+        },
+        "b": {
+            "id": "b",
+            "title": "B",
+            "table_id": "table",
+            "Nota": "B",
+            "Enllaça a": [],
+        },
+    }
+    clone_rows = {
+        "a": {
+            "id": "a",
+            "title": "A",
+            "table_id": "table",
+            "Nota": "A",
+            "Enllaça a": ["raw-notion-id"],
+            "page_only": "leak",
+        },
+        "ghost": {
+            "id": "ghost",
+            "title": "Ghost",
+            "table_id": "table",
+            "Nota": "Ghost",
+        },
+    }
+
+    result = verify_exact_table(expected_table, expected_rows, clone_table, clone_rows)
+
+    assert result["summary"]["exact"] is False
+    assert result["schema"]["missing"] == ["Enllaça a"]
+    assert result["schema"]["extra"] == ["Local"]
+    assert result["rows"]["missing"] == ["b"]
+    assert result["rows"]["extra"] == ["ghost"]
+    assert result["summary"]["value_mismatches"] == 1
+    assert {item["property"] for item in result["undeclared_properties"]} == {
+        "Enllaça a",
+        "page_only",
+    }
+
+
+def test_exact_table_accepts_relation_wikilink_decoration():
+    table = {
+        "properties": [
+            {
+                "id": "links",
+                "name": "Enllaça a",
+                "type": "relation",
+                "relation_database_id": "table",
+            },
+        ]
+    }
+    expected = {
+        "a": {
+            "id": "a",
+            "title": "A",
+            "table_id": "table",
+            "Enllaça a": ["b"],
+        }
+    }
+    clone = {
+        "a": {
+            "id": "a",
+            "title": "A",
+            "table_id": "table",
+            "Enllaça a": ["[[B|b]]"],
+        }
+    }
+
+    result = verify_exact_table(table, expected, table, clone)
+
+    assert result["summary"]["exact"] is True
+    assert result["summary"]["value_mismatches"] == 0
 
 
 if __name__ == "__main__":

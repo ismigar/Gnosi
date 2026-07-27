@@ -49,13 +49,13 @@ def test_clone_table_schema_relations_namespaced():
     assert rel["relation_database_id"] == clone_table_id("tasks")   # points to the CLONED table
 
 
-def test_clone_values_remaps_only_relations():
+def test_clone_values_remaps_relations_and_filters_undeclared_fields():
     schema = [{"name": "Tasques", "type": "relation"}, {"name": "Tags", "type": "multi_select"}]
     vals = {"Tasques": ["t1", "t2"], "Tags": ["a", "b"], "Nom": "X"}
     out = clone_values(vals, schema)
     assert out["Tasques"] == [clone_page_id("t1"), clone_page_id("t2")]  # relations → clone
     assert out["Tags"] == ["a", "b"]   # multi_select intacte
-    assert out["Nom"] == "X"
+    assert "Nom" not in out             # no undeclared page-specific metadata
 
 
 def test_resolve_view_markers_to_clone_view():
@@ -597,6 +597,36 @@ def test_schema_override_keeps_relations_normalized():
                     if p["metadata"].get("table_id") == recs["id"])
     v = rec_page["metadata"].get("Projecte")
     assert v == [f"[[El projecte|{clone_page_id('22222222-2222-2222-2222-222222222222')}]]"]
+
+
+def test_schema_override_does_not_create_undeclared_page_properties():
+    """A field omitted from the override must not survive as page-only metadata.
+
+    This regression made missing Notion relations appear as "particular" properties
+    of individual Gnosi pages, with raw Notion IDs instead of clone IDs.
+    """
+    fake = FakeRestOverride()
+    override = {
+        "Title": "title",
+        "Title_config": {"id": "fld-title", "type": "title"},
+    }
+    tables, pages = [], []
+    clone_workspace(
+        fake,
+        fetch_page=lambda i: "",
+        mcp_to_markdown=lambda m: "",
+        write_table=tables.append,
+        write_page=pages.append,
+        write_view=lambda v: None,
+        database_ids=["recs"],
+        target_folder="",
+        schema_overrides={"recs": override},
+        follow_subpages=False,
+    )
+
+    table = tables[0]
+    assert [p["name"] for p in table["properties"]] == ["Title"]
+    assert "Projecte" not in pages[0]["metadata"]
 
 
 def test_notion_files_maps_to_valid_gnosi_type():
