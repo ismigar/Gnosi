@@ -3685,6 +3685,8 @@
     "scroll_right": "Faire défiler le tableau vers la droite",
     "keyboard_scroll_hint": "Utilisez ↑/↓ ou Page précédente/Page suivante pour le défilement vertical",
     "configuration_loading": "Chargement…",
+    "availability": "État",
+    "all_availability": "Actifs et inactifs",
     "active": "Actif",
     "inactive": "Inactif",
     "enable_model": "Activer {{model}}",

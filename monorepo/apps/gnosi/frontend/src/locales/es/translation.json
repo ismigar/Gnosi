@@ -3685,6 +3685,8 @@
     "scroll_right": "Desplazar la tabla a la derecha",
     "keyboard_scroll_hint": "Usa ↑/↓ o Re Pág/Av Pág para el desplazamiento vertical",
     "configuration_loading": "Cargando…",
+    "availability": "Estado",
+    "all_availability": "Activos e inactivos",
     "active": "Activo",
     "inactive": "Inactivo",
     "enable_model": "Activar {{model}}",
