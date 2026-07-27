@@ -4,6 +4,11 @@
  */
 import { periodBoundary } from './projectPlanning';
 
+function localToday() {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
 // Values that a checkbox considers "checked" (parity with the backend:
 // rule_engine._is_truthy_checkbox and view_snapshot._as_bool). Any other
 // anything else —missing field, "", "false", 0…— is "unchecked".
@@ -31,6 +36,17 @@ export function asBool(x) {
     if (x === false || x === null || x === undefined || x === '') return false;
     if (typeof x === 'number') return x !== 0;
     return TRUTHY.has(String(x).trim().toLowerCase());
+}
+
+function localToday() {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
+function periodBoundary(value, part) {
+    if (!part) return value;
+    const [start = '', end = ''] = String(value ?? '').split('/');
+    return part === 'end' ? (end || start) : start;
 }
 
 // Parses a numeric value tolerant of the LOCAL decimal (comma): "0,25" → 0.25.
@@ -86,7 +102,13 @@ export function matchesRule(item, filter) {
         ? rawVal.map(x => String(x))
         : (rawVal === null || rawVal === undefined || rawVal === '' ? [] : [String(rawVal)]);
     const arrLower = arr.map(s => s.toLowerCase());
-    const filterVal = String(filter.value || '').toLowerCase();
+    // A multi-select filter can carry several selected options. Those options
+    // match when any selected value belongs to the record's value array.
+    const filterVals = (Array.isArray(filter.value) ? filter.value : [filter.value])
+        .map(value => value === 'today' ? localToday() : String(value ?? ''))
+        .map(value => value.toLowerCase())
+        .filter(Boolean);
+    const filterVal = filterVals[0] || '';
 
     switch (filter.operator) {
         // When the filter value is boolean (checkbox: "true"/"false"),
@@ -94,12 +116,12 @@ export function matchesRule(item, filter) {
         // counts as "unchecked" and matches "false".
         case 'equals':
             if (filterVal === 'true' || filterVal === 'false') return asBool(rawVal) === (filterVal === 'true');
-            return arrLower.includes(filterVal);
+            return filterVals.some(value => arrLower.includes(value));
         case 'not_equals':
             if (filterVal === 'true' || filterVal === 'false') return asBool(rawVal) !== (filterVal === 'true');
-            return !arrLower.includes(filterVal);
-        case 'contains': return arrLower.some(x => x.includes(filterVal));
-        case 'not_contains': return !arrLower.some(x => x.includes(filterVal));
+            return filterVals.every(value => !arrLower.includes(value));
+        case 'contains': return filterVals.some(value => arrLower.some(x => x.includes(value)));
+        case 'not_contains': return filterVals.every(value => !arrLower.some(x => x.includes(value)));
         case 'is_empty': return arr.length === 0;
         case 'is_not_empty': return arr.length > 0;
         // greater/less than: if BOTH (value and filter) are pure numbers

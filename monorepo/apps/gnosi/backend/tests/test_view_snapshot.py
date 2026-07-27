@@ -4,6 +4,8 @@ Mirrors test_relation_wikilinks.py for the body: inject (domain → wikilinks),
 strip (wikilinks → clean body), idempotency, and filter/order fidelity relative to
 the frontend (DbViewEmbed).
 """
+from datetime import date
+
 from backend.services.view_snapshot import (
     _parse_numeric_value,
     apply_filter,
@@ -103,6 +105,20 @@ def test_structured_period_filter_can_target_start_or_end():
         PAGE,
         {"field": "Window", "operator": "equals", "value": "2026-07-27T09:00"},
     )
+
+
+def test_multi_select_filter_matches_any_selected_option():
+    meta = {"Tags": ["urgent", "home"]}
+    assert apply_filter(meta, PAGE, {"field": "Tags", "operator": "equals", "value": ["work", "urgent"]}) is True
+    assert apply_filter(meta, PAGE, {"field": "Tags", "operator": "not_equals", "value": ["work", "urgent"]}) is False
+    assert apply_filter(meta, PAGE, {"field": "Tags", "operator": "not_equals", "value": ["work", "study"]}) is True
+
+
+def test_period_filter_can_target_start_or_end_and_today():
+    meta = {"Window": f"{date.today().isoformat()}/2026-12-31"}
+    assert apply_filter(meta, PAGE, {"field": "Window", "operator": "equals", "periodPart": "start", "value": "today"}) is True
+    assert apply_filter(meta, PAGE, {"field": "Window", "operator": "equals", "periodPart": "end", "value": "2026-12-31"}) is True
+    assert apply_filter(meta, PAGE, {"field": "Window", "operator": "less_than", "periodPart": "end", "value": "2027-01-01"}) is True
 
 
 def test_filter_no_field_is_passthrough():
