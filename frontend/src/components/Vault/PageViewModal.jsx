@@ -8,6 +8,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { VIEW_TYPES } from './viewConstants';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import { discoverFieldNamesFromRecords } from './schemaUtils';
+import { normalizeOptions } from './optionCatalogUtils';
 
 /**
  * Modal for adding a DB view to a page (slash command /vista).
@@ -293,6 +294,35 @@ function FilterValueControl({ rule, meta, relOpts, onValue, t }) {
         );
     }
     const ftype = meta?.type;
+    const optionNames = normalizeOptions(meta?.options).map(option => option.name);
+    if ((ftype === 'select' || ftype === 'status') && optionNames.length > 0) {
+        return (
+            <select
+                className={inputCls}
+                value={String(rule.value || '')}
+                onChange={e => onValue(e.target.value)}
+            >
+                <option value="">{t('view.filter_pick', { defaultValue: "Pick…" })}</option>
+                {optionNames.map(name => <option key={name} value={name}>{name}</option>)}
+            </select>
+        );
+    }
+    if (ftype === 'multi_select' && optionNames.length > 0) {
+        const selected = Array.isArray(rule.value)
+            ? rule.value.map(String)
+            : (rule.value ? [String(rule.value)] : []);
+        return (
+            <select
+                multiple
+                className={`${inputCls} h-20`}
+                value={selected}
+                onChange={e => onValue(Array.from(e.target.selectedOptions, option => option.value))}
+                aria-label={t('view.filter_pick', { defaultValue: "Pick…" })}
+            >
+                {optionNames.map(name => <option key={name} value={name}>{name}</option>)}
+            </select>
+        );
+    }
     if (ftype === 'checkbox') {
         // Checked = filters for marked records ('true'); unmarked = for not
         // checked ('false', which the engine also matches with empty values).
@@ -309,7 +339,7 @@ function FilterValueControl({ rule, meta, relOpts, onValue, t }) {
             </label>
         );
     }
-    if (ftype === 'number') {
+    if (['number', 'currency', 'percent', 'formula', 'rollup'].includes(ftype)) {
         return (
             <input
                 type="number"
@@ -320,14 +350,27 @@ function FilterValueControl({ rule, meta, relOpts, onValue, t }) {
             />
         );
     }
-    if (ftype === 'date' || ftype === 'datetime') {
+    if (ftype === 'date' || ftype === 'datetime' || ftype === 'period') {
+        const isToday = rule.value === 'today';
         return (
-            <input
-                type={ftype === 'datetime' ? 'datetime-local' : 'date'}
-                className={inputCls}
-                value={rule.value || ''}
-                onChange={e => onValue(e.target.value)}
-            />
+            <div className="flex gap-1">
+                <select
+                    className="text-xs border border-[var(--border-primary)] rounded px-1.5 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)]"
+                    value={isToday ? 'today' : 'date'}
+                    onChange={e => onValue(e.target.value === 'today' ? 'today' : '')}
+                >
+                    <option value="today">{t('view.filter_today')}</option>
+                    <option value="date">{t('view.filter_specific_date')}</option>
+                </select>
+                {!isToday && (
+                    <input
+                        type={ftype === 'datetime' ? 'datetime-local' : 'date'}
+                        className={inputCls}
+                        value={rule.value || ''}
+                        onChange={e => onValue(e.target.value)}
+                    />
+                )}
+            </div>
         );
     }
     return (
@@ -355,13 +398,30 @@ function FilterRuleRow({ rule, onChange, onRemove, ctx }) {
                     // Changing the field resets the value to the new type's default
                     // (a relation id makes no sense in a text field, etc.).
                     const field = e.target.value;
-                    onChange({ ...rule, field, value: defaultFilterValue(field) });
+                    const nextRule = { ...rule, field, value: defaultFilterValue(field) };
+                    if (fieldMeta[field]?.type === 'period') {
+                        nextRule.periodPart = rule.periodPart === 'end' ? 'end' : 'start';
+                    } else {
+                        delete nextRule.periodPart;
+                    }
+                    onChange(nextRule);
                 }}
             >
                 {tableFields.map(tf => (
                     <option key={tf.name} value={tf.name}>{fieldLabel(tf.name)}</option>
                 ))}
             </select>
+            {meta?.type === 'period' && (
+                <select
+                    className="text-xs border border-[var(--border-primary)] rounded px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] w-36"
+                    value={rule.periodPart === 'end' ? 'end' : 'start'}
+                    onChange={e => onChange({ ...rule, periodPart: e.target.value })}
+                    aria-label={t('view.filter_period_part')}
+                >
+                    <option value="start">{t('view.filter_period_start')}</option>
+                    <option value="end">{t('view.filter_period_end')}</option>
+                </select>
+            )}
             <select
                 className="text-xs border border-[var(--border-primary)] rounded px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] w-32"
                 value={rule.operator}
@@ -567,7 +627,12 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         };
         const props = (selectedTable?.properties || [])
             .filter(p => !isTitleField(p))
-            .map(p => ({ name: p.name, type: p.type, relation_database_id: p.relation_database_id }));
+            .map(p => ({
+                name: p.name,
+                type: p.type,
+                relation_database_id: p.relation_database_id,
+                options: p.config?.options || p.options || [],
+            }));
         props.unshift({ name: 'title', type: 'title' });
         // Merges the fields discovered in records that the registered schema does NOT
         // contain (tables without `properties`, like "Recursos"). They are marked as
@@ -1024,9 +1089,12 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     // Initial value of a filter based on the field type: checkboxes start
     // with a specific boolean ('false' = unchecked) instead of empty, because the
     // engine's boolean comparison also matches rows with no value.
-    const defaultFilterValue = (fieldName) => (
-        fieldMeta[fieldName]?.type === 'checkbox' ? 'false' : ''
-    );
+    const defaultFilterValue = (fieldName) => {
+        const type = fieldMeta[fieldName]?.type;
+        if (type === 'checkbox') return 'false';
+        if (type === 'multi_select') return [];
+        return '';
+    };
 
     const addSort = () => {
         const firstField = tableFields[0]?.name || 'title';
