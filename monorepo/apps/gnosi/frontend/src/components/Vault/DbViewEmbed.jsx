@@ -96,11 +96,17 @@ function asBool(x) {
     return FILTER_TRUTHY.has(String(x).trim().toLowerCase());
 }
 
+function localToday() {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
 function applyFilter(row, pageId, f) {
     if (!f?.field) return true;
     const op = (f.operator || 'equals').toLowerCase();
     const raw = f.value === 'this' ? pageId : f.value;
-    const target = raw == null ? null : String(raw);
+    const targets = Array.isArray(raw) ? raw.map(String) : raw == null ? [] : [String(raw)];
+    const target = targets[0] || null;
     // `title` lives in the ROW, not in metadata (parity with matchesFilters):
     // without the special case, a filter by title —the default field of the
     // modal— emptied the embedded view while the table tab filtered correctly.
@@ -117,7 +123,8 @@ function applyFilter(row, pageId, f) {
     if (op === 'is_empty') return arr.length === 0;
     if (op === 'is_not_empty') return arr.length > 0;
     if (target == null) return true;
-    const targetLower = target.toLowerCase();
+    const targetLowers = targets.map(value => (value === 'today' ? localToday() : value).toLowerCase());
+    const targetLower = targetLowers[0];
     // Boolean value (checkbox: "true"/"false"): we compare by truthiness —not by
     // string— so that an absent field counts as "unchecked" and matches "false".
     // Parity with matchesFilters (vaultFilters.js) and apply_filter (backend).
@@ -130,10 +137,10 @@ function applyFilter(row, pageId, f) {
     // the stored "Català" value matches the "català" filter. Numeric values
     // (greater/less) are compared separately, without lowercasing.
     const arrLower = arr.map(x => x.toLowerCase());
-    if (op === 'equals') return arrLower.includes(targetLower);
-    if (op === 'not_equals') return !arrLower.includes(targetLower);
-    if (op === 'contains') return arrLower.some(x => x.includes(targetLower));
-    if (op === 'not_contains') return !arrLower.some(x => x.includes(targetLower));
+    if (op === 'equals') return targetLowers.some(value => arrLower.includes(value));
+    if (op === 'not_equals') return targetLowers.every(value => !arrLower.includes(value));
+    if (op === 'contains') return targetLowers.some(value => arrLower.some(x => x.includes(value)));
+    if (op === 'not_contains') return targetLowers.every(value => !arrLower.some(x => x.includes(value)));
     // greater/less than: if BOTH (value and filter) are pure numbers, comparison
     // is numeric (parseNumericValue, parity with matchesFilters: '12,5' → 12.5,
     // comma decimal; previously bare parseFloat diverged here and even from
