@@ -330,6 +330,12 @@ Artificial Analysis rather than a hand-maintained shortlist.
 - Do not refetch every pagination page on each modal open → repeated UI checks
   consume the daily quota and can prevent the first complete cache from being
   produced → reuse a complete cache for 24 hours, then refresh it atomically.
+- Do not let a partial Artificial Analysis refresh replace previously known
+  metrics with nulls → Free-tier fields can disappear between responses and
+  make a healthy cache progressively emptier → merge missing metrics from the
+  last successful cache before the atomic write. Complete missing price and
+  context values only from an exact models.dev match and retain per-field
+  attribution.
 - Tests that exercise a successful fetch must mock both cache reads and cache
   writes → mocking only `_read_cache` still lets `_write_cache` persist fixture
   rows into the native runtime cache → capture writes in memory and assert them.
@@ -377,6 +383,10 @@ Artificial Analysis rather than a hand-maintained shortlist.
   the modal body's scroll. Do not open a second modal/backdrop over the
   comparison because its sticky table surfaces can cross the nested dialog and
   the interaction diverges from the rest of Settings.
+- Do not size the inline activation form from the table's intrinsic width → the
+  wide translated columns make fields and actions overflow beyond the visible
+  modal → measure the clipped table viewport and constrain the detail form to
+  that width, including its inputs and footer.
 - Artificial Analysis benchmark variants do not contain deployable provider
   ids. Match them to exact models.dev provider/model routes server-side and
   send those routes with the comparison payload. Treat each exact route as the

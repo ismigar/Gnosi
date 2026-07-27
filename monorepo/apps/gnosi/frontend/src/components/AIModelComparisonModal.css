@@ -94,7 +94,8 @@
 .model-comparison-note { margin: 12px 2px 0; color: var(--text-secondary); font-size: .75rem; }
 .model-comparison-note a { color: var(--gnosi-blue); font-weight: 700; text-decoration: none; }
 .model-setup-dialog { position: relative; width: min(680px, 94vw); max-height: min(820px, 90vh); display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--settings-border); border-radius: 26px; background: var(--settings-bg); box-shadow: 0 30px 90px rgba(0,0,0,.4); }
-.model-setup-inline { width: 100%; max-height: none; margin: 0; overflow: visible; border: 0; border-radius: 0; box-shadow: none; }
+.model-setup-inline { box-sizing: border-box; max-width: 100%; max-height: none; margin: 0; overflow: hidden; border: 0; border-radius: 0; box-shadow: none; }
+.model-setup-inline .model-setup-field, .model-setup-inline .model-setup-content, .model-setup-inline > footer { min-width: 0; }
 .model-setup-content { min-height: 0; display: flex; flex-direction: column; gap: 16px; overflow: auto; padding: 20px 24px; }
 .model-setup-inline .model-setup-content { overflow: visible; }
 .model-execution-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 0; border: 0; }

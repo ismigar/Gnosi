@@ -32,6 +32,17 @@ _PROFILE_PERCENTILE_CEILINGS = (
     ("documentalist", 0.6),
     ("allrounder", 0.8),
 )
+_PRESERVED_METRIC_FIELDS = (
+    "input_price",
+    "output_price",
+    "context_window",
+    "speed",
+    "latency",
+    "end_to_end",
+    "intelligence",
+    "coding",
+    "agentic",
+)
 
 
 def _cache_path() -> Optional[Path]:
@@ -128,6 +139,8 @@ def _catalog_enrichment_index(catalog: Dict[str, Any]) -> Dict[str, Dict[str, An
         for model in provider.get("models") or []:
             candidate = {
                 "context_window": int(model.get("context_window") or 0),
+                "input_price": _number(model.get("cost_in")),
+                "output_price": _number(model.get("cost_out")),
                 "tags": list(model.get("tags") or []),
                 "release_date": model.get("release_date") or "",
             }
@@ -160,6 +173,74 @@ def _catalog_enrichment_index(catalog: Dict[str, Any]) -> Dict[str, Dict[str, An
                 ):
                     current["routes"].append(route)
     return index
+
+
+def _matching_enrichment_entries(
+    model: Dict[str, Any],
+    enrichment: Dict[str, Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Return distinct catalog entries matching a comparison model."""
+    matches: List[Dict[str, Any]] = []
+    for raw_key in (model.get("slug"), model.get("name")):
+        entry = enrichment.get(_normalize_name(str(raw_key or "")))
+        if entry is not None and entry not in matches:
+            matches.append(entry)
+    return matches
+
+
+def _merge_cached_metrics(
+    payload: Dict[str, Any],
+    cached: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Fill missing upstream metrics from the last successful AA payload."""
+    if not cached:
+        return payload
+    cached_by_key: Dict[str, Dict[str, Any]] = {}
+    for model in cached.get("models") or []:
+        for raw_key in (model.get("id"), model.get("slug"), model.get("name")):
+            key = _normalize_name(str(raw_key or ""))
+            if key:
+                cached_by_key.setdefault(key, model)
+
+    for model in payload.get("models") or []:
+        previous = None
+        for raw_key in (model.get("id"), model.get("slug"), model.get("name")):
+            previous = cached_by_key.get(_normalize_name(str(raw_key or "")))
+            if previous:
+                break
+        if not previous:
+            continue
+        metric_sources = dict(model.get("metric_sources") or {})
+        for field in _PRESERVED_METRIC_FIELDS:
+            if model.get(field) is None and previous.get(field) is not None:
+                model[field] = previous[field]
+                metric_sources[field] = "artificial_analysis_cache"
+        if metric_sources:
+            model["metric_sources"] = metric_sources
+    return payload
+
+
+def _enrich_cached_payload(
+    payload: Dict[str, Any],
+    catalog: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Backfill verifiable catalog metadata in an already normalized cache."""
+    enrichment = _catalog_enrichment_index(catalog)
+    for model in payload.get("models") or []:
+        matches = _matching_enrichment_entries(model, enrichment)
+        match = max(
+            matches,
+            key=lambda item: item.get("context_window") or 0,
+            default={},
+        )
+        metric_sources = dict(model.get("metric_sources") or {})
+        for field in ("input_price", "output_price", "context_window"):
+            if model.get(field) is None and match.get(field) is not None:
+                model[field] = match[field]
+                metric_sources[field] = "models_dev"
+        if metric_sources:
+            model["metric_sources"] = metric_sources
+    return payload
 
 
 def _intelligence_percentile(
@@ -205,11 +286,7 @@ def build_comparison_payload(
         performance = row.get("performance") or {}
         evaluations = row.get("evaluations") or {}
         creator = row.get("model_creator") or {}
-        matched_entries = []
-        for raw_key in (row.get("slug"), row.get("name")):
-            entry = enrichment.get(_normalize_name(str(raw_key or "")))
-            if entry is not None and entry not in matched_entries:
-                matched_entries.append(entry)
+        matched_entries = _matching_enrichment_entries(row, enrichment)
         match = max(
             matched_entries,
             key=lambda item: item.get("context_window") or 0,
@@ -224,14 +301,25 @@ def build_comparison_payload(
                     route_keys.add(route_key)
                     routes.append(route)
         context_window = int(row.get("context_window_tokens") or match.get("context_window") or 0)
-        models.append({
+        input_price = _number(pricing.get("price_1m_input_tokens"))
+        output_price = _number(pricing.get("price_1m_output_tokens"))
+        metric_sources = {}
+        if input_price is None and match.get("input_price") is not None:
+            input_price = match["input_price"]
+            metric_sources["input_price"] = "models_dev"
+        if output_price is None and match.get("output_price") is not None:
+            output_price = match["output_price"]
+            metric_sources["output_price"] = "models_dev"
+        if not row.get("context_window_tokens") and match.get("context_window"):
+            metric_sources["context_window"] = "models_dev"
+        model = {
             "id": str(row.get("id") or row.get("slug") or row.get("name") or ""),
             "slug": str(row.get("slug") or ""),
             "name": str(row.get("name") or row.get("slug") or ""),
             "creator": str(creator.get("name") or ""),
             "release_date": row.get("release_date") or match.get("release_date") or "",
-            "input_price": _number(pricing.get("price_1m_input_tokens")),
-            "output_price": _number(pricing.get("price_1m_output_tokens")),
+            "input_price": input_price,
+            "output_price": output_price,
             "context_window": context_window or None,
             "speed": _number(performance.get("median_output_tokens_per_second")),
             "latency": _number(performance.get("median_time_to_first_token_seconds")),
@@ -241,7 +329,10 @@ def build_comparison_payload(
             "agentic": _number(evaluations.get("artificial_analysis_agentic_index")),
             "tags": list(match.get("tags") or []),
             "routes": routes,
-        })
+        }
+        if metric_sources:
+            model["metric_sources"] = metric_sources
+        models.append(model)
 
     intelligence_values = sorted(
         model["intelligence"] for model in models if model["intelligence"] is not None
@@ -299,6 +390,10 @@ def build_catalog_fallback_payload(catalog: Dict[str, Any], reason: str) -> Dict
 def _fallback_payload(error: ArtificialAnalysisError) -> Dict[str, Any]:
     cached = _read_cache()
     if cached:
+        cached = _enrich_cached_payload(
+            cached,
+            load_catalog(force_refresh=False),
+        )
         return {
             **cached,
             "fallback": True,
@@ -318,7 +413,10 @@ def fetch_all_models() -> Dict[str, Any]:
     """Fetch every page from Artificial Analysis and build the comparison feed."""
     cached = _read_cache()
     if cached and _cache_is_fresh(cached):
-        return cached
+        return _enrich_cached_payload(
+            cached,
+            load_catalog(force_refresh=False),
+        )
 
     api_key = (
         os.getenv("ARTIFICIAL_ANALYSIS_API_KEY")
@@ -406,5 +504,6 @@ def fetch_all_models() -> Dict[str, Any]:
         catalog,
         intelligence_index_version=index_version,
     )
+    result = _merge_cached_metrics(result, cached)
     _write_cache(result)
     return result

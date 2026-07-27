@@ -62,6 +62,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
     const [actionMessage, setActionMessage] = useState(null);
     const [fallbackNoticeDismissed, setFallbackNoticeDismissed] = useState(false);
     const [tableScrollWidth, setTableScrollWidth] = useState(0);
+    const [tableViewportWidth, setTableViewportWidth] = useState(0);
     const bodyRef = React.useRef(null);
     const tableWrapRef = React.useRef(null);
     const scrollbarRef = React.useRef(null);
@@ -99,10 +100,14 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
         const tableWrap = tableWrapRef.current;
         const table = tableWrap.querySelector('.model-comparison-table');
         if (!table) return undefined;
-        const updateWidth = () => setTableScrollWidth(table.scrollWidth);
+        const updateWidth = () => {
+            setTableScrollWidth(table.scrollWidth);
+            setTableViewportWidth(tableWrap.clientWidth);
+        };
         updateWidth();
         const observer = new ResizeObserver(updateWidth);
         observer.observe(table);
+        observer.observe(tableWrap);
         return () => observer.disconnect();
     }, [feed, isOpen]);
 
@@ -227,6 +232,10 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
             (parseNumber(inputTokens) / 1000000) * model.input_price
             + (parseNumber(outputTokens) / 1000000) * model.output_price
         );
+    };
+    const metricSourceTitle = (model, field) => {
+        const source = model.metric_sources?.[field];
+        return source ? t(`model_comparison.metric_sources.${source}`) : undefined;
     };
     const feedModels = feed?.models || [];
     const metricAvailability = {
@@ -418,7 +427,11 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
         : [];
     const setupNeedsApiKey = setup?.mode === 'remote' && activeSetupProvider && !activeSetupProvider.has_api_key;
     const setupPanel = setup && (
-        <section className="model-setup-dialog model-setup-inline" aria-label={t('model_comparison.setup.activate')}>
+        <section
+            className="model-setup-dialog model-setup-inline"
+            aria-label={t('model_comparison.setup.activate')}
+            style={tableViewportWidth ? { width: `${tableViewportWidth}px` } : undefined}
+        >
             <div className="model-setup-content">
                 {activeSetupModes.length > 1 && (
                     <fieldset className="model-execution-choice">
@@ -711,9 +724,9 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                                                         {metricAvailability.intelligence && <td>{formatMetric(model.intelligence)}</td>}
                                                         {metricAvailability.coding && <td>{formatMetric(model.coding)}</td>}
                                                         {metricAvailability.agentic && <td>{formatMetric(model.agentic)}</td>}
-                                                        <td>{model.input_price == null ? '—' : `$${formatMetric(model.input_price, 3)}`}</td>
-                                                        <td>{model.output_price == null ? '—' : `$${formatMetric(model.output_price, 3)}`}</td>
-                                                        <td>{formatContext(model.context_window)}</td>
+                                                        <td title={metricSourceTitle(model, 'input_price')}>{model.input_price == null ? '—' : `$${formatMetric(model.input_price, 3)}`}</td>
+                                                        <td title={metricSourceTitle(model, 'output_price')}>{model.output_price == null ? '—' : `$${formatMetric(model.output_price, 3)}`}</td>
+                                                        <td title={metricSourceTitle(model, 'context_window')}>{formatContext(model.context_window)}</td>
                                                         {metricAvailability.speed && <td>{model.speed == null ? '—' : `${formatMetric(model.speed)} t/s`}</td>}
                                                         {metricAvailability.latency && <td>{model.latency == null ? '—' : `${formatMetric(model.latency, 2)} s`}</td>}
                                                         {metricAvailability.profile && <td><span className={`model-profile-badge ${model.profile}`}>{PROFILE_ICONS[model.profile]} {t(`model_comparison.profiles.${model.profile}`)}</span></td>}
