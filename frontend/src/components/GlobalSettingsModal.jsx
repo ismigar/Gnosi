@@ -1269,10 +1269,25 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             const res = await fetch('/api/ai/models');
             if (res.ok) {
                 const payload = await res.json();
-                setAiRegistry((payload?.models || []).filter(m => m.enabled !== false));
+                setAiRegistry(
+                    (payload?.configured_models || []).filter(
+                        modelEntry => modelEntry?.enabled === true,
+                    ),
+                );
             }
         } catch (err) { console.error("Error loading AI model registry:", err); }
     };
+
+    useEffect(() => {
+        if (!isOpen) return undefined;
+        const reloadAiRegistry = () => {
+            void loadAiRegistry();
+        };
+        window.addEventListener('gnosi-ai-models-changed', reloadAiRegistry);
+        return () => {
+            window.removeEventListener('gnosi-ai-models-changed', reloadAiRegistry);
+        };
+    }, [isOpen]);
 
     const loadTablesAndDatabases = async () => {
         // Vault Tables and Databases — used by the Calendar
@@ -4311,7 +4326,7 @@ function AIAgentForm({ agent, onSave, aiRegistry }) {
     const grouped = useMemo(() => {
         const map = new Map();
         for (const row of (aiRegistry || [])) {
-            if (!row || !row.provider || !row.model_id) continue;
+            if (!row || row.enabled !== true || !row.provider || !row.model_id) continue;
             if (!map.has(row.provider)) map.set(row.provider, []);
             map.get(row.provider).push(row.model_id);
         }
