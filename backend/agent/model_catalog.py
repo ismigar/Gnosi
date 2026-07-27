@@ -1,8 +1,8 @@
-"""Provider → model catalog that feeds the router registry UI.
+"""Provider → model catalog for the model-comparison activation workflow.
 
 Gives the settings UI real, up-to-date model lists with metadata (cost, context
 window, capabilities) so the user picks from dropdowns instead of remembering
-provider/model ids by heart (cf. `ModelRegistrySettings.jsx`).
+provider/model ids by heart (cf. `AIModelComparisonModal.jsx`).
 
 Layered sources, most fresh wins:
 
@@ -87,7 +87,7 @@ def _infer_tags(model: Dict[str, Any]) -> List[str]:
     """Map models.dev capability fields to the router's capability tags.
 
     Tags are DATA matched verbatim by backend/agent/model_router.py — never
-    translate them (same contract as TAG_OPTIONS in ModelRegistrySettings.jsx).
+    translate them (same contract as the comparison registry filters).
     """
     tags: List[str] = []
     name_blob = f"{model.get('id', '')} {model.get('name', '')} {model.get('family', '')}"
