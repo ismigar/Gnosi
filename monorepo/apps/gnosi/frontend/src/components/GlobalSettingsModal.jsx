@@ -4,7 +4,7 @@ import {
     X, Globe, Palette, RefreshCw, Info, ExternalLink, Monitor, BookOpen,
     Check, FolderOpen, Database, Cpu, Zap, Settings as SettingsIcon,
     Sliders, Calendar, Mail, Trash2, Plus, Users, Rss, Share2, Inbox,
-    ChevronRight, ChevronDown, Search, FileUp, Shield, Activity, Bot, FileText,
+    ChevronRight, Search, FileUp, Shield, Activity, Bot, FileText,
     PenTool, Image, Paperclip, Eye, EyeOff, User, Languages, Loader2
 } from 'lucide-react';
 import { useTranslation, Trans } from 'react-i18next';
@@ -12,6 +12,7 @@ import { useModalKeyboard } from '../hooks/useModalKeyboard';
 import { useApi } from '../hooks/use-api';
 import { FolderPickerModal } from './FolderPickerModal';
 import { IconPicker, VAULT_COLORS } from './Vault/IconPicker';
+import { IconRenderer } from './Vault/IconRenderer';
 import axios from 'axios';
 import { toast } from '../lib/toast';
 import { emitConfigChanged } from '../lib/configEvents';
@@ -24,7 +25,6 @@ import AccountSettings from './Auth/AccountSettings';
 import { WorkspaceMembersPanel } from './Workspace/WorkspaceMembersPanel';
 import ApiTokensSettings from './ApiTokensSettings';
 import { PluginsSettings } from './PluginsSettings';
-import ModelRegistrySettings from './ModelRegistrySettings';
 import AIModelComparisonModal from './AIModelComparisonModal';
 import NotionImportSettings from './NotionImportSettings';
 import VaultSwitcher from './VaultSwitcher';
@@ -392,10 +392,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     // Designated reference table (Settings → backend get_reference_table_id).
     const [referenceTable, setReferenceTable] = useState({ table_id: null, configured: false, name: null });
     const [refBusy, setRefBusy] = useState(false);
-    const [aiCatalog, setAiCatalog] = useState({});
     // Configured model registry (GET /api/ai/models) — the enabled models the
-    // user picked in ModelRegistrySettings. Agent creation chooses from this,
-    // NOT the full catalog: an agent runs on a model that is actually set up.
+    // user activated through the comparison workflow. Agent creation chooses
+    // from this, NOT the full catalog: an agent runs on a configured model.
     const [aiRegistry, setAiRegistry] = useState([]);
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState('');
@@ -589,7 +588,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
     const [pickerOpen, setPickerOpen] = useState(false);
     const [pickerField, setPickerField] = useState(null);
-    const [aiValidationStatus, setAiValidationStatus] = useState({});
     const [googleAuthConfigured, setGoogleAuthConfigured] = useState(false);
     // True if /api/calendar/calendars returns the X-Calendar-Auth-Error header
     // (Google token expired/revoked) → we show a reconnection warning.
@@ -597,9 +595,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
     // Inline AI collection editors
     const [editingAgent, setEditingAgent] = useState(null);
-    const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
-    const [providerToEdit, setProviderToEdit] = useState(null);
-    const [providerEditorTarget, setProviderEditorTarget] = useState(null);
     const [agentEditorTarget, setAgentEditorTarget] = useState(null);
     const [isModelComparisonOpen, setIsModelComparisonOpen] = useState(false);
 
@@ -1257,8 +1252,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             const res = await fetch('/api/ai/catalog');
             if (res.ok) {
                 const payload = await res.json();
-                const providers = payload?.catalog?.providers || [];
-                setAiCatalog(providers.reduce((acc, p) => ({ ...acc, [p.id]: p }), {}));
                 if (payload?.config?.providers) {
                     setDraft(prev => ({
                         ...prev,
@@ -1814,77 +1807,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             setSyncingAccounts(prev => ({ ...prev, [accountId]: false }));
             setTimeout(() => setSavingStatus('idle'), 3000);
         }
-    };
-
-    const validateAIProvider = async (id, manualKey = null) => {
-        setAiValidationStatus(prev => ({ ...prev, [id]: 'validating' }));
-        try {
-            const providerCfg = draft.ai.providers[id] || {};
-            const res = await axios.post(`/api/ai/providers/${id}/validate`, {
-                api_key: manualKey || '',
-                base_url: providerCfg.base_url || ''
-            });
-            setAiValidationStatus(prev => ({ ...prev, [id]: res.data.success ? 'success' : 'error' }));
-            if (!res.data.success) {
-                console.warn(`Validation failed for ${id}:`, res.data.error);
-            }
-        } catch (e) {
-            console.error("AI Validation error:", e);
-            setAiValidationStatus(prev => ({ ...prev, [id]: 'error' }));
-        }
-    };
-
-    const handleToggleAIProvider = async (pId, enabled) => {
-        try {
-            await axios.patch(`/api/ai/providers/${pId}/status`, { enabled });
-            // A disabled provider counts as NOT connected (the router skips
-            // it): refresh the registry so its grouping/badges follow suit.
-            window.dispatchEvent(new CustomEvent('gnosi-ai-models-changed', {
-                detail: { provider: pId, enabled },
-            }));
-            setDraft(prev => ({
-                ...prev,
-                ai: {
-                    ...prev.ai,
-                    providers: {
-                        ...prev.ai.providers,
-                        [pId]: { ...prev.ai.providers[pId], enabled }
-                    }
-                }
-            }));
-        } catch (e) {
-            console.error("Error toggling provider:", e);
-        }
-    };
-
-    const handleDeleteAIProvider = async (pId) => {
-        setConfirmConfig({
-            isOpen: true,
-            title: tn('ai.delete_provider_title'),
-            message: tn('ai.delete_provider_msg', { name: pId.toUpperCase() }),
-            onConfirm: async () => {
-                try {
-                    const { data } = await axios.delete(`/api/ai/providers/${pId}`);
-                    setDraft(prev => {
-                        const newProviders = { ...prev.ai.providers };
-                        delete newProviders[pId];
-                        return {
-                            ...prev,
-                            ai: { ...prev.ai, providers: newProviders }
-                        };
-                    });
-                    // The cascade also removed the provider's rows from the
-                    // router registry: tell ModelRegistrySettings (a sibling
-                    // component with its own state) to reload from the API.
-                    window.dispatchEvent(new CustomEvent('gnosi-ai-models-changed', {
-                        detail: { provider: pId, removedModels: data?.removed_models || 0 },
-                    }));
-                    setConfirmConfig(prev => ({ ...prev, isOpen: false }));
-                } catch (e) {
-                    console.error("Error deleting provider:", e);
-                }
-            }
-        });
     };
 
     const handleDeleteAIAgent = (agent) => {
@@ -3876,179 +3798,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         </button>
                                     </div>
 
-                                    <details className="ai-advanced-settings">
-                                        <summary>
-                                            <span className="ai-advanced-settings__label">
-                                                <span className="ai-advanced-settings__icon"><SettingsIcon size={19} /></span>
-                                                <span>
-                                                    <strong>{t('model_comparison.advanced_title')}</strong>
-                                                    <small>{t('model_comparison.advanced_description')}</small>
-                                                </span>
-                                            </span>
-                                            <ChevronDown className="ai-advanced-settings__chevron" size={20} aria-hidden="true" />
-                                        </summary>
-                                        <div className="ai-advanced-settings__content">
-                                    <Section
-                                        title={tn('ai.providers_section')} 
-                                        icon={Database} 
-                                        extra={
-                                            <button 
-                                                className="btn-gnosi-primary" 
-                                                onClick={() => {
-                                                    if (isConnectModalOpen) {
-                                                        setIsConnectModalOpen(false);
-                                                        setProviderToEdit(null);
-                                                    } else {
-                                                        setProviderToEdit(null);
-                                                        setIsConnectModalOpen(true);
-                                                    }
-                                                }}
-                                                style={{ 
-                                                    padding: '10px 20px', fontSize: '0.9rem', borderRadius: '14px',
-                                                    display: 'flex', alignItems: 'center', gap: '10px'
-                                                }}
-                                            >
-                                                {isConnectModalOpen ? <X size={18} /> : <Plus size={18} />}
-                                                {isConnectModalOpen ? t('common.cancel') : tn('ai.connect_provider')}
-                                            </button>
-                                        }
-                                    >
-                                        {isConnectModalOpen && (
-                                            <InlineEditorPlacement
-                                                target={providerToEdit ? providerEditorTarget : null}
-                                                waitForTarget={Boolean(providerToEdit)}
-                                            >
-                                                <div data-settings-editor-for={providerToEdit ? `provider:${providerToEdit.id}` : 'provider:new'}>
-                                                    <UnifiedAIProviderForm
-                                                        key={providerToEdit?.id || 'new-provider'}
-                                                        aiCatalog={aiCatalog}
-                                                        editingProvider={providerToEdit}
-                                                        aiValidationStatus={aiValidationStatus}
-                                                        onValidate={validateAIProvider}
-                                                        onSave={(pId, data) => {
-                                                            setDraft(prev => ({
-                                                                ...prev,
-                                                                ai: {
-                                                                    ...prev.ai,
-                                                                    providers: {
-                                                                        ...prev.ai.providers,
-                                                                        [pId]: { ...(prev.ai.providers?.[pId] || {}), ...data, enabled: true }
-                                                                    }
-                                                                }
-                                                            }));
-                                                            triggerAutoSave(false);
-                                                            setIsConnectModalOpen(false);
-                                                            setProviderToEdit(null);
-                                                        }}
-                                                    />
-                                                </div>
-                                            </InlineEditorPlacement>
-                                        )}
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                            {Object.entries(draft.ai.providers).map(([pId, p]) => {
-                                                const catalogItem = aiCatalog[pId] || {};
-                                                const pName = catalogItem.name || pId.toUpperCase();
-                                                const pIcon = catalogItem.icon || p.icon;
-                                                return (
-                                                    <React.Fragment key={pId}>
-                                                    <div
-                                                        className="hover-scale"
-                                                        data-settings-item-id={`provider:${pId}`}
-                                                        style={{
-                                                            padding: '24px', borderRadius: '24px', border: '1px solid var(--settings-border)',
-                                                            background: 'var(--settings-sidebar-bg)', display: 'flex', justifyContent: 'space-between',
-                                                            alignItems: 'center', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                                            opacity: p.enabled === false ? 0.6 : 1
-                                                        }}
-                                                    >
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                                                            <GnosiToggle
-                                                                active={p.enabled !== false}
-                                                                label={tn('ai.enable_provider', { name: pName })}
-                                                                scale={1.1}
-                                                                style={{ marginRight: '10px' }}
-                                                                onChange={() => handleToggleAIProvider(pId, p.enabled === false)}
-                                                            />
-                                                            <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: 'var(--settings-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gnosi-blue)', boxShadow: '0 5px 15px rgba(0,0,0,0.05)' }}>
-                                                                {pIcon ? <img src={pIcon} style={{ width: '28px', height: '28px' }} alt="" /> : <Cpu size={28} />}
-                                                            </div>
-                                                            <div>
-                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                                    <div style={{ fontWeight: '900', fontSize: '1.2rem', color: 'var(--text-primary)' }}>{pName}</div>
-                                                                    {p.enabled === false && <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: '10px', background: 'var(--settings-border)', color: 'var(--text-secondary)', fontWeight: '800' }}>{tn('ai.inactive')}</span>}
-                                                                </div>
-                                                                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px', opacity: 0.8 }}>
-                                                                    {p.has_api_key ? tn('ai.credentials_ok')
-                                                                        : (catalogItem.is_local ? tn('ai.local_no_key') : tn('ai.missing_api_key'))}
-                                                                    {p.base_url && ` • ${p.base_url}`}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <div style={{ display: 'flex', gap: '14px' }}>
-                                                            <button 
-                                                                onClick={() => validateAIProvider(pId)} 
-                                                                disabled={aiValidationStatus[pId] === 'validating' || p.enabled === false}
-                                                                className={`btn-gnosi-secondary ${aiValidationStatus[pId] || ''}`} 
-                                                                style={{ 
-                                                                    padding: '14px 28px', borderRadius: '18px', fontWeight: '900', border: 'none',
-                                                                    background: aiValidationStatus[pId] === 'success' ? '#10b98120' : (aiValidationStatus[pId] === 'error' ? '#ef444420' : 'var(--settings-border)'),
-                                                                    color: aiValidationStatus[pId] === 'success' ? 'var(--status-success)' : (aiValidationStatus[pId] === 'error' ? 'var(--status-error)' : 'var(--text-primary)'),
-                                                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                                                    opacity: p.enabled === false ? 0.5 : 1,
-                                                                    whiteSpace: 'nowrap'
-                                                                }}
-                                                            >
-                                                                {aiValidationStatus[pId] === 'validating' ? <div className="spinner-small" style={{ borderTopColor: 'var(--gnosi-blue)' }} /> : (aiValidationStatus[pId] === 'success' ? tn('ai.valid') : (aiValidationStatus[pId] === 'error' ? tn('ai.error') : tn('ai.test_ping')))}
-                                                            </button>
-                                                            <button 
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setProviderToEdit({ ...catalogItem, id: pId, base_url: p.base_url });
-                                                                    setIsConnectModalOpen(true);
-                                                                }}
-                                                                aria-label={tn('ai.configure_name', { name: pName })}
-                                                                title={tn('ai.configure_name', { name: pName })}
-                                                                className="icon-btn hover-bg-strong"
-                                                                style={{ padding: '14px', borderRadius: '16px' }}
-                                                            >
-                                                                <SettingsIcon size={22} />
-                                                            </button>
-                                                            <button 
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleDeleteAIProvider(pId);
-                                                                }}
-                                                                aria-label={tn('ai.delete_name', { name: pName })}
-                                                                title={tn('ai.delete_name', { name: pName })}
-                                                                className="icon-btn hover-bg-strong"
-                                                                style={{ padding: '14px', borderRadius: '16px', color: 'var(--status-error)' }}
-                                                            >
-                                                                <Trash2 size={22} />
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                    {providerToEdit?.id === pId && (
-                                                        <div
-                                                            ref={setProviderEditorTarget}
-                                                            data-settings-editor-anchor-for={`provider:${pId}`}
-                                                        />
-                                                    )}
-                                                    </React.Fragment>
-                                                );
-                                            })}
-                                        </div>
-                                    </Section>
-
-                                    <div style={{ height: '30px' }} />
-
-                                    {/* Provider and registry controls remain available for
-                                        credential maintenance and manual router tuning, but
-                                        the comparison is the primary model-management surface. */}
-                                    <Section title={tn('ai.model_registry.title')} icon={Cpu}>
-                                        <ModelRegistrySettings />
-                                    </Section>
-                                        </div>
-                                    </details>
 
                                     <div style={{ height: '30px' }} />
 
@@ -4126,7 +3875,16 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 }}
                                                             />
                                                         </div>
-                                                        <div style={{ fontSize: '2.5rem', filter: 'drop-shadow(0 5px 10px rgba(0,0,0,0.1))' }}>{agent.icon || '🤖'}</div>
+                                                        <div
+                                                            aria-hidden="true"
+                                                            style={{
+                                                                width: '46px', height: '46px', flexShrink: 0,
+                                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                filter: 'drop-shadow(0 5px 10px rgba(0,0,0,0.1))'
+                                                            }}
+                                                        >
+                                                            <IconRenderer icon={agent.icon || '🤖'} size={40} />
+                                                        </div>
                                                         <div style={{ minWidth: 0 }}>
                                                             <div style={{ fontWeight: '900', fontSize: '1.1rem', color: 'var(--text-primary)' }}>{agent.name}</div>
                                                             <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{agent.model}</div>
@@ -4296,126 +4054,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
 // --- SUB-COMPONENTS FOR AI ---
 
-function UnifiedAIProviderForm({ aiCatalog, onSave, onValidate, aiValidationStatus, editingProvider = null }) {
-    const { t } = useTranslation();
-    const [selectedId, setSelectedId] = useState(editingProvider?.id || '');
-    const [apiKey, setApiKey] = useState('');
-    const [baseUrl, setBaseUrl] = useState(editingProvider?.base_url || '');
-    // The catalog now lists EVERY models.dev provider (~167): a text filter
-    // keeps the dropdown navigable.
-    const [providerFilter, setProviderFilter] = useState('');
-
-    const provider = aiCatalog[selectedId];
-    const allProviders = Object.values(aiCatalog);
-    const normalizedFilter = providerFilter.trim().toLowerCase();
-    const filteredProviders = normalizedFilter
-        ? allProviders.filter(p =>
-            (p.name || '').toLowerCase().includes(normalizedFilter)
-            || (p.id || '').toLowerCase().includes(normalizedFilter))
-        : allProviders;
-    // Keep the selected provider visible even when the filter excludes it
-    const visibleProviders = provider && !filteredProviders.some(p => p.id === selectedId)
-        ? [provider, ...filteredProviders]
-        : filteredProviders;
-    const isValidating = selectedId ? aiValidationStatus[selectedId] === 'validating' : false;
-
-    return (
-        <div className="animate-in" style={{
-            padding: '28px', marginBottom: '24px', borderRadius: '24px',
-            border: '1px solid var(--gnosi-blue)', background: 'var(--settings-sidebar-bg)',
-        }}>
-                    <h3 style={{ margin: '0 0 30px 0', fontSize: '1.4rem', fontWeight: '900' }}>
-                        {editingProvider ? t('settings.ai.configure_name', { name: editingProvider.name }) : t('settings.ai.connect_provider_title')}
-                    </h3>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                        <FormGroup label={t('settings.ai.provider_ai_label')} description={t('settings.ai.provider_select_desc')}>
-                            {!editingProvider && (
-                                <input
-                                    type="text"
-                                    className="gnosi-input"
-                                    style={{ marginBottom: '10px' }}
-                                    value={providerFilter}
-                                    onChange={e => setProviderFilter(e.target.value)}
-                                    placeholder={t('settings.ai.provider_search_placeholder', { count: allProviders.length })}
-                                />
-                            )}
-                            <select
-                                className="gnosi-select"
-                                value={selectedId}
-                                onChange={e => {
-                                    const nextId = e.target.value;
-                                    setSelectedId(nextId);
-                                    setBaseUrl(aiCatalog[nextId]?.base_url || '');
-                                }}
-                                disabled={!!editingProvider}
-                            >
-                                <option value="">{t('settings.ai.choose_provider')}</option>
-                                {visibleProviders.map(p => (
-                                    <option key={p.id} value={p.id}>{p.name}{p.connected ? ' ✓' : ''}</option>
-                                ))}
-                            </select>
-                        </FormGroup>
-
-                        {selectedId && (
-                            <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px', padding: '24px', borderRadius: '20px', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '10px' }}>
-                                    <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'var(--settings-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        {provider.icon ? <img src={provider.icon} style={{ width: '24px', height: '24px' }} alt="" /> : <Cpu size={20} />}
-                                    </div>
-                                    <div>
-                                        <div style={{ fontWeight: '800', fontSize: '1rem' }}>{provider.name}</div>
-                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                                            {t('settings.ai.models_available', { count: provider.models?.length || 0 })}
-                                            {provider.doc && (
-                                                <>
-                                                    {' · '}
-                                                    <a href={provider.doc} target="_blank" rel="noreferrer"
-                                                        style={{ color: 'var(--gnosi-blue)', textDecoration: 'none' }}>
-                                                        {t('settings.ai.provider_doc_link', 'Documentació ↗')}
-                                                    </a>
-                                                </>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <FormGroup label={t('settings.ai.api_key_label')} description={t('settings.ai.api_key_desc')}>
-                                    <PasswordInput value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="sk-..." name="ai-api-key" autoComplete="off" />
-                                    {(provider.env?.length || 0) > 0 && (
-                                        <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '6px', opacity: 0.8 }}>
-                                            {t('settings.ai.env_hint', { defaultValue: 'Alternativa: defineix {{vars}} a l’entorn del backend.', vars: provider.env.join(' / ') })}
-                                        </div>
-                                    )}
-                                </FormGroup>
-
-                                <FormGroup label={t('settings.ai.base_url_label')} description={t('settings.ai.base_url_desc')}>
-                                    <input type="text" className="gnosi-input" value={baseUrl} onChange={e => setBaseUrl(e.target.value)} placeholder={provider.base_url_hint || provider.base_url || "https://api.openai.com/v1"} />
-                                </FormGroup>
-                            </div>
-                        )}
-                    </div>
-                <div style={{ marginTop: '40px', display: 'flex', gap: '14px', flexShrink: 0 }}>
-                    <button 
-                        className="btn-gnosi-secondary" 
-                        onClick={() => onValidate(selectedId, apiKey)} 
-                        disabled={isValidating || !selectedId}
-                        style={{ flex: 1, padding: '14px', borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', whiteSpace: 'nowrap' }}
-                    >
-                        {isValidating ? <div className="spinner-small" /> : <Activity size={18} />} {t('settings.ai.test_ping')}
-                    </button>
-                    <button 
-                        className="btn-gnosi-primary" 
-                        disabled={!selectedId || (!apiKey && !editingProvider)}
-                        onClick={() => onSave(selectedId, { api_key: apiKey, base_url: baseUrl })} 
-                        style={{ flex: 1, padding: '14px', borderRadius: '18px' }}
-                    >
-                        {editingProvider ? t('settings.ai.update_provider') : t('settings.ai.create_provider')}
-                    </button>
-                </div>
-        </div>
-    );
-}
 
 function AIAgentForm({ agent, onSave, aiRegistry }) {
     const { t } = useTranslation();

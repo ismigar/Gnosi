@@ -96,6 +96,16 @@ configuration autosave.
 - Confirmation modals remain appropriate for destructive or irreversible
   actions; selectors such as the folder picker are not collection editors.
 
+## AI Settings surface
+
+- Keep the top-level AI tab focused on the model-comparison launcher and the
+  cognition-agent collection. Provider credentials and model activation belong
+  to the comparison workflow; do not restore a separate advanced-settings
+  disclosure or a second manual model registry below the launcher.
+- Agent icons are persisted values, not display text. Render emoji, images, and
+  `lucide:IconName:color` values through the shared `IconRenderer`; never
+  interpolate a Lucide descriptor directly into an agent row.
+
 ## Path management
 
 - Resolve paths with `pathlib.Path`.
@@ -133,3 +143,5 @@ configuration autosave.
   missing or invalid.
 - For every Settings collection editor, verify in the DOM and visually that the
   edited row is immediately followed by its editor and then by the next row.
+- Confirm the AI tab has no advanced-settings disclosure and that every
+  `lucide:` agent icon is rendered as an SVG instead of visible descriptor text.
