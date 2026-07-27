@@ -47,10 +47,6 @@ const AgentChat = () => {
     const [agentList, setAgentList] = useState([]);
     const [selectedAgentId, setSelectedAgentId] = useState('gnosy');
     const [isMinimized, setIsMinimized] = useState(false);
-    const [llmOptions, setLlmOptions] = useState([]);
-    const [selectedLlm, setSelectedLlm] = useState('auto');
-    const [lastUsedLlm, setLastUsedLlm] = useState(null);
-    const [llmSelectionHydrated, setLlmSelectionHydrated] = useState(false);
     const [chatSessions, setChatSessions] = useState([]);
     const [sessionsHydrated, setSessionsHydrated] = useState(false);
     const [showSessionsView, setShowSessionsView] = useState(false);
@@ -69,7 +65,6 @@ const AgentChat = () => {
     // Init session ID
     useEffect(() => {
         let sid = localStorage.getItem('agent_session_id');
-        const savedLlm = localStorage.getItem('agent_selected_llm');
         const savedAgentId = localStorage.getItem('agent_selected_id');
         const savedSessionsRaw = localStorage.getItem(CHAT_SESSIONS_KEY);
         const savedActiveSession = localStorage.getItem(CHAT_ACTIVE_SESSION_KEY);
@@ -94,12 +89,13 @@ const AgentChat = () => {
         if (!sid) {
             sid = activeSession.id;
         }
-        if (savedLlm) {
-            setSelectedLlm(savedLlm);
-        }
         if (savedAgentId) {
             setSelectedAgentId(savedAgentId);
         }
+
+        // A conversation no longer persists a model override: the selected
+        // agent owns its model, instructions, and context as one profile.
+        localStorage.removeItem('agent_selected_llm');
 
         setChatSessions(parsedSessions);
         setMessages(activeSession.messages || []);
@@ -110,16 +106,9 @@ const AgentChat = () => {
         }
 
         setSessionsHydrated(true);
-        setLlmSelectionHydrated(true);
         loadConfig();
-        loadLlmOptions();
         loadMentionCatalog();
     }, []);
-
-    useEffect(() => {
-        if (!llmSelectionHydrated) return;
-        localStorage.setItem('agent_selected_llm', selectedLlm);
-    }, [selectedLlm, llmSelectionHydrated]);
 
     useEffect(() => {
         if (!sessionsHydrated) return;
@@ -178,69 +167,6 @@ const AgentChat = () => {
         inputRef.current.style.height = 'auto';
         inputRef.current.style.height = `${inputRef.current.scrollHeight}px`;
     }, [inputValue]);
-
-    const getOptionProfile = (providerId, modelId) => {
-        const p = (providerId || '').toLowerCase();
-        const m = (modelId || '').toLowerCase();
-
-        if (m.includes('8b') || m.includes('mini') || m.includes('haiku') || m.includes('flash')) {
-            return 'rapido';
-        }
-        if (m.includes('70b') || m.includes('sonnet') || m.includes('4o')) {
-            return 'equilibrado';
-        }
-        if (m.includes('opus') || m.includes('o1') || m.includes('o3')) {
-            return 'alta-calidad';
-        }
-        if (p === 'ollama') {
-            return 'local';
-        }
-        return 'equilibrado';
-    };
-
-    const loadLlmOptions = async () => {
-        try {
-            const res = await fetch('/api/ai/catalog');
-            if (!res.ok) return;
-
-            const payload = await res.json();
-            const providers = Array.isArray(payload?.catalog?.providers) ? payload.catalog.providers : [];
-            const localProviders = new Set(['ollama', 'llama-cpp', 'lmstudio', 'local', 'generic']);
-
-            const options = [];
-            providers.forEach((provider) => {
-                const providerId = provider?.id;
-                if (!providerId) return;
-                const hasKey = Boolean(provider?.has_api_key);
-                const isLocal = localProviders.has(providerId);
-                const models = Array.isArray(provider?.models) ? provider.models : [];
-
-                if (!hasKey && !isLocal) return;
-
-                if (models.length > 0) {
-                    models.forEach((modelId) => {
-                        const profile = getOptionProfile(providerId, modelId);
-                        options.push({
-                            value: `manual:${providerId}:${modelId}`,
-                            label: `${providerId} · ${modelId}`,
-                            profile,
-                        });
-                    });
-                } else if (provider?.model_name) {
-                    const profile = getOptionProfile(providerId, provider.model_name);
-                    options.push({
-                        value: `manual:${providerId}:${provider.model_name}`,
-                        label: `${providerId} · ${provider.model_name}`,
-                        profile,
-                    });
-                }
-            });
-
-            setLlmOptions(options);
-        } catch (e) {
-            console.error('Error loading LLM options', e);
-        }
-    };
 
     const loadConfig = async () => {
         try {
@@ -357,7 +283,6 @@ const AgentChat = () => {
         setSessionId(next.id);
         setMessages([]);
         setInputValue('');
-        setLastUsedLlm(null);
         setShowSessionsView(false);
     };
 
@@ -487,7 +412,7 @@ const AgentChat = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if ((!inputValue.trim() && attachments.length === 0) || isLoading) return;
+        if ((!inputValue.trim() && attachments.length === 0) || isLoading || !agentHasModel) return;
 
         const mentions = parseMentions(inputValue);
         const attachmentsPayload = attachments.map((item) => ({
@@ -520,19 +445,6 @@ const AgentChat = () => {
         setIsLoading(true);
 
         try {
-            let llm_mode = 'auto';
-            let llm_provider = null;
-            let llm_model = null;
-
-            if (selectedLlm !== 'auto') {
-                const [mode, provider, model] = selectedLlm.split(':');
-                if (mode === 'manual' && provider && model) {
-                    llm_mode = 'manual';
-                    llm_provider = provider;
-                    llm_model = model;
-                }
-            }
-
             const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -540,15 +452,26 @@ const AgentChat = () => {
                     message: messageToSend,
                     agent_id: selectedAgentId,
                     session_id: sessionId,
-                    llm_mode,
-                    llm_provider,
-                    llm_model,
+                    llm_mode: 'agent_default',
                     mentions,
                     attachments: attachmentsPayload,
                 })
             });
 
-            if (!response.ok) throw new Error(response.statusText);
+            if (!response.ok) {
+                let detail = response.statusText;
+                try {
+                    const error = await response.json();
+                    if (error?.detail?.code === 'agent_model_unavailable') {
+                        detail = t('chat.agent_model_unavailable', 'The selected agent model is unavailable. Configure the agent and try again.');
+                    } else if (typeof error?.detail === 'string') {
+                        detail = error?.detail || detail;
+                    }
+                } catch {
+                    // The HTTP status remains a useful fallback for non-JSON errors.
+                }
+                throw new Error(detail);
+            }
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
@@ -598,13 +521,12 @@ const AgentChat = () => {
                                     provider: data.provider,
                                     model: data.model,
                                 };
-                                setLastUsedLlm(llmInfo);
                                 lastMsg.llm = llmInfo;
                             } else if (data.type === 'error') {
                                 // Translation and improvement of common messages
                                 let errorContent = data.content || t('errors.unknown');
                                 if (errorContent.includes('rate_limit_exceeded')) {
-                                    errorContent = t('chat.rate_limit_message', "You've exceeded the current model's quota. Try using a different model (like gpt-4o-mini) or wait a few minutes.");
+                                    errorContent = t('chat.rate_limit_message', "You've exceeded this agent model's quota. Try a different agent or wait a few minutes.");
                                 }
                                 lastMsg.content = `❌ ${t('chat.error_prefix', 'Error')}: ${errorContent}`;
                             }
@@ -643,6 +565,10 @@ const AgentChat = () => {
 
     const agentName = agentConfig?.name || 'Gnosi Copilot';
     const agentIcon = agentConfig?.icon || 'lucide:Brain:white';
+    const agentHasModel = Boolean(agentConfig?.provider && agentConfig?.model);
+    const agentModel = agentHasModel
+        ? `${agentConfig.provider} · ${agentConfig.model}`
+        : t('chat.model_not_configured', 'Model not configured');
     const sortedSessions = [...chatSessions].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
 
     if (!isOpen) {
@@ -719,8 +645,10 @@ const AgentChat = () => {
                                 <option key={a.id} value={a.id}>{a.name || a.id}</option>
                             ))}
                         </select>
-                        {!isMinimized && <div style={{ fontSize: '0.7rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }}></span> {t('chat.online', "Online")}
+                        {!isMinimized && <div style={{ fontSize: '0.7rem', color: agentHasModel ? '#10b981' : '#ef4444', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: agentHasModel ? '#10b981' : '#ef4444' }}></span>
+                            {agentHasModel ? t('chat.online', "Online") : t('chat.model_not_configured', 'Model not configured')}
+                            {agentHasModel && <span style={{ color: 'var(--text-secondary)' }}>· {t('chat.agent_model', 'Model: {{model}}', { model: agentModel })}</span>}
                         </div>}
                     </div>
                 </div>
@@ -888,13 +816,13 @@ const AgentChat = () => {
                                 />
                                 <button
                                     type="submit"
-                                    disabled={isLoading || (!inputValue.trim() && attachments.length === 0)}
+                                    disabled={isLoading || !agentHasModel || (!inputValue.trim() && attachments.length === 0)}
                                     aria-label={t('chat.send_message', "Send message")}
-                                    title={t('chat.send_message', "Send message")}
+                                    title={agentHasModel ? t('chat.send_message', "Send message") : t('chat.model_required', 'Configure this agent before sending a message')}
                                     style={{
                                         width: '36px', height: '36px', borderRadius: '12px',
-                                        backgroundColor: (inputValue.trim() || attachments.length > 0) ? 'var(--gnosi-blue, #2563eb)' : '#e5e7eb',
-                                        color: 'white', border: 'none', cursor: 'pointer',
+                                        backgroundColor: agentHasModel && (inputValue.trim() || attachments.length > 0) ? 'var(--gnosi-blue, #2563eb)' : '#e5e7eb',
+                                        color: 'white', border: 'none', cursor: agentHasModel ? 'pointer' : 'not-allowed',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         transition: 'all 0.2s'
                                     }}
@@ -962,44 +890,7 @@ const AgentChat = () => {
                             )}
                         </div>
 
-                        <div style={{ marginTop: '6px', padding: '0 2px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', flexWrap: 'wrap' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flexWrap: 'wrap' }}>
-                                <div style={{
-                                    height: '24px',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                    padding: '0 6px',
-                                    borderRadius: '999px',
-                                    border: '1px solid var(--settings-border, #e5e7eb)',
-                                    background: 'transparent'
-                                }}>
-                                    <select
-                                        value={selectedLlm}
-                                        onChange={(e) => setSelectedLlm(e.target.value)}
-                                        style={{
-                                            width: 'auto',
-                                            maxWidth: '170px',
-                                            height: '20px',
-                                            border: 'none',
-                                            background: 'transparent',
-                                            color: 'var(--text-primary)',
-                                            fontSize: '0.7rem',
-                                            cursor: 'pointer',
-                                            outline: 'none',
-                                            boxShadow: 'none',
-                                            WebkitAppearance: 'none',
-                                            appearance: 'none'
-                                        }}
-                                    >
-                                        <option value="auto">{t('chat.llm_auto', 'Auto')}</option>
-                                        {llmOptions.map((option) => (
-                                            <option key={option.value} value={option.value}>{option.label}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-
+                        <div style={{ marginTop: '6px', padding: '0 2px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', flexWrap: 'wrap' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                                 <button onClick={createNewSession} title={t('chat.new_session', "New session")} aria-label={t('chat.new_session', "New session")} style={{ width: '26px', height: '26px', borderRadius: '13px', border: '1px solid var(--settings-border, #e5e7eb)', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <Plus size={12} />

@@ -57,7 +57,7 @@ class ChatRequest(BaseModel):
     agent_id: str = "gnosy" # Default agent
     session_id: str = "default"
     history: List[Dict[str, Any]] = []
-    llm_mode: str = "auto"  # auto | manual | agent_default
+    llm_mode: str = "agent_default"  # auto | manual | agent_default
     llm_provider: Optional[str] = None
     llm_model: Optional[str] = None
     mentions: List[MentionRef] = []
@@ -108,6 +108,8 @@ async def get_agent_workflow(
     )
 
     if workflow is None:
+        if llm_mode == "agent_default":
+            raise HTTPException(status_code=503, detail={"code": "agent_model_unavailable"})
         raise HTTPException(status_code=503, detail="No LLM provider available")
 
     if use_cache:

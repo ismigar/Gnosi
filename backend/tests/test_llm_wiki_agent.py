@@ -151,15 +151,11 @@ def test_lifecycle_requires_confirmation_and_persists_final_plugin_state(monkeyp
     assert request.app.state.agent_cache == {}
 
 
-def test_agent_startup_unpacks_hybrid_fallback_metadata(monkeypatch):
-    """The managed profile can fall back without binding tools to a tuple."""
+def test_agent_default_never_falls_back_to_an_unrelated_model(monkeypatch):
+    """A selected agent either uses its assigned model or remains unavailable."""
     import asyncio
 
     from backend.agent import factory
-
-    class FakeLlm:
-        def bind_tools(self, _tools):
-            return self
 
     monkeypatch.setattr(
         factory,
@@ -182,15 +178,16 @@ def test_agent_startup_unpacks_hybrid_fallback_metadata(monkeypatch):
     monkeypatch.setattr(
         factory,
         "_get_hybrid_llm",
-        lambda: (FakeLlm(), "openai", "fallback-model"),
+        lambda: (_ for _ in ()).throw(AssertionError("agent_default must not fall back")),
     )
-    monkeypatch.setattr(factory, "get_mcp_tools", lambda *_args: [])
-    monkeypatch.setattr(factory.tool_loader, "load_all_approved", lambda: [])
 
     workflow, selection = asyncio.run(
         factory.create_agent_workflow([], object(), agent_id="gnosy"),
     )
 
-    assert workflow is not None
-    assert selection["provider"] == "openai"
-    assert selection["model"] == "fallback-model"
+    assert workflow is None
+    assert selection == {
+        "mode": "agent_default",
+        "provider": "missing",
+        "model": "missing-model",
+    }
