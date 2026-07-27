@@ -4204,8 +4204,6 @@
     "launch_title": "Compare and configure AI models",
     "launch_description": "Enable or disable models directly from the comparison. The assistant asks for the provider, local or remote execution, and an API key only when needed.",
     "open": "Compare and configure",
-    "advanced_title": "Connections and advanced settings",
-    "advanced_description": "Manage credentials, test providers, or tune the router manually.",
     "close": "Close model comparison",
     "eyebrow": "AI model intelligence",
     "title": "AI Model Comparison",
