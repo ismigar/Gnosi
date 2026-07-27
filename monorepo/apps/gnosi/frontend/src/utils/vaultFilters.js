@@ -38,17 +38,6 @@ export function asBool(x) {
     return TRUTHY.has(String(x).trim().toLowerCase());
 }
 
-function localToday() {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-}
-
-function periodBoundary(value, part) {
-    if (!part) return value;
-    const [start = '', end = ''] = String(value ?? '').split('/');
-    return part === 'end' ? (end || start) : start;
-}
-
 // Parses a numeric value tolerant of the LOCAL decimal (comma): "0,25" → 0.25.
 // `parseFloat` stops at the comma ("0,25" → 0), so a number field with
 // values in Catalan/Castilian format was being sorted and filtered incorrectly (all the
