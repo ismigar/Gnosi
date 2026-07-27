@@ -6,12 +6,18 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from agent.model_router import (  # noqa: E402
-    apply_catalog_prices, classify_request, route_model, model_cost_rates,
-    usage_from_message, UsageStore, DEFAULT_REGISTRY,
+    apply_catalog_prices, classify_request, route_model as _route_model, model_cost_rates,
+    usage_from_message, UsageStore, LEGACY_DEFAULT_REGISTRY as DEFAULT_REGISTRY,
 )
 
 ALL_UP = lambda provider: True  # all providers available
 ONLY = lambda *names: (lambda p: p in names)
+
+
+def route_model(*args, **kwargs):
+    """Exercise routing with an explicit fixture registry."""
+    kwargs.setdefault("registry", DEFAULT_REGISTRY)
+    return _route_model(*args, **kwargs)
 
 
 def test_classify():

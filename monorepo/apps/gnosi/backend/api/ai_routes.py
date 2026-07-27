@@ -333,11 +333,17 @@ async def get_model_registry():
     that went stale in params.yaml. to_thread: load_registry now consults the
     catalog, whose loader does blocking I/O.
     """
-    from backend.agent.model_router import load_registry, DEFAULT_REGISTRY
+    from backend.agent.model_router import (
+        DEFAULT_REGISTRY,
+        load_registry,
+        strip_legacy_registry_rows,
+    )
     cfg = load_params(strict_env=False)
     ai_cfg = dict(cfg.get("ai", {}) or {})
+    configured_models = ai_cfg.get("models")
     return {
         "models": await asyncio.to_thread(load_registry),
+        "configured_models": strip_legacy_registry_rows(configured_models),
         "budget": dict(ai_cfg.get("budget") or {}),
         "default": DEFAULT_REGISTRY,
     }

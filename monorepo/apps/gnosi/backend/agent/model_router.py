@@ -19,7 +19,7 @@ from typing import Any, Callable, Dict, List, Optional
 # cost_in/out (USD per 1M tokens; 0 = local), context_window, quality (1..3),
         # tags (capabilities: "code", "vision", "long", "tools"...), monthly_quota? (tokens).
 # ---------------------------------------------------------------------------
-DEFAULT_REGISTRY: List[Dict[str, Any]] = [
+LEGACY_DEFAULT_REGISTRY: List[Dict[str, Any]] = [
     {"provider": "groq", "model_id": "llama-3.1-8b-instant", "is_local": False,
      "enabled": True, "priority": 10, "cost_in": 0.05, "cost_out": 0.08,
      "context_window": 128000, "quality": 1, "tags": ["fast"]},
@@ -45,6 +45,26 @@ DEFAULT_REGISTRY: List[Dict[str, Any]] = [
      "enabled": True, "priority": 50, "cost_in": 0.0, "cost_out": 0.0,
      "context_window": 8192, "quality": 1, "tags": ["fast"]},
 ]
+DEFAULT_REGISTRY: List[Dict[str, Any]] = []
+
+
+def strip_legacy_registry_rows(registry: object) -> List[Dict[str, Any]]:
+    """Remove unchanged model seeds persisted by older Settings clients."""
+    if not isinstance(registry, list):
+        return []
+    legacy_by_key = {
+        (row.get("provider"), row.get("model_id")): row
+        for row in LEGACY_DEFAULT_REGISTRY
+    }
+    explicit: List[Dict[str, Any]] = []
+    for row in registry:
+        if not isinstance(row, dict):
+            continue
+        legacy = legacy_by_key.get((row.get("provider"), row.get("model_id")))
+        if legacy and all(row.get(key) == value for key, value in legacy.items()):
+            continue
+        explicit.append(row)
+    return explicit
 
 _COMPLEX_KW = {"analitza", "analiza", "analyze", "explica", "compara", "dissenya",
                "disseny", "refactor", "arquitectura", "estratègia", "pla", "plan"}
@@ -229,17 +249,16 @@ def apply_catalog_prices(registry: List[Dict[str, Any]],
 
 
 def load_registry(with_catalog_prices: bool = True) -> List[Dict[str, Any]]:
-    """Reads `ai.models` from config; if absent, seeds with DEFAULT_REGISTRY.
+    """Read explicitly configured `ai.models` without runtime model seeds.
 
     Prices are refreshed from the catalog unless explicitly disabled (the
     stored cost is only a fallback for models the catalog doesn't know).
     """
-    registry = DEFAULT_REGISTRY
+    registry: List[Dict[str, Any]] = []
     try:
         from backend.config.app_config import load_params
         models = (load_params(strict_env=False).get("ai", {}) or {}).get("models")
-        if isinstance(models, list) and models:
-            registry = models
+        registry = strip_legacy_registry_rows(models)
     except Exception:
         pass
     if not with_catalog_prices:
