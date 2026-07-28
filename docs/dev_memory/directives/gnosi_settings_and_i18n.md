@@ -98,11 +98,12 @@ configuration autosave.
   Normal configurable rows use the shared AI-agent hover affordance (a subtle
   lift, shadow, and translucent blue border) and return to the neutral border
   when the pointer leaves. Clear all inline-editor identity and portal-target
-  state when Settings closes so a reopened modal cannot show a stale active row
-  without its editor.
+  state when Settings closes or its active section changes so a reopened or
+  newly selected section cannot show a stale active row without its editor.
 - Use the muted Settings surface (`--settings-sidebar-bg`) as the background
-  for every configurable collection row. Keep the inline editor surface
-  separate so the row-to-editor attachment remains visually legible.
+  for every configurable collection row, including an expanded row's identity
+  header. Keep every editor body on `--bg-primary`, and disable its owning
+  row's hover lift and shadow while that editor is open.
 - Do not render one shared existing-item editor above or below the complete
   collection. The visual separation makes it unclear which item owns the draft,
   especially when the collection scrolls.
