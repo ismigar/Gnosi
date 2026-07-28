@@ -4015,16 +4015,16 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 </div>
                                             </InlineEditorPlacement>
                                         )}
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                        <div className="ai-agent-list">
                                             {draft.ai.agents.map(agent => (
                                                 <React.Fragment key={agent.id}>
                                                 <div
-                                                    className="hover-scale"
+                                                    className={`ai-agent-row hover-scale ${editingAgent?.id === agent.id ? 'is-editing' : ''}`}
                                                     data-settings-item-id={`agent:${agent.id}`}
                                                     onClick={() => setEditingAgent(agent)}
-                                                    title={tn('ai.edit_agent_title')}
+                                                    title={tn('ai.configure_name', { name: agent.name })}
                                                     style={{
-                                                    width: '100%', padding: '24px', borderRadius: '24px', border: '1px solid var(--settings-border)',
+                                                    width: '100%', padding: '24px', border: '1px solid var(--settings-border)',
                                                     background: 'var(--settings-sidebar-bg)', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                                                     gap: '20px', transition: 'all 0.2s', cursor: 'pointer', boxSizing: 'border-box',
                                                     opacity: agent.enabled ? 1 : 0.6
@@ -4268,11 +4268,10 @@ function AIAgentForm({ agent, onSave, aiRegistry }) {
     const faultReason = modelFault && MODEL_FAULT_REASONS[modelFault.top_model_reason];
 
     return (
-        <div className="animate-in" style={{
-            padding: '28px', marginBottom: '24px', borderRadius: '24px',
-            border: '1px solid var(--gnosi-blue)', background: 'var(--settings-sidebar-bg)',
-        }}>
-                    <h3 style={{ margin: '0 0 30px 0', fontSize: '1.4rem', fontWeight: '900' }}>{agent.id ? t('settings.ai.edit_agent_title') : t('settings.ai.new_agent_title')}</h3>
+        <div className={`ai-agent-form animate-in ${agent.id ? 'is-attached' : ''}`}>
+                    {!agent.id && (
+                        <h3 className="ai-agent-form-title">{t('settings.ai.new_agent_title')}</h3>
+                    )}
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                         <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-end' }}>

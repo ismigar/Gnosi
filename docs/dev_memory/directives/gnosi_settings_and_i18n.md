@@ -80,6 +80,11 @@ configuration autosave.
   the next row. Use a keyed fragment or an equivalent row-plus-editor wrapper
   inside the collection map so DOM order always remains `item, editor, next
   item`.
+- When an existing collection row remains visible as the identity header for
+  its editor, visually join both surfaces: remove the inter-item gap, share the
+  connecting border, and do not repeat a generic "Edit item" heading inside the
+  form. Keep a descriptive heading for create-only forms, which have no owning
+  row.
 - Do not render one shared existing-item editor above or below the complete
   collection. The visual separation makes it unclear which item owns the draft,
   especially when the collection scrolls.
