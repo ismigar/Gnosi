@@ -84,7 +84,7 @@ export default function FootnoteInline({ inlineContent, updateInlineContent, edi
                 <div
                     ref={popRef}
                     data-gnosi-portal="footnote"
-                    style={{ position: 'fixed', top: coords.top, left: coords.left, width: 320, zIndex: 9999 }}
+                    style={{ position: 'fixed', top: coords.top, left: coords.left, width: 320, zIndex: 'var(--z-popover)' }}
                     className="rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] p-2 shadow-xl"
                 >
                     <div className="mb-1 text-xs font-semibold text-[var(--text-tertiary)]">{t('footnote.label_numbered', "Footnote [{{num}}]", { num })}</div>

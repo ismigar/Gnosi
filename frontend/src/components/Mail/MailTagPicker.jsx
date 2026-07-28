@@ -90,8 +90,8 @@ export default function MailTagPicker({ tags, selectedTagIds = [], onClose, onTo
         position: 'fixed',
         top: Math.min(anchorRect.bottom + 4, window.innerHeight - 320),
         left: Math.min(anchorRect.left, window.innerWidth - 220),
-        zIndex: 9999,
-    } : { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 9999 };
+        zIndex: 'var(--z-popover)',
+    } : { position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 'var(--z-popover)' };
 
     const panel = (
         <div

@@ -76,7 +76,7 @@ export default function DateMentionInline({ inlineContent, updateInlineContent }
                 <div
                     ref={popRef}
                     data-gnosi-portal="dateref"
-                    style={{ position: 'fixed', top: coords.top, left: coords.left, width: 260, zIndex: 9999 }}
+                    style={{ position: 'fixed', top: coords.top, left: coords.left, width: 260, zIndex: 'var(--z-popover)' }}
                     className="rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] p-3 shadow-xl"
                 >
                     <label className="mb-1 block text-xs font-semibold text-[var(--text-tertiary)]">{t('common.date', "Date")}</label>

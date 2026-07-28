@@ -124,7 +124,7 @@ export default function AIGenerateModal({ request, onClose, onInsert, t }) {
 
     return createPortal(
         <div
-            className="fixed inset-0 z-[100000] flex items-start justify-center bg-black/40 pt-[12vh] px-4"
+            className="fixed inset-0 z-[var(--z-modal)] flex items-start justify-center bg-black/40 pt-[12vh] px-4"
             onMouseDown={(e) => { if (e.target === e.currentTarget) handleClose(); }}
         >
             <div

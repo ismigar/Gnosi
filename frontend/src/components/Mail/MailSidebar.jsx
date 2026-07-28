@@ -164,7 +164,7 @@ export default function MailSidebar({
                 <div className="px-3 pt-3 pb-0">
                     <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-[var(--bg-secondary)] border border-[var(--border-primary)] text-xs font-medium text-[var(--text-secondary)]">
                         <span className="text-[var(--gnosi-blue)] font-bold">G</span>
-                        <span className="truncate">Vault: {activeVaultName || '…'}</span>
+                        <span className="truncate">{t('common.vault_label', 'Vault')}: {activeVaultName || '…'}</span>
                     </div>
                 </div>
 

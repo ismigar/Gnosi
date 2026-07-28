@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, LayoutDashboard, Calendar, History, Sparkles } from 'lucide-react';
-import { useActiveVaultName } from '../hooks/useActiveVaultName';
+import { Plus, LayoutDashboard, Calendar, History, Sparkles, Share2 } from 'lucide-react';
 import Column from '../components/social/Column';
 import Composer from '../components/social/Composer';
 import AddStreamModal from '../components/social/AddStreamModal';
 import ContentCalendar from './ContentCalendar';
 import PostHistory from './PostHistory';
 import { PublishSocialModal } from '../components/Vault/PublishSocialModal';
+import { AppHeader } from '../components/AppHeader';
 
 const DEFAULT_STREAMS = [
     { id: "mastodon-home", title: "Mastodon Home", icon: "🐘", network: "mastodon" },
@@ -16,14 +16,13 @@ const DEFAULT_STREAMS = [
 ];
 
 const TABS = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'dashboard', labelKey: 'social.tab_dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'calendar',  labelKey: 'social.tab_calendar', label: 'Calendari',  icon: Calendar },
     { id: 'history',   labelKey: 'social.tab_history', label: 'Historial',  icon: History },
 ];
 
 const SocialDashboard = () => {
     const { t } = useTranslation();
-    const activeVaultName = useActiveVaultName();
     const [activeTab, setActiveTab] = useState('dashboard');
     const [showComposer, setShowComposer] = useState(false);
     const [showAIComposer, setShowAIComposer] = useState(false);
@@ -98,53 +97,50 @@ const SocialDashboard = () => {
             <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-[var(--gnosi-blue)]/10 rounded-full blur-[120px] pointer-events-none" />
             <div className="absolute bottom-[-20%] right-[-10%] w-[40%] h-[40%] bg-[var(--gnosi-primary)]/10 rounded-full blur-[100px] pointer-events-none" />
 
-            {/* Header with tab bar */}
-            <header className="h-14 px-4 flex items-center justify-between border-b border-[var(--border-primary)] shrink-0 relative z-10 bg-[var(--bg-primary)]/80 backdrop-blur-sm">
-                <div className="flex items-center gap-1">
-                    {TABS.map(({ id, label, labelKey, icon: Icon }) => (
-                        <button
-                            key={id}
-                            onClick={() => setActiveTab(id)}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                                activeTab === id
-                                    ? 'bg-[var(--sidebar-item-active)] text-[var(--gnosi-blue)]'
-                                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]'
-                            }`}
-                        >
-                            <Icon size={15} strokeWidth={1.8} />
-                            <span>{labelKey ? t(labelKey, label) : label}</span>
-                        </button>
-                    ))}
-                    <div className="h-4 w-px bg-[var(--border-primary)] mx-2" />
-                    <span className="text-xs font-medium text-[var(--text-tertiary)] bg-[var(--bg-secondary)] px-2.5 py-1 rounded-md border border-[var(--border-primary)]">
-                        Vault: {activeVaultName || '…'}
-                    </span>
-                </div>
+            <AppHeader icon={Share2} title={t('home.module_social_title', 'Social media')}>
+                <div className="social-header-actions">
+                    <nav className="social-header-tabs" aria-label={t('social.section_navigation', 'Social sections')}>
+                        {TABS.map(({ id, label, labelKey, icon: Icon }) => (
+                            <button
+                                key={id}
+                                onClick={() => setActiveTab(id)}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                                    activeTab === id
+                                        ? 'bg-[var(--sidebar-item-active)] text-[var(--gnosi-blue)]'
+                                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]'
+                                }`}
+                            >
+                                <Icon size={15} strokeWidth={1.8} />
+                                <span>{labelKey ? t(labelKey, label) : label}</span>
+                            </button>
+                        ))}
+                    </nav>
 
-                {activeTab === 'dashboard' && (
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => setShowAIComposer(true)}
-                            className="flex items-center gap-2 border border-[var(--gnosi-primary)] text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/10 px-4 py-1.5 rounded-lg transition-all text-sm font-medium"
-                        >
-                            <Sparkles size={16} />
-                            <span>{t('social.with_ai', "With AI")}</span>
-                        </button>
-                        <button
-                            onClick={() => setShowComposer(v => !v)}
-                            className="flex items-center gap-2 bg-[var(--gnosi-blue)] hover:opacity-90 text-white px-4 py-1.5 rounded-lg transition-all shadow-lg text-sm font-medium"
-                        >
-                            <Plus size={16} />
-                            <span>{showComposer ? t('common.close', "Close") : t('social.new_post', "New post")}</span>
-                        </button>
-                    </div>
-                )}
-            </header>
+                    {activeTab === 'dashboard' && (
+                        <div className="social-header-primary-actions">
+                            <button
+                                onClick={() => setShowAIComposer(true)}
+                                className="gnosi-button gnosi-button--secondary"
+                            >
+                                <Sparkles size={16} />
+                                <span>{t('social.with_ai', "With AI")}</span>
+                            </button>
+                            <button
+                                onClick={() => setShowComposer(v => !v)}
+                                className="gnosi-button gnosi-button--primary"
+                            >
+                                <Plus size={16} />
+                                <span>{showComposer ? t('common.close', "Close") : t('social.new_post', "New post")}</span>
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </AppHeader>
 
             {/* Contingut */}
             <main className="flex-1 overflow-hidden relative z-0">
                 {activeTab === 'dashboard' && (
-                    <div className="h-full flex flex-col p-6 overflow-hidden">
+                    <div className="h-full flex flex-col p-6 max-md:p-4 overflow-hidden">
                         <AddStreamModal
                             isOpen={showAddStream}
                             onClose={() => setShowAddStream(false)}
