@@ -4073,6 +4073,7 @@
     "attachments_skipped": "Notice: {{count}} file(s) exceed 15MB and were not attached.",
     "attachment_upload_error": "Error uploading attachment: {{message}}",
     "attachments_only_label": "(Attachments)",
+    "empty_response": "The assistant finished without returning a response. Please try again.",
     "tool_start": "🛠️ *Calling tool: {{tool}}...*",
     "tool_end": "✅ *Tool {{tool}} finished.*",
     "rate_limit_message": "You've exceeded this agent model's quota. Try a different agent or wait a few minutes.",

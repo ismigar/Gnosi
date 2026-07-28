@@ -12,11 +12,13 @@ test.describe('AI Chat', () => {
     await page.route('**/api/chat', async (route) => {
       await route.fulfill({
         status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          response: 'Mocked response from Playwright',
-          session_id: 'test-session-id',
-        }),
+        contentType: 'application/x-ndjson',
+        body: [
+          JSON.stringify({ type: 'llm_selected', mode: 'agent_default', provider: 'test', model: 'test-model' }),
+          JSON.stringify({ type: 'message', role: 'ai', content: 'Mocked response from Playwright', node: 'general' }),
+          JSON.stringify({ type: 'done', has_response: true, message_count: 1 }),
+          '',
+        ].join('\n'),
       });
     });
   });
@@ -56,5 +58,19 @@ test.describe('AI Chat', () => {
 
     await textarea.fill('Test message from Playwright');
     await expect(textarea).toHaveValue('Test message from Playwright');
+  });
+
+  test('submitted message renders the terminal NDJSON response', async ({ page }) => {
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+    await page.getByRole('button', { name: chatLauncherRegex }).click();
+
+    const textarea = page
+      .locator('textarea[placeholder*="Escriu"], textarea[placeholder*="message"], textarea[placeholder*="Escribe"]')
+      .first();
+    await textarea.fill('Hello assistant');
+    await textarea.press('Enter');
+
+    await expect(page.getByText('Mocked response from Playwright')).toBeVisible({ timeout: 5_000 });
   });
 });

@@ -4209,6 +4209,7 @@
     "attachments_skipped": "Avis : {{count}} fichier(s) dépassent 15 Mo et n'ont pas été joints.",
     "attachment_upload_error": "Erreur lors du téléchargement de la pièce jointe : {{message}}",
     "attachments_only_label": "(Pièces jointes)",
+    "empty_response": "L'assistant s'est terminé sans renvoyer de réponse. Veuillez réessayer.",
     "tool_start": "🛠️ *Appel de l'outil : {{tool}}...*",
     "tool_end": "✅ *Outil {{tool}} terminé.*",
     "rate_limit_message": "Vous avez dépassé le quota du modèle de cet agent. Essayez un autre agent ou attendez quelques minutes.",

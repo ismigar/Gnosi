@@ -35,12 +35,10 @@ import sqlite3
 from pathlib import Path
 
 # Import tools
-from backend.agent.system_tools import SYSTEM_TOOLS
+from backend.agent.system_tools import READ_ONLY_SYSTEM_TOOLS
 from backend.agent.vault_tools import VAULT_KNOWLEDGE_TOOLS
 from backend.agent.agent_context import build_context_tools, describe_context_refs
 from backend.agent.tools import get_mcp_tools
-from backend.agent.generated_tools.creator import TOOL_CREATOR_TOOLS
-from backend.agent.generated_tools.loader import loader as tool_loader
 from backend.config.app_config import load_params
 from backend.security.ai_credentials import resolve_provider_api_key
 
@@ -117,6 +115,29 @@ def _resolve_auto_llm(message: str, providers_cfg: dict, fallback_provider: str,
     if decision.get("provider") and decision.get("model_id"):
         return decision["provider"], decision["model_id"]
     return fallback_provider, fallback_model
+
+
+def _obvious_route(message: str, has_context: bool = False) -> Optional[str]:
+    """Route obvious requests without paying for a supervisor model call."""
+    text = (message or "").strip().lower()
+    if not text:
+        return "General"
+    if has_context and any(word in text for word in (
+        "document", "documento", "documentació", "nota", "pdf", "vault",
+        "font", "source", "dades", "datos",
+    )):
+        return "Brain"
+    if any(word in text for word in (
+        "code", "codi", "código", "python", "typescript", "javascript",
+        "bug", "error", "test", "api", "backend", "frontend",
+    )):
+        return "Coder"
+    if len(text) <= 240 or text.startswith((
+        "hola", "hello", "hi", "bon dia", "gràcies", "gracias", "merci",
+        "explica", "explain", "resume", "resum", "traduce", "tradueix",
+    )):
+        return "General"
+    return None
 
 
 # --- 1. Define the State ---
@@ -433,6 +454,7 @@ async def create_agent_workflow(
     llm_provider: Optional[str] = None,
     llm_model: Optional[str] = None,
     user_message: str = "",
+    timeout: int = 60,
 ) -> tuple[StateGraph, dict]:
     """
         Creates the Multi-Agent workflow (graph) based on a specific agent profile.
@@ -496,6 +518,7 @@ async def create_agent_workflow(
         model=model_name,
         api_key=resolved_api_key,
         base_url=p_cfg.get("base_url"),
+        timeout=timeout,
     )
 
     if not llm and llm_mode == "agent_default":
@@ -509,7 +532,7 @@ async def create_agent_workflow(
         }
 
     if not llm:
-        llm, fallback_provider, fallback_model = _get_hybrid_llm()
+        llm, fallback_provider, fallback_model = _get_hybrid_llm(timeout=timeout)
         if llm:
             provider_name = fallback_provider
             model_name = fallback_model
@@ -578,29 +601,45 @@ async def create_agent_workflow(
         )
 
     # 4. Convert MCP tools
-    mcp_langchain_tools = get_mcp_tools(mcp_tools_list, mcp_client)
-    generated_tools = tool_loader.load_all_approved()
-
+    mcp_langchain_tools = [
+        item for item in get_mcp_tools(mcp_tools_list, mcp_client)
+        if item.name.lower().startswith(("get_", "list_", "read_", "search_", "query_"))
+    ]
     # Coder & Brain specialists
-    coder_tools = SYSTEM_TOOLS + TOOL_CREATOR_TOOLS + generated_tools
+    coder_tools = READ_ONLY_SYSTEM_TOOLS
     coder_llm = llm.bind_tools(coder_tools)
 
     memory_tools = [
         t
-        for t in SYSTEM_TOOLS
+        for t in READ_ONLY_SYSTEM_TOOLS
         if t.name
         in ["save_memory", "query_memory", "get_vault_registry", "search_vault"]
     ]
     # Tools scoped to the sources the user attached to THIS agent. They close over
     # its refs, so an agent can never read another agent's context.
     context_tools = build_context_tools(context_refs)
-    brain_tools = mcp_langchain_tools + memory_tools + VAULT_KNOWLEDGE_TOOLS + context_tools
+    read_only_vault_tools = [
+        item for item in VAULT_KNOWLEDGE_TOOLS
+        if item.name in {"read_page", "read_pdf", "propose_links", "query_wiki"}
+    ]
+    brain_tools = mcp_langchain_tools + memory_tools + read_only_vault_tools + context_tools
     brain_llm = llm.bind_tools(brain_tools)
 
     # --- Graph Nodes ---
 
     def supervisor_node(state: AgentState):
         messages = state["messages"]
+        latest_user = next(
+            (
+                str(message.content)
+                for message in reversed(messages)
+                if getattr(message, "type", "") == "human"
+            ),
+            "",
+        )
+        obvious = _obvious_route(latest_user, has_context=bool(context_refs))
+        if obvious:
+            return {"next": obvious}
         prompt = [SystemMessage(content=supervisor_prompt)] + messages
         response = llm.invoke(prompt)
 
