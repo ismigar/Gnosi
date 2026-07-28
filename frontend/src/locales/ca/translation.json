@@ -4202,6 +4202,7 @@
     "no_results": "No s'ha trobat cap resultat per \"{{query}}\""
   },
   "chat": {
+    "default_session_title": "Nova conversa",
     "mention_type_page": "Pagina",
     "mention_type_table": "Tabla",
     "mention_type_database": "BD",
