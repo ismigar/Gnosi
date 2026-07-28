@@ -98,6 +98,9 @@ configuration autosave.
   row, including one under the pointer, keeps the neutral Settings border.
   Clear all inline-editor identity and portal-target state when Settings closes
   so a reopened modal cannot show a stale active row without its editor.
+- Use the muted Settings surface (`--settings-sidebar-bg`) as the background
+  for every configurable collection row. Keep the inline editor surface
+  separate so the row-to-editor attachment remains visually legible.
 - Do not render one shared existing-item editor above or below the complete
   collection. The visual separation makes it unclear which item owns the draft,
   especially when the collection scrolls.
