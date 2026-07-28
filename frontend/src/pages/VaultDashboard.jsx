@@ -3452,6 +3452,9 @@ export default function VaultDashboard() {
             onForward={handleNavigationForward}
             canGoBack={canGoBack}
             canGoForward={canGoForward}
+            showDocumentControls={(viewMode === 'editor' || viewMode === 'drawing') && tabs.length === 1}
+            onNewDocument={() => window.dispatchEvent(new Event('gnosi:quick-open-document'))}
+            onCloseDocument={() => activeTabId && handleTabClose(activeTabId)}
         >
             <div className="h-full bg-[var(--bg-primary)] flex flex-col min-w-0">
                 {(viewMode === 'editor' || viewMode === 'drawing') && (
