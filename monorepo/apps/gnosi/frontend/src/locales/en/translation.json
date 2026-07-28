@@ -1517,6 +1517,12 @@
       "profile": "Profile",
       "account": "Account"
     },
+    "navigation": {
+      "basic": "Basics",
+      "connections": "Connections",
+      "knowledge": "Knowledge & AI",
+      "advanced": "Advanced"
+    },
     "general": {
       "system_title": "System Settings",
       "workspace_name_desc": "Identifier of your digital brain.",
