@@ -801,7 +801,7 @@ export const DigitalBrainCalendar = ({
 
             {hoveredEvent && (
                 <div 
-                    className="fixed z-[9999] pointer-events-none transition-all duration-200 flex flex-col"
+                    className="fixed z-[var(--z-popover)] pointer-events-none transition-all duration-200 flex flex-col"
                     style={{
                         left: Math.min(hoveredEvent.x + 15, window.innerWidth - 340),
                         top: hoveredEvent.y,

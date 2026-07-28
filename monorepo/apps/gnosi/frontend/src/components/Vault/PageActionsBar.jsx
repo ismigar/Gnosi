@@ -225,7 +225,7 @@ export function PageActionsBar({ pageActions, containerWidth }) {
                 <div
                     ref={menuRef}
                     role="menu"
-                    className="fixed w-56 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[1002] py-1 animate-in fade-in zoom-in-95 duration-150"
+                    className="fixed w-56 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[var(--z-popover)] py-1 animate-in fade-in zoom-in-95 duration-150"
                     style={{ top: `${menuPos.top}px`, right: `${menuPos.right}px` }}
                 >
                     {overflow.map((item, idx) => {

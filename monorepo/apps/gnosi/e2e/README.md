@@ -1,12 +1,12 @@
 # Gnosi E2E Tests (Playwright)
 
-End-to-end tests for the Gnosi frontend, running on the **host** (macOS) and targeting the **Docker frontend** at `http://localhost:5173`.
+End-to-end tests for the Gnosi frontend, running on the **host** (macOS) and targeting the native Vite frontend at `http://localhost:5173` or `https://localhost:5173`.
 
 ## Why a separate project?
 
-The Gnosi frontend container runs on **Alpine Linux** (musl libc). Playwright browser binaries are built against glibc and do not run on Alpine. Therefore Playwright is installed at the host level — see `docs/dev_memory/directives/playwright_setup.md`.
+Playwright is kept at the host level so browser tests use the same native runtime as local development and do not add test-only dependencies to the frontend workspace. See `docs/dev_memory/directives/playwright_setup.md`.
 
-This also keeps the frontend `node_modules` clean of test-only dependencies.
+Docker remains a supported deployment mode, but it is not a local fallback on this Mac.
 
 ## Setup (first time)
 
@@ -18,10 +18,11 @@ npx playwright install chromium
 
 ## Running tests
 
-Make sure the Docker frontend is up first:
+Make sure the native LaunchAgents are running first:
 
 ```bash
-docker ps | grep gnosi_frontend  # must be running on :5173
+launchctl print "gui/$UID/com.gnosi.frontend-native"
+launchctl print "gui/$UID/com.gnosi.backend-native"
 ```
 
 Then:

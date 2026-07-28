@@ -2142,7 +2142,13 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     return (
         <>
             <div className={`settings-overlay ${isOpen ? 'active' : ''}`} />
-            <div ref={panelRef} className={`settings-modal ${isOpen ? 'active' : ''}`}>
+            <div
+                ref={panelRef}
+                className={`settings-modal ${isOpen ? 'active' : ''}`}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="settings-modal-title"
+            >
                 {/* X button outside .settings-main so it anchors to the modal and doesn't
                     disappear when the content scrolls. */}
                 <button onClick={handleClose} className="gnosi-close-btn settings-close-btn" aria-label={tn('close_settings')}>
@@ -2162,7 +2168,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                 <div className="settings-section-icon-wrap">
                                     <SettingsIcon size={20} strokeWidth={2} />
                                 </div>
-                                <h2 className="settings-sidebar-title">{t('settings.title')}</h2>
+                                <h2 id="settings-modal-title" className="settings-sidebar-title">{t('settings.title')}</h2>
                             </div>
                             
                         </div>
@@ -2508,7 +2514,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                         position: 'absolute', top: '100%', right: 0, marginTop: '10px', 
                                                         background: 'var(--settings-bg)', border: '1px solid var(--settings-border)',
                                                         borderRadius: '16px', boxShadow: '0 15px 40px rgba(0,0,0,0.2)', 
-                                                        zIndex: 1000, width: '220px', overflow: 'hidden', padding: '6px'
+                                                        zIndex: 'var(--z-modal-dropdown)', width: '220px', overflow: 'hidden', padding: '6px'
                                                     }}>
                                                         <button 
                                                             onClick={(e) => { e.stopPropagation(); setIsAddingTable(true); setAddAccountType(null); }}

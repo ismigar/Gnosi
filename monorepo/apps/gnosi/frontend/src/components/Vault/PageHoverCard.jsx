@@ -243,7 +243,7 @@ export const PageHoverCard = ({
             ref={cardRef}
             role="dialog"
             aria-label={data?.title || t('common.untitled', "Untitled")}
-            className="fixed z-[9999] flex flex-col bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700/60 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+            className="fixed z-[var(--z-popover)] flex flex-col bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700/60 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
             style={pos
                 ? { top: pos.top, left: pos.left, width: CARD_WIDTH, maxWidth: 'calc(100vw - 16px)', maxHeight: 'min(520px, calc(100vh - 16px))', opacity: 1, pointerEvents: 'auto' }
                 : { top: -9999, left: -9999, width: CARD_WIDTH, opacity: 0, pointerEvents: 'none' }

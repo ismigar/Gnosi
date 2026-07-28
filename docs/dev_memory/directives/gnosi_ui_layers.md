@@ -12,14 +12,20 @@ To avoid visual collisions where one modal or overlay covers another, this docum
 | Variable              | Value | Purpose                                           |
 | :-------------------- | :---: | :------------------------------------------------ |
 | `--z-sidebar`         | 50    | Local sidebar navigation inside pages.           |
+| `--z-floating`        | 900   | Persistent launchers and floating assistants.     |
 | `--z-overlay`         | 1000  | Transparent background for local dropdowns.       |
+| `--z-popover`         | 1100  | Local menus, previews, and anchored popovers.      |
+| `--z-notification`    | 9000  | Passive meeting and system reminder surfaces.     |
 | `--z-modal`           | 10000 | Primary application modals (Settings, Note Viewer).|
 | `--z-modal-dropdown`  | 10050 | Dropdowns or context menus *inside* a modal.      |
 | `--z-confirm-modal`   | 20000 | Destructive action confirmation (ConfirmModal).   |
+| `--z-command`         | 30000 | Global command surfaces and application search.   |
+| `--z-presentation`    | 40000 | Full-screen presentation mode.                    |
 | `--z-toast`           | 50000 | Global system notifications.                      |
 
 ## Verification Check
 Before delivering a UI change:
 - [ ] Check if the element overlaps with an existing Modal.
+- [ ] Keep persistent launchers and passive reminders below modal overlays.
 - [ ] Verify that `ConfirmModal` is visible on top of the new interface.
 - [ ] Ensure that background `blur` effects don't bleed into the wrong layer.

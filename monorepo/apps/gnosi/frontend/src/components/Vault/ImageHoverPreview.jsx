@@ -78,7 +78,7 @@ export const ImageHoverPreview = ({
                         left: pos.left,
                         width: PREVIEW_SIZE,
                         height: PREVIEW_SIZE,
-                        zIndex: 9999,
+                        zIndex: 'var(--z-popover)',
                         pointerEvents: 'none',
                     }}
                     className="rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-2xl overflow-hidden"

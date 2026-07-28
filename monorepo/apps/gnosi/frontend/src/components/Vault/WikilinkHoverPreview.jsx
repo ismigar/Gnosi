@@ -123,7 +123,7 @@ export const WikilinkHoverPreview = ({ pageId, anchorRect, onMouseEnter, onMouse
     const popup = (
         <div
             ref={popupRef}
-            className="fixed z-[9999] w-[340px] max-h-[260px] bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700/60 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+            className="fixed z-[var(--z-popover)] w-[340px] max-h-[260px] bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700/60 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
             style={popupPos
                 ? { top: popupPos.top, left: popupPos.left, opacity: 1, pointerEvents: 'auto' }
                 : { top: -9999, left: -9999, opacity: 0, pointerEvents: 'none' }

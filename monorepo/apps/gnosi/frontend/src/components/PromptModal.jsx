@@ -72,7 +72,7 @@ export const PromptModal = ({
     return (
         <div
             className="fixed inset-0 flex items-center justify-center"
-            style={{ zIndex: 99999 }}
+            style={{ zIndex: 'var(--z-confirm-modal)' }}
             onClick={handleBackdropClick}
             role="dialog"
             aria-modal="true"
