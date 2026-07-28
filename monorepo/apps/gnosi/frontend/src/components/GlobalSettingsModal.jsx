@@ -2378,7 +2378,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             { id: 'dark', label: tn('appearance.theme_dark'), icon: Monitor, bg: '#000000' },
                                             { id: 'system', label: tn('appearance.theme_system'), icon: Monitor, bg: 'linear-gradient(135deg, #fff 50%, #000 50%)' }
                                         ].map(opt => (
-                                            <button key={opt.id} onClick={() => {
+                                            <button key={opt.id} className={`settings-hover-card ${draft.settings.theme === opt.id ? 'is-selected' : ''}`} onClick={() => {
                                                 setDraft({...draft, settings: {...draft.settings, theme: opt.id}});
                                                 // Wire the selector into the theme engine (useTheme / index.html bootstrap
                                                 // read localStorage['db-theme'] and react to the 'db-theme-changed' event).
@@ -2396,7 +2396,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         ))}
                                     </div>
 
-                                    <div style={{ background: 'var(--settings-sidebar-bg)', padding: '32px', borderRadius: '28px', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 10px 30px rgba(0,0,0,0.03)' }}>
+                                    <div className="settings-hover-card" style={{ background: 'var(--settings-sidebar-bg)', padding: '32px', borderRadius: '28px', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 10px 30px rgba(0,0,0,0.03)' }}>
                                         <div style={{ flex: 1 }}>
                                             <div style={{ fontWeight: '900', color: 'var(--text-primary)', fontSize: '1.15rem' }}>{tn('appearance.reduce_fx_title')}</div>
                                             <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '6px', opacity: 0.8, maxWidth: '420px' }}>{tn('appearance.reduce_fx_desc')}</div>
@@ -2409,7 +2409,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         />
                                     </div>
 
-                                    <div style={{ background: 'var(--settings-sidebar-bg)', padding: '32px', borderRadius: '28px', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 10px 30px rgba(0,0,0,0.03)', marginTop: '20px' }}>
+                                    <div className="settings-hover-card" style={{ background: 'var(--settings-sidebar-bg)', padding: '32px', borderRadius: '28px', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 10px 30px rgba(0,0,0,0.03)', marginTop: '20px' }}>
                                         <div style={{ flex: 1 }}>
                                             <div style={{ fontWeight: '900', color: 'var(--text-primary)', fontSize: '1.15rem' }}>{tn('appearance.mail_dark_title')}</div>
                                             <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '6px', opacity: 0.8, maxWidth: '480px' }}>{tn('appearance.mail_dark_desc')}</div>
