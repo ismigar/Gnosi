@@ -3584,7 +3584,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             <FormGroup label={tn('graph.edge_thickness_value', { value: draft.graph.edge_thickness.toFixed(1) })}>
                                                 <input type="range" className="gnosi-range" min="0.1" max="5" step="0.1" value={draft.graph.edge_thickness} onChange={e => setDraft({...draft, graph: {...draft.graph, edge_thickness: parseFloat(e.target.value)}})} />
                                             </FormGroup>
-                                            <div style={{ marginTop: '20px', padding: '20px', background: 'var(--settings-sidebar-bg)', borderRadius: '20px', border: '1px solid var(--settings-border)' }}>
+                                            <div className="settings-hover-card" style={{ marginTop: '20px', padding: '20px', background: 'var(--settings-sidebar-bg)', borderRadius: '20px', border: '1px solid var(--settings-border)' }}>
                                                 <FormGroup label={tn('graph.directionality')} description={tn('graph.directionality_desc')} horizontal>
                                                     <GnosiToggle
                                                         active={draft.graph.show_arrows}
