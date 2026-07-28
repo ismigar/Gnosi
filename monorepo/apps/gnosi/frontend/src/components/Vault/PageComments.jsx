@@ -143,7 +143,7 @@ export function PageComments({ pageId, pageTitle, open, onClose }) {
     if (!open) return null;
 
     return (
-        <div className="fixed inset-0 z-[9998] flex justify-end animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-[var(--z-modal)] flex justify-end animate-in fade-in duration-150">
             <div className="absolute inset-0 bg-black/30" onClick={onClose} />
             <div
                 ref={panelRef}

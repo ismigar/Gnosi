@@ -42,7 +42,7 @@ export const CalendarContextMenu = ({ isOpen, position, onClose, onNewEvent, onD
     return (
         <div
             ref={menuRef}
-            className="fixed z-[9998] bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700/60 py-1.5 min-w-[180px] animate-in fade-in zoom-in-95 duration-150"
+            className="fixed z-[var(--z-popover)] bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700/60 py-1.5 min-w-[180px] animate-in fade-in zoom-in-95 duration-150"
             style={style}
         >
             <button

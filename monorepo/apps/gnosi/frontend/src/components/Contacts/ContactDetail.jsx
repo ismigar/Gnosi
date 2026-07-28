@@ -1,9 +1,9 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Mail, Phone, MapPin, Building2, Briefcase, Tag, Calendar, Globe, Edit3, Trash2, CheckCircle2, RefreshCw } from 'lucide-react';
+import { Mail, Phone, MapPin, Building2, Briefcase, Tag, Calendar, Globe, Edit3, Trash2, CheckCircle2, RefreshCw, ArrowLeft } from 'lucide-react';
 import { isGmail, getGoogleAvatarUrl } from '../../utils/avatar-utils';
 
-export default function ContactDetail({ contact, onEdit, onDelete }) {
+export default function ContactDetail({ contact, onEdit, onDelete, onBack }) {
     const { t } = useTranslation();
     if (!contact) return null;
 
@@ -36,8 +36,16 @@ export default function ContactDetail({ contact, onEdit, onDelete }) {
             color: 'var(--text-primary)'
         }}>
             {/* Header Section */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '48px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '28px' }}>
+            <button
+                type="button"
+                className="contact-detail__back gnosi-button gnosi-button--secondary"
+                onClick={onBack}
+            >
+                <ArrowLeft size={16} />
+                {t('common.back', 'Back')}
+            </button>
+            <div className="contact-detail__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '48px' }}>
+                <div className="contact-detail__identity" style={{ display: 'flex', alignItems: 'center', gap: '28px' }}>
                     <div style={{ 
                         width: '72px', 
                         height: '72px', 
@@ -109,7 +117,7 @@ export default function ContactDetail({ contact, onEdit, onDelete }) {
                     </div>
                 </div>
                 
-                <div style={{ display: 'flex', gap: '12px' }}>
+                <div className="contact-detail__actions" style={{ display: 'flex', gap: '12px' }}>
                     <button
                         onClick={onEdit}
                         style={{
@@ -158,7 +166,7 @@ export default function ContactDetail({ contact, onEdit, onDelete }) {
             </div>
 
             {/* Info Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '32px' }}>
+            <div className="contact-detail__grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '32px' }}>
                 {/* Contact Info */}
                 <div style={{ 
                     background: 'var(--bg-secondary)', 

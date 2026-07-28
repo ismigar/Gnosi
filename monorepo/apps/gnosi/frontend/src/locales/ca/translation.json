@@ -40,6 +40,7 @@
   },
   "common": {
     "knowledge": "Coneixement",
+    "vault_label": "Vault",
     "yes": "Sí",
     "loading": "Carregant...",
     "untitled": "Sense títol",
@@ -370,6 +371,7 @@
     "error_deleting_event": "No s'ha pogut eliminar l'esdeveniment"
   },
   "sidebar": {
+    "main_navigation": "Navegació principal",
     "my_vault": "El meu Coneixement",
     "search": "Cerca",
     "recent": "Recent",
@@ -3269,6 +3271,7 @@
     "records_restore_failed_many": "No s'han pogut restaurar {{count}} registres (codis: {{reasons}})"
   },
   "media": {
+    "toggle_library": "Mostra o amaga la biblioteca multimèdia",
     "title": "Gestor de Mitjans",
     "subtitle": "Imatges, vídeos, àudio i PDFs",
     "root_images": "Imatges",
@@ -3564,6 +3567,14 @@
     "imported": "{{created}} referències importades · {{skipped}} ja existien"
   },
   "social": {
+    "boosted_by": "{{name}} ho ha impulsat",
+    "open_post": "Obre la publicació",
+    "repost": "Torna a publicar",
+    "like": "M'agrada",
+    "share_post": "Comparteix la publicació",
+    "tab_dashboard": "Tauler",
+    "section_navigation": "Seccions socials",
+    "stream_actions": "Accions del canal",
     "compose_error": "Error generant les propostes",
     "from_record": "Origen: «{{title}}». La IA en proposarà un text per xarxa en el mateix idioma.",
     "generate": "Generar amb IA",
@@ -3864,6 +3875,7 @@
     "delete_feed_message": "Segur que vols eliminar aquest feed i tots els seus articles? Aquesta acció no es pot desfer."
   },
   "graph": {
+    "page_title": "Graf de coneixement",
     "loading": {
       "title": "Carregant el Cervell Digital...",
       "subtitle": "Connectant neurones..."
@@ -4032,11 +4044,13 @@
     "module_settings_desc": "Gestiona els paràmetres del teu ecosistema."
   },
   "composer": {
+    "title": "Composer",
     "subtitle": "Crea i programa contingut per a les teves xarxes socials.",
     "social_dashboard_title": "Social Dashboard",
     "social_dashboard_desc": "Gestiona els teus streams i feeds de xarxes socials."
   },
   "scheduler": {
+    "title": "Programador de tasques",
     "subtitle": "Gestiona les automatitzacions i tasques de fons de Gnosi.",
     "interval_label": "Interval: {{value}}",
     "no_tasks": "No s'han trobat tasques programades."
@@ -4083,7 +4097,7 @@
     "no_files": "No s'han trobat fitxers"
   },
   "planning_page": {
-    "title": "Planificació de projectes", "subtitle": "Calendari, camí crític, recursos i diagnòstics.", "project_id": "ID del projecte", "project": "Projecte", "default_project": "Projecte predeterminat", "refresh": "Actualitza", "load_error": "No s'ha pogut carregar la planificació.", "critical_tasks": "Tasques crítiques", "estimated_cost": "Cost estimat", "warnings": "Avisos", "schedule": "Calendari", "task": "Tasca", "start": "Inici", "finish": "Fi", "slack": "Folgança", "diagnostics": "Diagnòstics"
+    "title": "Planificació de projectes", "subtitle": "Calendari, camí crític, recursos i diagnòstics.", "project_id": "ID del projecte", "project": "Projecte", "default_project": "Projecte predeterminat", "refresh": "Actualitza", "load_error": "No s'ha pogut carregar la planificació.", "critical_tasks": "Tasques crítiques", "estimated_cost": "Cost estimat", "warnings": "Avisos", "schedule": "Calendari", "task": "Tasca", "start": "Inici", "finish": "Fi", "slack": "Folgança", "diagnostics": "Diagnòstics", "baselines": "Línies base", "baseline_name": "Nom de la línia base", "create": "Crea", "worklogs": "Registres de treball", "add_worklog": "Afegeix registre", "entries": "entrades", "resource_heatmap": "Càrrega de recursos", "leveling": "Anivellament de recursos", "generate_proposal": "Genera proposta", "proposed_changes": "canvis proposats", "apply_proposal": "Aplica la proposta"
   },
   "vault_date": {
     "days_placeholder": "dies",

@@ -1,37 +1,30 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { RefreshCw, Menu } from 'lucide-react';
-import { useActiveVaultName } from '../hooks/useActiveVaultName';
+import { RefreshCw, Menu, Network } from 'lucide-react';
+import { AppHeader } from './AppHeader';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 
 export function Layout({ children, sidebar, controls, bottomPanel, containerStyle = {}, onSync, isSyncing }) {
   const { t } = useTranslation();
-  const [isPanelOpen, setIsPanelOpen] = React.useState(true);
+  const isCompact = useMediaQuery('(max-width: 767px)');
+  const [isPanelOpen, setIsPanelOpen] = React.useState(
+    () => typeof window === 'undefined' || !window.matchMedia('(max-width: 767px)').matches
+  );
   const [isBottomPanelOpen, setIsBottomPanelOpen] = React.useState(false);
-  const activeVaultName = useActiveVaultName();
+
+  React.useEffect(() => {
+    setIsPanelOpen(!isCompact);
+  }, [isCompact]);
 
   return (
     <div id="app" className={!isPanelOpen ? 'panel-hidden' : ''}>
-      <header id="top-bar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <h1 style={{ margin: 0 }}>Gnosi</h1>
-          <span style={{
-            fontSize: '0.75rem',
-            fontWeight: 500,
-            color: 'var(--text-tertiary)',
-            backgroundColor: 'var(--bg-secondary)',
-            padding: '2px 8px',
-            borderRadius: '6px',
-            border: '1px solid var(--border-primary)'
-          }}>
-            Vault: {activeVaultName || '…'}
-          </span>
-        </div>
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+      <AppHeader icon={Network} title={t('graph.page_title', 'Knowledge graph')}>
           {onSync && (
             <button
               onClick={onSync}
               title={t('graph.sync_tooltip', "Sync")}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}
+              aria-label={t('graph.sync_tooltip', "Sync")}
+              className="gnosi-icon-button"
             >
               <RefreshCw size={20} className={isSyncing ? 'spin-anim' : ''} />
             </button>
@@ -41,24 +34,33 @@ export function Layout({ children, sidebar, controls, bottomPanel, containerStyl
             id="btn-toggle-panel"
             title={t('graph.toggle_panel_tooltip', "Show / hide panel")}
             onClick={() => setIsPanelOpen(!isPanelOpen)}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}
+            aria-label={t('graph.toggle_panel_tooltip', "Show / hide panel")}
+            aria-expanded={isPanelOpen}
+            className="gnosi-icon-button"
           >
             <Menu size={20} />
           </button>
-        </div>
         <style>{`
             .spin-anim { animation: spin 1s linear infinite; }
             @keyframes spin { 100% { transform: rotate(360deg); } }
         `}</style>
-      </header>
+      </AppHeader>
 
       <main id="main-content">
+        {isCompact && isPanelOpen && (
+          <button
+            type="button"
+            className="graph-panel-backdrop"
+            onClick={() => setIsPanelOpen(false)}
+            aria-label={t('common.close', 'Close')}
+          />
+        )}
         <div id="sigma-container" style={{ position: 'relative', width: '100%', height: '100%', ...containerStyle }}>
           {children}
           {controls}
         </div>
 
-        <aside id="side-panel" style={{ display: isPanelOpen ? 'block' : 'none' }}>
+        <aside id="side-panel">
           {sidebar}
         </aside>
       </main>

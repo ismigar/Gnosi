@@ -7,6 +7,9 @@ import MailViewer from '../components/Mail/MailViewer';
 import MailComposer from '../components/Mail/MailComposer';
 import { MailTagsProvider } from '../hooks/useMailTags';
 import { cachedJson } from '../lib/cachedJson';
+import { AppHeader } from '../components/AppHeader';
+import { Inbox, PanelLeft } from 'lucide-react';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 
 export default function MailPage() {
     return (
@@ -18,6 +21,7 @@ export default function MailPage() {
 
 function MailPageInner() {
     const { t } = useTranslation();
+    const isCompact = useMediaQuery('(max-width: 767px)');
     const [selectedMail, setSelectedMail] = React.useState(null);
     const [selectedAccount, setSelectedAccount] = React.useState(null);
     const [accounts, setAccounts] = useState([]);
@@ -30,7 +34,9 @@ function MailPageInner() {
     const [searchQuery, setSearchQuery] = useState('');
     const [messages, setMessages] = useState([]);
     const [counts, setCounts] = useState({});
-    const [showMailboxSidebar, setShowMailboxSidebar] = useState(true);
+    const [showMailboxSidebar, setShowMailboxSidebar] = useState(
+        () => typeof window === 'undefined' || !window.matchMedia('(max-width: 767px)').matches
+    );
     const [removedMailId, setRemovedMailId] = useState(null);
     const [readMailId, setReadMailId] = useState(null);
     const [listRefreshToken, setListRefreshToken] = useState(0);
@@ -40,6 +46,10 @@ function MailPageInner() {
 
     const [identities, setIdentities] = React.useState([]);
     const [defaultAccount, setDefaultAccount] = React.useState(null);
+
+    useEffect(() => {
+        setShowMailboxSidebar(!isCompact);
+    }, [isCompact]);
 
     useEffect(() => {
         // Use a short-TTL cache so MailPage, MailComposer and CalendarPage
@@ -223,11 +233,13 @@ function MailPageInner() {
         setActiveView(null);
         setActiveTagId(null);
         setSelectedMail(null);
+        if (isCompact) setShowMailboxSidebar(false);
     };
 
     const handleSelectTag = (tagId) => {
         setActiveTagId(tagId);
         setSelectedMail(null);
+        if (isCompact) setShowMailboxSidebar(false);
     };
 
     const handleSelectCategory = (category) => {
@@ -236,6 +248,7 @@ function MailPageInner() {
         setActiveView(null);
         setSelectedMail(null);
         setIsComposing(false);
+        if (isCompact) setShowMailboxSidebar(false);
     };
 
     const handleSelectView = (view) => {
@@ -248,6 +261,7 @@ function MailPageInner() {
         }
         setSelectedMail(null);
         setIsComposing(false);
+        if (isCompact) setShowMailboxSidebar(false);
     };
 
     const handleCompose = () => {
@@ -256,11 +270,13 @@ function MailPageInner() {
         const prefix = effectiveAccount?.subject_prefix || '';
         setComposeData(prefix ? { initialSubject: prefix } : null);
         setIsComposing(true);
+        if (isCompact) setShowMailboxSidebar(false);
     };
 
     const handleOpenComposer = (data) => {
         setComposeData(data || null);
         setIsComposing(true);
+        if (isCompact) setShowMailboxSidebar(false);
     };
 
     const handleMailSelected = (mail) => {
@@ -281,9 +297,30 @@ function MailPageInner() {
     };
 
     return (
-        <div className="h-full flex flex-col bg-[var(--bg-primary)] overflow-hidden">
-            <div className="flex-1 flex overflow-hidden">
+        <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--bg-primary)]">
+            <AppHeader icon={Inbox} title={t('sidebar.nav_mail', 'Mail')}>
+                <button
+                    type="button"
+                    className="gnosi-icon-button md:hidden"
+                    onClick={() => setShowMailboxSidebar((open) => !open)}
+                    title={showMailboxSidebar ? t('mail.hide_mailbox', 'Hide mailbox') : t('mail.show_mailbox', 'Show mailbox')}
+                    aria-label={showMailboxSidebar ? t('mail.hide_mailbox', 'Hide mailbox') : t('mail.show_mailbox', 'Show mailbox')}
+                    aria-expanded={showMailboxSidebar}
+                >
+                    <PanelLeft size={18} />
+                </button>
+            </AppHeader>
+            <div className="mail-workspace">
+                {isCompact && showMailboxSidebar && (
+                    <button
+                        type="button"
+                        className="mail-workspace__backdrop"
+                        onClick={() => setShowMailboxSidebar(false)}
+                        aria-label={t('common.close', 'Close')}
+                    />
+                )}
                 {showMailboxSidebar && (
+                    <div className="mail-workspace__mailboxes">
                     <MailSidebar
                         selectedAccount={selectedAccount}
                         onSelectAccount={setSelectedAccount}
@@ -300,10 +337,11 @@ function MailPageInner() {
                         onSearch={setSearchQuery}
                         counts={counts}
                     />
+                    </div>
                 )}
 
-                <div className="flex-1 flex overflow-hidden relative">
-                    <div className={`transition-all duration-300 ease-in-out h-full border-r border-[var(--border-primary)] ${(selectedMail || isComposing) ? 'w-[380px] bg-[var(--bg-secondary)]/30' : 'w-full'}`}>
+                <div className="mail-workspace__content">
+                    <div className={`mail-workspace__list ${(selectedMail || isComposing) ? 'mail-workspace__list--with-detail' : ''}`}>
                         <MailList
                             account={selectedAccount}
                             accounts={accounts}
@@ -334,7 +372,7 @@ function MailPageInner() {
                         />
                     </div>
 
-                    <div className={`transition-all duration-300 ease-in-out h-full bg-[var(--bg-primary)] shadow-[-4px_0_15px_-3px_rgba(0,0,0,0.05)] z-10 ${(selectedMail || isComposing) ? 'flex-1 translate-x-0 opacity-100' : 'fixed right-[-100%] translate-x-full opacity-0 pointer-events-none'}`}>
+                    <div className={`mail-workspace__detail ${(selectedMail || isComposing) ? 'mail-workspace__detail--active' : ''}`}>
                         {isComposing ? (
                             <MailComposer
                                 account={selectedAccount}

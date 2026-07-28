@@ -6,7 +6,7 @@ import PostCard from './PostCard';
 const Column = ({ title, icon, posts = [], onDelete, onRefresh }) => {
     const { t } = useTranslation();
     return (
-        <div className="min-w-[360px] max-w-[400px] glass-card rounded-xl flex flex-col h-full shrink-0 overflow-hidden shadow-2xl shadow-black/20">
+        <div className="glass-card flex h-full min-w-[calc(100vw-3rem)] max-w-[400px] shrink-0 flex-col overflow-hidden rounded-xl shadow-lg sm:min-w-[360px]">
             <div className="p-4 border-b border-[var(--border-primary)] font-semibold text-[var(--text-primary)] flex justify-between items-center bg-[var(--bg-secondary)]/50 backdrop-blur-md relative z-10">
                 <div className="flex items-center gap-3">
                     <span className="text-xl">{icon}</span>
@@ -15,7 +15,10 @@ const Column = ({ title, icon, posts = [], onDelete, onRefresh }) => {
                 </div>
 
                 <div className="relative group">
-                    <button className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] p-1 rounded-lg transition-colors">
+                    <button
+                        className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] p-1 rounded-lg transition-colors"
+                        aria-label={t('social.stream_actions', 'Stream actions')}
+                    >
                         <MoreHorizontal size={20} />
                     </button>
 
@@ -25,13 +28,13 @@ const Column = ({ title, icon, posts = [], onDelete, onRefresh }) => {
                             onClick={onRefresh}
                             className="w-full text-left px-4 py-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors"
                         >
-                            Refresh
+                            {t('common.refresh', 'Refresh')}
                         </button>
                         <button
                             onClick={onDelete}
                             className="w-full text-left px-4 py-2 text-sm text-[var(--status-error)] hover:bg-[var(--bg-secondary)] transition-colors"
                         >
-                            Delete
+                            {t('common.delete', 'Delete')}
                         </button>
                     </div>
                 </div>

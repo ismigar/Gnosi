@@ -69,7 +69,7 @@
     border-radius: 16px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
     padding: 8px;
-    z-index: 1000;
+    z-index: var(--z-popover);
     animation: workspaceMenuIn 0.2s cubic-bezier(0, 0, 0.2, 1);
 }
 

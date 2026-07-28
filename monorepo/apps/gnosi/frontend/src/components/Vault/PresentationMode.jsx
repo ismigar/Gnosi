@@ -69,7 +69,7 @@ export default function PresentationMode({ isOpen, onClose, markdown = '' }) {
     if (!isOpen) return null;
 
     return (
-        <div id="gnosi-presentation" className="fixed inset-0 z-[100003] flex flex-col bg-[var(--bg-primary)]">
+        <div id="gnosi-presentation" className="fixed inset-0 z-[var(--z-presentation)] flex flex-col bg-[var(--bg-primary)]">
             {/* Barra superior */}
             <div className="flex items-center justify-between px-4 py-2 text-[var(--text-tertiary)]">
                 <span className="text-sm">{idx + 1} / {slides.length}</span>

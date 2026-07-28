@@ -78,7 +78,7 @@ const CellDropdownPortal = React.forwardRef(function CellDropdownPortal(
                 top: pos.top,
                 bottom: pos.bottom,
                 maxHeight: pos.maxHeight,
-                zIndex: 2147483000,
+                zIndex: 'var(--z-popover)',
             }}
         >
             {children}

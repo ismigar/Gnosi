@@ -114,7 +114,7 @@ function SortableTab({ view, tableViews, isActive, onSelect, onAction, onConfigu
             {showMenu && (
                 <div 
                     ref={menuRef}
-                    className="absolute top-full left-0 mt-1 w-44 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[1000] py-1 animate-in fade-in zoom-in-95 duration-100"
+                    className="absolute top-full left-0 mt-1 w-44 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[var(--z-popover)] py-1 animate-in fade-in zoom-in-95 duration-100"
                 >
                     <button 
                         onClick={() => { setShowMenu(false); onAction?.(view, 'configure'); }}
@@ -612,7 +612,7 @@ export function VaultViewsHeader({
                         </button>
 
                         {showNewMenu && (
-                            <div className="absolute top-full right-0 mt-1 w-56 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[1001] py-1 animate-in fade-in zoom-in-95 duration-100">
+                            <div className="absolute top-full right-0 mt-1 w-56 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[var(--z-popover)] py-1 animate-in fade-in zoom-in-95 duration-100">
                                 <button
                                     onClick={() => { setShowNewMenu(false); onCreateRecord?.(); }}
                                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
@@ -681,7 +681,7 @@ export function VaultViewsHeader({
                                     <div
                                         role="menu"
                                         data-template-submenu
-                                        className="fixed w-48 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[1002] py-1 animate-in fade-in zoom-in-95 duration-100"
+                                        className="fixed w-48 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[var(--z-popover)] py-1 animate-in fade-in zoom-in-95 duration-100"
                                         style={{ top: `${templateMenuFor.top}px`, right: `${templateMenuFor.right}px` }}
                                     >
                                         {onEditTemplate && (
@@ -739,8 +739,8 @@ export function VaultViewsHeader({
                 the existing ones, and create new ones. */}
             {isAddingView && (
                 <>
-                    <div className="fixed inset-0 z-[1001]" onClick={() => setIsAddingView(false)} />
-                    <div className="absolute top-full left-10 mt-1 w-64 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[1002] py-1.5 animate-in slide-in-from-top-2 duration-200">
+                    <div className="fixed inset-0 z-[var(--z-overlay)]" onClick={() => setIsAddingView(false)} />
+                    <div className="absolute top-full left-10 mt-1 w-64 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[var(--z-popover)] py-1.5 animate-in slide-in-from-top-2 duration-200">
                         {/* Section: management of existing views */}
                         <div className="px-3 py-1 text-[10px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
                             {t('views_header.manage_views', "Views")}

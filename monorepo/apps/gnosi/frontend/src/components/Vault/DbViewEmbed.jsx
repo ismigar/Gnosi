@@ -372,7 +372,7 @@ function ViewActionsBar({
                         </span>
                     </button>
                     {showNewMenu && (
-                        <div className="absolute top-full right-0 mt-1 w-56 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[1001] py-1">
+                        <div className="absolute top-full right-0 mt-1 w-56 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[var(--z-popover)] py-1">
                             <button
                                 onClick={() => { setShowNewMenu(false); onCreate(); }}
                                 className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] text-left"

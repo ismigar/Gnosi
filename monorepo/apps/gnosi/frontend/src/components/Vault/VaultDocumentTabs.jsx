@@ -336,7 +336,7 @@ export function VaultDocumentTabs({
             {isQuickOpenVisible && createPortal(
                 <div
                     ref={quickOpenRef}
-                    className="fixed bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[9999]"
+                    className="fixed bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[var(--z-popover)]"
                     style={{ top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width }}
                 >
                     <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--border-primary)]">

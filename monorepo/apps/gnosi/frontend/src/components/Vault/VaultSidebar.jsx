@@ -90,7 +90,7 @@ const RenamePromptModal = ({ isOpen, type, defaultValue, onClose, onConfirm }) =
     return createPortal(
         <div
             className="fixed inset-0 flex items-center justify-center"
-            style={{ zIndex: 99999 }}
+            style={{ zIndex: 'var(--z-confirm-modal)' }}
             onClick={() => { if (!isSubmitting) onClose(); }}
             role="dialog"
             aria-modal="true"
@@ -457,7 +457,7 @@ const PageTreeItem = ({
             {isMenuOpen && typeof document !== 'undefined' && createPortal(
                 <div
                     ref={menuRef}
-                    className="fixed w-40 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[9999] py-1 animate-in fade-in zoom-in-95 duration-100 max-h-[calc(100vh-20px)] overflow-y-auto"
+                    className="fixed w-40 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[var(--z-popover)] py-1 animate-in fade-in zoom-in-95 duration-100 max-h-[calc(100vh-20px)] overflow-y-auto"
                     style={{ top: menuState.y, left: menuState.x }}
                 >
                     {onRenamePage && isEditor && (
@@ -981,7 +981,7 @@ export const VaultSidebar = ({
             <div className="px-3 pt-4 mb-2 flex items-center justify-between group cursor-pointer hover:bg-[var(--bg-secondary)] rounded mx-2 py-1.5 transition-colors">
                 <div className="flex items-center gap-2">
                     <div className="w-5 h-5 bg-gnosi/10 rounded flex items-center justify-center text-gnosi font-bold text-[10px]">G</div>
-                    <span className="text-sm font-semibold text-[var(--text-primary)]">{activeVaultName ? `Vault: ${activeVaultName}` : 'Vault: …'}</span>
+                    <span className="text-sm font-semibold text-[var(--text-primary)]">{t('common.vault_label', 'Vault')}: {activeVaultName || '…'}</span>
                 </div>
 
             </div>
@@ -1453,7 +1453,7 @@ export const VaultSidebar = ({
             {menuState && (menuState.type === 'database' || menuState.type === 'table') && createPortal(
                 <div
                     ref={sidebarMenuRef}
-                    className="fixed w-40 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[9999] py-1 animate-in fade-in zoom-in-95 duration-100 max-h-[calc(100vh-20px)] overflow-y-auto"
+                    className="fixed w-40 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[var(--z-popover)] py-1 animate-in fade-in zoom-in-95 duration-100 max-h-[calc(100vh-20px)] overflow-y-auto"
                     style={{ top: menuState.y, left: menuState.x }}
                 >
                     {menuState.type === 'table' && (
