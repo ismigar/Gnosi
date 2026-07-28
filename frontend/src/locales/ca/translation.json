@@ -2881,6 +2881,8 @@
     "see_less": "Veure menys",
     "open": "Obrir",
     "open_page": "Obrir la pàgina",
+    "show_more_tags": "Mostrar {{count}} etiquetes més",
+    "show_fewer_tags": "Mostrar menys etiquetes",
     "read_full": "Llegir sencer",
     "empty": "No hi ha publicacions al feed."
   },

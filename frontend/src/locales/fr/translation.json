@@ -1920,6 +1920,8 @@
     "see_less": "Voir moins",
     "open": "Ouvrir",
     "open_page": "Ouvrir la page",
+    "show_more_tags": "Afficher {{count}} étiquettes de plus",
+    "show_fewer_tags": "Afficher moins d’étiquettes",
     "read_full": "Lire en entier",
     "empty": "Aucune publication dans le fil."
   },
