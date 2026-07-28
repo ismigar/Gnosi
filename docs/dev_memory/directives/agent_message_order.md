@@ -32,6 +32,25 @@ such as Mistral.
     NDJSON `done` event containing whether a visible response was produced.
 11. The frontend creates an assistant bubble only for response-bearing events.
     A terminal stream without a response becomes an explicit localized error.
+12. Treat secret-bearing files as prohibited even for read-only code tools.
+    Read access is not safe when its output is sent to a remote model.
+13. Classify MCP tools through explicit risk metadata or an exact allowlist.
+    A verb-like name prefix is never a security boundary.
+14. Bind each pending response to its original Vault, agent, and session. Abort
+    or ignore it when the user changes any of those scopes.
+15. Route mentions and explicit integration intents to a tool-capable worker.
+    The short-message optimization applies only to clear conversational turns.
+16. Build specialist prompts from the tools actually bound to that specialist.
+    Never advertise unavailable mutation tools.
+17. Check model capabilities before binding tools and normalize structured
+    content blocks into renderable text.
+18. Enforce per-request attachment count and total extracted-context limits,
+    reject unsupported visual analysis, and remove abandoned/expired uploads.
+19. Apply an overall turn deadline in addition to per-provider-call timeouts.
+20. Count only a final assistant answer or explicit error as a completed
+    response; tool progress alone is not a final answer.
+21. Bound browser session history and checkpoint retention. Persistence must
+    degrade gracefully when browser storage is full.
 
 ## Restrictions / Edge Cases
 
@@ -57,3 +76,15 @@ such as Mistral.
 - Do not invoke the supervisor for greetings and ordinary general questions.
   It doubles latency without improving the answer; route deterministic general
   cases directly.
+- Do not expose `.env*`, key files, credentials, local data, or secret stores
+  through code-inspection tools.
+- Do not infer MCP safety from `get_`, `read_`, or similar prefixes. A tool can
+  mutate regardless of its name.
+- Do not let a response update whichever session happens to be visible when it
+  arrives. Compare the original request scope before applying every event.
+- Do not accept image attachments unless their bytes are sent to a
+  vision-capable model. A filename is not visual understanding.
+- Do not extract an entire PDF before enforcing limits. Stop at the page,
+  character, and time budget.
+- Do not allow unbounded localStorage histories, attachment directories, or
+  checkpoint databases.
