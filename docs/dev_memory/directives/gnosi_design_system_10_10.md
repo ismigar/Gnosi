@@ -177,3 +177,14 @@ environment-specific frontend assumptions.
 - Image-based page icons retain their established size and use a visibly small
   top margin inside the shared icon frame, avoiding a broader header geometry
   change.
+- Embedded database actions share one toolbar. Do not leave the add-view action
+  on a visually empty single-view row, and never nest an interactive element
+  inside another button; use a semantic split-button group.
+- Mobile Vault icon controls use the shared 44-pixel touch size, including shell
+  navigation, page actions, summary toggles, embedded-view actions, and feed
+  controls. Reduce redundant chrome before shrinking a control below that size.
+- Nested mobile feed views remove both the embed padding and the feed's desktop
+  inline padding. Keeping either layer makes a readable card materially narrower
+  than the surrounding page summary.
+- Every icon-removal and disclosure control needs a translated accessible name.
+  A visible icon or a sibling text label does not name a separate button.

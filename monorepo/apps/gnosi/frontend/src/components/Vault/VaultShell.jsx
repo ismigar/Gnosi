@@ -17,7 +17,7 @@ export const VaultShell = ({
     children
 }) => {
     const { t } = useTranslation();
-    const isCompact = useMediaQuery('(max-width: 767px)');
+    const isCompact = useMediaQuery('(max-width: 768px)');
     const isNarrow = useMediaQuery('(max-width: 1023px)');
     const sidebarMode = isNarrow ? 'drawer' : 'wide';
     const [sidebarOverrides, setSidebarOverrides] = useState({});
@@ -40,9 +40,19 @@ export const VaultShell = ({
         });
     };
 
-    const visibleBreadcrumbs = isCompact && breadcrumbs.length > 1
-        ? breadcrumbs.slice(0, -1)
-        : breadcrumbs;
+    const visibleBreadcrumbs = isCompact ? [] : breadcrumbs;
+    const staleCheckout = import.meta.env.DEV
+        && import.meta.env.VITE_GNOSI_STALE_CHECKOUT === '1';
+    const checkoutLabel = import.meta.env.VITE_GNOSI_CHECKOUT_LABEL || '';
+    const isMac = typeof navigator !== 'undefined'
+        && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+    const newTabShortcut = isMac ? '⌘T' : 'Ctrl+T';
+    const switchTabShortcut = isMac ? '⌘1–9' : 'Ctrl+1–9';
+    const newTabLabel = t('doc_tabs.new_tab_tooltip', {
+        shortcut: newTabShortcut,
+        tabShortcut: switchTabShortcut,
+        defaultValue: 'New tab or quick search ({{shortcut}}). Switch tab: {{tabShortcut}}',
+    });
 
     return (
         <div className="vault-shell">
@@ -72,7 +82,7 @@ export const VaultShell = ({
                         {/* Sidebar toggle (always visible) */}
                         <button
                             onClick={() => setIsSidebarOpen(prev => !prev)}
-                            className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] rounded transition-colors shrink-0"
+                            className="vault-shell__icon-button p-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] rounded transition-colors shrink-0"
                             title={isSidebarOpen ? t('shell.hide_sidebar', "Hide sidebar") : t('shell.show_sidebar', "Show sidebar")}
                             aria-label={isSidebarOpen ? t('shell.hide_sidebar', "Hide sidebar") : t('shell.show_sidebar', "Show sidebar")}
                             aria-expanded={isSidebarOpen}
@@ -87,7 +97,7 @@ export const VaultShell = ({
                                 <button
                                     onClick={onBack}
                                     disabled={!canGoBack}
-                                    className={`p-1 rounded transition-colors ${canGoBack ? 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]' : 'opacity-20 cursor-not-allowed'}`}
+                                    className={`vault-shell__icon-button p-1 rounded transition-colors ${canGoBack ? 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]' : 'opacity-20 cursor-not-allowed'}`}
                                     title={t('shell.go_back')}
                                     aria-label={t('shell.go_back')}
                                 >
@@ -96,7 +106,7 @@ export const VaultShell = ({
                                 <button
                                     onClick={onForward}
                                     disabled={!canGoForward}
-                                    className={`p-1 rounded transition-colors ${canGoForward ? 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]' : 'opacity-20 cursor-not-allowed'}`}
+                                    className={`vault-shell__icon-button p-1 rounded transition-colors ${canGoForward ? 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]' : 'opacity-20 cursor-not-allowed'}`}
                                     title={t('shell.go_forward')}
                                     aria-label={t('shell.go_forward')}
                                 >
@@ -128,16 +138,16 @@ export const VaultShell = ({
                                 <button
                                     type="button"
                                     onClick={onNewDocument}
-                                    className="p-1.5 text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] rounded transition-colors"
-                                    title={t('doc_tabs.new_tab_tooltip', 'New tab or quick search')}
-                                    aria-label={t('doc_tabs.new_tab_tooltip', 'New tab or quick search')}
+                                    className="vault-shell__icon-button p-1.5 text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] rounded transition-colors"
+                                    title={newTabLabel}
+                                    aria-label={newTabLabel}
                                 >
                                     <Plus size={16} />
                                 </button>
                                 <button
                                     type="button"
                                     onClick={onCloseDocument}
-                                    className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--status-error)] hover:bg-[var(--bg-tertiary)] rounded transition-colors"
+                                    className="vault-shell__icon-button p-1.5 text-[var(--text-secondary)] hover:text-[var(--status-error)] hover:bg-[var(--bg-tertiary)] rounded transition-colors"
                                     title={t('doc_tabs.close_tab', 'Close tab')}
                                     aria-label={t('doc_tabs.close_tab', 'Close tab')}
                                 >
@@ -147,7 +157,7 @@ export const VaultShell = ({
                         )}
                         <button
                             onClick={onSearch}
-                            className="p-1.5 text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] rounded transition-colors"
+                            className="vault-shell__icon-button p-1.5 text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] rounded transition-colors"
                             title={t('shell.quick_search', 'Quick search')}
                             aria-label={t('shell.quick_search', 'Quick search')}
                         >
@@ -155,6 +165,15 @@ export const VaultShell = ({
                         </button>
                     </div>
                 </header>
+
+                {staleCheckout && (
+                    <div className="vault-shell__checkout-warning" role="status">
+                        {t('shell.stale_checkout', {
+                            checkout: checkoutLabel,
+                            defaultValue: 'Local preview is serving merged checkout {{checkout}}, behind origin/main.',
+                        })}
+                    </div>
+                )}
 
                 {/* Content Area */}
                 <div className="flex-1 flex flex-col overflow-hidden relative min-w-0">

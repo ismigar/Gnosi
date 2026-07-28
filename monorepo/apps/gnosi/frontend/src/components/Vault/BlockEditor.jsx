@@ -39,6 +39,7 @@ import {
     Calendar as CalendarIcon,
     RefreshCw,
     SpellCheck2,
+    PanelBottomOpen,
 } from 'lucide-react';
 import axios from 'axios';
 import {
@@ -96,6 +97,7 @@ import SyncedBlock from './SyncedBlock';
 import SpellCheckLayer from './SpellCheckLayer';
 import AICorrectLayer from './AICorrectLayer';
 import { PageLinksGraph } from './PageLinksGraph';
+import { useFloatingActionDock } from '../../hooks/useFloatingActionDock';
 
 /**
  * Resolves the URI of the PDF associated with a Recursos page.
@@ -3723,6 +3725,7 @@ export function EditorInner({
 export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}, onUpdate, allTables = [], allNotes = [], onEditSchema, onAddSchemaOption, onCreateRecord, onDeletePage = () => {}, onOpenParallel = () => {}, onOpenPage = () => {}, onOpenInCurrentTab = null, onOpenInNewTab = null, idToTitle = {}, aliasIndex = {}, registry = { databases: [], tables: [], views: [] }, onRefreshNotes = () => {}, onUpdatePageMetadata, historyOpenSignal = 0, isCodeView = false, isEditLocked = false, referenceTableId = null, onOpenViewConfig, pageActions = null, isActivePage = true }) {
     const { t } = useTranslation();
     const { apiFetch, role } = useApi();
+    const [isFloatingDockOpen, setIsFloatingDockOpen] = useFloatingActionDock();
     const isViewerRole = role === 'viewer';
     const isAdmin = role === 'admin' || role === 'owner';
     // `isViewer`/`isEditor` represent the combination: viewer role OR lock of
@@ -4476,7 +4479,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     }, [noteFilename, t]);
 
     return (
-        <div className="w-full flex justify-center bg-[var(--bg-primary)] min-h-full transition-colors duration-300">
+        <div className="vault-page-editor w-full flex justify-center bg-[var(--bg-primary)] min-h-full transition-colors duration-300">
             <div ref={contentRef} className="max-w-7xl w-full flex flex-col min-h-full bg-[var(--bg-primary)] relative transition-colors duration-300">
                 <div
                     className={`vault-page-hero relative w-full group/cover ${metadata.cover ? 'vault-page-hero--covered' : 'vault-page-hero--bare'}`}
@@ -4498,7 +4501,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                             {!metadata.icon && (
                                 <button 
                                     onClick={() => setIsIconPickerOpen(true)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--bg-primary)]/80 hover:bg-[var(--bg-primary)] border border-[var(--border-primary)] shadow-sm backdrop-blur-md rounded-md text-xs font-semibold text-[var(--text-secondary)] transition-all"
+                                    className="vault-page-cover-action flex items-center gap-1.5 px-3 py-1.5 bg-[var(--bg-primary)]/80 hover:bg-[var(--bg-primary)] border border-[var(--border-primary)] shadow-sm backdrop-blur-md rounded-md text-xs font-semibold text-[var(--text-secondary)] transition-all"
                                 >
                                     <Smile size={14} />
                                     {t('editor.add_icon')}
@@ -4507,7 +4510,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                             <button 
                                 ref={coverTriggerRef}
                                 onClick={() => setIsCoverPickerOpen(true)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--bg-primary)]/80 hover:bg-[var(--bg-primary)] border border-[var(--border-primary)] shadow-sm backdrop-blur-md rounded-md text-xs font-semibold text-[var(--text-secondary)] transition-all"
+                                className="vault-page-cover-action flex items-center gap-1.5 px-3 py-1.5 bg-[var(--bg-primary)]/80 hover:bg-[var(--bg-primary)] border border-[var(--border-primary)] shadow-sm backdrop-blur-md rounded-md text-xs font-semibold text-[var(--text-secondary)] transition-all"
                             >
                                 <LayoutPanelLeft size={14} />
                                 {metadata.cover ? t('editor.change_cover') : t('editor.add_cover')}
@@ -4515,7 +4518,9 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                             {metadata.cover && (
                                 <button 
                                     onClick={() => handleMetaChange('cover', '')}
-                                    className="p-1.5 bg-[var(--bg-primary)]/80 hover:bg-[var(--status-error)]/10 hover:text-[var(--status-error)] border border-[var(--border-primary)] shadow-sm backdrop-blur-md rounded-md text-[var(--text-tertiary)] transition-all"
+                                    className="vault-page-cover-action p-1.5 bg-[var(--bg-primary)]/80 hover:bg-[var(--status-error)]/10 hover:text-[var(--status-error)] border border-[var(--border-primary)] shadow-sm backdrop-blur-md rounded-md text-[var(--text-tertiary)] transition-all"
+                                    title={t('editor.remove_cover')}
+                                    aria-label={t('editor.remove_cover')}
                                 >
                                     <X size={14} />
                                 </button>
@@ -4541,9 +4546,13 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                             {metadata.icon && (
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); handleMetaChange('icon', ''); }}
-                                    className="absolute -top-2 -right-2 p-1 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-full text-[var(--text-tertiary)] hover:text-[var(--status-error)] opacity-0 group-hover/icon:opacity-100 transition-opacity shadow-md"
+                                    className="vault-page-icon-remove absolute -top-2 -right-2 p-0 text-[var(--text-tertiary)] hover:text-[var(--status-error)] opacity-0 group-hover/icon:opacity-100 transition-opacity"
+                                    title={t('editor.remove_icon')}
+                                    aria-label={t('editor.remove_icon')}
                                 >
-                                    <X size={12} />
+                                    <span className="vault-page-icon-remove-glyph flex h-6 w-6 items-center justify-center bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-full shadow-md">
+                                        <X size={12} />
+                                    </span>
                                 </button>
                             )}
                         </div>
@@ -4588,7 +4597,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                 placeholder={t('editor.untitled')}
                                 className="vault-page-title flex-1 min-w-0 border-none outline-none placeholder:[var(--text-tertiary)]/20 text-[var(--text-primary)] bg-transparent resize-none overflow-hidden break-words"
                             />
-                            <div className="flex items-center gap-2 shrink-0 animate-in fade-in duration-300 justify-end">
+                            <div className="vault-page-title-actions flex items-center gap-2 shrink-0 animate-in fade-in duration-300 justify-end">
                                 {/* Page actions (history, comments, share, translate, code view,
                                     lock, delete) live here as inline icon buttons — see PageActionsBar.
                                     They used to sit in the VaultShell top-bar "…" menu; they were
@@ -4626,7 +4635,8 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                     type="button"
                                     onClick={() => window.dispatchEvent(new CustomEvent('gnosi:ai-correct-page'))}
                                     title={t('editor.ai_correct_page')}
-                                    className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--gnosi-primary)] transition-colors"
+                                    aria-label={t('editor.ai_correct_page')}
+                                    className="vault-page-ai-action flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--gnosi-primary)] transition-colors"
                                 >
                                     <Sparkles size={12} /> IA
                                 </button>
@@ -4641,6 +4651,19 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                             ? t('editor.spellcheck_active', { lang: spellLang.toUpperCase() })
                                             : t('editor.spellcheck_disabled'),
                                         onClick: () => setSpellEnabled((value) => !value),
+                                    }, {
+                                        key: 'ai-correct',
+                                        Icon: Sparkles,
+                                        label: t('editor.ai_correct_page'),
+                                        onClick: () => window.dispatchEvent(new CustomEvent('gnosi:ai-correct-page')),
+                                    }, {
+                                        key: 'quick-actions',
+                                        Icon: PanelBottomOpen,
+                                        active: isFloatingDockOpen,
+                                        label: isFloatingDockOpen
+                                            ? t('shell.close_quick_actions', 'Close quick actions')
+                                            : t('shell.open_quick_actions', 'Open quick actions'),
+                                        onClick: () => setIsFloatingDockOpen((value) => !value),
                                     }] : []}
                                 />
                                 <CollaborationPresence pageId={noteFilename} />
@@ -4664,7 +4687,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                         <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]/85">
                                             {t('common.properties')}
                                         </div>
-                                        <div className="text-[11px] text-[var(--text-tertiary)]/80 truncate">
+                                        <div className="vault-page-summary-meta text-[11px] truncate">
                                             {t('common.schema')} {properties.length} · {t('common.local')} {adhocProperties.length}
                                         </div>
                                     </button>
@@ -4685,7 +4708,10 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                     <button
                                         type="button"
                                         onClick={() => setIsPropertiesOpen((prev) => !prev)}
-                                        className="shrink-0"
+                                        className="vault-summary-chevron shrink-0"
+                                        title={t('editor.toggle_properties')}
+                                        aria-label={t('editor.toggle_properties')}
+                                        aria-expanded={isPropertiesOpen}
                                     >
                                         {isPropertiesOpen ? (
                                             <ChevronDown size={14} className="text-[var(--text-tertiary)]/80" />
@@ -4987,7 +5013,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                         <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]/85">
                                             {t('editor.links_and_mentions')}
                                         </div>
-                                        <div className="text-[11px] text-[var(--text-tertiary)]/80 truncate">
+                                        <div className="vault-page-summary-meta text-[11px] truncate">
                                             {t('editor.outgoing')} {outgoingLinks.length} · {t('editor.incoming')} {incomingLinks.length} · {t('editor.relations')} {relatedPages.length} · {t('editor.pending')} {unlinkedMentions.length}
                                         </div>
                                     </div>
