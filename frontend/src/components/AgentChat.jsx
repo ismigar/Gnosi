@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import * as LucideIcons from 'lucide-react';
 import { Send, X, Paperclip, Minimize2, Maximize2, Bot, Sparkles, Plus, AtSign, Archive } from 'lucide-react';
 import { useConfigChanged } from '../lib/configEvents';
+import { announceFloatingPanelOpen, useExclusiveFloatingPanel } from '../hooks/useExclusiveFloatingPanel';
 
 const CHAT_SESSIONS_KEY = 'agent_chat_sessions_v1';
 const CHAT_ACTIVE_SESSION_KEY = 'agent_chat_active_session_id';
@@ -20,14 +21,14 @@ const createChatSession = (title = 'Nova conversa') => ({
 const deriveSessionTitle = (messages, fallback = 'Nova conversa') => {
     const firstUser = (messages || []).find((m) => m.role === 'user' && String(m.content || '').trim());
     if (!firstUser) return fallback;
-    const clean = String(firstUser.content).replace(/@\[[^\]]+\]\([^\)]+\)/g, '').trim();
+    const clean = String(firstUser.content).replace(/@\[[^\]]+\]\([^)]+\)/g, '').trim();
     if (!clean) return fallback;
     return clean.length > 42 ? `${clean.slice(0, 42)}...` : clean;
 };
 
 const parseMentions = (text) => {
     const mentions = [];
-    const regex = /@\[([^\]]+)\]\((page|table|database):([^\)]+)\)/g;
+    const regex = /@\[([^\]]+)\]\((page|table|database):([^)]+)\)/g;
     let match = regex.exec(text || '');
     while (match) {
         mentions.push({ label: match[1], type: match[2], id: match[3] });
@@ -56,6 +57,7 @@ const AgentChat = () => {
     const [mentionAnchorIndex, setMentionAnchorIndex] = useState(-1);
     const [attachments, setAttachments] = useState([]);
     const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
+    useExclusiveFloatingPanel('chat', isOpen, setIsOpen);
 
     // Ref to scroll to the bottom
     const messagesEndRef = useRef(null);
@@ -72,7 +74,7 @@ const AgentChat = () => {
         let parsedSessions = [];
         try {
             parsedSessions = savedSessionsRaw ? JSON.parse(savedSessionsRaw) : [];
-        } catch (e) {
+        } catch {
             parsedSessions = [];
         }
 
@@ -106,8 +108,6 @@ const AgentChat = () => {
         }
 
         setSessionsHydrated(true);
-        loadConfig();
-        loadMentionCatalog();
     }, []);
 
     useEffect(() => {
@@ -168,7 +168,7 @@ const AgentChat = () => {
         inputRef.current.style.height = `${inputRef.current.scrollHeight}px`;
     }, [inputValue]);
 
-    const loadConfig = async () => {
+    const loadConfig = useCallback(async () => {
         try {
             const res = await fetch('/api/config');
             if (res.ok) {
@@ -191,7 +191,7 @@ const AgentChat = () => {
         } catch (e) {
             console.error("Error loading agent config", e);
         }
-    };
+    }, [selectedAgentId]);
 
     // Re-fetch when the Settings modals emit the event (without a reload).
     useConfigChanged(loadConfig);
@@ -207,7 +207,7 @@ const AgentChat = () => {
         }
     }, [selectedAgentId, agentList]);
 
-    const loadMentionCatalog = async () => {
+    const loadMentionCatalog = useCallback(async () => {
         try {
             const [pagesRes, tablesRes, dbsRes] = await Promise.all([
                 fetch('/api/vault/pages'),
@@ -258,7 +258,12 @@ const AgentChat = () => {
         } catch (e) {
             console.error('Error loading mention catalog', e);
         }
-    };
+    }, [t]);
+
+    useEffect(() => {
+        void loadConfig();
+        void loadMentionCatalog();
+    }, [loadConfig, loadMentionCatalog]);
 
     const selectSession = (nextId) => {
         const target = chatSessions.find((s) => s.id === nextId);
@@ -573,29 +578,30 @@ const AgentChat = () => {
 
     if (!isOpen) {
         return (
-            <div style={{ position: 'fixed', bottom: 'max(16px, env(safe-area-inset-bottom))', right: 'max(16px, env(safe-area-inset-right))', zIndex: 'var(--z-floating)' }}>
-                <button
-                    onClick={() => setIsOpen(true)}
-                    className="premium-chat-trigger"
-                    aria-label={t('chat.open_chat', "Open chat")}
-                    title={t('chat.open_chat', "Open chat")}
-                    style={{
-                        width: '44px', height: '44px', borderRadius: '50%',
-                        background: 'var(--gnosi-blue, #3b82f6)',
-                        color: 'white', border: 'none', cursor: 'pointer',
-                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        transition: 'all 0.2s ease'
-                    }}
-                >
-                    {renderIcon(agentIcon, 20)}
-                </button>
-            </div>
+            <button
+                onClick={() => {
+                    announceFloatingPanelOpen('chat');
+                    setIsOpen(true);
+                }}
+                className="premium-chat-trigger gnosi-floating-action gnosi-floating-action--chat"
+                aria-label={t('chat.open_chat', "Open chat")}
+                title={t('chat.open_chat', "Open chat")}
+                style={{
+                    borderRadius: '50%',
+                    background: 'var(--gnosi-blue, #3b82f6)',
+                    color: 'white', border: 'none', cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    transition: 'all 0.2s ease'
+                }}
+            >
+                {renderIcon(agentIcon, 20)}
+            </button>
         );
     }
 
     return (
-        <div style={{ 
+        <div className="gnosi-floating-panel gnosi-floating-panel--chat" style={{
             position: 'fixed', bottom: 'max(16px, env(safe-area-inset-bottom))', right: 'max(16px, env(safe-area-inset-right))', zIndex: 'var(--z-floating)',
             width: isMinimized ? '200px' : 'min(400px, calc(100vw - 2rem))',
             height: isMinimized ? '50px' : '600px',
