@@ -6,14 +6,16 @@ import { useConfigChanged } from '../lib/configEvents';
 import { announceFloatingPanelOpen, useExclusiveFloatingPanel } from '../hooks/useExclusiveFloatingPanel';
 import { useFloatingActionDock } from '../hooks/useFloatingActionDock';
 
-const CHAT_SESSIONS_KEY = 'agent_chat_sessions_v1';
-const CHAT_ACTIVE_SESSION_KEY = 'agent_chat_active_session_id';
+const CHAT_SESSIONS_KEY = 'agent_chat_sessions_v2';
+const CHAT_ACTIVE_SESSION_KEY = 'agent_chat_active_session_id_v2';
+const CHAT_SELECTED_AGENT_KEY = 'agent_selected_id_v2';
 const MAX_CHAT_ATTACHMENT_SIZE = 15 * 1024 * 1024;
 
-const createChatSession = (title = 'Nova conversa') => ({
+const createChatSession = (title = 'Nova conversa', agentId = 'gnosy') => ({
     id: crypto.randomUUID(),
     title,
     archived: false,
+    agentId,
     messages: [],
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -65,13 +67,19 @@ const AgentChat = () => {
     const messagesEndRef = useRef(null);
     const inputRef = useRef(null);
     const fileInputRef = useRef(null);
+    const requestAbortRef = useRef(null);
+    const vaultStorageScope = localStorage.getItem('gnosi_active_vault') || 'default';
+    const scopedStorageKey = useCallback(
+        (key) => `${key}:${vaultStorageScope}`,
+        [vaultStorageScope],
+    );
 
     // Init session ID
     useEffect(() => {
-        let sid = localStorage.getItem('agent_session_id');
-        const savedAgentId = localStorage.getItem('agent_selected_id');
-        const savedSessionsRaw = localStorage.getItem(CHAT_SESSIONS_KEY);
-        const savedActiveSession = localStorage.getItem(CHAT_ACTIVE_SESSION_KEY);
+        const savedAgentId = localStorage.getItem(scopedStorageKey(CHAT_SELECTED_AGENT_KEY)) || 'gnosy';
+        let sid = localStorage.getItem(scopedStorageKey('agent_session_id_v2'));
+        const savedSessionsRaw = localStorage.getItem(scopedStorageKey(CHAT_SESSIONS_KEY));
+        const savedActiveSession = localStorage.getItem(scopedStorageKey(CHAT_ACTIVE_SESSION_KEY));
 
         let parsedSessions = [];
         try {
@@ -81,13 +89,23 @@ const AgentChat = () => {
         }
 
         if (!Array.isArray(parsedSessions) || !parsedSessions.length) {
-            parsedSessions = [createChatSession('Nova conversa')];
+            parsedSessions = [createChatSession('Nova conversa', savedAgentId)];
         }
+        parsedSessions = parsedSessions.map((session) => ({
+            ...session,
+            agentId: session.agentId || savedAgentId,
+        }));
 
-        const activeFromStorage = savedActiveSession || sid || parsedSessions[0].id;
-        let activeSession = parsedSessions.find((s) => s.id === activeFromStorage);
+        const agentSessions = parsedSessions.filter((session) => session.agentId === savedAgentId);
+        if (!agentSessions.length) {
+            const fresh = createChatSession('Nova conversa', savedAgentId);
+            parsedSessions.unshift(fresh);
+            agentSessions.push(fresh);
+        }
+        const activeFromStorage = savedActiveSession || sid || agentSessions[0].id;
+        let activeSession = agentSessions.find((s) => s.id === activeFromStorage);
         if (!activeSession) {
-            activeSession = parsedSessions.find((s) => !s.archived) || parsedSessions[0];
+            activeSession = agentSessions.find((s) => !s.archived) || agentSessions[0];
         }
 
         if (!sid) {
@@ -99,33 +117,51 @@ const AgentChat = () => {
 
         // A conversation no longer persists a model override: the selected
         // agent owns its model, instructions, and context as one profile.
-        localStorage.removeItem('agent_selected_llm');
+        localStorage.removeItem(scopedStorageKey('agent_selected_llm'));
 
         setChatSessions(parsedSessions);
         setMessages(activeSession.messages || []);
         setSessionId(activeSession.id);
         if (activeSession.id) {
-            localStorage.setItem(CHAT_ACTIVE_SESSION_KEY, activeSession.id);
-            localStorage.setItem('agent_session_id', activeSession.id);
+            localStorage.setItem(scopedStorageKey(CHAT_ACTIVE_SESSION_KEY), activeSession.id);
+            localStorage.setItem(scopedStorageKey('agent_session_id_v2'), activeSession.id);
         }
 
         setSessionsHydrated(true);
-    }, []);
+    }, [scopedStorageKey]);
 
     useEffect(() => {
         if (!sessionsHydrated) return;
-        localStorage.setItem(CHAT_SESSIONS_KEY, JSON.stringify(chatSessions));
-    }, [chatSessions, sessionsHydrated]);
+        localStorage.setItem(scopedStorageKey(CHAT_SESSIONS_KEY), JSON.stringify(chatSessions));
+    }, [chatSessions, scopedStorageKey, sessionsHydrated]);
 
     useEffect(() => {
         if (!sessionsHydrated || !sessionId) return;
-        localStorage.setItem(CHAT_ACTIVE_SESSION_KEY, sessionId);
-        localStorage.setItem('agent_session_id', sessionId);
-    }, [sessionId, sessionsHydrated]);
+        localStorage.setItem(scopedStorageKey(CHAT_ACTIVE_SESSION_KEY), sessionId);
+        localStorage.setItem(scopedStorageKey('agent_session_id_v2'), sessionId);
+    }, [scopedStorageKey, sessionId, sessionsHydrated]);
 
     useEffect(() => {
-        localStorage.setItem('agent_selected_id', selectedAgentId);
-    }, [selectedAgentId]);
+        localStorage.setItem(scopedStorageKey(CHAT_SELECTED_AGENT_KEY), selectedAgentId);
+    }, [scopedStorageKey, selectedAgentId]);
+
+    useEffect(() => {
+        if (!sessionsHydrated || !selectedAgentId) return;
+        const current = chatSessions.find((session) => session.id === sessionId);
+        if (current?.agentId === selectedAgentId) return;
+        let target = [...chatSessions]
+            .filter((session) => session.agentId === selectedAgentId && !session.archived)
+            .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
+        if (!target) {
+            target = createChatSession('Nova conversa', selectedAgentId);
+            setChatSessions((prev) => [target, ...prev]);
+        }
+        setSessionId(target.id);
+        setMessages(target.messages || []);
+        setAttachments([]);
+    }, [chatSessions, selectedAgentId, sessionId, sessionsHydrated]);
+
+    useEffect(() => () => requestAbortRef.current?.abort(), []);
 
     useEffect(() => {
         if (!sessionsHydrated || !sessionId) return;
@@ -282,7 +318,7 @@ const AgentChat = () => {
     };
 
     const createNewSession = () => {
-        const next = createChatSession('Nova conversa');
+        const next = createChatSession('Nova conversa', selectedAgentId);
         setChatSessions((prev) => [
             next,
             ...prev.map((s) => s.id === sessionId ? { ...s, archived: true, updatedAt: Date.now() } : s),
@@ -297,9 +333,10 @@ const AgentChat = () => {
         if (!targetId) return;
 
         const remaining = chatSessions.filter((s) => s.id !== targetId);
-        if (!remaining.length) {
-            const fresh = createChatSession('Nova conversa');
-            setChatSessions([fresh]);
+        const remainingForAgent = remaining.filter((s) => s.agentId === selectedAgentId);
+        if (!remainingForAgent.length) {
+            const fresh = createChatSession('Nova conversa', selectedAgentId);
+            setChatSessions([fresh, ...remaining]);
             setSessionId(fresh.id);
             setMessages([]);
             setInputValue('');
@@ -309,7 +346,7 @@ const AgentChat = () => {
         setChatSessions(remaining);
 
         if (targetId === sessionId) {
-            const nextSession = remaining[0];
+            const nextSession = remainingForAgent[0];
             setSessionId(nextSession.id);
             setMessages(nextSession.messages || []);
         }
@@ -354,7 +391,7 @@ const AgentChat = () => {
         const formData = new FormData();
         formData.append('file', file);
 
-        const res = await fetch('/api/vault/upload-cover', {
+        const res = await fetch('/api/chat/attachments', {
             method: 'POST',
             body: formData,
         });
@@ -371,7 +408,7 @@ const AgentChat = () => {
             size: file.size,
             type: file.type,
             path: data.path || null,
-            url: data.url || null,
+            url: null,
         };
     };
 
@@ -430,13 +467,6 @@ const AgentChat = () => {
             url: item.url,
         }));
 
-        const hasAttachments = attachmentsPayload.length > 0;
-        const attachmentSummary = hasAttachments
-            ? `\n\nAttached files:\n${attachmentsPayload.map((item) => `- ${item.name}${item.url ? ` (${item.url})` : ''}`).join('\n')}`
-            : '';
-
-        const messageToSend = `${inputValue}${attachmentSummary}`;
-
         const visibleContent = inputValue.trim() ? inputValue : t('chat.attachments_only_label', "(Attachments)");
 
         const userMsg = {
@@ -452,17 +482,21 @@ const AgentChat = () => {
         setIsLoading(true);
 
         try {
+            requestAbortRef.current?.abort();
+            const controller = new AbortController();
+            requestAbortRef.current = controller;
             const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    message: messageToSend,
+                    message: inputValue,
                     agent_id: selectedAgentId,
                     session_id: sessionId,
                     llm_mode: 'agent_default',
                     mentions,
                     attachments: attachmentsPayload,
-                })
+                }),
+                signal: controller.signal,
             });
 
             if (!response.ok) {
@@ -484,6 +518,9 @@ const AgentChat = () => {
             const decoder = new TextDecoder();
             let aiMsgAdded = false;
             let buffer = '';
+            let selectedLlm = null;
+            let terminalReceived = false;
+            let responseReceived = false;
 
             while (true) {
                 const { done, value } = await reader.read();
@@ -503,14 +540,34 @@ const AgentChat = () => {
                     if (!line.trim()) continue;
                     try {
                         const data = JSON.parse(line);
-                        
+
+                        if (data.type === 'llm_selected') {
+                            selectedLlm = {
+                                mode: data.mode || 'agent_default',
+                                provider: data.provider,
+                                model: data.model,
+                            };
+                            continue;
+                        }
+                        if (data.type === 'done') {
+                            terminalReceived = true;
+                            responseReceived = responseReceived || Boolean(data.has_response);
+                            continue;
+                        }
+                        const carriesResponse = [
+                            'tool_start', 'tool_end', 'message', 'thought', 'error',
+                        ].includes(data.type);
+                        if (!carriesResponse) continue;
+
+                        responseReceived = true;
+                        const addAssistant = !aiMsgAdded;
+                        aiMsgAdded = true;
                         setMessages(prev => {
                             const newMsgs = [...prev];
-                            
-                            // If we haven't added the AI message yet, we add it now
-                            if (!aiMsgAdded) {
-                                aiMsgAdded = true;
-                                newMsgs.push({ role: 'assistant', content: '' });
+
+                            // Metadata never creates an empty assistant bubble.
+                            if (addAssistant) {
+                                newMsgs.push({ role: 'assistant', content: '', llm: selectedLlm });
                             }
 
                             const lastIdx = newMsgs.length - 1;
@@ -522,13 +579,6 @@ const AgentChat = () => {
                                 lastMsg.content = t('chat.tool_end', "✅ *Tool {{tool}} finished.*", { tool: data.tool });
                             } else if (data.type === 'message' || data.type === 'thought') {
                                 if (data.content) lastMsg.content = data.content;
-                            } else if (data.type === 'llm_selected') {
-                                const llmInfo = {
-                                    mode: data.mode || 'auto',
-                                    provider: data.provider,
-                                    model: data.model,
-                                };
-                                lastMsg.llm = llmInfo;
                             } else if (data.type === 'error') {
                                 // Translation and improvement of common messages
                                 let errorContent = data.content || t('errors.unknown');
@@ -537,7 +587,6 @@ const AgentChat = () => {
                                 }
                                 lastMsg.content = `❌ ${t('chat.error_prefix', 'Error')}: ${errorContent}`;
                             }
-
                             newMsgs[lastIdx] = lastMsg;
                             return newMsgs;
                         });
@@ -548,9 +597,21 @@ const AgentChat = () => {
 
                 if (done) break;
             }
+            if (!terminalReceived || !responseReceived) {
+                setMessages((prev) => [
+                    ...prev,
+                    {
+                        role: 'system',
+                        content: `${t('chat.error_prefix', 'Error')}: ${t('chat.empty_response', 'The assistant finished without returning a response. Please try again.')}`,
+                    },
+                ]);
+            }
         } catch (error) {
-            setMessages(prev => [...prev, { role: 'system', content: `${t('chat.error_prefix', 'Error')}: ${error.message}` }]);
+            if (error.name !== 'AbortError') {
+                setMessages(prev => [...prev, { role: 'system', content: `${t('chat.error_prefix', 'Error')}: ${error.message}` }]);
+            }
         } finally {
+            requestAbortRef.current = null;
             setIsLoading(false);
             if (inputRef.current) {
                 inputRef.current.style.height = 'auto';
@@ -576,7 +637,9 @@ const AgentChat = () => {
     const agentModel = agentHasModel
         ? `${agentConfig.provider} · ${agentConfig.model}`
         : t('chat.model_not_configured', 'Model not configured');
-    const sortedSessions = [...chatSessions].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    const sortedSessions = chatSessions
+        .filter((session) => session.agentId === selectedAgentId)
+        .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
 
     if (!isOpen) {
         return (
