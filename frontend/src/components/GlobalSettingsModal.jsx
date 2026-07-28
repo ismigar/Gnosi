@@ -1339,6 +1339,19 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         } catch (globalErr) {
             console.error("Critical global error in handleClose:", globalErr);
         } finally {
+            // Inline editors are scoped to an open Settings session. Leaving
+            // one selected after closing makes its row look active when the
+            // modal is opened again, even though its portal target is gone.
+            setEditingAgent(null);
+            setAgentEditorTarget(null);
+            setEditingAccountId(null);
+            setAccountEditorTarget(null);
+            setEditingTableColor(null);
+            setTableColorEditorTarget(null);
+            setEditingSnippetId(null);
+            setSnippetEditorTarget(null);
+            setAddAccountType(null);
+            setIsAddingTable(false);
             // 5. We call the original onClose to close the modal ALWAYS, even if there are errors
             onClose();
         }
