@@ -94,6 +94,10 @@ configuration autosave.
   may keep their panel inside the card, but the expanded card must use the same
   blue active border. Do not reintroduce per-collection inline geometry for
   borders, gaps, or connecting radii.
+- Reserve the blue row border exclusively for an open inline editor. A normal
+  row, including one under the pointer, keeps the neutral Settings border.
+  Clear all inline-editor identity and portal-target state when Settings closes
+  so a reopened modal cannot show a stale active row without its editor.
 - Do not render one shared existing-item editor above or below the complete
   collection. The visual separation makes it unclear which item owns the draft,
   especially when the collection scrolls.
