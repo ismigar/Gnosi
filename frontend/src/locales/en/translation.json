@@ -2856,6 +2856,8 @@
     "see_less": "See less",
     "open": "Open",
     "open_page": "Open page",
+    "show_more_tags": "Show {{count}} more tags",
+    "show_fewer_tags": "Show fewer tags",
     "read_full": "Read in full",
     "empty": "No posts in the feed."
   },
