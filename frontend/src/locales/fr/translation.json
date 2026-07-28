@@ -13,6 +13,7 @@
   },
   "common": {
     "knowledge": "Connaissance",
+    "vault_label": "Vault",
     "yes": "Oui",
     "undo": "Annuler",
     "new_dashboard": "Nouveau tableau de bord",
@@ -1937,6 +1938,7 @@
     "upload_to": "Téléverser dans {{folder}}"
   },
   "sidebar": {
+    "main_navigation": "Navigation principale",
     "nav_vault": "Ma connaissance",
     "nav_graph": "Graphe",
     "nav_contacts": "Contacts",
@@ -3110,6 +3112,7 @@
     "frequency_days_many": "Tous les {{count}} jours"
   },
   "media": {
+    "toggle_library": "Afficher ou masquer la médiathèque",
     "title": "Gestionnaire de médias",
     "subtitle": "Images, vidéos, audio et PDF",
     "root_images": "Images",
@@ -3564,6 +3567,14 @@
     "imported": "{{created}} références importées · {{skipped}} existaient déjà"
   },
   "social": {
+    "boosted_by": "{{name}} a partagé",
+    "open_post": "Ouvrir la publication",
+    "repost": "Republier",
+    "like": "J’aime",
+    "share_post": "Partager la publication",
+    "tab_dashboard": "Tableau",
+    "section_navigation": "Sections sociales",
+    "stream_actions": "Actions du flux",
     "compose_error": "Erreur lors de la génération des propositions",
     "from_record": "Source : « {{title}} ». L'IA proposera un texte par réseau dans la même langue.",
     "generate": "Générer avec l'IA",
@@ -3864,6 +3875,7 @@
     "delete_feed_message": "Voulez-vous vraiment supprimer ce flux et tous ses articles ? Cette action est irréversible."
   },
   "graph": {
+    "page_title": "Graphe de connaissances",
     "loading": {
       "title": "Chargement du Cerveau Digital...",
       "subtitle": "Connexion des neurones..."
@@ -4032,11 +4044,13 @@
     "module_settings_desc": "Gérez les paramètres de votre écosystème."
   },
   "composer": {
+    "title": "Compositeur",
     "subtitle": "Créez et planifiez du contenu pour vos réseaux sociaux.",
     "social_dashboard_title": "Tableau de bord social",
     "social_dashboard_desc": "Gérez vos flux et streams de réseaux sociaux."
   },
   "scheduler": {
+    "title": "Planificateur de tâches",
     "subtitle": "Gérez les automatisations et tâches de fond de Gnosi.",
     "interval_label": "Intervalle : {{value}}",
     "no_tasks": "Aucune tâche planifiée trouvée."
@@ -4083,7 +4097,7 @@
     "no_files": "Aucun fichier trouvé"
   },
   "planning_page": {
-    "title": "Planification de projets", "subtitle": "Planning, chemin critique, ressources et diagnostics.", "project_id": "ID du projet", "project": "Projet", "default_project": "Projet par défaut", "refresh": "Actualiser", "load_error": "Impossible de charger le planning du projet.", "critical_tasks": "Tâches critiques", "estimated_cost": "Coût estimé", "warnings": "Avertissements", "schedule": "Planning", "task": "Tâche", "start": "Début", "finish": "Fin", "slack": "Marge", "diagnostics": "Diagnostics"
+    "title": "Planification de projets", "subtitle": "Planning, chemin critique, ressources et diagnostics.", "project_id": "ID du projet", "project": "Projet", "default_project": "Projet par défaut", "refresh": "Actualiser", "load_error": "Impossible de charger le planning du projet.", "critical_tasks": "Tâches critiques", "estimated_cost": "Coût estimé", "warnings": "Avertissements", "schedule": "Planning", "task": "Tâche", "start": "Début", "finish": "Fin", "slack": "Marge", "diagnostics": "Diagnostics", "baselines": "Références", "baseline_name": "Nom de la référence", "create": "Créer", "worklogs": "Journaux de travail", "add_worklog": "Ajouter un journal", "entries": "entrées", "resource_heatmap": "Charge des ressources", "leveling": "Nivellement des ressources", "generate_proposal": "Générer une proposition", "proposed_changes": "modifications proposées", "apply_proposal": "Appliquer la proposition"
   },
   "vault_date": {
     "days_placeholder": "jours",

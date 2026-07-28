@@ -40,6 +40,7 @@
   },
   "common": {
     "knowledge": "Conocimiento",
+    "vault_label": "Vault",
     "yes": "Sí",
     "untitled": "Sin título",
     "new": "Nuevo",
@@ -370,6 +371,7 @@
     "error_deleting_event": "No se pudo eliminar el evento"
   },
   "sidebar": {
+    "main_navigation": "Navegación principal",
     "my_vault": "Mi Conocimiento",
     "search": "Buscar",
     "recent": "Reciente",
@@ -3215,6 +3217,7 @@
     "records_restore_failed_many": "No se han podido restaurar {{count}} registros (códigos: {{reasons}})"
   },
   "media": {
+    "toggle_library": "Mostrar u ocultar la biblioteca multimedia",
     "title": "Gestor de Medios",
     "subtitle": "Imágenes, vídeos, audio y PDFs",
     "root_images": "Imágenes",
@@ -3564,6 +3567,14 @@
     "imported": "{{created}} referencias importadas · {{skipped}} ya existían"
   },
   "social": {
+    "boosted_by": "{{name}} lo ha impulsado",
+    "open_post": "Abrir publicación",
+    "repost": "Volver a publicar",
+    "like": "Me gusta",
+    "share_post": "Compartir publicación",
+    "tab_dashboard": "Panel",
+    "section_navigation": "Secciones sociales",
+    "stream_actions": "Acciones del canal",
     "compose_error": "Error al generar las propuestas",
     "from_record": "Origen: «{{title}}». La IA propondrá un texto por red en el mismo idioma.",
     "generate": "Generar con IA",
@@ -3864,6 +3875,7 @@
     "delete_feed_message": "¿Seguro que quieres eliminar este feed y todos sus artículos? Esta acción no se puede deshacer."
   },
   "graph": {
+    "page_title": "Grafo de conocimiento",
     "loading": {
       "title": "Cargando el Cerebro Digital...",
       "subtitle": "Conectando neuronas..."
@@ -4032,11 +4044,13 @@
     "module_settings_desc": "Gestiona los parámetros de tu ecosistema."
   },
   "composer": {
+    "title": "Compositor",
     "subtitle": "Crea y programa contenido para tus redes sociales.",
     "social_dashboard_title": "Panel Social",
     "social_dashboard_desc": "Gestiona tus streams y feeds de redes sociales."
   },
   "scheduler": {
+    "title": "Programador de tareas",
     "subtitle": "Gestiona las automatizaciones y tareas de fondo de Gnosi.",
     "interval_label": "Intervalo: {{value}}",
     "no_tasks": "No se han encontrado tareas programadas."
@@ -4083,7 +4097,7 @@
     "no_files": "No se han encontrado archivos"
   },
   "planning_page": {
-    "title": "Planificación de proyectos", "subtitle": "Calendario, ruta crítica, recursos y diagnósticos.", "project_id": "ID del proyecto", "project": "Proyecto", "default_project": "Proyecto predeterminado", "refresh": "Actualizar", "load_error": "No se ha podido cargar la planificación.", "critical_tasks": "Tareas críticas", "estimated_cost": "Coste estimado", "warnings": "Avisos", "schedule": "Calendario", "task": "Tarea", "start": "Inicio", "finish": "Fin", "slack": "Holgura", "diagnostics": "Diagnósticos"
+    "title": "Planificación de proyectos", "subtitle": "Calendario, ruta crítica, recursos y diagnósticos.", "project_id": "ID del proyecto", "project": "Proyecto", "default_project": "Proyecto predeterminado", "refresh": "Actualizar", "load_error": "No se ha podido cargar la planificación.", "critical_tasks": "Tareas críticas", "estimated_cost": "Coste estimado", "warnings": "Avisos", "schedule": "Calendario", "task": "Tarea", "start": "Inicio", "finish": "Fin", "slack": "Holgura", "diagnostics": "Diagnósticos", "baselines": "Líneas base", "baseline_name": "Nombre de la línea base", "create": "Crear", "worklogs": "Registros de trabajo", "add_worklog": "Añadir registro", "entries": "entradas", "resource_heatmap": "Carga de recursos", "leveling": "Nivelación de recursos", "generate_proposal": "Generar propuesta", "proposed_changes": "cambios propuestos", "apply_proposal": "Aplicar propuesta"
   },
   "vault_date": {
     "days_placeholder": "días",

@@ -451,3 +451,95 @@
         justify-content: center;
     }
 }
+
+@media (max-width: 768px) {
+    .settings-overlay {
+        height: 100dvh;
+        backdrop-filter: blur(6px);
+    }
+
+    .settings-modal {
+        width: calc(100vw - 12px);
+        height: calc(100dvh - 12px);
+        max-height: none;
+        border-radius: 20px;
+        box-shadow: 0 20px 60px rgba(15, 23, 42, 0.22);
+    }
+
+    .settings-inner {
+        flex-direction: column;
+    }
+
+    .settings-sidebar {
+        width: 100%;
+        flex: 0 0 auto;
+        gap: 10px;
+        padding: 14px 54px 10px 14px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        border-inline-end: 0;
+        border-bottom: 1px solid var(--settings-border);
+    }
+
+    .settings-sidebar-header {
+        padding: 0;
+    }
+
+    .settings-sidebar-brand {
+        gap: 9px;
+    }
+
+    .settings-sidebar-title {
+        font-size: 1.05rem;
+    }
+
+    .settings-sidebar-nav {
+        width: max-content;
+        flex-direction: row;
+        gap: 6px;
+    }
+
+    .settings-sidebar-group,
+    .settings-sidebar-group__content {
+        flex-direction: row;
+        gap: 6px;
+    }
+
+    .settings-sidebar-group__title {
+        display: none;
+    }
+
+    .settings-sidebar-group__toggle {
+        min-height: var(--control-height-touch);
+        margin: 0;
+        padding: 0 12px;
+        border: 1px solid var(--settings-border);
+        border-radius: 12px;
+        background: var(--settings-bg);
+    }
+
+    .settings-sidebar__item {
+        min-height: var(--control-height-touch);
+        padding: 9px 13px !important;
+        white-space: nowrap;
+    }
+
+    .settings-main {
+        min-height: 0;
+    }
+
+    .settings-content-wrap {
+        max-width: none;
+        padding: 28px 16px 48px;
+    }
+
+    .settings-close-btn {
+        top: 12px;
+        inset-inline-end: 12px;
+    }
+
+    .account-row {
+        padding: 16px !important;
+        border-radius: 16px !important;
+    }
+}

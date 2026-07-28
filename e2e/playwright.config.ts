@@ -15,10 +15,11 @@ const DEFAULT_BASE_URL = fs.existsSync(CERT_FILE)
  * Playwright config for Gnosi E2E tests.
  *
  * Architecture:
- * - Frontend runs in Docker (gnosi_frontend) on localhost:5173.
+ * - Frontend runs natively through the Gnosi LaunchAgent on localhost:5173.
  * - Tests run on the host (macOS) and connect over HTTP.
  * - We do NOT start a webServer here — anti-ghosting (see environment_integrity.md):
  *   if 5173 is not up, tests fail by design instead of spinning a second instance.
+ * - Docker remains a supported deployment target, but it is not the local fallback.
  *
  * Projects:
  * - setup: prepares localStorage state for authenticated runs (cached at .auth/state.json).

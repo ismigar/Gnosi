@@ -151,7 +151,7 @@ export const WikilinkContextMenu = ({ isOpen, position, onClose, onOpenSameTab, 
             ref={menuRef}
             role="menu"
             aria-orientation="vertical"
-            className="fixed z-[9999] bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700/60 py-1.5 min-w-[240px] animate-in fade-in zoom-in-95 duration-150"
+            className="fixed z-[var(--z-popover)] bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700/60 py-1.5 min-w-[240px] animate-in fade-in zoom-in-95 duration-150"
             style={{ top: pos.y, left: pos.x }}
         >
             {items.map((item, idx) => {

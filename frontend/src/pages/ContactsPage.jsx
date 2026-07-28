@@ -21,6 +21,7 @@ export default function ContactsPage() {
     const [deleteModal, setDeleteModal] = useState({ isOpen: false, contactId: null });
     const [contactAccounts, setContactAccounts] = useState([]);
     const [defaultContactAccount, setDefaultContactAccount] = useState(null);
+    const hasActivePane = isEditing || Boolean(selectedContact);
 
     const loadContacts = async () => {
         setLoading(true);
@@ -130,8 +131,8 @@ export default function ContactsPage() {
                 </button>
             </AppHeader>
 
-            <div className="flex-1 flex overflow-hidden">
-                <div className="flex flex-col w-[380px] border-r border-[var(--border-primary)]">
+            <div className="contacts-split">
+                <div className={`contacts-master ${hasActivePane ? 'contacts-master--inactive' : ''}`}>
                     <div className="flex-1 overflow-hidden">
                         <ContactList
                             contacts={contacts}
@@ -144,7 +145,7 @@ export default function ContactsPage() {
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto bg-[var(--bg-primary)]">
+                <div className={`contacts-detail-pane ${hasActivePane ? 'contacts-detail-pane--active' : ''}`}>
                     {isEditing ? (
                         <ContactForm
                             contact={isCreating ? null : selectedContact}
@@ -159,6 +160,7 @@ export default function ContactsPage() {
                             contact={selectedContact}
                             onEdit={handleEdit}
                             onDelete={handleDelete}
+                            onBack={() => setSelectedContact(null)}
                         />
                     ) : (
                         <div className="h-full flex items-center justify-center p-10 text-center">

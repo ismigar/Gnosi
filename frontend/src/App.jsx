@@ -1,5 +1,5 @@
 import React, { useEffect, Suspense, lazy } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AppSidebar } from './components/AppSidebar';
 import HomePage from './pages/HomePage';
@@ -44,14 +44,23 @@ import { LoginPage } from './components/Auth/LoginPage';
 function RouteFallback() {
   const { t } = useTranslation();
   return (
-    <div className="flex h-full items-center justify-center bg-[var(--bg-secondary)] text-[var(--text-secondary)]">
-      <div className="animate-pulse text-sm">{t('common.loading', "Loading...")}</div>
+    <div className="gnosi-route-skeleton" role="status" aria-live="polite">
+      <div className="gnosi-route-skeleton__header">
+        <span className="gnosi-skeleton gnosi-route-skeleton__title" />
+        <span className="gnosi-skeleton gnosi-route-skeleton__action" />
+      </div>
+      <div className="gnosi-route-skeleton__body">
+        <span className="gnosi-skeleton gnosi-route-skeleton__panel" />
+        <span className="gnosi-skeleton gnosi-route-skeleton__content" />
+      </div>
+      <span className="sr-only">{t('common.loading', "Loading...")}</span>
     </div>
   );
 }
 
 function App() {
   const { t } = useTranslation();
+  const location = useLocation();
   const { effectiveTheme } = useTheme();
   const { user, gnosiMode, requireAuth, loading } = useAuth();
   // Captures clicks on file:// everywhere and redirects them to the system shell
@@ -66,6 +75,11 @@ function App() {
       root.classList.remove('dark');
     }
   }, [effectiveTheme]);
+
+  useEffect(() => {
+    const pageScroller = document.getElementById('page-content-scroll');
+    if (pageScroller) pageScroller.scrollTop = 0;
+  }, [location.pathname]);
 
   // Bootstrap: we wait to know the mode and whether there's a session before deciding.
   if (loading) {
@@ -86,7 +100,7 @@ function App() {
             <Route path="/s/:token" element={<SharedPage />} />
           </Routes>
         </Suspense>
-        <Toaster position="bottom-right" containerStyle={{ zIndex: 100001 }} />
+        <Toaster position="bottom-right" containerStyle={{ zIndex: 'var(--z-toast)' }} />
       </>
     );
   }
@@ -99,12 +113,12 @@ function App() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors duration-300">
+    <div className="gnosi-app-shell">
       {/* Global sidebar always present */}
       <AppSidebar />
 
       {/* Contingut principal */}
-      <div id="page-content-scroll" className="flex-1 overflow-y-auto overflow-x-hidden bg-[var(--bg-secondary)] transition-colors duration-300">
+      <div id="page-content-scroll" className="gnosi-app-content">
         <Suspense fallback={<RouteFallback />}>
         <Routes>
           <Route path="/" element={<HomePage />} />
@@ -129,10 +143,8 @@ function App() {
         </Routes>
         </Suspense>
       </div>
-      {/* z-index above all modal overlays (GlobalSettingsModal:10000,
-          ZoteroMappingModal and AIAgentModal:100000). Without this, toasts
-          stayed hidden behind any open modal. */}
-      <Toaster position="bottom-right" containerStyle={{ zIndex: 100001 }} />
+      {/* Toasts use the registered global notification layer. */}
+      <Toaster position="bottom-right" containerStyle={{ zIndex: 'var(--z-toast)' }} />
       <CommandPalette />
       <PageOutline />
       <AgentChat />

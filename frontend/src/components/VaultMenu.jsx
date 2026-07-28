@@ -71,16 +71,17 @@ export default function VaultMenu() {
     }, [open]);
 
     const active = vaults.find(v => v.active);
+    const vaultLabel = t('common.vault_label', 'Vault');
     const itemBtn = { width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '7px 8px', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.85rem' };
 
     return (
         <>
-            <button ref={btnRef} className="app-sidebar__item" title={`Vault: ${active?.name || '…'}`} onClick={toggle}>
+            <button ref={btnRef} className="app-sidebar__item" title={`${vaultLabel}: ${active?.name || '…'}`} onClick={toggle}>
                 <Database size={16} strokeWidth={1.5} />
-                <span className="app-sidebar__tooltip"><span>Vault: {active?.name || '…'}</span></span>
+                <span className="app-sidebar__tooltip"><span>{vaultLabel}: {active?.name || '…'}</span></span>
             </button>
             {open && pos && createPortal(
-                <div data-vaultmenu style={{ position: 'fixed', left: pos.left, top: pos.top, zIndex: 4000, minWidth: 220,
+                <div data-vaultmenu style={{ position: 'fixed', left: pos.left, top: pos.top, zIndex: 'var(--z-popover)', minWidth: 220,
                     background: 'var(--bg-primary)', border: '1px solid var(--settings-border)', borderRadius: 12, padding: 8,
                     boxShadow: '0 10px 34px rgba(0,0,0,0.28)' }}>
                     <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-tertiary)', padding: '2px 8px 6px' }}>{t('sidebar.vault_menu_active', "ACTIVE VAULT")}</div>

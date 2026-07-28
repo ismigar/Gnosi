@@ -104,7 +104,7 @@ export function ShareModal({ pageId, pageTitle, open, onClose }) {
     if (!open) return null;
 
     return (
-        <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4 animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-4 animate-in fade-in duration-150">
             <div className="absolute inset-0 bg-black/40" onClick={onClose} />
             <div
                 ref={modalRef}

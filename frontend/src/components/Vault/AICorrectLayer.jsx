@@ -122,14 +122,14 @@ export default function AICorrectLayer({ editor, lang }) {
                 <button
                     data-gnosi-portal="ai-correct-btn"
                     onMouseDown={(e) => { e.preventDefault(); correctSelection(); }}
-                    style={{ position: 'fixed', top: btn.top, left: btn.left, zIndex: 9998 }}
+                    style={{ position: 'fixed', top: btn.top, left: btn.left, zIndex: 'var(--z-popover)' }}
                     className="flex items-center gap-1 rounded-full bg-[var(--gnosi-primary)] px-3 py-1.5 text-xs font-medium text-white shadow-lg hover:opacity-90"
                 >
                     <Sparkles size={14} /> {t('ai_correct.button', "Correct (AI)")}
                 </button>, document.body)}
 
             {busy && createPortal(
-                <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 10060 }}
+                <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 'var(--z-notification)' }}
                     className="flex items-center gap-2 rounded-lg bg-[var(--gnosi-primary)] px-3 py-2 text-sm text-white shadow-xl">
                     <Loader2 size={16} className="animate-spin" /> {t('ai_correct.correcting', "Correcting with AI…")}
                 </div>, document.body)}

@@ -398,11 +398,12 @@ const ReaderDashboard = () => {
     }, [displayArticles, t, i18n.resolvedLanguage]);
 
     return (
-        <div className="flex flex-col h-screen w-full bg-[var(--bg-primary)] text-[var(--text-primary)] font-sans overflow-hidden">
+        <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-[var(--bg-primary)] font-sans text-[var(--text-primary)]">
             <AppHeader icon={BookOpen} title={t('reader_title')}>
                 <button
                     onClick={() => setMobileChannelsOpen(true)}
                     title={t('reader_open_channels')}
+                    aria-label={t('reader_open_channels')}
                     className="md:hidden p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
                 >
                     <Menu size={16} />
@@ -411,6 +412,7 @@ const ReaderDashboard = () => {
                     onClick={handleSyncAll}
                     disabled={syncing}
                     title={t('reader_sync')}
+                    aria-label={t('reader_sync')}
                     className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors disabled:opacity-50"
                 >
                     <RotateCw size={16} className={syncing ? "animate-spin" : ""} />

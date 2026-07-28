@@ -514,10 +514,10 @@ function GraphPage() {
 
     if (loading) {
         return (
-            <div className="flex h-screen items-center justify-center bg-gray-50 flex-col gap-4">
+            <div className="flex h-full flex-col items-center justify-center gap-4 bg-[var(--bg-secondary)] text-[var(--text-primary)]" role="status" aria-live="polite">
                 <div className="text-4xl animate-bounce">🧠</div>
-                <div className="text-xl font-medium text-gray-600 animate-pulse">{t('graph.loading.title', "Loading the Digital Brain...")}</div>
-                <div className="text-sm text-gray-400">{t('graph.loading.subtitle', "Connecting neurons...")}</div>
+                <div className="animate-pulse text-xl font-medium text-[var(--text-secondary)]">{t('graph.loading.title', "Loading the Digital Brain...")}</div>
+                <div className="text-sm text-[var(--text-tertiary)]">{t('graph.loading.subtitle', "Connecting neurons...")}</div>
             </div>
         );
     }

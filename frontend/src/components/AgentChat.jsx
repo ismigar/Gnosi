@@ -573,7 +573,7 @@ const AgentChat = () => {
 
     if (!isOpen) {
         return (
-            <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 9999 }}>
+            <div style={{ position: 'fixed', bottom: 'max(16px, env(safe-area-inset-bottom))', right: 'max(16px, env(safe-area-inset-right))', zIndex: 'var(--z-floating)' }}>
                 <button
                     onClick={() => setIsOpen(true)}
                     className="premium-chat-trigger"
@@ -596,8 +596,8 @@ const AgentChat = () => {
 
     return (
         <div style={{ 
-            position: 'fixed', bottom: '24px', right: '24px', zIndex: 9999,
-            width: isMinimized ? '200px' : '400px', 
+            position: 'fixed', bottom: 'max(16px, env(safe-area-inset-bottom))', right: 'max(16px, env(safe-area-inset-right))', zIndex: 'var(--z-floating)',
+            width: isMinimized ? '200px' : 'min(400px, calc(100vw - 2rem))',
             height: isMinimized ? '50px' : '600px',
             maxHeight: 'calc(100vh - 100px)',
             backgroundColor: 'var(--bg-primary, white)',

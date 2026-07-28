@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
-import { useActiveVaultName } from '../hooks/useActiveVaultName';
+import { AppHeader } from '../components/AppHeader';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import {
   Image as ImageIcon,
   Upload,
@@ -41,7 +42,8 @@ import {
   Maximize2,
   Minimize2,
   Play,
-  Pause
+  Pause,
+  PanelLeft
 } from 'lucide-react';
 import { toast } from '../lib/toast';
 import { useTranslation } from 'react-i18next';
@@ -253,7 +255,7 @@ function ViewNamePromptModal({ open, defaultValue, onCancel, onConfirm }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={onCancel} />
       <div
         className="relative bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200"
@@ -316,7 +318,7 @@ function ConfirmDialog({
   const { t } = useTranslation();
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onClick={onCancel} />
       <div
         className="relative bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200"
@@ -626,7 +628,8 @@ function MediaToolbar({
 
 export default function MediaCenter() {
   const { t } = useTranslation();
-  const activeVaultName = useActiveVaultName();
+  const isCompact = useMediaQuery('(max-width: 767px)');
+  const [sidebarOpen, setSidebarOpen] = useState(() => typeof window === 'undefined' || !window.matchMedia('(max-width: 767px)').matches);
   const [media, setMedia] = useState([]);
   const [albums, setAlbums] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -638,6 +641,10 @@ export default function MediaCenter() {
   const [isUploading, setIsUploading] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [editingMetadata, setEditingMetadata] = useState({ tags: [], description: '' });
+
+  useEffect(() => {
+    setSidebarOpen(!isCompact);
+  }, [isCompact]);
 
   // Multi-root: the gallery can look at Images/ (default), Assets/, Library/
   // or the whole Vault. Available roots come from the backend.
@@ -1088,27 +1095,23 @@ export default function MediaCenter() {
   }, [slideshowActive, selectedPhoto, hasNext, goNext]);
 
   return (
-    <div className="flex flex-col h-screen bg-[var(--bg-secondary)] overflow-hidden">
-      {/* Header */}
-      <header className="p-6 bg-[var(--bg-primary)] border-b border-[var(--border-primary)] flex justify-between items-center z-10 shadow-sm">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--bg-secondary)]">
+      <AppHeader
+        icon={ImageIcon}
+        title={t('media.title')}
+        subtitle={`${t('media.subtitle')} · ${ROOT_META[activeRoot]?.labelKey ? t(ROOT_META[activeRoot].labelKey) : activeRoot}`}
+      >
+        <button
+          type="button"
+          onClick={() => setSidebarOpen((open) => !open)}
+          className="gnosi-icon-button md:hidden"
+          title={t('media.toggle_library', 'Show or hide media library')}
+          aria-label={t('media.toggle_library', 'Show or hide media library')}
+          aria-expanded={sidebarOpen}
+        >
+          <PanelLeft size={18} />
+        </button>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-[var(--gnosi-primary)]/10 rounded-lg text-[var(--gnosi-primary)]">
-            <ImageIcon size={24} />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-[var(--text-primary)]">{t('media.title')}</h1>
-              <span className="text-xs font-medium text-[var(--text-tertiary)] bg-[var(--bg-secondary)] px-2 py-0.5 rounded-md border border-[var(--border-primary)]">
-                Vault: {activeVaultName || '…'}
-              </span>
-            </div>
-            <p className="text-xs text-[var(--text-tertiary)]">
-              {t('media.subtitle')} · {ROOT_META[activeRoot]?.labelKey ? t(ROOT_META[activeRoot].labelKey) : activeRoot}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-4">
           <div className="relative group">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] group-focus-within:text-[var(--gnosi-primary)] transition-colors" size={16} />
             <input 
@@ -1116,7 +1119,7 @@ export default function MediaCenter() {
               placeholder={t('media.search_placeholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 w-64 transition-all"
+              className="w-52 rounded-full border border-[var(--border-primary)] bg-[var(--bg-secondary)] py-2 pl-10 pr-4 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 sm:w-64"
             />
           </div>
 
@@ -1143,7 +1146,7 @@ export default function MediaCenter() {
             </label>
           )}
         </div>
-      </header>
+      </AppHeader>
 
       {/* Filter + sort toolbar (only when there's an active album) */}
       {activeAlbum !== null && (
@@ -1160,9 +1163,17 @@ export default function MediaCenter() {
         />
       )}
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="relative flex flex-1 overflow-hidden">
+        {isCompact && sidebarOpen && (
+          <button
+            type="button"
+            className="media-library__backdrop"
+            onClick={() => setSidebarOpen(false)}
+            aria-label={t('common.close', 'Close')}
+          />
+        )}
         {/* Sidebar Albums */}
-        <aside className="w-64 bg-[var(--bg-primary)] border-r border-[var(--border-primary)] p-4 flex flex-col gap-2 overflow-y-auto">
+        <aside className={`media-library__sidebar ${sidebarOpen ? 'is-open' : ''}`}>
           {/* Root tabs: Images, Assets, Library, Vault */}
           {roots.length > 1 && (
             <>
@@ -1361,7 +1372,7 @@ export default function MediaCenter() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            className="fixed inset-0 z-[9000] bg-black/95 backdrop-blur-md flex flex-col"
+            className="fixed inset-0 z-[var(--z-modal)] bg-black/95 backdrop-blur-md flex flex-col"
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 text-white border-b border-white/10 shrink-0">

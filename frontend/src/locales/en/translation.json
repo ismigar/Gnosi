@@ -88,6 +88,7 @@
   },
   "common": {
     "knowledge": "Knowledge",
+    "vault_label": "Vault",
     "yes": "Yes",
     "status": {
       "saving": "Saving...",
@@ -418,6 +419,7 @@
     "error_deleting_event": "Could not delete the event"
   },
   "sidebar": {
+    "main_navigation": "Main navigation",
     "my_vault": "My Knowledge",
     "search": "Search",
     "recent": "Recent",
@@ -3187,6 +3189,7 @@
     "not_native": "the type doesn't carry them natively"
   },
   "media": {
+    "toggle_library": "Show or hide media library",
     "title": "Media Manager",
     "subtitle": "Images, videos, audio and PDFs",
     "root_images": "Images",
@@ -3534,6 +3537,14 @@
     "imported": "{{created}} references imported · {{skipped}} already existed"
   },
   "social": {
+    "boosted_by": "{{name}} boosted",
+    "open_post": "Open post",
+    "repost": "Repost",
+    "like": "Like",
+    "share_post": "Share post",
+    "tab_dashboard": "Dashboard",
+    "section_navigation": "Social sections",
+    "stream_actions": "Stream actions",
     "compose_error": "Error generating the proposals",
     "from_record": "Source: \"{{title}}\". AI will suggest a text for each network in the same language.",
     "generate": "Generate with AI",
@@ -3732,6 +3743,7 @@
     "delete_feed_message": "Are you sure you want to delete this feed and all its articles? This action cannot be undone."
   },
   "graph": {
+    "page_title": "Knowledge graph",
     "loading": {
       "title": "Loading the Digital Brain...",
       "subtitle": "Connecting neurons..."
@@ -3898,11 +3910,13 @@
     "module_settings_desc": "Manage your ecosystem's settings."
   },
   "composer": {
+    "title": "Composer",
     "subtitle": "Create and schedule content for your social networks.",
     "social_dashboard_title": "Social Dashboard",
     "social_dashboard_desc": "Manage your social media streams and feeds."
   },
   "scheduler": {
+    "title": "Task scheduler",
     "subtitle": "Manage Gnosi's automations and background tasks.",
     "interval_label": "Interval: {{value}}",
     "no_tasks": "No scheduled tasks found."
@@ -3949,7 +3963,7 @@
     "no_files": "No files found"
   },
   "planning_page": {
-    "title": "Project planning", "subtitle": "Schedule, critical path, resources and diagnostics.", "project_id": "Project ID", "project": "Project", "default_project": "Default project", "refresh": "Refresh", "load_error": "Could not load the project schedule.", "critical_tasks": "Critical tasks", "estimated_cost": "Estimated cost", "warnings": "Warnings", "schedule": "Schedule", "task": "Task", "start": "Start", "finish": "Finish", "slack": "Slack", "diagnostics": "Diagnostics"
+    "title": "Project planning", "subtitle": "Schedule, critical path, resources and diagnostics.", "project_id": "Project ID", "project": "Project", "default_project": "Default project", "refresh": "Refresh", "load_error": "Could not load the project schedule.", "critical_tasks": "Critical tasks", "estimated_cost": "Estimated cost", "warnings": "Warnings", "schedule": "Schedule", "task": "Task", "start": "Start", "finish": "Finish", "slack": "Slack", "diagnostics": "Diagnostics", "baselines": "Baselines", "baseline_name": "Baseline name", "create": "Create", "worklogs": "Work logs", "add_worklog": "Add work log", "entries": "entries", "resource_heatmap": "Resource load", "leveling": "Resource leveling", "generate_proposal": "Generate proposal", "proposed_changes": "proposed changes", "apply_proposal": "Apply proposal"
   },
   "vault_date": {
     "days_placeholder": "days",
