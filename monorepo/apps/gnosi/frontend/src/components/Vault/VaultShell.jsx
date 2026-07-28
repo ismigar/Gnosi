@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Search, ChevronRight, ChevronLeft, PanelLeft } from 'lucide-react';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
@@ -15,13 +15,30 @@ export const VaultShell = ({
 }) => {
     const { t } = useTranslation();
     const isCompact = useMediaQuery('(max-width: 767px)');
-    const [isSidebarOpen, setIsSidebarOpen] = useState(
-        () => typeof window === 'undefined' || !window.matchMedia('(max-width: 767px)').matches
-    );
+    const sidebarMode = isCompact ? 'compact' : 'wide';
+    const [sidebarOverrides, setSidebarOverrides] = useState({});
+    const isSidebarOpen = sidebarOverrides[sidebarMode] ?? !isCompact;
+    const setIsSidebarOpen = (nextValue) => {
+        setSidebarOverrides(currentOverrides => {
+            const currentValue = currentOverrides[sidebarMode] ?? !isCompact;
+            const resolvedValue = typeof nextValue === 'function'
+                ? nextValue(currentValue)
+                : nextValue;
 
-    useEffect(() => {
-        setIsSidebarOpen(!isCompact);
-    }, [isCompact]);
+            if (currentOverrides[sidebarMode] === resolvedValue) {
+                return currentOverrides;
+            }
+
+            return {
+                ...currentOverrides,
+                [sidebarMode]: resolvedValue
+            };
+        });
+    };
+
+    const visibleBreadcrumbs = isCompact && breadcrumbs.length > 1
+        ? breadcrumbs.slice(0, -1)
+        : breadcrumbs;
 
     return (
         <div className="vault-shell">
@@ -83,7 +100,7 @@ export const VaultShell = ({
                                 </button>
                             </div>
 
-                            {breadcrumbs.map((crumb, idx) => (
+                            {visibleBreadcrumbs.map((crumb, idx) => (
                                 <React.Fragment key={idx}>
                                     {idx > 0 && <span className="text-[var(--text-secondary)] opacity-30 text-xs px-1">/</span>}
                                     <button
