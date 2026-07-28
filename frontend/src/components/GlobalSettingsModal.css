@@ -180,6 +180,7 @@
 .settings-configurable-item {
     border-radius: 24px;
     background: var(--settings-sidebar-bg) !important;
+    transition: all 0.2s !important;
 }
 
 .settings-configurable-item.is-editing {
@@ -188,10 +189,12 @@
     border-radius: 24px 24px 0 0 !important;
 }
 
-/* A blue border means that this row owns an open editor. Hovering a normal
- * configurable row must not make it look selected. */
-.settings-configurable-item:hover:not(.is-editing) {
-    border-color: var(--settings-border) !important;
+/* Match the AI agent-list affordance across configurable Settings rows. */
+.settings-configurable-item:hover:not(.is-editing),
+.settings-plugin-item:hover:not(.is-expanded) {
+    transform: scale(1.01) translateY(-2px);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+    border-color: rgba(59, 130, 246, 0.3) !important;
 }
 
 .settings-configurable-item.is-editing + [data-settings-editor-anchor-for] {
@@ -257,6 +260,10 @@
 
 .settings-plugin-item.is-expanded {
     border-color: var(--gnosi-blue) !important;
+}
+
+.settings-plugin-item {
+    transition: all 0.2s;
 }
 
 /* Form Controls */
