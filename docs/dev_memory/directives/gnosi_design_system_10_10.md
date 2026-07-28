@@ -147,3 +147,7 @@ environment-specific frontend assumptions.
   nominal visual-test delay on a cold load. Keep contextual loading visible,
   wait for the route-specific ready state before manual screenshots, and never
   replace the native runtime with Docker for local QA.
+- Do not snapshot cold-route fallbacks or live volatile data. Visual regression
+  suites pin the language and theme, wait for route-specific ready selectors,
+  and mask only data-dependent regions while leaving the application shell and
+  primary controls exposed.
