@@ -3304,9 +3304,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             {activeTab === 'social' && (
                                 <>
                                     <Section title={tn('social.networks_title')} icon={Share2}>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                        <div className="settings-configurable-list" style={{ '--settings-configurable-gap': '10px' }}>
                                             {socialNetworks.map(net => (
-                                                <div key={net.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: 'var(--settings-sidebar-bg)', borderRadius: '14px', border: '1px solid var(--settings-border)' }}>
+                                                <div key={net.id} className="settings-configurable-item" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: 'var(--settings-sidebar-bg)', borderRadius: '14px', border: '1px solid var(--settings-border)' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                                         <span style={{ fontSize: '1.4rem' }}>{net.icon}</span>
                                                         <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{net.name}</span>
@@ -3358,14 +3358,14 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 </button>
                                             </div>
                                         )}
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        <div className="settings-configurable-list" style={{ '--settings-configurable-gap': '8px' }}>
                                             {socialStreams.length === 0 && (
                                                 <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', padding: '20px', textAlign: 'center' }}>
                                                     {tn('social.no_streams')}
                                                 </div>
                                             )}
                                             {socialStreams.map(stream => (
-                                                <div key={stream.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'var(--settings-sidebar-bg)', borderRadius: '12px', border: '1px solid var(--settings-border)' }}>
+                                                <div key={stream.id} className="settings-configurable-item" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'var(--settings-sidebar-bg)', borderRadius: '12px', border: '1px solid var(--settings-border)' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                         <span style={{ fontSize: '1.2rem' }}>{stream.icon}</span>
                                                         <div>
