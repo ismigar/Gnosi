@@ -54,6 +54,8 @@
   --shadow-soft: 0 8px 24px rgba(15, 23, 42, 0.08);
   --shadow-raised: 0 16px 40px rgba(15, 23, 42, 0.12);
   --focus-ring: 0 0 0 3px rgba(var(--gnosi-primary-rgb), 0.22);
+  --floating-action-size: 44px;
+  --floating-action-gap: 8px;
   
   /* Sidebar Light */
   --sidebar-bg: #f8fafc;
@@ -344,6 +346,78 @@ textarea,
 
 .vault-feed-card__title > span:last-child {
   overflow-wrap: anywhere;
+}
+
+.vault-feed-card__preview {
+  position: relative;
+  max-height: 9.75rem;
+  overflow: hidden;
+}
+
+.vault-feed-card__preview:not(.is-expanded)::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2.75rem;
+  background: linear-gradient(to bottom, transparent, var(--bg-primary));
+  content: "";
+  pointer-events: none;
+}
+
+.vault-feed-card__preview.is-expanded {
+  max-height: none;
+  overflow: visible;
+}
+
+/* Embedded databases retain the add-view control but omit the sole view label.
+   Multiple pinned views keep the full tab strip. */
+.gnosi-view-embed-container > div:has(> div[title]:first-child:nth-last-child(2)) > div[title]:first-child {
+  display: none;
+}
+
+.gnosi-floating-action {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  z-index: var(--z-floating);
+  width: var(--floating-action-size);
+  height: var(--floating-action-size);
+  opacity: 0.9;
+}
+
+.gnosi-floating-action:hover,
+.gnosi-floating-action:focus-visible {
+  opacity: 1;
+}
+
+.gnosi-floating-action--chat {
+  bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+.gnosi-floating-action--meeting {
+  bottom: calc(max(16px, env(safe-area-inset-bottom)) + var(--floating-action-size) + var(--floating-action-gap));
+}
+
+.gnosi-floating-action--outline {
+  bottom: calc(max(16px, env(safe-area-inset-bottom)) + var(--floating-action-size) + var(--floating-action-gap) + var(--floating-action-size) + var(--floating-action-gap));
+}
+
+body[data-gnosi-floating-panel] .gnosi-floating-action {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.gnosi-floating-panel {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  z-index: var(--z-floating);
+}
+
+.gnosi-floating-panel--outline {
+  bottom: calc(max(16px, env(safe-area-inset-bottom)) + var(--floating-action-size) + var(--floating-action-gap) + var(--floating-action-size) + var(--floating-action-gap));
+  max-height: min(70vh, calc(100vh - 160px));
 }
 
 @media (min-width: 1024px) {
@@ -1254,7 +1328,15 @@ button:hover > .row-action-tooltip {
   }
 
   .vault-feed-card__open {
-    margin-inline-start: auto;
+    display: none;
+  }
+
+  .vault-feed-card__preview {
+    max-height: 8.125rem;
+  }
+
+  .vault-page-spell-action {
+    display: none;
   }
 
   .vault-document-tabs--single {

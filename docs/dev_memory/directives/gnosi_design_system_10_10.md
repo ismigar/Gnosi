@@ -155,6 +155,14 @@ environment-specific frontend assumptions.
   the compiled cascade. Page-title controls use the semantic
   `.vault-page-title` contract, and browser QA verifies their computed size and
   weight against the editor heading scale.
+- Do not repeat the only available view label below a page title. Single-view
+  databases retain the add-view control while omitting the redundant tab.
+- Do not let feed metadata or previews dominate mobile cards. Show a small
+  property sample and a measured text excerpt, with translated controls that
+  progressively reveal the complete content.
+- Global launchers share one safe-area dock and their panels are mutually
+  exclusive. Independent fixed offsets cause launchers and panels to obscure
+  one another and must not be reintroduced.
 - Do not carry desktop document padding into nested mobile views because it
   starves cards and embeds of readable width. Compact pages reduce nested
   padding, omit the current-page breadcrumb and single-tab label, and place

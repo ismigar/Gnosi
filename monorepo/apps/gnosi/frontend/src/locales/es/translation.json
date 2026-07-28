@@ -2827,6 +2827,8 @@
     "see_less": "Ver menos",
     "open": "Abrir",
     "open_page": "Abrir la página",
+    "show_more_tags": "Mostrar {{count}} etiquetas más",
+    "show_fewer_tags": "Mostrar menos etiquetas",
     "read_full": "Leer completo",
     "empty": "No hay publicaciones en el feed."
   },

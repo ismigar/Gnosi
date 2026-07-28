@@ -21,6 +21,7 @@ import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcu
 // How many records are rendered per batch; infinite scroll adds more as
 // that the sentinel enters the view. Keeping it low saves initial DOM.
 const FEED_BATCH = 12;
+const PILL_PREVIEW_LIMIT = 5;
 
 // The `metadata.description` (body excerpt) is capped at this limit by the
 // backend: if it gets close to it, the real body continues and it makes sense to offer "See more".
@@ -51,8 +52,11 @@ function prepareBodyMd(raw) {
 function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, onOpen }) {
     const { t, i18n } = useTranslation();
     const [expanded, setExpanded] = useState(false);
+    const [showAllPills, setShowAllPills] = useState(false);
+    const [previewOverflows, setPreviewOverflows] = useState(false);
     const [fullContent, setFullContent] = useState(null);   // md complet (carregat en demanda)
     const [loadingContent, setLoadingContent] = useState(false);
+    const previewRef = useRef(null);
     // The cover is resolved the same way as in the other views (VaultGallery): `Assets/x`
     // → `/api/vault/assets/x` with the active vault in the query. A `background-image`
     // (like a native `<img>`) does NOT send the X-Vault-Id header, so without
@@ -64,8 +68,29 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
     const hasCover = !!coverUrl;
 
     const previewMd = useMemo(() => prepareBodyMd(note.metadata?.description || ''), [note]);
+    const visiblePills = showAllPills ? pills : pills.slice(0, PILL_PREVIEW_LIMIT);
+    const hiddenPillCount = Math.max(0, pills.length - visiblePills.length);
     // The excerpt is approaching the limit → the actual body continues further.
     const looksTruncated = (note.metadata?.description || '').length >= EXCERPT_CAP;
+
+    useEffect(() => {
+        if (expanded || !previewMd || !previewRef.current) return undefined;
+
+        const preview = previewRef.current;
+        const measure = () => {
+            setPreviewOverflows(preview.scrollHeight > preview.clientHeight + 1);
+        };
+        const frame = window.requestAnimationFrame(measure);
+        const observer = typeof ResizeObserver === 'function'
+            ? new ResizeObserver(measure)
+            : null;
+        observer?.observe(preview);
+
+        return () => {
+            window.cancelAnimationFrame(frame);
+            observer?.disconnect();
+        };
+    }, [expanded, previewMd]);
 
     const handleToggleExpand = useCallback(async (e) => {
         e.stopPropagation();
@@ -86,11 +111,36 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
     }, [expanded, fullContent, note.id, previewMd]);
 
     const openNote = useCallback((e) => { e?.stopPropagation?.(); onOpen(note.id); }, [onOpen, note.id]);
+    const openLabel = `${t('feed.open_page', "Open page")}: ${note.title || t('common.untitled', "Untitled")}`;
+
+    const handleCardClick = useCallback((event) => {
+        if (selectionActive) {
+            onToggleSelect(note.id, event);
+            return;
+        }
+        if (event.target instanceof Element && event.target.closest('a, button, input, select, textarea, [role="button"]')) {
+            return;
+        }
+        if (window.getSelection?.()?.toString().trim()) return;
+        openNote(event);
+    }, [note.id, onToggleSelect, openNote, selectionActive]);
+
+    const handleCardKeyDown = useCallback((event) => {
+        if (selectionActive || event.target !== event.currentTarget) return;
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            openNote(event);
+        }
+    }, [openNote, selectionActive]);
 
     return (
         <div
-            onClick={() => { if (selectionActive) onToggleSelect(note.id, {}); }}
-            className={`relative bg-[var(--bg-primary)] rounded-2xl shadow-sm border overflow-hidden hover:shadow-md transition-all group flex flex-col ${selectionActive ? 'cursor-pointer' : ''} ${isSelected ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/40'}`}
+            role={selectionActive ? undefined : 'link'}
+            tabIndex={selectionActive ? undefined : 0}
+            aria-label={selectionActive ? undefined : openLabel}
+            onClick={handleCardClick}
+            onKeyDown={handleCardKeyDown}
+            className={`vault-feed-card relative bg-[var(--bg-primary)] rounded-2xl shadow-sm border overflow-hidden hover:shadow-md transition-all group flex flex-col cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gnosi-primary)] ${isSelected ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/40'}`}
         >
             {/* The label only stops propagation (not opening the card): the
                 toggle is handled by the input's onChange. If the label also called
@@ -159,17 +209,42 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
 
                 {/* ALL properties inline (Notion style): value only. */}
                 {pills.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
-                        {pills.map(({ key, node }) => (
+                    <div className="vault-feed-card__pills flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+                        {visiblePills.map(({ key, node }) => (
                             <React.Fragment key={key}>{node}</React.Fragment>
                         ))}
+                        {hiddenPillCount > 0 && (
+                            <button
+                                type="button"
+                                onClick={(event) => { event.stopPropagation(); setShowAllPills(true); }}
+                                className="inline-flex min-h-6 items-center rounded-full border border-[var(--border-primary)] bg-[var(--bg-tertiary)] px-2 text-[11px] font-semibold text-[var(--text-secondary)] hover:text-[var(--gnosi-primary)]"
+                                title={t('feed.show_more_tags', { count: hiddenPillCount })}
+                                aria-label={t('feed.show_more_tags', { count: hiddenPillCount })}
+                            >
+                                +{hiddenPillCount}
+                            </button>
+                        )}
+                        {showAllPills && pills.length > PILL_PREVIEW_LIMIT && (
+                            <button
+                                type="button"
+                                onClick={(event) => { event.stopPropagation(); setShowAllPills(false); }}
+                                className="inline-flex size-6 items-center justify-center rounded-full border border-[var(--border-primary)] text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]"
+                                title={t('feed.show_fewer_tags', "Show fewer tags")}
+                                aria-label={t('feed.show_fewer_tags', "Show fewer tags")}
+                            >
+                                <ChevronUp size={12} />
+                            </button>
+                        )}
                     </div>
                 )}
 
                 {/* Body: formatted excerpt (Markdown) and, when expanded, the
                     FULL content of the note (loaded on demand). */}
                 {(previewMd || loadingContent) && (
-                    <div className="text-sm text-[var(--text-secondary)] leading-relaxed" onClick={(e) => e.stopPropagation()}>
+                    <div
+                        ref={previewRef}
+                        className={`vault-feed-card__preview text-sm text-[var(--text-secondary)] leading-relaxed ${expanded ? 'is-expanded' : ''}`}
+                    >
                         <VaultMarkdown
                             md={expanded ? (fullContent ?? previewMd) : previewMd}
                             onActivate={() => onOpen(note.id)}
@@ -180,7 +255,7 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
 
                 {/* "Show more / Show less" centered (like Notion's "See more").
                     Only if the excerpt is truncated (the actual body continues). */}
-                {(looksTruncated || expanded) && (
+                {(looksTruncated || previewOverflows || expanded) && (
                     <div className="flex justify-center">
                         <button
                             type="button"
