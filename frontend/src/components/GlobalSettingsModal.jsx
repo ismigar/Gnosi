@@ -443,14 +443,14 @@ const AliasEditor = ({ aliases, onChange }) => {
     );
 };
 
-const AccountRow = ({ itemId, name, description, status, type, provider, onSync, onEdit, onDelete, onToggleEnabled, enabled = true, color = '#3b82f6', isSyncing = false }) => {
+const AccountRow = ({ itemId, name, description, status, type, provider, onSync, onEdit, onDelete, onToggleEnabled, enabled = true, color = '#3b82f6', isSyncing = false, isEditing = false }) => {
     const { t } = useTranslation();
     const ta = (k, opts) => t('settings.accounts.' + k, opts);
     return (
-    <div className="account-row hover-scale" data-settings-item-id={itemId} style={{
-        padding: '18px 24px', borderRadius: '20px', border: '1px solid var(--settings-border)',
+    <div className={`account-row settings-configurable-item hover-scale ${isEditing ? 'is-editing' : ''}`} data-settings-item-id={itemId} style={{
+        padding: '18px 24px', border: '1px solid var(--settings-border)',
         background: 'var(--settings-sidebar-bg)', display: 'flex', justifyContent: 'space-between',
-        alignItems: 'center', marginBottom: '14px', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        alignItems: 'center', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         opacity: enabled ? 1 : 0.5
     }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
@@ -2425,6 +2425,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             <div style={{ position: 'relative' }}>
                                                 <button 
                                                     onClick={() => {
+                                                        setEditingAccountId(null);
+                                                        setAddAccountEmail('');
+                                                        setAddAccountEmailBlurred(false);
+                                                        setManualServer('');
+                                                        setManualPassword('');
                                                         if (activeTab === 'calendar') {
                                                             if (!addAccountType && !isAddingTable) {
                                                                 setAddAccountType('menu');
@@ -2630,18 +2635,15 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 waitForTarget={Boolean(editingAccountId)}
                                             >
                                                 <div
-                                                    className="animate-in"
+                                                    className={`settings-inline-editor animate-in ${editingAccountId ? 'is-attached' : 'is-create'}`}
                                                     data-settings-editor-for={editingAccountId ? `account:${editingAccountId}` : 'account:new'}
-                                                    style={{
-                                                        marginBottom: '32px', padding: '28px', borderRadius: '28px',
-                                                        background: 'var(--settings-sidebar-bg)', border: '1px solid rgba(59, 130, 246, 0.18)',
-                                                        boxShadow: '0 15px 40px rgba(59, 130,246,0.12)'
-                                                    }}
                                                 >
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                                                    <span style={{ fontSize: '0.85rem', fontWeight: '1000', color: 'var(--gnosi-blue)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{tn('accounts.account_config')}</span>
+                                                {!editingAccountId && (
+                                                <div className="settings-inline-editor-title">
+                                                    <span>{tn('accounts.account_config')}</span>
                                                     <button onClick={() => { setAddAccountType(null); setAddAccountEmail(''); setAddAccountEmailBlurred(false); setIsManualGoogle(false); setManualServer(''); setManualPassword(''); setEditingAccountId(null); }} aria-label={t('settings.footer.close')} title={t('settings.footer.close')} className="icon-btn hover-bg-strong" style={{ padding: '8px', borderRadius: '12px' }}><X size={18} /></button>
                                                 </div>
+                                                )}
                                                 
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                                     <FormGroup label={tn('accounts.email_address')}>
@@ -3029,7 +3031,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             
                                             if (hasAny) {
                                                 return (
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                    <div className="settings-configurable-list" style={{ '--settings-configurable-gap': '12px' }}>
                                                         {/* External Accounts / Integrations */}
                                                         {uniqueAccounts.map((acc, idx) => {
                                                             const accountItemId = acc.id || acc.email || acc.username || `account-${idx}`;
@@ -3060,6 +3062,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                         } : undefined}
                                                                         onSync={() => handleSyncAccount(activeTab, acc)}
                                                                         isSyncing={syncingAccounts[acc.id]}
+                                                                        isEditing={editingAccountId === acc.id}
                                                                         onEdit={() => handleEditAccount(activeTab, acc)}
                                                                         onDelete={() => handleDeleteAccount(activeTab, acc.id)}
                                                                         color={activeTab === 'calendar' ? '#3b82f6' : (activeTab === 'contacts' ? '#10b981' : '#f59e0b')}
@@ -3086,6 +3089,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                         status="connected"
                                                                         type="calendar"
                                                                         provider="vault"
+                                                                        isEditing={editingTableColor?.id === tbl.id}
                                                                         onEdit={() => setEditingTableColor({ id: tbl.id, name: tbl.name, color: tblColor })}
                                                                         onDelete={() => {
                                                                             const newList = integrations.vault_calendar?.enabled_tables?.filter(id => id !== tbl.id) || [];
@@ -3112,15 +3116,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 waitForTarget
                                                             >
                                                                 <div
-                                                                    className="animate-in"
+                                                                    className="settings-inline-editor is-attached animate-in"
                                                                     data-settings-editor-for={`vault-calendar:${editingTableColor.id}`}
-                                                                    style={{
-                                                                        background: 'var(--settings-bg)', padding: '30px', borderRadius: '24px',
-                                                                        border: '1px solid rgba(59, 130, 246, 0.18)',
-                                                                        boxShadow: '0 15px 40px rgba(59, 130, 246, 0.12)'
-                                                                    }}
                                                                 >
-                                                                    <h3 style={{ margin: '0 0 20px 0', fontSize: '1.2rem', fontWeight: 800 }}>{tn('accounts.table_color_title', { name: editingTableColor.name })}</h3>
                                                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px', marginBottom: '25px' }}>
                                                                         {['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#6366f1', '#ec4899', '#8b5cf6', '#06b6d4', '#f97316', '#71717a'].map(c => (
                                                                             <button 
@@ -3176,15 +3174,16 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
                                     {/* List of existing fragments */}
                                     {snippets.length > 0 && (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
+                                        <div className="settings-configurable-list" style={{ '--settings-configurable-gap': '8px', marginBottom: '24px' }}>
                                             {snippets.map(s => (
                                                 <React.Fragment key={s.id}>
                                                     <div
+                                                        className={`settings-configurable-item ${editingSnippetId === s.id ? 'is-editing' : ''}`}
                                                         data-settings-item-id={`snippet:${s.id}`}
                                                         style={{
                                                             display: 'flex', alignItems: 'flex-start', gap: '12px',
                                                             padding: '14px 16px', background: 'var(--settings-bg)',
-                                                            borderRadius: '14px', border: `1px solid ${editingSnippetId === s.id ? 'var(--gnosi-blue)' : 'var(--settings-border)'}`
+                                                            border: '1px solid var(--settings-border)'
                                                         }}
                                                     >
                                                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -3223,16 +3222,12 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         waitForTarget={Boolean(editingSnippetId)}
                                     >
                                         <div
+                                            className={`settings-inline-editor settings-inline-editor-compact ${editingSnippetId ? 'is-attached' : 'is-create'}`}
                                             data-settings-editor-for={editingSnippetId ? `snippet:${editingSnippetId}` : 'snippet:new'}
-                                            style={{
-                                                padding: '20px', background: 'var(--settings-bg)',
-                                                borderRadius: '16px', border: '1px solid var(--settings-border)',
-                                                display: 'flex', flexDirection: 'column', gap: '14px'
-                                            }}
                                         >
-                                        <h4 style={{ margin: 0, fontSize: '0.82rem', fontWeight: '900', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                                            {editingSnippetId ? tn('snippets.edit_snippet') : tn('snippets.new_snippet')}
-                                        </h4>
+                                        {!editingSnippetId && (
+                                            <h4 className="settings-inline-editor-heading">{tn('snippets.new_snippet')}</h4>
+                                        )}
                                         <FormGroup label={tn('snippets.title_label')} description={tn('snippets.title_desc')}>
                                             <input
                                                 type="text"
@@ -4015,11 +4010,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 </div>
                                             </InlineEditorPlacement>
                                         )}
-                                        <div className="ai-agent-list">
+                                        <div className="settings-configurable-list ai-agent-list" style={{ '--settings-configurable-gap': '20px' }}>
                                             {draft.ai.agents.map(agent => (
                                                 <React.Fragment key={agent.id}>
                                                 <div
-                                                    className={`ai-agent-row hover-scale ${editingAgent?.id === agent.id ? 'is-editing' : ''}`}
+                                                    className={`settings-configurable-item ai-agent-row hover-scale ${editingAgent?.id === agent.id ? 'is-editing' : ''}`}
                                                     data-settings-item-id={`agent:${agent.id}`}
                                                     onClick={() => setEditingAgent(agent)}
                                                     title={tn('ai.configure_name', { name: agent.name })}
@@ -4268,7 +4263,7 @@ function AIAgentForm({ agent, onSave, aiRegistry }) {
     const faultReason = modelFault && MODEL_FAULT_REASONS[modelFault.top_model_reason];
 
     return (
-        <div className={`ai-agent-form animate-in ${agent.id ? 'is-attached' : ''}`}>
+        <div className={`settings-inline-editor ai-agent-form animate-in ${agent.id ? 'is-attached' : 'is-create'}`}>
                     {!agent.id && (
                         <h3 className="ai-agent-form-title">{t('settings.ai.new_agent_title')}</h3>
                     )}
