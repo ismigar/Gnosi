@@ -94,10 +94,12 @@ configuration autosave.
   may keep their panel inside the card, but the expanded card must use the same
   blue active border. Do not reintroduce per-collection inline geometry for
   borders, gaps, or connecting radii.
-- Reserve the blue row border exclusively for an open inline editor. A normal
-  row, including one under the pointer, keeps the neutral Settings border.
-  Clear all inline-editor identity and portal-target state when Settings closes
-  so a reopened modal cannot show a stale active row without its editor.
+- Reserve the solid blue row border exclusively for an open inline editor.
+  Normal configurable rows use the shared AI-agent hover affordance (a subtle
+  lift, shadow, and translucent blue border) and return to the neutral border
+  when the pointer leaves. Clear all inline-editor identity and portal-target
+  state when Settings closes so a reopened modal cannot show a stale active row
+  without its editor.
 - Use the muted Settings surface (`--settings-sidebar-bg`) as the background
   for every configurable collection row. Keep the inline editor surface
   separate so the row-to-editor attachment remains visually legible.
