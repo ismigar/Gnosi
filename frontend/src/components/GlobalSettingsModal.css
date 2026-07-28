@@ -179,12 +179,22 @@
 
 .settings-configurable-item {
     border-radius: 24px;
+    background: var(--settings-sidebar-bg) !important;
+    transition: all 0.2s !important;
 }
 
 .settings-configurable-item.is-editing {
     border-color: var(--gnosi-blue) !important;
-    border-bottom-color: transparent !important;
+    border-bottom-width: 0 !important;
     border-radius: 24px 24px 0 0 !important;
+}
+
+/* Match the AI agent-list affordance across configurable Settings rows. */
+.settings-configurable-item:hover:not(.is-editing),
+.settings-plugin-item:hover:not(.is-expanded) {
+    transform: scale(1.01) translateY(-2px);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+    border-color: rgba(59, 130, 246, 0.3) !important;
 }
 
 .settings-configurable-item.is-editing + [data-settings-editor-anchor-for] {
@@ -252,6 +262,10 @@
     border-color: var(--gnosi-blue) !important;
 }
 
+.settings-plugin-item {
+    transition: all 0.2s;
+}
+
 /* Form Controls */
 .settings-form-group {
     margin-bottom: 28px;
@@ -279,7 +293,7 @@
 
 /* Account Cards */
 .account-row {
-    background: var(--bg-primary) !important;
+    background: var(--settings-sidebar-bg) !important;
     border: 1px solid var(--settings-border) !important;
     padding: 20px 24px !important;
     border-radius: 24px !important;
