@@ -5,6 +5,7 @@ import axios from 'axios';
 import { Mic, Square, Loader2, X, FileText, Monitor, Users, AlertTriangle, Check } from 'lucide-react';
 import { toast } from '../lib/toast';
 import { announceFloatingPanelOpen, useExclusiveFloatingPanel } from '../hooks/useExclusiveFloatingPanel';
+import { useFloatingActionDock } from '../hooks/useFloatingActionDock';
 
 /**
  * AI meeting minutes taker (Notion AI Meeting Notes style).
@@ -29,6 +30,7 @@ export default function MeetingRecorder() {
     const [stage, setStage] = useState('');
     const [pageId, setPageId] = useState(null);
     const [errMsg, setErrMsg] = useState('');
+    const [, setIsDockOpen] = useFloatingActionDock();
     useExclusiveFloatingPanel('meeting', open, setOpen);
 
     const navigate = useNavigate();
@@ -203,6 +205,7 @@ export default function MeetingRecorder() {
                     type="button"
                     onClick={() => {
                         announceFloatingPanelOpen('meeting');
+                        setIsDockOpen(false);
                         setOpen(true);
                     }}
                     title={t('meeting.launcher_title')}
