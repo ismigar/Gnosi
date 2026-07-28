@@ -288,6 +288,13 @@ textarea,
   display: none;
 }
 
+.vault-page-title {
+  font-size: clamp(2rem, 2.5vw, 2.375rem);
+  font-weight: 750;
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+}
+
 .contacts-split {
   position: relative;
   display: flex;
@@ -1152,6 +1159,10 @@ button:hover > .row-action-tooltip {
   .vault-shell__header {
     min-height: 60px;
     padding-inline-start: 62px;
+  }
+
+  .vault-page-title {
+    font-size: clamp(1.875rem, 8vw, 2rem);
   }
 
   .contacts-master,

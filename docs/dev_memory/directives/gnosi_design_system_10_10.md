@@ -151,3 +151,7 @@ environment-specific frontend assumptions.
   suites pin the language and theme, wait for route-specific ready selectors,
   and mask only data-dependent regions while leaving the application shell and
   primary controls exposed.
+- Do not assume typography utilities applied to editable form controls survive
+  the compiled cascade. Page-title controls use the semantic
+  `.vault-page-title` contract, and browser QA verifies their computed size and
+  weight against the editor heading scale.
