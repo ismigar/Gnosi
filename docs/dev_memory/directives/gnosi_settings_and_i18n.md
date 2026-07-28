@@ -85,15 +85,24 @@ configuration autosave.
   item`.
 - When an existing collection row remains visible as the identity header for
   its editor, visually join both surfaces: remove the inter-item gap, share the
-  connecting border, and do not repeat a generic "Edit item" heading inside the
-  form. Keep a descriptive heading for create-only forms, which have no owning
-  row.
+  connecting outline without a border between them, and do not repeat a generic
+  "Edit item" heading inside the form. Keep a descriptive heading for
+  create-only forms, which have no owning row.
 - Reuse the shared `settings-configurable-*` and `settings-inline-editor`
   classes for account integrations, vault calendars, reusable mail snippets,
   cognition agents, and other Settings collections. Configurable plugin cards
   may keep their panel inside the card, but the expanded card must use the same
   blue active border. Do not reintroduce per-collection inline geometry for
   borders, gaps, or connecting radii.
+- Reserve the solid blue row border exclusively for an open inline editor.
+  Normal configurable rows use the shared AI-agent hover affordance (a subtle
+  lift, shadow, and translucent blue border) and return to the neutral border
+  when the pointer leaves. Clear all inline-editor identity and portal-target
+  state when Settings closes so a reopened modal cannot show a stale active row
+  without its editor.
+- Use the muted Settings surface (`--settings-sidebar-bg`) as the background
+  for every configurable collection row. Keep the inline editor surface
+  separate so the row-to-editor attachment remains visually legible.
 - Do not render one shared existing-item editor above or below the complete
   collection. The visual separation makes it unclear which item owns the draft,
   especially when the collection scrolls.
