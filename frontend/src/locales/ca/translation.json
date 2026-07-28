@@ -1531,6 +1531,12 @@
       "profile": "Perfil",
       "account": "Compte"
     },
+    "navigation": {
+      "basic": "Bàsic",
+      "connections": "Connexions",
+      "knowledge": "Coneixement i IA",
+      "advanced": "Avançat"
+    },
     "general": {
       "system_title": "Configuració del Sistema",
       "workspace_name_desc": "Identificador del teu cervell digital.",
