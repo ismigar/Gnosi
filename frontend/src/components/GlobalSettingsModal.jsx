@@ -1018,6 +1018,22 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [confirmConfig, setConfirmConfig] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} });
     const [isAddingTable, setIsAddingTable] = useState(false);
     const [editingTableColor, setEditingTableColor] = useState(null); // { id, name, color }
+
+    // Inline editors belong to their Settings section. Account identifiers can
+    // be shared by Calendar, Contacts, and Mail, so retaining an editor while
+    // switching tabs can incorrectly mark the first matching row as active.
+    useEffect(() => {
+        setEditingAgent(null);
+        setAgentEditorTarget(null);
+        setEditingAccountId(null);
+        setAccountEditorTarget(null);
+        setEditingTableColor(null);
+        setTableColorEditorTarget(null);
+        setEditingSnippetId(null);
+        setSnippetEditorTarget(null);
+        setAddAccountType(null);
+        setIsAddingTable(false);
+    }, [activeTab]);
     const [isDatabasesExpanded, setIsDatabasesExpanded] = useState(true);
     const [isSystemEntitiesExpanded, setIsSystemEntitiesExpanded] = useState(true);
 
