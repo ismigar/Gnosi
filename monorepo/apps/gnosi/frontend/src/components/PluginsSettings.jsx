@@ -1857,6 +1857,7 @@ export function PluginsSettings() {
                     return (
                         <div
                             key={plugin.id}
+                            className={`settings-plugin-item ${showConfig ? 'is-expanded' : ''}`}
                             style={{
                                 display: 'flex', flexDirection: 'column', gap: 0,
                                 padding: '12px 14px', borderRadius: 10,

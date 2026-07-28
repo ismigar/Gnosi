@@ -171,44 +171,85 @@
     color: var(--text-primary);
 }
 
-.ai-agent-list {
+.settings-configurable-list {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: var(--settings-configurable-gap, 12px);
 }
 
-.ai-agent-row {
+.settings-configurable-item {
     border-radius: 24px;
 }
 
-.ai-agent-row.is-editing {
+.settings-configurable-item.is-editing {
     border-color: var(--gnosi-blue) !important;
     border-bottom-color: transparent !important;
-    border-radius: 24px 24px 0 0;
+    border-radius: 24px 24px 0 0 !important;
 }
 
-.ai-agent-row.is-editing + [data-settings-editor-anchor-for] {
-    margin-top: -20px;
+.settings-configurable-item.is-editing + [data-settings-editor-anchor-for] {
+    margin-top: calc(-1 * var(--settings-configurable-gap, 12px));
 }
 
-.ai-agent-form {
+.settings-inline-editor {
     box-sizing: border-box;
     padding: 28px;
-    margin-bottom: 24px;
     border: 1px solid var(--gnosi-blue);
     border-radius: 24px;
     background: var(--settings-sidebar-bg);
 }
 
-.ai-agent-form.is-attached {
-    border-top: 0;
-    border-radius: 0 0 24px 24px;
+.settings-inline-editor.is-create {
+    margin-bottom: 32px;
 }
 
+.settings-inline-editor.is-attached {
+    border-top: 0;
+    border-radius: 0 0 24px 24px;
+    background: var(--bg-primary);
+}
+
+.settings-inline-editor-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    color: var(--gnosi-blue);
+    font-size: 0.85rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.settings-inline-editor-heading,
 .ai-agent-form-title {
     margin: 0 0 30px;
     font-size: 1.4rem;
     font-weight: 900;
+}
+
+.settings-inline-editor-compact {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 20px;
+    background: var(--settings-bg);
+}
+
+.ai-agent-form.is-attached {
+    background: var(--settings-sidebar-bg);
+}
+
+.settings-inline-editor-compact .settings-inline-editor-heading {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.settings-plugin-item.is-expanded {
+    border-color: var(--gnosi-blue) !important;
 }
 
 /* Form Controls */
@@ -249,6 +290,11 @@
     border-color: var(--gnosi-blue) !important;
     box-shadow: 0 12px 30px -10px rgba(59, 130, 246, 0.15) !important;
     transform: translateY(-2px) !important;
+}
+
+.account-row.is-editing:hover {
+    box-shadow: none !important;
+    transform: none !important;
 }
 
 /* Segmented Control */
