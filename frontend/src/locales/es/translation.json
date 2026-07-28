@@ -1477,6 +1477,12 @@
       "profile": "Perfil",
       "account": "Cuenta"
     },
+    "navigation": {
+      "basic": "Básico",
+      "connections": "Conexiones",
+      "knowledge": "Conocimiento e IA",
+      "advanced": "Avanzado"
+    },
     "general": {
       "system_title": "Configuración del Sistema",
       "workspace_name_desc": "Identificador de tu cerebro digital.",
