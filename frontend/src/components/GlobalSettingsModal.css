@@ -197,10 +197,19 @@
 
 /* Match the AI agent-list affordance across configurable Settings rows. */
 .settings-configurable-item:hover:not(.is-editing),
-.settings-plugin-item:hover:not(.is-expanded) {
+.settings-plugin-item:hover:not(.is-expanded),
+.settings-hover-card:hover {
     transform: scale(1.01) translateY(-2px);
     box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
     border-color: rgba(59, 130, 246, 0.3) !important;
+}
+
+.settings-hover-card {
+    transition: all 0.2s !important;
+}
+
+.settings-hover-card.is-selected:hover {
+    border-color: var(--gnosi-blue) !important;
 }
 
 .settings-configurable-item.is-editing + [data-settings-editor-anchor-for] {

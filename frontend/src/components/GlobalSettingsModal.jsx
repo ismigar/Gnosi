@@ -2378,7 +2378,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             { id: 'dark', label: tn('appearance.theme_dark'), icon: Monitor, bg: '#000000' },
                                             { id: 'system', label: tn('appearance.theme_system'), icon: Monitor, bg: 'linear-gradient(135deg, #fff 50%, #000 50%)' }
                                         ].map(opt => (
-                                            <button key={opt.id} onClick={() => {
+                                            <button key={opt.id} className={`settings-hover-card ${draft.settings.theme === opt.id ? 'is-selected' : ''}`} onClick={() => {
                                                 setDraft({...draft, settings: {...draft.settings, theme: opt.id}});
                                                 // Wire the selector into the theme engine (useTheme / index.html bootstrap
                                                 // read localStorage['db-theme'] and react to the 'db-theme-changed' event).
@@ -2396,7 +2396,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         ))}
                                     </div>
 
-                                    <div style={{ background: 'var(--settings-sidebar-bg)', padding: '32px', borderRadius: '28px', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 10px 30px rgba(0,0,0,0.03)' }}>
+                                    <div className="settings-hover-card" style={{ background: 'var(--settings-sidebar-bg)', padding: '32px', borderRadius: '28px', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 10px 30px rgba(0,0,0,0.03)' }}>
                                         <div style={{ flex: 1 }}>
                                             <div style={{ fontWeight: '900', color: 'var(--text-primary)', fontSize: '1.15rem' }}>{tn('appearance.reduce_fx_title')}</div>
                                             <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '6px', opacity: 0.8, maxWidth: '420px' }}>{tn('appearance.reduce_fx_desc')}</div>
@@ -2409,7 +2409,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         />
                                     </div>
 
-                                    <div style={{ background: 'var(--settings-sidebar-bg)', padding: '32px', borderRadius: '28px', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 10px 30px rgba(0,0,0,0.03)', marginTop: '20px' }}>
+                                    <div className="settings-hover-card" style={{ background: 'var(--settings-sidebar-bg)', padding: '32px', borderRadius: '28px', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 10px 30px rgba(0,0,0,0.03)', marginTop: '20px' }}>
                                         <div style={{ flex: 1 }}>
                                             <div style={{ fontWeight: '900', color: 'var(--text-primary)', fontSize: '1.15rem' }}>{tn('appearance.mail_dark_title')}</div>
                                             <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '6px', opacity: 0.8, maxWidth: '480px' }}>{tn('appearance.mail_dark_desc')}</div>
@@ -3304,9 +3304,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             {activeTab === 'social' && (
                                 <>
                                     <Section title={tn('social.networks_title')} icon={Share2}>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                        <div className="settings-configurable-list" style={{ '--settings-configurable-gap': '10px' }}>
                                             {socialNetworks.map(net => (
-                                                <div key={net.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: 'var(--settings-sidebar-bg)', borderRadius: '14px', border: '1px solid var(--settings-border)' }}>
+                                                <div key={net.id} className="settings-configurable-item" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: 'var(--settings-sidebar-bg)', borderRadius: '14px', border: '1px solid var(--settings-border)' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                                         <span style={{ fontSize: '1.4rem' }}>{net.icon}</span>
                                                         <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{net.name}</span>
@@ -3358,14 +3358,14 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 </button>
                                             </div>
                                         )}
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        <div className="settings-configurable-list" style={{ '--settings-configurable-gap': '8px' }}>
                                             {socialStreams.length === 0 && (
                                                 <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', padding: '20px', textAlign: 'center' }}>
                                                     {tn('social.no_streams')}
                                                 </div>
                                             )}
                                             {socialStreams.map(stream => (
-                                                <div key={stream.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'var(--settings-sidebar-bg)', borderRadius: '12px', border: '1px solid var(--settings-border)' }}>
+                                                <div key={stream.id} className="settings-configurable-item" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'var(--settings-sidebar-bg)', borderRadius: '12px', border: '1px solid var(--settings-border)' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                         <span style={{ fontSize: '1.2rem' }}>{stream.icon}</span>
                                                         <div>
@@ -3584,7 +3584,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             <FormGroup label={tn('graph.edge_thickness_value', { value: draft.graph.edge_thickness.toFixed(1) })}>
                                                 <input type="range" className="gnosi-range" min="0.1" max="5" step="0.1" value={draft.graph.edge_thickness} onChange={e => setDraft({...draft, graph: {...draft.graph, edge_thickness: parseFloat(e.target.value)}})} />
                                             </FormGroup>
-                                            <div style={{ marginTop: '20px', padding: '20px', background: 'var(--settings-sidebar-bg)', borderRadius: '20px', border: '1px solid var(--settings-border)' }}>
+                                            <div className="settings-hover-card" style={{ marginTop: '20px', padding: '20px', background: 'var(--settings-sidebar-bg)', borderRadius: '20px', border: '1px solid var(--settings-border)' }}>
                                                 <FormGroup label={tn('graph.directionality')} description={tn('graph.directionality_desc')} horizontal>
                                                     <GnosiToggle
                                                         active={draft.graph.show_arrows}

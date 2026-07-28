@@ -81,7 +81,7 @@ export default function ApiTokensSettings() {
 
             {/* Token recent creat */}
             {justCreated && (
-                <div className="mb-4 rounded-lg border border-[var(--gnosi-primary)]/40 bg-[var(--gnosi-primary)]/8 p-3">
+                <div className="settings-hover-card mb-4 rounded-lg border border-[var(--gnosi-primary)]/40 bg-[var(--gnosi-primary)]/8 p-3">
                     <div className="mb-1 text-xs font-semibold text-[var(--gnosi-primary)]">{t('api_tokens.copy_now', "Copy the token «{{name}}» now — it won't be shown again:", { name: justCreated.name })}</div>
                     <div className="flex items-center gap-2">
                         <code className="flex-1 truncate rounded bg-[var(--bg-primary)] px-2 py-1.5 text-xs text-[var(--text-primary)]">{justCreated.token}</code>
@@ -100,7 +100,7 @@ export default function ApiTokensSettings() {
             ) : (
                 <ul className="space-y-2">
                     {tokens.map((tk) => (
-                        <li key={tk.id} className="flex items-center justify-between rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] px-3 py-2">
+                        <li key={tk.id} className="settings-hover-card flex items-center justify-between rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] px-3 py-2">
                             <div className="min-w-0">
                                 <div className="truncate text-sm font-medium text-[var(--text-primary)]">{tk.name}</div>
                                 <div className="text-xs text-[var(--text-tertiary)]">
