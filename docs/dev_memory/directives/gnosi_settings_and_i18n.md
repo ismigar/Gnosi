@@ -96,8 +96,9 @@ configuration autosave.
   reintroduce per-collection inline geometry for borders, gaps, or connecting
   radii.
 - Apply the same lift, shadow, and translucent-border hover affordance to
-  Appearance theme choices and preference cards. Preserve the solid blue border
-  of the selected theme while it is hovered.
+  Appearance theme choices and preference cards, as well as standalone Graph
+  preference cards such as Directionality. Preserve the solid blue border of
+  the selected theme while it is hovered.
 - Reserve the solid blue row border exclusively for an open inline editor.
   Normal configurable rows use the shared AI-agent hover affordance (a subtle
   lift, shadow, and translucent blue border) and return to the neutral border
