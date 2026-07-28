@@ -85,9 +85,9 @@ configuration autosave.
   item`.
 - When an existing collection row remains visible as the identity header for
   its editor, visually join both surfaces: remove the inter-item gap, share the
-  connecting border, and do not repeat a generic "Edit item" heading inside the
-  form. Keep a descriptive heading for create-only forms, which have no owning
-  row.
+  connecting outline without a border between them, and do not repeat a generic
+  "Edit item" heading inside the form. Keep a descriptive heading for
+  create-only forms, which have no owning row.
 - Reuse the shared `settings-configurable-*` and `settings-inline-editor`
   classes for account integrations, vault calendars, reusable mail snippets,
   cognition agents, and other Settings collections. Configurable plugin cards
