@@ -611,7 +611,10 @@ async def create_agent_workflow(
             return {"next": "Brain"}
         if "General" in decision:
             return {"next": "General"}
-        return {"next": "FINISH"}
+        # The supervisor has not produced a specialist response itself. An
+        # unrecognized decision must therefore fall back to General, rather
+        # than ending the user's turn with no visible assistant message.
+        return {"next": "General"}
 
     def coder_node(state: AgentState):
         messages = state["messages"]
@@ -669,23 +672,26 @@ async def create_agent_workflow(
 
     def coder_router(state):
         last_message = state["messages"][-1]
-        return "coder_tools" if last_message.tool_calls else "supervisor"
+        # A completed specialist reply must finish this graph. Sending it back
+        # to the supervisor invokes strict providers with an assistant message
+        # as the final conversational turn.
+        return "coder_tools" if last_message.tool_calls else "END"
 
     workflow.add_conditional_edges(
         "coder",
         coder_router,
-        {"coder_tools": "coder_tools", "supervisor": "supervisor"},
+        {"coder_tools": "coder_tools", "END": END},
     )
     workflow.add_edge("coder_tools", "coder")
 
     def brain_router(state):
         last_message = state["messages"][-1]
-        return "brain_tools" if last_message.tool_calls else "supervisor"
+        return "brain_tools" if last_message.tool_calls else "END"
 
     workflow.add_conditional_edges(
         "brain",
         brain_router,
-        {"brain_tools": "brain_tools", "supervisor": "supervisor"},
+        {"brain_tools": "brain_tools", "END": END},
     )
     workflow.add_edge("brain_tools", "brain")
     workflow.add_edge("general", END)
