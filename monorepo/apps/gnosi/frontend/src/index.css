@@ -295,6 +295,63 @@ textarea,
   letter-spacing: -0.03em;
 }
 
+.vault-page-hero {
+  margin-top: 1rem;
+}
+
+.vault-page-cover {
+  height: 3rem;
+}
+
+.vault-page-hero--covered .vault-page-cover {
+  height: 16rem;
+}
+
+.vault-page-hero--bare {
+  margin-top: 0.5rem;
+}
+
+.vault-page-hero--bare .vault-page-cover {
+  height: 2rem;
+}
+
+.vault-page-cover-actions {
+  bottom: 1rem;
+}
+
+.vault-page-hero--bare .vault-page-cover-actions {
+  bottom: 0.125rem;
+}
+
+.vault-page-overview--with-icon {
+  padding-top: 3.5rem;
+}
+
+.vault-page-overview--without-icon {
+  padding-top: 1.5rem;
+}
+
+.vault-page-summary-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.5rem;
+}
+
+.vault-feed-card__identity {
+  min-width: 0;
+  flex: 1 1 220px;
+}
+
+.vault-feed-card__title > span:last-child {
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 1024px) {
+  .vault-page-summary-grid:not([data-expanded="true"]) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .contacts-split {
   position: relative;
   display: flex;
@@ -1163,6 +1220,52 @@ button:hover > .row-action-tooltip {
 
   .vault-page-title {
     font-size: clamp(1.875rem, 8vw, 2rem);
+  }
+
+  .vault-page-overview,
+  .vault-page-body {
+    padding-inline: 1rem !important;
+  }
+
+  .vault-page-icon {
+    left: 1rem !important;
+  }
+
+  .vault-page-cover-actions {
+    right: 1rem !important;
+  }
+
+  .vault-feed-card__body {
+    padding: 1rem !important;
+  }
+
+  .vault-feed-card__header {
+    flex-wrap: wrap;
+    gap: 0.625rem;
+  }
+
+  .vault-feed-card__identity {
+    flex-basis: 200px;
+  }
+
+  .vault-feed-card__date {
+    align-items: flex-start;
+    line-height: 1.35;
+  }
+
+  .vault-feed-card__open {
+    margin-inline-start: auto;
+  }
+
+  .vault-document-tabs--single {
+    min-height: 36px;
+    justify-content: flex-end;
+    padding: 2px 8px 0;
+  }
+
+  .vault-document-tabs__compact-action {
+    width: 32px;
+    height: 32px;
   }
 
   .contacts-master,

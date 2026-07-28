@@ -11,6 +11,7 @@ import {
     useSortable, arrayMove, sortableKeyboardCoordinates
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 // Strips accents for fast accent-insensitive search ("historia" finds
 // "Història"), as expected in a Catalan/Spanish vault (NFD + removal of
@@ -81,9 +82,11 @@ export function VaultDocumentTabs({
     onQuickOpenParallel
 }) {
     const { t } = useTranslation();
+    const isCompact = useMediaQuery('(max-width: 767px)');
     const DROPDOWN_WIDTH = 380;
     const VIEWPORT_MARGIN = 16;
-    const normalizedTabs = tabs || [];
+    const normalizedTabs = React.useMemo(() => tabs || [], [tabs]);
+    const hideSingleTabLabel = isCompact && normalizedTabs.length === 1;
     const splitSet = new Set(splitTabIds);
     const [isQuickOpenVisible, setIsQuickOpenVisible] = React.useState(false);
     const [query, setQuery] = React.useState('');
@@ -296,23 +299,37 @@ export function VaultDocumentTabs({
     };
 
     return (
-        <div className="relative flex items-center gap-1 overflow-x-auto px-4 pt-1 pb-0 border-b border-[var(--border-primary)] bg-[var(--bg-secondary)] shrink-0">
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                <SortableContext items={normalizedTabs.map(tab => tab.id)} strategy={horizontalListSortingStrategy}>
-                    {normalizedTabs.map(tab => (
-                        <SortableDocTab
-                            key={tab.id}
-                            tab={tab}
-                            isActive={tab.id === activeTabId}
-                            isSplit={splitSet.has(tab.id)}
-                            canSplit={!tab.isTable}
-                            onTabSelect={onTabSelect}
-                            onTabClose={onTabClose}
-                            onToggleSplit={onToggleSplit}
-                        />
-                    ))}
-                </SortableContext>
-            </DndContext>
+        <div className={`vault-document-tabs relative flex items-center gap-1 overflow-x-auto px-4 pt-1 pb-0 border-b border-[var(--border-primary)] bg-[var(--bg-secondary)] shrink-0 ${hideSingleTabLabel ? 'vault-document-tabs--single' : ''}`}>
+            {!hideSingleTabLabel && (
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <SortableContext items={normalizedTabs.map(tab => tab.id)} strategy={horizontalListSortingStrategy}>
+                        {normalizedTabs.map(tab => (
+                            <SortableDocTab
+                                key={tab.id}
+                                tab={tab}
+                                isActive={tab.id === activeTabId}
+                                isSplit={splitSet.has(tab.id)}
+                                canSplit={!tab.isTable}
+                                onTabSelect={onTabSelect}
+                                onTabClose={onTabClose}
+                                onToggleSplit={onToggleSplit}
+                            />
+                        ))}
+                    </SortableContext>
+                </DndContext>
+            )}
+
+            {hideSingleTabLabel && (
+                <button
+                    type="button"
+                    onClick={() => onTabClose(normalizedTabs[0].id)}
+                    className="vault-document-tabs__compact-action flex items-center justify-center rounded text-[var(--text-secondary)] hover:text-[var(--status-error)] hover:bg-[var(--bg-tertiary)] transition-colors"
+                    title={t('doc_tabs.close_tab', "Close tab")}
+                    aria-label={t('doc_tabs.close_tab', "Close tab")}
+                >
+                    <X size={14} />
+                </button>
+            )}
 
             <button
                 ref={plusButtonRef}

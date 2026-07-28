@@ -981,7 +981,6 @@ const MarkdownCodeEditor = ({ noteFilename, initialContent, metadata, onUpdate, 
                 void saveMarkdownRef.current(latestTextRef.current);
             }
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- unmount-only
     }, []);
 
     const handleForceSave = useCallback(async () => {
@@ -4443,13 +4442,13 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     return (
         <div className="w-full flex justify-center bg-[var(--bg-primary)] min-h-full transition-colors duration-300">
             <div ref={contentRef} className="max-w-7xl w-full flex flex-col min-h-full bg-[var(--bg-primary)] relative transition-colors duration-300">
-                <div 
-                    className="relative w-full group/cover mt-4"
+                <div
+                    className={`vault-page-hero relative w-full group/cover ${metadata.cover ? 'vault-page-hero--covered' : 'vault-page-hero--bare'}`}
                     onMouseEnter={() => setIsHeaderHovered(true)}
                     onMouseLeave={() => setIsHeaderHovered(false)}
                     ref={headerHoverRef}
                 >
-                    <div className={`w-full overflow-hidden transition-all duration-300 bg-[var(--bg-secondary)]/30 ${metadata.cover ? 'h-64' : 'h-12'}`}>
+                    <div className="vault-page-cover w-full overflow-hidden transition-all duration-300 bg-[var(--bg-secondary)]/30">
                         {metadata.cover && (
                             <img
                                 src={normalizeVaultAssetUrl(metadata.cover)}
@@ -4459,7 +4458,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                             />
                         )}
                         
-                        <div className={`absolute bottom-4 right-8 flex items-center gap-2 transition-opacity duration-200 ${isHeaderHovered ? 'opacity-100' : 'opacity-0'}`}>
+                        <div className={`vault-page-cover-actions absolute right-8 flex items-center gap-2 transition-opacity duration-200 ${isHeaderHovered ? 'opacity-100' : 'opacity-0'}`}>
                             {!metadata.icon && (
                                 <button 
                                     onClick={() => setIsIconPickerOpen(true)}
@@ -4488,7 +4487,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                         </div>
                     </div>
 
-                    <div className="absolute -bottom-10 left-12 group/icon z-10">
+                    <div className="vault-page-icon absolute -bottom-10 left-12 group/icon z-10">
                         <div 
                             ref={iconTriggerRef}
                             onClick={() => setIsIconPickerOpen(true)}
@@ -4515,7 +4514,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                     </div>
                 </div>
 
-                <div className="px-12 pt-20 pb-2">
+                <div className={`vault-page-overview px-12 pb-2 ${metadata.icon ? 'vault-page-overview--with-icon' : 'vault-page-overview--without-icon'}`}>
                     <div className="mb-4 space-y-1.5">
                         <div className="flex items-center justify-between gap-4 group/title mb-6">
                             <textarea
@@ -4602,8 +4601,11 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                 <CollaborationPresence pageId={noteFilename} />
                             </div>
                         </div>
-                        <div className="grid grid-cols-[140px_1fr] gap-x-3 gap-y-0.5 items-center px-1 mb-1.5">
-                            <div ref={propertiesPanelRef} className="col-span-2 rounded-xl border border-[var(--border-primary)] focus-within:border-[var(--gnosi-primary)]/50 focus-within:ring-1 focus-within:ring-[var(--gnosi-primary)]/30 bg-[var(--bg-secondary)]/40 overflow-hidden transition-all">
+                        <div
+                            className="vault-page-summary-grid items-start px-1 mb-1.5"
+                            data-expanded={isPropertiesOpen || isLinksInfoOpen}
+                        >
+                            <div ref={propertiesPanelRef} className="rounded-xl border border-[var(--border-primary)] focus-within:border-[var(--gnosi-primary)]/50 focus-within:ring-1 focus-within:ring-[var(--gnosi-primary)]/30 bg-[var(--bg-secondary)]/40 overflow-hidden transition-all">
                                 <div className="w-full flex items-center justify-between gap-3 px-3 py-2.5 hover:bg-[var(--bg-secondary)]/60 transition-colors">
                                     <button
                                         ref={propertiesHeaderRef}
@@ -4926,7 +4928,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                             )}
                             </div>
 
-                            <div className="col-span-2 mt-2 rounded-xl border border-[var(--border-primary)] focus-within:border-[var(--gnosi-primary)]/50 focus-within:ring-1 focus-within:ring-[var(--gnosi-primary)]/30 bg-[var(--bg-secondary)]/40 overflow-hidden transition-all">
+                            <div className="rounded-xl border border-[var(--border-primary)] focus-within:border-[var(--gnosi-primary)]/50 focus-within:ring-1 focus-within:ring-[var(--gnosi-primary)]/30 bg-[var(--bg-secondary)]/40 overflow-hidden transition-all">
                                 <button
                                     ref={linksHeaderRef}
                                     tabIndex={0}
@@ -5100,7 +5102,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                         </div>
                     </div>
                 </div>
-                <div className="relative min-h-[500px] px-12 pb-8">
+                <div className="vault-page-body relative min-h-[500px] px-12 pb-8">
                     <ErrorBoundary>
                         {isCodeView ? (
                             <MarkdownCodeEditor

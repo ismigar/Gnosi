@@ -119,11 +119,11 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
                 </div>
             )}
 
-            <div className="p-6 flex flex-col gap-3">
+            <div className="vault-feed-card__body p-6 flex flex-col gap-3">
                 {/* Header: small date + (icon+title inline) + Open button */}
-                <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                        <div className="flex items-center gap-1.5 text-xs font-medium text-[var(--text-tertiary)] mb-1.5">
+                <div className="vault-feed-card__header flex items-start justify-between gap-3">
+                    <div className="vault-feed-card__identity min-w-0">
+                        <div className="vault-feed-card__date flex items-center gap-1.5 text-xs font-medium text-[var(--text-tertiary)] mb-1.5">
                             <Clock size={12} />
                             <span>
                                 {t('feed.updated_at', {
@@ -137,7 +137,7 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
                         </div>
                         <h2
                             onClick={selectionActive ? undefined : openNote}
-                            className={`text-xl font-bold text-[var(--text-primary)] leading-tight flex items-center gap-2 min-w-0 ${selectionActive ? '' : 'cursor-pointer hover:text-[var(--gnosi-primary)]'} transition-colors`}
+                            className={`vault-feed-card__title text-xl font-bold text-[var(--text-primary)] leading-tight flex items-center gap-2 min-w-0 ${selectionActive ? '' : 'cursor-pointer hover:text-[var(--gnosi-primary)]'} transition-colors`}
                             title={note.title || ''}
                         >
                             {note.metadata?.icon && (
@@ -149,7 +149,7 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
                     <button
                         type="button"
                         onClick={openNote}
-                        className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)] text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--gnosi-primary)] hover:border-[var(--gnosi-primary)]/50 transition-colors"
+                        className="vault-feed-card__open shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)] text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--gnosi-primary)] hover:border-[var(--gnosi-primary)]/50 transition-colors"
                         title={t('feed.open_page', "Open page")}
                     >
                         <ExternalLink size={13} />

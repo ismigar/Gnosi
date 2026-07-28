@@ -155,3 +155,8 @@ environment-specific frontend assumptions.
   the compiled cascade. Page-title controls use the semantic
   `.vault-page-title` contract, and browser QA verifies their computed size and
   weight against the editor heading scale.
+- Do not carry desktop document padding into nested mobile views because it
+  starves cards and embeds of readable width. Compact pages reduce nested
+  padding, omit the current-page breadcrumb and single-tab label, and place
+  collapsed summary panels side by side only when enough width is available;
+  expanded panels always receive the full row.
