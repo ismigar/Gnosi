@@ -325,6 +325,10 @@ textarea,
   bottom: 0.125rem;
 }
 
+.vault-page-icon img {
+  margin-top: 0.25rem;
+}
+
 .vault-page-overview--with-icon {
   padding-top: 3.5rem;
 }
