@@ -4209,6 +4209,7 @@
     "attachments_skipped": "Aviso: {{count}} archivo(s) superan 15MB y no se adjuntaron.",
     "attachment_upload_error": "Error subiendo adjunto: {{message}}",
     "attachments_only_label": "(Adjuntos)",
+    "empty_response": "El asistente ha terminado sin devolver ninguna respuesta. Inténtalo de nuevo.",
     "tool_start": "🛠️ *Llamando a la herramienta: {{tool}}...*",
     "tool_end": "✅ *Herramienta {{tool}} finalizada.*",
     "rate_limit_message": "Has superado la cuota del modelo de este agente. Prueba con otro agente o espera unos minutos.",
