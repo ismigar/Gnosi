@@ -4551,7 +4551,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                     }
                                 }}
                                 placeholder={t('editor.untitled')}
-                                className="flex-1 min-w-0 text-4xl font-bold border-none outline-none placeholder:[var(--text-tertiary)]/20 text-[var(--text-primary)] bg-transparent resize-none overflow-hidden leading-tight break-words"
+                                className="vault-page-title flex-1 min-w-0 border-none outline-none placeholder:[var(--text-tertiary)]/20 text-[var(--text-primary)] bg-transparent resize-none overflow-hidden break-words"
                             />
                             <div className="flex items-center gap-2 shrink-0 animate-in fade-in duration-300 justify-end">
                                 {/* Page actions (history, comments, share, translate, code view,
