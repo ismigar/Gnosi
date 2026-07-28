@@ -10,6 +10,8 @@ import os
 import hashlib
 import re
 import uuid
+import time
+import weakref
 from pathlib import Path
 from backend.agent.factory import create_agent_workflow
 from backend.agent.model_router import record_llm_usage, usage_from_message
@@ -53,36 +55,45 @@ FAILURE_MESSAGES = {
 
 
 class MentionRef(BaseModel):
-    type: str
-    id: str
-    label: Optional[str] = None
+    type: str = Field(max_length=32)
+    id: str = Field(max_length=256)
+    label: Optional[str] = Field(default=None, max_length=256)
 
 class AttachmentRef(BaseModel):
-    name: str
+    name: str = Field(max_length=256)
     size: int = 0
-    type: str = ""
-    path: str
+    type: str = Field(default="", max_length=128)
+    path: str = Field(max_length=512)
 
 class ChatRequest(BaseModel):
-    message: str
+    message: str = Field(max_length=100_000)
     agent_id: str = "gnosy" # Default agent
     session_id: str = "default"
     history: List[Dict[str, Any]] = Field(default_factory=list)
     llm_mode: str = "agent_default"  # auto | manual | agent_default
     llm_provider: Optional[str] = None
     llm_model: Optional[str] = None
-    mentions: List[MentionRef] = Field(default_factory=list)
-    attachments: List[AttachmentRef] = Field(default_factory=list)
+    mentions: List[MentionRef] = Field(default_factory=list, max_length=20)
+    attachments: List[AttachmentRef] = Field(default_factory=list, max_length=8)
+
+
+class AttachmentDeleteRequest(BaseModel):
+    path: str = Field(max_length=512)
 
 
 IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$")
 MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024
 MAX_ATTACHMENT_TEXT = 20_000
+MAX_ATTACHMENT_CONTEXT = 40_000
+MAX_PDF_PAGES = 50
+ATTACHMENT_EXTRACTION_SECONDS = 5
+ATTACHMENT_MAX_AGE_SECONDS = 24 * 60 * 60
+TURN_TIMEOUT_SECONDS = 120
 CHAT_ATTACHMENT_TYPES = {
     ".txt", ".md", ".markdown", ".csv", ".tsv", ".json", ".yaml", ".yml",
     ".xml", ".html", ".css", ".js", ".jsx", ".ts", ".tsx", ".py", ".pdf",
-    ".png", ".jpg", ".jpeg", ".webp", ".gif",
 }
+_THREAD_LOCKS: weakref.WeakValueDictionary[str, asyncio.Lock] = weakref.WeakValueDictionary()
 
 
 def _validated_identifier(value: str, label: str) -> str:
@@ -105,14 +116,42 @@ def _attachment_root(vault: Path) -> Path:
     return root
 
 
-def _attachment_context(vault: Path, refs: List[AttachmentRef]) -> str:
+def _attachment_target(vault: Path, relative_path: str) -> Path:
     root = _attachment_root(vault)
+    relative = Path(relative_path)
+    target = (vault / relative).resolve()
+    if target == vault or vault not in target.parents or root not in target.parents:
+        raise HTTPException(status_code=422, detail="Invalid attachment path")
+    return target
+
+
+def _delete_attachment(vault: Path, relative_path: str) -> None:
+    target = _attachment_target(vault, relative_path)
+    if target.is_file():
+        target.unlink(missing_ok=True)
+
+
+def _cleanup_expired_attachments(vault: Path) -> None:
+    root = _attachment_root(vault)
+    if not root.exists():
+        return
+    cutoff = time.time() - ATTACHMENT_MAX_AGE_SECONDS
+    for item in root.iterdir():
+        try:
+            if item.is_file() and item.stat().st_mtime < cutoff:
+                item.unlink(missing_ok=True)
+        except OSError:
+            continue
+
+
+def _attachment_context(vault: Path, refs: List[AttachmentRef]) -> str:
     sections = []
+    remaining_total = MAX_ATTACHMENT_CONTEXT
+    deadline = time.monotonic() + ATTACHMENT_EXTRACTION_SECONDS
     for ref in refs:
-        relative = Path(ref.path)
-        target = (vault / relative).resolve()
-        if target == vault or vault not in target.parents or root not in target.parents:
-            raise HTTPException(status_code=422, detail="Invalid attachment path")
+        if remaining_total <= 0 or time.monotonic() >= deadline:
+            break
+        target = _attachment_target(vault, ref.path)
         if not target.is_file() or target.stat().st_size > MAX_ATTACHMENT_BYTES:
             raise HTTPException(status_code=422, detail="Attachment is missing or too large")
 
@@ -121,20 +160,67 @@ def _attachment_context(vault: Path, refs: List[AttachmentRef]) -> str:
         if suffix == ".pdf":
             try:
                 from pypdf import PdfReader
-                text = "\n".join((page.extract_text() or "") for page in PdfReader(str(target)).pages)
+                chunks = []
+                extracted = 0
+                for page_index, page in enumerate(PdfReader(str(target)).pages):
+                    if page_index >= MAX_PDF_PAGES:
+                        break
+                    if extracted >= min(MAX_ATTACHMENT_TEXT, remaining_total):
+                        break
+                    if time.monotonic() >= deadline:
+                        break
+                    chunk = page.extract_text() or ""
+                    chunks.append(chunk[: min(MAX_ATTACHMENT_TEXT, remaining_total) - extracted])
+                    extracted += len(chunks[-1])
+                text = "\n".join(chunks)
             except Exception as exc:
                 log.warning("Could not extract chat PDF attachment %s: %s", target.name, exc)
-        elif suffix not in {".png", ".jpg", ".jpeg", ".webp", ".gif"}:
-            text = target.read_text(encoding="utf-8", errors="replace")
+        else:
+            with target.open("r", encoding="utf-8", errors="replace") as handle:
+                text = handle.read(min(MAX_ATTACHMENT_TEXT, remaining_total) + 1)
 
         if text.strip():
-            sections.append(f"Attachment: {ref.name}\n{text[:MAX_ATTACHMENT_TEXT]}")
+            bounded = text[: min(MAX_ATTACHMENT_TEXT, remaining_total)]
+            sections.append(f"Attachment: {ref.name}\n{bounded}")
+            remaining_total -= len(bounded)
         else:
             sections.append(
                 f"Attachment: {ref.name}\n"
-                "(No text could be extracted. Do not claim to have inspected its visual content.)"
+                "(No text could be extracted.)"
             )
     return "\n\n".join(sections)
+
+
+def _message_text(content: Any) -> str:
+    """Normalize provider-specific structured content into renderable text."""
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict):
+                block_type = str(block.get("type") or "").lower()
+                if block_type in {"reasoning", "thinking", "analysis"}:
+                    continue
+                value = block.get("text")
+                if value is None and block_type in {"", "text", "output_text"}:
+                    value = block.get("content")
+                if isinstance(value, str):
+                    parts.append(value)
+        return "\n".join(part for part in parts if part)
+    if content is None:
+        return ""
+    return str(content)
+
+
+def _thread_lock(thread_id: str) -> asyncio.Lock:
+    lock = _THREAD_LOCKS.get(thread_id)
+    if lock is None:
+        lock = asyncio.Lock()
+        _THREAD_LOCKS[thread_id] = lock
+    return lock
 
 async def get_agent_workflow(
     request: Request,
@@ -202,11 +288,14 @@ async def get_agent_workflow(
 async def upload_chat_attachment(file: UploadFile = File(...)):
     """Store one bounded chat attachment inside the active Vault."""
     vault, _ = _vault_scope()
+    _cleanup_expired_attachments(vault)
     original_name = Path(file.filename or "attachment").name
     suffix = Path(original_name).suffix.lower()
     if suffix not in CHAT_ATTACHMENT_TYPES:
         raise HTTPException(status_code=415, detail="Unsupported chat attachment type")
     content = await file.read(MAX_ATTACHMENT_BYTES + 1)
+    if not content:
+        raise HTTPException(status_code=422, detail="Chat attachment is empty")
     if len(content) > MAX_ATTACHMENT_BYTES:
         raise HTTPException(status_code=413, detail="Chat attachment exceeds 15 MB")
 
@@ -220,6 +309,37 @@ async def upload_chat_attachment(file: UploadFile = File(...)):
         "type": file.content_type or "",
         "path": str(target.relative_to(vault)),
     }
+
+
+@router.delete("/chat/attachments", dependencies=[Depends(require_role("editor"))])
+async def delete_chat_attachment(delete_req: AttachmentDeleteRequest):
+    """Delete an abandoned chat upload from the active Vault."""
+    vault, _ = _vault_scope()
+    _delete_attachment(vault, delete_req.path)
+    return {"deleted": True}
+
+
+@router.delete(
+    "/chat/sessions/{agent_id}/{session_id}",
+    dependencies=[Depends(require_role("editor"))],
+)
+async def delete_chat_session(agent_id: str, session_id: str):
+    """Remove the persisted LangGraph checkpoints for one scoped chat thread."""
+    safe_agent_id = _validated_identifier(agent_id, "agent_id")
+    safe_session_id = _validated_identifier(session_id, "session_id")
+    _vault, vault_scope = _vault_scope()
+    thread_id = hashlib.sha256(
+        f"{vault_scope}:{safe_agent_id}:{safe_session_id}".encode("utf-8")
+    ).hexdigest()
+    checkpoint_key = hashlib.sha256(
+        f"{vault_scope}:{safe_agent_id}".encode("utf-8")
+    ).hexdigest()[:32]
+    db_path = cfg.paths["CHECKPOINTS"] / f"agent_{checkpoint_key}.sqlite"
+    if db_path.exists():
+        async with _thread_lock(thread_id):
+            async with AsyncSqliteSaver.from_conn_string(str(db_path)) as saver:
+                await saver.adelete_thread(thread_id)
+    return {"deleted": True}
 
 
 @router.get("/ai/model-reliability")
@@ -280,7 +400,7 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
                 mention_lines.append(f"- {mention_type}: {mention_label} (id: {mention_id})")
 
             if mention_lines:
-                user_content += "\n\nContexto de menciones seleccionadas:\n" + "\n".join(mention_lines)
+                user_content += "\n\nSelected mentions context:\n" + "\n".join(mention_lines)
 
         inputs = {"messages": [HumanMessage(content=user_content)]}
         
@@ -288,7 +408,11 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
         thread_id = hashlib.sha256(
             f"{vault_scope}:{agent_id}:{session_id}".encode("utf-8")
         ).hexdigest()
-        config = {"configurable": {"thread_id": thread_id}}
+        config = {
+            "configurable": {"thread_id": thread_id},
+            "recursion_limit": 12,
+        }
+        turn_lock = _thread_lock(thread_id)
         
         # 4. Persistence setup
         checkpoint_key = hashlib.sha256(
@@ -298,7 +422,7 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
         os.makedirs(db_path.parent, exist_ok=True)
         
         async def event_generator():
-            visible_responses = 0
+            answer_count = 0
             try:
                 if llm_selection:
                     yield json.dumps({
@@ -312,40 +436,51 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
                 # usage_metadata; accumulate and record once per turn.
                 total_in_tok = 0
                 total_out_tok = 0
-                async with AsyncSqliteSaver.from_conn_string(str(db_path)) as saver:
-                    agent_app = workflow.compile(checkpointer=saver)
-                    async for event in agent_app.astream(inputs, config=config, stream_mode="updates"):
-                        for node_name, state_update in event.items():
-                            if "messages" in state_update:
-                                messages = state_update["messages"]
-                                for msg in messages:
-                                    turn_usage = usage_from_message(msg)
-                                    if turn_usage:
-                                        total_in_tok += turn_usage[0]
-                                        total_out_tok += turn_usage[1]
-                                    # Determine the type of content to send to the frontend
-                                    payload = {
-                                        "type": "message",
-                                        "role": "ai" if msg.type == "ai" else "user",
-                                        "content": msg.content,
-                                        "node": node_name
-                                    }
-                                    
-                                    if hasattr(msg, "tool_calls") and msg.tool_calls:
-                                        payload["type"] = "tool_start"
-                                        payload["tool"] = msg.tool_calls[0]["name"]
-                                        payload["input"] = msg.tool_calls[0]["args"]
-                                    elif msg.type == "tool":
-                                        payload["type"] = "tool_end"
-                                        payload["tool"] = msg.name
-                                        payload["output"] = msg.content
-                                    elif node_name == "general" or node_name == "supervisor":
-                                        payload["type"] = "message"
-                                    
-                                    if payload["content"] or payload["type"] != "message":
-                                        if payload["type"] in {"message", "tool_start", "tool_end"}:
-                                            visible_responses += 1
-                                        yield json.dumps(payload) + "\n"
+                async with asyncio.timeout(TURN_TIMEOUT_SECONDS):
+                    async with turn_lock:
+                        async with AsyncSqliteSaver.from_conn_string(str(db_path)) as saver:
+                            agent_app = workflow.compile(checkpointer=saver)
+                            async for event in agent_app.astream(
+                                inputs,
+                                config=config,
+                                stream_mode="updates",
+                            ):
+                                if await request.is_disconnected():
+                                    return
+                                for node_name, state_update in event.items():
+                                    for msg in state_update.get("messages", []):
+                                        turn_usage = usage_from_message(msg)
+                                        if turn_usage:
+                                            total_in_tok += turn_usage[0]
+                                            total_out_tok += turn_usage[1]
+
+                                        tool_calls = getattr(msg, "tool_calls", None) or []
+                                        if tool_calls:
+                                            for tool_call in tool_calls:
+                                                yield json.dumps({
+                                                    "type": "tool_start",
+                                                    "tool": tool_call.get("name"),
+                                                    "input": tool_call.get("args"),
+                                                    "node": node_name,
+                                                }) + "\n"
+                                            continue
+
+                                        content = _message_text(getattr(msg, "content", ""))
+                                        if msg.type == "tool":
+                                            yield json.dumps({
+                                                "type": "tool_end",
+                                                "tool": msg.name,
+                                                "output": content,
+                                                "node": node_name,
+                                            }) + "\n"
+                                        elif msg.type == "ai" and content:
+                                            answer_count += 1
+                                            yield json.dumps({
+                                                "type": "message",
+                                                "role": "ai",
+                                                "content": content,
+                                                "node": node_name,
+                                            }) + "\n"
 
                 if total_in_tok or total_out_tok:
                     # to_thread: the ledger does file I/O under a lock
@@ -358,8 +493,8 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
                     )
                 yield json.dumps({
                     "type": "done",
-                    "has_response": visible_responses > 0,
-                    "message_count": visible_responses,
+                    "has_response": answer_count > 0,
+                    "message_count": answer_count,
                 }) + "\n"
 
             except Exception as e:
@@ -395,23 +530,43 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
                     "has_response": True,
                     "message_count": 1,
                 }) + "\n"
+            finally:
+                for attachment in chat_req.attachments:
+                    try:
+                        _delete_attachment(vault, attachment.path)
+                    except Exception as cleanup_error:
+                        log.warning(
+                            "Could not remove chat attachment %s: %s",
+                            attachment.path,
+                            cleanup_error,
+                        )
 
         return StreamingResponse(event_generator(), media_type="application/x-ndjson")
 
     except HTTPException as e:
         if e.status_code == 503:
-            error_detail = str(e.detail or "Service unavailable")
+            error_code = (
+                e.detail.get("code")
+                if isinstance(e.detail, dict)
+                else "service_unavailable"
+            )
 
             async def unavailable_generator():
                 yield json.dumps({
                     "type": "error",
-                    "content": error_detail,
+                    "code": error_code,
+                    "content": error_code,
                 }) + "\n"
                 yield json.dumps({
                     "type": "done",
                     "has_response": True,
                     "message_count": 1,
                 }) + "\n"
+                for attachment in chat_req.attachments:
+                    try:
+                        _delete_attachment(vault, attachment.path)
+                    except Exception:
+                        pass
 
             return StreamingResponse(
                 unavailable_generator(),
