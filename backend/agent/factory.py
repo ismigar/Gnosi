@@ -122,22 +122,80 @@ def _obvious_route(message: str, has_context: bool = False) -> Optional[str]:
     text = (message or "").strip().lower()
     if not text:
         return "General"
-    if has_context and any(word in text for word in (
+    has_mention = "@[" in text or "selected mentions context:" in text
+    tool_intent = any(word in text for word in (
+        "calendar", "calendari", "calendario", "meeting", "reunió", "reunion",
+        "reuniones", "mail", "email", "correu", "correo", "notion", "zotero",
+        "weather", "temps", "tiempo", "search", "cerca", "busca", "find",
+    ))
+    if has_mention or tool_intent or (has_context and any(word in text for word in (
         "document", "documento", "documentació", "nota", "pdf", "vault",
         "font", "source", "dades", "datos",
-    )):
+    ))):
         return "Brain"
     if any(word in text for word in (
         "code", "codi", "código", "python", "typescript", "javascript",
         "bug", "error", "test", "api", "backend", "frontend",
     )):
         return "Coder"
-    if len(text) <= 240 or text.startswith((
+    if text.startswith((
         "hola", "hello", "hi", "bon dia", "gràcies", "gracias", "merci",
         "explica", "explain", "resume", "resum", "traduce", "tradueix",
     )):
         return "General"
     return None
+
+
+def _safe_mcp_definitions(
+    definitions: List[dict],
+    explicit_allowlist: Optional[Sequence[str]] = None,
+) -> List[dict]:
+    """Keep MCP tools explicitly declared read-only or exactly allowlisted."""
+    allowed_names = {str(name) for name in (explicit_allowlist or [])}
+    safe = []
+    for definition in definitions or []:
+        if not isinstance(definition, dict) or not definition.get("name"):
+            continue
+        annotations = definition.get("annotations") or {}
+        declared_read_only = (
+            annotations.get("readOnlyHint") is True
+            and annotations.get("destructiveHint") is not True
+        )
+        if declared_read_only or definition["name"] in allowed_names:
+            safe.append(definition)
+    return safe
+
+
+def _model_supports_tools(
+    provider_name: str,
+    model_name: Optional[str],
+    agent_data: dict,
+) -> bool:
+    """Respect an explicit agent override, then the editable model registry."""
+    capabilities = agent_data.get("capabilities")
+    if isinstance(capabilities, list):
+        return "tools" in capabilities
+    if isinstance(capabilities, dict) and "tools" in capabilities:
+        return bool(capabilities["tools"])
+    try:
+        from backend.agent.model_router import load_registry
+
+        match = next(
+            (
+                row
+                for row in load_registry(with_catalog_prices=False)
+                if row.get("provider") == provider_name
+                and row.get("model_id") == model_name
+            ),
+            None,
+        )
+        if match is not None:
+            return "tools" in set(match.get("tags") or [])
+    except Exception:
+        pass
+    # Unknown/custom models keep legacy behavior. A user can override this with
+    # `capabilities.tools: false` in the agent profile.
+    return True
 
 
 # --- 1. Define the State ---
@@ -601,13 +659,15 @@ async def create_agent_workflow(
         )
 
     # 4. Convert MCP tools
-    mcp_langchain_tools = [
-        item for item in get_mcp_tools(mcp_tools_list, mcp_client)
-        if item.name.lower().startswith(("get_", "list_", "read_", "search_", "query_"))
-    ]
+    safe_mcp_definitions = _safe_mcp_definitions(
+        mcp_tools_list,
+        explicit_allowlist=agent_data.get("read_only_mcp_tools") or [],
+    )
+    mcp_langchain_tools = get_mcp_tools(safe_mcp_definitions, mcp_client)
+    supports_tools = _model_supports_tools(provider_name, model_name, agent_data)
     # Coder & Brain specialists
-    coder_tools = READ_ONLY_SYSTEM_TOOLS
-    coder_llm = llm.bind_tools(coder_tools)
+    coder_tools = READ_ONLY_SYSTEM_TOOLS if supports_tools else []
+    coder_llm = llm.bind_tools(coder_tools) if coder_tools else llm
 
     memory_tools = [
         t
@@ -622,8 +682,12 @@ async def create_agent_workflow(
         item for item in VAULT_KNOWLEDGE_TOOLS
         if item.name in {"read_page", "read_pdf", "propose_links", "query_wiki"}
     ]
-    brain_tools = mcp_langchain_tools + memory_tools + read_only_vault_tools + context_tools
-    brain_llm = llm.bind_tools(brain_tools)
+    brain_tools = (
+        mcp_langchain_tools + memory_tools + read_only_vault_tools + context_tools
+        if supports_tools
+        else []
+    )
+    brain_llm = llm.bind_tools(brain_tools) if brain_tools else llm
 
     # --- Graph Nodes ---
 
@@ -665,17 +729,18 @@ async def create_agent_workflow(
 
     def brain_node(state: AgentState):
         messages = state["messages"]
-        brain_system = (
-            "You are the Brain Agent (Gnosi Vault, Sovereign Memory). You have TOOLS "
-            "for working with the user's data, not merely searching it:\n"
-            "- search_vault: semantically search the vault.\n"
-            "- read_page(id_or_title) / read_pdf(path): read a note or an Assets/Library PDF.\n"
-            "- create_page(title, content, folder): create a new note.\n"
-            "- propose_links(id_or_title): propose [[...]] connections for a page.\n"
-            "- summarize_to_cornell(source): summarize a note or PDF into a saved Cornell note.\n"
-            "Use these tools when the user asks to create, summarize, connect, or organize "
-            "knowledge. Always confirm the result, including the created page ID or title."
-        )
+        brain_system = "You are the Brain Agent (Gnosi Vault, Sovereign Memory)."
+        if brain_tools:
+            tool_names = ", ".join(sorted({item.name for item in brain_tools}))
+            brain_system += (
+                "\nYou may use only these read-only tools: "
+                f"{tool_names}.\nNever claim to have created, edited, or deleted data."
+            )
+        else:
+            brain_system += (
+                "\nNo tools are available for this model. Answer only from the "
+                "conversation context and state clearly when external data cannot be checked."
+            )
         if context_tools:
             # The Brain node is the one holding the context tools, so it needs the
             # INVENTORY too: without it the model does not know which source ids

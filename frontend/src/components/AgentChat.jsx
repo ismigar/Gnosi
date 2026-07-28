@@ -10,6 +10,40 @@ const CHAT_SESSIONS_KEY = 'agent_chat_sessions_v2';
 const CHAT_ACTIVE_SESSION_KEY = 'agent_chat_active_session_id_v2';
 const CHAT_SELECTED_AGENT_KEY = 'agent_selected_id_v2';
 const MAX_CHAT_ATTACHMENT_SIZE = 15 * 1024 * 1024;
+const MAX_CHAT_ATTACHMENTS = 8;
+const CHAT_ATTACHMENT_ACCEPT = [
+    '.txt', '.md', '.markdown', '.csv', '.tsv', '.json', '.yaml', '.yml',
+    '.xml', '.html', '.css', '.js', '.jsx', '.ts', '.tsx', '.py', '.pdf',
+].join(',');
+const MAX_STORED_SESSIONS = 20;
+const MAX_STORED_MESSAGES = 100;
+const MAX_STORED_MESSAGE_CHARS = 20_000;
+
+const boundedChatSessions = (sessions) => [...(Array.isArray(sessions) ? sessions : [])]
+    .filter((session) => session && typeof session === 'object' && session.id)
+    .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+    .slice(0, MAX_STORED_SESSIONS)
+    .map((session) => ({
+        ...session,
+        messages: (Array.isArray(session.messages) ? session.messages : [])
+            .slice(-MAX_STORED_MESSAGES)
+            .map((message) => ({
+                ...message,
+                content: typeof message?.content === 'string'
+                    ? message.content.slice(0, MAX_STORED_MESSAGE_CHARS)
+                    : String(message?.content || '').slice(0, MAX_STORED_MESSAGE_CHARS),
+            })),
+    }));
+
+const safeLocalStorageSet = (key, value) => {
+    try {
+        localStorage.setItem(key, value);
+        return true;
+    } catch (error) {
+        console.warn('Could not persist assistant chat state', error);
+        return false;
+    }
+};
 
 const createChatSession = (title = 'Nova conversa', agentId = 'gnosy') => ({
     id: crypto.randomUUID(),
@@ -68,6 +102,7 @@ const AgentChat = () => {
     const inputRef = useRef(null);
     const fileInputRef = useRef(null);
     const requestAbortRef = useRef(null);
+    const activeScopeRef = useRef('');
     const vaultStorageScope = localStorage.getItem('gnosi_active_vault') || 'default';
     const scopedStorageKey = useCallback(
         (key) => `${key}:${vaultStorageScope}`,
@@ -91,7 +126,7 @@ const AgentChat = () => {
         if (!Array.isArray(parsedSessions) || !parsedSessions.length) {
             parsedSessions = [createChatSession('Nova conversa', savedAgentId)];
         }
-        parsedSessions = parsedSessions.map((session) => ({
+        parsedSessions = boundedChatSessions(parsedSessions).map((session) => ({
             ...session,
             agentId: session.agentId || savedAgentId,
         }));
@@ -123,8 +158,8 @@ const AgentChat = () => {
         setMessages(activeSession.messages || []);
         setSessionId(activeSession.id);
         if (activeSession.id) {
-            localStorage.setItem(scopedStorageKey(CHAT_ACTIVE_SESSION_KEY), activeSession.id);
-            localStorage.setItem(scopedStorageKey('agent_session_id_v2'), activeSession.id);
+            safeLocalStorageSet(scopedStorageKey(CHAT_ACTIVE_SESSION_KEY), activeSession.id);
+            safeLocalStorageSet(scopedStorageKey('agent_session_id_v2'), activeSession.id);
         }
 
         setSessionsHydrated(true);
@@ -132,17 +167,20 @@ const AgentChat = () => {
 
     useEffect(() => {
         if (!sessionsHydrated) return;
-        localStorage.setItem(scopedStorageKey(CHAT_SESSIONS_KEY), JSON.stringify(chatSessions));
+        safeLocalStorageSet(
+            scopedStorageKey(CHAT_SESSIONS_KEY),
+            JSON.stringify(boundedChatSessions(chatSessions)),
+        );
     }, [chatSessions, scopedStorageKey, sessionsHydrated]);
 
     useEffect(() => {
         if (!sessionsHydrated || !sessionId) return;
-        localStorage.setItem(scopedStorageKey(CHAT_ACTIVE_SESSION_KEY), sessionId);
-        localStorage.setItem(scopedStorageKey('agent_session_id_v2'), sessionId);
+        safeLocalStorageSet(scopedStorageKey(CHAT_ACTIVE_SESSION_KEY), sessionId);
+        safeLocalStorageSet(scopedStorageKey('agent_session_id_v2'), sessionId);
     }, [scopedStorageKey, sessionId, sessionsHydrated]);
 
     useEffect(() => {
-        localStorage.setItem(scopedStorageKey(CHAT_SELECTED_AGENT_KEY), selectedAgentId);
+        safeLocalStorageSet(scopedStorageKey(CHAT_SELECTED_AGENT_KEY), selectedAgentId);
     }, [scopedStorageKey, selectedAgentId]);
 
     useEffect(() => {
@@ -162,6 +200,14 @@ const AgentChat = () => {
     }, [chatSessions, selectedAgentId, sessionId, sessionsHydrated]);
 
     useEffect(() => () => requestAbortRef.current?.abort(), []);
+
+    useEffect(() => {
+        const nextScope = `${selectedAgentId}:${sessionId}`;
+        if (activeScopeRef.current && activeScopeRef.current !== nextScope) {
+            requestAbortRef.current?.abort();
+        }
+        activeScopeRef.current = nextScope;
+    }, [selectedAgentId, sessionId]);
 
     useEffect(() => {
         if (!sessionsHydrated || !sessionId) return;
@@ -304,6 +350,7 @@ const AgentChat = () => {
     }, [loadConfig, loadMentionCatalog]);
 
     const selectSession = (nextId) => {
+        if (isLoading) return;
         const target = chatSessions.find((s) => s.id === nextId);
         if (!target) return;
         setChatSessions((prev) => prev.map((s) => s.id === nextId ? { ...s, archived: false, updatedAt: Date.now() } : s));
@@ -318,6 +365,7 @@ const AgentChat = () => {
     };
 
     const createNewSession = () => {
+        if (isLoading) return;
         const next = createChatSession('Nova conversa', selectedAgentId);
         setChatSessions((prev) => [
             next,
@@ -330,7 +378,13 @@ const AgentChat = () => {
     };
 
     const deleteSessionById = (targetId) => {
-        if (!targetId) return;
+        if (!targetId || isLoading) return;
+        const target = chatSessions.find((session) => session.id === targetId);
+        if (target?.agentId) {
+            void fetch(`/api/chat/sessions/${encodeURIComponent(target.agentId)}/${encodeURIComponent(targetId)}`, {
+                method: 'DELETE',
+            }).catch((error) => console.warn('Could not delete assistant checkpoint', error));
+        }
 
         const remaining = chatSessions.filter((s) => s.id !== targetId);
         const remainingForAgent = remaining.filter((s) => s.agentId === selectedAgentId);
@@ -417,25 +471,35 @@ const AgentChat = () => {
         e.target.value = '';
         if (!picked.length) return;
 
-        const validFiles = picked.filter((file) => file.size <= MAX_CHAT_ATTACHMENT_SIZE);
+        const remainingSlots = Math.max(0, MAX_CHAT_ATTACHMENTS - attachments.length);
+        const validFiles = picked
+            .filter((file) => file.size <= MAX_CHAT_ATTACHMENT_SIZE)
+            .slice(0, remainingSlots);
         const skipped = picked.length - validFiles.length;
         if (skipped > 0) {
             setMessages((prev) => [
                 ...prev,
-                { role: 'system', content: t('chat.attachments_skipped', "Notice: {{count}} file(s) exceed 15MB and were not attached.", { count: skipped }) },
+                { role: 'system', content: t('chat.attachments_skipped_limits', "Notice: {{count}} file(s) exceed the size or count limit and were not attached.", { count: skipped }) },
             ]);
         }
         if (!validFiles.length) return;
 
         setIsUploadingAttachment(true);
+        const uploaded = [];
         try {
-            const uploaded = [];
             for (const file of validFiles) {
                 const saved = await uploadAttachmentFile(file);
                 uploaded.push(saved);
             }
             setAttachments((prev) => [...prev, ...uploaded]);
         } catch (error) {
+            for (const item of uploaded) {
+                void fetch('/api/chat/attachments', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ path: item.path }),
+                }).catch(() => {});
+            }
             setMessages((prev) => [...prev, { role: 'system', content: t('chat.attachment_upload_error', "Error uploading attachment: {{message}}", { message: error.message }) }]);
         } finally {
             setIsUploadingAttachment(false);
@@ -443,7 +507,15 @@ const AgentChat = () => {
     };
 
     const removeAttachment = (attachmentId) => {
+        const target = attachments.find((item) => item.id === attachmentId);
         setAttachments((prev) => prev.filter((item) => item.id !== attachmentId));
+        if (target?.path) {
+            void fetch('/api/chat/attachments', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: target.path }),
+            }).catch((error) => console.warn('Could not delete abandoned chat attachment', error));
+        }
     };
 
     const scrollToBottom = () => {
@@ -480,6 +552,7 @@ const AgentChat = () => {
         setAttachments([]);
         setShowMentionMenu(false);
         setIsLoading(true);
+        const requestScope = `${selectedAgentId}:${sessionId}`;
 
         try {
             requestAbortRef.current?.abort();
@@ -559,10 +632,13 @@ const AgentChat = () => {
                         ].includes(data.type);
                         if (!carriesResponse) continue;
 
-                        responseReceived = true;
+                        if (data.type === 'message' || data.type === 'thought' || data.type === 'error') {
+                            responseReceived = true;
+                        }
                         const addAssistant = !aiMsgAdded;
                         aiMsgAdded = true;
                         setMessages(prev => {
+                            if (activeScopeRef.current !== requestScope) return prev;
                             const newMsgs = [...prev];
 
                             // Metadata never creates an empty assistant bubble.
@@ -582,6 +658,9 @@ const AgentChat = () => {
                             } else if (data.type === 'error') {
                                 // Translation and improvement of common messages
                                 let errorContent = data.content || t('errors.unknown');
+                                if (data.code === 'agent_model_unavailable') {
+                                    errorContent = t('chat.agent_model_unavailable', 'The selected agent model is unavailable. Configure the agent and try again.');
+                                }
                                 if (errorContent.includes('rate_limit_exceeded')) {
                                     errorContent = t('chat.rate_limit_message', "You've exceeded this agent model's quota. Try a different agent or wait a few minutes.");
                                 }
@@ -598,16 +677,16 @@ const AgentChat = () => {
                 if (done) break;
             }
             if (!terminalReceived || !responseReceived) {
-                setMessages((prev) => [
-                    ...prev,
-                    {
+                setMessages((prev) => {
+                    if (activeScopeRef.current !== requestScope) return prev;
+                    return [...prev, {
                         role: 'system',
                         content: `${t('chat.error_prefix', 'Error')}: ${t('chat.empty_response', 'The assistant finished without returning a response. Please try again.')}`,
-                    },
-                ]);
+                    }];
+                });
             }
         } catch (error) {
-            if (error.name !== 'AbortError') {
+            if (error.name !== 'AbortError' && activeScopeRef.current === requestScope) {
                 setMessages(prev => [...prev, { role: 'system', content: `${t('chat.error_prefix', 'Error')}: ${error.message}` }]);
             }
         } finally {
@@ -711,6 +790,7 @@ const AgentChat = () => {
                             value={selectedAgentId}
                             onChange={(e) => setSelectedAgentId(e.target.value)}
                             onClick={(e) => e.stopPropagation()}
+                            disabled={isLoading}
                             style={{
                                 margin: 0,
                                 width: 'auto',
@@ -846,6 +926,13 @@ const AgentChat = () => {
                         {!showSessionsView && isLoading && (
                             <div style={{ alignSelf: 'flex-start', display: 'flex', gap: '8px', alignItems: 'center', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
                                 <Sparkles size={14} className="spin-slow" /> {t('chat.processing', "Processing...")}
+                                <button
+                                    type="button"
+                                    onClick={() => requestAbortRef.current?.abort()}
+                                    style={{ border: 'none', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', textDecoration: 'underline', fontSize: '0.76rem' }}
+                                >
+                                    {t('chat.cancel_response', 'Cancel')}
+                                </button>
                             </div>
                         )}
                         {!showSessionsView && <div ref={messagesEndRef} />}
@@ -863,6 +950,7 @@ const AgentChat = () => {
                                     ref={fileInputRef}
                                     type="file"
                                     multiple
+                                    accept={CHAT_ATTACHMENT_ACCEPT}
                                     style={{ display: 'none' }}
                                     onChange={handleAttachmentInputChange}
                                 />
@@ -976,7 +1064,7 @@ const AgentChat = () => {
 
                         <div style={{ marginTop: '6px', padding: '0 2px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', flexWrap: 'wrap' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                                <button onClick={createNewSession} title={t('chat.new_session', "New session")} aria-label={t('chat.new_session', "New session")} style={{ width: '26px', height: '26px', borderRadius: '13px', border: '1px solid var(--settings-border, #e5e7eb)', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <button onClick={createNewSession} disabled={isLoading} title={t('chat.new_session', "New session")} aria-label={t('chat.new_session', "New session")} style={{ width: '26px', height: '26px', borderRadius: '13px', border: '1px solid var(--settings-border, #e5e7eb)', background: 'transparent', color: 'var(--text-secondary)', cursor: isLoading ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <Plus size={12} />
                                 </button>
                                 <button onClick={() => setShowSessionsView((v) => !v)} title={t('chat.sessions', 'Sessions')} aria-label={t('chat.sessions', 'Sessions')} style={{ width: '26px', height: '26px', borderRadius: '13px', border: '1px solid var(--settings-border, #e5e7eb)', background: showSessionsView ? 'var(--settings-sidebar-bg, #f3f4f6)' : 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
