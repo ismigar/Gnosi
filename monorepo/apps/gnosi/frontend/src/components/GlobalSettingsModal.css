@@ -187,6 +187,12 @@
     border-radius: 24px 24px 0 0 !important;
 }
 
+/* A blue border means that this row owns an open editor. Hovering a normal
+ * configurable row must not make it look selected. */
+.settings-configurable-item:hover:not(.is-editing) {
+    border-color: var(--settings-border) !important;
+}
+
 .settings-configurable-item.is-editing + [data-settings-editor-anchor-for] {
     margin-top: calc(-1 * var(--settings-configurable-gap, 12px));
 }
