@@ -174,6 +174,6 @@ environment-specific frontend assumptions.
   768-pixel desktop reading column, compact timestamps, and bounded excerpt
   expansion with an explicit route to the full document. The floating dock is
   one collapsed launcher that reveals its independent actions only on demand.
-- Image-based page icons retain their established size and receive only a
-  small top margin inside the shared icon frame, avoiding a broader header
-  geometry change.
+- Image-based page icons retain their established size and use a visibly small
+  top margin inside the shared icon frame, avoiding a broader header geometry
+  change.
