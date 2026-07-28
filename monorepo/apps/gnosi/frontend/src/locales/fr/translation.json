@@ -920,6 +920,12 @@
       "translate": "Traduction",
       "account": "Compte"
     },
+    "navigation": {
+      "basic": "Essentiel",
+      "connections": "Connexions",
+      "knowledge": "Connaissances et IA",
+      "advanced": "Avancé"
+    },
     "general": {
       "workspace_name": "Nom de l'espace de travail",
       "system_title": "Configuration du Système",

@@ -91,3 +91,15 @@ The redesign must feel premium, using smooth transitions and a clear layout.
   profile filtering, price/context thresholds, sortable columns, and monthly cost estimates.
 - The dialog follows the modal standard: backdrop clicks do not close it, Escape does, and
   every user-visible string is present in all supported locale catalogs.
+
+## 11. Settings Navigation Hierarchy
+
+- Organize the settings sidebar with named groups instead of anonymous separators: Basics,
+  Connections, Knowledge and AI, and Advanced.
+- Keep the default General section first, followed by appearance, locale, identity, account,
+  and workspace configuration.
+- Keep calendar, contacts, mail accounts, subscriptions, social, and Notion import together
+  as connections. Keep references with graph, AI, and translation controls.
+- Collapse the Advanced group by default to reduce initial scrolling. If Settings opens directly
+  on an advanced section, its group must start expanded so the selected destination remains
+  visible and intelligible.
