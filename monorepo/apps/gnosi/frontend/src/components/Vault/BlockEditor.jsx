@@ -4618,7 +4618,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                     type="button"
                                     onClick={() => setSpellEnabled((v) => !v)}
                                     title={spellEnabled ? t('editor.spellcheck_active', { lang: spellLang.toUpperCase() }) : t('editor.spellcheck_disabled')}
-                                    className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-colors ${spellEnabled ? 'bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)]'}`}
+                                    className={`vault-page-spell-action flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-colors ${spellEnabled ? 'bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)]'}`}
                                 >
                                     <SpellCheck2 size={12} /> {spellLang.toUpperCase()}
                                 </button>
@@ -4633,6 +4633,15 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                 <PageActionsBar
                                     pageActions={isActivePage ? pageActions : null}
                                     containerWidth={contentWidth}
+                                    compactOverflowItems={isActivePage ? [{
+                                        key: 'spellcheck',
+                                        Icon: SpellCheck2,
+                                        active: spellEnabled,
+                                        label: spellEnabled
+                                            ? t('editor.spellcheck_active', { lang: spellLang.toUpperCase() })
+                                            : t('editor.spellcheck_disabled'),
+                                        onClick: () => setSpellEnabled((value) => !value),
+                                    }] : []}
                                 />
                                 <CollaborationPresence pageId={noteFilename} />
                             </div>
