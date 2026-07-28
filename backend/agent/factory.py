@@ -669,23 +669,28 @@ async def create_agent_workflow(
 
     def coder_router(state):
         last_message = state["messages"][-1]
-        return "coder_tools" if last_message.tool_calls else "supervisor"
+        # A completed specialist reply must finish this graph. Sending it back
+        # to the supervisor would invoke providers such as Mistral with an
+        # assistant message as the final conversation turn, which they reject.
+        return "coder_tools" if last_message.tool_calls else "END"
 
     workflow.add_conditional_edges(
         "coder",
         coder_router,
-        {"coder_tools": "coder_tools", "supervisor": "supervisor"},
+        {"coder_tools": "coder_tools", "END": END},
     )
     workflow.add_edge("coder_tools", "coder")
 
     def brain_router(state):
         last_message = state["messages"][-1]
-        return "brain_tools" if last_message.tool_calls else "supervisor"
+        # See coder_router: the next user request, not the supervisor, starts
+        # the following conversational turn.
+        return "brain_tools" if last_message.tool_calls else "END"
 
     workflow.add_conditional_edges(
         "brain",
         brain_router,
-        {"brain_tools": "brain_tools", "supervisor": "supervisor"},
+        {"brain_tools": "brain_tools", "END": END},
     )
     workflow.add_edge("brain_tools", "brain")
     workflow.add_edge("general", END)
