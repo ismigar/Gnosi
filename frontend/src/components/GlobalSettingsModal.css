@@ -189,6 +189,12 @@
     border-radius: 24px 24px 0 0 !important;
 }
 
+.settings-configurable-item.is-editing:hover,
+.settings-plugin-item.is-expanded:hover {
+    transform: none !important;
+    box-shadow: none !important;
+}
+
 /* Match the AI agent-list affordance across configurable Settings rows. */
 .settings-configurable-item:hover:not(.is-editing),
 .settings-plugin-item:hover:not(.is-expanded) {
@@ -206,7 +212,7 @@
     padding: 28px;
     border: 1px solid var(--gnosi-blue);
     border-radius: 24px;
-    background: var(--settings-sidebar-bg);
+    background: var(--bg-primary);
 }
 
 .settings-inline-editor.is-create {
@@ -247,7 +253,7 @@
 }
 
 .ai-agent-form.is-attached {
-    background: var(--settings-sidebar-bg);
+    background: var(--bg-primary);
 }
 
 .settings-inline-editor-compact .settings-inline-editor-heading {
