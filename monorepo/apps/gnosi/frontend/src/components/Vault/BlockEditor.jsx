@@ -95,6 +95,7 @@ import LinkCardBlock from './LinkCardBlock';
 import SyncedBlock from './SyncedBlock';
 import SpellCheckLayer from './SpellCheckLayer';
 import AICorrectLayer from './AICorrectLayer';
+import { PageLinksGraph } from './PageLinksGraph';
 
 /**
  * Resolves the URI of the PDF associated with a Recursos page.
@@ -868,7 +869,15 @@ class ErrorBoundary extends React.Component {
     }
 }
 
-const MarkdownCodeEditor = ({ noteFilename, initialContent, metadata, onUpdate, onRefreshNotes }) => {
+const MarkdownCodeEditor = ({
+    noteFilename,
+    initialContent,
+    metadata,
+    onUpdate,
+    onRefreshNotes,
+    idToTitle,
+    onOutgoingLinksChange,
+}) => {
     const { t } = useTranslation();
     // Defensive: if initialContent is NOT a string (some upstream update has
     // muddled it into an object) we try to extract a reasonable version before
@@ -992,7 +1001,14 @@ const MarkdownCodeEditor = ({ noteFilename, initialContent, metadata, onUpdate, 
             <textarea
                 ref={textareaRef}
                 value={markdownText}
-                onChange={(e) => { hasUserEditedRef.current = true; setMarkdownText(e.target.value); }}
+                onChange={(e) => {
+                    const nextText = e.target.value;
+                    hasUserEditedRef.current = true;
+                    setMarkdownText(nextText);
+                    onOutgoingLinksChange?.(
+                        extractOutgoingPageLinks(nextText, idToTitle, noteFilename)
+                    );
+                }}
                 onKeyDown={(e) => {
                     if ((e.metaKey || e.ctrlKey) && String(e.key || '').toLowerCase() === 's') {
                         e.preventDefault();
@@ -1042,6 +1058,7 @@ export function EditorInner({
     spellEnabled = true,
     spellLang = 'ca',
     onLangDetected,
+    onOutgoingLinksChange,
 }) {
     const { t, i18n: editorI18n } = useTranslation();
     const [blockNoteDictionary] = useState(() => resolveBlockNoteDictionary(
@@ -2610,9 +2627,24 @@ export function EditorInner({
         }
     }, [insertTransclusion, insertWikiLink, normalizePendingLinkTitle, onRefreshNotes, t]);
 
+    const outgoingLinksSignatureRef = useRef('');
     useEffect(() => {
         if (!editor || isParsing) return;
         const sub = editor.onChange(() => {
+            if (onOutgoingLinksChange) {
+                const nextOutgoingLinks = extractOutgoingPageLinks(
+                    blocksToRichMarkdown(editor.document),
+                    idToTitle,
+                    noteFilename
+                );
+                const nextSignature = nextOutgoingLinks
+                    .map((link) => `${link.id || ''}\u0000${link.title}`)
+                    .join('\u0001');
+                if (nextSignature !== outgoingLinksSignatureRef.current) {
+                    outgoingLinksSignatureRef.current = nextSignature;
+                    onOutgoingLinksChange(nextOutgoingLinks);
+                }
+            }
             if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
             saveTimerRef.current = setTimeout(() => handleSave(), 700);
         });
@@ -2662,7 +2694,7 @@ export function EditorInner({
             }
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps -- metadataRef is a ref; noteFilename is captured via handleSave closure
-    }, [editor, isParsing, handleSave]);
+    }, [editor, isParsing, handleSave, idToTitle, noteFilename, onOutgoingLinksChange]);
 
     // Entry point that PageViewModal (rendered outside EditorInner)
     // Called after saving the view. If `editingBlock` is present, update
@@ -3760,6 +3792,9 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const [unlinkedMentions, setUnlinkedMentions] = useState([]);
     const [unlinkedMentionsLoading, setUnlinkedMentionsLoading] = useState(false);
     const [linkMentionsBusy, setLinkMentionsBusy] = useState(false);
+    const [liveOutgoingLinks, setLiveOutgoingLinks] = useState(() => (
+        extractOutgoingPageLinks(initialContent, idToTitle, noteFilename)
+    ));
     const [isPropertiesOpen, setIsPropertiesOpen] = useState(false);
     // Property cursor (grid style): the name of the active property.
     // Clicking the name selects; ↑↓ navigate; ⌘C/⌘V copy/paste the value.
@@ -4212,9 +4247,10 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         setIsAddingProp(false);
     };
 
-    const outgoingLinks = useMemo(() => {
-        return extractOutgoingPageLinks(initialContent, idToTitle, noteFilename);
+    useEffect(() => {
+        setLiveOutgoingLinks(extractOutgoingPageLinks(initialContent, idToTitle, noteFilename));
     }, [initialContent, idToTitle, noteFilename]);
+    const outgoingLinks = liveOutgoingLinks;
 
     const openLinkedPage = useCallback((pageId) => {
         const safeId = String(pageId || '').trim();
@@ -4956,6 +4992,35 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                 {isLinksInfoOpen && (
                                     <div className="p-3 border-t border-[var(--border-primary)] bg-[var(--bg-primary)]/35">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div className="rounded-xl border border-[var(--border-primary)] bg-[var(--bg-secondary)]/40 p-3 md:col-span-2">
+                                            <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                                                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]/80">
+                                                    <Workflow size={13} />
+                                                    {t('editor.links_graph')}
+                                                </div>
+                                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-[var(--text-tertiary)]">
+                                                    <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-[var(--gnosi-primary)]" />{t('editor.outgoing')}</span>
+                                                    <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-[var(--text-secondary)]" />{t('editor.incoming')}</span>
+                                                    <span className="flex items-center gap-1"><span className="size-2 rounded-full bg-[#6366f1]" />{t('editor.relations')}</span>
+                                                </div>
+                                            </div>
+                                            <PageLinksGraph
+                                                currentTitle={metadata.title}
+                                                outgoingLinks={outgoingLinks}
+                                                incomingLinks={incomingLinks}
+                                                relatedPages={relatedPages}
+                                                onOpenPage={openLinkedPage}
+                                                labels={{
+                                                    untitled: t('editor.untitled'),
+                                                    empty: t('editor.links_graph_empty'),
+                                                    ariaLabel: t('editor.links_graph_aria'),
+                                                    outgoing: t('editor.outgoing'),
+                                                    incoming: t('editor.incoming'),
+                                                    relation: t('editor.relations'),
+                                                }}
+                                            />
+                                        </div>
+
                                         <div className="rounded-xl border border-[var(--border-primary)] bg-[var(--bg-secondary)]/40 p-3">
                                             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]/80 mb-2">
                                                 <Link2 size={13} />
@@ -4971,18 +5036,18 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                                 type="button"
                                                                 key={`${link.id}-${idx}`}
                                                                 onClick={() => openLinkedPage(link.id)}
-                                                                className="px-2.5 py-1 text-xs rounded-full border border-[var(--gnosi-primary)]/30 bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] hover:brightness-110 transition-all"
-                                                                title={t('editor.open_parallel_tooltip')}
+                                                                className="max-w-64 px-2.5 py-1 text-[11px] rounded-full border border-[var(--gnosi-primary)]/30 bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] hover:brightness-110 transition-all"
+                                                                title={`${link.title} — ${t('editor.open_parallel_tooltip')}`}
                                                             >
-                                                                {link.title}
+                                                                <span className="block truncate">{link.title}</span>
                                                             </button>
                                                         ) : (
                                                             <span
                                                                 key={`${link.title}-${idx}`}
-                                                                className="px-2.5 py-1 text-xs rounded-full border border-[var(--border-primary)] text-[var(--text-tertiary)]/80"
-                                                                title={t('editor.unresolved_link')}
+                                                                className="max-w-64 px-2.5 py-1 text-[11px] rounded-full border border-[var(--border-primary)] text-[var(--text-tertiary)]/80"
+                                                                title={`${link.title} — ${t('editor.unresolved_link')}`}
                                                             >
-                                                                {link.title}
+                                                                <span className="block truncate">{link.title}</span>
                                                             </span>
                                                         )
                                                     ))}
@@ -5009,10 +5074,10 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                             type="button"
                                                             key={link.id}
                                                             onClick={() => openLinkedPage(link.id)}
-                                                            className="px-2.5 py-1 text-xs rounded-full border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:border-[var(--gnosi-primary)]/40 hover:text-[var(--gnosi-primary)] transition-all"
-                                                            title={t('editor.open_parallel_tooltip')}
+                                                            className="max-w-64 px-2.5 py-1 text-[11px] rounded-full border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:border-[var(--gnosi-primary)]/40 hover:text-[var(--gnosi-primary)] transition-all"
+                                                            title={`${formatIncomingLinkLabel(link)} — ${t('editor.open_parallel_tooltip')}`}
                                                         >
-                                                            {formatIncomingLinkLabel(link)}
+                                                            <span className="block truncate">{formatIncomingLinkLabel(link)}</span>
                                                         </button>
                                                     ))}
                                                 </div>
@@ -5033,10 +5098,10 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                             type="button"
                                                             key={link.id}
                                                             onClick={() => openLinkedPage(link.id)}
-                                                            className="px-2.5 py-1 text-xs rounded-full border border-[#6366f1]/30 bg-[#6366f1]/10 text-[#6366f1] hover:brightness-110 transition-all"
-                                                            title={t('editor.open_parallel_tooltip')}
+                                                            className="max-w-64 px-2.5 py-1 text-[11px] rounded-full border border-[#6366f1]/30 bg-[#6366f1]/10 text-[#6366f1] hover:brightness-110 transition-all"
+                                                            title={`${link.title} — ${t('editor.open_parallel_tooltip')}`}
                                                         >
-                                                            {link.title}
+                                                            <span className="block truncate">{link.title}</span>
                                                         </button>
                                                     ))}
                                                 </div>
@@ -5111,6 +5176,8 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                 metadata={metadata}
                                 onUpdate={onUpdate}
                                 onRefreshNotes={onRefreshNotes}
+                                idToTitle={idToTitle}
+                                onOutgoingLinksChange={setLiveOutgoingLinks}
                             />
                         ) : (
                             <EditorInner
@@ -5136,6 +5203,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                 spellEnabled={spellEnabled}
                                 spellLang={spellLang}
                                 onLangDetected={setSpellLang}
+                                onOutgoingLinksChange={setLiveOutgoingLinks}
                             />
                         )}
                     </ErrorBoundary>
