@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { FileText, Calendar, Clock, Link as LinkIcon, CheckSquare, Loader2, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
 import { getFieldConfig, getFieldType, getSchemaFieldNames, resolveViewSorts, resolveViewFilters } from './schemaUtils';
@@ -45,17 +44,16 @@ function prepareBodyMd(raw) {
 /**
  * Feed card (Notion style): icon+title inline, ALL properties
  * inline as pills, generous formatted preview of the content, and
- * "See more" that loads and expands the note's FULL content. The
- * card doesn't navigate on click (you can select text and interact with the
- * body); opening the page is done with the "Open" button or by clicking the title.
+ * "See more" expands the measured excerpt, while the full record remains a
+ * dedicated page. The card doesn't navigate on click (you can select text and
+ * interact with the body); opening the page is done with the "Open" button or
+ * by clicking the title.
  */
 function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, onOpen }) {
     const { t, i18n } = useTranslation();
     const [expanded, setExpanded] = useState(false);
     const [showAllPills, setShowAllPills] = useState(false);
     const [previewOverflows, setPreviewOverflows] = useState(false);
-    const [fullContent, setFullContent] = useState(null);   // md complet (carregat en demanda)
-    const [loadingContent, setLoadingContent] = useState(false);
     const previewRef = useRef(null);
     // The cover is resolved the same way as in the other views (VaultGallery): `Assets/x`
     // → `/api/vault/assets/x` with the active vault in the query. A `background-image`
@@ -92,23 +90,11 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
         };
     }, [expanded, previewMd]);
 
-    const handleToggleExpand = useCallback(async (e) => {
+    const handleToggleExpand = useCallback((e) => {
         e.stopPropagation();
         if (expanded) { setExpanded(false); return; }
-        if (fullContent == null) {
-            setLoadingContent(true);
-            try {
-                const res = await axios.get(`/api/vault/pages/${encodeURIComponent(note.id)}`);
-                const md = prepareBodyMd(res.data?.content || '');
-                setFullContent(md || previewMd);
-            } catch {
-                setFullContent(previewMd);   // fallback: at least the excerpt
-            } finally {
-                setLoadingContent(false);
-            }
-        }
         setExpanded(true);
-    }, [expanded, fullContent, note.id, previewMd]);
+    }, [expanded]);
 
     const openNote = useCallback((e) => { e?.stopPropagation?.(); onOpen(note.id); }, [onOpen, note.id]);
     const openLabel = `${t('feed.open_page', "Open page")}: ${note.title || t('common.untitled', "Untitled")}`;
@@ -179,9 +165,15 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
                                 {t('feed.updated_at', {
                                     defaultValue: "Updated {{date}}",
                                     date: new Date(note.last_modified).toLocaleDateString(i18n.language, {
-                                        day: 'numeric', month: 'long', year: 'numeric',
+                                        day: 'numeric', month: 'short',
                                         hour: '2-digit', minute: '2-digit'
                                     }),
+                                })}
+                            </span>
+                            <span className="sr-only">
+                                {new Date(note.last_modified).toLocaleDateString(i18n.language, {
+                                        day: 'numeric', month: 'long', year: 'numeric',
+                                        hour: '2-digit', minute: '2-digit'
                                 })}
                             </span>
                         </div>
@@ -238,15 +230,15 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
                     </div>
                 )}
 
-                {/* Body: formatted excerpt (Markdown) and, when expanded, the
-                    FULL content of the note (loaded on demand). */}
-                {(previewMd || loadingContent) && (
+                {/* Body: formatted excerpt. Expansion reveals the saved excerpt only;
+                    the full document stays in its own page to preserve feed density. */}
+                {previewMd && (
                     <div
                         ref={previewRef}
                         className={`vault-feed-card__preview text-sm text-[var(--text-secondary)] leading-relaxed ${expanded ? 'is-expanded' : ''}`}
                     >
                         <VaultMarkdown
-                            md={expanded ? (fullContent ?? previewMd) : previewMd}
+                            md={previewMd}
                             onActivate={() => onOpen(note.id)}
                             imageTitle={note.title || ''}
                         />
@@ -260,14 +252,21 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
                         <button
                             type="button"
                             onClick={handleToggleExpand}
-                            disabled={loadingContent}
                             className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full border border-[var(--border-primary)] bg-[var(--bg-secondary)] text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] shadow-sm transition-colors"
                         >
-                            {loadingContent
-                                ? <Loader2 size={13} className="animate-spin" />
-                                : (expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />)}
+                            {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                             {expanded ? t('feed.see_less', "See less") : t('feed.see_more', "See more")}
                         </button>
+                        {expanded && (
+                            <button
+                                type="button"
+                                onClick={openNote}
+                                className="ml-2 inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full border border-[var(--border-primary)] bg-[var(--bg-secondary)] text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] shadow-sm transition-colors"
+                            >
+                                <ExternalLink size={13} />
+                                {t('feed.read_full', 'Read in full')}
+                            </button>
+                        )}
                     </div>
                 )}
             </div>
@@ -310,7 +309,7 @@ function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSele
     const visibleNotes = useMemo(() => notes.slice(0, visibleCount), [notes, visibleCount]);
 
     return (
-        <div className="w-full max-w-2xl flex flex-col gap-8 pb-16">
+        <div className="w-full max-w-3xl flex flex-col gap-8 pb-16">
             {visibleNotes.map(note => (
                 <FeedCard
                     key={note.id}
@@ -568,7 +567,7 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
                     onSelectAll={() => selectAll(sortedNotes.map(n => n.id))}
                     onClearSelection={clearSelection}
                     onDeleteSelected={(onDeleteSelected || onDeletePage) ? handleBulkDelete : null}
-                    className="w-full max-w-2xl mb-4 shrink-0 bg-[var(--gnosi-primary)]/10 border border-[var(--gnosi-primary)]/20 rounded-lg px-4 py-2 flex items-center gap-3 text-sm z-30"
+                    className="w-full max-w-3xl mb-4 shrink-0 bg-[var(--gnosi-primary)]/10 border border-[var(--gnosi-primary)]/20 rounded-lg px-4 py-2 flex items-center gap-3 text-sm z-30"
                 />
             )}
             <FeedList
