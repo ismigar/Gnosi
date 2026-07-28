@@ -168,3 +168,9 @@ environment-specific frontend assumptions.
   padding, omit the current-page breadcrumb and single-tab label, and place
   collapsed summary panels side by side only when enough width is available;
   expanded panels always receive the full row.
+- At widths through 1023 pixels, Vault navigation is a drawer rather than a
+  permanent column. A single open document has no document-strip row: its
+  quick-open and close controls belong in the shell header. Feed cards use a
+  768-pixel desktop reading column, compact timestamps, and bounded excerpt
+  expansion with an explicit route to the full document. The floating dock is
+  one collapsed launcher that reveals its independent actions only on demand.

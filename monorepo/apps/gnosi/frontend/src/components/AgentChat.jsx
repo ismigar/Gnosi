@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import * as LucideIcons from 'lucide-react';
-import { Send, X, Paperclip, Minimize2, Maximize2, Bot, Sparkles, Plus, AtSign, Archive } from 'lucide-react';
+import { Send, X, Paperclip, Minimize2, Maximize2, Bot, Sparkles, Plus, AtSign, Archive, PanelBottomClose } from 'lucide-react';
 import { useConfigChanged } from '../lib/configEvents';
 import { announceFloatingPanelOpen, useExclusiveFloatingPanel } from '../hooks/useExclusiveFloatingPanel';
+import { useFloatingActionDock } from '../hooks/useFloatingActionDock';
 
 const CHAT_SESSIONS_KEY = 'agent_chat_sessions_v1';
 const CHAT_ACTIVE_SESSION_KEY = 'agent_chat_active_session_id';
@@ -57,6 +58,7 @@ const AgentChat = () => {
     const [mentionAnchorIndex, setMentionAnchorIndex] = useState(-1);
     const [attachments, setAttachments] = useState([]);
     const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
+    const [isDockOpen, setIsDockOpen] = useFloatingActionDock();
     useExclusiveFloatingPanel('chat', isOpen, setIsOpen);
 
     // Ref to scroll to the bottom
@@ -578,9 +580,21 @@ const AgentChat = () => {
 
     if (!isOpen) {
         return (
+            <>
+            <button
+                type="button"
+                onClick={() => setIsDockOpen(!isDockOpen)}
+                className="gnosi-floating-dock-toggle flex items-center justify-center rounded-full border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-secondary)] shadow-sm transition-colors hover:text-[var(--gnosi-primary)]"
+                aria-label={isDockOpen ? t('common.close', 'Close') : t('chat.open_chat', 'Open chat')}
+                title={isDockOpen ? t('common.close', 'Close') : t('chat.open_chat', 'Open chat')}
+                aria-expanded={isDockOpen}
+            >
+                {isDockOpen ? <PanelBottomClose size={18} /> : <Plus size={20} />}
+            </button>
             <button
                 onClick={() => {
                     announceFloatingPanelOpen('chat');
+                    setIsDockOpen(false);
                     setIsOpen(true);
                 }}
                 className="premium-chat-trigger gnosi-floating-action gnosi-floating-action--chat"
@@ -597,6 +611,7 @@ const AgentChat = () => {
             >
                 {renderIcon(agentIcon, 20)}
             </button>
+            </>
         );
     }
 

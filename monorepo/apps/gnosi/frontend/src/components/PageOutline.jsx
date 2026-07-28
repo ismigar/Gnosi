@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ListTree, X } from 'lucide-react';
 import { announceFloatingPanelOpen, useExclusiveFloatingPanel } from '../hooks/useExclusiveFloatingPanel';
+import { useFloatingActionDock } from '../hooks/useFloatingActionDock';
 
 // Main scroll container defined in App.jsx. We look for headings inside it.
 const CONTENT_SELECTOR = '#page-content-scroll';
@@ -209,6 +210,8 @@ export default function PageOutline() {
         setActiveId(id);
     };
 
+    const [, setIsDockOpen] = useFloatingActionDock();
+
     // Only on allowed routes and with at least 2 headings.
     if (!enabled || headings.length < 2) return null;
 
@@ -221,6 +224,7 @@ export default function PageOutline() {
                 data-testid="page-outline-toggle"
                 onClick={() => {
                     announceFloatingPanelOpen('outline');
+                    setIsDockOpen(false);
                     setOpen(true);
                 }}
                 title={t('outline.open', "Page outline")}

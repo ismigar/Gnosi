@@ -376,6 +376,15 @@ textarea,
   display: none;
 }
 
+.gnosi-view-embed-container > div:nth-child(2):has(> div:only-of-type) > div {
+  display: none;
+}
+
+.gnosi-view-embed-container > div:nth-child(2):has(> div:only-of-type) > button {
+  margin-left: auto;
+}
+.vault-document-tabs--single { display: none; }
+
 .gnosi-floating-action {
   position: fixed;
   right: max(16px, env(safe-area-inset-right));
@@ -391,18 +400,39 @@ textarea,
 }
 
 .gnosi-floating-action--chat {
-  bottom: max(16px, env(safe-area-inset-bottom));
-}
-
-.gnosi-floating-action--meeting {
   bottom: calc(max(16px, env(safe-area-inset-bottom)) + var(--floating-action-size) + var(--floating-action-gap));
 }
 
-.gnosi-floating-action--outline {
+.gnosi-floating-action--meeting {
   bottom: calc(max(16px, env(safe-area-inset-bottom)) + var(--floating-action-size) + var(--floating-action-gap) + var(--floating-action-size) + var(--floating-action-gap));
 }
 
+.gnosi-floating-action--outline {
+  bottom: calc(max(16px, env(safe-area-inset-bottom)) + var(--floating-action-size) + var(--floating-action-gap) + var(--floating-action-size) + var(--floating-action-gap) + var(--floating-action-size) + var(--floating-action-gap));
+}
+
+.gnosi-floating-dock-toggle {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  z-index: var(--z-floating);
+  width: var(--floating-action-size);
+  height: var(--floating-action-size);
+}
+
+body:not([data-gnosi-floating-dock="open"]) .gnosi-floating-action {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
 body[data-gnosi-floating-panel] .gnosi-floating-action {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+body[data-gnosi-floating-panel] .gnosi-floating-dock-toggle {
   visibility: hidden;
   opacity: 0;
   pointer-events: none;
@@ -416,7 +446,6 @@ body[data-gnosi-floating-panel] .gnosi-floating-action {
 }
 
 .gnosi-floating-panel--outline {
-  bottom: calc(max(16px, env(safe-area-inset-bottom)) + var(--floating-action-size) + var(--floating-action-gap) + var(--floating-action-size) + var(--floating-action-gap));
   max-height: min(70vh, calc(100vh - 160px));
 }
 
@@ -1247,7 +1276,7 @@ button:hover > .row-action-tooltip {
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1023px) {
   .gnosi-app-content {
     width: 100%;
   }
@@ -1287,6 +1316,10 @@ button:hover > .row-action-tooltip {
     backdrop-filter: blur(2px);
   }
 
+  .vault-shell__header { min-height: 48px; }
+}
+
+@media (max-width: 768px) {
   .vault-shell__header {
     min-height: 60px;
     padding-inline-start: 62px;
@@ -1337,12 +1370,6 @@ button:hover > .row-action-tooltip {
 
   .vault-page-spell-action {
     display: none;
-  }
-
-  .vault-document-tabs--single {
-    min-height: 36px;
-    justify-content: flex-end;
-    padding: 2px 8px 0;
   }
 
   .vault-document-tabs__compact-action {

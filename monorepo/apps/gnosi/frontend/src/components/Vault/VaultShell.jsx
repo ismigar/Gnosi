@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, ChevronRight, ChevronLeft, PanelLeft } from 'lucide-react';
+import { Search, ChevronRight, ChevronLeft, PanelLeft, Plus, X } from 'lucide-react';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 export const VaultShell = ({
@@ -11,16 +11,20 @@ export const VaultShell = ({
     onForward,
     canGoBack,
     canGoForward,
+    showDocumentControls = false,
+    onNewDocument,
+    onCloseDocument,
     children
 }) => {
     const { t } = useTranslation();
     const isCompact = useMediaQuery('(max-width: 767px)');
-    const sidebarMode = isCompact ? 'compact' : 'wide';
+    const isNarrow = useMediaQuery('(max-width: 1023px)');
+    const sidebarMode = isNarrow ? 'drawer' : 'wide';
     const [sidebarOverrides, setSidebarOverrides] = useState({});
-    const isSidebarOpen = sidebarOverrides[sidebarMode] ?? !isCompact;
+    const isSidebarOpen = sidebarOverrides[sidebarMode] ?? !isNarrow;
     const setIsSidebarOpen = (nextValue) => {
         setSidebarOverrides(currentOverrides => {
-            const currentValue = currentOverrides[sidebarMode] ?? !isCompact;
+            const currentValue = currentOverrides[sidebarMode] ?? !isNarrow;
             const resolvedValue = typeof nextValue === 'function'
                 ? nextValue(currentValue)
                 : nextValue;
@@ -42,7 +46,7 @@ export const VaultShell = ({
 
     return (
         <div className="vault-shell">
-            {isCompact && isSidebarOpen && (
+            {isNarrow && isSidebarOpen && (
                 <button
                     type="button"
                     className="vault-shell__backdrop"
@@ -119,6 +123,28 @@ export const VaultShell = ({
                         to the page title inside the editor — see PageActionsBar — and, for
                         tables, in the VaultViewsHeader. */}
                     <div className="flex items-center gap-1 pr-2">
+                        {showDocumentControls && (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={onNewDocument}
+                                    className="p-1.5 text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] rounded transition-colors"
+                                    title={t('doc_tabs.new_tab_tooltip', 'New tab or quick search')}
+                                    aria-label={t('doc_tabs.new_tab_tooltip', 'New tab or quick search')}
+                                >
+                                    <Plus size={16} />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={onCloseDocument}
+                                    className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--status-error)] hover:bg-[var(--bg-tertiary)] rounded transition-colors"
+                                    title={t('doc_tabs.close_tab', 'Close tab')}
+                                    aria-label={t('doc_tabs.close_tab', 'Close tab')}
+                                >
+                                    <X size={16} />
+                                </button>
+                            </>
+                        )}
                         <button
                             onClick={onSearch}
                             className="p-1.5 text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] rounded transition-colors"
