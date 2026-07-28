@@ -51,6 +51,23 @@ such as Mistral.
     response; tool progress alone is not a final answer.
 21. Bound browser session history and checkpoint retention. Persistence must
     degrade gracefully when browser storage is full.
+22. Stream only the minimum tool lifecycle metadata required by the UI. Tool
+    arguments and results remain server-side unless a dedicated, authorized
+    result-view flow explicitly requests them.
+23. Own attachment cleanup at the outer request boundary so validation,
+    workflow construction, provider selection, disconnects, and streaming
+    failures all remove temporary uploads.
+24. Treat unknown model capabilities as unsupported. Tool binding requires
+    positive capability evidence from the model registry or agent profile.
+25. Apply least privilege independently to every specialist. Code inspection
+    does not imply access to memories, Vault contents, or external sources.
+26. Report read-only MCP tools rejected for missing safety metadata as
+    unavailable capabilities instead of silently implying integration access.
+27. When browser retention evicts a session, remove its backend checkpoint as
+    well. Automatic retention and explicit deletion follow the same cleanup
+    path.
+28. Localize generated session names and other assistant UI defaults in every
+    supported locale.
 
 ## Restrictions / Edge Cases
 
@@ -88,3 +105,15 @@ such as Mistral.
   character, and time budget.
 - Do not allow unbounded localStorage histories, attachment directories, or
   checkpoint databases.
+- Do not serialize tool arguments or tool outputs into the browser stream when
+  the UI only needs a tool name and lifecycle status.
+- Do not place attachment cleanup solely inside the stream generator. Errors
+  before the first yielded byte bypass that generator.
+- Do not assume a custom or unknown model supports tool calling. A false
+  positive fails the entire turn during tool binding; fail closed and run the
+  model without tools.
+- Do not give Coder general read access to personal memory or Vault data.
+- Do not silently discard integrations whose tools lack safety metadata;
+  surface their unavailable status without exposing unsafe tools.
+- Do not evict browser session metadata while retaining its server checkpoint.
+- Do not hard-code the default conversation title in one language.

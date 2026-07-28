@@ -191,6 +191,31 @@ def _attachment_context(vault: Path, refs: List[AttachmentRef]) -> str:
     return "\n\n".join(sections)
 
 
+def _consume_attachment_context(vault: Path, refs: List[AttachmentRef]) -> str:
+    """Extract request-owned attachment context and always remove its files."""
+    try:
+        return _attachment_context(vault, refs)
+    finally:
+        for attachment in refs:
+            try:
+                _delete_attachment(vault, attachment.path)
+            except Exception as cleanup_error:
+                log.warning(
+                    "Could not remove chat attachment %s: %s",
+                    attachment.path,
+                    cleanup_error,
+                )
+
+
+def _tool_stream_event(event_type: str, tool_name: Optional[str], node_name: str) -> str:
+    """Serialize public tool lifecycle metadata without arguments or results."""
+    return json.dumps({
+        "type": event_type,
+        "tool": tool_name,
+        "node": node_name,
+    }) + "\n"
+
+
 def _message_text(content: Any) -> str:
     """Normalize provider-specific structured content into renderable text."""
     if isinstance(content, str):
@@ -372,21 +397,13 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
         agent_id = _validated_identifier(chat_req.agent_id, "agent_id")
         session_id = _validated_identifier(chat_req.session_id, "session_id")
         vault, vault_scope = _vault_scope()
-        # 1. Get dynamic agent workflow
-        workflow, llm_selection = await get_agent_workflow(
-            request,
-            agent_id,
-            llm_mode=chat_req.llm_mode,
-            llm_provider=chat_req.llm_provider,
-            llm_model=chat_req.llm_model,
-            user_message=chat_req.message,
-            vault_scope=vault_scope,
-        )
-        
-        # 2. Construct initial state
+
+        # 1. Build bounded attachment context and delete the temporary files
+        # before provider selection. This cleanup therefore also covers model
+        # configuration and workflow-construction failures.
         user_content = chat_req.message
         if chat_req.attachments:
-            attachment_text = _attachment_context(vault, chat_req.attachments)
+            attachment_text = _consume_attachment_context(vault, chat_req.attachments)
             if attachment_text:
                 user_content += "\n\nVerified attachment context:\n" + attachment_text
         if chat_req.mentions:
@@ -401,6 +418,17 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
 
             if mention_lines:
                 user_content += "\n\nSelected mentions context:\n" + "\n".join(mention_lines)
+
+        # 2. Get the workflow only after request-owned uploads are cleaned up.
+        workflow, llm_selection = await get_agent_workflow(
+            request,
+            agent_id,
+            llm_mode=chat_req.llm_mode,
+            llm_provider=chat_req.llm_provider,
+            llm_model=chat_req.llm_model,
+            user_message=chat_req.message,
+            vault_scope=vault_scope,
+        )
 
         inputs = {"messages": [HumanMessage(content=user_content)]}
         
@@ -457,22 +485,20 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
                                         tool_calls = getattr(msg, "tool_calls", None) or []
                                         if tool_calls:
                                             for tool_call in tool_calls:
-                                                yield json.dumps({
-                                                    "type": "tool_start",
-                                                    "tool": tool_call.get("name"),
-                                                    "input": tool_call.get("args"),
-                                                    "node": node_name,
-                                                }) + "\n"
+                                                yield _tool_stream_event(
+                                                    "tool_start",
+                                                    tool_call.get("name"),
+                                                    node_name,
+                                                )
                                             continue
 
                                         content = _message_text(getattr(msg, "content", ""))
                                         if msg.type == "tool":
-                                            yield json.dumps({
-                                                "type": "tool_end",
-                                                "tool": msg.name,
-                                                "output": content,
-                                                "node": node_name,
-                                            }) + "\n"
+                                            yield _tool_stream_event(
+                                                "tool_end",
+                                                msg.name,
+                                                node_name,
+                                            )
                                         elif msg.type == "ai" and content:
                                             answer_count += 1
                                             yield json.dumps({
@@ -530,17 +556,6 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
                     "has_response": True,
                     "message_count": 1,
                 }) + "\n"
-            finally:
-                for attachment in chat_req.attachments:
-                    try:
-                        _delete_attachment(vault, attachment.path)
-                    except Exception as cleanup_error:
-                        log.warning(
-                            "Could not remove chat attachment %s: %s",
-                            attachment.path,
-                            cleanup_error,
-                        )
-
         return StreamingResponse(event_generator(), media_type="application/x-ndjson")
 
     except HTTPException as e:
@@ -562,12 +577,6 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
                     "has_response": True,
                     "message_count": 1,
                 }) + "\n"
-                for attachment in chat_req.attachments:
-                    try:
-                        _delete_attachment(vault, attachment.path)
-                    except Exception:
-                        pass
-
             return StreamingResponse(
                 unavailable_generator(),
                 media_type="application/x-ndjson",

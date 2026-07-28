@@ -1,6 +1,6 @@
 import os
 import operator
-from typing import Annotated, TypedDict, List, Sequence, Optional
+from typing import Annotated, Any, TypedDict, List, Sequence, Optional
 import logging
 from langchain_core.messages import BaseMessage, SystemMessage
 from langgraph.graph import StateGraph, END, START
@@ -166,6 +166,32 @@ def _safe_mcp_definitions(
     return safe
 
 
+def _rejected_mcp_names(
+    definitions: List[dict],
+    safe_definitions: List[dict],
+) -> List[str]:
+    """Return tool names withheld because read-only safety was not established."""
+    safe_names = {item.get("name") for item in safe_definitions}
+    return sorted({
+        str(item.get("name"))
+        for item in definitions or []
+        if isinstance(item, dict)
+        and item.get("name")
+        and item.get("name") not in safe_names
+    })
+
+
+def _coder_read_only_tools(tools: Sequence[Any]) -> List[Any]:
+    """Limit the coding specialist to code and directive inspection."""
+    allowed_names = {
+        "inspect_codebase",
+        "search_code_symbols",
+        "list_directives",
+        "read_directive",
+    }
+    return [tool for tool in tools if tool.name in allowed_names]
+
+
 def _model_supports_tools(
     provider_name: str,
     model_name: Optional[str],
@@ -193,9 +219,9 @@ def _model_supports_tools(
             return "tools" in set(match.get("tags") or [])
     except Exception:
         pass
-    # Unknown/custom models keep legacy behavior. A user can override this with
-    # `capabilities.tools: false` in the agent profile.
-    return True
+    # Unknown/custom models fail closed. Agent profiles can explicitly opt in
+    # through `capabilities.tools: true` after compatibility is verified.
+    return False
 
 
 # --- 1. Define the State ---
@@ -663,10 +689,18 @@ async def create_agent_workflow(
         mcp_tools_list,
         explicit_allowlist=agent_data.get("read_only_mcp_tools") or [],
     )
+    rejected_mcp_names = _rejected_mcp_names(
+        mcp_tools_list,
+        safe_mcp_definitions,
+    )
     mcp_langchain_tools = get_mcp_tools(safe_mcp_definitions, mcp_client)
     supports_tools = _model_supports_tools(provider_name, model_name, agent_data)
     # Coder & Brain specialists
-    coder_tools = READ_ONLY_SYSTEM_TOOLS if supports_tools else []
+    coder_tools = (
+        _coder_read_only_tools(READ_ONLY_SYSTEM_TOOLS)
+        if supports_tools
+        else []
+    )
     coder_llm = llm.bind_tools(coder_tools) if coder_tools else llm
 
     memory_tools = [
@@ -740,6 +774,13 @@ async def create_agent_workflow(
             brain_system += (
                 "\nNo tools are available for this model. Answer only from the "
                 "conversation context and state clearly when external data cannot be checked."
+            )
+        if rejected_mcp_names:
+            brain_system += (
+                "\nThese integration tools are unavailable because their connector "
+                "did not declare read-only safety metadata: "
+                + ", ".join(rejected_mcp_names)
+                + ". Explain this limitation if the request depends on one of them."
             )
         if context_tools:
             # The Brain node is the one holding the context tools, so it needs the

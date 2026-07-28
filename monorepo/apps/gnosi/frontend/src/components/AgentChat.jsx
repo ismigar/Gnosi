@@ -45,7 +45,7 @@ const safeLocalStorageSet = (key, value) => {
     }
 };
 
-const createChatSession = (title = 'Nova conversa', agentId = 'gnosy') => ({
+const createChatSession = (title, agentId = 'gnosy') => ({
     id: crypto.randomUUID(),
     title,
     archived: false,
@@ -55,12 +55,19 @@ const createChatSession = (title = 'Nova conversa', agentId = 'gnosy') => ({
     updatedAt: Date.now(),
 });
 
-const deriveSessionTitle = (messages, fallback = 'Nova conversa') => {
+const deriveSessionTitle = (messages, fallback) => {
     const firstUser = (messages || []).find((m) => m.role === 'user' && String(m.content || '').trim());
     if (!firstUser) return fallback;
     const clean = String(firstUser.content).replace(/@\[[^\]]+\]\([^)]+\)/g, '').trim();
     if (!clean) return fallback;
     return clean.length > 42 ? `${clean.slice(0, 42)}...` : clean;
+};
+
+const deleteSessionCheckpoint = (session) => {
+    if (!session?.agentId || !session?.id) return;
+    void fetch(`/api/chat/sessions/${encodeURIComponent(session.agentId)}/${encodeURIComponent(session.id)}`, {
+        method: 'DELETE',
+    }).catch((error) => console.warn('Could not delete assistant checkpoint', error));
 };
 
 const parseMentions = (text) => {
@@ -76,6 +83,7 @@ const parseMentions = (text) => {
 
 const AgentChat = () => {
     const { t } = useTranslation();
+    const defaultSessionTitle = t('chat.default_session_title', 'New conversation');
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState([]);
     const [inputValue, setInputValue] = useState('');
@@ -124,16 +132,26 @@ const AgentChat = () => {
         }
 
         if (!Array.isArray(parsedSessions) || !parsedSessions.length) {
-            parsedSessions = [createChatSession('Nova conversa', savedAgentId)];
+            parsedSessions = [createChatSession(defaultSessionTitle, savedAgentId)];
         }
-        parsedSessions = boundedChatSessions(parsedSessions).map((session) => ({
+        const retainedSessions = boundedChatSessions(parsedSessions);
+        const retainedIds = new Set(retainedSessions.map((session) => session.id));
+        parsedSessions
+            .filter((session) => session?.id && !retainedIds.has(session.id))
+            .forEach(deleteSessionCheckpoint);
+        parsedSessions = retainedSessions.map((session) => ({
             ...session,
             agentId: session.agentId || savedAgentId,
+            title: (
+                ['Nova conversa', 'New conversation', 'Nueva conversación', 'Nouvelle conversation']
+                    .includes(session.title)
+                && !(session.messages || []).length
+            ) ? defaultSessionTitle : session.title,
         }));
 
         const agentSessions = parsedSessions.filter((session) => session.agentId === savedAgentId);
         if (!agentSessions.length) {
-            const fresh = createChatSession('Nova conversa', savedAgentId);
+            const fresh = createChatSession(defaultSessionTitle, savedAgentId);
             parsedSessions.unshift(fresh);
             agentSessions.push(fresh);
         }
@@ -163,13 +181,21 @@ const AgentChat = () => {
         }
 
         setSessionsHydrated(true);
-    }, [scopedStorageKey]);
+    }, [defaultSessionTitle, scopedStorageKey]);
 
     useEffect(() => {
         if (!sessionsHydrated) return;
+        const retainedSessions = boundedChatSessions(chatSessions);
+        const retainedIds = new Set(retainedSessions.map((session) => session.id));
+        const evictedSessions = chatSessions.filter((session) => !retainedIds.has(session.id));
+        if (evictedSessions.length) {
+            evictedSessions.forEach(deleteSessionCheckpoint);
+            setChatSessions(retainedSessions);
+            return;
+        }
         safeLocalStorageSet(
             scopedStorageKey(CHAT_SESSIONS_KEY),
-            JSON.stringify(boundedChatSessions(chatSessions)),
+            JSON.stringify(retainedSessions),
         );
     }, [chatSessions, scopedStorageKey, sessionsHydrated]);
 
@@ -191,13 +217,13 @@ const AgentChat = () => {
             .filter((session) => session.agentId === selectedAgentId && !session.archived)
             .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
         if (!target) {
-            target = createChatSession('Nova conversa', selectedAgentId);
+            target = createChatSession(defaultSessionTitle, selectedAgentId);
             setChatSessions((prev) => [target, ...prev]);
         }
         setSessionId(target.id);
         setMessages(target.messages || []);
         setAttachments([]);
-    }, [chatSessions, selectedAgentId, sessionId, sessionsHydrated]);
+    }, [chatSessions, defaultSessionTitle, selectedAgentId, sessionId, sessionsHydrated]);
 
     useEffect(() => () => requestAbortRef.current?.abort(), []);
 
@@ -217,10 +243,10 @@ const AgentChat = () => {
                 ...session,
                 messages,
                 updatedAt: Date.now(),
-                title: deriveSessionTitle(messages, session.title || 'Nova conversa'),
+                title: deriveSessionTitle(messages, session.title || defaultSessionTitle),
             };
         }));
-    }, [messages, sessionId, sessionsHydrated]);
+    }, [defaultSessionTitle, messages, sessionId, sessionsHydrated]);
 
     useEffect(() => {
         const current = inputValue || '';
@@ -366,7 +392,7 @@ const AgentChat = () => {
 
     const createNewSession = () => {
         if (isLoading) return;
-        const next = createChatSession('Nova conversa', selectedAgentId);
+        const next = createChatSession(defaultSessionTitle, selectedAgentId);
         setChatSessions((prev) => [
             next,
             ...prev.map((s) => s.id === sessionId ? { ...s, archived: true, updatedAt: Date.now() } : s),
@@ -380,16 +406,12 @@ const AgentChat = () => {
     const deleteSessionById = (targetId) => {
         if (!targetId || isLoading) return;
         const target = chatSessions.find((session) => session.id === targetId);
-        if (target?.agentId) {
-            void fetch(`/api/chat/sessions/${encodeURIComponent(target.agentId)}/${encodeURIComponent(targetId)}`, {
-                method: 'DELETE',
-            }).catch((error) => console.warn('Could not delete assistant checkpoint', error));
-        }
+        deleteSessionCheckpoint(target);
 
         const remaining = chatSessions.filter((s) => s.id !== targetId);
         const remainingForAgent = remaining.filter((s) => s.agentId === selectedAgentId);
         if (!remainingForAgent.length) {
-            const fresh = createChatSession('Nova conversa', selectedAgentId);
+            const fresh = createChatSession(defaultSessionTitle, selectedAgentId);
             setChatSessions([fresh, ...remaining]);
             setSessionId(fresh.id);
             setMessages([]);

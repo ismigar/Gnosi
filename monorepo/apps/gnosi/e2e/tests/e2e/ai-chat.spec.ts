@@ -97,4 +97,38 @@ test.describe('AI Chat', () => {
     await expect(page.getByRole('button', { name: /cancel|cancel·la|cancelar|annuler/i })).toBeVisible();
     await expect(page.locator('.gnosi-floating-panel--chat select')).toBeDisabled();
   });
+
+  test('session retention deletes the evicted backend checkpoint', async ({ page }) => {
+    const deletedCheckpoint = page.waitForRequest((request) => (
+      request.method() === 'DELETE'
+      && request.url().includes('/api/chat/sessions/gnosy/session-20')
+    ));
+    await page.addInitScript(() => {
+      const sessions = Array.from({ length: 21 }, (_, index) => ({
+        id: `session-${index}`,
+        title: `Session ${index}`,
+        archived: false,
+        agentId: 'gnosy',
+        messages: [],
+        createdAt: 1_000 - index,
+        updatedAt: 1_000 - index,
+      }));
+      localStorage.setItem('gnosi_active_vault', 'retention-test');
+      localStorage.setItem(
+        'agent_chat_sessions_v2:retention-test',
+        JSON.stringify(sessions),
+      );
+      localStorage.setItem('agent_selected_id_v2:retention-test', 'gnosy');
+      localStorage.setItem(
+        'agent_chat_active_session_id_v2:retention-test',
+        'session-0',
+      );
+    });
+    await page.route('**/api/chat/sessions/**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"deleted":true}' });
+    });
+
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await deletedCheckpoint;
+  });
 });
