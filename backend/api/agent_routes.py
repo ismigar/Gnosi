@@ -1,5 +1,5 @@
-from fastapi import APIRouter, HTTPException, Request, Depends
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, Request, Depends, File, UploadFile
+from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import HumanMessage
@@ -7,6 +7,10 @@ import json
 import asyncio
 import logging
 import os
+import hashlib
+import re
+import uuid
+from pathlib import Path
 from backend.agent.factory import create_agent_workflow
 from backend.agent.model_router import record_llm_usage, usage_from_message
 from backend.agent.model_reliability import (
@@ -16,6 +20,7 @@ from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from backend.config.app_config import load_params
 from backend.utils.errors import safe_error_detail
 from backend.services.workspace_service import require_role
+from backend.services.context_vars import get_active_vault_path
 
 cfg = load_params()
 
@@ -52,15 +57,84 @@ class MentionRef(BaseModel):
     id: str
     label: Optional[str] = None
 
+class AttachmentRef(BaseModel):
+    name: str
+    size: int = 0
+    type: str = ""
+    path: str
+
 class ChatRequest(BaseModel):
     message: str
     agent_id: str = "gnosy" # Default agent
     session_id: str = "default"
-    history: List[Dict[str, Any]] = []
+    history: List[Dict[str, Any]] = Field(default_factory=list)
     llm_mode: str = "agent_default"  # auto | manual | agent_default
     llm_provider: Optional[str] = None
     llm_model: Optional[str] = None
-    mentions: List[MentionRef] = []
+    mentions: List[MentionRef] = Field(default_factory=list)
+    attachments: List[AttachmentRef] = Field(default_factory=list)
+
+
+IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$")
+MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024
+MAX_ATTACHMENT_TEXT = 20_000
+CHAT_ATTACHMENT_TYPES = {
+    ".txt", ".md", ".markdown", ".csv", ".tsv", ".json", ".yaml", ".yml",
+    ".xml", ".html", ".css", ".js", ".jsx", ".ts", ".tsx", ".py", ".pdf",
+    ".png", ".jpg", ".jpeg", ".webp", ".gif",
+}
+
+
+def _validated_identifier(value: str, label: str) -> str:
+    candidate = (value or "").strip()
+    if not IDENTIFIER_RE.fullmatch(candidate):
+        raise HTTPException(status_code=422, detail=f"Invalid {label}")
+    return candidate
+
+
+def _vault_scope() -> tuple[Path, str]:
+    vault = Path(get_active_vault_path()).resolve()
+    digest = hashlib.sha256(str(vault).encode("utf-8")).hexdigest()[:20]
+    return vault, digest
+
+
+def _attachment_root(vault: Path) -> Path:
+    root = (vault / ".gnosi" / "chat-attachments").resolve()
+    if root != vault and vault not in root.parents:
+        raise HTTPException(status_code=400, detail="Invalid attachment directory")
+    return root
+
+
+def _attachment_context(vault: Path, refs: List[AttachmentRef]) -> str:
+    root = _attachment_root(vault)
+    sections = []
+    for ref in refs:
+        relative = Path(ref.path)
+        target = (vault / relative).resolve()
+        if target == vault or vault not in target.parents or root not in target.parents:
+            raise HTTPException(status_code=422, detail="Invalid attachment path")
+        if not target.is_file() or target.stat().st_size > MAX_ATTACHMENT_BYTES:
+            raise HTTPException(status_code=422, detail="Attachment is missing or too large")
+
+        suffix = target.suffix.lower()
+        text = ""
+        if suffix == ".pdf":
+            try:
+                from pypdf import PdfReader
+                text = "\n".join((page.extract_text() or "") for page in PdfReader(str(target)).pages)
+            except Exception as exc:
+                log.warning("Could not extract chat PDF attachment %s: %s", target.name, exc)
+        elif suffix not in {".png", ".jpg", ".jpeg", ".webp", ".gif"}:
+            text = target.read_text(encoding="utf-8", errors="replace")
+
+        if text.strip():
+            sections.append(f"Attachment: {ref.name}\n{text[:MAX_ATTACHMENT_TEXT]}")
+        else:
+            sections.append(
+                f"Attachment: {ref.name}\n"
+                "(No text could be extracted. Do not claim to have inspected its visual content.)"
+            )
+    return "\n\n".join(sections)
 
 async def get_agent_workflow(
     request: Request,
@@ -69,6 +143,7 @@ async def get_agent_workflow(
     llm_provider: Optional[str] = None,
     llm_model: Optional[str] = None,
     user_message: str = "",
+    vault_scope: str = "",
 ):
     """
     Helper to get or build the agent workflow for a specific ID.
@@ -79,8 +154,9 @@ async def get_agent_workflow(
     if not hasattr(request.app.state, "agent_cache"):
         request.app.state.agent_cache = {}
 
-    if use_cache and agent_id in request.app.state.agent_cache:
-        cached = request.app.state.agent_cache[agent_id]
+    cache_key = f"{vault_scope}:{agent_id}"
+    if use_cache and cache_key in request.app.state.agent_cache:
+        cached = request.app.state.agent_cache[cache_key]
         return cached["workflow"], cached.get("llm_selection", {})
 
     mcp_client = getattr(request.app.state, "mcp_client", None)
@@ -105,6 +181,7 @@ async def get_agent_workflow(
         llm_provider=llm_provider,
         llm_model=llm_model,
         user_message=user_message,
+        timeout=60,
     )
 
     if workflow is None:
@@ -113,12 +190,36 @@ async def get_agent_workflow(
         raise HTTPException(status_code=503, detail="No LLM provider available")
 
     if use_cache:
-        request.app.state.agent_cache[agent_id] = {
+        request.app.state.agent_cache[cache_key] = {
             "workflow": workflow,
             "llm_selection": llm_selection,
         }
 
     return workflow, llm_selection
+
+
+@router.post("/chat/attachments", dependencies=[Depends(require_role("editor"))])
+async def upload_chat_attachment(file: UploadFile = File(...)):
+    """Store one bounded chat attachment inside the active Vault."""
+    vault, _ = _vault_scope()
+    original_name = Path(file.filename or "attachment").name
+    suffix = Path(original_name).suffix.lower()
+    if suffix not in CHAT_ATTACHMENT_TYPES:
+        raise HTTPException(status_code=415, detail="Unsupported chat attachment type")
+    content = await file.read(MAX_ATTACHMENT_BYTES + 1)
+    if len(content) > MAX_ATTACHMENT_BYTES:
+        raise HTTPException(status_code=413, detail="Chat attachment exceeds 15 MB")
+
+    root = _attachment_root(vault)
+    root.mkdir(parents=True, exist_ok=True)
+    target = root / f"{uuid.uuid4().hex}{suffix}"
+    target.write_bytes(content)
+    return {
+        "name": original_name,
+        "size": len(content),
+        "type": file.content_type or "",
+        "path": str(target.relative_to(vault)),
+    }
 
 
 @router.get("/ai/model-reliability")
@@ -148,18 +249,26 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
     Main endpoint for chatting with a specific agent.
     """
     try:
+        agent_id = _validated_identifier(chat_req.agent_id, "agent_id")
+        session_id = _validated_identifier(chat_req.session_id, "session_id")
+        vault, vault_scope = _vault_scope()
         # 1. Get dynamic agent workflow
         workflow, llm_selection = await get_agent_workflow(
             request,
-            chat_req.agent_id,
+            agent_id,
             llm_mode=chat_req.llm_mode,
             llm_provider=chat_req.llm_provider,
             llm_model=chat_req.llm_model,
             user_message=chat_req.message,
+            vault_scope=vault_scope,
         )
         
         # 2. Construct initial state
         user_content = chat_req.message
+        if chat_req.attachments:
+            attachment_text = _attachment_context(vault, chat_req.attachments)
+            if attachment_text:
+                user_content += "\n\nVerified attachment context:\n" + attachment_text
         if chat_req.mentions:
             mention_lines = []
             for mention in chat_req.mentions:
@@ -176,13 +285,20 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
         inputs = {"messages": [HumanMessage(content=user_content)]}
         
         # 3. Configure memory thread (per agent + session)
-        config = {"configurable": {"thread_id": f"{chat_req.agent_id}_{chat_req.session_id}"}}
+        thread_id = hashlib.sha256(
+            f"{vault_scope}:{agent_id}:{session_id}".encode("utf-8")
+        ).hexdigest()
+        config = {"configurable": {"thread_id": thread_id}}
         
         # 4. Persistence setup
-        db_path = cfg.paths["CHECKPOINTS"] / f"agent_{chat_req.agent_id}.sqlite"
+        checkpoint_key = hashlib.sha256(
+            f"{vault_scope}:{agent_id}".encode("utf-8")
+        ).hexdigest()[:32]
+        db_path = cfg.paths["CHECKPOINTS"] / f"agent_{checkpoint_key}.sqlite"
         os.makedirs(db_path.parent, exist_ok=True)
         
         async def event_generator():
+            visible_responses = 0
             try:
                 if llm_selection:
                     yield json.dumps({
@@ -227,6 +343,8 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
                                         payload["type"] = "message"
                                     
                                     if payload["content"] or payload["type"] != "message":
+                                        if payload["type"] in {"message", "tool_start", "tool_end"}:
+                                            visible_responses += 1
                                         yield json.dumps(payload) + "\n"
 
                 if total_in_tok or total_out_tok:
@@ -238,6 +356,11 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
                         total_in_tok,
                         total_out_tok,
                     )
+                yield json.dumps({
+                    "type": "done",
+                    "has_response": visible_responses > 0,
+                    "message_count": visible_responses,
+                }) + "\n"
 
             except Exception as e:
                 error_str = str(e)
@@ -267,6 +390,11 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
                     friendly_error = safe_error_detail(e, context="POST /api/agent/chat event_generator")
 
                 yield json.dumps({"type": "error", "content": friendly_error}) + "\n"
+                yield json.dumps({
+                    "type": "done",
+                    "has_response": True,
+                    "message_count": 1,
+                }) + "\n"
 
         return StreamingResponse(event_generator(), media_type="application/x-ndjson")
 
@@ -278,6 +406,11 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
                 yield json.dumps({
                     "type": "error",
                     "content": error_detail,
+                }) + "\n"
+                yield json.dumps({
+                    "type": "done",
+                    "has_response": True,
+                    "message_count": 1,
                 }) + "\n"
 
             return StreamingResponse(

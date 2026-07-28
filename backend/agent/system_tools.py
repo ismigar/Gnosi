@@ -113,16 +113,25 @@ def create_git_branch(branch_name: str) -> str:
 
 
 @tool
-def commit_changes(message: str) -> str:
+def commit_changes(message: str, paths: List[str]) -> str:
     """
-    Adds ALL current changes (git add .) and commits with the given message.
+    Commits only the explicitly listed project-relative paths.
     """
     if not _mutations_allowed():
         return _MUTATION_DENIED_MSG
     try:
-        # 1. Add
+        if not paths:
+            return "Error: At least one explicit project-relative path is required."
+        safe_paths = []
+        for path in paths:
+            target = (BASE_DIR / path).resolve()
+            if not _is_within_base(target):
+                return f"Error: Access denied for path '{path}'."
+            safe_paths.append(str(target.relative_to(BASE_DIR)))
+
+        # 1. Add only the approved paths. Never stage the whole worktree.
         add_res = subprocess.run(
-            ["git", "add", "."], capture_output=True, text=True,
+            ["git", "add", "--", *safe_paths], capture_output=True, text=True,
             cwd=str(BASE_DIR), timeout=60,
         )
         if add_res.returncode != 0:
@@ -374,4 +383,17 @@ SYSTEM_TOOLS = [
     list_directives,
     read_directive,
     update_directive,
+]
+
+# Ordinary agent chat is deliberately read-only. Mutation and code execution
+# require a separate per-invocation approval protocol, which the chat endpoint
+# does not currently issue.
+READ_ONLY_SYSTEM_TOOLS = [
+    inspect_codebase,
+    search_code_symbols,
+    query_memory,
+    search_vault,
+    get_vault_registry,
+    list_directives,
+    read_directive,
 ]
