@@ -71,6 +71,9 @@ configuration autosave.
   owning section. Do not open a second modal over the Settings modal.
 - The section action changes from `Add …` to `Cancel` while the inline form is
   open. Cancelling discards the draft and restores the list.
+- Cancelling an existing-item editor must also clear its identity state before
+  the section action can open a create form. Otherwise the next `Add …` action
+  can remount the stale existing-item editor instead of a blank draft.
 - Place the explicit `Create …` or `Update …` action at the end of the form.
   Collection-item drafts are not autosaved because an incomplete draft is not
   yet an item.
@@ -80,6 +83,17 @@ configuration autosave.
   the next row. Use a keyed fragment or an equivalent row-plus-editor wrapper
   inside the collection map so DOM order always remains `item, editor, next
   item`.
+- When an existing collection row remains visible as the identity header for
+  its editor, visually join both surfaces: remove the inter-item gap, share the
+  connecting border, and do not repeat a generic "Edit item" heading inside the
+  form. Keep a descriptive heading for create-only forms, which have no owning
+  row.
+- Reuse the shared `settings-configurable-*` and `settings-inline-editor`
+  classes for account integrations, vault calendars, reusable mail snippets,
+  cognition agents, and other Settings collections. Configurable plugin cards
+  may keep their panel inside the card, but the expanded card must use the same
+  blue active border. Do not reintroduce per-collection inline geometry for
+  borders, gaps, or connecting radii.
 - Do not render one shared existing-item editor above or below the complete
   collection. The visual separation makes it unclear which item owns the draft,
   especially when the collection scrolls.
