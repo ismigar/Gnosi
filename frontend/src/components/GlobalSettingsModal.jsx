@@ -4104,13 +4104,16 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             style={{
                                                                 width: '46px', height: '46px', flexShrink: 0,
                                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                borderRadius: '50%',
+                                                                background: 'var(--gnosi-blue)',
+                                                                color: '#fff',
                                                                 filter: 'drop-shadow(0 5px 10px rgba(0,0,0,0.1))'
                                                             }}
                                                         >
                                                             <IconRenderer
                                                                 icon={agent.icon || '🤖'}
-                                                                size={40}
-                                                                color="var(--gnosi-blue)"
+                                                                size={26}
+                                                                color="#fff"
                                                             />
                                                         </div>
                                                         <div style={{ minWidth: 0 }}>
