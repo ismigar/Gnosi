@@ -5152,14 +5152,14 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                             {outgoingLinks.length === 0 ? (
                                                 <div className="text-xs text-[var(--text-tertiary)]/70">{t('editor.no_outgoing_links')}</div>
                                             ) : (
-                                                <div className="flex flex-wrap gap-1.5">
+                                                <div className="flex flex-wrap gap-1">
                                                     {outgoingLinks.map((link, idx) => (
                                                         link.id ? (
                                                             <button
                                                                 type="button"
                                                                 key={`${link.id}-${idx}`}
                                                                 onClick={() => openLinkedPage(link.id)}
-                                                                className="max-w-64 px-2.5 py-1 text-[11px] rounded-full border border-[var(--gnosi-primary)]/30 bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] hover:brightness-110 transition-all"
+                                                                className="vault-page-link-chip max-w-64 px-2 py-0.5 rounded-full border border-[var(--gnosi-primary)]/30 bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] hover:brightness-110 transition-all"
                                                                 title={`${link.title} — ${t('editor.open_parallel_tooltip')}`}
                                                             >
                                                                 <span className="block truncate">{link.title}</span>
@@ -5167,7 +5167,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                         ) : (
                                                             <span
                                                                 key={`${link.title}-${idx}`}
-                                                                className="max-w-64 px-2.5 py-1 text-[11px] rounded-full border border-[var(--border-primary)] text-[var(--text-tertiary)]/80"
+                                                                className="vault-page-link-chip max-w-64 px-2 py-0.5 rounded-full border border-[var(--border-primary)] text-[var(--text-tertiary)]/80"
                                                                 title={`${link.title} — ${t('editor.unresolved_link')}`}
                                                             >
                                                                 <span className="block truncate">{link.title}</span>
@@ -5191,13 +5191,13 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                             ) : incomingLinks.length === 0 ? (
                                                 <div className="text-xs text-[var(--text-tertiary)]/70">{t('editor.no_backlinks')}</div>
                                             ) : (
-                                                <div className="flex flex-wrap gap-1.5">
+                                                <div className="flex flex-wrap gap-1">
                                                     {incomingLinks.map((link) => (
                                                         <button
                                                             type="button"
                                                             key={link.id}
                                                             onClick={() => openLinkedPage(link.id)}
-                                                            className="max-w-64 px-2.5 py-1 text-[11px] rounded-full border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:border-[var(--gnosi-primary)]/40 hover:text-[var(--gnosi-primary)] transition-all"
+                                                            className="vault-page-link-chip max-w-64 px-2 py-0.5 rounded-full border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:border-[var(--gnosi-primary)]/40 hover:text-[var(--gnosi-primary)] transition-all"
                                                             title={`${formatIncomingLinkLabel(link)} — ${t('editor.open_parallel_tooltip')}`}
                                                         >
                                                             <span className="block truncate">{formatIncomingLinkLabel(link)}</span>
@@ -5215,13 +5215,13 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                             {relatedPages.length === 0 ? (
                                                 <div className="text-xs text-[var(--text-tertiary)]/70">{t('editor.no_relations')}</div>
                                             ) : (
-                                                <div className="flex flex-wrap gap-1.5">
+                                                <div className="flex flex-wrap gap-1">
                                                     {relatedPages.map((link) => (
                                                         <button
                                                             type="button"
                                                             key={link.id}
                                                             onClick={() => openLinkedPage(link.id)}
-                                                            className="max-w-64 px-2.5 py-1 text-[11px] rounded-full border border-[#6366f1]/30 bg-[#6366f1]/10 text-[#6366f1] hover:brightness-110 transition-all"
+                                                            className="vault-page-link-chip max-w-64 px-2 py-0.5 rounded-full border border-[#6366f1]/30 bg-[#6366f1]/10 text-[#6366f1] hover:brightness-110 transition-all"
                                                             title={`${link.title} — ${t('editor.open_parallel_tooltip')}`}
                                                         >
                                                             <span className="block truncate">{link.title}</span>
