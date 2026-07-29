@@ -12,6 +12,11 @@ import { VaultViewToolbar } from './VaultViewToolbar';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
+import { RelationItem } from './RelationItem';
+import {
+    normalizeRelationValues,
+    unlinkRelationFromRecord,
+} from './relationItemUtils';
 
 // Field types on which dragging is NOT allowed (derived values or
 // system: writing to it would corrupt the frontmatter or have no effect).
@@ -79,16 +84,21 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
         .filter(([key, type]) => type && type !== 'title');
 
     const normalizeKey = (k) => String(k).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/gi, '');
-    const getCardVal = (note, key) => {
+    const getCardValue = (note, key) => {
+        let metadataKey = key;
         let val = note.metadata?.[key];
         if (val === undefined || val === null || val === '') {
             const keyNorm = normalizeKey(key);
-            const metaKey = Object.keys(note.metadata || {}).find(k => normalizeKey(k) === keyNorm);
-            if (metaKey) val = note.metadata[metaKey];
+            const matchedKey = Object.keys(note.metadata || {}).find(k => normalizeKey(k) === keyNorm);
+            if (matchedKey) {
+                metadataKey = matchedKey;
+                val = note.metadata[matchedKey];
+            }
         }
-        return val;
+        return { value: val, metadataKey };
     };
-    const renderCardValue = (value, type, field) => {
+    const getCardVal = (note, key) => getCardValue(note, key).value;
+    const renderCardValue = (value, type, field, note, metadataKey) => {
         switch (type) {
             case 'checkbox':
                 return <CheckSquare size={13} className={value ? 'text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]'} />;
@@ -103,15 +113,38 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
             case 'status':
             case 'select':
                 return <span className="px-1.5 py-0.5 rounded bg-[var(--bg-tertiary)] border border-[var(--border-primary)] text-[var(--text-secondary)]">{value}</span>;
-            case 'multi_select':
-            case 'relation': {
-                const items = Array.isArray(value) ? value : String(value).split(',').map(s => s.trim()).filter(Boolean);
+            case 'multi_select': {
+                const items = normalizeRelationValues(value);
                 return (
                     <span className="inline-flex flex-wrap gap-1">
                         {items.slice(0, 4).map((it, i) => (
                             <span key={i} className="px-1.5 py-0.5 rounded bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)]">{idToTitle[it] || (String(it).length > 16 ? String(it).slice(0, 8) + '…' : it)}</span>
                         ))}
                         {items.length > 4 && <span className="text-[var(--text-tertiary)]">+{items.length - 4}</span>}
+                    </span>
+                );
+            }
+            case 'relation': {
+                const items = normalizeRelationValues(value);
+                return (
+                    <span className="inline-flex flex-wrap gap-1">
+                        {items.map(relationId => (
+                            <RelationItem
+                                key={relationId}
+                                relationId={relationId}
+                                title={idToTitle[relationId] || relationId}
+                                onOpen={onNoteSelect}
+                                onRemove={onUpdateNote ? () => unlinkRelationFromRecord({
+                                    pageId: note.id,
+                                    field,
+                                    metadataKey,
+                                    value,
+                                    relationId,
+                                    relationTitle: idToTitle[relationId] || relationId,
+                                    onUpdate: onUpdateNote,
+                                }) : undefined}
+                            />
+                        ))}
                     </span>
                 );
             }
@@ -334,12 +367,12 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
                                         {cardColumns.length > 0 && (
                                             <div className="flex flex-col gap-1 mt-2 text-[10px]">
                                                 {cardColumns.map(([key, type], pi) => {
-                                                    const val = getCardVal(note, key);
+                                                    const { value: val, metadataKey } = getCardValue(note, key);
                                                     if (val === undefined || val === null || val === '') return null;
                                                     return (
                                                         <div key={`${key}-${pi}`} className="flex items-center gap-1.5 overflow-hidden min-h-[16px]">
                                                             <span className="font-medium uppercase tracking-wider text-[var(--text-tertiary)] shrink-0 truncate max-w-[45%]">{key}</span>
-                                                            <div className="min-w-0 flex-1 truncate text-[var(--text-secondary)]">{renderCardValue(val, type, key)}</div>
+                                                            <div className="min-w-0 flex-1 text-[var(--text-secondary)]">{renderCardValue(val, type, key, note, metadataKey)}</div>
                                                         </div>
                                                     );
                                                 })}

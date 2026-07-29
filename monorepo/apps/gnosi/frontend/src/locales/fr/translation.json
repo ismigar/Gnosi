@@ -4383,6 +4383,16 @@
       "notes": "Notes"
     }
   },
+  "relation_item": {
+    "open_new_tab": "Ouvrir dans un nouvel onglet",
+    "open_new_tab_named": "Ouvrir {{title}} dans un nouvel onglet",
+    "remove": "Supprimer de cet enregistrement",
+    "remove_named": "Supprimer {{title}} de cet enregistrement",
+    "removed_toast": "Relation supprimée : {{title}}",
+    "history_error": "Impossible de restaurer la modification de la relation",
+    "undo_success": "Relation restaurée",
+    "redo_success": "Relation supprimée à nouveau"
+  },
   "reader_articles_pending_many": "{{count}} articles en attente",
   "reader_sources_count_many": "{{count}} sources"
 }

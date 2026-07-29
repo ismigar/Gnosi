@@ -4344,5 +4344,15 @@
     },
     "profiles": { "worker": "Worker", "administrative": "Administrative", "documentalist": "Documentalist", "allrounder": "All-rounder", "expert": "Expert / Director", "unrated": "Unrated" },
     "columns": { "model": "Model", "creator": "Creator", "provider": "Provider", "intelligence": "Intelligence", "coding": "Coding", "agentic": "Agentic", "input_price": "Input $/1M", "output_price": "Output $/1M", "context": "Context", "speed": "Speed", "latency": "Latency", "uptime": "Uptime", "profile": "Recommended use", "quantization": "Quantization", "monthly_cost": "Est. $/month", "available": "Available" }
+  },
+  "relation_item": {
+    "open_new_tab": "Open in a new tab",
+    "open_new_tab_named": "Open {{title}} in a new tab",
+    "remove": "Remove from this record",
+    "remove_named": "Remove {{title}} from this record",
+    "removed_toast": "Relation removed: {{title}}",
+    "history_error": "Could not restore the relation change",
+    "undo_success": "Relation restored",
+    "redo_success": "Relation removed again"
   }
 }

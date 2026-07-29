@@ -4383,6 +4383,16 @@
       "notes": "Notas"
     }
   },
+  "relation_item": {
+    "open_new_tab": "Abrir en una pestaña nueva",
+    "open_new_tab_named": "Abrir {{title}} en una pestaña nueva",
+    "remove": "Eliminar de este registro",
+    "remove_named": "Eliminar {{title}} de este registro",
+    "removed_toast": "Relación eliminada: {{title}}",
+    "history_error": "No se ha podido restaurar el cambio de relación",
+    "undo_success": "Relación restaurada",
+    "redo_success": "Relación eliminada de nuevo"
+  },
   "reader_articles_pending_many": "{{count}} artículos pendientes",
   "reader_sources_count_many": "{{count}} fuentes"
 }

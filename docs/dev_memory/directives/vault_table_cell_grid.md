@@ -33,6 +33,30 @@ The title is navigable and editable but uses `note.title`, not metadata.
 - Title values can be copied but never pasted, cleared, or bulk-filled.
 - Cursor movement on the sticky title does not force horizontal scrolling.
 
+## Relation item contract
+
+Relation values use one shared item component in table cells, page properties,
+gallery cards, boards, and feeds.
+
+- Each item has a stable visual width and truncates only its visible label.
+- Hover exposes the complete resolved title, never only the stored page ID.
+- An open action creates or focuses the related page's Gnosi document tab.
+- An unlink action removes only that relation value from the current record. It
+  never deletes or trashes the related page.
+- Unlink persists as a partial metadata patch and registers one global history
+  operation containing the page ID, persisted metadata key, previous value, and
+  next value.
+- The bottom-right notification offers Undo. Command/Ctrl+Z uses the same
+  global operation, and redo restores the unlink.
+- Page-property editors must cancel pending debounced metadata writes before an
+  unlink so a stale full-metadata save cannot recreate the removed relation.
+- Undo/redo must update the active table cache as well as the global page list.
+  Keep the history value protected in the cell's optimistic layer until a
+  table-specific refresh settles; an older unlink refresh can otherwise repaint
+  the removed value even after the server has restored it.
+- Relation action clicks stop propagation so they do not select, edit, drag, or
+  open the containing cell or card.
+
 ## Interaction
 
 - Arrow keys move the cursor.
@@ -127,6 +151,8 @@ Clear cursor and range when view, search, sort order, or row identity changes.
 - Run the production frontend build.
 - Browser-test navigation, editing, paste, failure rollback, virtualization,
   and shortcut conflicts.
+- For relation unlink QA, use a disposable relation or restore the original
+  value with Undo before finishing.
 
 ## Restrictions
 
@@ -135,3 +161,8 @@ Clear cursor and range when view, search, sort order, or row identity changes.
 - Never silently coerce invalid values to empty or false.
 - Preserve the special write path and paste exclusion for title.
 - Clear stale selection after table-order changes.
+- Do not treat relation unlink as page deletion or reuse the trash restore API.
+- Do not show action controls on multi-select values; the relation item contract
+  applies only to fields whose schema type is `relation`.
+- Do not refresh only the global page list after relation history changes; table
+  panes keep their own record cache and would remain visually stale.
