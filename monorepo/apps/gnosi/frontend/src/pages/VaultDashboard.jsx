@@ -32,7 +32,7 @@ import { PageComments } from '../components/Vault/PageComments';
 import { ShareModal } from '../components/Vault/ShareModal';
 import { usePlugins } from '../plugins/usePlugins';
 import { MAIN_VIEW_NAME, isMainView, isPageEmbedView } from '../components/Vault/viewConstants';
-import { buildSchemaFromTableProperties, buildTablePropertiesFromSchema, getFieldConfig, getSchemaFieldNames, isCalendarPage } from '../components/Vault/schemaUtils';
+import { buildSchemaFromTableProperties, buildTablePropertiesFromSchema, getSchemaFieldNames, isCalendarPage } from '../components/Vault/schemaUtils';
 import { applyDefaultFormulasToMetadata } from '../components/Vault/defaultFormulaUtils';
 import { Palette } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
@@ -2738,20 +2738,29 @@ export default function VaultDashboard() {
     const llmWikiSourceConfig = (llmWikiConfig?.source_tables || []).find(
         (source) => source.table_id === openPageTableId,
     ) || null;
-    const llmWikiSourceSchema = openPageTableId ? getSchemaFromTableId(openPageTableId) : {};
-    const llmWikiInputIds = [
-        ...(llmWikiSourceConfig?.attachment_property_ids || []),
-        ...(llmWikiSourceConfig?.url_property_ids || []),
-    ];
-    const llmWikiHasMappedInput = llmWikiInputIds.some((fieldId) => {
-        const fieldName = getSchemaFieldNames(llmWikiSourceSchema).find(
-            (name) => getFieldConfig(llmWikiSourceSchema, name)?.id === fieldId,
-        );
-        const value = currentOpenPage?.metadata?.[fieldId]
-            ?? currentOpenPage?.metadata?.[fieldName];
-        return value !== undefined && value !== null && value !== ''
-            && (!Array.isArray(value) || value.length > 0);
-    });
+    useEffect(() => {
+        let alive = true;
+        if (!isPluginEnabled('llm-wiki') || !currentOpenPage?.id || !openPageTableId || !llmWikiSourceConfig) {
+            return () => { alive = false; };
+        }
+        // The configuration snapshot can predate a failed job. Load the durable
+        // status for the open resource so interrupted work can always be resumed.
+        axios.get(`/api/vault/llm-wiki/status/${encodeURIComponent(currentOpenPage.id)}`, {
+            params: { source_table_id: openPageTableId },
+        }).then((response) => {
+            if (!alive || response.data?.phase === 'idle') return;
+            setLlmWikiJobs((current) => ({
+                ...current,
+                [openPageTableId]: {
+                    ...(current[openPageTableId] || {}),
+                    [currentOpenPage.id]: response.data,
+                },
+            }));
+        }).catch((error) => {
+            console.warn('Could not load the LLM Wiki status for the open resource:', error);
+        });
+        return () => { alive = false; };
+    }, [currentOpenPage?.id, isPluginEnabled, llmWikiSourceConfig, openPageTableId]);
     const llmWikiResourceJob = llmWikiJobs?.[openPageTableId]?.[currentOpenPage?.id] || null;
     const llmWikiResourceRunning = Boolean(llmWikiResourceJob?.running);
     const llmWikiResourceRetryable = ['partial', 'error'].includes(llmWikiResourceJob?.phase);
@@ -2760,8 +2769,7 @@ export default function VaultDashboard() {
         || llmWikiConfig?.processed_resources?.[openPageTableId]?.[currentOpenPage?.id];
     const canProcessOpenResource = isPluginEnabled('llm-wiki')
         && Boolean(llmWikiSourceConfig)
-        && !llmWikiResourceRunning
-        && (llmWikiHasMappedInput || llmWikiSourceConfig?.include_body);
+        && !llmWikiResourceRunning;
     const llmWikiResourceLabel = llmWikiResourceRetryable
         ? t('table.reprocess_resource_error', "Resume interrupted processing")
         : !llmWikiResourceProcessed
@@ -2838,7 +2846,7 @@ export default function VaultDashboard() {
                 noteId: currentOpenPage.id,
                 title: currentOpenPage.title || '',
                 sourceTableId: openPageTableId,
-                force: Boolean(llmWikiResourceProcessed) && !llmWikiResourceRetryable,
+                force: Boolean(llmWikiResourceProcessed) || llmWikiResourceRetryable,
             });
         },
         canDeleteCurrentPage: Boolean(currentOpenPage),

@@ -184,6 +184,10 @@ overwrite user-edited instructions.
 
 - Do not use the legacy processed-date property to discover sources. Use
   `source_tables[]`, manifests, and jobs.
+- Do not hide Process or Reprocess for a configured source row merely because
+  the frontend cannot resolve its attachment/URL field. Stale schemas and
+  interrupted jobs can make that client-side check incomplete; expose the
+  action and let the backend inspect the durable row data.
 - Do not use `tempfile` without an explicit `llm_wiki/tmp` directory under
   `GNOSI_LOCAL_DATA`.
 - Do not create unconstrained categorical values. Canonicalize them against existing

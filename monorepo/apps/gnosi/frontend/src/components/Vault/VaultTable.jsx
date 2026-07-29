@@ -3243,19 +3243,10 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                                     || manifestTimestamp;
                                 const running = Boolean(persistedJob?.running);
                                 const retryable = ['partial', 'error'].includes(persistedJob?.phase);
-                                const fieldName = (fieldId) => getSchemaFieldNames(schema).find(
-                                    (name) => getFieldConfig(schema, name)?.id === fieldId,
-                                ) || fieldId;
-                                const inputIds = [
-                                    ...(llmWikiSourceConfig?.attachment_property_ids || []),
-                                    ...(llmWikiSourceConfig?.url_property_ids || []),
-                                ];
-                                const hasMappedInput = inputIds.some((fieldId) => {
-                                    const value = note.metadata?.[fieldId] ?? note.metadata?.[fieldName(fieldId)];
-                                    return value !== undefined && value !== null && value !== ''
-                                        && (!Array.isArray(value) || value.length > 0);
-                                });
-                                const ok = !running && (hasMappedInput || llmWikiSourceConfig?.include_body);
+                                // Keep the action available for every configured source row. The
+                                // backend reads the durable row data and can resume an interrupted
+                                // job even when this client has a stale or incomplete field schema.
+                                const ok = !running;
                                 const processedLabel = typeof processed === 'number'
                                     ? new Date(processed * 1000).toLocaleDateString(i18n.language)
                                     : processed;
@@ -3277,7 +3268,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                                                 noteId: note.id,
                                                 action: 'process_resource',
                                                 sourceTableId: llmWikiTableId,
-                                                force: Boolean(processed) && !retryable,
+                                                force: Boolean(processed) || retryable,
                                             });
                                         }}
                                         disabled={!ok}
