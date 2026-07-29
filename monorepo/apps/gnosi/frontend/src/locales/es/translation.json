@@ -4332,6 +4332,7 @@
     "created": "Creadas",
     "updated": "Enriquecidas",
     "error_generic": "Error procesando el recurso",
+    "error_no_brain_table": "No hay ninguna tabla del Cerebro configurada. Crea una en Ajustes → Complementos → LLM Wiki.",
     "running_hint": "Puedes cerrar; continuará en segundo plano.",
     "inbox_button": "Buzón",
     "inbox_button_title": "Buzón del Cerebro: sugerencias de notas permanentes",

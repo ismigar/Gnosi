@@ -20,6 +20,7 @@ const PHASE_LABELS = {
 };
 
 const POLL_MS = 1500;
+const NO_BRAIN_TABLE_ERROR = 'No Brain table is configured';
 
 export function ProcessResourceModal({
     isOpen,
@@ -42,6 +43,15 @@ export function ProcessResourceModal({
     const stopPolling = () => {
         if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
     };
+
+    const localizeStartError = (err) => {
+        const detail = err.response?.data?.detail;
+        if (detail === NO_BRAIN_TABLE_ERROR) {
+            return tp('error_no_brain_table', 'No Brain table is configured. Create one in Settings → Plugins → LLM Wiki.');
+        }
+        return detail || err.message || tp('error_generic', 'Error processing the resource');
+    };
+
     useEffect(() => () => stopPolling(), []);
 
     const poll = async (identifier) => {
@@ -86,7 +96,7 @@ export function ProcessResourceModal({
             pollRef.current = setInterval(() => poll(nextJobId), POLL_MS);
             poll(nextJobId);
         } catch (err) {
-            const msg = err.response?.data?.detail || err.message || tp('error_generic', "Error processing the resource");
+            const msg = localizeStartError(err);
             setError(msg);
             setState('error');
             toast.error(msg);

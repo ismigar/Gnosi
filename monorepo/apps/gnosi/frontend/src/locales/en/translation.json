@@ -4194,6 +4194,7 @@
     "created": "Created",
     "updated": "Enriched",
     "error_generic": "Error processing the resource",
+    "error_no_brain_table": "No Brain table is configured. Create one in Settings → Plugins → LLM Wiki.",
     "running_hint": "You can close; it will continue in the background.",
     "inbox_button": "Inbox",
     "inbox_button_title": "Brain inbox: permanent-note suggestions",
