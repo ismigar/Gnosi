@@ -347,6 +347,11 @@ textarea,
   color: var(--text-secondary);
 }
 
+.vault-page-link-chip {
+  font-size: 0.6875rem;
+  line-height: 1rem;
+}
+
 .vault-summary-chevron,
 .vault-view-action {
   display: inline-flex;
