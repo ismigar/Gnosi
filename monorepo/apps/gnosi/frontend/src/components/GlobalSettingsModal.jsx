@@ -139,13 +139,13 @@ const AgentIconSelect = ({ value, onChange, label, searchPlaceholder, noResultsL
                 style={{
                     width: '72px', height: '48px', padding: '0 10px',
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    borderRadius: '14px', border: '1px solid rgba(37, 99, 235, 0.28)',
-                    background: '#dbeafe', color: 'var(--gnosi-blue)', cursor: 'pointer'
+                    borderRadius: '14px', border: '1px solid var(--gnosi-blue)',
+                    background: 'var(--gnosi-blue)', color: '#fff', cursor: 'pointer'
                 }}
             >
                 {CurrentIcon
                     ? <CurrentIcon size={24} strokeWidth={2.35} />
-                    : <IconRenderer icon={value || getAgentIconValue('Brain')} size={24} color="var(--gnosi-blue)" />}
+                    : <IconRenderer icon={value || getAgentIconValue('Brain')} size={24} color="#fff" />}
                 <ChevronDown
                     size={15}
                     aria-hidden="true"
@@ -210,9 +210,10 @@ const AgentIconSelect = ({ value, onChange, label, searchPlaceholder, noResultsL
                                         width: '42px', height: '42px', padding: 0,
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         borderRadius: '11px',
-                                        border: selected ? '2px solid var(--gnosi-blue)' : '1px solid rgba(37, 99, 235, 0.18)',
-                                        background: selected ? 'var(--gnosi-blue)' : '#dbeafe',
-                                        color: selected ? '#fff' : 'var(--gnosi-blue)',
+                                        border: selected ? '2px solid #fff' : '1px solid var(--gnosi-blue)',
+                                        background: 'var(--gnosi-blue)',
+                                        color: '#fff',
+                                        boxShadow: selected ? '0 0 0 2px var(--gnosi-blue)' : 'none',
                                         cursor: 'pointer'
                                     }}
                                 >
@@ -4103,13 +4104,16 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             style={{
                                                                 width: '46px', height: '46px', flexShrink: 0,
                                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                borderRadius: '50%',
+                                                                background: 'var(--gnosi-blue)',
+                                                                color: '#fff',
                                                                 filter: 'drop-shadow(0 5px 10px rgba(0,0,0,0.1))'
                                                             }}
                                                         >
                                                             <IconRenderer
                                                                 icon={agent.icon || '🤖'}
-                                                                size={40}
-                                                                color="var(--gnosi-blue)"
+                                                                size={26}
+                                                                color="#fff"
                                                             />
                                                         </div>
                                                         <div style={{ minWidth: 0 }}>

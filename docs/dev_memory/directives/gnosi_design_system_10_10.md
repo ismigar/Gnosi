@@ -155,3 +155,36 @@ environment-specific frontend assumptions.
   the compiled cascade. Page-title controls use the semantic
   `.vault-page-title` contract, and browser QA verifies their computed size and
   weight against the editor heading scale.
+- Do not repeat the only available view label below a page title. Single-view
+  databases retain the add-view control while omitting the redundant tab.
+- Do not let feed metadata or previews dominate mobile cards. Show a small
+  property sample and a measured text excerpt, with translated controls that
+  progressively reveal the complete content.
+- Global launchers share one safe-area dock and their panels are mutually
+  exclusive. Independent fixed offsets cause launchers and panels to obscure
+  one another and must not be reintroduced.
+- Do not carry desktop document padding into nested mobile views because it
+  starves cards and embeds of readable width. Compact pages reduce nested
+  padding, omit the current-page breadcrumb and single-tab label, and place
+  collapsed summary panels side by side only when enough width is available;
+  expanded panels always receive the full row.
+- At widths through 1023 pixels, Vault navigation is a drawer rather than a
+  permanent column. A single open document has no document-strip row: its
+  quick-open and close controls belong in the shell header. Feed cards use a
+  768-pixel desktop reading column, compact timestamps, and bounded excerpt
+  expansion with an explicit route to the full document. The floating dock is
+  one collapsed launcher that reveals its independent actions only on demand.
+- Image-based page icons retain their established size and use a visibly small
+  top margin inside the shared icon frame, avoiding a broader header geometry
+  change.
+- Embedded database actions share one toolbar. Do not leave the add-view action
+  on a visually empty single-view row, and never nest an interactive element
+  inside another button; use a semantic split-button group.
+- Mobile Vault icon controls use the shared 44-pixel touch size, including shell
+  navigation, page actions, summary toggles, embedded-view actions, and feed
+  controls. Reduce redundant chrome before shrinking a control below that size.
+- Nested mobile feed views remove both the embed padding and the feed's desktop
+  inline padding. Keeping either layer makes a readable card materially narrower
+  than the surrounding page summary.
+- Every icon-removal and disclosure control needs a translated accessible name.
+  A visible icon or a sibling text label does not name a separate button.

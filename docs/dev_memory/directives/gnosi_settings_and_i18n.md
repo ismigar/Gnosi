@@ -140,6 +140,10 @@ configuration autosave.
 - Agent Lucide choices use the corporate blue token and persist as
   `lucide:IconName:blue`. Keep a broad curated grid for browsing and expose the
   full Lucide registry through search.
+- The compact agent-icon trigger, every icon tile, the agent collection row,
+  and the floating home action use the corporate blue background with a white
+  icon, matching the floating microphone control. Distinguish the selected tile
+  with an outline instead of reversing its colors.
 - Do not handle a nested picker Escape key only at document or element level:
   `useModalKeyboard` captures the event on `window` first and the settings modal
   will close. Register the open picker through `useModalKeyboard` so it becomes

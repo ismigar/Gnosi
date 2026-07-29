@@ -15,6 +15,7 @@ import {
     MoreHorizontal,
 } from 'lucide-react';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 // Width (px) of the editor content pane → how many page-action icons stay
 // inline before the rest collapse into the "…" overflow. The page title is
@@ -115,8 +116,9 @@ function buildItems(pa, t) {
  * @param {object|null} pageActions Handlers + flags (same shape passed to the old menu).
  * @param {number} containerWidth   Measured width of the editor content pane, in px.
  */
-export function PageActionsBar({ pageActions, containerWidth }) {
+export function PageActionsBar({ pageActions, containerWidth, compactOverflowItems = [] }) {
     const { t } = useTranslation();
+    const isCompact = useMediaQuery('(max-width: 768px)');
     const [overflowOpen, setOverflowOpen] = useState(false);
     const [menuPos, setMenuPos] = useState(null);
     const triggerRef = useRef(null);
@@ -126,11 +128,19 @@ export function PageActionsBar({ pageActions, containerWidth }) {
     const budget = inlineBudget(containerWidth);
 
     const { inline, overflow } = useMemo(() => {
+        if (isCompact) {
+            const favorite = items.find(item => item.key === 'favorite');
+            const secondaryItems = items.filter(item => item.key !== 'favorite');
+            return {
+                inline: favorite ? [favorite] : [],
+                overflow: [...compactOverflowItems, ...secondaryItems],
+            };
+        }
         if (items.length <= budget) return { inline: items, overflow: [] };
         // Finite budget exceeded → reserve the last slot for the "…" trigger.
         const inlineCount = Math.max(0, budget - 1);
         return { inline: items.slice(0, inlineCount), overflow: items.slice(inlineCount) };
-    }, [items, budget]);
+    }, [budget, compactOverflowItems, isCompact, items]);
 
     // Close the overflow menu on outside click.
     useEffect(() => {
@@ -150,7 +160,7 @@ export function PageActionsBar({ pageActions, containerWidth }) {
     // Esc closes the overflow menu.
     useModalKeyboard({ isOpen: overflowOpen, onClose: () => setOverflowOpen(false) });
 
-    if (!items.length) return null;
+    if (!items.length && (!isCompact || compactOverflowItems.length === 0)) return null;
 
     // The menu only renders while there is something to overflow (guarded
     // below), so a pane that widens past the breakpoint hides it without any
@@ -184,7 +194,7 @@ export function PageActionsBar({ pageActions, containerWidth }) {
     const iconFill = (item) => (item.fillWhenActive && item.active ? 'currentColor' : 'none');
 
     return (
-        <div className="flex items-center gap-0.5 shrink-0">
+        <div className="vault-page-actions flex items-center gap-0.5 shrink-0">
             {inline.map((item) => {
                 const { Icon } = item;
                 return (

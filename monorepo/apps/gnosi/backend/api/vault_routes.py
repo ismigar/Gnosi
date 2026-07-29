@@ -6580,9 +6580,6 @@ _BRAIN_SCHEMA_DEFINITIONS: list[tuple[str, str, dict[str, str]]] = [
     ("idea_type", "select", {
         "ca": "Tipus d’idea", "en": "Idea type", "es": "Tipo de idea", "fr": "Type d’idée",
     }),
-    ("legacy_source", "relation", {
-        "ca": "Fonts", "en": "Sources", "es": "Fuentes", "fr": "Sources",
-    }),
     ("position", "number", {
         "ca": "Posició", "en": "Position", "es": "Posición", "fr": "Position",
     }),
@@ -6604,6 +6601,19 @@ _BRAIN_SCHEMA_DEFINITIONS: list[tuple[str, str, dict[str, str]]] = [
         "ca": "Etiquetes", "en": "Tags", "es": "Etiquetas", "fr": "Étiquettes",
     }),
 ]
+
+_BRAIN_SOURCE_NAMES = {
+    "ca": "Font",
+    "en": "Source",
+    "es": "Fuente",
+    "fr": "Source",
+}
+_BRAIN_SOURCE_SINGULAR_TOKENS = {"font", "source", "fuente"}
+_BRAIN_SOURCE_PLURAL_TOKENS = {"fonts", "sources", "fuentes"}
+BRAIN_SOURCE_CONTRACT_REVISION = 2
+_BRAIN_VIEW_DEF_RE = re.compile(
+    r"<!--\s*gnosi-view:def\s+(?P<payload>\{.*?\})\s*-->",
+)
 
 _BRAIN_ROLE_SPECS: dict = {
     "note_type": ({"tipusdenota", "notetype", "tipodenota", "typedenote"}, "select"),
@@ -6630,11 +6640,6 @@ def _brain_property(role: str, name: str, ptype: str, brain_table_id: str = "") 
             if brain_table_id:
                 prop["relation_database_id"] = brain_table_id
                 prop["cardinality"] = "many-to-many"
-        elif role == "legacy_source":
-            ref_id = get_reference_table_id()
-            if ref_id:
-                prop["relation_database_id"] = ref_id
-                prop["cardinality"] = "many-to-one"
     return prop
 
 
@@ -6679,8 +6684,12 @@ def _ensure_default_db_group() -> None:
         log.info("🧠 Created the `gnosi_vault_db` database group in the sidebar registry")
 
 
-def ensure_brain_table_schema(table_id: str, locale: str = "en") -> int:
-    """Add missing localized Brain fields idempotently."""
+def ensure_brain_table_schema(
+    table_id: str,
+    locale: str = "en",
+    property_id_hints: Optional[dict[str, str]] = None,
+) -> int:
+    """Add missing Brain fields and stable property ids idempotently."""
     if not table_id:
         return 0
     added = 0
@@ -6705,19 +6714,29 @@ def ensure_brain_table_schema(table_id: str, locale: str = "en") -> int:
                 existing.add(_brain_schema_token(name))
                 added += 1
         repaired = 0
-        ref_id = get_reference_table_id()
+        used_ids = {
+            str(prop.get("id") or "")
+            for prop in props
+            if str(prop.get("id") or "")
+        }
+        hints = property_id_hints or {}
+        for prop in props:
+            if prop.get("id"):
+                continue
+            token = _brain_schema_token(prop.get("name"))
+            hinted_id = str(hints.get(token) or "")
+            prop["id"] = (
+                hinted_id
+                if hinted_id and hinted_id not in used_ids
+                else str(uuid.uuid4())
+            )
+            used_ids.add(str(prop["id"]))
+            repaired += 1
         for prop in props:
             if prop.get("type") != "relation":
                 continue
             property_token = _brain_schema_token(prop.get("name"))
-            if property_token in _brain_role_tokens("legacy_source"):
-                if prop.get("cardinality") != "many-to-one":
-                    prop["cardinality"] = "many-to-one"
-                    repaired += 1
-                if ref_id and not prop.get("relation_database_id"):
-                    prop["relation_database_id"] = ref_id
-                    repaired += 1
-            elif property_token in _brain_role_tokens("based_on"):
+            if property_token in _brain_role_tokens("based_on"):
                 if not prop.get("relation_database_id"):
                     prop["relation_database_id"] = table_id
                     repaired += 1
@@ -6727,7 +6746,7 @@ def ensure_brain_table_schema(table_id: str, locale: str = "en") -> int:
         if added or repaired:
             save_registry(reg)
             log.info(
-                "LLM Wiki Brain schema updated: %d fields added and %d relations repaired in %s",
+                "LLM Wiki Brain schema updated: %d fields added and %d properties repaired in %s",
                 added,
                 repaired,
                 table_id,
@@ -6768,13 +6787,276 @@ def _infer_brain_roles(table: Optional[dict]) -> dict:
     return roles
 
 
-def ensure_brain_source_relation(brain_table_id: str, source_table_id: str) -> str:
-    """Return a Brain relation property targeting one source table.
+def _dimension_name_key(value: object) -> str:
+    token = _brain_schema_token(value)
+    return {
+        "area": "area",
+        "areas": "area",
+        "arees": "area",
+        "domaine": "area",
+        "domaines": "area",
+    }.get(token, token)
 
-    Existing compatible relations are reused. No relation is ever retargeted.
+
+def _brain_property_id_hints(cfg: dict, brain_table: Optional[dict]) -> dict[str, str]:
+    """Recover legacy property ids from persisted role and dimension mappings."""
+    hints: dict[str, str] = {}
+    for role, property_id in (cfg.get("brain_roles") or {}).items():
+        stable_id = str(property_id or "")
+        if not stable_id:
+            continue
+        for token in _brain_role_tokens(str(role)):
+            hints[token] = stable_id
+
+    brain_properties = [
+        prop
+        for prop in (brain_table or {}).get("properties") or []
+        if isinstance(prop, dict)
+    ]
+    for field_id in cfg.get("index_field_ids") or []:
+        stable_id = str(field_id or "")
+        source_keys: set[str] = set()
+        for source in cfg.get("source_tables") or []:
+            mapping = (source.get("dimension_mappings") or {}).get(stable_id) or {}
+            source_property_id = str(mapping.get("source_property_id") or "")
+            source_table = _table_by_id(str(source.get("table_id") or "")) or {}
+            source_property = next(
+                (
+                    prop
+                    for prop in source_table.get("properties") or []
+                    if str(prop.get("id") or "") == source_property_id
+                ),
+                None,
+            )
+            if source_property:
+                source_keys.add(_dimension_name_key(source_property.get("name")))
+        candidates = [
+            prop
+            for prop in brain_properties
+            if _dimension_name_key(prop.get("name")) in source_keys
+        ]
+        if len(candidates) == 1:
+            hints[_brain_schema_token(candidates[0].get("name"))] = stable_id
+    return hints
+
+
+def _brain_source_name(locale: str) -> str:
+    language = str(locale or "en").split("-", 1)[0].lower()
+    return _BRAIN_SOURCE_NAMES.get(language, _BRAIN_SOURCE_NAMES["en"])
+
+
+def _relation_values(value: object) -> list[object]:
+    if value in (None, "", [], {}):
+        return []
+    return list(value) if isinstance(value, list) else [value]
+
+
+def _relation_value_key(value: object) -> str:
+    text = str(value or "").strip()
+    match = RELATION_WIKILINK_RE.match(text)
+    return str(match.group("rid") if match else text)
+
+
+def _merge_relation_values(*values: object) -> list[object]:
+    merged: list[object] = []
+    seen: set[str] = set()
+    for value in values:
+        for item in _relation_values(value):
+            key = _relation_value_key(item)
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            merged.append(item)
+    return merged
+
+
+def _migrate_brain_source_metadata(
+    brain_table_id: str,
+    canonical_name: str,
+    legacy_names: set[str],
+) -> int:
+    """Move duplicate source values to the canonical Brain relation."""
+    if not legacy_names:
+        return 0
+    migrated = 0
+    for page in _get_pages_for_table(brain_table_id) or []:
+        path_value = getattr(page, "path", None)
+        path = Path(path_value) if path_value else None
+        if not path or not path.exists():
+            continue
+        try:
+            metadata, body = parse_frontmatter(path.read_text(encoding="utf-8"), path)
+            present = [name for name in legacy_names if name in metadata]
+            if not present:
+                continue
+            metadata[canonical_name] = _merge_relation_values(
+                metadata.get(canonical_name),
+                *(metadata.get(name) for name in present),
+            )
+            for name in present:
+                metadata.pop(name, None)
+            save_page_md(path, metadata, body)
+            register_page_in_index(path)
+            migrated += 1
+        except Exception as error:
+            log.warning("Could not migrate a Brain source relation in %s: %s", path, error)
+    return migrated
+
+
+def _source_filter_rule(canonical_name: str) -> dict:
+    return {"field": canonical_name, "value": "this"}
+
+
+def _is_source_filter(rule: object, source_names: set[str]) -> bool:
+    return (
+        isinstance(rule, dict)
+        and _brain_schema_token(rule.get("field")) in {
+            _brain_schema_token(name) for name in source_names
+        }
+    )
+
+
+def _strip_source_filter_nodes(node: object, source_names: set[str]) -> object:
+    if not isinstance(node, dict):
+        return node
+    rules = node.get("rules")
+    if not isinstance(rules, list):
+        return None if _is_source_filter(node, source_names) else dict(node)
+    kept = [
+        child
+        for rule in rules
+        if (child := _strip_source_filter_nodes(rule, source_names)) is not None
+    ]
+    if not kept:
+        return None
+    if len(kept) == 1:
+        return kept[0]
+    result = dict(node)
+    result["rules"] = kept
+    return result
+
+
+def _normalize_brain_source_view(
+    view: dict,
+    canonical_name: str,
+    source_names: set[str],
+) -> bool:
+    """Guarantee one contextual source filter while preserving other filters."""
+    before = json.dumps(view, sort_keys=True, ensure_ascii=False)
+    source_rule = _source_filter_rule(canonical_name)
+
+    filters = view.get("filters")
+    if isinstance(filters, list):
+        remaining = [rule for rule in filters if not _is_source_filter(rule, source_names)]
+        view["filters"] = [source_rule, *remaining]
+    elif isinstance(view.get("filter"), dict):
+        legacy_filter = view.pop("filter")
+        remaining = [] if _is_source_filter(legacy_filter, source_names) else [legacy_filter]
+        view["filters"] = [source_rule, *remaining]
+    else:
+        view["filters"] = [source_rule]
+
+    filter_tree = view.get("filterTree")
+    if isinstance(filter_tree, dict):
+        remaining_tree = _strip_source_filter_nodes(filter_tree, source_names)
+        view["filterTree"] = (
+            source_rule
+            if remaining_tree is None
+            else {"conjunction": "and", "rules": [source_rule, remaining_tree]}
+        )
+
+    return before != json.dumps(view, sort_keys=True, ensure_ascii=False)
+
+
+def _embedded_view_ids_for_table(table_id: str) -> set[str]:
+    view_ids: set[str] = set()
+    for page in _get_pages_for_table(table_id) or []:
+        path_value = getattr(page, "path", None)
+        path = Path(path_value) if path_value else None
+        if not path or not path.exists():
+            continue
+        try:
+            raw = path.read_text(encoding="utf-8")
+        except Exception as error:
+            log.warning("Could not inspect embedded views in %s: %s", path, error)
+            continue
+        for match in _BRAIN_VIEW_DEF_RE.finditer(raw):
+            try:
+                payload = json.loads(match.group("payload"))
+            except (TypeError, ValueError):
+                continue
+            view_id = str(payload.get("view_id") or "").strip()
+            if view_id:
+                view_ids.add(view_id)
+    return view_ids
+
+
+def _normalize_brain_source_views(
+    brain_table_id: str,
+    source_table_id: str,
+    canonical_name: str,
+    source_names: set[str],
+) -> int:
+    """Repair every Brain view embedded in pages of one configured source."""
+    embedded_ids = _embedded_view_ids_for_table(source_table_id)
+    if not embedded_ids:
+        return 0
+    changed = 0
+    with registry_mutation():
+        registry = load_registry()
+        views = registry.get("views") or []
+        by_id = {
+            str(view.get("id") or ""): view
+            for view in views
+            if isinstance(view, dict)
+        }
+        pending = list(embedded_ids)
+        while pending:
+            view_id = pending.pop()
+            view = by_id.get(view_id)
+            if not view:
+                continue
+            for tab_id in view.get("tabs") or []:
+                tab_id = str(tab_id or "")
+                if tab_id and tab_id not in embedded_ids:
+                    embedded_ids.add(tab_id)
+                    pending.append(tab_id)
+        for view_id in embedded_ids:
+            view = by_id.get(view_id)
+            if (
+                not view
+                or str(view.get("table_id") or "") != brain_table_id
+                or not view.get("embedded")
+            ):
+                continue
+            if _normalize_brain_source_view(view, canonical_name, source_names):
+                changed += 1
+        if changed:
+            save_registry(registry)
+            log.info(
+                "LLM Wiki normalized %d embedded Brain source filters for table %s",
+                changed,
+                source_table_id,
+            )
+    return changed
+
+
+def ensure_brain_source_relation(
+    brain_table_id: str,
+    source_table_id: str,
+    locale: str = "en",
+) -> str:
+    """Return the single canonical Brain relation targeting one source table.
+
+    A singular relation is preferred, duplicate plural relations are merged and
+    removed, and resource-page views are normalized to filter by the host page.
     """
     if not brain_table_id or not source_table_id:
         return ""
+    canonical_name = _brain_source_name(locale)
+    legacy_names: set[str] = set()
+    source_names: set[str] = {canonical_name}
+    relation_id = ""
     with registry_mutation():
         registry = load_registry()
         brain = next(
@@ -6788,38 +7070,301 @@ def ensure_brain_source_relation(brain_table_id: str, source_table_id: str) -> s
         if not brain or not source:
             return ""
         properties = brain.setdefault("properties", [])
-        existing = next(
-            (
-                prop for prop in properties
-                if prop.get("type") == "relation"
-                and str(prop.get("relation_database_id") or "") == source_table_id
-                and _brain_schema_token(prop.get("name")) not in _brain_role_tokens("based_on")
-            ),
-            None,
+        compatible = [
+            prop for prop in properties
+            if prop.get("type") == "relation"
+            and str(prop.get("relation_database_id") or "") == source_table_id
+            and _brain_schema_token(prop.get("name")) not in _brain_role_tokens("based_on")
+        ]
+        compatible.sort(
+            key=lambda prop: (
+                _brain_schema_token(prop.get("name")) not in _BRAIN_SOURCE_SINGULAR_TOKENS,
+                _brain_schema_token(prop.get("name")) in _BRAIN_SOURCE_PLURAL_TOKENS,
+            )
         )
-        if existing:
-            if existing.get("cardinality") != "many-to-one":
-                existing["cardinality"] = "many-to-one"
-                save_registry(registry)
-            return str(existing.get("id") or "")
-        base_name = f"Source · {source.get('name') or source_table_id}"
-        used_names = {str(prop.get("name") or "").casefold() for prop in properties}
-        name = base_name
-        suffix = 2
-        while name.casefold() in used_names:
-            name = f"{base_name} {suffix}"
-            suffix += 1
-        prop = {
-            "id": str(uuid.uuid4()),
-            "name": name,
-            "type": "relation",
-            "relation_database_id": source_table_id,
-            "cardinality": "many-to-one",
+        changed = False
+        if compatible:
+            canonical = compatible[0]
+        else:
+            used_names = {str(prop.get("name") or "").casefold() for prop in properties}
+            name = canonical_name
+            if name.casefold() in used_names:
+                base_name = f"{canonical_name} · {source.get('name') or source_table_id}"
+                name = base_name
+                suffix = 2
+                while name.casefold() in used_names:
+                    name = f"{base_name} {suffix}"
+                    suffix += 1
+            canonical = {
+                "id": str(uuid.uuid4()),
+                "name": name,
+                "type": "relation",
+                "relation_database_id": source_table_id,
+                "cardinality": "many-to-one",
+            }
+            properties.append(canonical)
+            compatible = [canonical]
+            changed = True
+
+        original_name = str(canonical.get("name") or canonical_name)
+        original_token = _brain_schema_token(original_name)
+        used_by_others = {
+            str(prop.get("name") or "").casefold()
+            for prop in properties
+            if prop is not canonical
         }
-        properties.append(prop)
-        save_registry(registry)
-        log.info("LLM Wiki added source relation %s to Brain %s", prop["id"], brain_table_id)
-        return str(prop["id"])
+        if original_token in _BRAIN_SOURCE_PLURAL_TOKENS:
+            replacement_name = canonical_name
+            suffix = 2
+            if replacement_name.casefold() in used_by_others:
+                base_name = f"{canonical_name} · {source.get('name') or source_table_id}"
+                replacement_name = base_name
+                while replacement_name.casefold() in used_by_others:
+                    replacement_name = f"{base_name} {suffix}"
+                    suffix += 1
+            canonical["name"] = replacement_name
+            legacy_names.add(original_name)
+            changed = True
+        canonical_name = str(canonical.get("name") or canonical_name)
+        source_names.add(canonical_name)
+
+        if not canonical.get("id"):
+            canonical["id"] = str(uuid.uuid4())
+            changed = True
+        if canonical.get("cardinality") != "many-to-one":
+            canonical["cardinality"] = "many-to-one"
+            changed = True
+
+        duplicates = [prop for prop in compatible if prop is not canonical]
+        for duplicate in duplicates:
+            duplicate_name = str(duplicate.get("name") or "")
+            if duplicate_name:
+                legacy_names.add(duplicate_name)
+                source_names.add(duplicate_name)
+        aliases = [
+            str(alias)
+            for alias in canonical.get("aliases") or []
+            if str(alias).strip() and str(alias) != canonical_name
+        ]
+        for name in sorted(legacy_names):
+            if name and name not in aliases:
+                aliases.append(name)
+        if aliases != (canonical.get("aliases") or []):
+            canonical["aliases"] = aliases
+            changed = True
+        if duplicates:
+            duplicate_ids = {id(prop) for prop in duplicates}
+            brain["properties"] = [
+                prop for prop in properties if id(prop) not in duplicate_ids
+            ]
+            changed = True
+
+        relation_id = str(canonical.get("id") or "")
+        if changed:
+            save_registry(registry)
+            log.info(
+                "LLM Wiki consolidated the source relation %s in Brain %s",
+                relation_id,
+                brain_table_id,
+            )
+
+    migrated = _migrate_brain_source_metadata(
+        brain_table_id,
+        canonical_name,
+        legacy_names,
+    )
+    if migrated:
+        log.info("LLM Wiki migrated %d Brain pages to %s", migrated, canonical_name)
+    _normalize_brain_source_views(
+        brain_table_id,
+        source_table_id,
+        canonical_name,
+        source_names | legacy_names,
+    )
+    return relation_id
+
+
+def _normalize_brain_page_contract(
+    metadata: dict,
+    config: dict,
+    brain_table: dict,
+    source_titles: dict[tuple[str, str], str],
+) -> bool:
+    """Normalize visible note types, source cardinality, and source labels."""
+    from backend.services import llm_wiki_config
+
+    before = json.dumps(metadata, sort_keys=True, ensure_ascii=False, default=str)
+    props_by_id = {
+        str(prop.get("id") or ""): prop
+        for prop in brain_table.get("properties") or []
+        if isinstance(prop, dict) and prop.get("id")
+    }
+    note_type_id = str((config.get("brain_roles") or {}).get("note_type") or "")
+    note_type_prop = props_by_id.get(note_type_id)
+    note_type_name = str((note_type_prop or {}).get("name") or "")
+    stored_kind = llm_wiki_config.metadata_note_type(metadata)
+    managed_role = str(metadata.get("llm_wiki_role") or "")
+    semantic_kind = (
+        "reading"
+        if stored_kind == "lectura"
+        else stored_kind
+    )
+    if not semantic_kind and managed_role.endswith("-index"):
+        semantic_kind = "index"
+    if semantic_kind and note_type_name:
+        metadata[note_type_name] = llm_wiki_config.note_type_value(
+            semantic_kind,
+            config,
+            note_type_prop,
+        )
+
+    source_names: set[str] = set()
+    source_relations: dict[str, dict] = {}
+    for source in config.get("source_tables") or []:
+        relation = props_by_id.get(str(source.get("relation_property_id") or ""))
+        if not relation:
+            continue
+        relation_name = str(relation.get("name") or "")
+        if relation_name:
+            source_names.add(relation_name)
+            source_names.update(
+                str(alias)
+                for alias in relation.get("aliases") or []
+                if str(alias).strip()
+            )
+            source_relations[str(source.get("table_id") or "")] = relation
+
+    if stored_kind == "permanent":
+        for name in source_names:
+            metadata.pop(name, None)
+    else:
+        source_table_id = str(metadata.get("llm_wiki_source_table_id") or "")
+        resource_id = str(metadata.get("llm_wiki_resource_id") or "")
+        source_title = source_titles.get((source_table_id, resource_id))
+        relation = source_relations.get(source_table_id)
+        if source_title and resource_id:
+            metadata["llm_wiki_resource_title"] = source_title
+            if relation and (semantic_kind == "reading" or managed_role == "resource-index"):
+                relation_name = str(relation.get("name") or "")
+                for alias in relation.get("aliases") or []:
+                    metadata.pop(str(alias), None)
+                metadata[relation_name] = [f"[[{source_title}|{resource_id}]]"]
+            if managed_role == "resource-index":
+                locale = str(config.get("ui_locale") or "en").split("-", 1)[0].lower()
+                prefix = {
+                    "ca": "Índex",
+                    "en": "Index",
+                    "es": "Índice",
+                    "fr": "Index",
+                }.get(locale, "Index")
+                metadata["title"] = f"{prefix} · {source_title}"
+
+    return before != json.dumps(metadata, sort_keys=True, ensure_ascii=False, default=str)
+
+
+def _normalize_existing_brain_pages(
+    brain_table_id: str,
+    config: dict,
+) -> int:
+    """Migrate existing managed notes to the current singular-source contract."""
+    from backend.services import llm_wiki_storage
+
+    brain_table = _table_by_id(brain_table_id) or {}
+    source_titles: dict[tuple[str, str], str] = {}
+    for source in config.get("source_tables") or []:
+        source_table_id = str(source.get("table_id") or "")
+        source_table = _table_by_id(source_table_id) or {}
+        for page in _get_pages_for_table(source_table_id) or []:
+            resource_id = str(getattr(page, "id", "") or "")
+            path_value = getattr(page, "path", None)
+            path = Path(path_value) if path_value else None
+            metadata = getattr(page, "metadata", None) or {}
+            if path and path.exists() and not metadata:
+                try:
+                    metadata, _body = parse_frontmatter(
+                        path.read_text(encoding="utf-8"),
+                        path,
+                    )
+                except Exception as error:
+                    log.warning("Could not read source title from %s: %s", path, error)
+            if resource_id and path:
+                source_titles[(source_table_id, resource_id)] = _llm_wiki_source_title(
+                    metadata,
+                    path,
+                    source_table,
+                    source,
+                )
+
+    migrated = 0
+    for page in _get_pages_for_table(brain_table_id) or []:
+        path_value = getattr(page, "path", None)
+        path = Path(path_value) if path_value else None
+        if not path or not path.exists():
+            continue
+        try:
+            raw_metadata, body = parse_frontmatter(path.read_text(encoding="utf-8"), path)
+            page_id = str(
+                getattr(page, "id", "")
+                or raw_metadata.get("id")
+                or ""
+            )
+            metadata = llm_wiki_storage.merge_page_metadata(raw_metadata, page_id)
+            contract_changed = _normalize_brain_page_contract(
+                metadata,
+                config,
+                brain_table,
+                source_titles,
+            )
+            portable_metadata = llm_wiki_storage.prepare_managed_markdown(metadata)
+            portable_metadata.pop("note_type", None)
+            if not contract_changed and portable_metadata == raw_metadata:
+                continue
+            save_page_md(path, portable_metadata, body)
+            register_page_in_index(path)
+            migrated += 1
+        except Exception as error:
+            log.warning("Could not normalize a managed Brain page in %s: %s", path, error)
+    if migrated:
+        log.info("LLM Wiki normalized %d existing Brain pages", migrated)
+    return migrated
+
+
+def _reconcile_llm_wiki_source_contract(cfg: dict) -> dict:
+    """Apply the singular-source schema and embedded-view migration once."""
+    from backend.services import llm_wiki_config
+
+    brain_id = str(cfg.get("brain_table_id") or "")
+    if not brain_id or not _table_by_id(brain_id):
+        return cfg
+    locale = str(cfg.get("ui_locale") or "en")
+    brain_table = _table_by_id(brain_id)
+    ensure_brain_table_schema(
+        brain_id,
+        locale,
+        _brain_property_id_hints(cfg, brain_table),
+    )
+    changed = (
+        int(cfg.get("source_contract_revision") or 0)
+        < BRAIN_SOURCE_CONTRACT_REVISION
+    )
+    for source in cfg.get("source_tables") or []:
+        relation_id = ensure_brain_source_relation(
+            brain_id,
+            str(source.get("table_id") or ""),
+            locale,
+        )
+        if relation_id and relation_id != str(source.get("relation_property_id") or ""):
+            source["relation_property_id"] = relation_id
+            changed = True
+    roles = _infer_brain_roles(_table_by_id(brain_id))
+    if roles != (cfg.get("brain_roles") or {}):
+        cfg["brain_roles"] = roles
+        changed = True
+    _normalize_existing_brain_pages(brain_id, cfg)
+    if cfg.get("source_contract_revision") != BRAIN_SOURCE_CONTRACT_REVISION:
+        cfg["source_contract_revision"] = BRAIN_SOURCE_CONTRACT_REVISION
+        changed = True
+    return llm_wiki_config.set_full_config(cfg) if changed else cfg
 
 
 @router.get("/brain-table")
@@ -6863,8 +7408,11 @@ async def set_brain_table(payload: dict = Body(...)):
     cfg["brain_roles"] = _infer_brain_roles(_table_by_id(table_id))
     for source in cfg.get("source_tables") or []:
         source["relation_property_id"] = ensure_brain_source_relation(
-            table_id, str(source.get("table_id") or "")
+            table_id,
+            str(source.get("table_id") or ""),
+            locale,
         )
+    cfg["source_contract_revision"] = BRAIN_SOURCE_CONTRACT_REVISION
     cfg = bw.set_full_config(cfg)
     from backend.services import llm_wiki_indices
 
@@ -6908,8 +7456,11 @@ async def create_brain_table(payload: dict = Body(default=None)):
     cfg["brain_roles"] = _infer_brain_roles(_table_by_id(created["id"]))
     for source in cfg.get("source_tables") or []:
         source["relation_property_id"] = ensure_brain_source_relation(
-            created["id"], str(source.get("table_id") or "")
+            created["id"],
+            str(source.get("table_id") or ""),
+            locale,
         )
+    cfg["source_contract_revision"] = BRAIN_SOURCE_CONTRACT_REVISION
     cfg["index_field_ids"] = [
         field_id
         for role in ("areas", "tags")
@@ -7019,6 +7570,11 @@ async def get_llm_wiki_config():
     from backend.services import llm_wiki_config
 
     cfg = await asyncio.to_thread(llm_wiki_config.migrate_config)
+    if (
+        int(cfg.get("source_contract_revision") or 0)
+        < BRAIN_SOURCE_CONTRACT_REVISION
+    ):
+        cfg = await asyncio.to_thread(_reconcile_llm_wiki_source_contract, cfg)
     return await asyncio.to_thread(_llm_wiki_config_response, cfg)
 
 
@@ -7169,7 +7725,11 @@ async def put_llm_wiki_config(payload: dict = Body(...)):
     relation_ids = set()
     for source in prepared_sources:
         source_id = str(source["table_id"])
-        source["relation_property_id"] = ensure_brain_source_relation(brain_id, source_id)
+        source["relation_property_id"] = ensure_brain_source_relation(
+            brain_id,
+            source_id,
+            normalized.get("ui_locale") or "en",
+        )
         relation_ids.add(source["relation_property_id"])
     normalized["source_tables"] = prepared_sources
     brain = _table_by_id(brain_id)
@@ -7188,6 +7748,7 @@ async def put_llm_wiki_config(payload: dict = Body(...)):
             detail=f"Non-categorical or reserved index fields: {', '.join(invalid_index_ids)}",
         )
     normalized["index_field_ids"] = requested_index_ids
+    normalized["source_contract_revision"] = BRAIN_SOURCE_CONTRACT_REVISION
     normalized["configured"] = True
     saved = await asyncio.to_thread(llm_wiki_config.set_full_config, normalized)
     await asyncio.to_thread(llm_wiki_indices.ensure_system_pages, brain_id, saved)
@@ -7250,6 +7811,52 @@ def _resource_processed_value(metadata: dict) -> str:
         if v not in (None, "", [], {}):
             return str(v)
     return ""
+
+
+def _llm_wiki_title_value(value: object) -> str:
+    """Return one displayable title without serializing structured metadata."""
+    if isinstance(value, list):
+        value = next((item for item in value if item not in (None, "")), "")
+    if isinstance(value, dict):
+        value = next(
+            (
+                value.get(key)
+                for key in ("title", "name", "label", "value")
+                if value.get(key) not in (None, "")
+            ),
+            "",
+        )
+    return str(value or "").strip()
+
+
+def _llm_wiki_source_title(
+    metadata: dict,
+    path: Path,
+    source_table: dict,
+    source_config: dict,
+) -> str:
+    """Resolve a source title from its configured title property before UID fallbacks."""
+    title_property_id = str(source_config.get("title_property_id") or "")
+    title_property = next(
+        (
+            prop
+            for prop in source_table.get("properties") or []
+            if str(prop.get("id") or "") == title_property_id
+        ),
+        None,
+    )
+    title_property_name = str((title_property or {}).get("name") or "")
+    candidates = [
+        metadata.get(title_property_name) if title_property_name else None,
+        metadata.get(title_property_id) if title_property_id else None,
+        metadata.get("title"),
+        metadata.get("Title"),
+        path.stem,
+    ]
+    return next(
+        (title for value in candidates if (title := _llm_wiki_title_value(value))),
+        path.stem,
+    )
 
 
 def mark_resource_processed(page_id: str, date_str: str) -> bool:
@@ -7327,7 +7934,12 @@ async def llm_wiki_process(payload: dict = Body(...)):
             detail=f"Already processed on {_resource_processed_value(metadata)}; use force to reprocess",
         )
 
-    title = str(metadata.get("title") or path.stem)
+    title = _llm_wiki_source_title(
+        metadata,
+        path,
+        source_table,
+        source_config,
+    )
     vault_root = get_p("VAULT")
     job = llm_wiki.start_ingest(
         item_id,

@@ -54,6 +54,8 @@
   --shadow-soft: 0 8px 24px rgba(15, 23, 42, 0.08);
   --shadow-raised: 0 16px 40px rgba(15, 23, 42, 0.12);
   --focus-ring: 0 0 0 3px rgba(var(--gnosi-primary-rgb), 0.22);
+  --floating-action-size: 44px;
+  --floating-action-gap: 8px;
   
   /* Sidebar Light */
   --sidebar-bg: #f8fafc;
@@ -293,6 +295,228 @@ textarea,
   font-weight: 750;
   line-height: 1.12;
   letter-spacing: -0.03em;
+}
+
+.vault-page-hero {
+  margin-top: 1rem;
+}
+
+.vault-page-cover {
+  height: 3rem;
+}
+
+.vault-page-hero--covered .vault-page-cover {
+  height: 16rem;
+}
+
+.vault-page-hero--bare {
+  margin-top: 0.5rem;
+}
+
+.vault-page-hero--bare .vault-page-cover {
+  height: 2rem;
+}
+
+.vault-page-cover-actions {
+  bottom: 1rem;
+}
+
+.vault-page-hero--bare .vault-page-cover-actions {
+  bottom: 0.125rem;
+}
+
+.vault-page-icon img {
+  margin-top: 0.75rem;
+}
+
+.vault-page-overview--with-icon {
+  padding-top: 3.5rem;
+}
+
+.vault-page-overview--without-icon {
+  padding-top: 1.5rem;
+}
+
+.vault-page-summary-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.5rem;
+}
+
+.vault-page-summary-meta {
+  color: var(--text-secondary);
+}
+
+.vault-page-link-chip {
+  font-size: 0.6875rem;
+  line-height: 1rem;
+}
+
+.vault-summary-chevron,
+.vault-view-action {
+  display: inline-flex;
+  width: var(--control-height-sm);
+  height: var(--control-height-sm);
+  align-items: center;
+  justify-content: center;
+}
+
+.vault-new-split {
+  display: inline-flex;
+  min-height: var(--control-height-sm);
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--gnosi-primary);
+  color: #fff;
+}
+
+.vault-new-split__create,
+.vault-new-split__menu {
+  display: inline-flex;
+  min-height: var(--control-height-sm);
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.vault-new-split__create {
+  gap: 0.375rem;
+  padding-inline: 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.vault-new-split__menu {
+  width: var(--control-height-sm);
+  border-inline-start: 1px solid rgba(255, 255, 255, 0.28);
+}
+
+.vault-new-split button:hover,
+.vault-new-split button:focus-visible {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.vault-new-split button:focus-visible,
+.vault-summary-chevron:focus-visible,
+.vault-view-action:focus-visible {
+  outline: none;
+  box-shadow: inset var(--focus-ring);
+}
+
+.vault-feed-card__identity {
+  min-width: 0;
+  flex: 1 1 220px;
+}
+
+.vault-feed-card__title > span:last-child {
+  overflow-wrap: anywhere;
+}
+
+.vault-feed-card__preview {
+  position: relative;
+  max-height: 9.75rem;
+  overflow: hidden;
+}
+
+.vault-feed-card__preview:not(.is-expanded)::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2.75rem;
+  background: linear-gradient(to bottom, transparent, var(--bg-primary));
+  content: "";
+  pointer-events: none;
+}
+
+.vault-feed-card__preview.is-expanded {
+  max-height: none;
+  overflow: visible;
+}
+
+.vault-document-tabs--single {
+  display: none;
+}
+
+.vault-shell__checkout-warning {
+  padding: 0.375rem 1rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--status-warning) 42%, var(--border-primary));
+  background: color-mix(in srgb, var(--status-warning) 12%, var(--bg-primary));
+  color: var(--text-primary);
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.gnosi-floating-action {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  z-index: var(--z-floating);
+  width: var(--floating-action-size);
+  height: var(--floating-action-size);
+  opacity: 0.9;
+}
+
+.gnosi-floating-action:hover,
+.gnosi-floating-action:focus-visible {
+  opacity: 1;
+}
+
+.gnosi-floating-action--chat {
+  bottom: calc(max(16px, env(safe-area-inset-bottom)) + var(--floating-action-size) + var(--floating-action-gap));
+}
+
+.gnosi-floating-action--meeting {
+  bottom: calc(max(16px, env(safe-area-inset-bottom)) + var(--floating-action-size) + var(--floating-action-gap) + var(--floating-action-size) + var(--floating-action-gap));
+}
+
+.gnosi-floating-action--outline {
+  bottom: calc(max(16px, env(safe-area-inset-bottom)) + var(--floating-action-size) + var(--floating-action-gap) + var(--floating-action-size) + var(--floating-action-gap) + var(--floating-action-size) + var(--floating-action-gap));
+}
+
+.gnosi-floating-dock-toggle {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  z-index: var(--z-floating);
+  width: var(--floating-action-size);
+  height: var(--floating-action-size);
+}
+
+body:not([data-gnosi-floating-dock="open"]) .gnosi-floating-action {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+body[data-gnosi-floating-panel] .gnosi-floating-action {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+body[data-gnosi-floating-panel] .gnosi-floating-dock-toggle {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.gnosi-floating-panel {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  z-index: var(--z-floating);
+}
+
+.gnosi-floating-panel--outline {
+  max-height: min(70vh, calc(100vh - 160px));
+}
+
+@media (min-width: 1024px) {
+  .vault-page-summary-grid:not([data-expanded="true"]) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .contacts-split {
@@ -1116,7 +1340,7 @@ button:hover > .row-action-tooltip {
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1023px) {
   .gnosi-app-content {
     width: 100%;
   }
@@ -1156,6 +1380,10 @@ button:hover > .row-action-tooltip {
     backdrop-filter: blur(2px);
   }
 
+  .vault-shell__header { min-height: 48px; }
+}
+
+@media (max-width: 768px) {
   .vault-shell__header {
     min-height: 60px;
     padding-inline-start: 62px;
@@ -1163,6 +1391,135 @@ button:hover > .row-action-tooltip {
 
   .vault-page-title {
     font-size: clamp(1.875rem, 8vw, 2rem);
+  }
+
+  .vault-page-overview,
+  .vault-page-body {
+    padding-inline: 1rem !important;
+  }
+
+  .vault-page-icon {
+    left: 1rem !important;
+  }
+
+  .vault-page-cover-actions {
+    right: 1rem !important;
+  }
+
+  .vault-page-cover-action,
+  .vault-page-icon-remove {
+    min-width: var(--control-height-touch);
+    min-height: var(--control-height-touch);
+  }
+
+  .vault-page-icon-remove {
+    top: -0.25rem !important;
+    right: -0.25rem !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    opacity: 1;
+  }
+
+  .vault-feed-card__body {
+    padding: 1rem !important;
+  }
+
+  .vault-feed-card__header {
+    flex-wrap: wrap;
+    gap: 0.625rem;
+  }
+
+  .vault-feed-card__identity {
+    flex-basis: 200px;
+  }
+
+  .vault-feed-card__date {
+    align-items: flex-start;
+    line-height: 1.35;
+  }
+
+  .vault-feed-card__open {
+    display: none;
+  }
+
+  .vault-feed-card__preview {
+    max-height: 8.125rem;
+  }
+
+  .vault-page-spell-action {
+    display: none;
+  }
+
+  .vault-page-ai-action {
+    display: none;
+  }
+
+  .vault-shell__icon-button,
+  .vault-page-actions > button,
+  .vault-summary-chevron,
+  .vault-view-action,
+  .vault-new-split__create,
+  .vault-new-split__menu,
+  .vault-feed-card button {
+    min-width: var(--control-height-touch);
+    min-height: var(--control-height-touch);
+  }
+
+  .vault-shell__header {
+    padding-inline-end: 0.5rem;
+  }
+
+  .vault-shell__header > div:first-child {
+    min-width: 0;
+  }
+
+  .vault-shell__header > div:last-child {
+    padding-inline-end: 0;
+  }
+
+  .vault-page-title-actions {
+    gap: 0.25rem;
+  }
+
+  .vault-page-summary-grid > div > button,
+  .vault-page-summary-grid > div > div:first-child {
+    min-height: var(--control-height-touch);
+  }
+
+  .vault-page-summary-grid > div > div:first-child > button:first-child {
+    min-height: var(--control-height-touch);
+  }
+
+  body:has(.vault-page-editor):not([data-gnosi-floating-dock="open"]) .gnosi-floating-dock-toggle {
+    display: none;
+  }
+
+  .bn-block-content[data-content-type="gnosi_view"] .gnosi-view-embed-container {
+    padding-inline: 0 !important;
+  }
+
+  .gnosi-view-embed-container .vault-feed {
+    padding-inline: 0 !important;
+  }
+
+  .vault-feed-card > label {
+    display: inline-flex;
+    width: var(--control-height-touch);
+    height: var(--control-height-touch);
+    align-items: center;
+    justify-content: center;
+  }
+
+  .vault-feed-card > label input {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .vault-document-tabs__compact-action {
+    width: var(--control-height-touch);
+    height: var(--control-height-touch);
   }
 
   .contacts-master,
@@ -2043,4 +2400,11 @@ button:hover > .row-action-tooltip {
     text-decoration-skip-ink: none;
     text-underline-offset: 2px;
     cursor: pointer;
+}
+
+/* Persisted agent icons keep their corporate-blue descriptor for storage and
+   neutral surfaces. The floating blue chat action always needs white artwork. */
+.premium-chat-trigger svg {
+    color: #fff;
+    stroke: #fff;
 }
