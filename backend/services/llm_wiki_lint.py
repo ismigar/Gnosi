@@ -72,10 +72,11 @@ def _read_body(path: Optional[str]) -> str:
 
 def _load_notes(brain_table_id: str) -> List[Dict[str, Any]]:
     from backend.api.vault_routes import _get_pages_for_table
+    from backend.services import llm_wiki_config, llm_wiki_storage
 
     notes: List[Dict[str, Any]] = []
     for p in _get_pages_for_table(brain_table_id) or []:
-        meta = getattr(p, "metadata", None) or {}
+        meta = llm_wiki_storage.page_metadata(p)
         if meta.get("is_template"):
             continue
         pid = str(getattr(p, "id", "") or meta.get("id") or "")
@@ -88,7 +89,7 @@ def _load_notes(brain_table_id: str) -> List[Dict[str, Any]]:
             "id": pid, "title": title, "body": body,
             "out_ids": ids, "out_titles": titles,
             "review": str(meta.get("Última revisió") or meta.get("última revisió") or "").strip(),
-            "note_type": str(meta.get("note_type") or "").strip().casefold(),
+            "note_type": llm_wiki_config.metadata_note_type(meta),
             "managed_key": str(meta.get("llm_wiki_key") or ""),
             "managed_role": str(meta.get("llm_wiki_role") or ""),
             "managed_stale": bool(meta.get("llm_wiki_stale")),

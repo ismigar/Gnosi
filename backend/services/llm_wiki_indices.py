@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Iterable, Optional
 
 from backend.config.logger_config import get_logger
-from backend.services import llm_wiki_config
+from backend.services import llm_wiki_config, llm_wiki_storage
 from backend.utils.safe_io import safe_write_json
 
 logger = get_logger(__name__)
@@ -52,6 +52,17 @@ SYSTEM_TITLES = {
 
 def ensure_system_pages(brain_table_id: str, config: dict[str, Any]) -> dict[str, str]:
     """Create the three system pages without adopting same-title manual pages."""
+    migrate_managed_frontmatter(brain_table_id)
+    brain_table = _table(brain_table_id) or {}
+    props_by_id = {
+        str(prop.get("id") or ""): prop
+        for prop in brain_table.get("properties") or []
+        if isinstance(prop, dict) and prop.get("id")
+    }
+    index_metadata: dict[str, Any] = {}
+    system_metadata: dict[str, Any] = {}
+    _set_visible_note_type(index_metadata, config, props_by_id, "index")
+    _set_visible_note_type(system_metadata, config, props_by_id, "system")
     schema_content = _schema_content(config)
     general = _upsert_managed_page(
         brain_table_id,
@@ -59,6 +70,7 @@ def ensure_system_pages(brain_table_id: str, config: dict[str, Any]) -> dict[str
         ROLE_GENERAL_INDEX,
         "general",
         "_There are no resource or field indexes yet._",
+        index_metadata,
     )
     schema = _upsert_managed_page(
         brain_table_id,
@@ -66,6 +78,7 @@ def ensure_system_pages(brain_table_id: str, config: dict[str, Any]) -> dict[str
         ROLE_SCHEMA,
         "schema",
         schema_content,
+        system_metadata,
     )
     log_page = _upsert_managed_page(
         brain_table_id,
@@ -73,12 +86,33 @@ def ensure_system_pages(brain_table_id: str, config: dict[str, Any]) -> dict[str
         ROLE_LOG,
         "log",
         "_The log is empty._",
+        system_metadata,
     )
     return {
         ROLE_GENERAL_INDEX: general["id"],
         ROLE_SCHEMA: schema["id"],
         ROLE_LOG: log_page["id"],
     }
+
+
+def migrate_managed_frontmatter(brain_table_id: str) -> int:
+    """Move legacy managed metadata from Brain Markdown files to sidecars."""
+    migrated = 0
+    for page in _brain_pages(brain_table_id):
+        path = _path(page)
+        if not path:
+            continue
+        metadata, body = _read_page(path)
+        if not any(str(key).startswith("llm_wiki_") for key in metadata):
+            continue
+        _save_existing_page(path, metadata, body)
+        migrated += 1
+    if migrated:
+        logger.info(
+            "LLM Wiki moved managed metadata for %d Brain pages to sidecars",
+            migrated,
+        )
+    return migrated
 
 
 def rebuild_indexes(brain_table_id: str, config: dict[str, Any]) -> dict[str, Any]:
@@ -372,8 +406,10 @@ def _upsert_resource_index(
     readings = sorted(
         readings,
         key=lambda page: (
-            int(_meta(page).get("llm_wiki_origin_order") or 0),
-            int(_meta(page).get("Posició") or _meta(page).get("position") or 0),
+            _sortable_integer(_meta(page).get("llm_wiki_origin_order")),
+            _sortable_integer(
+                _meta(page).get("Posició") or _meta(page).get("position"),
+            ),
             _title(page).casefold(),
         ),
     )
@@ -389,7 +425,7 @@ def _upsert_resource_index(
     for page in readings:
         meta = _meta(page)
         key = (
-            int(meta.get("llm_wiki_origin_order") or 0),
+            _sortable_integer(meta.get("llm_wiki_origin_order")),
             str(meta.get("llm_wiki_origin_label") or "Source"),
         )
         grouped.setdefault(key, []).append(page)
@@ -463,8 +499,8 @@ def _rebuild_dimension_indexes(
             for page in sorted(
                 pages,
                 key=lambda p: (
-                    int(_meta(p).get("llm_wiki_origin_order") or 0),
-                    int(_meta(p).get("Posició") or 0),
+                    _sortable_integer(_meta(p).get("llm_wiki_origin_order")),
+                    _sortable_integer(_meta(p).get("Posició")),
                 ),
             ):
                 lines.append(f"- {_page_wikilink(page)}")
@@ -626,7 +662,11 @@ def _upsert_managed_page(
     brain_dir.mkdir(parents=True, exist_ok=True)
     metadata["id"] = str(uuid.uuid4())
     path = _get_unique_filepath(brain_dir, title, ".md")
-    save_page_md(path, metadata, _replace_managed_block("", managed_key, content))
+    save_page_md(
+        path,
+        llm_wiki_storage.prepare_managed_markdown(metadata),
+        _replace_managed_block("", managed_key, content),
+    )
     register_page_in_index(path)
     return {"id": metadata["id"], "title": title}
 
@@ -668,7 +708,11 @@ def _managed_content(body: str, key: str) -> str:
 def _save_existing_page(path: Path, metadata: dict[str, Any], body: str) -> None:
     from backend.api.vault_routes import register_page_in_index, save_page_md
 
-    save_page_md(path, metadata, body.rstrip() + "\n")
+    save_page_md(
+        path,
+        llm_wiki_storage.prepare_managed_markdown(metadata),
+        body.rstrip() + "\n",
+    )
     register_page_in_index(path)
 
 
@@ -693,7 +737,7 @@ def _table(table_id: str) -> Optional[dict]:
 
 
 def _meta(page: Any) -> dict[str, Any]:
-    return getattr(page, "metadata", None) or (page.get("metadata") if isinstance(page, dict) else {}) or {}
+    return llm_wiki_storage.page_metadata(page)
 
 
 def _page_id(page: Any) -> str:
@@ -724,14 +768,7 @@ def _path(page: Any) -> Optional[Path]:
 
 
 def _note_kind(page: Any) -> str:
-    meta = _meta(page)
-    kind = str(meta.get("note_type") or "").strip().casefold()
-    if kind:
-        return kind
-    for key, value in meta.items():
-        if _normalized(key) in {"tipusdenota", "notetype"}:
-            return str(value or "").strip().casefold()
-    return ""
+    return llm_wiki_config.metadata_note_type(_meta(page))
 
 
 def _as_values(value: Any) -> list[Any]:
@@ -757,6 +794,15 @@ def _value_key(value: Any) -> str:
 
 def _safe_token(value: Any) -> str:
     return "".join(ch for ch in str(value or "") if ch.isalnum() or ch in {"-", "_"})[:120]
+
+
+def _sortable_integer(value: Any) -> int:
+    """Return a stable numeric sort key for typed or legacy position values."""
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        match = re.search(r"-?\d+", str(value or ""))
+        return int(match.group(0)) if match else 0
 
 
 def _normalized(value: Any) -> str:
