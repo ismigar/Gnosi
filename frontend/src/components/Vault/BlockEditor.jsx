@@ -106,6 +106,7 @@ import AICorrectLayer from './AICorrectLayer';
 import { PageLinksGraph } from './PageLinksGraph';
 import { useFloatingActionDock } from '../../hooks/useFloatingActionDock';
 import { isManagedInternalMetadataKey } from './metadataVisibilityUtils';
+import { focusPropertyRow } from './propertyNavigationUtils';
 
 /**
  * Resolves the URI of the PDF associated with a Recursos page.
@@ -4166,6 +4167,17 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         setActiveProp(navProps[next].name);
     }, [navProps, activeProp, propIndexByName]);
 
+    // Keep keyboard cursor state, DOM focus, and the nested page scroll in
+    // sync. Updating activeProp alone can move the highlight beyond the
+    // viewport while focus remains on the previous row.
+    useEffect(() => {
+        if (!activeProp || !isPropertiesOpen) return undefined;
+        const frame = requestAnimationFrame(() => {
+            focusPropertyRow(propertiesPanelRef.current || document, activeProp);
+        });
+        return () => cancelAnimationFrame(frame);
+    }, [activeProp, isPropertiesOpen]);
+
     // ── Focus navigation between zones (title ↔ properties ↔ body) ─────────
     const focusTitle = useCallback(() => {
         const el = titleInputRef.current;
@@ -4211,10 +4223,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         setActiveProp(name);
         const tryFocus = () => {
             const root = propertiesPanelRef.current || document;
-            let el = null;
-            try { el = root.querySelector(`[data-prop-row="${(window.CSS && CSS.escape) ? CSS.escape(name) : name}"]`); } catch { el = null; }
-            if (el) { el.focus(); el.scrollIntoView({ block: 'nearest' }); return true; }
-            return false;
+            return focusPropertyRow(root, name);
         };
         // If the panel is already open, the row exists in the DOM and we focus it right away.
         // If we had to open it (setIsPropertiesOpen), it hasn't
