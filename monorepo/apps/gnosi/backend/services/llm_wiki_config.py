@@ -42,10 +42,30 @@ DEFAULT_CONFIG: dict[str, Any] = {
 }
 
 NOTE_TYPE_LABELS = {
-    "ca": {"reading": "Nota de lectura", "index": "Nota índex"},
-    "en": {"reading": "Reading note", "index": "Index note"},
-    "es": {"reading": "Nota de lectura", "index": "Nota índice"},
-    "fr": {"reading": "Note de lecture", "index": "Note d’index"},
+    "ca": {
+        "reading": "Nota de lectura",
+        "index": "Nota índex",
+        "permanent": "Nota permanent",
+        "system": "Nota de sistema",
+    },
+    "en": {
+        "reading": "Reading note",
+        "index": "Index note",
+        "permanent": "Permanent note",
+        "system": "System note",
+    },
+    "es": {
+        "reading": "Nota de lectura",
+        "index": "Nota índice",
+        "permanent": "Nota permanente",
+        "system": "Nota de sistema",
+    },
+    "fr": {
+        "reading": "Note de lecture",
+        "index": "Note d’index",
+        "permanent": "Note permanente",
+        "system": "Note système",
+    },
 }
 
 
@@ -93,15 +113,13 @@ def _property_options(prop: Optional[dict]) -> list[str]:
 
 def note_type_value(kind: str, config: dict, prop: Optional[dict]) -> str:
     """Return the existing visible option for one semantic note kind."""
-    normalized_kind = _semantic_token(kind)
-    semantic_kind = (
-        "index"
-        if "index" in normalized_kind or "indice" in normalized_kind
-        else "reading"
-    )
+    resolved_kind = note_type_kind(kind)
+    semantic_kind = "reading" if resolved_kind == "lectura" else (resolved_kind or "reading")
     markers = {
         "reading": ("reading", "lectura", "lecture"),
         "index": ("index", "indice"),
+        "permanent": ("permanent",),
+        "system": ("system", "sistema", "systeme"),
     }[semantic_kind]
     for option in _property_options(prop):
         token = _semantic_token(option)
@@ -110,6 +128,34 @@ def note_type_value(kind: str, config: dict, prop: Optional[dict]) -> str:
     locale = str((config or {}).get("ui_locale") or "en").split("-", 1)[0].lower()
     labels = NOTE_TYPE_LABELS.get(locale, NOTE_TYPE_LABELS["en"])
     return labels[semantic_kind]
+
+
+def note_type_kind(value: Any) -> str:
+    """Return the canonical semantic kind represented by a stored label."""
+    token = _semantic_token(value)
+    if any(marker in token for marker in ("reading", "lectura", "lecture")):
+        return "lectura"
+    if any(marker in token for marker in ("permanent",)):
+        return "permanent"
+    if any(marker in token for marker in ("index", "indice")):
+        return "index"
+    if any(marker in token for marker in ("system", "sistema", "systeme")):
+        return "system"
+    return ""
+
+
+def metadata_note_type(metadata: Optional[dict[str, Any]]) -> str:
+    """Resolve a Brain note kind from technical or visible schema metadata."""
+    source = metadata if isinstance(metadata, dict) else {}
+    direct = note_type_kind(source.get("note_type"))
+    if direct:
+        return direct
+    for key, value in source.items():
+        if _norm(key) in {"tipusdenota", "notetype", "tipodenota", "typedenote"}:
+            resolved = note_type_kind(value)
+            if resolved:
+                return resolved
+    return ""
 
 
 def _revision(value: Any) -> int:
