@@ -214,14 +214,15 @@ def _reading_notes_digest(brain_table_id: str) -> List[Dict[str, str]]:
     from pathlib import Path
 
     from backend.api.vault_routes import _get_pages_for_table
+    from backend.services import llm_wiki_config, llm_wiki_storage
     from backend.services.llm_wiki import _fonts_ids
 
     out: List[Dict[str, str]] = []
     for p in _get_pages_for_table(brain_table_id) or []:
-        meta = getattr(p, "metadata", None) or {}
+        meta = llm_wiki_storage.page_metadata(p)
         if meta.get("is_template"):
             continue
-        note_type = str(meta.get("note_type") or "").strip().lower()
+        note_type = llm_wiki_config.metadata_note_type(meta)
         if note_type not in {"lectura", "permanent"}:
             continue
         if meta.get("llm_wiki_stale"):

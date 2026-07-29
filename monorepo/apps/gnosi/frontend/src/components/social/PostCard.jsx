@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { Heart, Repeat, MessageCircle, Share, ExternalLink } from 'lucide-react';
+import { Heart, Repeat, MessageCircle, Share } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
-const PostCard = ({ post, onInteraction }) => {
+const PostCard = ({ post }) => {
+    const { t } = useTranslation();
     const {
         id, author, handle, content, timestamp, network, avatar,
         is_reblog, reblog_by, favourited, reblogged,
@@ -75,22 +77,23 @@ const PostCard = ({ post, onInteraction }) => {
     };
 
     return (
-        <div
-            className="group bg-surface/40 hover:bg-surface/60 border border-white/5 rounded-xl p-4 transition-all duration-200 hover:shadow-lg hover:shadow-black/20 cursor-pointer backdrop-blur-sm"
+        <article
+            data-testid="post-card"
+            className="group cursor-pointer rounded-xl border border-[var(--border-primary)] bg-[var(--bg-primary)] p-4 transition-all duration-200 hover:bg-[var(--bg-secondary)] hover:shadow-md"
             onClick={openPost}
         >
             {/* Reblog indicator */}
             {is_reblog && reblog_by && (
-                <div className="text-xs text-zinc-500 mb-2 flex items-center gap-1.5 font-medium ml-10">
+                <div className="mb-2 ml-10 flex items-center gap-1.5 text-xs font-medium text-[var(--text-tertiary)]">
                     <Repeat size={12} />
-                    <span>{reblog_by} boosted</span>
+                    <span>{t('social.boosted_by', '{{name}} boosted', { name: reblog_by })}</span>
                 </div>
             )}
 
             <div className="flex gap-3">
                 {/* Avatar */}
                 <div className="shrink-0 pt-1">
-                    <div className="w-10 h-10 rounded-full bg-white/10 overflow-hidden ring-2 ring-white/5 group-hover:ring-white/10 transition-all">
+                    <div className="h-10 w-10 overflow-hidden rounded-full bg-[var(--bg-tertiary)] ring-2 ring-[var(--border-primary)] transition-all">
                         {avatar ? (
                             <img src={avatar} alt={author} className="w-full h-full object-cover" />
                         ) : (
@@ -105,32 +108,33 @@ const PostCard = ({ post, onInteraction }) => {
                     <div className="flex justify-between items-start mb-1">
                         <div className="truncate pr-2">
                             <div className="flex items-center gap-2">
-                                <span className="font-semibold text-zinc-200 truncate hover:underline decoration-white/20">{author}</span>
-                                <span className={`text-[10px] uppercase font-bold tracking-wider ${getNetworkColor(network)} bg-white/5 px-1.5 py-0.5 rounded ml-1`}>
+                                <span className="truncate font-semibold text-[var(--text-primary)] hover:underline">{author}</span>
+                                <span className={`ml-1 rounded bg-[var(--bg-secondary)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${getNetworkColor(network)}`}>
                                     {network}
                                 </span>
                             </div>
-                            <div className="text-xs text-zinc-500 truncate">{handle}</div>
+                            <div className="truncate text-xs text-[var(--text-tertiary)]">{handle}</div>
                         </div>
-                        <span className="text-xs text-zinc-600 shrink-0 whitespace-nowrap hover:text-zinc-400">
+                        <span className="shrink-0 whitespace-nowrap text-xs text-[var(--text-tertiary)]">
                             {new Date(timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                         </span>
                     </div>
 
                     {/* Post Text */}
-                    <p className="text-zinc-300 text-[15px] leading-relaxed mb-3 whitespace-pre-wrap break-words font-light">
+                    <p className="mb-3 whitespace-pre-wrap break-words text-[15px] font-normal leading-relaxed text-[var(--text-primary)]">
                         {content}
                     </p>
 
                     {/* Footer Actions */}
                     {network !== 'scheduled' && (
-                        <div className="flex justify-between items-center text-zinc-500 max-w-[80%]">
-                            <button className="flex items-center gap-1.5 hover:text-blue-400 p-1.5 -ml-1.5 rounded-full hover:bg-blue-500/10 transition-all group/btn" onClick={(e) => { e.stopPropagation(); openPost(); }}>
+                        <div className="flex max-w-[80%] items-center justify-between text-[var(--text-tertiary)]">
+                            <button aria-label={t('social.open_post', 'Open post')} className="group/btn -ml-1.5 flex items-center gap-1.5 rounded-full p-1.5 transition-all hover:bg-blue-500/10 hover:text-blue-500" onClick={(e) => { e.stopPropagation(); openPost(); }}>
                                 <MessageCircle size={16} />
                                 <span className="text-xs">{replies_count || 0}</span>
                             </button>
 
                             <button
+                                aria-label={t('social.repost', 'Repost')}
                                 className={`flex items-center gap-1.5 p-1.5 rounded-full hover:bg-green-500/10 transition-all ${reposted ? 'text-green-500' : 'hover:text-green-500'}`}
                                 onClick={handleRepost}
                                 disabled={loading.repost}
@@ -140,6 +144,7 @@ const PostCard = ({ post, onInteraction }) => {
                             </button>
 
                             <button
+                                aria-label={t('social.like', 'Like')}
                                 className={`flex items-center gap-1.5 p-1.5 rounded-full hover:bg-red-500/10 transition-all ${liked ? 'text-red-500' : 'hover:text-red-400'}`}
                                 onClick={handleLike}
                                 disabled={loading.like}
@@ -148,14 +153,14 @@ const PostCard = ({ post, onInteraction }) => {
                                 <span className={`text-xs ${liked ? 'font-medium' : ''}`}>{likeCount}</span>
                             </button>
 
-                            <button className="flex items-center gap-1.5 hover:text-blue-400 p-1.5 rounded-full hover:bg-blue-500/10 transition-all" onClick={(e) => { e.stopPropagation(); openPost(); }}>
+                            <button aria-label={t('social.share_post', 'Share post')} className="flex items-center gap-1.5 rounded-full p-1.5 transition-all hover:bg-blue-500/10 hover:text-blue-500" onClick={(e) => { e.stopPropagation(); openPost(); }}>
                                 <Share size={16} />
                             </button>
                         </div>
                     )}
                 </div>
             </div>
-        </div>
+        </article>
     );
 };
 

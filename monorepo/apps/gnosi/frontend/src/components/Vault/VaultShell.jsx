@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, ChevronRight, ChevronLeft, PanelLeft } from 'lucide-react';
-import { AppHeader } from '../AppHeader';
+import { Search, ChevronRight, ChevronLeft, PanelLeft, Plus, X } from 'lucide-react';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 export const VaultShell = ({
     sidebarContent,
@@ -11,32 +11,82 @@ export const VaultShell = ({
     onForward,
     canGoBack,
     canGoForward,
+    showDocumentControls = false,
+    onNewDocument,
+    onCloseDocument,
     children
 }) => {
     const { t } = useTranslation();
-    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const isCompact = useMediaQuery('(max-width: 768px)');
+    const isNarrow = useMediaQuery('(max-width: 1023px)');
+    const sidebarMode = isNarrow ? 'drawer' : 'wide';
+    const [sidebarOverrides, setSidebarOverrides] = useState({});
+    const isSidebarOpen = sidebarOverrides[sidebarMode] ?? !isNarrow;
+    const setIsSidebarOpen = (nextValue) => {
+        setSidebarOverrides(currentOverrides => {
+            const currentValue = currentOverrides[sidebarMode] ?? !isNarrow;
+            const resolvedValue = typeof nextValue === 'function'
+                ? nextValue(currentValue)
+                : nextValue;
+
+            if (currentOverrides[sidebarMode] === resolvedValue) {
+                return currentOverrides;
+            }
+
+            return {
+                ...currentOverrides,
+                [sidebarMode]: resolvedValue
+            };
+        });
+    };
+
+    const visibleBreadcrumbs = isCompact ? [] : breadcrumbs;
+    const staleCheckout = import.meta.env.DEV
+        && import.meta.env.VITE_GNOSI_STALE_CHECKOUT === '1';
+    const checkoutLabel = import.meta.env.VITE_GNOSI_CHECKOUT_LABEL || '';
+    const isMac = typeof navigator !== 'undefined'
+        && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+    const newTabShortcut = isMac ? '⌘T' : 'Ctrl+T';
+    const switchTabShortcut = isMac ? '⌘1–9' : 'Ctrl+1–9';
+    const newTabLabel = t('doc_tabs.new_tab_tooltip', {
+        shortcut: newTabShortcut,
+        tabShortcut: switchTabShortcut,
+        defaultValue: 'New tab or quick search ({{shortcut}}). Switch tab: {{tabShortcut}}',
+    });
 
     return (
-        <div className="flex h-screen w-full overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)] font-sans selection:bg-indigo-100 italic-none transition-colors duration-300">
+        <div className="vault-shell">
+            {isNarrow && isSidebarOpen && (
+                <button
+                    type="button"
+                    className="vault-shell__backdrop"
+                    onClick={() => setIsSidebarOpen(false)}
+                    aria-label={t('shell.hide_sidebar', 'Hide sidebar')}
+                />
+            )}
             <aside
-                className={`${isSidebarOpen ? 'w-[240px]' : 'w-0'} transition-all duration-300 ease-in-out border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] flex flex-col shrink-0 overflow-hidden relative`}
+                id="vault-navigation"
+                className={`vault-shell__sidebar ${isSidebarOpen ? 'is-open' : ''}`}
             >
-                <div className="flex-1 flex flex-col min-w-[240px] min-h-0">
+                <div className="vault-shell__sidebar-content">
                     {sidebarContent}
                 </div>
             </aside>
 
             {/* Main Area */}
-            <main className="flex-1 flex flex-col min-w-0 bg-[var(--bg-primary)] relative transition-colors duration-300">
+            <main className="vault-shell__main">
                 {/* Minimal Top Bar (Page actions) */}
-                <header className="h-12 flex items-center justify-between px-4 shrink-0 z-20 border-b border-[var(--border-primary)]">
+                <header className="vault-shell__header h-12 flex items-center justify-between px-4 shrink-0 z-20 border-b border-[var(--border-primary)]">
                     <div className="flex items-center gap-1 overflow-hidden">
 
                         {/* Sidebar toggle (always visible) */}
                         <button
                             onClick={() => setIsSidebarOpen(prev => !prev)}
-                            className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] rounded transition-colors shrink-0"
+                            className="vault-shell__icon-button p-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] rounded transition-colors shrink-0"
                             title={isSidebarOpen ? t('shell.hide_sidebar', "Hide sidebar") : t('shell.show_sidebar', "Show sidebar")}
+                            aria-label={isSidebarOpen ? t('shell.hide_sidebar', "Hide sidebar") : t('shell.show_sidebar', "Show sidebar")}
+                            aria-expanded={isSidebarOpen}
+                            aria-controls="vault-navigation"
                         >
                             <PanelLeft size={16} />
                         </button>
@@ -47,22 +97,24 @@ export const VaultShell = ({
                                 <button
                                     onClick={onBack}
                                     disabled={!canGoBack}
-                                    className={`p-1 rounded transition-colors ${canGoBack ? 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]' : 'opacity-20 cursor-not-allowed'}`}
+                                    className={`vault-shell__icon-button p-1 rounded transition-colors ${canGoBack ? 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]' : 'opacity-20 cursor-not-allowed'}`}
                                     title={t('shell.go_back')}
+                                    aria-label={t('shell.go_back')}
                                 >
                                     <ChevronLeft size={18} />
                                 </button>
                                 <button
                                     onClick={onForward}
                                     disabled={!canGoForward}
-                                    className={`p-1 rounded transition-colors ${canGoForward ? 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]' : 'opacity-20 cursor-not-allowed'}`}
+                                    className={`vault-shell__icon-button p-1 rounded transition-colors ${canGoForward ? 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]' : 'opacity-20 cursor-not-allowed'}`}
                                     title={t('shell.go_forward')}
+                                    aria-label={t('shell.go_forward')}
                                 >
                                     <ChevronRight size={18} />
                                 </button>
                             </div>
 
-                            {breadcrumbs.map((crumb, idx) => (
+                            {visibleBreadcrumbs.map((crumb, idx) => (
                                 <React.Fragment key={idx}>
                                     {idx > 0 && <span className="text-[var(--text-secondary)] opacity-30 text-xs px-1">/</span>}
                                     <button
@@ -81,15 +133,47 @@ export const VaultShell = ({
                         to the page title inside the editor — see PageActionsBar — and, for
                         tables, in the VaultViewsHeader. */}
                     <div className="flex items-center gap-1 pr-2">
+                        {showDocumentControls && (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={onNewDocument}
+                                    className="vault-shell__icon-button p-1.5 text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] rounded transition-colors"
+                                    title={newTabLabel}
+                                    aria-label={newTabLabel}
+                                >
+                                    <Plus size={16} />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={onCloseDocument}
+                                    className="vault-shell__icon-button p-1.5 text-[var(--text-secondary)] hover:text-[var(--status-error)] hover:bg-[var(--bg-tertiary)] rounded transition-colors"
+                                    title={t('doc_tabs.close_tab', 'Close tab')}
+                                    aria-label={t('doc_tabs.close_tab', 'Close tab')}
+                                >
+                                    <X size={16} />
+                                </button>
+                            </>
+                        )}
                         <button
                             onClick={onSearch}
-                            className="p-1.5 text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] rounded transition-colors"
-                            title="Quick Search"
+                            className="vault-shell__icon-button p-1.5 text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] rounded transition-colors"
+                            title={t('shell.quick_search', 'Quick search')}
+                            aria-label={t('shell.quick_search', 'Quick search')}
                         >
                             <Search size={16} />
                         </button>
                     </div>
                 </header>
+
+                {staleCheckout && (
+                    <div className="vault-shell__checkout-warning" role="status">
+                        {t('shell.stale_checkout', {
+                            checkout: checkoutLabel,
+                            defaultValue: 'Local preview is serving merged checkout {{checkout}}, behind origin/main.',
+                        })}
+                    </div>
+                )}
 
                 {/* Content Area */}
                 <div className="flex-1 flex flex-col overflow-hidden relative min-w-0">

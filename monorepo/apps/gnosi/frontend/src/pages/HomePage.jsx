@@ -103,21 +103,13 @@ function HomePage() {
 
             {/* Hero */}
             <header className="home-page__hero">
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', justifyContent: 'center' }}>
-                    <h1 className="home-page__title" style={{ margin: 0 }}>Gnosi</h1>
-                    <span style={{
-                        fontSize: '0.85rem',
-                        fontWeight: 500,
-                        color: 'var(--text-tertiary)',
-                        backgroundColor: 'var(--bg-secondary)',
-                        padding: '4px 10px',
-                        borderRadius: '8px',
-                        border: '1px solid var(--border-primary)'
-                    }}>
-                        Vault: {activeVaultName || '…'}
+                <div className="flex items-center justify-center gap-3">
+                    <h1 className="home-page__title m-0">Gnosi</h1>
+                    <span className="gnosi-vault-badge">
+                        {t('common.vault_label', 'Vault')}: {activeVaultName || '…'}
                     </span>
                 </div>
-                <p className="home-page__subtitle" style={{ marginTop: '8px' }}>
+                <p className="home-page__subtitle mx-auto mt-2 mb-0">
                     {t('home.subtitle', "Your personal knowledge ecosystem")}
                 </p>
             </header>

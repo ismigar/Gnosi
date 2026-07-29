@@ -150,7 +150,7 @@ export default function CommandPalette() {
     let lastSection = null;
     return (
         <div
-            className="fixed inset-0 z-[100002] flex items-start justify-center bg-black/30 pt-[12vh]"
+            className="fixed inset-0 z-[var(--z-command)] flex items-start justify-center bg-black/30 pt-[12vh]"
             onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}
         >
             <div className="w-full max-w-lg overflow-hidden rounded-xl border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-2xl">

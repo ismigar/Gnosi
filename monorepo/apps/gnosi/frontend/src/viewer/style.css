@@ -41,9 +41,10 @@ body {
 }
 
 #app {
-  display: grid;
-  grid-template-rows: 50px 1fr auto;
-  height: 100vh;
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
 }
 
 #top-bar {
@@ -61,7 +62,10 @@ body {
 /* 📐 Layout responsive entre graf i panell */
 /* ───────────────────────────────────────────── */
 #main-content {
+  position: relative;
   display: grid;
+  min-height: 0;
+  flex: 1;
   grid-template-columns: 1fr 280px;
   overflow: hidden;
   transition: grid-template-columns 0.4s ease;
@@ -116,10 +120,52 @@ body {
   transition: opacity 0.3s ease, transform 0.35s ease;
 }
 
+.graph-panel-backdrop {
+  display: none;
+}
+
 #app.panel-hidden #side-panel {
   opacity: 0;
   pointer-events: none;
   transform: translateX(20px);
+}
+
+@media (max-width: 767px) {
+  #main-content,
+  #app.panel-hidden #main-content {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #side-panel {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-end: 0;
+    z-index: calc(var(--z-overlay) + 1);
+    display: block;
+    width: min(86vw, 320px);
+    border-inline-start: 1px solid var(--color-border);
+    box-shadow: var(--shadow-raised);
+    transform: translateX(0);
+  }
+
+  #app.panel-hidden #side-panel {
+    display: block;
+    transform: translateX(105%);
+  }
+
+  [dir="rtl"] #app.panel-hidden #side-panel {
+    transform: translateX(-105%);
+  }
+
+  .graph-panel-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: var(--z-overlay);
+    display: block;
+    border: 0;
+    background: rgba(15, 23, 42, 0.42);
+    backdrop-filter: blur(2px);
+  }
 }
 
 /* ───────────────────────────────────────────── */

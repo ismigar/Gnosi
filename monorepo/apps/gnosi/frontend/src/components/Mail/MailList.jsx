@@ -915,7 +915,8 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
                 <button
                     onClick={onToggleMailboxSidebar}
                     title={showMailboxSidebar ? t('mail.hide_mailbox', "Hide mailbox") : t('mail.show_mailbox', "Show mailbox")}
-                    className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] rounded-lg transition-colors shrink-0"
+                    aria-label={showMailboxSidebar ? t('mail.hide_mailbox', "Hide mailbox") : t('mail.show_mailbox', "Show mailbox")}
+                    className="hidden p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] rounded-lg transition-colors shrink-0 md:inline-flex"
                 >
                     <PanelLeft size={16} />
                 </button>
@@ -1238,10 +1239,10 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
             {/* Move menu (inline per message) */}
             {moveMenu && createPortal(
                 <>
-                    <div className="fixed inset-0" style={{ zIndex: 10000 }} onClick={() => setMoveMenu(null)} />
+                    <div className="fixed inset-0" style={{ zIndex: 'var(--z-overlay)' }} onClick={() => setMoveMenu(null)} />
                     <div
                         className="fixed bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-xl shadow-xl py-1 w-52 animate-in fade-in zoom-in-95 duration-100"
-                        style={{ left: moveMenu.x, top: moveMenu.y, zIndex: 10001 }}
+                        style={{ left: moveMenu.x, top: moveMenu.y, zIndex: 'var(--z-popover)' }}
                         onClick={e => e.stopPropagation()}
                     >
                         <div className="px-3 py-1.5 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">{t('mail.move_to_ellipsis', "Move to...")}</div>
@@ -1268,10 +1269,10 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
             {/* Batch move menu */}
             {batchMoveMenu && createPortal(
                 <>
-                    <div className="fixed inset-0" style={{ zIndex: 10000 }} onClick={() => setBatchMoveMenu(null)} />
+                    <div className="fixed inset-0" style={{ zIndex: 'var(--z-overlay)' }} onClick={() => setBatchMoveMenu(null)} />
                     <div
                         className="fixed bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-xl shadow-xl py-1 w-52 animate-in fade-in zoom-in-95 duration-100"
-                        style={{ left: batchMoveMenu.x, top: batchMoveMenu.y, zIndex: 10001 }}
+                        style={{ left: batchMoveMenu.x, top: batchMoveMenu.y, zIndex: 'var(--z-popover)' }}
                         onClick={e => e.stopPropagation()}
                     >
                         <div className="px-3 py-1.5 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">{t('mail.move_batch_menu_title', { count: selectedIds.size, defaultValue_one: "Move {{count}} message to...", defaultValue_other: "Move {{count}} messages to..." })}</div>

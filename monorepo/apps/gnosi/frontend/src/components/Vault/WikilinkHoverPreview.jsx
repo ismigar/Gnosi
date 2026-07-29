@@ -4,12 +4,21 @@ import axios from 'axios';
 import { FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { IconRenderer } from './IconRenderer';
+import {
+    adaptiveHoverPreviewStyle,
+    positionHoverPreview,
+} from './hoverPreviewLayout';
 
 // Preview cache shared across instances. Avoids refetching when the user
 // repeatedly hovers over the same wikilinks (timeline, backlinks).
 const PREVIEW_CACHE = new Map();
 const CACHE_MAX = 100;
 const CACHE_TTL_MS = 5 * 60 * 1000;
+const PREVIEW_STYLE = adaptiveHoverPreviewStyle({
+    minWidth: 260,
+    maxWidth: 440,
+    maxHeight: 420,
+});
 
 function readCache(id) {
     const entry = PREVIEW_CACHE.get(id);
@@ -105,17 +114,10 @@ export const WikilinkHoverPreview = ({ pageId, anchorRect, onMouseEnter, onMouse
         if (!anchorRect || !popupRef.current) return;
         const popup = popupRef.current;
         const rect = popup.getBoundingClientRect();
-        const PADDING = 8;
-        let top = anchorRect.bottom + PADDING;
-        let left = anchorRect.left;
-        if (top + rect.height > window.innerHeight - PADDING) {
-            top = Math.max(PADDING, anchorRect.top - rect.height - PADDING);
-        }
-        if (left + rect.width > window.innerWidth - PADDING) {
-            left = Math.max(PADDING, window.innerWidth - rect.width - PADDING);
-        }
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- compute position from anchor after layout
-        setPopupPos({ top, left });
+        setPopupPos(positionHoverPreview(anchorRect, rect, {
+            width: window.innerWidth,
+            height: window.innerHeight,
+        }));
     }, [anchorRect, data, loading, error]);
 
     if (!anchorRect) return null;
@@ -123,21 +125,24 @@ export const WikilinkHoverPreview = ({ pageId, anchorRect, onMouseEnter, onMouse
     const popup = (
         <div
             ref={popupRef}
-            className="fixed z-[9999] w-[340px] max-h-[260px] bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700/60 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+            role="dialog"
+            aria-label={data?.title || t('common.untitled', "Untitled")}
+            data-testid="wikilink-hover-preview"
+            className="fixed z-[var(--z-popover)] flex flex-col bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700/60 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
             style={popupPos
-                ? { top: popupPos.top, left: popupPos.left, opacity: 1, pointerEvents: 'auto' }
-                : { top: -9999, left: -9999, opacity: 0, pointerEvents: 'none' }
+                ? { ...PREVIEW_STYLE, top: popupPos.top, left: popupPos.left, opacity: 1, pointerEvents: 'auto' }
+                : { ...PREVIEW_STYLE, top: -9999, left: -9999, opacity: 0, pointerEvents: 'none' }
             }
             onMouseEnter={onMouseEnter}
             onMouseLeave={onMouseLeave}
         >
             {!loading && !error && data?.cover && (
                 <div
-                    className="h-16 bg-cover bg-center"
+                    className="h-16 bg-cover bg-center shrink-0"
                     style={{ backgroundImage: `url("${data.cover}")` }}
                 />
             )}
-            <div className="p-4">
+            <div className="p-4 min-w-0 min-h-0 flex flex-col overflow-hidden">
                 {loading && (
                     <div className="flex items-center gap-2 text-sm text-slate-500">
                         <div className="w-3 h-3 border-2 border-slate-300 border-t-[var(--gnosi-primary)] rounded-full animate-spin" />
@@ -163,7 +168,7 @@ export const WikilinkHoverPreview = ({ pageId, anchorRect, onMouseEnter, onMouse
                             </h4>
                         </div>
                         {data.excerpt ? (
-                            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed line-clamp-6 whitespace-pre-line">
+                            <p className="min-h-0 overflow-y-auto overflow-x-hidden text-xs text-slate-600 dark:text-slate-400 leading-relaxed whitespace-pre-line break-words [overflow-wrap:anywhere]">
                                 {data.excerpt}
                             </p>
                         ) : (

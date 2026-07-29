@@ -1,6 +1,6 @@
 import os
 import operator
-from typing import Annotated, TypedDict, List, Sequence, Optional
+from typing import Annotated, Any, TypedDict, List, Sequence, Optional
 import logging
 from langchain_core.messages import BaseMessage, SystemMessage
 from langgraph.graph import StateGraph, END, START
@@ -35,12 +35,10 @@ import sqlite3
 from pathlib import Path
 
 # Import tools
-from backend.agent.system_tools import SYSTEM_TOOLS
+from backend.agent.system_tools import READ_ONLY_SYSTEM_TOOLS
 from backend.agent.vault_tools import VAULT_KNOWLEDGE_TOOLS
 from backend.agent.agent_context import build_context_tools, describe_context_refs
 from backend.agent.tools import get_mcp_tools
-from backend.agent.generated_tools.creator import TOOL_CREATOR_TOOLS
-from backend.agent.generated_tools.loader import loader as tool_loader
 from backend.config.app_config import load_params
 from backend.security.ai_credentials import resolve_provider_api_key
 
@@ -117,6 +115,113 @@ def _resolve_auto_llm(message: str, providers_cfg: dict, fallback_provider: str,
     if decision.get("provider") and decision.get("model_id"):
         return decision["provider"], decision["model_id"]
     return fallback_provider, fallback_model
+
+
+def _obvious_route(message: str, has_context: bool = False) -> Optional[str]:
+    """Route obvious requests without paying for a supervisor model call."""
+    text = (message or "").strip().lower()
+    if not text:
+        return "General"
+    has_mention = "@[" in text or "selected mentions context:" in text
+    tool_intent = any(word in text for word in (
+        "calendar", "calendari", "calendario", "meeting", "reunió", "reunion",
+        "reuniones", "mail", "email", "correu", "correo", "notion", "zotero",
+        "weather", "temps", "tiempo", "search", "cerca", "busca", "find",
+    ))
+    if has_mention or tool_intent or (has_context and any(word in text for word in (
+        "document", "documento", "documentació", "nota", "pdf", "vault",
+        "font", "source", "dades", "datos",
+    ))):
+        return "Brain"
+    if any(word in text for word in (
+        "code", "codi", "código", "python", "typescript", "javascript",
+        "bug", "error", "test", "api", "backend", "frontend",
+    )):
+        return "Coder"
+    if text.startswith((
+        "hola", "hello", "hi", "bon dia", "gràcies", "gracias", "merci",
+        "explica", "explain", "resume", "resum", "traduce", "tradueix",
+    )):
+        return "General"
+    return None
+
+
+def _safe_mcp_definitions(
+    definitions: List[dict],
+    explicit_allowlist: Optional[Sequence[str]] = None,
+) -> List[dict]:
+    """Keep MCP tools explicitly declared read-only or exactly allowlisted."""
+    allowed_names = {str(name) for name in (explicit_allowlist or [])}
+    safe = []
+    for definition in definitions or []:
+        if not isinstance(definition, dict) or not definition.get("name"):
+            continue
+        annotations = definition.get("annotations") or {}
+        declared_read_only = (
+            annotations.get("readOnlyHint") is True
+            and annotations.get("destructiveHint") is not True
+        )
+        if declared_read_only or definition["name"] in allowed_names:
+            safe.append(definition)
+    return safe
+
+
+def _rejected_mcp_names(
+    definitions: List[dict],
+    safe_definitions: List[dict],
+) -> List[str]:
+    """Return tool names withheld because read-only safety was not established."""
+    safe_names = {item.get("name") for item in safe_definitions}
+    return sorted({
+        str(item.get("name"))
+        for item in definitions or []
+        if isinstance(item, dict)
+        and item.get("name")
+        and item.get("name") not in safe_names
+    })
+
+
+def _coder_read_only_tools(tools: Sequence[Any]) -> List[Any]:
+    """Limit the coding specialist to code and directive inspection."""
+    allowed_names = {
+        "inspect_codebase",
+        "search_code_symbols",
+        "list_directives",
+        "read_directive",
+    }
+    return [tool for tool in tools if tool.name in allowed_names]
+
+
+def _model_supports_tools(
+    provider_name: str,
+    model_name: Optional[str],
+    agent_data: dict,
+) -> bool:
+    """Respect an explicit agent override, then the editable model registry."""
+    capabilities = agent_data.get("capabilities")
+    if isinstance(capabilities, list):
+        return "tools" in capabilities
+    if isinstance(capabilities, dict) and "tools" in capabilities:
+        return bool(capabilities["tools"])
+    try:
+        from backend.agent.model_router import load_registry
+
+        match = next(
+            (
+                row
+                for row in load_registry(with_catalog_prices=False)
+                if row.get("provider") == provider_name
+                and row.get("model_id") == model_name
+            ),
+            None,
+        )
+        if match is not None:
+            return "tools" in set(match.get("tags") or [])
+    except Exception:
+        pass
+    # Unknown/custom models fail closed. Agent profiles can explicitly opt in
+    # through `capabilities.tools: true` after compatibility is verified.
+    return False
 
 
 # --- 1. Define the State ---
@@ -433,6 +538,7 @@ async def create_agent_workflow(
     llm_provider: Optional[str] = None,
     llm_model: Optional[str] = None,
     user_message: str = "",
+    timeout: int = 60,
 ) -> tuple[StateGraph, dict]:
     """
         Creates the Multi-Agent workflow (graph) based on a specific agent profile.
@@ -496,6 +602,7 @@ async def create_agent_workflow(
         model=model_name,
         api_key=resolved_api_key,
         base_url=p_cfg.get("base_url"),
+        timeout=timeout,
     )
 
     if not llm and llm_mode == "agent_default":
@@ -509,7 +616,7 @@ async def create_agent_workflow(
         }
 
     if not llm:
-        llm, fallback_provider, fallback_model = _get_hybrid_llm()
+        llm, fallback_provider, fallback_model = _get_hybrid_llm(timeout=timeout)
         if llm:
             provider_name = fallback_provider
             model_name = fallback_model
@@ -578,29 +685,59 @@ async def create_agent_workflow(
         )
 
     # 4. Convert MCP tools
-    mcp_langchain_tools = get_mcp_tools(mcp_tools_list, mcp_client)
-    generated_tools = tool_loader.load_all_approved()
-
+    safe_mcp_definitions = _safe_mcp_definitions(
+        mcp_tools_list,
+        explicit_allowlist=agent_data.get("read_only_mcp_tools") or [],
+    )
+    rejected_mcp_names = _rejected_mcp_names(
+        mcp_tools_list,
+        safe_mcp_definitions,
+    )
+    mcp_langchain_tools = get_mcp_tools(safe_mcp_definitions, mcp_client)
+    supports_tools = _model_supports_tools(provider_name, model_name, agent_data)
     # Coder & Brain specialists
-    coder_tools = SYSTEM_TOOLS + TOOL_CREATOR_TOOLS + generated_tools
-    coder_llm = llm.bind_tools(coder_tools)
+    coder_tools = (
+        _coder_read_only_tools(READ_ONLY_SYSTEM_TOOLS)
+        if supports_tools
+        else []
+    )
+    coder_llm = llm.bind_tools(coder_tools) if coder_tools else llm
 
     memory_tools = [
         t
-        for t in SYSTEM_TOOLS
+        for t in READ_ONLY_SYSTEM_TOOLS
         if t.name
         in ["save_memory", "query_memory", "get_vault_registry", "search_vault"]
     ]
     # Tools scoped to the sources the user attached to THIS agent. They close over
     # its refs, so an agent can never read another agent's context.
     context_tools = build_context_tools(context_refs)
-    brain_tools = mcp_langchain_tools + memory_tools + VAULT_KNOWLEDGE_TOOLS + context_tools
-    brain_llm = llm.bind_tools(brain_tools)
+    read_only_vault_tools = [
+        item for item in VAULT_KNOWLEDGE_TOOLS
+        if item.name in {"read_page", "read_pdf", "propose_links", "query_wiki"}
+    ]
+    brain_tools = (
+        mcp_langchain_tools + memory_tools + read_only_vault_tools + context_tools
+        if supports_tools
+        else []
+    )
+    brain_llm = llm.bind_tools(brain_tools) if brain_tools else llm
 
     # --- Graph Nodes ---
 
     def supervisor_node(state: AgentState):
         messages = state["messages"]
+        latest_user = next(
+            (
+                str(message.content)
+                for message in reversed(messages)
+                if getattr(message, "type", "") == "human"
+            ),
+            "",
+        )
+        obvious = _obvious_route(latest_user, has_context=bool(context_refs))
+        if obvious:
+            return {"next": obvious}
         prompt = [SystemMessage(content=supervisor_prompt)] + messages
         response = llm.invoke(prompt)
 
@@ -611,7 +748,10 @@ async def create_agent_workflow(
             return {"next": "Brain"}
         if "General" in decision:
             return {"next": "General"}
-        return {"next": "FINISH"}
+        # The supervisor has not produced a specialist response itself. An
+        # unrecognized decision must therefore fall back to General, rather
+        # than ending the user's turn with no visible assistant message.
+        return {"next": "General"}
 
     def coder_node(state: AgentState):
         messages = state["messages"]
@@ -623,17 +763,25 @@ async def create_agent_workflow(
 
     def brain_node(state: AgentState):
         messages = state["messages"]
-        brain_system = (
-            "You are the Brain Agent (Gnosi Vault, Sovereign Memory). You have TOOLS "
-            "for working with the user's data, not merely searching it:\n"
-            "- search_vault: semantically search the vault.\n"
-            "- read_page(id_or_title) / read_pdf(path): read a note or an Assets/Library PDF.\n"
-            "- create_page(title, content, folder): create a new note.\n"
-            "- propose_links(id_or_title): propose [[...]] connections for a page.\n"
-            "- summarize_to_cornell(source): summarize a note or PDF into a saved Cornell note.\n"
-            "Use these tools when the user asks to create, summarize, connect, or organize "
-            "knowledge. Always confirm the result, including the created page ID or title."
-        )
+        brain_system = "You are the Brain Agent (Gnosi Vault, Sovereign Memory)."
+        if brain_tools:
+            tool_names = ", ".join(sorted({item.name for item in brain_tools}))
+            brain_system += (
+                "\nYou may use only these read-only tools: "
+                f"{tool_names}.\nNever claim to have created, edited, or deleted data."
+            )
+        else:
+            brain_system += (
+                "\nNo tools are available for this model. Answer only from the "
+                "conversation context and state clearly when external data cannot be checked."
+            )
+        if rejected_mcp_names:
+            brain_system += (
+                "\nThese integration tools are unavailable because their connector "
+                "did not declare read-only safety metadata: "
+                + ", ".join(rejected_mcp_names)
+                + ". Explain this limitation if the request depends on one of them."
+            )
         if context_tools:
             # The Brain node is the one holding the context tools, so it needs the
             # INVENTORY too: without it the model does not know which source ids
@@ -669,23 +817,26 @@ async def create_agent_workflow(
 
     def coder_router(state):
         last_message = state["messages"][-1]
-        return "coder_tools" if last_message.tool_calls else "supervisor"
+        # A completed specialist reply must finish this graph. Sending it back
+        # to the supervisor invokes strict providers with an assistant message
+        # as the final conversational turn.
+        return "coder_tools" if last_message.tool_calls else "END"
 
     workflow.add_conditional_edges(
         "coder",
         coder_router,
-        {"coder_tools": "coder_tools", "supervisor": "supervisor"},
+        {"coder_tools": "coder_tools", "END": END},
     )
     workflow.add_edge("coder_tools", "coder")
 
     def brain_router(state):
         last_message = state["messages"][-1]
-        return "brain_tools" if last_message.tool_calls else "supervisor"
+        return "brain_tools" if last_message.tool_calls else "END"
 
     workflow.add_conditional_edges(
         "brain",
         brain_router,
-        {"brain_tools": "brain_tools", "supervisor": "supervisor"},
+        {"brain_tools": "brain_tools", "END": END},
     )
     workflow.add_edge("brain_tools", "brain")
     workflow.add_edge("general", END)

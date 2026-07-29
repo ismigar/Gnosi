@@ -142,7 +142,7 @@ export const CitePicker = ({ isOpen, onClose, onSelect }) => {
 
     return ReactDOM.createPortal(
         <div
-            className="fixed inset-0 z-[9999] flex items-start justify-center pt-24 bg-black/40"
+            className="fixed inset-0 z-[var(--z-modal)] flex items-start justify-center pt-24 bg-black/40"
             onMouseDown={(e) => {
                 // Click outside the panel closes it
                 if (e.target === e.currentTarget) onClose?.();

@@ -5,7 +5,7 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores(['dist', '.vite', 'vendor', 'public/zotero-reader']),
   {
     files: ['**/*.{js,jsx}'],
     extends: [
@@ -27,7 +27,11 @@ export default defineConfig([
       // ONLY to exclude it from `...rest` (e.g. `{ node, ...props }` so as not to
       // leak react-markdown's `node` into the DOM). Doesn't really hide variables
       // unused: only those that have a sibling rest.
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]', ignoreRestSiblings: true }],
+      'no-unused-vars': ['error', {
+        varsIgnorePattern: '^[A-Z_]',
+        argsIgnorePattern: '^[A-Z_]',
+        ignoreRestSiblings: true,
+      }],
       // PURGE_NATIVE_DIALOGS directive: native browser dialogs are forbidden.
       // Usa ConfirmModal (confirm), PromptModal (prompt) o toast.error (alert).
       'no-restricted-globals': [

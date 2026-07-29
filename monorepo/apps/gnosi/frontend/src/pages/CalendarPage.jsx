@@ -13,12 +13,14 @@ import { GlobalSearchModal } from '../components/Vault/GlobalSearchModal';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { RecurrenceChoiceModal } from '../components/Vault/RecurrenceChoiceModal';
 import { buildOccurrenceKey, truncateRruleBefore } from '../utils/calendarUtils';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 
 // Keyboard handler removed in favor of RecurrenceChoiceModal component
 
 export default function CalendarPage() {
     const { t } = useTranslation();
     const navigate = useNavigate();
+    const isCompact = useMediaQuery('(max-width: 1023px)');
     const [pages, setPages] = useState([]);           // notes vault locals (source=Gnosi)
     const [externalEvents, setExternalEvents] = useState([]); // Google/CalDAV events
     const [googleCalendars, setGoogleCalendars] = useState([]); // real Google calendars (id, name, account)
@@ -26,7 +28,7 @@ export default function CalendarPage() {
     const [dateRange, setDateRange] = useState(null);  // { start, end } of the visible range
     const [loading, setLoading] = useState(true);
     const [currentTitle, setCurrentTitle] = useState('');
-    const [activeView, setActiveView] = useState('dayGridMonth');
+    const [activeView, setActiveView] = useState(() => isCompact ? 'timeGridDay' : 'dayGridMonth');
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCalendars, setSelectedCalendars] = useState(new Set());
     const [enabledTables, setEnabledTables] = useState([]); // Enabled tables as calendars
@@ -35,7 +37,7 @@ export default function CalendarPage() {
     // Ref that stores the original server selection (to restore async sources like sub-calendars)
     const savedCalendarSelectionRef = useRef(undefined);
     const [showLeftSidebar, setShowLeftSidebar] = useState(true);
-    const [showRightSidebar, setShowRightSidebar] = useState(true);
+    const [showRightSidebar, setShowRightSidebar] = useState(false);
     const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false);
     const [partialData, setPartialData] = useState(false);
 
@@ -68,6 +70,13 @@ export default function CalendarPage() {
     const [isRecurrenceModifyOpen, setIsRecurrenceModifyOpen] = useState(false);
     const [pendingDeleteId, setPendingDeleteId] = useState(null);
     const [pendingModify, setPendingModify] = useState(null); // { id, patchData, action, instanceStart }
+
+    useEffect(() => {
+        if (isCompact) {
+            setShowLeftSidebar(false);
+            setShowRightSidebar(false);
+        }
+    }, [isCompact]);
 
     const availableCalendars = useMemo(() => {
         const sources = new Set();
@@ -874,22 +883,30 @@ export default function CalendarPage() {
                     <div className="flex items-center gap-1 bg-[var(--bg-secondary)] p-0.5 rounded-lg border border-[var(--border-primary)] shadow-sm">
                         <button 
                             onClick={() => {
-                                setShowLeftSidebar(!showLeftSidebar);
+                                const next = !showLeftSidebar;
+                                setShowLeftSidebar(next);
+                                if (next && isCompact) setShowRightSidebar(false);
                                 setTimeout(() => calendarRef.current?.getApi().updateSize(), 350);
                             }}
                             className={`p-1.5 rounded transition-all ${showLeftSidebar ? 'text-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/10' : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-tertiary)]'}`}
                             title={showLeftSidebar ? t('calendar.hide_left_sidebar', "Hide left sidebar") : t('calendar.show_left_sidebar', "Show left sidebar")}
+                            aria-label={showLeftSidebar ? t('calendar.hide_left_sidebar', "Hide left sidebar") : t('calendar.show_left_sidebar', "Show left sidebar")}
+                            aria-expanded={showLeftSidebar}
                         >
                             <PanelLeft size={16} strokeWidth={2.5} />
                         </button>
                         <div className="w-px h-3 bg-[var(--border-primary)] mx-0.5" />
                         <button 
                             onClick={() => {
-                                setShowRightSidebar(!showRightSidebar);
+                                const next = !showRightSidebar;
+                                setShowRightSidebar(next);
+                                if (next && isCompact) setShowLeftSidebar(false);
                                 setTimeout(() => calendarRef.current?.getApi().updateSize(), 350);
                             }}
                             className={`p-1.5 rounded transition-all ${showRightSidebar ? 'text-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/10' : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-tertiary)]'}`}
                             title={showRightSidebar ? t('calendar.hide_right_sidebar', "Hide right sidebar") : t('calendar.show_right_sidebar', "Show right sidebar")}
+                            aria-label={showRightSidebar ? t('calendar.hide_right_sidebar', "Hide right sidebar") : t('calendar.show_right_sidebar', "Show right sidebar")}
+                            aria-expanded={showRightSidebar}
                         >
                             <PanelRight size={16} strokeWidth={2.5} />
                         </button>
@@ -957,10 +974,21 @@ export default function CalendarPage() {
                 </div>
             </AppHeader>
 
-            <div className="flex-1 overflow-hidden flex flex-row bg-[var(--bg-primary)]">
+            <div className="calendar-workspace">
+                {isCompact && (showLeftSidebar || showRightSidebar) && (
+                    <button
+                        type="button"
+                        className="calendar-workspace__backdrop"
+                        onClick={() => {
+                            setShowLeftSidebar(false);
+                            setShowRightSidebar(false);
+                        }}
+                        aria-label={t('common.close', 'Close')}
+                    />
+                )}
                 {/* Barra Esquerra Col·lapsable */}
-                <div className={`transition-all duration-300 ease-in-out overflow-hidden flex border-r border-[var(--border-primary)] ${showLeftSidebar ? 'w-64 opacity-100' : 'w-0 opacity-0 border-none'}`}>
-                    <div className="min-w-[16rem]">
+                <div className={`calendar-workspace__sidebar calendar-workspace__sidebar--left ${showLeftSidebar ? 'is-open' : ''}`}>
+                    <div className="calendar-workspace__sidebar-content calendar-workspace__sidebar-content--left">
 <CalendarSidebarLeft
                             calendarRef={calendarRef}
                             availableCalendars={calendarConfigs.map(c => c.source)}
@@ -995,7 +1023,7 @@ export default function CalendarPage() {
                     </div>
                 </div>
 
-                <div className="flex-1 p-4 lg:p-5 overflow-hidden relative">
+                <div className="calendar-workspace__canvas">
                     {loading ? (
                         <div className="flex items-center justify-center h-full text-slate-500">
                             {t('calendar.loading_events')}
@@ -1026,8 +1054,8 @@ export default function CalendarPage() {
                 </div>
 
                 {/* Barra Dreta Col·lapsable */}
-                <div className={`transition-all duration-300 ease-in-out overflow-hidden flex border-l border-[var(--border-primary)] ${showRightSidebar ? 'w-80 opacity-100' : 'w-0 opacity-0 border-none'}`}>
-                    <div className="min-w-[20rem]">
+                <div className={`calendar-workspace__sidebar calendar-workspace__sidebar--right ${showRightSidebar ? 'is-open' : ''}`}>
+                    <div className="calendar-workspace__sidebar-content calendar-workspace__sidebar-content--right">
                         <CalendarSidebarRight
                             searchQuery={searchQuery}
                             onSearchChange={setSearchQuery}

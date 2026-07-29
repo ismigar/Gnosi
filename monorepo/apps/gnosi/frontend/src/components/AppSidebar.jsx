@@ -42,10 +42,19 @@ const navItems = [
     { to: '/planning',          icon: CalendarRange, labelKey: 'sidebar.nav_planning', shortcut: '' },
 ];
 
+function getInitialSettingsRequest() {
+    const params = new URLSearchParams(window.location.search);
+    return {
+        open: params.has('auth'),
+        tab: params.get('tab') || 'general',
+    };
+}
+
 export function AppSidebar() {
+    const initialSettingsRequest = getInitialSettingsRequest();
     const [mobileOpen, setMobileOpen] = useState(false);
-    const [settingsOpen, setSettingsOpen] = useState(false);
-    const [settingsTab, setSettingsTab] = useState('general');
+    const [settingsOpen, setSettingsOpen] = useState(initialSettingsRequest.open);
+    const [settingsTab, setSettingsTab] = useState(initialSettingsRequest.tab);
     const [gnosiMode, setGnosiMode] = useState('personal');
     const { t } = useTranslation();
     const navigate = useNavigate();
@@ -75,10 +84,6 @@ export function AppSidebar() {
         // Detect OAuth return params
         const params = new URLSearchParams(window.location.search);
         if (params.get('auth')) {
-            const tab = params.get('tab');
-            if (tab) setSettingsTab(tab);
-            setSettingsOpen(true);
-            
             // Clean up URL params without refreshing
             const newUrl = window.location.pathname;
             window.history.replaceState({}, '', newUrl);
@@ -103,6 +108,7 @@ export function AppSidebar() {
             if (idx >= 0 && idx < navItems.length) {
                 e.preventDefault();
                 navigate(navItems[idx].to);
+                setMobileOpen(false);
             } else if (e.key === ',') {
                 e.preventDefault();
                 setSettingsOpen(true);
@@ -118,6 +124,8 @@ export function AppSidebar() {
             <button
                 className="app-sidebar-mobile-toggle"
                 onClick={() => setMobileOpen(!mobileOpen)}
+                aria-expanded={mobileOpen}
+                aria-controls="gnosi-global-navigation"
                 aria-label={t('sidebar.toggle_navigation', 'Toggle navigation')}
             >
                 {mobileOpen ? <X size={20} /> : <Menu size={20} />}
@@ -132,11 +140,15 @@ export function AppSidebar() {
             )}
 
             {/* Sidebar */}
-            <nav className={`app-sidebar ${mobileOpen ? 'app-sidebar--open' : ''}`}>
+            <nav
+                id="gnosi-global-navigation"
+                aria-label={t('sidebar.main_navigation', 'Main navigation')}
+                className={`app-sidebar ${mobileOpen ? 'app-sidebar--open' : ''}`}
+            >
                 <div className="app-sidebar__header">
                     {/* Logo */}
                     <div className="app-sidebar__logo-wrapper">
-                        <Link to="/" className="app-sidebar__logo" title="Gnosi">
+                        <Link to="/" className="app-sidebar__logo" title="Gnosi" onClick={() => setMobileOpen(false)}>
                             G
                         </Link>
                     </div>

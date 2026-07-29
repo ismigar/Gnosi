@@ -5,6 +5,10 @@ import { FileText, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { IconRenderer } from './IconRenderer';
 import { VaultMarkdown } from './VaultMarkdown';
+import {
+    adaptiveHoverPreviewStyle,
+    positionHoverPreview,
+} from './hoverPreviewLayout';
 
 // Cache of COMPLETE previews (body_md). Separate from the one in WikilinkHoverPreview
 // because the payload is much larger (full body) → fewer entries and the same
@@ -40,7 +44,12 @@ if (typeof window !== 'undefined') {
 }
 
 const PADDING = 8;
-const CARD_WIDTH = 420;
+const CARD_STYLE = adaptiveHoverPreviewStyle({
+    minWidth: 300,
+    maxWidth: 520,
+    maxHeight: 520,
+    margin: PADDING,
+});
 
 // Metadata fields that are NOT shown as properties in the bodyless preview
 // (internal or already represented elsewhere in the card).
@@ -171,19 +180,11 @@ export const PageHoverCard = ({
     useLayoutEffect(() => {
         if (!anchorRect || !cardRef.current) return;
         const rect = cardRef.current.getBoundingClientRect();
-        let top = anchorRect.bottom + PADDING;
-        let left = anchorRect.left;
-        if (top + rect.height > window.innerHeight - PADDING) {
-            const above = anchorRect.top - rect.height - PADDING;
-            top = above >= PADDING ? above : PADDING;
-        }
-        if (left + rect.width > window.innerWidth - PADDING) {
-            left = Math.max(PADDING, window.innerWidth - rect.width - PADDING);
-        }
-        if (left < PADDING) left = PADDING;
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- compute position from anchor after layout
-        setPos({ top, left });
-    }, [anchorRect, data, loading, error]);
+        setPos(positionHoverPreview(anchorRect, rect, {
+            width: window.innerWidth,
+            height: window.innerHeight,
+        }, PADDING));
+    }, [anchorRect, data, loading, error, meta]);
 
     // Quick Look: when opened via keyboard we focus the body so the arrow keys
     // scroll natively. The card is a portal OUTSIDE the table container, so
@@ -243,10 +244,11 @@ export const PageHoverCard = ({
             ref={cardRef}
             role="dialog"
             aria-label={data?.title || t('common.untitled', "Untitled")}
-            className="fixed z-[9999] flex flex-col bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700/60 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+            data-testid="page-hover-card"
+            className="fixed z-[var(--z-popover)] flex flex-col bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700/60 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
             style={pos
-                ? { top: pos.top, left: pos.left, width: CARD_WIDTH, maxWidth: 'calc(100vw - 16px)', maxHeight: 'min(520px, calc(100vh - 16px))', opacity: 1, pointerEvents: 'auto' }
-                : { top: -9999, left: -9999, width: CARD_WIDTH, opacity: 0, pointerEvents: 'none' }
+                ? { ...CARD_STYLE, top: pos.top, left: pos.left, opacity: 1, pointerEvents: 'auto' }
+                : { ...CARD_STYLE, top: -9999, left: -9999, opacity: 0, pointerEvents: 'none' }
             }
             onMouseEnter={handleCardMouseEnter}
             onMouseLeave={handleCardMouseLeave}
@@ -273,7 +275,7 @@ export const PageHoverCard = ({
             <div
                 ref={scrollRef}
                 tabIndex={-1}
-                className="overflow-y-auto overflow-x-hidden px-4 py-3 outline-none"
+                className="min-w-0 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-3 outline-none"
             >
                 {loading && (
                     <div className="flex items-center gap-2 text-sm text-slate-500">
@@ -289,7 +291,7 @@ export const PageHoverCard = ({
                 )}
                 {!loading && !error && data && (
                     (data.body_md && String(data.body_md).trim()) ? (
-                        <div className="text-sm text-[var(--text-secondary)] leading-relaxed feed-md break-words [overflow-wrap:anywhere] [&_*]:max-w-full [&_pre]:overflow-x-auto [&_table]:block [&_table]:overflow-x-auto">
+                        <div className="text-sm text-[var(--text-secondary)] leading-relaxed feed-md break-words [overflow-wrap:anywhere] [&_*]:max-w-full [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_pre]:[overflow-wrap:anywhere] [&_code]:whitespace-pre-wrap [&_code]:break-words [&_code]:[overflow-wrap:anywhere] [&_code]:overflow-x-hidden [&_table]:table [&_table]:w-full [&_table]:table-fixed [&_th]:break-words [&_th]:[overflow-wrap:anywhere] [&_td]:break-words [&_td]:[overflow-wrap:anywhere]">
                             <VaultMarkdown
                                 md={data.body_md}
                                 onActivate={() => onOpenPage?.(pageId)}

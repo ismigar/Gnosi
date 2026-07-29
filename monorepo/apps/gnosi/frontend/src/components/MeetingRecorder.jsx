@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import { Mic, Square, Loader2, X, FileText, Monitor, Users, AlertTriangle, Check } from 'lucide-react';
 import { toast } from '../lib/toast';
+import { announceFloatingPanelOpen, useExclusiveFloatingPanel } from '../hooks/useExclusiveFloatingPanel';
+import { useFloatingActionDock } from '../hooks/useFloatingActionDock';
 
 /**
  * AI meeting minutes taker (Notion AI Meeting Notes style).
@@ -28,6 +30,8 @@ export default function MeetingRecorder() {
     const [stage, setStage] = useState('');
     const [pageId, setPageId] = useState(null);
     const [errMsg, setErrMsg] = useState('');
+    const [, setIsDockOpen] = useFloatingActionDock();
+    useExclusiveFloatingPanel('meeting', open, setOpen);
 
     const navigate = useNavigate();
     const recorderRef = useRef(null);
@@ -199,9 +203,14 @@ export default function MeetingRecorder() {
             {!open && (
                 <button
                     type="button"
-                    onClick={() => setOpen(true)}
+                    onClick={() => {
+                        announceFloatingPanelOpen('meeting');
+                        setIsDockOpen(false);
+                        setOpen(true);
+                    }}
                     title={t('meeting.launcher_title')}
-                    className="fixed right-6 bottom-[76px] z-[99998] flex h-11 w-11 items-center justify-center rounded-full bg-[var(--gnosi-blue)] text-white shadow-sm transition hover:brightness-95"
+                    aria-label={t('meeting.launcher_title')}
+                    className="gnosi-floating-action gnosi-floating-action--meeting flex items-center justify-center rounded-full bg-[var(--gnosi-blue)] text-white shadow-sm transition hover:brightness-95"
                 >
                     {phase === 'recording'
                         ? <span className="h-2.5 w-2.5 rounded-full bg-red-400 animate-pulse" />
@@ -212,7 +221,7 @@ export default function MeetingRecorder() {
             )}
 
             {open && (
-                <div className="fixed right-6 bottom-6 z-[99998] w-[340px] max-w-[calc(100vw-2rem)] rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] shadow-2xl">
+                <div className="gnosi-floating-panel gnosi-floating-panel--meeting w-[340px] max-w-[calc(100vw-2rem)] rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] shadow-2xl">
                     <div className="flex items-center gap-2 border-b border-[var(--border-color)] px-4 py-3">
                         <Mic size={18} className="text-blue-500" />
                         <span className="font-medium">{t('meeting.panel_title')}</span>

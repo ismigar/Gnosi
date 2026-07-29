@@ -129,7 +129,7 @@ export const CoverPicker = ({ isOpen, onClose, onSelectCover, currentCover, trig
         return (
             <div
                 ref={pickerRef}
-                className="fixed z-[9999] w-96 bg-[var(--bg-primary)] rounded-lg shadow-2xl border border-[var(--border-primary)] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-100"
+                className="fixed z-[var(--z-popover)] w-96 bg-[var(--bg-primary)] rounded-lg shadow-2xl border border-[var(--border-primary)] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-100"
                 style={{ top: `${top}px`, right: `${right}px`, maxHeight: '600px' }}
                 onClick={(e) => e.stopPropagation()}
             >

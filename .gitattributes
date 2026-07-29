@@ -59,3 +59,6 @@
 *.ttf     -text diff
 *.woff    -text diff
 *.woff2   -text diff
+
+# Playwright visual baselines must never be rendered as textual diffs.
+monorepo/apps/gnosi/e2e/tests/visual/regression.spec.ts-snapshots/*.png -text -diff

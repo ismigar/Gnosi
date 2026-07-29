@@ -71,6 +71,9 @@ configuration autosave.
   owning section. Do not open a second modal over the Settings modal.
 - The section action changes from `Add …` to `Cancel` while the inline form is
   open. Cancelling discards the draft and restores the list.
+- Cancelling an existing-item editor must also clear its identity state before
+  the section action can open a create form. Otherwise the next `Add …` action
+  can remount the stale existing-item editor instead of a blank draft.
 - Place the explicit `Create …` or `Update …` action at the end of the form.
   Collection-item drafts are not autosaved because an incomplete draft is not
   yet an item.
@@ -80,6 +83,32 @@ configuration autosave.
   the next row. Use a keyed fragment or an equivalent row-plus-editor wrapper
   inside the collection map so DOM order always remains `item, editor, next
   item`.
+- When an existing collection row remains visible as the identity header for
+  its editor, visually join both surfaces: remove the inter-item gap, share the
+  connecting outline without a border between them, and do not repeat a generic
+  "Edit item" heading inside the form. Keep a descriptive heading for
+  create-only forms, which have no owning row.
+- Reuse the shared `settings-configurable-*` and `settings-inline-editor`
+  classes for account integrations, vault calendars, reusable mail snippets,
+  cognition agents, Social networks and streams, and other Settings
+  collections. Configurable plugin cards may keep their panel inside the card,
+  but the expanded card must use the same blue active border. Do not
+  reintroduce per-collection inline geometry for borders, gaps, or connecting
+  radii.
+- Apply the same lift, shadow, and translucent-border hover affordance to
+  Appearance theme choices and preference cards, as well as standalone Graph
+  preference cards such as Directionality and API-token cards. Preserve the
+  solid blue border of the selected theme while it is hovered.
+- Reserve the solid blue row border exclusively for an open inline editor.
+  Normal configurable rows use the shared AI-agent hover affordance (a subtle
+  lift, shadow, and translucent blue border) and return to the neutral border
+  when the pointer leaves. Clear all inline-editor identity and portal-target
+  state when Settings closes or its active section changes so a reopened or
+  newly selected section cannot show a stale active row without its editor.
+- Use the muted Settings surface (`--settings-sidebar-bg`) as the background
+  for every configurable collection row, including an expanded row's identity
+  header. Keep every editor body on `--bg-primary`, and disable its owning
+  row's hover lift and shadow while that editor is open.
 - Do not render one shared existing-item editor above or below the complete
   collection. The visual separation makes it unclear which item owns the draft,
   especially when the collection scrolls.
@@ -111,6 +140,10 @@ configuration autosave.
 - Agent Lucide choices use the corporate blue token and persist as
   `lucide:IconName:blue`. Keep a broad curated grid for browsing and expose the
   full Lucide registry through search.
+- The compact agent-icon trigger, every icon tile, the agent collection row,
+  and the floating home action use the corporate blue background with a white
+  icon, matching the floating microphone control. Distinguish the selected tile
+  with an outline instead of reversing its colors.
 - Do not handle a nested picker Escape key only at document or element level:
   `useModalKeyboard` captures the event on `window` first and the settings modal
   will close. Register the open picker through `useModalKeyboard` so it becomes

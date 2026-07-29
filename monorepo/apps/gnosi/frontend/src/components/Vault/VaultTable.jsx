@@ -16,6 +16,13 @@ import { VaultDateProperty, parsePeriod, periodDaysInclusive } from './VaultDate
 import { withPeriodBoundaries } from '../../utils/projectPlanning';
 import { ImageHoverPreview } from './ImageHoverPreview';
 import { FileFieldValue } from './FileFieldValue';
+import { RelationItem } from './RelationItem';
+import {
+    RELATION_VALUE_APPLIED_EVENT,
+    announceRelationUnlinked,
+    normalizeRelationValues,
+    withoutRelationValue,
+} from './relationItemUtils';
 import { filenameFromTarget, isImageFieldName, getImageSrc, parseImageField, buildImageValue, fileTargetKey, withActiveVault, canonicalStorageFolder } from '../../lib/fileResource';
 import { InsertContentModal } from './InsertContentModal';
 import { useTitlePreview } from './useTitlePreview';
@@ -78,7 +85,7 @@ const CellDropdownPortal = React.forwardRef(function CellDropdownPortal(
                 top: pos.top,
                 bottom: pos.bottom,
                 maxHeight: pos.maxHeight,
-                zIndex: 2147483000,
+                zIndex: 'var(--z-popover)',
             }}
         >
             {children}
@@ -119,7 +126,18 @@ function SortableColumnTh({ id, disabled, width, className, handleClassName, onH
     );
 }
 
-const InlinePillsPicker = ({ value = [], options = [], idToTitle = {}, optionColors = {}, onSave, onCreate, onDeleteOption }) => {
+const InlinePillsPicker = ({
+    value = [],
+    options = [],
+    idToTitle = {},
+    optionColors = {},
+    onSave,
+    onCreate,
+    onDeleteOption,
+    relationItems = false,
+    onOpenRelation,
+    onRemoveRelation,
+}) => {
     const { t } = useTranslation();
     const [localValues, setLocalValues] = useState(value);
     const [search, setSearch] = useState('');
@@ -166,7 +184,20 @@ const InlinePillsPicker = ({ value = [], options = [], idToTitle = {}, optionCol
     return (
         <div ref={containerRef} className="w-full">
             <div className="flex flex-wrap gap-1 mb-1 min-h-[20px]">
-                {localValues.map(val => (
+                {localValues.map(val => relationItems ? (
+                    <RelationItem
+                        key={val}
+                        relationId={val}
+                        title={idToTitle[val] || val}
+                        onOpen={onOpenRelation}
+                        onRemove={onRemoveRelation ? async () => {
+                            const removed = await onRemoveRelation(val);
+                            if (removed !== false) {
+                                setLocalValues(prev => prev.filter(item => item !== val));
+                            }
+                        } : undefined}
+                    />
+                ) : (
                     <span key={val} className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[11px] font-medium bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] border border-[var(--gnosi-primary)]/20 whitespace-nowrap">
                         {idToTitle[val] || (val.length > 16 ? val.substring(0, 8) + '…' : val)}
                         <X size={9} className="cursor-pointer hover:text-red-500 shrink-0" onMouseDown={e => { e.preventDefault(); toggle(val); }} />
@@ -477,6 +508,56 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
     // the catch in `handleCellSave` removes them manually (rollback) and shows
     // an error toast.
     const [optimisticPatches, setOptimisticPatches] = useState(() => new Map());
+    const relationHistoryProtectionRef = useRef(new Map());
+    const refreshAfterRelationHistoryRef = useRef(null);
+    refreshAfterRelationHistoryRef.current = () => {
+        if (onCellSaved) return onCellSaved();
+        if (onUpdateView) return onUpdateView(activeView);
+        return undefined;
+    };
+    useEffect(() => {
+        const applyRelationValue = (event) => {
+            const detail = event.detail || {};
+            if (!detail.pageId || !detail.metadataKey) return;
+            const protectionKey = `${detail.pageId}::${detail.metadataKey}`;
+            const previousTimer = relationHistoryProtectionRef.current.get(protectionKey);
+            if (previousTimer) window.clearTimeout(previousTimer);
+            setOptimisticPatches(prev => {
+                const next = new Map(prev);
+                const existing = next.get(detail.pageId) || {};
+                next.set(detail.pageId, {
+                    ...existing,
+                    [detail.metadataKey]: normalizeRelationValues(detail.value),
+                });
+                return next;
+            });
+            const timer = window.setTimeout(async () => {
+                try {
+                    await refreshAfterRelationHistoryRef.current?.();
+                } finally {
+                    relationHistoryProtectionRef.current.delete(protectionKey);
+                    setOptimisticPatches(prev => {
+                        const next = new Map(prev);
+                        const existing = next.get(detail.pageId);
+                        if (!existing) return prev;
+                        const { [detail.metadataKey]: _removed, ...rest } = existing;
+                        if (Object.keys(rest).length === 0) next.delete(detail.pageId);
+                        else next.set(detail.pageId, rest);
+                        return next;
+                    });
+                }
+            }, 4500);
+            relationHistoryProtectionRef.current.set(protectionKey, timer);
+        };
+        window.addEventListener(RELATION_VALUE_APPLIED_EVENT, applyRelationValue);
+        return () => {
+            window.removeEventListener(RELATION_VALUE_APPLIED_EVENT, applyRelationValue);
+            for (const timer of relationHistoryProtectionRef.current.values()) {
+                window.clearTimeout(timer);
+            }
+            relationHistoryProtectionRef.current.clear();
+        };
+    }, []);
     // Optimistic override of the title. Map<noteId, newTitle>. The title lives in
     // `note.title` (not in metadata), so `optimisticPatches` doesn't cover it;
     // this map gives immediate feedback when editing it inline. It clears itself when
@@ -530,7 +611,10 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                 const allMatch = Object.entries(patch).every(
                     ([k, v]) => sameCellValue((note.metadata || {})[k], v)
                 );
-                if (allMatch) {
+                const isHistoryProtected = Object.keys(patch).some(
+                    key => relationHistoryProtectionRef.current.has(`${noteId}::${key}`)
+                );
+                if (allMatch && !isHistoryProtected) {
                     next.delete(noteId);
                     changed = true;
                 }
@@ -1415,10 +1499,10 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         setEditingCell(null);
         setEditInitial(null);
         const note = safeNotes.find(n => n.id === noteId);
-        if (!note) return;
+        if (!note) return false;
 
         const currentValue = note.metadata?.[originalMetaKey];
-        if (sameCellValue(currentValue, newValue)) return;
+        if (sameCellValue(currentValue, newValue)) return true;
 
         // 1. OPTIMISTIC: applies the change locally right away — the user
         //    sees the new value before the backend responds (~200-450 ms).
@@ -1456,6 +1540,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             // prop arrives, the `useEffect` will clean up the override automatically.
             if (onCellSaved) onCellSaved();
             else if (onUpdateView) onUpdateView(activeView);
+            return true;
         } catch (error) {
             // 3. ROLLBACK: removes only this field's patch (we keep
             //    other pending patches for the same note intact).
@@ -1475,6 +1560,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             // Cell save failures used to be silent. Surface them so the user
             // doesn't believe the change was persisted when it wasn't.
             notifyError('table-save-cell', error, t('table.save_cell_error', "Error saving the cell"));
+            return false;
         }
     // `propagateToParent` and `t` are captured by the closure; adding them to the
     // dep array would create a recreation cycle with `propagateToParent` (which
@@ -2587,6 +2673,28 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         return () => window.removeEventListener('keydown', onKey);
     }, []); // mounted only once; all values accessed via refs
 
+    const handleRelationUnlink = useCallback(async (noteId, field, originalMetaKey, relationId, displayMap) => {
+        const note = safeNotes.find(item => item.id === noteId);
+        if (!note) return false;
+        const previousValue = normalizeRelationValues(note.metadata?.[originalMetaKey]);
+        const nextValue = withoutRelationValue(previousValue, relationId);
+        if (nextValue.length === previousValue.length) return false;
+
+        const saved = await handleCellSave(noteId, field, nextValue, originalMetaKey);
+        if (!saved) return false;
+
+        announceRelationUnlinked({
+            pageId: noteId,
+            field,
+            metadataKey: originalMetaKey,
+            relationId,
+            relationTitle: displayMap?.[relationId] || relationId,
+            previousValue,
+            nextValue,
+        });
+        return true;
+    }, [handleCellSave, safeNotes]);
+
     const renderCellContent = (value, type, noteId, field, originalMetaKey) => {
         const isEditing = editingCell?.rowId === noteId && editingCell?.field === field;
         const note = noteById.get(noteId);
@@ -2691,6 +2799,11 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                         onSave={(vals) => handleCellSave(noteId, field, vals, originalMetaKey)}
                         onCreate={canManageOptions ? (val) => updateFieldOptions(field, [...options, val]) : undefined}
                         onDeleteOption={canManageOptions ? (val) => removeOptionEverywhere(field, 'multi_select', val) : undefined}
+                        relationItems={type === 'relation'}
+                        onOpenRelation={type === 'relation' ? onNoteSelect : undefined}
+                        onRemoveRelation={type === 'relation'
+                            ? (relationId) => handleRelationUnlink(noteId, field, originalMetaKey, relationId, displayMap)
+                            : undefined}
                     />
                 );
             }
@@ -2902,13 +3015,11 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                     </div>
                 );
             }
-            case 'multi_select':
-            case 'relation': {
+            case 'multi_select': {
                 // String() + filter(Boolean) like in the kanban and the gallery: an array
                 // with booleans/empties it rendered empty pills and passed title={false}.
-                const items = (Array.isArray(value) ? value : String(value).split(',')).map(s => String(s).trim()).filter(Boolean);
-                const displayMap = type === 'relation' ? getRelationContext(field).displayMap : idToTitle;
-                const colorMap = type === 'multi_select' ? getOptionColorMap(field) : {};
+                const items = normalizeRelationValues(value);
+                const colorMap = getOptionColorMap(field);
                 return (
                     <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto custom-scrollbar pr-1 py-0.5">
                         {items.map((it, idx) => {
@@ -2920,10 +3031,33 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                                     style={chipStyle || undefined}
                                     title={it}
                                 >
-                                    {displayMap[it] || (it.length > 20 ? it.substring(0, 8) + '...' : it)}
+                                    {idToTitle[it] || (it.length > 20 ? it.substring(0, 8) + '...' : it)}
                                 </span>
                             );
                         })}
+                    </div>
+                );
+            }
+            case 'relation': {
+                const items = normalizeRelationValues(value);
+                const displayMap = getRelationContext(field).displayMap;
+                return (
+                    <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto custom-scrollbar pr-1 py-0.5">
+                        {items.map(relationId => (
+                            <RelationItem
+                                key={relationId}
+                                relationId={relationId}
+                                title={displayMap[relationId] || relationId}
+                                onOpen={onNoteSelect}
+                                onRemove={() => handleRelationUnlink(
+                                    noteId,
+                                    field,
+                                    originalMetaKey,
+                                    relationId,
+                                    displayMap,
+                                )}
+                            />
+                        ))}
                     </div>
                 );
             }
@@ -3243,19 +3377,10 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                                     || manifestTimestamp;
                                 const running = Boolean(persistedJob?.running);
                                 const retryable = ['partial', 'error'].includes(persistedJob?.phase);
-                                const fieldName = (fieldId) => getSchemaFieldNames(schema).find(
-                                    (name) => getFieldConfig(schema, name)?.id === fieldId,
-                                ) || fieldId;
-                                const inputIds = [
-                                    ...(llmWikiSourceConfig?.attachment_property_ids || []),
-                                    ...(llmWikiSourceConfig?.url_property_ids || []),
-                                ];
-                                const hasMappedInput = inputIds.some((fieldId) => {
-                                    const value = note.metadata?.[fieldId] ?? note.metadata?.[fieldName(fieldId)];
-                                    return value !== undefined && value !== null && value !== ''
-                                        && (!Array.isArray(value) || value.length > 0);
-                                });
-                                const ok = !running && (hasMappedInput || llmWikiSourceConfig?.include_body);
+                                // Keep the action available for every configured source row. The
+                                // backend reads the durable row data and can resume an interrupted
+                                // job even when this client has a stale or incomplete field schema.
+                                const ok = !running;
                                 const processedLabel = typeof processed === 'number'
                                     ? new Date(processed * 1000).toLocaleDateString(i18n.language)
                                     : processed;
@@ -3277,7 +3402,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                                                 noteId: note.id,
                                                 action: 'process_resource',
                                                 sourceTableId: llmWikiTableId,
-                                                force: Boolean(processed) && !retryable,
+                                                force: Boolean(processed) || retryable,
                                             });
                                         }}
                                         disabled={!ok}
