@@ -60,6 +60,9 @@ gallery cards, boards, and feeds.
 ## Interaction
 
 - Arrow keys move the cursor.
+- Page-property cursor changes move DOM focus to the matching property row and
+  scroll it into the nearest visible position so navigation follows the nested
+  page scroller.
 - Shift plus arrows or click extends a rectangular selection.
 - Escape closes editing without saving; outside editing it clears selection.
 - Enter saves text or number edits and moves down.
@@ -166,3 +169,7 @@ Clear cursor and range when view, search, sort order, or row identity changes.
   applies only to fields whose schema type is `relation`.
 - Do not refresh only the global page list after relation history changes; table
   panes keep their own record cache and would remain visually stale.
+- Do not update only the page-property cursor state during keyboard navigation;
+  the focused row can leave the viewport without moving the nested page
+  scroller. Focus the matching row without implicit scrolling, then explicitly
+  scroll it into the nearest visible position.
