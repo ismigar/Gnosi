@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { FileText, Calendar, Clock, Link as LinkIcon, CheckSquare, Loader2, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
 import { getFieldConfig, getFieldType, getSchemaFieldNames, resolveViewSorts, resolveViewFilters } from './schemaUtils';
@@ -17,10 +16,16 @@ import { useLocaleSettings } from '../../hooks/useLocaleSettings';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
+import { RelationItem } from './RelationItem';
+import {
+    normalizeRelationValues,
+    unlinkRelationFromRecord,
+} from './relationItemUtils';
 
 // How many records are rendered per batch; infinite scroll adds more as
 // that the sentinel enters the view. Keeping it low saves initial DOM.
 const FEED_BATCH = 12;
+const PILL_PREVIEW_LIMIT = 5;
 
 // The `metadata.description` (body excerpt) is capped at this limit by the
 // backend: if it gets close to it, the real body continues and it makes sense to offer "See more".
@@ -44,15 +49,17 @@ function prepareBodyMd(raw) {
 /**
  * Feed card (Notion style): icon+title inline, ALL properties
  * inline as pills, generous formatted preview of the content, and
- * "See more" that loads and expands the note's FULL content. The
- * card doesn't navigate on click (you can select text and interact with the
- * body); opening the page is done with the "Open" button or by clicking the title.
+ * "See more" expands the measured excerpt, while the full record remains a
+ * dedicated page. The card doesn't navigate on click (you can select text and
+ * interact with the body); opening the page is done with the "Open" button or
+ * by clicking the title.
  */
 function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, onOpen }) {
     const { t, i18n } = useTranslation();
     const [expanded, setExpanded] = useState(false);
-    const [fullContent, setFullContent] = useState(null);   // md complet (carregat en demanda)
-    const [loadingContent, setLoadingContent] = useState(false);
+    const [showAllPills, setShowAllPills] = useState(false);
+    const [previewOverflows, setPreviewOverflows] = useState(false);
+    const previewRef = useRef(null);
     // The cover is resolved the same way as in the other views (VaultGallery): `Assets/x`
     // → `/api/vault/assets/x` with the active vault in the query. A `background-image`
     // (like a native `<img>`) does NOT send the X-Vault-Id header, so without
@@ -64,33 +71,67 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
     const hasCover = !!coverUrl;
 
     const previewMd = useMemo(() => prepareBodyMd(note.metadata?.description || ''), [note]);
+    const visiblePills = showAllPills ? pills : pills.slice(0, PILL_PREVIEW_LIMIT);
+    const hiddenPillCount = Math.max(0, pills.length - visiblePills.length);
     // The excerpt is approaching the limit → the actual body continues further.
     const looksTruncated = (note.metadata?.description || '').length >= EXCERPT_CAP;
 
-    const handleToggleExpand = useCallback(async (e) => {
+    useEffect(() => {
+        if (expanded || !previewMd || !previewRef.current) return undefined;
+
+        const preview = previewRef.current;
+        const measure = () => {
+            setPreviewOverflows(preview.scrollHeight > preview.clientHeight + 1);
+        };
+        const frame = window.requestAnimationFrame(measure);
+        const observer = typeof ResizeObserver === 'function'
+            ? new ResizeObserver(measure)
+            : null;
+        observer?.observe(preview);
+
+        return () => {
+            window.cancelAnimationFrame(frame);
+            observer?.disconnect();
+        };
+    }, [expanded, previewMd]);
+
+    const handleToggleExpand = useCallback((e) => {
         e.stopPropagation();
         if (expanded) { setExpanded(false); return; }
-        if (fullContent == null) {
-            setLoadingContent(true);
-            try {
-                const res = await axios.get(`/api/vault/pages/${encodeURIComponent(note.id)}`);
-                const md = prepareBodyMd(res.data?.content || '');
-                setFullContent(md || previewMd);
-            } catch {
-                setFullContent(previewMd);   // fallback: at least the excerpt
-            } finally {
-                setLoadingContent(false);
-            }
-        }
         setExpanded(true);
-    }, [expanded, fullContent, note.id, previewMd]);
+    }, [expanded]);
 
     const openNote = useCallback((e) => { e?.stopPropagation?.(); onOpen(note.id); }, [onOpen, note.id]);
+    const openLabel = `${t('feed.open_page', "Open page")}: ${note.title || t('common.untitled', "Untitled")}`;
+
+    const handleCardClick = useCallback((event) => {
+        if (selectionActive) {
+            onToggleSelect(note.id, event);
+            return;
+        }
+        if (event.target instanceof Element && event.target.closest('a, button, input, select, textarea, [role="button"]')) {
+            return;
+        }
+        if (window.getSelection?.()?.toString().trim()) return;
+        openNote(event);
+    }, [note.id, onToggleSelect, openNote, selectionActive]);
+
+    const handleCardKeyDown = useCallback((event) => {
+        if (selectionActive || event.target !== event.currentTarget) return;
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            openNote(event);
+        }
+    }, [openNote, selectionActive]);
 
     return (
         <div
-            onClick={() => { if (selectionActive) onToggleSelect(note.id, {}); }}
-            className={`relative bg-[var(--bg-primary)] rounded-2xl shadow-sm border overflow-hidden hover:shadow-md transition-all group flex flex-col ${selectionActive ? 'cursor-pointer' : ''} ${isSelected ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/40'}`}
+            role={selectionActive ? undefined : 'link'}
+            tabIndex={selectionActive ? undefined : 0}
+            aria-label={selectionActive ? undefined : openLabel}
+            onClick={handleCardClick}
+            onKeyDown={handleCardKeyDown}
+            className={`vault-feed-card relative bg-[var(--bg-primary)] rounded-2xl shadow-sm border overflow-hidden hover:shadow-md transition-all group flex flex-col cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gnosi-primary)] ${isSelected ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/40'}`}
         >
             {/* The label only stops propagation (not opening the card): the
                 toggle is handled by the input's onChange. If the label also called
@@ -119,25 +160,31 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
                 </div>
             )}
 
-            <div className="p-6 flex flex-col gap-3">
+            <div className="vault-feed-card__body p-6 flex flex-col gap-3">
                 {/* Header: small date + (icon+title inline) + Open button */}
-                <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                        <div className="flex items-center gap-1.5 text-xs font-medium text-[var(--text-tertiary)] mb-1.5">
+                <div className="vault-feed-card__header flex items-start justify-between gap-3">
+                    <div className="vault-feed-card__identity min-w-0">
+                        <div className="vault-feed-card__date flex items-center gap-1.5 text-xs font-medium text-[var(--text-tertiary)] mb-1.5">
                             <Clock size={12} />
                             <span>
                                 {t('feed.updated_at', {
                                     defaultValue: "Updated {{date}}",
                                     date: new Date(note.last_modified).toLocaleDateString(i18n.language, {
-                                        day: 'numeric', month: 'long', year: 'numeric',
+                                        day: 'numeric', month: 'short',
                                         hour: '2-digit', minute: '2-digit'
                                     }),
+                                })}
+                            </span>
+                            <span className="sr-only">
+                                {new Date(note.last_modified).toLocaleDateString(i18n.language, {
+                                        day: 'numeric', month: 'long', year: 'numeric',
+                                        hour: '2-digit', minute: '2-digit'
                                 })}
                             </span>
                         </div>
                         <h2
                             onClick={selectionActive ? undefined : openNote}
-                            className={`text-xl font-bold text-[var(--text-primary)] leading-tight flex items-center gap-2 min-w-0 ${selectionActive ? '' : 'cursor-pointer hover:text-[var(--gnosi-primary)]'} transition-colors`}
+                            className={`vault-feed-card__title text-xl font-bold text-[var(--text-primary)] leading-tight flex items-center gap-2 min-w-0 ${selectionActive ? '' : 'cursor-pointer hover:text-[var(--gnosi-primary)]'} transition-colors`}
                             title={note.title || ''}
                         >
                             {note.metadata?.icon && (
@@ -149,7 +196,7 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
                     <button
                         type="button"
                         onClick={openNote}
-                        className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)] text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--gnosi-primary)] hover:border-[var(--gnosi-primary)]/50 transition-colors"
+                        className="vault-feed-card__open shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)] text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--gnosi-primary)] hover:border-[var(--gnosi-primary)]/50 transition-colors"
                         title={t('feed.open_page', "Open page")}
                     >
                         <ExternalLink size={13} />
@@ -159,19 +206,44 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
 
                 {/* ALL properties inline (Notion style): value only. */}
                 {pills.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
-                        {pills.map(({ key, node }) => (
+                    <div className="vault-feed-card__pills flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+                        {visiblePills.map(({ key, node }) => (
                             <React.Fragment key={key}>{node}</React.Fragment>
                         ))}
+                        {hiddenPillCount > 0 && (
+                            <button
+                                type="button"
+                                onClick={(event) => { event.stopPropagation(); setShowAllPills(true); }}
+                                className="inline-flex min-h-6 items-center rounded-full border border-[var(--border-primary)] bg-[var(--bg-tertiary)] px-2 text-[11px] font-semibold text-[var(--text-secondary)] hover:text-[var(--gnosi-primary)]"
+                                title={t('feed.show_more_tags', { count: hiddenPillCount })}
+                                aria-label={t('feed.show_more_tags', { count: hiddenPillCount })}
+                            >
+                                +{hiddenPillCount}
+                            </button>
+                        )}
+                        {showAllPills && pills.length > PILL_PREVIEW_LIMIT && (
+                            <button
+                                type="button"
+                                onClick={(event) => { event.stopPropagation(); setShowAllPills(false); }}
+                                className="inline-flex size-6 items-center justify-center rounded-full border border-[var(--border-primary)] text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]"
+                                title={t('feed.show_fewer_tags', "Show fewer tags")}
+                                aria-label={t('feed.show_fewer_tags', "Show fewer tags")}
+                            >
+                                <ChevronUp size={12} />
+                            </button>
+                        )}
                     </div>
                 )}
 
-                {/* Body: formatted excerpt (Markdown) and, when expanded, the
-                    FULL content of the note (loaded on demand). */}
-                {(previewMd || loadingContent) && (
-                    <div className="text-sm text-[var(--text-secondary)] leading-relaxed" onClick={(e) => e.stopPropagation()}>
+                {/* Body: formatted excerpt. Expansion reveals the saved excerpt only;
+                    the full document stays in its own page to preserve feed density. */}
+                {previewMd && (
+                    <div
+                        ref={previewRef}
+                        className={`vault-feed-card__preview text-sm text-[var(--text-secondary)] leading-relaxed ${expanded ? 'is-expanded' : ''}`}
+                    >
                         <VaultMarkdown
-                            md={expanded ? (fullContent ?? previewMd) : previewMd}
+                            md={previewMd}
                             onActivate={() => onOpen(note.id)}
                             imageTitle={note.title || ''}
                         />
@@ -180,19 +252,26 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
 
                 {/* "Show more / Show less" centered (like Notion's "See more").
                     Only if the excerpt is truncated (the actual body continues). */}
-                {(looksTruncated || expanded) && (
+                {(looksTruncated || previewOverflows || expanded) && (
                     <div className="flex justify-center">
                         <button
                             type="button"
                             onClick={handleToggleExpand}
-                            disabled={loadingContent}
                             className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full border border-[var(--border-primary)] bg-[var(--bg-secondary)] text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] shadow-sm transition-colors"
                         >
-                            {loadingContent
-                                ? <Loader2 size={13} className="animate-spin" />
-                                : (expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />)}
+                            {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                             {expanded ? t('feed.see_less', "See less") : t('feed.see_more', "See more")}
                         </button>
+                        {expanded && (
+                            <button
+                                type="button"
+                                onClick={openNote}
+                                className="ml-2 inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full border border-[var(--border-primary)] bg-[var(--bg-secondary)] text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] shadow-sm transition-colors"
+                            >
+                                <ExternalLink size={13} />
+                                {t('feed.read_full', 'Read in full')}
+                            </button>
+                        )}
                     </div>
                 )}
             </div>
@@ -235,7 +314,7 @@ function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSele
     const visibleNotes = useMemo(() => notes.slice(0, visibleCount), [notes, visibleCount]);
 
     return (
-        <div className="w-full max-w-2xl flex flex-col gap-8 pb-16">
+        <div className="w-full max-w-3xl flex flex-col gap-8 pb-16">
             {visibleNotes.map(note => (
                 <FeedCard
                     key={note.id}
@@ -258,7 +337,7 @@ function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSele
     );
 }
 
-export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onDeleteSelected, onDeletePage, searchTerm = '' }) {
+export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onDeleteSelected, onDeletePage, onUpdateNote, searchTerm = '' }) {
     const { t } = useTranslation();
     const localeSettings = useLocaleSettings();
 
@@ -285,7 +364,7 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
         };
     }, [schema, allNotes, idToTitle]);
 
-    const renderPropertyValue = useCallback((value, type, field) => {
+    const renderPropertyValue = useCallback((value, type, field, note, metadataKey) => {
         if (value === undefined || value === null || value === '') return null;
 
         switch (type) {
@@ -354,14 +433,26 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
                 );
             }
             case 'relation': {
-                const items = Array.isArray(value) ? value : String(value).split(',').map(s => s.trim());
+                const items = normalizeRelationValues(value);
                 const displayMap = getRelationDisplayMap(field);
                 return (
                     <span className="inline-flex flex-wrap gap-1.5">
-                        {items.map((it, idx) => (
-                            <span key={idx} className="px-2 py-0.5 rounded text-xs font-medium bg-indigo-500/10 text-indigo-400">
-                                {displayMap[it] || (it.length > 20 ? it.substring(0, 8) + '…' : it)}
-                            </span>
+                        {items.map(relationId => (
+                            <RelationItem
+                                key={relationId}
+                                relationId={relationId}
+                                title={displayMap[relationId] || relationId}
+                                onOpen={onNoteSelect}
+                                onRemove={onUpdateNote ? () => unlinkRelationFromRecord({
+                                    pageId: note.id,
+                                    field,
+                                    metadataKey,
+                                    value,
+                                    relationId,
+                                    relationTitle: displayMap[relationId] || relationId,
+                                    onUpdate: onUpdateNote,
+                                }) : undefined}
+                            />
                         ))}
                     </span>
                 );
@@ -415,7 +506,7 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
                 }
                 return <span className="text-sm text-[var(--text-primary)]">{Array.isArray(value) ? value.map(v => String(v)).join(', ') : String(value)}</span>;
         }
-    }, [schema, localeSettings, getRelationDisplayMap, t]);
+    }, [schema, localeSettings, getRelationDisplayMap, t, onNoteSelect, onUpdateNote]);
 
     // Property pills for a note (values without labels, schema order).
     const buildPills = useCallback((note) => {
@@ -426,7 +517,7 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
             const schemaKeyNorm = normalizeKey(key);
             const targetKeyNorm = aliasMap[schemaKeyNorm] ? normalizeKey(aliasMap[schemaKeyNorm]) : schemaKeyNorm;
             const originalMetaKey = note.metadata ? (Object.keys(note.metadata).find(k => normalizeKey(k) === targetKeyNorm) || key) : key;
-            const node = renderPropertyValue(note.metadata?.[originalMetaKey], type, key);
+            const node = renderPropertyValue(note.metadata?.[originalMetaKey], type, key, note, originalMetaKey);
             return node ? { key, node } : null;
         }).filter(Boolean);
     }, [dynamicColumns, renderPropertyValue]);
@@ -485,7 +576,7 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
     }
 
     return (
-        <div className="w-full h-full pt-vault-header-top px-4 md:px-6 pb-4 md:pb-6 overflow-y-auto custom-scrollbar bg-[var(--bg-primary)] flex flex-col items-center">
+        <div className="vault-feed w-full h-full pt-vault-header-top px-4 md:px-6 pb-4 md:pb-6 overflow-y-auto custom-scrollbar bg-[var(--bg-primary)] flex flex-col items-center">
             {selectedIds.size > 0 && (
                 <VaultBulkActionsBar
                         selectedIds={selectedIds}
@@ -493,7 +584,7 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
                     onSelectAll={() => selectAll(sortedNotes.map(n => n.id))}
                     onClearSelection={clearSelection}
                     onDeleteSelected={(onDeleteSelected || onDeletePage) ? handleBulkDelete : null}
-                    className="w-full max-w-2xl mb-4 shrink-0 bg-[var(--gnosi-primary)]/10 border border-[var(--gnosi-primary)]/20 rounded-lg px-4 py-2 flex items-center gap-3 text-sm z-30"
+                    className="w-full max-w-3xl mb-4 shrink-0 bg-[var(--gnosi-primary)]/10 border border-[var(--gnosi-primary)]/20 rounded-lg px-4 py-2 flex items-center gap-3 text-sm z-30"
                 />
             )}
             <FeedList

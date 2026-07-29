@@ -196,7 +196,7 @@ function PdfViewer({ url }) {
 
     if (isFullscreen) {
         return (
-            <div className="fixed inset-0 z-[9999] flex flex-col" style={{ background: '#525659' }}>
+            <div className="fixed inset-0 z-[var(--z-modal)] flex flex-col" style={{ background: '#525659' }}>
                 {toolbar(() => setIsFullscreen(false), true)}
                 {pdfContent('calc(100vh - 41px)')}
             </div>
@@ -958,10 +958,10 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
                         </button>
                         {showMove && createPortal(
                             <>
-                                <div className="fixed inset-0" style={{ zIndex: 10000 }} onClick={() => setShowMove(false)} />
+                                <div className="fixed inset-0" style={{ zIndex: 'var(--z-overlay)' }} onClick={() => setShowMove(false)} />
                                 <div
                                     className="fixed bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-xl shadow-lg py-1 w-52 animate-in fade-in zoom-in-95 duration-150"
-                                    style={{ left: moveMenuPos.x, top: moveMenuPos.y, zIndex: 10001 }}
+                                    style={{ left: moveMenuPos.x, top: moveMenuPos.y, zIndex: 'var(--z-popover)' }}
                                 >
                                     <div className="px-3 py-1.5 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">{t('mail.move_to_ellipsis', "Move to...")}</div>
                                     {moveFolders.length === 0
@@ -1000,10 +1000,10 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
                         </button>
                         {showSnooze && createPortal(
                             <>
-                                <div className="fixed inset-0" style={{ zIndex: 10000 }} onClick={() => setShowSnooze(false)} />
+                                <div className="fixed inset-0" style={{ zIndex: 'var(--z-overlay)' }} onClick={() => setShowSnooze(false)} />
                                 <div
                                     className="fixed bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-xl shadow-lg py-1 w-48 animate-in fade-in zoom-in-95 duration-150"
-                                    style={{ left: snoozeMenuPos.x, top: snoozeMenuPos.y, zIndex: 10001 }}
+                                    style={{ left: snoozeMenuPos.x, top: snoozeMenuPos.y, zIndex: 'var(--z-popover)' }}
                                 >
                                     <div className="px-3 py-1.5 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">{t('mail.snooze')}</div>
                                     {[['1h', 'snooze_1h'], ['tomorrow', 'snooze_tomorrow'], ['next_week', 'snooze_next_week']].map(([key, labelKey]) => (

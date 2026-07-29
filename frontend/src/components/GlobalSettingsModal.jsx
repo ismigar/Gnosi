@@ -139,13 +139,13 @@ const AgentIconSelect = ({ value, onChange, label, searchPlaceholder, noResultsL
                 style={{
                     width: '72px', height: '48px', padding: '0 10px',
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    borderRadius: '14px', border: '1px solid rgba(37, 99, 235, 0.28)',
+                    borderRadius: '14px', border: '1px solid var(--gnosi-blue)',
                     background: 'var(--gnosi-blue)', color: '#fff', cursor: 'pointer'
                 }}
             >
                 {CurrentIcon
                     ? <CurrentIcon size={24} strokeWidth={2.35} />
-                    : <IconRenderer icon={value || getAgentIconValue('Brain')} size={24} color="var(--gnosi-blue)" />}
+                    : <IconRenderer icon={value || getAgentIconValue('Brain')} size={24} color="#fff" />}
                 <ChevronDown
                     size={15}
                     aria-hidden="true"
@@ -213,6 +213,7 @@ const AgentIconSelect = ({ value, onChange, label, searchPlaceholder, noResultsL
                                         border: selected ? '2px solid #fff' : '1px solid var(--gnosi-blue)',
                                         background: 'var(--gnosi-blue)',
                                         color: '#fff',
+                                        boxShadow: selected ? '0 0 0 2px var(--gnosi-blue)' : 'none',
                                         cursor: 'pointer'
                                     }}
                                 >
@@ -443,14 +444,14 @@ const AliasEditor = ({ aliases, onChange }) => {
     );
 };
 
-const AccountRow = ({ itemId, name, description, status, type, provider, onSync, onEdit, onDelete, onToggleEnabled, enabled = true, color = '#3b82f6', isSyncing = false }) => {
+const AccountRow = ({ itemId, name, description, status, type, provider, onSync, onEdit, onDelete, onToggleEnabled, enabled = true, color = '#3b82f6', isSyncing = false, isEditing = false }) => {
     const { t } = useTranslation();
     const ta = (k, opts) => t('settings.accounts.' + k, opts);
     return (
-    <div className="account-row hover-scale" data-settings-item-id={itemId} style={{
-        padding: '18px 24px', borderRadius: '20px', border: '1px solid var(--settings-border)',
+    <div className={`account-row settings-configurable-item hover-scale ${isEditing ? 'is-editing' : ''}`} data-settings-item-id={itemId} style={{
+        padding: '18px 24px', border: '1px solid var(--settings-border)',
         background: 'var(--settings-sidebar-bg)', display: 'flex', justifyContent: 'space-between',
-        alignItems: 'center', marginBottom: '14px', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        alignItems: 'center', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         opacity: enabled ? 1 : 0.5
     }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
@@ -513,6 +514,13 @@ const SidebarItem = ({ id, icon: Icon, label, active, onClick }) => (
     </button>
 );
 
+const SettingsNavGroup = ({ label, children }) => (
+    <section className="settings-sidebar-group" aria-label={label}>
+        <h3 className="settings-sidebar-group__title">{label}</h3>
+        {children}
+    </section>
+);
+
 export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' }) {
     const { t, i18n } = useTranslation();
     const { role } = useApi();
@@ -540,6 +548,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     });
 
     const [activeTab, setActiveTab] = useState(initialTab);
+    const [isAdvancedOpen, setIsAdvancedOpen] = useState(
+        () => ['api', 'plugins'].includes(initialTab)
+    );
     const [integrations, setIntegrations] = useState({ calendars: [], contacts: [], mail_accounts: [] });
     // Prevent autosave until every request that hydrates the unified draft has
     // settled. Saving a partially hydrated draft can remove protected agents or
@@ -1018,6 +1029,22 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [confirmConfig, setConfirmConfig] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} });
     const [isAddingTable, setIsAddingTable] = useState(false);
     const [editingTableColor, setEditingTableColor] = useState(null); // { id, name, color }
+
+    // Inline editors belong to their Settings section. Account identifiers can
+    // be shared by Calendar, Contacts, and Mail, so retaining an editor while
+    // switching tabs can incorrectly mark the first matching row as active.
+    useEffect(() => {
+        setEditingAgent(null);
+        setAgentEditorTarget(null);
+        setEditingAccountId(null);
+        setAccountEditorTarget(null);
+        setEditingTableColor(null);
+        setTableColorEditorTarget(null);
+        setEditingSnippetId(null);
+        setSnippetEditorTarget(null);
+        setAddAccountType(null);
+        setIsAddingTable(false);
+    }, [activeTab]);
     const [isDatabasesExpanded, setIsDatabasesExpanded] = useState(true);
     const [isSystemEntitiesExpanded, setIsSystemEntitiesExpanded] = useState(true);
 
@@ -1339,6 +1366,19 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         } catch (globalErr) {
             console.error("Critical global error in handleClose:", globalErr);
         } finally {
+            // Inline editors are scoped to an open Settings session. Leaving
+            // one selected after closing makes its row look active when the
+            // modal is opened again, even though its portal target is gone.
+            setEditingAgent(null);
+            setAgentEditorTarget(null);
+            setEditingAccountId(null);
+            setAccountEditorTarget(null);
+            setEditingTableColor(null);
+            setTableColorEditorTarget(null);
+            setEditingSnippetId(null);
+            setSnippetEditorTarget(null);
+            setAddAccountType(null);
+            setIsAddingTable(false);
             // 5. We call the original onClose to close the modal ALWAYS, even if there are errors
             onClose();
         }
@@ -2103,7 +2143,13 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     return (
         <>
             <div className={`settings-overlay ${isOpen ? 'active' : ''}`} />
-            <div ref={panelRef} className={`settings-modal ${isOpen ? 'active' : ''}`}>
+            <div
+                ref={panelRef}
+                className={`settings-modal ${isOpen ? 'active' : ''}`}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="settings-modal-title"
+            >
                 {/* X button outside .settings-main so it anchors to the modal and doesn't
                     disappear when the content scrolls. */}
                 <button onClick={handleClose} className="gnosi-close-btn settings-close-btn" aria-label={tn('close_settings')}>
@@ -2123,39 +2169,54 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                 <div className="settings-section-icon-wrap">
                                     <SettingsIcon size={20} strokeWidth={2} />
                                 </div>
-                                <h2 className="settings-sidebar-title">{t('settings.title')}</h2>
+                                <h2 id="settings-modal-title" className="settings-sidebar-title">{t('settings.title')}</h2>
                             </div>
                             
                         </div>
 
                         <div className="settings-sidebar-nav">
-                            <SidebarItem id="profile" icon={User} label={t('settings.tabs.profile') || 'Perfil'} active={activeTab === 'profile'} onClick={() => { setActiveTab('profile'); setAddAccountType(null); }} />
-                            <SidebarItem id="account" icon={LucideIcons.UserCog} label={t('settings.tabs.account', 'Compte')} active={activeTab === 'account'} onClick={() => { setActiveTab('account'); setAddAccountType(null); }} />
+                            <SettingsNavGroup label={t('settings.navigation.basic')}>
+                                <SidebarItem id="general" icon={SettingsIcon} label={t('settings.tabs.general') || 'General'} active={activeTab === 'general'} onClick={() => { setActiveTab('general'); setAddAccountType(null); }} />
+                                <SidebarItem id="appearance" icon={Palette} label={t('settings.tabs.appearance') || 'Aparença'} active={activeTab === 'appearance'} onClick={() => { setActiveTab('appearance'); setAddAccountType(null); }} />
+                                <SidebarItem id="language" icon={Globe} label={t('settings.tabs.language') || 'Idioma i Regió'} active={activeTab === 'language'} onClick={() => { setActiveTab('language'); setAddAccountType(null); }} />
+                                <SidebarItem id="profile" icon={User} label={t('settings.tabs.profile') || 'Perfil'} active={activeTab === 'profile'} onClick={() => { setActiveTab('profile'); setAddAccountType(null); }} />
+                                <SidebarItem id="account" icon={LucideIcons.UserCog} label={t('settings.tabs.account', 'Compte')} active={activeTab === 'account'} onClick={() => { setActiveTab('account'); setAddAccountType(null); }} />
+                                <SidebarItem id="workspace" icon={Users} label={t('settings.tabs.workspace') || 'Workspace'} active={activeTab === 'workspace'} onClick={() => { setActiveTab('workspace'); setAddAccountType(null); }} />
+                            </SettingsNavGroup>
 
-                            <div className="settings-sidebar-hr" />
+                            <SettingsNavGroup label={t('settings.navigation.connections')}>
+                                <SidebarItem id="calendar" icon={Calendar} label={t('settings.tabs.calendar') || 'Calendari'} active={activeTab === 'calendar'} onClick={() => { setActiveTab('calendar'); setAddAccountType(null); }} />
+                                <SidebarItem id="contacts" icon={Users} label={t('settings.tabs.contacts') || 'Contactes'} active={activeTab === 'contacts'} onClick={() => { setActiveTab('contacts'); setAddAccountType(null); }} />
+                                <SidebarItem id="mail" icon={Mail} label={t('settings.tabs.mail_accounts') || 'Correu'} active={activeTab === 'mail'} onClick={() => { setActiveTab('mail'); setAddAccountType(null); }} />
+                                <SidebarItem id="newsletters" icon={Rss} label={t('settings.tabs.newsletters') || 'Subscripcions'} active={activeTab === 'newsletters'} onClick={() => { setActiveTab('newsletters'); setAddAccountType(null); }} />
+                                <SidebarItem id="social" icon={Share2} label={t('settings.tabs.social') || 'Social'} active={activeTab === 'social'} onClick={() => { setActiveTab('social'); setAddAccountType(null); }} />
+                                <SidebarItem id="notion" icon={Database} label={t('settings.tabs.notion') || 'Importar Notion'} active={activeTab === 'notion'} onClick={() => { setActiveTab('notion'); setAddAccountType(null); }} />
+                            </SettingsNavGroup>
 
-                            <SidebarItem id="general" icon={SettingsIcon} label={t('settings.tabs.general') || 'General'} active={activeTab === 'general'} onClick={() => { setActiveTab('general'); setAddAccountType(null); }} />
-                            <SidebarItem id="workspace" icon={Users} label={t('settings.tabs.workspace') || 'Workspace'} active={activeTab === 'workspace'} onClick={() => { setActiveTab('workspace'); setAddAccountType(null); }} />
-                            <SidebarItem id="language" icon={Globe} label={t('settings.tabs.language') || 'Idioma i Regió'} active={activeTab === 'language'} onClick={() => { setActiveTab('language'); setAddAccountType(null); }} />
-                            <SidebarItem id="appearance" icon={Palette} label={t('settings.tabs.appearance') || 'Aparença'} active={activeTab === 'appearance'} onClick={() => { setActiveTab('appearance'); setAddAccountType(null); }} />
+                            <SettingsNavGroup label={t('settings.navigation.knowledge')}>
+                                <SidebarItem id="references" icon={BookOpen} label={t('settings.tabs.references') || 'Referències'} active={activeTab === 'references'} onClick={() => { setActiveTab('references'); setAddAccountType(null); }} />
+                                <SidebarItem id="graph" icon={Share2} label={t('settings.tabs.graph') || 'Grafe'} active={activeTab === 'graph'} onClick={() => { setActiveTab('graph'); setAddAccountType(null); }} />
+                                <SidebarItem id="ai" icon={Cpu} label={t('settings.tabs.ai') || 'IA i Agents'} active={activeTab === 'ai'} onClick={() => { setActiveTab('ai'); setAddAccountType(null); }} />
+                                <SidebarItem id="translate" icon={Languages} label={t('settings.tabs.translate') || 'Traducció'} active={activeTab === 'translate'} onClick={() => { setActiveTab('translate'); setAddAccountType(null); }} />
+                            </SettingsNavGroup>
 
-                            <div className="settings-sidebar-hr" />
-                            
-                            <SidebarItem id="calendar" icon={Calendar} label={t('settings.tabs.calendar') || 'Calendari'} active={activeTab === 'calendar'} onClick={() => { setActiveTab('calendar'); setAddAccountType(null); }} />
-                            <SidebarItem id="contacts" icon={Users} label={t('settings.tabs.contacts') || 'Contactes'} active={activeTab === 'contacts'} onClick={() => { setActiveTab('contacts'); setAddAccountType(null); }} />
-                            <SidebarItem id="references" icon={BookOpen} label={t('settings.tabs.references') || 'Referències'} active={activeTab === 'references'} onClick={() => { setActiveTab('references'); setAddAccountType(null); }} />
-                            <SidebarItem id="mail" icon={Mail} label={t('settings.tabs.mail_accounts') || 'Correu'} active={activeTab === 'mail'} onClick={() => { setActiveTab('mail'); setAddAccountType(null); }} />
-                            
-                            <div className="settings-sidebar-hr" />
-
-                            <SidebarItem id="newsletters" icon={Rss} label={t('settings.tabs.newsletters') || 'Subscripcions'} active={activeTab === 'newsletters'} onClick={() => { setActiveTab('newsletters'); setAddAccountType(null); }} />
-                            <SidebarItem id="social" icon={Share2} label={t('settings.tabs.social') || 'Social'} active={activeTab === 'social'} onClick={() => { setActiveTab('social'); setAddAccountType(null); }} />
-                            <SidebarItem id="graph" icon={Share2} label={t('settings.tabs.graph') || 'Grafe'} active={activeTab === 'graph'} onClick={() => { setActiveTab('graph'); setAddAccountType(null); }} />
-                            <SidebarItem id="ai" icon={Cpu} label={t('settings.tabs.ai') || 'IA i Agents'} active={activeTab === 'ai'} onClick={() => { setActiveTab('ai'); setAddAccountType(null); }} />
-                            <SidebarItem id="notion" icon={Database} label={t('settings.tabs.notion') || 'Importar Notion'} active={activeTab === 'notion'} onClick={() => { setActiveTab('notion'); setAddAccountType(null); }} />
-                            <SidebarItem id="translate" icon={Languages} label={t('settings.tabs.translate') || 'Traducció'} active={activeTab === 'translate'} onClick={() => { setActiveTab('translate'); setAddAccountType(null); }} />
-                            <SidebarItem id="api" icon={LucideIcons.KeyRound} label={t('settings.tabs.api', { defaultValue: 'API i tokens' })} active={activeTab === 'api'} onClick={() => { setActiveTab('api'); setAddAccountType(null); }} />
-                            <SidebarItem id="plugins" icon={LucideIcons.Puzzle} label={t('settings.tabs.plugins', 'Plugins')} active={activeTab === 'plugins'} onClick={() => { setActiveTab('plugins'); setAddAccountType(null); }} />
+                            <section className="settings-sidebar-group settings-sidebar-group--advanced">
+                                <button
+                                    type="button"
+                                    className="settings-sidebar-group__toggle"
+                                    aria-expanded={isAdvancedOpen}
+                                    onClick={() => setIsAdvancedOpen(isOpen => !isOpen)}
+                                >
+                                    <span>{t('settings.navigation.advanced')}</span>
+                                    {isAdvancedOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                                </button>
+                                {isAdvancedOpen && (
+                                    <div className="settings-sidebar-group__content">
+                                        <SidebarItem id="plugins" icon={LucideIcons.Puzzle} label={t('settings.tabs.plugins', 'Plugins')} active={activeTab === 'plugins'} onClick={() => { setActiveTab('plugins'); setAddAccountType(null); }} />
+                                        <SidebarItem id="api" icon={LucideIcons.KeyRound} label={t('settings.tabs.api', { defaultValue: 'API i tokens' })} active={activeTab === 'api'} onClick={() => { setActiveTab('api'); setAddAccountType(null); }} />
+                                    </div>
+                                )}
+                            </section>
                         </div>
 
                     </aside>
@@ -2349,7 +2410,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             { id: 'dark', label: tn('appearance.theme_dark'), icon: Monitor, bg: '#000000' },
                                             { id: 'system', label: tn('appearance.theme_system'), icon: Monitor, bg: 'linear-gradient(135deg, #fff 50%, #000 50%)' }
                                         ].map(opt => (
-                                            <button key={opt.id} onClick={() => {
+                                            <button key={opt.id} className={`settings-hover-card ${draft.settings.theme === opt.id ? 'is-selected' : ''}`} onClick={() => {
                                                 setDraft({...draft, settings: {...draft.settings, theme: opt.id}});
                                                 // Wire the selector into the theme engine (useTheme / index.html bootstrap
                                                 // read localStorage['db-theme'] and react to the 'db-theme-changed' event).
@@ -2367,7 +2428,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         ))}
                                     </div>
 
-                                    <div style={{ background: 'var(--settings-sidebar-bg)', padding: '32px', borderRadius: '28px', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 10px 30px rgba(0,0,0,0.03)' }}>
+                                    <div className="settings-hover-card" style={{ background: 'var(--settings-sidebar-bg)', padding: '32px', borderRadius: '28px', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 10px 30px rgba(0,0,0,0.03)' }}>
                                         <div style={{ flex: 1 }}>
                                             <div style={{ fontWeight: '900', color: 'var(--text-primary)', fontSize: '1.15rem' }}>{tn('appearance.reduce_fx_title')}</div>
                                             <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '6px', opacity: 0.8, maxWidth: '420px' }}>{tn('appearance.reduce_fx_desc')}</div>
@@ -2380,7 +2441,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         />
                                     </div>
 
-                                    <div style={{ background: 'var(--settings-sidebar-bg)', padding: '32px', borderRadius: '28px', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 10px 30px rgba(0,0,0,0.03)', marginTop: '20px' }}>
+                                    <div className="settings-hover-card" style={{ background: 'var(--settings-sidebar-bg)', padding: '32px', borderRadius: '28px', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 10px 30px rgba(0,0,0,0.03)', marginTop: '20px' }}>
                                         <div style={{ flex: 1 }}>
                                             <div style={{ fontWeight: '900', color: 'var(--text-primary)', fontSize: '1.15rem' }}>{tn('appearance.mail_dark_title')}</div>
                                             <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '6px', opacity: 0.8, maxWidth: '480px' }}>{tn('appearance.mail_dark_desc')}</div>
@@ -2425,6 +2486,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             <div style={{ position: 'relative' }}>
                                                 <button 
                                                     onClick={() => {
+                                                        setEditingAccountId(null);
+                                                        setAddAccountEmail('');
+                                                        setAddAccountEmailBlurred(false);
+                                                        setManualServer('');
+                                                        setManualPassword('');
                                                         if (activeTab === 'calendar') {
                                                             if (!addAccountType && !isAddingTable) {
                                                                 setAddAccountType('menu');
@@ -2449,7 +2515,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                         position: 'absolute', top: '100%', right: 0, marginTop: '10px', 
                                                         background: 'var(--settings-bg)', border: '1px solid var(--settings-border)',
                                                         borderRadius: '16px', boxShadow: '0 15px 40px rgba(0,0,0,0.2)', 
-                                                        zIndex: 1000, width: '220px', overflow: 'hidden', padding: '6px'
+                                                        zIndex: 'var(--z-modal-dropdown)', width: '220px', overflow: 'hidden', padding: '6px'
                                                     }}>
                                                         <button 
                                                             onClick={(e) => { e.stopPropagation(); setIsAddingTable(true); setAddAccountType(null); }}
@@ -2630,18 +2696,15 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 waitForTarget={Boolean(editingAccountId)}
                                             >
                                                 <div
-                                                    className="animate-in"
+                                                    className={`settings-inline-editor animate-in ${editingAccountId ? 'is-attached' : 'is-create'}`}
                                                     data-settings-editor-for={editingAccountId ? `account:${editingAccountId}` : 'account:new'}
-                                                    style={{
-                                                        marginBottom: '32px', padding: '28px', borderRadius: '28px',
-                                                        background: 'var(--settings-sidebar-bg)', border: '1px solid rgba(59, 130, 246, 0.18)',
-                                                        boxShadow: '0 15px 40px rgba(59, 130,246,0.12)'
-                                                    }}
                                                 >
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                                                    <span style={{ fontSize: '0.85rem', fontWeight: '1000', color: 'var(--gnosi-blue)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{tn('accounts.account_config')}</span>
+                                                {!editingAccountId && (
+                                                <div className="settings-inline-editor-title">
+                                                    <span>{tn('accounts.account_config')}</span>
                                                     <button onClick={() => { setAddAccountType(null); setAddAccountEmail(''); setAddAccountEmailBlurred(false); setIsManualGoogle(false); setManualServer(''); setManualPassword(''); setEditingAccountId(null); }} aria-label={t('settings.footer.close')} title={t('settings.footer.close')} className="icon-btn hover-bg-strong" style={{ padding: '8px', borderRadius: '12px' }}><X size={18} /></button>
                                                 </div>
+                                                )}
                                                 
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                                     <FormGroup label={tn('accounts.email_address')}>
@@ -3029,7 +3092,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             
                                             if (hasAny) {
                                                 return (
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                    <div className="settings-configurable-list" style={{ '--settings-configurable-gap': '12px' }}>
                                                         {/* External Accounts / Integrations */}
                                                         {uniqueAccounts.map((acc, idx) => {
                                                             const accountItemId = acc.id || acc.email || acc.username || `account-${idx}`;
@@ -3060,6 +3123,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                         } : undefined}
                                                                         onSync={() => handleSyncAccount(activeTab, acc)}
                                                                         isSyncing={syncingAccounts[acc.id]}
+                                                                        isEditing={editingAccountId === acc.id}
                                                                         onEdit={() => handleEditAccount(activeTab, acc)}
                                                                         onDelete={() => handleDeleteAccount(activeTab, acc.id)}
                                                                         color={activeTab === 'calendar' ? '#3b82f6' : (activeTab === 'contacts' ? '#10b981' : '#f59e0b')}
@@ -3086,6 +3150,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                         status="connected"
                                                                         type="calendar"
                                                                         provider="vault"
+                                                                        isEditing={editingTableColor?.id === tbl.id}
                                                                         onEdit={() => setEditingTableColor({ id: tbl.id, name: tbl.name, color: tblColor })}
                                                                         onDelete={() => {
                                                                             const newList = integrations.vault_calendar?.enabled_tables?.filter(id => id !== tbl.id) || [];
@@ -3112,15 +3177,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 waitForTarget
                                                             >
                                                                 <div
-                                                                    className="animate-in"
+                                                                    className="settings-inline-editor is-attached animate-in"
                                                                     data-settings-editor-for={`vault-calendar:${editingTableColor.id}`}
-                                                                    style={{
-                                                                        background: 'var(--settings-bg)', padding: '30px', borderRadius: '24px',
-                                                                        border: '1px solid rgba(59, 130, 246, 0.18)',
-                                                                        boxShadow: '0 15px 40px rgba(59, 130, 246, 0.12)'
-                                                                    }}
                                                                 >
-                                                                    <h3 style={{ margin: '0 0 20px 0', fontSize: '1.2rem', fontWeight: 800 }}>{tn('accounts.table_color_title', { name: editingTableColor.name })}</h3>
                                                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px', marginBottom: '25px' }}>
                                                                         {['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#6366f1', '#ec4899', '#8b5cf6', '#06b6d4', '#f97316', '#71717a'].map(c => (
                                                                             <button 
@@ -3176,15 +3235,16 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
                                     {/* List of existing fragments */}
                                     {snippets.length > 0 && (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
+                                        <div className="settings-configurable-list" style={{ '--settings-configurable-gap': '8px', marginBottom: '24px' }}>
                                             {snippets.map(s => (
                                                 <React.Fragment key={s.id}>
                                                     <div
+                                                        className={`settings-configurable-item ${editingSnippetId === s.id ? 'is-editing' : ''}`}
                                                         data-settings-item-id={`snippet:${s.id}`}
                                                         style={{
                                                             display: 'flex', alignItems: 'flex-start', gap: '12px',
                                                             padding: '14px 16px', background: 'var(--settings-bg)',
-                                                            borderRadius: '14px', border: `1px solid ${editingSnippetId === s.id ? 'var(--gnosi-blue)' : 'var(--settings-border)'}`
+                                                            border: '1px solid var(--settings-border)'
                                                         }}
                                                     >
                                                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -3223,16 +3283,12 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         waitForTarget={Boolean(editingSnippetId)}
                                     >
                                         <div
+                                            className={`settings-inline-editor settings-inline-editor-compact ${editingSnippetId ? 'is-attached' : 'is-create'}`}
                                             data-settings-editor-for={editingSnippetId ? `snippet:${editingSnippetId}` : 'snippet:new'}
-                                            style={{
-                                                padding: '20px', background: 'var(--settings-bg)',
-                                                borderRadius: '16px', border: '1px solid var(--settings-border)',
-                                                display: 'flex', flexDirection: 'column', gap: '14px'
-                                            }}
                                         >
-                                        <h4 style={{ margin: 0, fontSize: '0.82rem', fontWeight: '900', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                                            {editingSnippetId ? tn('snippets.edit_snippet') : tn('snippets.new_snippet')}
-                                        </h4>
+                                        {!editingSnippetId && (
+                                            <h4 className="settings-inline-editor-heading">{tn('snippets.new_snippet')}</h4>
+                                        )}
                                         <FormGroup label={tn('snippets.title_label')} description={tn('snippets.title_desc')}>
                                             <input
                                                 type="text"
@@ -3280,9 +3336,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             {activeTab === 'social' && (
                                 <>
                                     <Section title={tn('social.networks_title')} icon={Share2}>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                        <div className="settings-configurable-list" style={{ '--settings-configurable-gap': '10px' }}>
                                             {socialNetworks.map(net => (
-                                                <div key={net.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: 'var(--settings-sidebar-bg)', borderRadius: '14px', border: '1px solid var(--settings-border)' }}>
+                                                <div key={net.id} className="settings-configurable-item" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: 'var(--settings-sidebar-bg)', borderRadius: '14px', border: '1px solid var(--settings-border)' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                                         <span style={{ fontSize: '1.4rem' }}>{net.icon}</span>
                                                         <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{net.name}</span>
@@ -3334,14 +3390,14 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 </button>
                                             </div>
                                         )}
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        <div className="settings-configurable-list" style={{ '--settings-configurable-gap': '8px' }}>
                                             {socialStreams.length === 0 && (
                                                 <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', padding: '20px', textAlign: 'center' }}>
                                                     {tn('social.no_streams')}
                                                 </div>
                                             )}
                                             {socialStreams.map(stream => (
-                                                <div key={stream.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'var(--settings-sidebar-bg)', borderRadius: '12px', border: '1px solid var(--settings-border)' }}>
+                                                <div key={stream.id} className="settings-configurable-item" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'var(--settings-sidebar-bg)', borderRadius: '12px', border: '1px solid var(--settings-border)' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                         <span style={{ fontSize: '1.2rem' }}>{stream.icon}</span>
                                                         <div>
@@ -3560,7 +3616,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             <FormGroup label={tn('graph.edge_thickness_value', { value: draft.graph.edge_thickness.toFixed(1) })}>
                                                 <input type="range" className="gnosi-range" min="0.1" max="5" step="0.1" value={draft.graph.edge_thickness} onChange={e => setDraft({...draft, graph: {...draft.graph, edge_thickness: parseFloat(e.target.value)}})} />
                                             </FormGroup>
-                                            <div style={{ marginTop: '20px', padding: '20px', background: 'var(--settings-sidebar-bg)', borderRadius: '20px', border: '1px solid var(--settings-border)' }}>
+                                            <div className="settings-hover-card" style={{ marginTop: '20px', padding: '20px', background: 'var(--settings-sidebar-bg)', borderRadius: '20px', border: '1px solid var(--settings-border)' }}>
                                                 <FormGroup label={tn('graph.directionality')} description={tn('graph.directionality_desc')} horizontal>
                                                     <GnosiToggle
                                                         active={draft.graph.show_arrows}
@@ -4015,16 +4071,16 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 </div>
                                             </InlineEditorPlacement>
                                         )}
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                        <div className="settings-configurable-list ai-agent-list" style={{ '--settings-configurable-gap': '20px' }}>
                                             {draft.ai.agents.map(agent => (
                                                 <React.Fragment key={agent.id}>
                                                 <div
-                                                    className="hover-scale"
+                                                    className={`settings-configurable-item ai-agent-row hover-scale ${editingAgent?.id === agent.id ? 'is-editing' : ''}`}
                                                     data-settings-item-id={`agent:${agent.id}`}
                                                     onClick={() => setEditingAgent(agent)}
-                                                    title={tn('ai.edit_agent_title')}
+                                                    title={tn('ai.configure_name', { name: agent.name })}
                                                     style={{
-                                                    width: '100%', padding: '24px', borderRadius: '24px', border: '1px solid var(--settings-border)',
+                                                    width: '100%', padding: '24px', border: '1px solid var(--settings-border)',
                                                     background: 'var(--settings-sidebar-bg)', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                                                     gap: '20px', transition: 'all 0.2s', cursor: 'pointer', boxSizing: 'border-box',
                                                     opacity: agent.enabled ? 1 : 0.6
@@ -4048,13 +4104,16 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             style={{
                                                                 width: '46px', height: '46px', flexShrink: 0,
                                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                borderRadius: '50%',
+                                                                background: 'var(--gnosi-blue)',
+                                                                color: '#fff',
                                                                 filter: 'drop-shadow(0 5px 10px rgba(0,0,0,0.1))'
                                                             }}
                                                         >
                                                             <IconRenderer
                                                                 icon={agent.icon || '🤖'}
-                                                                size={40}
-                                                                color="var(--gnosi-blue)"
+                                                                size={26}
+                                                                color="#fff"
                                                             />
                                                         </div>
                                                         <div style={{ minWidth: 0 }}>
@@ -4268,11 +4327,10 @@ function AIAgentForm({ agent, onSave, aiRegistry }) {
     const faultReason = modelFault && MODEL_FAULT_REASONS[modelFault.top_model_reason];
 
     return (
-        <div className="animate-in" style={{
-            padding: '28px', marginBottom: '24px', borderRadius: '24px',
-            border: '1px solid var(--gnosi-blue)', background: 'var(--settings-sidebar-bg)',
-        }}>
-                    <h3 style={{ margin: '0 0 30px 0', fontSize: '1.4rem', fontWeight: '900' }}>{agent.id ? t('settings.ai.edit_agent_title') : t('settings.ai.new_agent_title')}</h3>
+        <div className={`settings-inline-editor ai-agent-form animate-in ${agent.id ? 'is-attached' : 'is-create'}`}>
+                    {!agent.id && (
+                        <h3 className="ai-agent-form-title">{t('settings.ai.new_agent_title')}</h3>
+                    )}
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                         <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-end' }}>

@@ -33,7 +33,7 @@ import { BrainInbox } from './BrainInbox';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import { viewMatchesFilters, isFilterGroup } from '../../utils/vaultFilters';
 
-function SortableTab({ view, tableViews, isActive, onSelect, onAction, onConfigure }) {
+function SortableTab({ view, tableViews, isActive, onSelect, onAction }) {
     const { t } = useTranslation();
     const {
         attributes,
@@ -54,7 +54,6 @@ function SortableTab({ view, tableViews, isActive, onSelect, onAction, onConfigu
         zIndex: isDragging ? 100 : 1,
     };
 
-    const ViewIcon = getViewIcon(view.type);
     const isPrimaryView = isMainView(view, tableViews);
 
     useEffect(() => {
@@ -92,7 +91,10 @@ function SortableTab({ view, tableViews, isActive, onSelect, onAction, onConfigu
                     onClick={(e) => e.stopPropagation()}
                     title={t('views_header.drag_to_reorder', "Drag to reorder")}
                 >
-                    <ViewIcon size={13} className={isActive ? 'text-[var(--gnosi-blue)]' : 'text-[var(--text-tertiary)]'} />
+                    {React.createElement(getViewIcon(view.type), {
+                        size: 13,
+                        className: isActive ? 'text-[var(--gnosi-blue)]' : 'text-[var(--text-tertiary)]',
+                    })}
                 </span>
                 <span className="truncate flex-1 min-w-0" title={view.name}>{view.name}</span>
                 {isPrimaryView && (
@@ -114,7 +116,7 @@ function SortableTab({ view, tableViews, isActive, onSelect, onAction, onConfigu
             {showMenu && (
                 <div 
                     ref={menuRef}
-                    className="absolute top-full left-0 mt-1 w-44 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[1000] py-1 animate-in fade-in zoom-in-95 duration-100"
+                    className="absolute top-full left-0 mt-1 w-44 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[var(--z-popover)] py-1 animate-in fade-in zoom-in-95 duration-100"
                 >
                     <button 
                         onClick={() => { setShowMenu(false); onAction?.(view, 'configure'); }}
@@ -173,7 +175,6 @@ function SortableManageRow({ view, tableViews, isActive, onToggleHidden }) {
         zIndex: isDragging ? 100 : 1,
     };
 
-    const ViewIcon = getViewIcon(view.type);
     const isPrimaryView = isMainView(view, tableViews);
     const hidden = isViewHidden(view, tableViews);
 
@@ -191,7 +192,10 @@ function SortableManageRow({ view, tableViews, isActive, onToggleHidden }) {
             >
                 <GripVertical size={14} />
             </span>
-            <ViewIcon size={14} className={`shrink-0 ${hidden ? 'text-[var(--text-tertiary)]/60' : 'text-[var(--text-secondary)]'}`} />
+            {React.createElement(getViewIcon(view.type), {
+                size: 14,
+                className: `shrink-0 ${hidden ? 'text-[var(--text-tertiary)]/60' : 'text-[var(--text-secondary)]'}`,
+            })}
             <span className={`flex-1 min-w-0 truncate text-xs ${hidden ? 'text-[var(--text-tertiary)]' : 'text-[var(--text-primary)]'}`} title={view.name}>
                 {view.name}
             </span>
@@ -234,7 +238,6 @@ export function VaultViewsHeader({
     onRenameView,
     onSetViewHidden,
     onEditSchema,
-    onConfigureFields,
     onCreateRecord,
     onCreateTemplate,
     onCreateFromSource,
@@ -271,10 +274,10 @@ export function VaultViewsHeader({
         }));
     };
 
-    const closeNewMenus = () => {
+    const closeNewMenus = useCallback(() => {
         setTemplateMenuFor(null);
         setShowNewMenu(false);
-    };
+    }, []);
 
     // Record count of the ACTIVE view (not of the whole table). If the view
     // has filters, only the records matching them; if it has none, it equals
@@ -306,6 +309,7 @@ export function VaultViewsHeader({
         () => (views || []).filter(v => !isViewHidden(v, views)),
         [views]
     );
+    const hideSingleViewTab = tabViews.length === 1;
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -320,11 +324,7 @@ export function VaultViewsHeader({
     const [showOverflow, setShowOverflow] = useState(false);
 
     useEffect(() => {
-        if (!showNewMenu) {
-            // When the "+ New" menu closes, the actions submenu disappears too.
-            setTemplateMenuFor(null);
-            return undefined;
-        }
+        if (!showNewMenu) return undefined;
         const handler = (e) => {
             // The template actions submenu is teleported to <body> via
             // createPortal (to escape the menu's containing block, which has a
@@ -332,15 +332,15 @@ export function VaultViewsHeader({
             // Since it ends up outside newMenuRef, it must be excluded here or a click inside it
             // would close the "+ New" menu before running the action.
             if (newMenuRef.current && !newMenuRef.current.contains(e.target) && !e.target.closest?.('[data-template-submenu]')) {
-                setShowNewMenu(false);
+                closeNewMenus();
             }
         };
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
-    }, [showNewMenu]);
+    }, [closeNewMenus, showNewMenu]);
 
     // Esc closes each of this header's dropdowns.
-    useModalKeyboard({ isOpen: showNewMenu, onClose: () => setShowNewMenu(false) });
+    useModalKeyboard({ isOpen: showNewMenu, onClose: closeNewMenus });
     useModalKeyboard({ isOpen: isAddingView, onClose: () => setIsAddingView(false) });
     useModalKeyboard({ isOpen: showOverflow, onClose: () => setShowOverflow(false) });
 
@@ -421,7 +421,7 @@ export function VaultViewsHeader({
         if (action === 'rename') {
             onRenameView?.(view);
         }
-    }, [onEditView, onDeleteView, onDuplicateView, onRenameView]);
+    }, [onEditView, onDeleteView, onDuplicateView, onRenameView, views]);
 
     // Handling of the expanding search input
 
@@ -476,10 +476,10 @@ export function VaultViewsHeader({
                     >
                         <div className="flex items-end gap-1 flex-1 pb-0 relative min-w-0">
                             <SortableContext 
-                                items={displayViews.map(v => v.id)}
+                                items={hideSingleViewTab ? [] : displayViews.map(v => v.id)}
                                 strategy={horizontalListSortingStrategy}
                             >
-                                {displayViews.slice(0, visibleCount).map(view => (
+                                {!hideSingleViewTab && displayViews.slice(0, visibleCount).map(view => (
                                     <SortableTab 
                                         key={view.id}
                                         view={view}
@@ -540,6 +540,8 @@ export function VaultViewsHeader({
                             {/* Add View button */}
                             <button
                                 onClick={() => setIsAddingView(!isAddingView)}
+                                title={t('views_header.add_view')}
+                                aria-label={t('views_header.add_view')}
                                 className="p-1 ml-1 mb-2 rounded text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors"
                             >
                                 <Plus size={16} />
@@ -602,7 +604,10 @@ export function VaultViewsHeader({
                         </button>
                         <button
                             type="button"
-                            onClick={() => setShowNewMenu(o => !o)}
+                            onClick={() => {
+                                if (showNewMenu) closeNewMenus();
+                                else setShowNewMenu(true);
+                            }}
                             aria-label={t('views_header.new_options', "Creation options")}
                             aria-haspopup="menu"
                             aria-expanded={showNewMenu}
@@ -612,7 +617,7 @@ export function VaultViewsHeader({
                         </button>
 
                         {showNewMenu && (
-                            <div className="absolute top-full right-0 mt-1 w-56 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[1001] py-1 animate-in fade-in zoom-in-95 duration-100">
+                            <div className="absolute top-full right-0 mt-1 w-56 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[var(--z-popover)] py-1 animate-in fade-in zoom-in-95 duration-100">
                                 <button
                                     onClick={() => { setShowNewMenu(false); onCreateRecord?.(); }}
                                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
@@ -681,7 +686,7 @@ export function VaultViewsHeader({
                                     <div
                                         role="menu"
                                         data-template-submenu
-                                        className="fixed w-48 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[1002] py-1 animate-in fade-in zoom-in-95 duration-100"
+                                        className="fixed w-48 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[var(--z-popover)] py-1 animate-in fade-in zoom-in-95 duration-100"
                                         style={{ top: `${templateMenuFor.top}px`, right: `${templateMenuFor.right}px` }}
                                     >
                                         {onEditTemplate && (
@@ -739,8 +744,8 @@ export function VaultViewsHeader({
                 the existing ones, and create new ones. */}
             {isAddingView && (
                 <>
-                    <div className="fixed inset-0 z-[1001]" onClick={() => setIsAddingView(false)} />
-                    <div className="absolute top-full left-10 mt-1 w-64 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[1002] py-1.5 animate-in slide-in-from-top-2 duration-200">
+                    <div className="fixed inset-0 z-[var(--z-overlay)]" onClick={() => setIsAddingView(false)} />
+                    <div className="absolute top-full left-10 mt-1 w-64 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[var(--z-popover)] py-1.5 animate-in slide-in-from-top-2 duration-200">
                         {/* Section: management of existing views */}
                         <div className="px-3 py-1 text-[10px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
                             {t('views_header.manage_views', "Views")}

@@ -8,6 +8,21 @@ from backend.utils.safe_io import safe_write_text
 
 # Define project root for security (basic sandbox)
 BASE_DIR = Path(os.getcwd()).resolve()
+SENSITIVE_FILE_NAMES = {
+    ".env",
+    ".env_shared",
+    "credentials.json",
+    "secrets.json",
+    "service-account.json",
+}
+SENSITIVE_DIRECTORY_NAMES = {
+    ".git",
+    ".ssh",
+    "local_data",
+    "secrets",
+    "credentials",
+}
+SENSITIVE_SUFFIXES = {".key", ".pem", ".p12", ".pfx"}
 
 
 def _is_within_base(target: Path) -> bool:
@@ -21,6 +36,22 @@ def _is_within_base(target: Path) -> bool:
         return target.resolve().is_relative_to(BASE_DIR)
     except (ValueError, OSError):
         return False
+
+
+def _is_sensitive_path(target: Path) -> bool:
+    """Return whether a project path may contain credentials or private state."""
+    try:
+        relative = target.resolve().relative_to(BASE_DIR)
+    except (ValueError, OSError):
+        return True
+    lowered_parts = {part.lower() for part in relative.parts}
+    name = target.name.lower()
+    return (
+        name in SENSITIVE_FILE_NAMES
+        or name.startswith(".env.")
+        or target.suffix.lower() in SENSITIVE_SUFFIXES
+        or bool(lowered_parts & SENSITIVE_DIRECTORY_NAMES)
+    )
 
 
 def _mutations_allowed() -> bool:
@@ -56,8 +87,8 @@ def inspect_codebase(path: str = ".") -> str:
         target_path = (BASE_DIR / path).resolve()
 
         # Security Check: Ensure we stay within project root
-        if not _is_within_base(target_path):
-            return f"Error: Access denied. Path must be within {BASE_DIR}"
+        if not _is_within_base(target_path) or _is_sensitive_path(target_path):
+            return "Error: Access denied. Sensitive and out-of-project paths are prohibited."
 
         if target_path.is_file():
             with open(target_path, "r", encoding="utf-8") as f:
@@ -67,7 +98,7 @@ def inspect_codebase(path: str = ".") -> str:
             files = []
             for item in target_path.rglob("*"):
                 if (
-                    ".git" in item.parts
+                    _is_sensitive_path(item)
                     or "__pycache__" in item.parts
                     or ".venv" in item.parts
                 ):
@@ -113,16 +144,25 @@ def create_git_branch(branch_name: str) -> str:
 
 
 @tool
-def commit_changes(message: str) -> str:
+def commit_changes(message: str, paths: List[str]) -> str:
     """
-    Adds ALL current changes (git add .) and commits with the given message.
+    Commits only the explicitly listed project-relative paths.
     """
     if not _mutations_allowed():
         return _MUTATION_DENIED_MSG
     try:
-        # 1. Add
+        if not paths:
+            return "Error: At least one explicit project-relative path is required."
+        safe_paths = []
+        for path in paths:
+            target = (BASE_DIR / path).resolve()
+            if not _is_within_base(target):
+                return f"Error: Access denied for path '{path}'."
+            safe_paths.append(str(target.relative_to(BASE_DIR)))
+
+        # 1. Add only the approved paths. Never stage the whole worktree.
         add_res = subprocess.run(
-            ["git", "add", "."], capture_output=True, text=True,
+            ["git", "add", "--", *safe_paths], capture_output=True, text=True,
             cwd=str(BASE_DIR), timeout=60,
         )
         if add_res.returncode != 0:
@@ -374,4 +414,17 @@ SYSTEM_TOOLS = [
     list_directives,
     read_directive,
     update_directive,
+]
+
+# Ordinary agent chat is deliberately read-only. Mutation and code execution
+# require a separate per-invocation approval protocol, which the chat endpoint
+# does not currently issue.
+READ_ONLY_SYSTEM_TOOLS = [
+    inspect_codebase,
+    search_code_symbols,
+    query_memory,
+    search_vault,
+    get_vault_registry,
+    list_directives,
+    read_directive,
 ]

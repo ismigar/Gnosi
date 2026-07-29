@@ -131,7 +131,7 @@ export default function InlineComments({ pageId }) {
                 <button
                     data-gnosi-portal="comment-btn"
                     onMouseDown={startCompose}
-                    style={{ position: 'fixed', top: btn.top, left: btn.left, zIndex: 9998 }}
+                    style={{ position: 'fixed', top: btn.top, left: btn.left, zIndex: 'var(--z-popover)' }}
                     className="flex items-center gap-1 rounded-full bg-[var(--gnosi-primary)] px-3 py-1.5 text-xs font-medium text-white shadow-lg hover:opacity-90"
                 >
                     <MessageSquarePlus size={14} /> {t('inline_comments.add', "Comment")}
@@ -141,7 +141,7 @@ export default function InlineComments({ pageId }) {
             {canComment && compose && createPortal(
                 <div
                     data-gnosi-portal="comment-compose"
-                    style={{ position: 'fixed', top: compose.top, left: compose.left, width: 300, zIndex: 9999 }}
+                    style={{ position: 'fixed', top: compose.top, left: compose.left, width: 300, zIndex: 'var(--z-popover)' }}
                     className="rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] p-2.5 shadow-xl"
                 >
                     <div className="mb-2 line-clamp-2 border-l-2 border-[var(--gnosi-primary)] pl-2 text-xs italic text-[var(--text-tertiary)]">«{compose.quote}»</div>

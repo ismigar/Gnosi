@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ListTree, X } from 'lucide-react';
+import { announceFloatingPanelOpen, useExclusiveFloatingPanel } from '../hooks/useExclusiveFloatingPanel';
+import { useFloatingActionDock } from '../hooks/useFloatingActionDock';
 
 // Main scroll container defined in App.jsx. We look for headings inside it.
 const CONTENT_SELECTOR = '#page-content-scroll';
@@ -177,6 +179,7 @@ export default function PageOutline() {
         setIsOpen(val);
         try { localStorage.setItem(STORAGE_KEY, val ? '1' : '0'); } catch { /* ignore */ }
     }, []);
+    useExclusiveFloatingPanel('outline', isOpen, setOpen);
 
     // Esc closes the panel.
     useEffect(() => {
@@ -207,6 +210,8 @@ export default function PageOutline() {
         setActiveId(id);
     };
 
+    const [, setIsDockOpen] = useFloatingActionDock();
+
     // Only on allowed routes and with at least 2 headings.
     if (!enabled || headings.length < 2) return null;
 
@@ -217,10 +222,14 @@ export default function PageOutline() {
             <button
                 type="button"
                 data-testid="page-outline-toggle"
-                onClick={() => setOpen(true)}
+                onClick={() => {
+                    announceFloatingPanelOpen('outline');
+                    setIsDockOpen(false);
+                    setOpen(true);
+                }}
                 title={t('outline.open', "Page outline")}
                 aria-label={t('outline.open', "Page outline")}
-                className="fixed right-0 top-1/2 -translate-y-1/2 z-[60] flex items-center justify-center w-8 h-12 rounded-l-lg border border-r-0 border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:text-[var(--gnosi-blue)] shadow-md cursor-pointer transition-colors"
+                className="gnosi-floating-action gnosi-floating-action--outline flex items-center justify-center rounded-full border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:text-[var(--gnosi-blue)] shadow-sm cursor-pointer transition-colors"
             >
                 <ListTree size={18} />
             </button>
@@ -228,7 +237,7 @@ export default function PageOutline() {
     }
 
     return (
-        <div data-testid="page-outline-panel" className="fixed right-3 top-1/2 -translate-y-1/2 z-[60] w-64 max-h-[70vh] flex flex-col rounded-xl border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-xl overflow-hidden">
+        <div data-testid="page-outline-panel" className="gnosi-floating-panel gnosi-floating-panel--outline w-64 flex flex-col rounded-xl border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-xl overflow-hidden">
             <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--border-primary)]">
                 <div className="flex items-center gap-2 text-[var(--text-secondary)]">
                     <ListTree size={15} />

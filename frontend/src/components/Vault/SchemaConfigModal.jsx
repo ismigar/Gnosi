@@ -181,7 +181,7 @@ function RemoveOptionDialog({ state, options, onCancel, onConfirm }) {
     const others = options.filter((o) => o.name !== state.value);
     return createPortal(
         <div
-            className="fixed inset-0 z-[10020] flex items-center justify-center bg-black/40"
+            className="fixed inset-0 z-[var(--z-modal-dropdown)] flex items-center justify-center bg-black/40"
             onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel(); }}
             onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); onCancel(); } }}
         >
@@ -1983,7 +1983,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         <>
         <div
             ref={modalRef}
-            className="fixed inset-0 bg-black/60 flex items-center justify-center z-[10001] p-4 font-sans backdrop-blur-sm"
+            className="fixed inset-0 bg-black/60 flex items-center justify-center z-[var(--z-modal-dropdown)] p-4 font-sans backdrop-blur-sm"
         >
             <div className="bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] border border-[var(--border-primary)]">
                 {/* Header */}

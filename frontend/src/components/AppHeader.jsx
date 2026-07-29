@@ -1,29 +1,32 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useActiveVaultName } from '../hooks/useActiveVaultName';
 
-export function AppHeader({ icon: Icon, title, children }) {
+export function AppHeader({ icon: Icon, title, subtitle, children, showVault = true }) {
+    const { t } = useTranslation();
     const activeVaultName = useActiveVaultName();
+
     return (
-        <header className="app-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', paddingRight: '16px' }}>
-            <div className="app-header__title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {Icon && <Icon size={18} className="text-[var(--text-secondary)]" strokeWidth={2} />}
-                <span>{title}</span>
-                <span style={{
-                    fontSize: '0.75rem',
-                    fontWeight: 500,
-                    color: 'var(--text-tertiary)',
-                    backgroundColor: 'var(--bg-secondary)',
-                    padding: '2px 8px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--border-primary)',
-                    marginLeft: '4px'
-                }}>
-                    Vault: {activeVaultName || '…'}
-                </span>
+        <header className={`app-header ${children ? 'app-header--with-actions' : ''}`}>
+            <div className="app-header__identity">
+                {Icon && (
+                    <span className="app-header__icon" aria-hidden="true">
+                        <Icon size={18} strokeWidth={1.8} />
+                    </span>
+                )}
+                <div className="app-header__copy">
+                    <div className="app-header__title-row">
+                        <h1 className="app-header__title">{title}</h1>
+                        {showVault && (
+                            <span className="gnosi-vault-badge">
+                                {t('common.vault_label', 'Vault')}: {activeVaultName || '…'}
+                            </span>
+                        )}
+                    </div>
+                    {subtitle && <p className="app-header__subtitle">{subtitle}</p>}
+                </div>
             </div>
-            <div className="app-header__custom" style={{ marginLeft: 'auto', marginTop: '15px' }}>
-                {children}
-            </div>
+            {children && <div className="app-header__actions">{children}</div>}
         </header>
     );
 }

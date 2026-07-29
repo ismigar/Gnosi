@@ -239,7 +239,7 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
         return (
             <div
                 ref={pickerRef}
-                className="fixed z-[9999] w-[350px] bg-[var(--bg-primary)] rounded-lg shadow-2xl border border-[var(--border-primary)] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-100"
+                className="fixed z-[var(--z-popover)] w-[350px] bg-[var(--bg-primary)] rounded-lg shadow-2xl border border-[var(--border-primary)] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-100"
                 style={{ top: `${top}px`, left: `${left}px`, maxHeight: '500px' }}
                 onClick={(e) => e.stopPropagation()}
             >

@@ -489,7 +489,7 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, onSelectMany 
     const modalContent = (
         <div
             className="fixed inset-0 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-            style={{ zIndex: 10010 }}
+            style={{ zIndex: 'var(--z-modal)' }}
             onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
         >
             <div

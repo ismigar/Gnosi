@@ -70,6 +70,7 @@ export function VaultViewBody({
         onDeleteSelected,
         onEditSchema,
         onUpdateView,
+        onUpdateNote,
     };
 
     // Notes filtered/sorted according to the view. The calendar receives `allNotes` and does not
@@ -122,6 +123,7 @@ export function VaultViewBody({
                 onNoteSelect={onNoteSelect}
                 onDeletePage={onDeletePage}
                 onDeleteSelected={onDeleteSelected}
+                onUpdateNote={onUpdateNote}
             />
         );
     } else if (t === 'calendar') {

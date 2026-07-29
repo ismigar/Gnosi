@@ -229,7 +229,7 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
             onMouseDown={(e) => { if (e.target === e.currentTarget) onClose?.(); }}
             style={{
                 position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-                zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                zIndex: 'var(--z-modal)', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 backdropFilter: 'blur(2px)',
             }}
         >

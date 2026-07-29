@@ -155,7 +155,7 @@ export default function SpellCheckLayer({ editor, enabled = true, pageId, forced
     return createPortal(
         <div
             data-gnosi-portal="spell-menu"
-            style={{ position: 'fixed', top, left, width: 220, zIndex: 10050 }}
+            style={{ position: 'fixed', top, left, width: 220, zIndex: 'var(--z-modal-dropdown)' }}
             className="rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] py-1 shadow-xl"
         >
             <div className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">

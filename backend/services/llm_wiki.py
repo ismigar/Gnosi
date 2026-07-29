@@ -126,7 +126,7 @@ def _load_brain_index(brain_table_id: str, source_page_id: str = "") -> List[Dic
     out = []
     try:
         for page in _get_pages_for_table(brain_table_id) or []:
-            meta = getattr(page, "metadata", None) or {}
+            meta = llm_wiki_storage.page_metadata(page)
             if meta.get("is_template"):
                 continue
             out.append({
@@ -379,13 +379,12 @@ def _parse_page(locator: str) -> Optional[int]:
 
 def _render_citations(
     citations: Any,
-    source_title: str,
+    _source_title: str,
     source_id: str,
     source_table_id: str = "",
 ) -> str:
     if not isinstance(citations, list) or not citations:
         return ""
-    source_link = f"[[{source_title}|{source_id}]]"
     lines = ["", "### Cites", ""]
     for citation in citations:
         if not isinstance(citation, dict):
@@ -409,7 +408,7 @@ def _render_citations(
             if value not in (None, ""):
                 params[key] = value
         jump = f"[{_locator_label(locator)}](gnosi-cite:?{urlencode(params)})"
-        lines.extend([f"> {quote} — {jump} · {source_link}", ""])
+        lines.extend([f"> {quote} — {jump}", ""])
     return "\n".join(lines) if len(lines) > 3 else ""
 
 
@@ -419,7 +418,7 @@ def _base_note_metadata(
     source_id: str,
     position: Optional[int] = None,
 ) -> dict:
-    """Legacy-compatible metadata helper retained for unit callers."""
+    """Build metadata shared by every generated reading note."""
     note_type = str(note.get("type") or "").strip().lower()
     if note_type not in NOTE_TYPES:
         note_type = "concepte"
@@ -432,7 +431,6 @@ def _base_note_metadata(
         "Estat de verificació": "provisional",
         "Última revisió": _today(),
         "Tags": tags,
-        "Fonts": [f"[[{source_title}|{source_id}]]"],
     }
     if position is not None:
         metadata["Posició"] = position
@@ -475,7 +473,13 @@ def _apply_plan(
         for role, prop_id in (config.get("brain_roles") or {}).items()
     }
     relation_prop = props_by_id.get(str(source_config.get("relation_property_id") or ""))
-    relation_name = str((relation_prop or {}).get("name") or "Fonts")
+    locale = str(config.get("ui_locale") or "en").split("-", 1)[0].lower()
+    relation_name = str((relation_prop or {}).get("name") or {
+        "ca": "Font",
+        "en": "Source",
+        "es": "Fuente",
+        "fr": "Source",
+    }.get(locale, "Source"))
 
     brain_dir = _resolve_table_folder_from_metadata({"table_id": brain_table_id})
     if not brain_dir:
@@ -486,7 +490,7 @@ def _apply_plan(
     legacy_by_position: dict[int, list[Any]] = {}
     managed_for_resource: list[Any] = []
     for page in _get_pages_for_table(brain_table_id) or []:
-        meta = getattr(page, "metadata", None) or {}
+        meta = llm_wiki_storage.page_metadata(page)
         if str(meta.get("llm_wiki_resource_id") or "") == source_page_id:
             managed_for_resource.append(page)
             key = str(meta.get("llm_wiki_key") or "")
@@ -526,8 +530,6 @@ def _apply_plan(
             "llm_wiki_stale": False,
             relation_name: [f"[[{source_title}|{source_page_id}]]"],
         })
-        if relation_name != "Fonts":
-            metadata.pop("Fonts", None)
         for fallback_name, role in (
             ("Tipus", "idea_type"),
             ("Posició", "position"),
@@ -538,7 +540,11 @@ def _apply_plan(
             if role_names.get(role) and role_names[role] != fallback_name:
                 metadata.pop(fallback_name, None)
         if role_names.get("note_type"):
-            metadata[role_names["note_type"]] = "lectura"
+            metadata[role_names["note_type"]] = llm_wiki_config.note_type_value(
+                "reading",
+                config,
+                props_by_id.get(str((config.get("brain_roles") or {}).get("note_type") or "")),
+            )
         if role_names.get("idea_type"):
             metadata[role_names["idea_type"]] = metadata.get("Tipus")
         if role_names.get("position"):
@@ -551,7 +557,7 @@ def _apply_plan(
             metadata[role_names["tags"]] = list(dict.fromkeys(str(tag) for tag in note["tags"] if tag))
         _apply_dimensions_to_metadata(
             metadata,
-            {**source_dimensions, **(note.get("dimensions") or {})},
+            _effective_dimensions(note.get("dimensions"), source_dimensions),
             props_by_id,
         )
         citations = _render_citations(
@@ -573,29 +579,47 @@ def _apply_plan(
             path = _page_path(page)
             if path and path.exists():
                 old_meta, old_body = parse_frontmatter(path.read_text(encoding="utf-8"), path)
+                old_meta = llm_wiki_storage.merge_page_metadata(
+                    old_meta,
+                    str(getattr(page, "id", "") or old_meta.get("id") or ""),
+                )
                 old_meta.update(metadata)
-                save_page_md(path, old_meta, _replace_note_block(old_body, managed_key, managed_body))
+                portable_meta = llm_wiki_storage.prepare_managed_markdown(old_meta)
+                save_page_md(
+                    path,
+                    portable_meta,
+                    _replace_note_block(old_body, managed_key, managed_body),
+                )
                 register_page_in_index(path)
                 updated.append(title)
                 continue
 
         metadata["id"] = str(uuid.uuid4())
         path = _get_unique_filepath(brain_dir, title, ".md")
-        save_page_md(path, metadata, _replace_note_block("", managed_key, managed_body))
+        portable_meta = llm_wiki_storage.prepare_managed_markdown(metadata)
+        save_page_md(path, portable_meta, _replace_note_block("", managed_key, managed_body))
         register_page_in_index(path)
         created.append(title)
         created_ids.append(metadata["id"])
 
     for page in managed_for_resource:
-        meta = getattr(page, "metadata", None) or {}
+        meta = llm_wiki_storage.page_metadata(page)
         key = str(meta.get("llm_wiki_key") or "")
         if key and key not in active_keys and not meta.get("llm_wiki_stale"):
             path = _page_path(page)
             if not path or not path.exists():
                 continue
             old_meta, old_body = parse_frontmatter(path.read_text(encoding="utf-8"), path)
+            old_meta = llm_wiki_storage.merge_page_metadata(
+                old_meta,
+                str(getattr(page, "id", "") or old_meta.get("id") or ""),
+            )
             old_meta["llm_wiki_stale"] = True
-            save_page_md(path, old_meta, old_body)
+            save_page_md(
+                path,
+                llm_wiki_storage.prepare_managed_markdown(old_meta),
+                old_body,
+            )
             register_page_in_index(path)
 
     return {"created": created, "created_ids": created_ids, "updated": updated}
@@ -622,6 +646,16 @@ def _apply_dimensions_to_metadata(
         if not prop or value in (None, "", [], {}):
             continue
         metadata[str(prop.get("name") or field_id)] = value
+
+
+def _effective_dimensions(
+    generated: Any,
+    source_mapped: Any,
+) -> dict[str, Any]:
+    """Merge dimensions while keeping explicit source mappings authoritative."""
+    generated_values = generated if isinstance(generated, dict) else {}
+    source_values = source_mapped if isinstance(source_mapped, dict) else {}
+    return {**generated_values, **source_values}
 
 
 # ---------------------------------------------------------------------------
@@ -1008,7 +1042,11 @@ def _canonical_dimension_value(
         return None
     allowed: dict[str, Any] = {}
     for option in options:
-        for candidate in (option.get("label"), option.get("value")):
+        for candidate in (
+            option.get("label"),
+            option.get("value"),
+            option.get("id"),
+        ):
             key = str(candidate or "").strip().casefold()
             if key:
                 allowed[key] = option.get("value")
@@ -1040,6 +1078,7 @@ def _dimension_options(prop: dict, pages_for_table) -> list[dict[str, Any]]:
             {
                 "label": str(getattr(page, "title", "") or ""),
                 "value": f"[[{getattr(page, 'title', '')}|{getattr(page, 'id', '')}]]",
+                "id": str(getattr(page, "id", "") or ""),
             }
             for page in list(pages_for_table(target_id) or [])[:150]
             if getattr(page, "title", None) and getattr(page, "id", None)

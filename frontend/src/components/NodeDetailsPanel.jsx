@@ -62,7 +62,7 @@ export function NodeDetailsPanel({ nodeId, isOpen, onClose, initialData }) {
             height: '100%',
             backgroundColor: 'var(--bg-primary)',
             boxShadow: '-2px 0 10px rgba(0,0,0,0.1)',
-            zIndex: 1000,
+            zIndex: 'var(--z-popover)',
             padding: '20px',
             overflowY: 'auto',
             transform: isOpen ? 'translateX(0)' : 'translateX(100%)',
@@ -146,4 +146,3 @@ export function NodeDetailsPanel({ nodeId, isOpen, onClose, initialData }) {
         </div>
     );
 }
-

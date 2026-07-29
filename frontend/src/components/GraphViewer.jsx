@@ -879,7 +879,7 @@ export const GraphViewer = forwardRef(({
                         borderRadius: '4px',
                         border: `1px solid ${isDarkMode ? '#555' : '#ccc'} `,
                         pointerEvents: 'none',
-                        zIndex: 1000,
+                        zIndex: 'var(--z-popover)',
                         maxWidth: '300px',
                         fontSize: '12px',
                         boxShadow: '0 2px 8px rgba(0,0,0,0.2)'

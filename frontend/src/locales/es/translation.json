@@ -40,6 +40,7 @@
   },
   "common": {
     "knowledge": "Conocimiento",
+    "vault_label": "Vault",
     "yes": "Sí",
     "untitled": "Sin título",
     "new": "Nuevo",
@@ -370,6 +371,7 @@
     "error_deleting_event": "No se pudo eliminar el evento"
   },
   "sidebar": {
+    "main_navigation": "Navegación principal",
     "my_vault": "Mi Conocimiento",
     "search": "Buscar",
     "recent": "Reciente",
@@ -440,6 +442,9 @@
     "quick_search": "Búsqueda rápida",
     "favorite": "Favorito",
     "page_options": "Opciones de página",
+    "open_quick_actions": "Abrir acciones rápidas",
+    "close_quick_actions": "Cerrar acciones rápidas",
+    "stale_checkout": "La vista previa local sirve el checkout fusionado {{checkout}}, por detrás de origin/main.",
     "switch_normal_view": "Cambiar a vista normal",
     "switch_code_view": "Cambiar a vista código",
     "view_history": "Ver historial",
@@ -823,6 +828,9 @@
     "add_icon": "Añadir icono",
     "change_cover": "Cambiar portada",
     "add_cover": "Añadir portada",
+    "remove_icon": "Eliminar icono",
+    "remove_cover": "Eliminar portada",
+    "toggle_properties": "Mostrar u ocultar las propiedades",
     "no_pending_mentions": "No había menciones pendientes por enlazar.",
     "link_mentions_error": "No se han podido enlazar las menciones pendientes",
     "page_created": "Página \"{{title}}\" creada",
@@ -840,6 +848,9 @@
     "property_name_placeholder": "Nombre de la clave (ej: Autor)",
     "manage_fields": "Gestionar Campos",
     "links_and_mentions": "Enlaces y menciones",
+    "links_graph": "Grafo de enlaces directos",
+    "links_graph_empty": "Esta página aún no tiene enlaces directos.",
+    "links_graph_aria": "Grafo de páginas conectadas directamente con esta página",
     "outgoing": "Salientes",
     "incoming": "Entrantes",
     "pending": "Pendientes",
@@ -1425,6 +1436,7 @@
       "llm_wiki_map_empty": "Dejar vacío",
       "llm_wiki_saving": "Guardando…",
       "llm_wiki_save": "Guardar y preparar",
+      "llm_wiki_autosave": "Los cambios se guardan automáticamente.",
       "llm_wiki_capabilities": "OCR {{ocr}} · transcripción {{transcription}} · streaming {{streaming}}",
       "llm_wiki_capability_help": "Instala Tesseract (ca/es/en/fr), FFmpeg y las dependencias Python indicadas en requirements.txt; después reinicia el backend nativo.",
       "llm_wiki_missing_ocr_languages": "Idiomas OCR que faltan: {{languages}}.",
@@ -1476,6 +1488,12 @@
       "translate": "Traducción",
       "profile": "Perfil",
       "account": "Cuenta"
+    },
+    "navigation": {
+      "basic": "Básico",
+      "connections": "Conexiones",
+      "knowledge": "Conocimiento e IA",
+      "advanced": "Avanzado"
     },
     "general": {
       "system_title": "Configuración del Sistema",
@@ -2816,6 +2834,8 @@
     "see_less": "Ver menos",
     "open": "Abrir",
     "open_page": "Abrir la página",
+    "show_more_tags": "Mostrar {{count}} etiquetas más",
+    "show_fewer_tags": "Mostrar menos etiquetas",
     "read_full": "Leer completo",
     "empty": "No hay publicaciones en el feed."
   },
@@ -3209,6 +3229,7 @@
     "records_restore_failed_many": "No se han podido restaurar {{count}} registros (códigos: {{reasons}})"
   },
   "media": {
+    "toggle_library": "Mostrar u ocultar la biblioteca multimedia",
     "title": "Gestor de Medios",
     "subtitle": "Imágenes, vídeos, audio y PDFs",
     "root_images": "Imágenes",
@@ -3558,6 +3579,14 @@
     "imported": "{{created}} referencias importadas · {{skipped}} ya existían"
   },
   "social": {
+    "boosted_by": "{{name}} lo ha impulsado",
+    "open_post": "Abrir publicación",
+    "repost": "Volver a publicar",
+    "like": "Me gusta",
+    "share_post": "Compartir publicación",
+    "tab_dashboard": "Panel",
+    "section_navigation": "Secciones sociales",
+    "stream_actions": "Acciones del canal",
     "compose_error": "Error al generar las propuestas",
     "from_record": "Origen: «{{title}}». La IA propondrá un texto por red en el mismo idioma.",
     "generate": "Generar con IA",
@@ -3858,6 +3887,7 @@
     "delete_feed_message": "¿Seguro que quieres eliminar este feed y todos sus artículos? Esta acción no se puede deshacer."
   },
   "graph": {
+    "page_title": "Grafo de conocimiento",
     "loading": {
       "title": "Cargando el Cerebro Digital...",
       "subtitle": "Conectando neuronas..."
@@ -4026,11 +4056,13 @@
     "module_settings_desc": "Gestiona los parámetros de tu ecosistema."
   },
   "composer": {
+    "title": "Compositor",
     "subtitle": "Crea y programa contenido para tus redes sociales.",
     "social_dashboard_title": "Panel Social",
     "social_dashboard_desc": "Gestiona tus streams y feeds de redes sociales."
   },
   "scheduler": {
+    "title": "Programador de tareas",
     "subtitle": "Gestiona las automatizaciones y tareas de fondo de Gnosi.",
     "interval_label": "Intervalo: {{value}}",
     "no_tasks": "No se han encontrado tareas programadas."
@@ -4077,7 +4109,7 @@
     "no_files": "No se han encontrado archivos"
   },
   "planning_page": {
-    "title": "Planificación de proyectos", "subtitle": "Calendario, ruta crítica, recursos y diagnósticos.", "project_id": "ID del proyecto", "project": "Proyecto", "default_project": "Proyecto predeterminado", "refresh": "Actualizar", "load_error": "No se ha podido cargar la planificación.", "critical_tasks": "Tareas críticas", "estimated_cost": "Coste estimado", "warnings": "Avisos", "schedule": "Calendario", "task": "Tarea", "start": "Inicio", "finish": "Fin", "slack": "Holgura", "diagnostics": "Diagnósticos"
+    "title": "Planificación de proyectos", "subtitle": "Calendario, ruta crítica, recursos y diagnósticos.", "project_id": "ID del proyecto", "project": "Proyecto", "default_project": "Proyecto predeterminado", "refresh": "Actualizar", "load_error": "No se ha podido cargar la planificación.", "critical_tasks": "Tareas críticas", "estimated_cost": "Coste estimado", "warnings": "Avisos", "schedule": "Calendario", "task": "Tarea", "start": "Inicio", "finish": "Fin", "slack": "Holgura", "diagnostics": "Diagnósticos", "baselines": "Líneas base", "baseline_name": "Nombre de la línea base", "create": "Crear", "worklogs": "Registros de trabajo", "add_worklog": "Añadir registro", "entries": "entradas", "resource_heatmap": "Carga de recursos", "leveling": "Nivelación de recursos", "generate_proposal": "Generar propuesta", "proposed_changes": "cambios propuestos", "apply_proposal": "Aplicar propuesta"
   },
   "vault_date": {
     "days_placeholder": "días",
@@ -4177,13 +4209,17 @@
     "no_results": "No se ha encontrado ningún resultado para \"{{query}}\""
   },
   "chat": {
+    "default_session_title": "Nueva conversación",
     "mention_type_page": "Página",
     "mention_type_table": "Tabla",
     "mention_type_database": "BD",
     "attachment_upload_failed": "No se pudo subir el archivo",
-    "attachments_skipped": "Aviso: {{count}} archivo(s) superan 15MB y no se adjuntaron.",
+    "attachments_skipped": "Aviso: {{count}} archivo(s) superan 15 MB y no se adjuntaron.",
+    "attachments_skipped_limits": "Aviso: {{count}} archivo(s) superan el límite de tamaño o cantidad y no se adjuntaron.",
     "attachment_upload_error": "Error subiendo adjunto: {{message}}",
     "attachments_only_label": "(Adjuntos)",
+    "empty_response": "El asistente ha terminado sin devolver ninguna respuesta. Inténtalo de nuevo.",
+    "cancel_response": "Cancelar",
     "tool_start": "🛠️ *Llamando a la herramienta: {{tool}}...*",
     "tool_end": "✅ *Herramienta {{tool}} finalizada.*",
     "rate_limit_message": "Has superado la cuota del modelo de este agente. Prueba con otro agente o espera unos minutos.",
@@ -4297,6 +4333,7 @@
     "created": "Creadas",
     "updated": "Enriquecidas",
     "error_generic": "Error procesando el recurso",
+    "error_no_brain_table": "No hay ninguna tabla del Cerebro configurada. Crea una en Ajustes → Complementos → LLM Wiki.",
     "running_hint": "Puedes cerrar; continuará en segundo plano.",
     "inbox_button": "Buzón",
     "inbox_button_title": "Buzón del Cerebro: sugerencias de notas permanentes",
@@ -4345,6 +4382,16 @@
       "kind_gap": "Vacío",
       "notes": "Notas"
     }
+  },
+  "relation_item": {
+    "open_new_tab": "Abrir en una pestaña nueva",
+    "open_new_tab_named": "Abrir {{title}} en una pestaña nueva",
+    "remove": "Eliminar de este registro",
+    "remove_named": "Eliminar {{title}} de este registro",
+    "removed_toast": "Relación eliminada: {{title}}",
+    "history_error": "No se ha podido restaurar el cambio de relación",
+    "undo_success": "Relación restaurada",
+    "redo_success": "Relación eliminada de nuevo"
   },
   "reader_articles_pending_many": "{{count}} artículos pendientes",
   "reader_sources_count_many": "{{count}} fuentes"

@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Iterable, Optional
 
 from backend.config.logger_config import get_logger
-from backend.services import llm_wiki_config
+from backend.services import llm_wiki_config, llm_wiki_storage
 from backend.utils.safe_io import safe_write_json
 
 logger = get_logger(__name__)
@@ -52,6 +52,17 @@ SYSTEM_TITLES = {
 
 def ensure_system_pages(brain_table_id: str, config: dict[str, Any]) -> dict[str, str]:
     """Create the three system pages without adopting same-title manual pages."""
+    migrate_managed_frontmatter(brain_table_id)
+    brain_table = _table(brain_table_id) or {}
+    props_by_id = {
+        str(prop.get("id") or ""): prop
+        for prop in brain_table.get("properties") or []
+        if isinstance(prop, dict) and prop.get("id")
+    }
+    index_metadata: dict[str, Any] = {}
+    system_metadata: dict[str, Any] = {}
+    _set_visible_note_type(index_metadata, config, props_by_id, "index")
+    _set_visible_note_type(system_metadata, config, props_by_id, "system")
     schema_content = _schema_content(config)
     general = _upsert_managed_page(
         brain_table_id,
@@ -59,6 +70,7 @@ def ensure_system_pages(brain_table_id: str, config: dict[str, Any]) -> dict[str
         ROLE_GENERAL_INDEX,
         "general",
         "_There are no resource or field indexes yet._",
+        index_metadata,
     )
     schema = _upsert_managed_page(
         brain_table_id,
@@ -66,6 +78,7 @@ def ensure_system_pages(brain_table_id: str, config: dict[str, Any]) -> dict[str
         ROLE_SCHEMA,
         "schema",
         schema_content,
+        system_metadata,
     )
     log_page = _upsert_managed_page(
         brain_table_id,
@@ -73,6 +86,7 @@ def ensure_system_pages(brain_table_id: str, config: dict[str, Any]) -> dict[str
         ROLE_LOG,
         "log",
         "_The log is empty._",
+        system_metadata,
     )
     return {
         ROLE_GENERAL_INDEX: general["id"],
@@ -81,9 +95,30 @@ def ensure_system_pages(brain_table_id: str, config: dict[str, Any]) -> dict[str
     }
 
 
+def migrate_managed_frontmatter(brain_table_id: str) -> int:
+    """Move legacy managed metadata from Brain Markdown files to sidecars."""
+    migrated = 0
+    for page in _brain_pages(brain_table_id):
+        path = _path(page)
+        if not path:
+            continue
+        metadata, body = _read_page(path)
+        if not any(str(key).startswith("llm_wiki_") for key in metadata):
+            continue
+        _save_existing_page(path, metadata, body)
+        migrated += 1
+    if migrated:
+        logger.info(
+            "LLM Wiki moved managed metadata for %d Brain pages to sidecars",
+            migrated,
+        )
+    return migrated
+
+
 def rebuild_indexes(brain_table_id: str, config: dict[str, Any]) -> dict[str, Any]:
     """Rebuild every managed resource/dimension/general index and search cache."""
     ensure_system_pages(brain_table_id, config)
+    source_records_synced = sync_source_dimensions(brain_table_id, config)
     pages = _brain_pages(brain_table_id)
     brain_table = _table(brain_table_id)
     props_by_id = {
@@ -151,7 +186,102 @@ def rebuild_indexes(brain_table_id: str, config: dict[str, Any]) -> dict[str, An
         "reading_notes": len(readings),
         "permanent_notes": len(permanents),
         "search_cache_notes": cache_count,
+        "source_records_synced": source_records_synced,
     }
+
+
+def sync_source_dimensions(
+    brain_table_id: str,
+    config: dict[str, Any],
+) -> int:
+    """Synchronize configured source fields into existing managed reading notes."""
+    from backend.services import llm_wiki
+
+    brain_table = _table(brain_table_id) or {}
+    brain_props = {
+        str(prop.get("id") or ""): prop
+        for prop in brain_table.get("properties") or []
+        if isinstance(prop, dict) and prop.get("id")
+    }
+    source_configs = {
+        str(item.get("table_id") or ""): item
+        for item in config.get("source_tables") or []
+        if isinstance(item, dict) and item.get("table_id")
+    }
+    source_tables = {
+        table_id: _table(table_id) or {"id": table_id, "properties": []}
+        for table_id in source_configs
+    }
+    source_pages = {
+        table_id: {
+            _page_id(page): page
+            for page in _brain_pages(table_id)
+            if _page_id(page)
+        }
+        for table_id in source_configs
+    }
+
+    mapped_cache: dict[tuple[str, str], dict[str, Any]] = {}
+    updated = 0
+    for page in _brain_pages(brain_table_id):
+        meta = _meta(page)
+        if _note_kind(page) != "lectura" or not meta.get("llm_wiki_managed"):
+            continue
+        source_table_id = str(meta.get("llm_wiki_source_table_id") or "")
+        resource_id = str(meta.get("llm_wiki_resource_id") or "")
+        source_config = source_configs.get(source_table_id)
+        source_page = (source_pages.get(source_table_id) or {}).get(resource_id)
+        if not source_config or source_page is None:
+            continue
+
+        cache_key = (source_table_id, resource_id)
+        mapped = mapped_cache.get(cache_key)
+        if mapped is None:
+            mapped, _ai_specs = llm_wiki._dimension_context(  # noqa: SLF001
+                config,
+                source_tables[source_table_id],
+                source_config,
+                _meta(source_page),
+            )
+            mapped_cache[cache_key] = mapped
+        path = _path(page)
+        if not path:
+            continue
+        metadata, body = _read_page(path)
+        changed = False
+        for field_id, mapping in (source_config.get("dimension_mappings") or {}).items():
+            if str((mapping or {}).get("mode") or "ai") != "source":
+                continue
+            prop = brain_props.get(str(field_id))
+            name = str((prop or {}).get("name") or "")
+            if not name:
+                continue
+            value = mapped.get(str(field_id))
+            if value in (None, "", [], {}):
+                if name in metadata:
+                    metadata.pop(name, None)
+                    changed = True
+            elif metadata.get(name) != value:
+                metadata[name] = value
+                changed = True
+
+        cleaned_body = _remove_redundant_source_links(body)
+        if cleaned_body != body:
+            body = cleaned_body
+            changed = True
+        if changed:
+            _save_existing_page(path, metadata, body)
+            updated += 1
+    return updated
+
+
+def _remove_redundant_source_links(body: str) -> str:
+    """Remove source wikilinks appended to managed citation deep links."""
+    return re.sub(
+        r"(?m)(\]\(gnosi-cite:\?[^)\n]+\))\s*·\s*\[\[[^\]\n]+\]\](?=\s*$)",
+        r"\1",
+        str(body or ""),
+    )
 
 
 def append_log(
@@ -176,7 +306,7 @@ def append_log(
     timestamp = dt.datetime.now().astimezone().isoformat(timespec="seconds")
     warnings = report.get("warnings") or []
     entry = (
-        f"- **{timestamp}** · [[{resource_title}|{resource_id}]] · "
+        f"- **{timestamp}** · {_wikilink(resource_id, resource_title)} · "
         f"table `{source_table_id}` · {report.get('source_count', 0)} sources · "
         f"{len(report.get('created') or [])} created · "
         f"{len(report.get('updated') or [])} updated · "
@@ -276,8 +406,10 @@ def _upsert_resource_index(
     readings = sorted(
         readings,
         key=lambda page: (
-            int(_meta(page).get("llm_wiki_origin_order") or 0),
-            int(_meta(page).get("Posició") or _meta(page).get("position") or 0),
+            _sortable_integer(_meta(page).get("llm_wiki_origin_order")),
+            _sortable_integer(
+                _meta(page).get("Posició") or _meta(page).get("position"),
+            ),
             _title(page).casefold(),
         ),
     )
@@ -289,21 +421,10 @@ def _upsert_resource_index(
         ),
         resource_id,
     )
-    grouped: dict[tuple[int, str], list[Any]] = {}
+    lines = []
     for page in readings:
-        meta = _meta(page)
-        key = (
-            int(meta.get("llm_wiki_origin_order") or 0),
-            str(meta.get("llm_wiki_origin_label") or "Source"),
-        )
-        grouped.setdefault(key, []).append(page)
-    lines = [f"Resource: [[{resource_title}|{resource_id}]]", ""]
-    for (_order, label), notes in sorted(grouped.items(), key=lambda item: item[0]):
-        lines.extend([f"## {label}", ""])
-        for page in notes:
-            position = _meta(page).get("Posició") or _meta(page).get("position") or "—"
-            lines.append(f"{position}. [[{_title(page)}|{_page_id(page)}]]")
-        lines.append("")
+        position = _meta(page).get("Posició") or _meta(page).get("position") or "—"
+        lines.append(f"{position}. {_page_wikilink(page)}")
 
     metadata: dict[str, Any] = {
         "llm_wiki_source_table_id": source_table_id,
@@ -321,7 +442,7 @@ def _upsert_resource_index(
     relation_prop = props_by_id.get(str(source_config.get("relation_property_id") or ""))
     if relation_prop:
         metadata[str(relation_prop.get("name"))] = [f"[[{resource_title}|{resource_id}]]"]
-    _set_visible_note_type(metadata, config, props_by_id, "índex")
+    _set_visible_note_type(metadata, config, props_by_id, "index")
     return _upsert_managed_page(
         brain_table_id,
         f"{_index_prefix(config)} · {resource_title}",
@@ -367,16 +488,16 @@ def _rebuild_dimension_indexes(
             for page in sorted(
                 pages,
                 key=lambda p: (
-                    int(_meta(p).get("llm_wiki_origin_order") or 0),
-                    int(_meta(p).get("Posició") or 0),
+                    _sortable_integer(_meta(p).get("llm_wiki_origin_order")),
+                    _sortable_integer(_meta(p).get("Posició")),
                 ),
             ):
-                lines.append(f"- [[{_title(page)}|{_page_id(page)}]]")
+                lines.append(f"- {_page_wikilink(page)}")
             lines.append("")
         lines.extend(["## Manual permanent notes", ""])
         if item["permanents"]:
             lines.extend(
-                f"- [[{_title(page)}|{_page_id(page)}]]"
+                f"- {_page_wikilink(page)}"
                 for page in sorted(item["permanents"], key=lambda p: _title(p).casefold())
             )
         else:
@@ -389,7 +510,7 @@ def _rebuild_dimension_indexes(
             for p in (brain_table or {}).get("properties") or []
             if isinstance(p, dict)
         }
-        _set_visible_note_type(metadata, config, props_by_id, "índex")
+        _set_visible_note_type(metadata, config, props_by_id, "index")
         out.append(
             _upsert_managed_page(
                 brain_table_id,
@@ -416,7 +537,7 @@ def _rebuild_general_index(
     lines = ["## Field indexes", ""]
     if dimension_pages:
         lines.extend(
-            f"- [[{page['title']}|{page['id']}]]"
+            f"- {_wikilink(page['id'], page['title'])}"
             for page in sorted(dimension_pages, key=lambda p: p["title"].casefold())
         )
     else:
@@ -424,7 +545,7 @@ def _rebuild_general_index(
     lines.extend(["", "## Processed resources", ""])
     if resource_pages:
         lines.extend(
-            f"- [[{page['title']}|{page['id']}]]"
+            f"- {_wikilink(page['id'], page['title'])}"
             for page in sorted(resource_pages, key=lambda p: p["title"].casefold())
         )
     else:
@@ -479,12 +600,16 @@ def _set_visible_note_type(
     metadata: dict[str, Any],
     config: dict[str, Any],
     props_by_id: dict[str, dict],
-    value: str,
+    kind: str,
 ) -> None:
     role_id = str((config.get("brain_roles") or {}).get("note_type") or "")
     prop = props_by_id.get(role_id)
     if prop and prop.get("name"):
-        metadata[str(prop["name"])] = value
+        metadata[str(prop["name"])] = llm_wiki_config.note_type_value(
+            kind,
+            config,
+            prop,
+        )
 
 
 def _upsert_managed_page(
@@ -526,7 +651,11 @@ def _upsert_managed_page(
     brain_dir.mkdir(parents=True, exist_ok=True)
     metadata["id"] = str(uuid.uuid4())
     path = _get_unique_filepath(brain_dir, title, ".md")
-    save_page_md(path, metadata, _replace_managed_block("", managed_key, content))
+    save_page_md(
+        path,
+        llm_wiki_storage.prepare_managed_markdown(metadata),
+        _replace_managed_block("", managed_key, content),
+    )
     register_page_in_index(path)
     return {"id": metadata["id"], "title": title}
 
@@ -568,7 +697,11 @@ def _managed_content(body: str, key: str) -> str:
 def _save_existing_page(path: Path, metadata: dict[str, Any], body: str) -> None:
     from backend.api.vault_routes import register_page_in_index, save_page_md
 
-    save_page_md(path, metadata, body.rstrip() + "\n")
+    save_page_md(
+        path,
+        llm_wiki_storage.prepare_managed_markdown(metadata),
+        body.rstrip() + "\n",
+    )
     register_page_in_index(path)
 
 
@@ -593,13 +726,23 @@ def _table(table_id: str) -> Optional[dict]:
 
 
 def _meta(page: Any) -> dict[str, Any]:
-    return getattr(page, "metadata", None) or (page.get("metadata") if isinstance(page, dict) else {}) or {}
+    return llm_wiki_storage.page_metadata(page)
 
 
 def _page_id(page: Any) -> str:
     if isinstance(page, dict):
         return str(page.get("id") or _meta(page).get("id") or "")
     return str(getattr(page, "id", "") or _meta(page).get("id") or "")
+
+
+def _wikilink(target_id: Any, title: Any) -> str:
+    """Create a stable-ID wikilink with a human-readable visible alias."""
+    return f"[[{str(target_id or '')}|{str(title or '')}]]"
+
+
+def _page_wikilink(page: Any) -> str:
+    """Create a stable-ID wikilink for a Brain page."""
+    return _wikilink(_page_id(page), _title(page))
 
 
 def _title(page: Any) -> str:
@@ -614,14 +757,7 @@ def _path(page: Any) -> Optional[Path]:
 
 
 def _note_kind(page: Any) -> str:
-    meta = _meta(page)
-    kind = str(meta.get("note_type") or "").strip().casefold()
-    if kind:
-        return kind
-    for key, value in meta.items():
-        if _normalized(key) in {"tipusdenota", "notetype"}:
-            return str(value or "").strip().casefold()
-    return ""
+    return llm_wiki_config.metadata_note_type(_meta(page))
 
 
 def _as_values(value: Any) -> list[Any]:
@@ -647,6 +783,15 @@ def _value_key(value: Any) -> str:
 
 def _safe_token(value: Any) -> str:
     return "".join(ch for ch in str(value or "") if ch.isalnum() or ch in {"-", "_"})[:120]
+
+
+def _sortable_integer(value: Any) -> int:
+    """Return a stable numeric sort key for typed or legacy position values."""
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        match = re.search(r"-?\d+", str(value or ""))
+        return int(match.group(0)) if match else 0
 
 
 def _normalized(value: Any) -> str:

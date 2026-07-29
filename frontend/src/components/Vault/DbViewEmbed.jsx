@@ -1,11 +1,10 @@
-import React, { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import { Loader2, AlertCircle, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp, X, LayoutTemplate, MoreHorizontal, Settings, Edit2, Copy, Trash2 } from 'lucide-react';
 import { compareFieldValues, NUM_RE, ISO_DATE_RE, parseNumericValue, normalizeForSearch } from '../../utils/vaultFilters';
 import { VaultEditorContext } from './VaultEditorContext';
 import { VaultMarkdown, RetryableImage } from './VaultMarkdown';
-import { normalizeAssetUrl } from './vaultMarkdownUtils';
 import { VaultViewBody } from './VaultViewBody';
 import { buildSchemaFromTableProperties } from './schemaUtils';
 import { VIEW_TYPES } from './viewConstants';
@@ -216,38 +215,6 @@ function multiKeySort(rows, sorts) {
     return result;
 }
 
-function displayValue(v) {
-    if (v == null) return '';
-    if (Array.isArray(v)) return v.join(', ');
-    return String(v);
-}
-
-function pickDateCol(columns, rows) {
-    // Whole-word match (separators: space, hyphen, underscore, or
-    // start/end) to avoid false positives like "metadata" (contains "data"),
-    // "Today"/"Sunday"/"Holiday" (contenen "day"), etc.
-    const byName = (columns || []).find(c => /(^|[\s_-])(data|date|fecha|created|day)([\s_-]|$)/i.test(String(c || '')));
-    if (byName) return byName;
-    // Heuristic: first column whose values are parseable as a date in
-    // at least 50% of the rows.
-    for (const c of columns || []) {
-        let hits = 0;
-        for (const r of rows || []) {
-            if (parseDate(r.metadata?.[c])) hits++;
-        }
-        if (hits >= Math.max(1, (rows?.length || 0) * 0.5)) return c;
-    }
-    return null;
-}
-
-function parseDate(v) {
-    const raw = Array.isArray(v) ? v[0] : v;
-    if (!raw) return null;
-    const d = new Date(String(raw));
-    if (Number.isNaN(d.getTime())) return null;
-    return d;
-}
-
 function Heading({ level, children }) {
     const safeLevel = Math.min(Math.max(Number(level) || 1, 1), 6);
     const Tag = `h${safeLevel}`;
@@ -295,6 +262,7 @@ async function patchSectionConfig(pageId, section, patch) {
 
 function ViewActionsBar({
     onCreate,
+    onAddView,
     templates = [],
     onOpenConfig,
     searchTerm,
@@ -313,7 +281,7 @@ function ViewActionsBar({
     }, [showNewMenu]);
 
     return (
-        <div className="flex items-center gap-1">
+        <div className="vault-view-actions flex items-center gap-1">
             {showSearch ? (
                 <div className="flex items-center gap-1 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-md px-2 py-1">
                     <Search size={12} className="text-[var(--text-tertiary)]" />
@@ -326,17 +294,22 @@ function ViewActionsBar({
                         className="text-xs outline-none w-28 text-[var(--text-primary)] bg-transparent"
                     />
                     <button
+                        type="button"
                         onClick={() => { setSearchTerm?.(''); setShowSearch?.(false); }}
                         className="text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+                        title={t('common.close')}
+                        aria-label={t('common.close')}
                     >
                         <X size={12} />
                     </button>
                 </div>
             ) : (
                 <button
+                    type="button"
                     onClick={() => setShowSearch?.(true)}
-                    className="p-1.5 rounded-md text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors"
+                    className="vault-view-action p-1.5 rounded-md text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors"
                     title={t('views_header.search_title', "Search")}
+                    aria-label={t('views_header.search_title', "Search")}
                 >
                     <Search size={14} />
                 </button>
@@ -344,35 +317,53 @@ function ViewActionsBar({
 
             {onOpenConfig && (
                 <button
+                    type="button"
                     onClick={onOpenConfig}
-                    className="flex items-center gap-1.5 px-2 py-1.5 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] rounded-md transition-colors"
+                    className="vault-view-action flex items-center gap-1.5 px-2 py-1.5 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] rounded-md transition-colors"
                     title={t('views_header.view_settings', "View settings")}
+                    aria-label={t('views_header.view_settings', "View settings")}
                 >
                     <SlidersHorizontal size={13} />
                 </button>
             )}
 
+            {onAddView && (
+                <button
+                    type="button"
+                    onClick={onAddView}
+                    className="vault-view-action inline-flex items-center justify-center rounded-md text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)] hover:bg-[var(--bg-tertiary)] transition-colors"
+                    title={t('views_header.add_view', "Add view")}
+                    aria-label={t('views_header.add_view', "Add view")}
+                >
+                    <Plus size={14} />
+                </button>
+            )}
+
             {onCreate && (
                 <div className="relative" ref={menuRef}>
-                    <button
-                        onClick={() => onCreate()}
-                        className="btn-gnosi btn-gnosi-primary !px-3 !py-1.5 !text-xs !gap-1.5 !shadow-none active:scale-95"
-                        style={{ boxShadow: 'none' }}
-                    >
-                        <Plus size={14} />
-                        <span>{t('views_header.new_action', "New")}</span>
-                        <span
-                            role="button"
-                            tabIndex={0}
-                            onClick={(e) => { e.stopPropagation(); setShowNewMenu(o => !o); }}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowNewMenu(o => !o); } }}
-                            className="pl-1 border-l border-white/20 hover:text-white/80 cursor-pointer inline-flex"
+                    <div className="vault-new-split">
+                        <button
+                            type="button"
+                            onClick={() => onCreate()}
+                            className="vault-new-split__create"
+                        >
+                            <Plus size={14} />
+                            <span>{t('views_header.new_action', "New")}</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setShowNewMenu(open => !open)}
+                            className="vault-new-split__menu"
+                            title={t('views_header.new_options', "New record options")}
+                            aria-label={t('views_header.new_options', "New record options")}
+                            aria-haspopup="menu"
+                            aria-expanded={showNewMenu}
                         >
                             <ChevronDown size={14} />
-                        </span>
-                    </button>
+                        </button>
+                    </div>
                     {showNewMenu && (
-                        <div className="absolute top-full right-0 mt-1 w-56 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[1001] py-1">
+                        <div className="absolute top-full right-0 mt-1 w-56 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[var(--z-popover)] py-1">
                             <button
                                 onClick={() => { setShowNewMenu(false); onCreate(); }}
                                 className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] text-left"
@@ -493,7 +484,7 @@ function GraphRender({ rows, columns, onOpenPage }) {
             });
         }
         return { nodes: Array.from(nodeMap.values()), links: edges };
-    }, [rows, relationCol, idToRow, titleToId]);
+    }, [rows, relationCol, idToRow, titleToId, t]);
 
     const svgRef = useRef(null);
     const [hover, setHover] = useState(null);
@@ -667,7 +658,6 @@ export function DbViewEmbed({ block }) {
     const lastSavedNonceRef = useRef(0);
     const [searchTerm, setSearchTerm] = useState('');
     const [showSearch, setShowSearch] = useState(false);
-    const [addMenuOpen, setAddMenuOpen] = useState(false); // add-view menu (type / existing)
     const [tabMenuFor, setTabMenuFor] = useState(null);     // id of the view with its (remove/delete) menu open
     const [menuUp, setMenuUp] = useState(false);            // open the dropdown upward if it doesn't fit below
     const [confirmDeleteView, setConfirmDeleteView] = useState(null); // view pending deletion everywhere (ConfirmModal)
@@ -943,17 +933,6 @@ export function DbViewEmbed({ block }) {
         }
     }, [tableId, onOpenPage, reload]);
 
-    const handleMove = useCallback(async (pageId_, field, value) => {
-        await patchPageMetadata(pageId_, { [field]: value });
-        _byTableCache.delete(tableId);
-    }, [tableId]);
-
-    const handleChangeGroupBy = useCallback(async (newGroupBy) => {
-        if (!view || !pageId) return;
-        const next = await patchSectionConfig(pageId, view, { group_by: newGroupBy });
-        setView(next);
-    }, [view, pageId]);
-
     const handleOpenConfig = useCallback(() => {
         if (!onOpenPageViewModal || !tableId) return;
         const sectionVid = block?.props?.view_id || '';
@@ -984,7 +963,7 @@ export function DbViewEmbed({ block }) {
     const pinView = useCallback((id) => {
         if (!id || id === viewId) return;
         setPinnedViewIds(prev => { const next = new Set(prev); next.add(id); persistPinned(next); persistServerTabs(next); return next; });
-    }, [viewId, pageId, persistServerTabs]);
+    }, [viewId, persistPinned, persistServerTabs]);
 
     const handleAddView = useCallback((type = 'table') => {
         if (!tableId || !onOpenViewConfig) return;
@@ -996,19 +975,11 @@ export function DbViewEmbed({ block }) {
         });
     }, [tableId, onOpenViewConfig, pinView]);
 
-    // Adds a view that ALREADY exists on the table to this block (pins it as
-    // tab). It creates nothing new.
-    const handleAddExistingView = useCallback((v) => {
-        if (!v?.id) return;
-        pinView(v.id);
-        setActiveViewId(v.id);
-    }, [pinView]);
-
     const handleDeleteView = useCallback((v) => {
         if (!v?.id) return;
         if (tableViews.length <= 1) { toast.error(t('errors.delete_only_view', "Cannot delete the only view.")); return; }
         setConfirmDeleteView(v);
-    }, [tableViews]);
+    }, [tableViews, t]);
 
     const doDeleteView = useCallback(async () => {
         const v = confirmDeleteView;
@@ -1027,7 +998,7 @@ export function DbViewEmbed({ block }) {
         if (!v?.id || v.id === viewId) return;
         setPinnedViewIds(prev => { const next = new Set(prev); next.delete(v.id); persistPinned(next); persistServerTabs(next); return next; });
         if (activeViewId === v.id) setActiveViewId(viewId);
-    }, [viewId, pageId, activeViewId, persistServerTabs]);
+    }, [viewId, activeViewId, persistPinned, persistServerTabs]);
 
     const handleRenameView = useCallback((v) => {
         if (!v?.id) return;
@@ -1163,7 +1134,7 @@ export function DbViewEmbed({ block }) {
         xField: effectiveView?.xField || effectiveView?.x_field,
         yField: effectiveView?.yField || effectiveView?.y_field,
         aggregation: effectiveView?.aggregation,
-    }), [effectiveView, viewType, columns]);
+    }), [effectiveView, viewType, columns, t]);
 
     if (loading) {
         return (
@@ -1305,6 +1276,7 @@ export function DbViewEmbed({ block }) {
             </Box>
         );
     };
+    const visibleTabs = tableViews.filter(v => v.id === viewId || pinnedViewIds.has(v.id));
 
     return (
         // `min-w-0 w-full`: the block's container (.bn-block-content) is flex;
@@ -1325,6 +1297,7 @@ export function DbViewEmbed({ block }) {
                 </div>
                 <ViewActionsBar
                     onCreate={tableId ? handleCreate : null}
+                    onAddView={tableId ? () => handleAddView('table') : null}
                     templates={templates}
                     onOpenConfig={onOpenPageViewModal && tableId ? handleOpenConfig : null}
                     searchTerm={searchTerm}
@@ -1338,9 +1311,7 @@ export function DbViewEmbed({ block }) {
                 table's views are shown. The bar uses `flex-wrap` (not `overflow`) so as
                 not to clip the × and + dropdowns. */}
             {(() => {
-                const visibleTabs = tableViews.filter(v => v.id === viewId || pinnedViewIds.has(v.id));
-                const unpinnedExisting = tableViews.filter(v => v.id !== viewId && !pinnedViewIds.has(v.id));
-                if (visibleTabs.length === 0) return null;
+                if (visibleTabs.length <= 1) return null;
                 return (
                 <div className="relative z-30 flex flex-wrap items-center gap-0.5 border-b border-[var(--border-primary)] mb-2">
                     {visibleTabs.map(v => {
@@ -1359,9 +1330,11 @@ export function DbViewEmbed({ block }) {
                             >
                                 <span>{v.name || v.heading || t('views_header.default_view_name', "View")}</span>
                                 <button
+                                    type="button"
                                     onClick={(e) => { e.stopPropagation(); decideMenuDir(e); setTabMenuFor(m => m === v.id ? null : v.id); }}
                                     className={`${tabMenuFor === v.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} text-[var(--text-tertiary)] hover:text-[var(--text-primary)]`}
                                     title={t('views_header.view_options', "View options")}
+                                    aria-label={t('views_header.view_options', "View options")}
                                 >
                                     <MoreHorizontal size={13} />
                                 </button>
@@ -1415,13 +1388,6 @@ export function DbViewEmbed({ block }) {
                             </div>
                         );
                     })}
-                    <button
-                        onClick={() => handleAddView('table')}
-                        className="px-1.5 py-1 text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]"
-                        title={t('views_header.add_view', "Add view")}
-                    >
-                        <Plus size={13} />
-                    </button>
                 </div>
                 );
             })()}

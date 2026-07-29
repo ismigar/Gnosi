@@ -51,7 +51,7 @@ export default function MeetingReminderWatcher() {
     if (!reminders.length) return null;
 
     return (
-        <div className="fixed bottom-4 left-4 z-[100000] flex w-[360px] max-w-[calc(100vw-2rem)] flex-col gap-2">
+        <div className="fixed bottom-4 left-4 z-[var(--z-notification)] flex w-[360px] max-w-[calc(100vw-2rem)] flex-col gap-2">
             {reminders.map((r) => {
                 const mins = r.minutes_until ?? 0;
                 const when = mins <= 0 ? t('meeting_reminder.now', "now") : t('meeting_reminder.in_minutes', "in {{count}} min", { count: mins });
