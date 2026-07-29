@@ -759,7 +759,7 @@ def test_managed_blocks_preserve_manual_content():
     assert "[[Updated index]]" in second
 
 
-def test_resource_index_groups_origins_and_preserves_appearance_order(monkeypatch):
+def test_resource_index_is_flat_and_preserves_appearance_order(monkeypatch):
     captured = []
     readings = [
         SimpleNamespace(
@@ -814,9 +814,9 @@ def test_resource_index_groups_origins_and_preserves_appearance_order(monkeypatc
     body = captured[0][0][4]
     metadata = captured[0][0][5]
     assert result["title"] == "Index · Resource"
-    assert body.index("## Attachment") < body.index("[[note-1|First]]")
-    assert body.index("[[note-1|First]]") < body.index("## URL")
-    assert body.index("## URL") < body.index("[[note-2|Second]]")
+    assert body == "1. [[note-1|First]]\n2. [[note-2|Second]]"
+    assert "Attachment" not in body
+    assert "URL" not in body
     assert "Resource:" not in body
     assert metadata["Source · Papers"] == ["[[Resource|resource-1]]"]
     assert metadata["Àrees"] == ["Research"]

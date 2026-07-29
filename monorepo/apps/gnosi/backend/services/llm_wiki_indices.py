@@ -421,21 +421,10 @@ def _upsert_resource_index(
         ),
         resource_id,
     )
-    grouped: dict[tuple[int, str], list[Any]] = {}
-    for page in readings:
-        meta = _meta(page)
-        key = (
-            _sortable_integer(meta.get("llm_wiki_origin_order")),
-            str(meta.get("llm_wiki_origin_label") or "Source"),
-        )
-        grouped.setdefault(key, []).append(page)
     lines = []
-    for (_order, label), notes in sorted(grouped.items(), key=lambda item: item[0]):
-        lines.extend([f"## {label}", ""])
-        for page in notes:
-            position = _meta(page).get("Posició") or _meta(page).get("position") or "—"
-            lines.append(f"{position}. {_page_wikilink(page)}")
-        lines.append("")
+    for page in readings:
+        position = _meta(page).get("Posició") or _meta(page).get("position") or "—"
+        lines.append(f"{position}. {_page_wikilink(page)}")
 
     metadata: dict[str, Any] = {
         "llm_wiki_source_table_id": source_table_id,
