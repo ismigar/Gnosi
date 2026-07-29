@@ -613,6 +613,125 @@ def test_extended_citation_contains_snapshot_segment_and_locator():
     assert "page=7" in citation
     assert "paragraph=3" in citation
     assert "start=12.5" in citation
+    assert "[[Resource|" not in citation
+
+
+def test_relation_dimension_values_accept_normalized_source_ids():
+    prop = {"type": "relation"}
+    options = [{
+        "id": "area-1",
+        "label": "Area title",
+        "value": "[[Area title|area-1]]",
+    }]
+
+    assert llm_wiki._canonical_dimension_value(  # noqa: SLF001
+        prop,
+        ["area-1"],
+        options,
+    ) == ["[[Area title|area-1]]"]
+
+
+def test_source_dimensions_override_generated_values():
+    merged = llm_wiki._effective_dimensions(  # noqa: SLF001
+        {"tags": ["AI tag"], "area": ["AI area"]},
+        {"tags": ["Source tag"], "project": ["Source project"]},
+    )
+
+    assert merged == {
+        "tags": ["Source tag"],
+        "area": ["AI area"],
+        "project": ["Source project"],
+    }
+
+
+def test_redundant_source_link_is_removed_from_managed_citation():
+    body = (
+        "> Evidence — [p. 1](gnosi-cite:?res=resource-1&page=1) · "
+        "[[Resource|resource-1]]\n"
+    )
+
+    assert llm_wiki_indices._remove_redundant_source_links(body) == (  # noqa: SLF001
+        "> Evidence — [p. 1](gnosi-cite:?res=resource-1&page=1)\n"
+    )
+
+
+def test_index_rebuild_synchronizes_existing_source_dimensions(monkeypatch, tmp_path):
+    source_page = SimpleNamespace(
+        id="resource-1",
+        title="Resource",
+        metadata={"Area source": ["area-1"]},
+    )
+    reading_path = tmp_path / "reading.md"
+    reading_path.write_text("placeholder", encoding="utf-8")
+    reading_page = SimpleNamespace(
+        id="reading-1",
+        title="Reading",
+        path=str(reading_path),
+        metadata={
+            "note_type": "lectura",
+            "llm_wiki_managed": True,
+            "llm_wiki_source_table_id": "sources",
+            "llm_wiki_resource_id": "resource-1",
+        },
+    )
+    tables = {
+        "brain": {
+            "properties": [
+                {"id": "area", "name": "Area", "type": "relation"},
+            ],
+        },
+        "sources": {
+            "properties": [
+                {"id": "source-area", "name": "Area source", "type": "relation"},
+            ],
+        },
+    }
+    saved = []
+    monkeypatch.setattr(llm_wiki_indices, "_table", lambda table_id: tables[table_id])
+    monkeypatch.setattr(
+        llm_wiki_indices,
+        "_brain_pages",
+        lambda table_id: [reading_page] if table_id == "brain" else [source_page],
+    )
+    monkeypatch.setattr(
+        llm_wiki,
+        "_dimension_context",
+        lambda *_args: ({"area": ["[[Area|area-1]]"]}, []),
+    )
+    monkeypatch.setattr(
+        llm_wiki_indices,
+        "_read_page",
+        lambda _path: (
+            {
+                **reading_page.metadata,
+                "Area": ["[[Old area|old-area]]"],
+            },
+            "> Evidence — [p. 1](gnosi-cite:?res=resource-1&page=1) · "
+            "[[Resource|resource-1]]\n",
+        ),
+    )
+    monkeypatch.setattr(
+        llm_wiki_indices,
+        "_save_existing_page",
+        lambda path, metadata, body: saved.append((path, metadata, body)),
+    )
+    config = {
+        "source_tables": [{
+            "table_id": "sources",
+            "dimension_mappings": {
+                "area": {
+                    "mode": "source",
+                    "source_property_id": "source-area",
+                },
+            },
+        }],
+    }
+
+    count = llm_wiki_indices.sync_source_dimensions("brain", config)
+
+    assert count == 1
+    assert saved[0][1]["Area"] == ["[[Area|area-1]]"]
+    assert "[[Resource|resource-1]]" not in saved[0][2]
 
 
 def test_managed_blocks_preserve_manual_content():
@@ -693,6 +812,7 @@ def test_resource_index_groups_origins_and_preserves_appearance_order(monkeypatc
     assert body.index("## Attachment") < body.index("[[note-1|First]]")
     assert body.index("[[note-1|First]]") < body.index("## URL")
     assert body.index("## URL") < body.index("[[note-2|Second]]")
+    assert "Resource:" not in body
     assert metadata["Source · Papers"] == ["[[Resource|resource-1]]"]
     assert metadata["Àrees"] == ["Research"]
 
