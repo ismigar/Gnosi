@@ -690,9 +690,9 @@ def test_resource_index_groups_origins_and_preserves_appearance_order(monkeypatc
     body = captured[0][0][4]
     metadata = captured[0][0][5]
     assert result["title"] == "Index · Resource"
-    assert body.index("## Attachment") < body.index("[[First|note-1]]")
-    assert body.index("[[First|note-1]]") < body.index("## URL")
-    assert body.index("## URL") < body.index("[[Second|note-2]]")
+    assert body.index("## Attachment") < body.index("[[note-1|First]]")
+    assert body.index("[[note-1|First]]") < body.index("## URL")
+    assert body.index("## URL") < body.index("[[note-2|Second]]")
     assert metadata["Source · Papers"] == ["[[Resource|resource-1]]"]
     assert metadata["Àrees"] == ["Research"]
 
@@ -741,10 +741,14 @@ def test_dimension_index_links_readings_and_manual_permanents_separately(monkeyp
 
     body = captured[0][0][4]
     assert len(pages) == 1
-    assert "[[Reading idea|reading-1]]" in body
-    assert "[[Manual synthesis|permanent-1]]" in body
-    assert body.index("[[Reading idea|reading-1]]") < body.index("## Manual permanent notes")
-    assert body.index("## Manual permanent notes") < body.index("[[Manual synthesis|permanent-1]]")
+    assert "[[reading-1|Reading idea]]" in body
+    assert "[[permanent-1|Manual synthesis]]" in body
+    assert body.index("[[reading-1|Reading idea]]") < body.index("## Manual permanent notes")
+    assert body.index("## Manual permanent notes") < body.index("[[permanent-1|Manual synthesis]]")
+
+
+def test_generated_wikilinks_keep_ids_as_targets_and_titles_as_aliases():
+    assert llm_wiki_indices._wikilink("note-1", "Readable title") == "[[note-1|Readable title]]"  # noqa: SLF001
 
 
 def test_rebuildable_search_vectors_support_hybrid_ranking():
