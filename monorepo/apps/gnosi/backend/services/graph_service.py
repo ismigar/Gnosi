@@ -755,12 +755,29 @@ class GraphService:
                     
                     file_id = file_path.stem
                     id_to_use = metadata.get("id") or file_id
+                    managed_kind = ""
+                    try:
+                        from backend.services import llm_wiki_config, llm_wiki_storage
+
+                        metadata = llm_wiki_storage.merge_page_metadata(
+                            metadata,
+                            str(id_to_use),
+                        )
+                        managed_kind = llm_wiki_config.metadata_note_type(metadata)
+                    except Exception:  # noqa: BLE001
+                        pass
                     title = metadata.get("title") or file_id
                     
                     # Extract kind
                     app_cfg = cfg.get("app", {})
                     type_prop = app_cfg.get("type_property", "note_type")
-                    raw_kind = metadata.get("note_type") or metadata.get(type_prop) or metadata.get("type") or "page"
+                    raw_kind = (
+                        metadata.get("note_type")
+                        or metadata.get(type_prop)
+                        or managed_kind
+                        or metadata.get("type")
+                        or "page"
+                    )
                     
                     norm_kind = str(raw_kind)
                     kind = "page"

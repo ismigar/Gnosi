@@ -90,9 +90,15 @@ cognitive authorship:
 | Reading notes | Plugin | One atomic idea per note, linked to exactly one source, in source order |
 | Permanent notes | User only | The plugin never creates or accepts permanent-note drafts |
 
-Generated reading notes retain the persisted `note_type: lectura` marker for graph
-compatibility. This stored legacy value is not a display name and must not be migrated
-destructively.
+Generated and managed pages keep their operational state in synchronized sidecars at
+`<vault>/.gnosi/llm_wiki/pages/<page-id>.json`. The Markdown frontmatter contains only
+portable schema properties plus structural `id` and `table_id`; it never stores
+`llm_wiki_*` or the technical `note_type` marker. The visible schema **Note type** property
+is the portable classification used outside Gnosi.
+
+Legacy managed pages are migrated idempotently. The sidecar is written before the Markdown
+is cleaned, readers temporarily fall back to legacy frontmatter when no sidecar exists,
+and manual body content is never rewritten except through the normal page serializer.
 
 The inbox exposes evidence-backed connections, support, contradictions, and gaps. It can
 open notes or dismiss a proposal; it cannot create permanent notes. Semantic proposals run
@@ -216,8 +222,14 @@ overwrite user-edited instructions.
 - Deterministic index maintenance re-synchronizes source-mapped fields into
   existing managed reading notes and clears target values when the source value
   is empty. Configuration repairs must not require another LLM ingest.
-- Keep `note_type` and `llm_wiki_*` metadata for deterministic processing, but
-  never expose those keys as user-created local properties in the editor.
+- Do not cast legacy position values directly to integers while rebuilding
+  indexes. Manual or imported notes may contain ranges such as `254-255`; use
+  their numeric prefix as a stable sort key and let nonnumeric values sort as
+  zero instead of aborting maintenance.
+- Keep deterministic `note_type` and `llm_wiki_*` state only in synchronized
+  `.gnosi/llm_wiki/pages/` sidecars. Write the sidecar before removing legacy
+  fields from Markdown, overlay it on every Brain read path, and retain a
+  frontmatter fallback until existing vaults have migrated.
 - Do not use `tempfile` without an explicit `llm_wiki/tmp` directory under
   `GNOSI_LOCAL_DATA`.
 - Do not create unconstrained categorical values. Canonicalize them against existing

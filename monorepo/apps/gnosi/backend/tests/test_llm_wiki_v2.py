@@ -75,6 +75,11 @@ def test_visible_note_type_uses_existing_semantic_option():
 
     assert llm_wiki_config.note_type_value("reading", config, prop) == "Nota de lectura"
     assert llm_wiki_config.note_type_value("index", config, prop) == "Nota índex"
+    assert llm_wiki_config.note_type_value("permanent", config, prop) == "Nota permanent"
+    assert llm_wiki_config.note_type_value("system", config, prop) == "Nota de sistema"
+    assert llm_wiki_config.metadata_note_type(
+        {"Tipus de nota": "Nota permanent"},
+    ) == "permanent"
 
 
 def test_legacy_brain_property_ids_are_recovered_from_configured_mappings(monkeypatch):
@@ -817,6 +822,11 @@ def test_resource_index_groups_origins_and_preserves_appearance_order(monkeypatc
     assert metadata["Àrees"] == ["Research"]
 
 
+def test_index_sorting_accepts_legacy_position_ranges():
+    assert llm_wiki_indices._sortable_integer("254-255") == 254  # noqa: SLF001
+    assert llm_wiki_indices._sortable_integer("unknown") == 0  # noqa: SLF001
+
+
 def test_dimension_index_links_readings_and_manual_permanents_separately(monkeypatch):
     captured = []
     reading = SimpleNamespace(
@@ -1026,6 +1036,206 @@ def test_jobs_snapshots_and_manifests_are_persistent(monkeypatch, tmp_path: Path
     assert evidence is not None
     assert evidence["segment"]["text"] == "Immutable source paragraph."
     assert llm_wiki_storage.load_manifest("sources", "resource-1")["managed_note_ids"] == ["note-1"]
+
+
+def test_managed_page_state_lives_in_synced_sidecar(monkeypatch, tmp_path: Path):
+    from backend.api import vault_routes
+
+    vault = tmp_path / "vault"
+    config_root = vault / ".gnosi"
+    vault.mkdir()
+    monkeypatch.setattr(
+        vault_routes,
+        "get_p",
+        lambda key: {
+            "VAULT": vault,
+            "GNOSI_CONFIG": config_root,
+        }[key],
+    )
+    llm_wiki_storage._PAGE_STATE_CACHE.clear()  # noqa: SLF001
+    metadata = {
+        "id": "note-1",
+        "title": "Portable note",
+        "table_id": "brain",
+        "Note type": "Reading note",
+        "note_type": "lectura",
+        "llm_wiki_managed": True,
+        "llm_wiki_key": "stable-key",
+        "llm_wiki_resource_id": "resource-1",
+    }
+
+    portable = llm_wiki_storage.prepare_managed_markdown(metadata)
+    restored = llm_wiki_storage.merge_page_metadata(portable, "note-1")
+
+    assert portable == {
+        "id": "note-1",
+        "title": "Portable note",
+        "table_id": "brain",
+        "Note type": "Reading note",
+    }
+    assert restored["note_type"] == "lectura"
+    assert restored["llm_wiki_key"] == "stable-key"
+    assert restored["llm_wiki_resource_id"] == "resource-1"
+    assert (
+        llm_wiki_storage.page_state_path("note-1")
+        == config_root / "llm_wiki" / "pages" / "note-1.json"
+    )
+
+
+def test_legacy_managed_frontmatter_migrates_without_body_changes(
+    monkeypatch,
+    tmp_path: Path,
+):
+    from backend.api import vault_routes
+
+    vault = tmp_path / "vault"
+    config_root = vault / ".gnosi"
+    note_path = vault / "Reading.md"
+    vault.mkdir()
+    monkeypatch.setattr(
+        vault_routes,
+        "get_p",
+        lambda key: {
+            "VAULT": vault,
+            "GNOSI_CONFIG": config_root,
+        }[key],
+    )
+    monkeypatch.setattr(vault_routes, "register_page_in_index", lambda _path: None)
+    vault_routes.save_page_md(
+        note_path,
+        {
+            "id": "reading-1",
+            "title": "Reading",
+            "table_id": "brain",
+            "Note type": "Reading note",
+            "note_type": "lectura",
+            "llm_wiki_managed": True,
+            "llm_wiki_key": "stable-key",
+        },
+        "Manual body stays unchanged.\n",
+    )
+    monkeypatch.setattr(
+        llm_wiki_indices,
+        "_brain_pages",
+        lambda _table_id: [
+            SimpleNamespace(
+                id="reading-1",
+                title="Reading",
+                path=str(note_path),
+                metadata={},
+            ),
+        ],
+    )
+    llm_wiki_storage._PAGE_STATE_CACHE.clear()  # noqa: SLF001
+
+    migrated = llm_wiki_indices.migrate_managed_frontmatter("brain")
+    portable, body = vault_routes.parse_frontmatter(
+        note_path.read_text(encoding="utf-8"),
+        note_path,
+    )
+
+    assert migrated == 1
+    assert "note_type" not in portable
+    assert not any(key.startswith("llm_wiki_") for key in portable)
+    assert portable["Note type"] == "Reading note"
+    assert body.strip() == "Manual body stays unchanged."
+    assert llm_wiki_storage.load_page_state("reading-1")["llm_wiki_key"] == "stable-key"
+
+
+def test_new_reading_note_writes_portable_frontmatter_and_managed_sidecar(
+    monkeypatch,
+    tmp_path: Path,
+):
+    from backend.api import vault_routes
+
+    vault = tmp_path / "vault"
+    brain_dir = vault / "Brain"
+    config_root = vault / ".gnosi"
+    brain_dir.mkdir(parents=True)
+    monkeypatch.setattr(
+        vault_routes,
+        "get_p",
+        lambda key: {
+            "VAULT": vault,
+            "GNOSI_CONFIG": config_root,
+        }[key],
+    )
+    monkeypatch.setattr(vault_routes, "_get_pages_for_table", lambda _table_id: [])
+    monkeypatch.setattr(
+        vault_routes,
+        "_resolve_table_folder_from_metadata",
+        lambda _metadata: brain_dir,
+    )
+    monkeypatch.setattr(
+        vault_routes,
+        "_get_unique_filepath",
+        lambda folder, title, suffix: folder / f"{title}{suffix}",
+    )
+    monkeypatch.setattr(
+        vault_routes,
+        "_table_by_id",
+        lambda _table_id: {
+            "properties": [
+                {
+                    "id": "note-type",
+                    "name": "Note type",
+                    "type": "select",
+                    "options": [{"name": "Reading note"}],
+                },
+            ],
+        },
+    )
+    saved = []
+    monkeypatch.setattr(
+        vault_routes,
+        "save_page_md",
+        lambda path, metadata, body: saved.append((path, metadata, body)),
+    )
+    monkeypatch.setattr(vault_routes, "register_page_in_index", lambda _path: None)
+    llm_wiki_storage._PAGE_STATE_CACHE.clear()  # noqa: SLF001
+    config = {
+        "ui_locale": "en",
+        "brain_roles": {"note_type": "note-type"},
+        "source_tables": [],
+        "index_field_ids": [],
+    }
+    plan = {
+        "notes": [{
+            "title": "Atomic idea",
+            "type": "concepte",
+            "body_md": "Portable body.",
+            "tags": [],
+            "managed_key": "stable-key",
+            "position": 1,
+            "origin_id": "origin-1",
+            "origin_order": 0,
+            "origin_label": "Source",
+            "source_segment_id": "segment-1",
+            "dimensions": {},
+            "citations": [],
+        }],
+    }
+
+    result = llm_wiki._apply_plan(  # noqa: SLF001
+        plan,
+        "resource-1",
+        "Resource",
+        "brain",
+        source_table_id="sources",
+        config=config,
+    )
+
+    assert result["created"] == ["Atomic idea"]
+    assert len(saved) == 1
+    written_metadata = saved[0][1]
+    assert written_metadata["Note type"] == "Reading note"
+    assert "note_type" not in written_metadata
+    assert not any(key.startswith("llm_wiki_") for key in written_metadata)
+    page_id = written_metadata["id"]
+    state = llm_wiki_storage.load_page_state(page_id)
+    assert state["note_type"] == "lectura"
+    assert state["llm_wiki_key"] == "stable-key"
+    assert state["llm_wiki_resource_id"] == "resource-1"
 
 
 def test_v2_config_http_contract_uses_a_disposable_vault(monkeypatch, tmp_path: Path):

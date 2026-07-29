@@ -7202,12 +7202,14 @@ def _normalize_brain_page_contract(
     note_type_id = str((config.get("brain_roles") or {}).get("note_type") or "")
     note_type_prop = props_by_id.get(note_type_id)
     note_type_name = str((note_type_prop or {}).get("name") or "")
-    stored_kind = _brain_schema_token(metadata.get("note_type"))
+    stored_kind = llm_wiki_config.metadata_note_type(metadata)
     managed_role = str(metadata.get("llm_wiki_role") or "")
-    semantic_kind = ""
-    if stored_kind in {"lectura", "reading"}:
-        semantic_kind = "reading"
-    elif stored_kind in {"index", "indice"} or managed_role.endswith("-index"):
+    semantic_kind = (
+        "reading"
+        if stored_kind == "lectura"
+        else stored_kind
+    )
+    if not semantic_kind and managed_role.endswith("-index"):
         semantic_kind = "index"
     if semantic_kind and note_type_name:
         metadata[note_type_name] = llm_wiki_config.note_type_value(
@@ -7232,7 +7234,7 @@ def _normalize_brain_page_contract(
             )
             source_relations[str(source.get("table_id") or "")] = relation
 
-    if stored_kind in {"permanent", "permanente"}:
+    if stored_kind == "permanent":
         for name in source_names:
             metadata.pop(name, None)
     else:
@@ -7265,6 +7267,8 @@ def _normalize_existing_brain_pages(
     config: dict,
 ) -> int:
     """Migrate existing managed notes to the current singular-source contract."""
+    from backend.services import llm_wiki_storage
+
     brain_table = _table_by_id(brain_table_id) or {}
     source_titles: dict[tuple[str, str], str] = {}
     for source in config.get("source_tables") or []:
@@ -7298,15 +7302,24 @@ def _normalize_existing_brain_pages(
         if not path or not path.exists():
             continue
         try:
-            metadata, body = parse_frontmatter(path.read_text(encoding="utf-8"), path)
-            if not _normalize_brain_page_contract(
+            raw_metadata, body = parse_frontmatter(path.read_text(encoding="utf-8"), path)
+            page_id = str(
+                getattr(page, "id", "")
+                or raw_metadata.get("id")
+                or ""
+            )
+            metadata = llm_wiki_storage.merge_page_metadata(raw_metadata, page_id)
+            contract_changed = _normalize_brain_page_contract(
                 metadata,
                 config,
                 brain_table,
                 source_titles,
-            ):
+            )
+            portable_metadata = llm_wiki_storage.prepare_managed_markdown(metadata)
+            portable_metadata.pop("note_type", None)
+            if not contract_changed and portable_metadata == raw_metadata:
                 continue
-            save_page_md(path, metadata, body)
+            save_page_md(path, portable_metadata, body)
             register_page_in_index(path)
             migrated += 1
         except Exception as error:

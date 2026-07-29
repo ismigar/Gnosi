@@ -126,7 +126,7 @@ def _load_brain_index(brain_table_id: str, source_page_id: str = "") -> List[Dic
     out = []
     try:
         for page in _get_pages_for_table(brain_table_id) or []:
-            meta = getattr(page, "metadata", None) or {}
+            meta = llm_wiki_storage.page_metadata(page)
             if meta.get("is_template"):
                 continue
             out.append({
@@ -490,7 +490,7 @@ def _apply_plan(
     legacy_by_position: dict[int, list[Any]] = {}
     managed_for_resource: list[Any] = []
     for page in _get_pages_for_table(brain_table_id) or []:
-        meta = getattr(page, "metadata", None) or {}
+        meta = llm_wiki_storage.page_metadata(page)
         if str(meta.get("llm_wiki_resource_id") or "") == source_page_id:
             managed_for_resource.append(page)
             key = str(meta.get("llm_wiki_key") or "")
@@ -579,29 +579,47 @@ def _apply_plan(
             path = _page_path(page)
             if path and path.exists():
                 old_meta, old_body = parse_frontmatter(path.read_text(encoding="utf-8"), path)
+                old_meta = llm_wiki_storage.merge_page_metadata(
+                    old_meta,
+                    str(getattr(page, "id", "") or old_meta.get("id") or ""),
+                )
                 old_meta.update(metadata)
-                save_page_md(path, old_meta, _replace_note_block(old_body, managed_key, managed_body))
+                portable_meta = llm_wiki_storage.prepare_managed_markdown(old_meta)
+                save_page_md(
+                    path,
+                    portable_meta,
+                    _replace_note_block(old_body, managed_key, managed_body),
+                )
                 register_page_in_index(path)
                 updated.append(title)
                 continue
 
         metadata["id"] = str(uuid.uuid4())
         path = _get_unique_filepath(brain_dir, title, ".md")
-        save_page_md(path, metadata, _replace_note_block("", managed_key, managed_body))
+        portable_meta = llm_wiki_storage.prepare_managed_markdown(metadata)
+        save_page_md(path, portable_meta, _replace_note_block("", managed_key, managed_body))
         register_page_in_index(path)
         created.append(title)
         created_ids.append(metadata["id"])
 
     for page in managed_for_resource:
-        meta = getattr(page, "metadata", None) or {}
+        meta = llm_wiki_storage.page_metadata(page)
         key = str(meta.get("llm_wiki_key") or "")
         if key and key not in active_keys and not meta.get("llm_wiki_stale"):
             path = _page_path(page)
             if not path or not path.exists():
                 continue
             old_meta, old_body = parse_frontmatter(path.read_text(encoding="utf-8"), path)
+            old_meta = llm_wiki_storage.merge_page_metadata(
+                old_meta,
+                str(getattr(page, "id", "") or old_meta.get("id") or ""),
+            )
             old_meta["llm_wiki_stale"] = True
-            save_page_md(path, old_meta, old_body)
+            save_page_md(
+                path,
+                llm_wiki_storage.prepare_managed_markdown(old_meta),
+                old_body,
+            )
             register_page_in_index(path)
 
     return {"created": created, "created_ids": created_ids, "updated": updated}
