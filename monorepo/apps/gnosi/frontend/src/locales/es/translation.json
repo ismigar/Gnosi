@@ -1436,6 +1436,7 @@
       "llm_wiki_map_empty": "Dejar vacío",
       "llm_wiki_saving": "Guardando…",
       "llm_wiki_save": "Guardar y preparar",
+      "llm_wiki_autosave": "Los cambios se guardan automáticamente.",
       "llm_wiki_capabilities": "OCR {{ocr}} · transcripción {{transcription}} · streaming {{streaming}}",
       "llm_wiki_capability_help": "Instala Tesseract (ca/es/en/fr), FFmpeg y las dependencias Python indicadas en requirements.txt; después reinicia el backend nativo.",
       "llm_wiki_missing_ocr_languages": "Idiomas OCR que faltan: {{languages}}.",
