@@ -31,6 +31,7 @@ export function ProcessResourceModal({
     force = false,
     onJobUpdate,
     onProcessed,
+    onContinueInBackground,
 }) {
     const { t } = useTranslation();
     const tp = (k, def, opts) => t(`llm_wiki.${k}`, { defaultValue: def, ...(opts || {}) });
@@ -39,6 +40,7 @@ export function ProcessResourceModal({
     const [error, setError] = useState('');
     const pollRef = useRef(null);
     const modalRef = useRef(null);
+    const jobRef = useRef(null);
 
     const stopPolling = () => {
         if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
@@ -61,6 +63,7 @@ export function ProcessResourceModal({
                 { params: sourceTableId ? { source_table_id: sourceTableId } : undefined },
             );
             const j = res.data || {};
+            jobRef.current = j;
             setJob(j);
             onJobUpdate?.(j);
             if (j.phase === 'done' && !j.running) {
@@ -90,8 +93,10 @@ export function ProcessResourceModal({
                 force,
             });
             const nextJobId = response.data?.job_id || noteId;
-            setJob(response.data?.job || null);
-            if (response.data?.job) onJobUpdate?.(response.data.job);
+            const startedJob = response.data?.job || null;
+            jobRef.current = startedJob;
+            setJob(startedJob);
+            if (startedJob) onJobUpdate?.(startedJob);
             stopPolling();
             pollRef.current = setInterval(() => poll(nextJobId), POLL_MS);
             poll(nextJobId);
@@ -103,9 +108,17 @@ export function ProcessResourceModal({
         }
     };
 
+    const dismiss = () => {
+        const currentJob = jobRef.current;
+        if (state === 'running' && currentJob?.job_id) {
+            onContinueInBackground?.(currentJob);
+        }
+        onClose();
+    };
+
     useModalKeyboard({
         isOpen,
-        onClose,
+        onClose: dismiss,
         onConfirm: () => { if (state === 'confirm') start(); },
         confirmDisabled: state !== 'confirm',
         containerRef: modalRef,
@@ -134,7 +147,7 @@ export function ProcessResourceModal({
                         <BrainCircuit size={18} className="text-[var(--gnosi-primary)]" />
                         {tp('modal_title', "Process resource into the Brain")}
                     </h2>
-                    <button onClick={onClose} className="gnosi-close-btn" aria-label={t('common.close', "Close")}>
+                    <button onClick={dismiss} className="gnosi-close-btn" aria-label={t('common.close', "Close")}>
                         <X />
                     </button>
                 </div>

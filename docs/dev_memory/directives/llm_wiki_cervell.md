@@ -188,6 +188,10 @@ overwrite user-edited instructions.
   the frontend cannot resolve its attachment/URL field. Stale schemas and
   interrupted jobs can make that client-side check incomplete; expose the
   action and let the backend inspect the durable row data.
+- Closing an in-progress Process modal must not abandon its durable job. Keep
+  polling it from the dashboard and show a localized terminal notification;
+  this in-session notification does not persist after the whole application is
+  closed.
 - Do not use `tempfile` without an explicit `llm_wiki/tmp` directory under
   `GNOSI_LOCAL_DATA`.
 - Do not create unconstrained categorical values. Canonicalize them against existing
