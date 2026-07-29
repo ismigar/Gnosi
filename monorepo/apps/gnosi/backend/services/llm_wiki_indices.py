@@ -84,6 +84,7 @@ def ensure_system_pages(brain_table_id: str, config: dict[str, Any]) -> dict[str
 def rebuild_indexes(brain_table_id: str, config: dict[str, Any]) -> dict[str, Any]:
     """Rebuild every managed resource/dimension/general index and search cache."""
     ensure_system_pages(brain_table_id, config)
+    source_records_synced = sync_source_dimensions(brain_table_id, config)
     pages = _brain_pages(brain_table_id)
     brain_table = _table(brain_table_id)
     props_by_id = {
@@ -151,7 +152,102 @@ def rebuild_indexes(brain_table_id: str, config: dict[str, Any]) -> dict[str, An
         "reading_notes": len(readings),
         "permanent_notes": len(permanents),
         "search_cache_notes": cache_count,
+        "source_records_synced": source_records_synced,
     }
+
+
+def sync_source_dimensions(
+    brain_table_id: str,
+    config: dict[str, Any],
+) -> int:
+    """Synchronize configured source fields into existing managed reading notes."""
+    from backend.services import llm_wiki
+
+    brain_table = _table(brain_table_id) or {}
+    brain_props = {
+        str(prop.get("id") or ""): prop
+        for prop in brain_table.get("properties") or []
+        if isinstance(prop, dict) and prop.get("id")
+    }
+    source_configs = {
+        str(item.get("table_id") or ""): item
+        for item in config.get("source_tables") or []
+        if isinstance(item, dict) and item.get("table_id")
+    }
+    source_tables = {
+        table_id: _table(table_id) or {"id": table_id, "properties": []}
+        for table_id in source_configs
+    }
+    source_pages = {
+        table_id: {
+            _page_id(page): page
+            for page in _brain_pages(table_id)
+            if _page_id(page)
+        }
+        for table_id in source_configs
+    }
+
+    mapped_cache: dict[tuple[str, str], dict[str, Any]] = {}
+    updated = 0
+    for page in _brain_pages(brain_table_id):
+        meta = _meta(page)
+        if _note_kind(page) != "lectura" or not meta.get("llm_wiki_managed"):
+            continue
+        source_table_id = str(meta.get("llm_wiki_source_table_id") or "")
+        resource_id = str(meta.get("llm_wiki_resource_id") or "")
+        source_config = source_configs.get(source_table_id)
+        source_page = (source_pages.get(source_table_id) or {}).get(resource_id)
+        if not source_config or source_page is None:
+            continue
+
+        cache_key = (source_table_id, resource_id)
+        mapped = mapped_cache.get(cache_key)
+        if mapped is None:
+            mapped, _ai_specs = llm_wiki._dimension_context(  # noqa: SLF001
+                config,
+                source_tables[source_table_id],
+                source_config,
+                _meta(source_page),
+            )
+            mapped_cache[cache_key] = mapped
+        path = _path(page)
+        if not path:
+            continue
+        metadata, body = _read_page(path)
+        changed = False
+        for field_id, mapping in (source_config.get("dimension_mappings") or {}).items():
+            if str((mapping or {}).get("mode") or "ai") != "source":
+                continue
+            prop = brain_props.get(str(field_id))
+            name = str((prop or {}).get("name") or "")
+            if not name:
+                continue
+            value = mapped.get(str(field_id))
+            if value in (None, "", [], {}):
+                if name in metadata:
+                    metadata.pop(name, None)
+                    changed = True
+            elif metadata.get(name) != value:
+                metadata[name] = value
+                changed = True
+
+        cleaned_body = _remove_redundant_source_links(body)
+        if cleaned_body != body:
+            body = cleaned_body
+            changed = True
+        if changed:
+            _save_existing_page(path, metadata, body)
+            updated += 1
+    return updated
+
+
+def _remove_redundant_source_links(body: str) -> str:
+    """Remove source wikilinks appended to managed citation deep links."""
+    return re.sub(
+        r"(?m)(\]\(gnosi-cite:\?[^)\n]+\))\s*·\s*\[\[[^\]\n]+\]\](?=\s*$)",
+        r"\1",
+        str(body or ""),
+    )
 
 
 def append_log(
@@ -297,7 +393,7 @@ def _upsert_resource_index(
             str(meta.get("llm_wiki_origin_label") or "Source"),
         )
         grouped.setdefault(key, []).append(page)
-    lines = [f"Resource: {_wikilink(resource_id, resource_title)}", ""]
+    lines = []
     for (_order, label), notes in sorted(grouped.items(), key=lambda item: item[0]):
         lines.extend([f"## {label}", ""])
         for page in notes:

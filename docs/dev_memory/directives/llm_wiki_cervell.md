@@ -206,6 +206,18 @@ overwrite user-edited instructions.
 - Generated Markdown wikilinks use `[[stable-id|visible title]]`. Do not write
   `[[title|id]]`: the editor treats the text after `|` as the visible alias and
   would expose internal UUIDs in managed indexes and logs.
+- Source-mapped relation values may arrive as bare UUIDs after frontmatter
+  normalization. Canonicalize relation mappings by target row ID as well as by
+  title and serialized relation value, or configured fields will be dropped.
+- Explicit source mappings override any persisted or model-generated dimension
+  values. The source relation property is the canonical provenance link; do not
+  duplicate it in reading-note citations or as a resource line in the managed
+  resource index.
+- Deterministic index maintenance re-synchronizes source-mapped fields into
+  existing managed reading notes and clears target values when the source value
+  is empty. Configuration repairs must not require another LLM ingest.
+- Keep `note_type` and `llm_wiki_*` metadata for deterministic processing, but
+  never expose those keys as user-created local properties in the editor.
 - Do not use `tempfile` without an explicit `llm_wiki/tmp` directory under
   `GNOSI_LOCAL_DATA`.
 - Do not create unconstrained categorical values. Canonicalize them against existing

@@ -105,6 +105,7 @@ import SpellCheckLayer from './SpellCheckLayer';
 import AICorrectLayer from './AICorrectLayer';
 import { PageLinksGraph } from './PageLinksGraph';
 import { useFloatingActionDock } from '../../hooks/useFloatingActionDock';
+import { isManagedInternalMetadataKey } from './metadataVisibilityUtils';
 
 /**
  * Resolves the URI of the PDF associated with a Recursos page.
@@ -4064,6 +4065,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
             const normalizedKey = String(key || '').toLowerCase();
             return (
                 !INTERNAL_METADATA_KEY_SET.has(key) &&
+                !isManagedInternalMetadataKey(key) &&
                 // 'Zotero Extras' is a dict; ZoteroExtrasSection renders it
                 // as its own panel outside the grid (see below). If it were
                 // left here, the text input would show "[object Object]".

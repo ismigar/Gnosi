@@ -379,13 +379,12 @@ def _parse_page(locator: str) -> Optional[int]:
 
 def _render_citations(
     citations: Any,
-    source_title: str,
+    _source_title: str,
     source_id: str,
     source_table_id: str = "",
 ) -> str:
     if not isinstance(citations, list) or not citations:
         return ""
-    source_link = f"[[{source_title}|{source_id}]]"
     lines = ["", "### Cites", ""]
     for citation in citations:
         if not isinstance(citation, dict):
@@ -409,7 +408,7 @@ def _render_citations(
             if value not in (None, ""):
                 params[key] = value
         jump = f"[{_locator_label(locator)}](gnosi-cite:?{urlencode(params)})"
-        lines.extend([f"> {quote} — {jump} · {source_link}", ""])
+        lines.extend([f"> {quote} — {jump}", ""])
     return "\n".join(lines) if len(lines) > 3 else ""
 
 
@@ -558,7 +557,7 @@ def _apply_plan(
             metadata[role_names["tags"]] = list(dict.fromkeys(str(tag) for tag in note["tags"] if tag))
         _apply_dimensions_to_metadata(
             metadata,
-            {**source_dimensions, **(note.get("dimensions") or {})},
+            _effective_dimensions(note.get("dimensions"), source_dimensions),
             props_by_id,
         )
         citations = _render_citations(
@@ -629,6 +628,16 @@ def _apply_dimensions_to_metadata(
         if not prop or value in (None, "", [], {}):
             continue
         metadata[str(prop.get("name") or field_id)] = value
+
+
+def _effective_dimensions(
+    generated: Any,
+    source_mapped: Any,
+) -> dict[str, Any]:
+    """Merge dimensions while keeping explicit source mappings authoritative."""
+    generated_values = generated if isinstance(generated, dict) else {}
+    source_values = source_mapped if isinstance(source_mapped, dict) else {}
+    return {**generated_values, **source_values}
 
 
 # ---------------------------------------------------------------------------
@@ -1015,7 +1024,11 @@ def _canonical_dimension_value(
         return None
     allowed: dict[str, Any] = {}
     for option in options:
-        for candidate in (option.get("label"), option.get("value")):
+        for candidate in (
+            option.get("label"),
+            option.get("value"),
+            option.get("id"),
+        ):
             key = str(candidate or "").strip().casefold()
             if key:
                 allowed[key] = option.get("value")
@@ -1047,6 +1060,7 @@ def _dimension_options(prop: dict, pages_for_table) -> list[dict[str, Any]]:
             {
                 "label": str(getattr(page, "title", "") or ""),
                 "value": f"[[{getattr(page, 'title', '')}|{getattr(page, 'id', '')}]]",
+                "id": str(getattr(page, "id", "") or ""),
             }
             for page in list(pages_for_table(target_id) or [])[:150]
             if getattr(page, "title", None) and getattr(page, "id", None)
