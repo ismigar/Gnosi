@@ -118,7 +118,7 @@ function buildItems(pa, t) {
  */
 export function PageActionsBar({ pageActions, containerWidth, compactOverflowItems = [] }) {
     const { t } = useTranslation();
-    const isCompact = useMediaQuery('(max-width: 767px)');
+    const isCompact = useMediaQuery('(max-width: 768px)');
     const [overflowOpen, setOverflowOpen] = useState(false);
     const [menuPos, setMenuPos] = useState(null);
     const triggerRef = useRef(null);
@@ -194,7 +194,7 @@ export function PageActionsBar({ pageActions, containerWidth, compactOverflowIte
     const iconFill = (item) => (item.fillWhenActive && item.active ? 'currentColor' : 'none');
 
     return (
-        <div className="flex items-center gap-0.5 shrink-0">
+        <div className="vault-page-actions flex items-center gap-0.5 shrink-0">
             {inline.map((item) => {
                 const { Icon } = item;
                 return (

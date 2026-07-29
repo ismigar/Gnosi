@@ -36,6 +36,19 @@ launchctl kickstart -k gui/$UID/com.gnosi.backend-native
 Frontend dependency changes require `npm install` in `frontend/`; Vite handles
 source changes through hot reload.
 
+The native frontend startup script detects a checkout that is both behind
+`origin/main` and already an ancestor of it. This means the served branch has
+been merged and is stale, not merely that normal feature work is in progress.
+Keep the warning visible in development and in the native log. Never
+automatically switch, pull, or clean that checkout because it may contain the
+maintainer's uncommitted work.
+
+A temporary Git worktree does not contain the ignored `frontend/certs`
+directory. Before serving that worktree for browser QA on port `5173`, link the
+existing local certificate directory into it. Without the certificates Vite
+falls back to HTTP, while the established browser tab remains on HTTPS; that
+protocol mismatch invalidates the visual test.
+
 Host prerequisites are installed per machine and do not travel with Git:
 
 - `pandoc` is required for document export.
