@@ -176,7 +176,7 @@ def append_log(
     timestamp = dt.datetime.now().astimezone().isoformat(timespec="seconds")
     warnings = report.get("warnings") or []
     entry = (
-        f"- **{timestamp}** · [[{resource_title}|{resource_id}]] · "
+        f"- **{timestamp}** · {_wikilink(resource_id, resource_title)} · "
         f"table `{source_table_id}` · {report.get('source_count', 0)} sources · "
         f"{len(report.get('created') or [])} created · "
         f"{len(report.get('updated') or [])} updated · "
@@ -297,12 +297,12 @@ def _upsert_resource_index(
             str(meta.get("llm_wiki_origin_label") or "Source"),
         )
         grouped.setdefault(key, []).append(page)
-    lines = [f"Resource: [[{resource_title}|{resource_id}]]", ""]
+    lines = [f"Resource: {_wikilink(resource_id, resource_title)}", ""]
     for (_order, label), notes in sorted(grouped.items(), key=lambda item: item[0]):
         lines.extend([f"## {label}", ""])
         for page in notes:
             position = _meta(page).get("Posició") or _meta(page).get("position") or "—"
-            lines.append(f"{position}. [[{_title(page)}|{_page_id(page)}]]")
+            lines.append(f"{position}. {_page_wikilink(page)}")
         lines.append("")
 
     metadata: dict[str, Any] = {
@@ -371,12 +371,12 @@ def _rebuild_dimension_indexes(
                     int(_meta(p).get("Posició") or 0),
                 ),
             ):
-                lines.append(f"- [[{_title(page)}|{_page_id(page)}]]")
+                lines.append(f"- {_page_wikilink(page)}")
             lines.append("")
         lines.extend(["## Manual permanent notes", ""])
         if item["permanents"]:
             lines.extend(
-                f"- [[{_title(page)}|{_page_id(page)}]]"
+                f"- {_page_wikilink(page)}"
                 for page in sorted(item["permanents"], key=lambda p: _title(p).casefold())
             )
         else:
@@ -416,7 +416,7 @@ def _rebuild_general_index(
     lines = ["## Field indexes", ""]
     if dimension_pages:
         lines.extend(
-            f"- [[{page['title']}|{page['id']}]]"
+            f"- {_wikilink(page['id'], page['title'])}"
             for page in sorted(dimension_pages, key=lambda p: p["title"].casefold())
         )
     else:
@@ -424,7 +424,7 @@ def _rebuild_general_index(
     lines.extend(["", "## Processed resources", ""])
     if resource_pages:
         lines.extend(
-            f"- [[{page['title']}|{page['id']}]]"
+            f"- {_wikilink(page['id'], page['title'])}"
             for page in sorted(resource_pages, key=lambda p: p["title"].casefold())
         )
     else:
@@ -604,6 +604,16 @@ def _page_id(page: Any) -> str:
     if isinstance(page, dict):
         return str(page.get("id") or _meta(page).get("id") or "")
     return str(getattr(page, "id", "") or _meta(page).get("id") or "")
+
+
+def _wikilink(target_id: Any, title: Any) -> str:
+    """Create a stable-ID wikilink with a human-readable visible alias."""
+    return f"[[{str(target_id or '')}|{str(title or '')}]]"
+
+
+def _page_wikilink(page: Any) -> str:
+    """Create a stable-ID wikilink for a Brain page."""
+    return _wikilink(_page_id(page), _title(page))
 
 
 def _title(page: Any) -> str:
