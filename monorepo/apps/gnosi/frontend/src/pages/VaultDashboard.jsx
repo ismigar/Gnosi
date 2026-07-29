@@ -37,6 +37,10 @@ import { applyDefaultFormulasToMetadata } from '../components/Vault/defaultFormu
 import { Palette } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
 import { ProcessResourceModal } from '../components/Vault/ProcessResourceModal';
+import {
+    RELATION_UNLINKED_EVENT,
+    RELATION_VALUE_APPLIED_EVENT,
+} from '../components/Vault/relationItemUtils';
 // The drawing editor (tldraw) is very heavy and is only used in 'drawing' mode:
 // we load it lazily so it doesn't end up in the Vault chunk.
 const TldrawEditor = lazy(() => import('../components/Vault/TldrawEditor'));
@@ -172,6 +176,7 @@ export default function VaultDashboard() {
     const [redoStack, setRedoStack] = useState([]);
     const undoRef = useRef(null);
     const redoRef = useRef(null);
+    const pendingRelationUndoRef = useRef(null);
     // Mirrors of the stack sizes for the global Cmd+Z listener (deps `[]`).
     // Without this, the handler would hijack (preventDefault) the shortcut even when there
     // is no table operation to undo, swallowing the editor's undo
@@ -1514,14 +1519,56 @@ export default function VaultDashboard() {
         const handleRecordsDeleted = (e) => {
             const ids = (e.detail?.ids || []).filter(Boolean);
             if (!ids.length) return;
+            pendingRelationUndoRef.current = null;
             setUndoStack(prev => [...prev, { type: 'delete', ids }]);
             setRedoStack([]);
+        };
+        const handleRelationUnlinked = (e) => {
+            const detail = e.detail || {};
+            if (!detail.pageId || !detail.metadataKey || !Array.isArray(detail.previousValue) || !Array.isArray(detail.nextValue)) return;
+            const operation = { type: 'relation_unlink', ...detail };
+            setUndoStack(prev => [...prev, operation]);
+            setRedoStack([]);
+            pendingRelationUndoRef.current = async () => {
+                const restored = await applyRelationHistoryValue(operation, operation.previousValue);
+                if (!restored) return;
+                pendingRelationUndoRef.current = null;
+                setUndoStack(prev => {
+                    const index = prev.lastIndexOf(operation);
+                    return index < 0 ? prev : [...prev.slice(0, index), ...prev.slice(index + 1)];
+                });
+                setRedoStack(prev => [...prev, operation]);
+                toast.success(t('relation_item.undo_success', 'Relation restored'));
+            };
+            toast((toastItem) => (
+                <span className="flex items-center gap-3">
+                    <span className="min-w-0">
+                        {t('relation_item.removed_toast', 'Relation removed: {{title}}', {
+                            title: detail.relationTitle || detail.relationId,
+                        })}
+                    </span>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            toast.dismiss(toastItem.id);
+                            const pendingUndo = pendingRelationUndoRef.current;
+                            if (pendingUndo) void pendingUndo();
+                            else undoRef.current?.();
+                        }}
+                        className="shrink-0 rounded bg-[var(--gnosi-primary)] px-2 py-0.5 text-xs font-semibold text-white hover:opacity-90"
+                    >
+                        {t('common.undo', 'Undo')}
+                    </button>
+                    <kbd className="shrink-0 text-[10px] text-[var(--text-tertiary)]">⌘/Ctrl+Z</kbd>
+                </span>
+            ), { duration: 8000 });
         };
 
         window.addEventListener('keydown', handleKeyDown);
         window.addEventListener('vault-open-folder', handleFolderOpen);
         window.addEventListener('gnosi:open-pdf', handleOpenPdf);
         window.addEventListener('gnosi:records-deleted', handleRecordsDeleted);
+        window.addEventListener(RELATION_UNLINKED_EVENT, handleRelationUnlinked);
 
         return () => {
             window.removeEventListener('keydown', handleKeyDown);
@@ -1532,6 +1579,7 @@ export default function VaultDashboard() {
             window.removeEventListener('vault-open-folder', handleFolderOpen);
             window.removeEventListener('gnosi:open-pdf', handleOpenPdf);
             window.removeEventListener('gnosi:records-deleted', handleRecordsDeleted);
+            window.removeEventListener(RELATION_UNLINKED_EVENT, handleRelationUnlinked);
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -1545,6 +1593,12 @@ export default function VaultDashboard() {
             // With Shift, e.key arrives uppercase ('Z'); we normalize it.
             const key = String(e.key || '').toLowerCase();
             if (key === 'z' && !e.shiftKey) {
+                const pendingUndo = pendingRelationUndoRef.current;
+                if (pendingUndo) {
+                    e.preventDefault();
+                    void pendingUndo();
+                    return;
+                }
                 // We only hijack the shortcut if there REALLY is a table operation
                 // to undo. Otherwise, we let the event propagate so the editor (or the
                 // browser) can handle it — previously it swallowed the undo of
@@ -2444,6 +2498,77 @@ export default function VaultDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [fetchPages, fetchPagesByTable, activeTableId, handleTabClose]);
 
+    const applyRelationHistoryValue = useCallback(async (operation, value) => {
+        const applyLocalValue = (localValue) => {
+            const patchPage = (page) => (
+                page.id === operation.pageId
+                    ? { ...page, metadata: { ...(page.metadata || {}), [operation.metadataKey]: localValue } }
+                    : page
+            );
+            setTabs(prev => prev.map(patchPage));
+            setPages(prev => {
+                const next = prev.map(patchPage);
+                pagesRef.current = next;
+                return next;
+            });
+            setTableNotes(prev => prev.map(patchPage));
+            setVisibleTableRecordsById(prev => {
+                let changed = false;
+                const next = {};
+                for (const [tableId, records] of Object.entries(prev || {})) {
+                    if (!Array.isArray(records)) {
+                        next[tableId] = records;
+                        continue;
+                    }
+                    const patched = records.map(patchPage);
+                    if (patched.some((record, index) => record !== records[index])) changed = true;
+                    next[tableId] = patched;
+                }
+                return changed ? next : prev;
+            });
+            window.dispatchEvent(new CustomEvent(RELATION_VALUE_APPLIED_EVENT, {
+                detail: {
+                    pageId: operation.pageId,
+                    metadataKey: operation.metadataKey,
+                    value: localValue,
+                },
+            }));
+        };
+        const isUndoValue = JSON.stringify(value) === JSON.stringify(operation.previousValue);
+        const rollbackValue = isUndoValue ? operation.nextValue : operation.previousValue;
+        applyLocalValue(value);
+
+        try {
+            await axios.patch(`/api/vault/pages/${encodeURIComponent(operation.pageId)}`, {
+                metadata: { [operation.metadataKey]: value },
+            });
+
+            // A relation unlink starts its own background refresh. Undo can
+            // overtake that request, whose stale response would otherwise repaint
+            // the removed value after the optimistic restoration. Refresh again
+            // after the older request has had time to settle.
+            void fetchPages();
+            if (activeTableId) void fetchPagesByTable(activeTableId);
+            window.setTimeout(() => {
+                void fetchPages();
+                if (activeTableId) void fetchPagesByTable(activeTableId);
+            }, 1800);
+            window.setTimeout(() => {
+                void fetchPages();
+                if (activeTableId) void fetchPagesByTable(activeTableId);
+            }, 3600);
+            return true;
+        } catch (error) {
+            applyLocalValue(rollbackValue);
+            notifyError(
+                'relation-history',
+                error,
+                t('relation_item.history_error', 'Could not restore the relation change'),
+            );
+            return false;
+        }
+    }, [activeTableId, fetchPages, fetchPagesByTable, t]);
+
     // ---- DESFER (Undo) — restaurar la darrera tongada eliminada ----
     // If all restores fail, we don't move the operation to redoStack: we
     // keep it in undoStack to allow retries. If the failure is partial,
@@ -2481,13 +2606,18 @@ export default function VaultDashboard() {
             // If partial, only the succeeded ones are candidates for "redo" — the
             // rest can no longer be deleted because it might already be.
             setRedoStack(prev => [...prev, { type: 'delete', ids: succeeded }]);
+        } else if (operation.type === 'relation_unlink') {
+            const restored = await applyRelationHistoryValue(operation, operation.previousValue);
+            if (!restored) return;
+            toast.success(t('relation_item.undo_success', 'Relation restored'));
+            setRedoStack(prev => [...prev, operation]);
         } else {
             setRedoStack(prev => [...prev, operation]);
         }
 
         setUndoStack(prev => prev.slice(0, -1));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [undoStack, fetchPages, fetchPagesByTable, activeTableId]);
+    }, [undoStack, fetchPages, fetchPagesByTable, activeTableId, applyRelationHistoryValue, t]);
 
     // ---- REFER (Redo) — move back to trash ----
     const redoLastOperation = useCallback(async () => {
@@ -2526,13 +2656,18 @@ export default function VaultDashboard() {
             if (succeeded.length === 0) return;
 
             setUndoStack(prev => [...prev, { type: 'delete', ids: succeeded }]);
+        } else if (operation.type === 'relation_unlink') {
+            const reapplied = await applyRelationHistoryValue(operation, operation.nextValue);
+            if (!reapplied) return;
+            toast.success(t('relation_item.redo_success', 'Relation removed again'));
+            setUndoStack(prev => [...prev, operation]);
         } else {
             setUndoStack(prev => [...prev, operation]);
         }
 
         setRedoStack(prev => prev.slice(0, -1));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [redoStack, pages, syncPagesState, fetchPages, fetchPagesByTable, activeTableId, handleTabClose]);
+    }, [redoStack, pages, syncPagesState, fetchPages, fetchPagesByTable, activeTableId, handleTabClose, applyRelationHistoryValue, t]);
 
     // Keep refs up to date (avoids stale closures in the Cmd+Z listener)
     useEffect(() => { undoRef.current = undoLastOperation; }, [undoLastOperation]);

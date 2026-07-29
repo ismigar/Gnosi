@@ -74,6 +74,13 @@ import PageHistory from './PageHistory';
 import { IconPicker } from './IconPicker';
 import { CoverPicker } from './CoverPicker';
 import { IconRenderer } from './IconRenderer';
+import { RelationItem } from './RelationItem';
+import {
+    RELATION_VALUE_APPLIED_EVENT,
+    announceRelationUnlinked,
+    normalizeRelationValues,
+    withoutRelationValue,
+} from './relationItemUtils';
 
 import { VaultEditorContext } from './VaultEditorContext';
 import { DbViewEmbed } from './DbViewEmbed';
@@ -417,7 +424,19 @@ const extractOutgoingPageLinks = (markdown, idToTitle = {}, selfId = '') => {
     ];
 };
 
-const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, onCreate, onDeleteOption, single = false }) => {
+const MultiSelectPills = ({
+    value,
+    onChange,
+    options,
+    idToTitle,
+    placeholder,
+    onCreate,
+    onDeleteOption,
+    single = false,
+    relationItems = false,
+    onOpenRelation,
+    onRemoveRelation,
+}) => {
     const { t } = useTranslation();
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -564,6 +583,17 @@ const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, on
             >
                 {currentValues.length === 0 && <span className="text-[var(--text-tertiary)]/60 text-sm ml-1">{placeholder}</span>}
                 {currentValues.map(val => {
+                    if (relationItems) {
+                        return (
+                            <RelationItem
+                                key={val}
+                                relationId={val}
+                                title={idToTitle[val] || val}
+                                onOpen={onOpenRelation}
+                                onRemove={onRemoveRelation}
+                            />
+                        );
+                    }
                     const chip = optionChipStyle(optionColorByKey[val]);
                     return (
                     <span key={val} style={chip || undefined} className="flex items-center gap-1.5 px-2.5 py-1 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-full text-xs font-medium text-[var(--text-secondary)] shadow-sm">
@@ -3838,7 +3868,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     // Performs the actual PATCH. Don't call this directly from key-by-key
     // events — use handleSaveMetadata (debounced) or pass {immediate:true}.
     const _doSaveMetadata = useCallback(async (currentMetadata, removeKeys = null) => {
-        if (!noteFilename) return;
+        if (!noteFilename) return false;
         setSaveStatus('saving');
         try {
             const data = {
@@ -3858,6 +3888,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
             if (onUpdate) onUpdate(noteFilename, undefined, { title: data.title, metadata: data.metadata });
             if (onRefreshNotes) onRefreshNotes();
             setTimeout(() => setSaveStatus(prev => prev === 'saved' ? 'idle' : prev), 3000);
+            return true;
         } catch (err) {
             // Metadata-save failures used to be silent (console.error only).
             // They mean a property edit, title rename, or icon/cover change
@@ -3866,6 +3897,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
             // doesn't think the change was saved.
             notifyError('save-metadata', err, t('editor.markdown_save_error'));
             setSaveStatus('error');
+            return false;
         }
     }, [noteFilename, onUpdate, onRefreshNotes, t]);
 
@@ -3920,6 +3952,55 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         }
         handleSaveMetadata(nextMeta, isDiscrete ? { immediate: true } : undefined);
     };
+    const handleRelationRemove = useCallback(async (key, relationId, relatedMap) => {
+        const previousMetadata = metadataRef.current;
+        const previousValue = normalizeRelationValues(previousMetadata?.[key]);
+        const nextValue = withoutRelationValue(previousValue, relationId);
+        if (nextValue.length === previousValue.length) return false;
+
+        if (metaSaveTimerRef.current) {
+            clearTimeout(metaSaveTimerRef.current);
+            metaSaveTimerRef.current = null;
+        }
+
+        const nextMetadata = { ...previousMetadata, [key]: nextValue };
+        metadataRef.current = nextMetadata;
+        setMetadata(nextMetadata);
+        const saved = await _doSaveMetadata(nextMetadata);
+        if (!saved) {
+            metadataRef.current = previousMetadata;
+            setMetadata(previousMetadata);
+            return false;
+        }
+
+        announceRelationUnlinked({
+            pageId: noteFilename,
+            field: key,
+            metadataKey: key,
+            relationId,
+            relationTitle: relatedMap?.[relationId] || relationId,
+            previousValue,
+            nextValue,
+        });
+        return true;
+    }, [_doSaveMetadata, noteFilename]);
+
+    useEffect(() => {
+        const applyRelationValue = (event) => {
+            const detail = event.detail || {};
+            if (String(detail.pageId || '') !== String(noteFilename || '') || !detail.metadataKey) return;
+            const nextMetadata = {
+                ...metadataRef.current,
+                [detail.metadataKey]: normalizeRelationValues(detail.value),
+            };
+            metadataRef.current = nextMetadata;
+            setMetadata(nextMetadata);
+            setSaveStatus('saved');
+        };
+        window.addEventListener(RELATION_VALUE_APPLIED_EVENT, applyRelationValue);
+        return () => window.removeEventListener(RELATION_VALUE_APPLIED_EVENT, applyRelationValue);
+    }, [noteFilename]);
+
     // Removing a property is a structural change → save immediately so the
     // server-side state can never have a "stale" property removed only
     // locally if the user navigates away within 600ms.
@@ -4756,6 +4837,11 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                             options={options}
                                                             idToTitle={relatedMap}
                                                             placeholder={isEditor ? t('editor.add_options') : t('common.empty')}
+                                                            relationItems
+                                                            onOpenRelation={onOpenInNewTab || onOpenPage}
+                                                            onRemoveRelation={isEditor
+                                                                ? (relationId) => handleRelationRemove(prop.name, relationId, relatedMap)
+                                                                : undefined}
                                                         />
                                                     );
                                                 })() : prop.type === 'multi_select' ? (
