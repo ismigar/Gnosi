@@ -32,6 +32,8 @@ const SELECT_STYLE = {
     background: 'var(--bg-primary, #fff)', color: 'var(--text-primary, #0f172a)',
 };
 
+const LLM_WIKI_AUTOSAVE_DELAY_MS = 600;
+
 /**
  * Configuration for the daily-notes plugin: allows using a database (table)
  * as the source of the "Daily Note" (e.g. "Logbook") instead of the
@@ -912,6 +914,13 @@ function LlmWikiConfig() {
     const [lintBusy, setLintBusy] = useState(false);
     const [semanticBusy, setSemanticBusy] = useState(false);
     const [pendingSuggestions, setPendingSuggestions] = useState(0);
+    const autosaveTimerRef = useRef(null);
+    const persistedDraftRef = useRef('');
+    const latestDraftRef = useRef(draft);
+
+    useEffect(() => {
+        latestDraftRef.current = draft;
+    }, [draft]);
 
     const reload = () => Promise.all([
         axios.get('/api/vault/tables').then((r) => (Array.isArray(r.data) ? r.data : [])).catch(() => []),
@@ -920,7 +929,10 @@ function LlmWikiConfig() {
     ]).then(([tbls, state, pending]) => {
         setTables(tbls);
         setServerState(state);
-        if (state?.config) setDraft(state.config);
+        if (state?.config) {
+            persistedDraftRef.current = JSON.stringify(state.config);
+            setDraft(state.config);
+        }
         setPendingSuggestions(pending);
     }).finally(() => setLoading(false));
 
@@ -1061,21 +1073,50 @@ function LlmWikiConfig() {
         });
     };
 
-    const save = async () => {
+    const save = async (config = latestDraftRef.current) => {
+        const payload = {
+            ...config,
+            ui_locale: config.ui_locale || 'en',
+        };
+        const payloadSignature = JSON.stringify(payload);
         setBusy(true);
         setError('');
         try {
-            const response = await axios.put('/api/vault/llm-wiki/config', {
-                ...draft,
-                ui_locale: draft.ui_locale || 'en',
-            });
+            const response = await axios.put('/api/vault/llm-wiki/config', payload);
             setServerState(response.data);
-            if (response.data?.config) setDraft(response.data.config);
+            if (response.data?.config) {
+                persistedDraftRef.current = JSON.stringify(response.data.config);
+                if (JSON.stringify(latestDraftRef.current) === payloadSignature) {
+                    setDraft(response.data.config);
+                }
+            }
         } catch (err) {
             console.error('Could not save the LLM Wiki configuration:', err);
             setError(err.response?.data?.detail || tp('llm_wiki_save_error', { defaultValue: "The configuration could not be saved." }));
         } finally { setBusy(false); }
     };
+
+    useEffect(() => {
+        if (loading || busy) return undefined;
+        const isComplete = draft.brain_table_id && (draft.source_tables || []).length > 0;
+        if (!isComplete || JSON.stringify(draft) === persistedDraftRef.current) return undefined;
+        autosaveTimerRef.current = setTimeout(() => {
+            autosaveTimerRef.current = null;
+            save(draft);
+        }, LLM_WIKI_AUTOSAVE_DELAY_MS);
+        return () => {
+            if (autosaveTimerRef.current) {
+                clearTimeout(autosaveTimerRef.current);
+                autosaveTimerRef.current = null;
+            }
+        };
+        // `save` intentionally reads the exact draft captured by this effect.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [draft, loading, busy]);
+
+    useEffect(() => () => {
+        if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    }, []);
 
     const onCreate = async () => {
         setBusy(true);
@@ -1334,14 +1375,11 @@ function LlmWikiConfig() {
             {error && <div style={{ fontSize: 12, color: 'var(--status-error, #dc2626)' }}>{error}</div>}
 
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', borderTop: '1px solid var(--border-primary)', paddingTop: 12 }}>
-                <button
-                    type="button"
-                    onClick={save}
-                    disabled={busy || !draft.brain_table_id || !(draft.source_tables || []).length}
-                    className="btn-gnosi btn-gnosi-primary"
-                >
-                    {busy ? tp('llm_wiki_saving', { defaultValue: "Saving…" }) : tp('llm_wiki_save', { defaultValue: "Save and prepare" })}
-                </button>
+                <span style={{ alignSelf: 'center', fontSize: 12, color: 'var(--text-tertiary, #94a3b8)' }}>
+                    {busy
+                        ? tp('llm_wiki_saving', { defaultValue: 'Saving…' })
+                        : tp('llm_wiki_autosave', { defaultValue: 'Changes save automatically.' })}
+                </span>
                 <button
                     type="button"
                     onClick={runLint}

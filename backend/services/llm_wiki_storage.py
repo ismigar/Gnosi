@@ -15,6 +15,10 @@ from backend.utils.safe_io import safe_write_json
 _LOCK = threading.RLock()
 _JOBS: dict[str, dict[str, Any]] = {}
 _RUNNING_BY_RESOURCE: dict[tuple[str, str], str] = {}
+_PAGE_STATE_CACHE: dict[str, tuple[int, int, dict[str, Any]]] = {}
+
+PAGE_STATE_VERSION = 1
+MANAGED_METADATA_PREFIX = "llm_wiki_"
 
 
 def _safe_component(value: Any) -> str:
@@ -43,6 +47,125 @@ def synced_root() -> Path:
     root = get_p("GNOSI_CONFIG") / "llm_wiki"
     root.mkdir(parents=True, exist_ok=True)
     return root
+
+
+def page_state_path(page_id: str) -> Path:
+    """Return the synchronized sidecar path for one managed Brain page."""
+    return synced_root() / "pages" / f"{_safe_component(page_id)}.json"
+
+
+def _legacy_page_state(metadata: Optional[dict[str, Any]]) -> dict[str, Any]:
+    source = metadata if isinstance(metadata, dict) else {}
+    state = {
+        str(key): deepcopy(value)
+        for key, value in source.items()
+        if str(key).startswith(MANAGED_METADATA_PREFIX)
+    }
+    if state and "note_type" in source:
+        state["note_type"] = deepcopy(source["note_type"])
+    return state
+
+
+def _read_page_state(path: Path) -> dict[str, Any]:
+    try:
+        stat = path.stat()
+    except OSError:
+        _PAGE_STATE_CACHE.pop(str(path), None)
+        return {}
+    cache_key = str(path)
+    cached = _PAGE_STATE_CACHE.get(cache_key)
+    signature = (stat.st_mtime_ns, stat.st_size)
+    if cached and cached[:2] == signature:
+        return deepcopy(cached[2])
+    payload = _read_json(path)
+    state = (
+        payload.get("metadata")
+        if isinstance(payload, dict) and isinstance(payload.get("metadata"), dict)
+        else {}
+    )
+    clean_state = {str(key): deepcopy(value) for key, value in state.items()}
+    _PAGE_STATE_CACHE[cache_key] = (*signature, clean_state)
+    return deepcopy(clean_state)
+
+
+def load_page_state(
+    page_id: str,
+    legacy_metadata: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
+    """Load managed metadata, falling back to legacy Markdown frontmatter."""
+    try:
+        stored = _read_page_state(page_state_path(page_id)) if page_id else {}
+    except (KeyError, RuntimeError, TypeError):
+        stored = {}
+    return {**_legacy_page_state(legacy_metadata), **stored}
+
+
+def merge_page_metadata(
+    metadata: Optional[dict[str, Any]],
+    page_id: str = "",
+) -> dict[str, Any]:
+    """Overlay synchronized managed state onto portable page metadata."""
+    merged = deepcopy(metadata) if isinstance(metadata, dict) else {}
+    resolved_id = str(page_id or merged.get("id") or "")
+    if resolved_id:
+        merged.update(load_page_state(resolved_id, merged))
+    return merged
+
+
+def page_metadata(page: Any) -> dict[str, Any]:
+    """Return one page's visible metadata plus its managed sidecar state."""
+    raw = (
+        page.get("metadata")
+        if isinstance(page, dict)
+        else getattr(page, "metadata", None)
+    ) or {}
+    page_id = (
+        page.get("id")
+        if isinstance(page, dict)
+        else getattr(page, "id", "")
+    ) or raw.get("id")
+    return merge_page_metadata(raw, str(page_id or ""))
+
+
+def prepare_managed_markdown(metadata: dict[str, Any]) -> dict[str, Any]:
+    """Persist managed state and return portable Markdown frontmatter.
+
+    The sidecar is written before the caller rewrites the Markdown file. A
+    failure can therefore leave legacy metadata in the document, but never
+    removes the only durable copy of the managed state.
+    """
+    portable = deepcopy(metadata)
+    page_id = str(portable.get("id") or "")
+    legacy_state = _legacy_page_state(portable)
+    if not page_id or (not legacy_state and not load_page_state(page_id)):
+        return portable
+
+    with _LOCK:
+        stored_state = load_page_state(page_id)
+        state = {**stored_state, **legacy_state}
+        path = page_state_path(page_id)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "version": PAGE_STATE_VERSION,
+            "page_id": page_id,
+            "metadata": state,
+        }
+        safe_write_json(path, payload, indent=2, ensure_ascii=False)
+        try:
+            stat = path.stat()
+            _PAGE_STATE_CACHE[str(path)] = (
+                stat.st_mtime_ns,
+                stat.st_size,
+                deepcopy(state),
+            )
+        except OSError:
+            _PAGE_STATE_CACHE.pop(str(path), None)
+
+    for key in list(portable):
+        if str(key).startswith(MANAGED_METADATA_PREFIX):
+            portable.pop(key, None)
+    portable.pop("note_type", None)
+    return portable
 
 
 def _job_path(job_id: str) -> Path:
