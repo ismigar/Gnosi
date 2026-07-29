@@ -4766,7 +4766,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                             data-expanded={isPropertiesOpen || isLinksInfoOpen}
                         >
                             <div ref={propertiesPanelRef} className="rounded-xl border border-[var(--border-primary)] focus-within:border-[var(--gnosi-primary)]/50 focus-within:ring-1 focus-within:ring-[var(--gnosi-primary)]/30 bg-[var(--bg-secondary)]/40 overflow-hidden transition-all">
-                                <div className="w-full flex items-center justify-between gap-3 px-3 py-2.5 hover:bg-[var(--bg-secondary)]/60 transition-colors">
+                                <div className="w-full h-[var(--control-height-touch)] flex items-center justify-between gap-3 px-3 hover:bg-[var(--bg-secondary)]/60 transition-colors">
                                     <button
                                         ref={propertiesHeaderRef}
                                         tabIndex={0}
@@ -5103,7 +5103,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                     type="button"
                                     onClick={() => setIsLinksInfoOpen((prev) => !prev)}
                                     onKeyDown={handleLinksHeaderKeyDown}
-                                    className="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-[var(--bg-secondary)]/60 transition-colors focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]/40 rounded transition-all"
+                                    className="w-full h-[var(--control-height-touch)] flex items-center justify-between gap-3 px-3 text-left hover:bg-[var(--bg-secondary)]/60 transition-colors focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]/40 rounded transition-all"
                                 >
                                     <div className="flex items-center gap-2 min-w-0">
                                         <Link2 size={14} className="text-[var(--text-secondary)]/80" />
