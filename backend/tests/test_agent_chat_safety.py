@@ -1,11 +1,15 @@
 import asyncio
+import json
+from types import SimpleNamespace
 
 import pytest
 from pydantic import ValidationError
 
 from backend.agent.factory import (
+    _coder_read_only_tools,
     _model_supports_tools,
     _obvious_route,
+    _rejected_mcp_names,
     _safe_mcp_definitions,
 )
 from backend.agent import system_tools
@@ -96,12 +100,43 @@ def test_mcp_read_only_policy_uses_annotations_not_name_prefix():
     ] == ["fetch_notes", "trusted_custom"]
 
 
+def test_rejected_mcp_tools_are_reportable():
+    definitions = [
+        {"name": "calendar_lookup"},
+        {"name": "mail_search", "annotations": {"readOnlyHint": True}},
+    ]
+    safe = _safe_mcp_definitions(definitions)
+    assert _rejected_mcp_names(definitions, safe) == ["calendar_lookup"]
+
+
 def test_agent_can_explicitly_disable_tool_binding():
     assert not _model_supports_tools(
         "custom",
         "text-only",
         {"capabilities": {"tools": False}},
     )
+
+
+def test_unknown_model_does_not_assume_tool_support():
+    assert not _model_supports_tools("custom", "unknown-model", {})
+    assert _model_supports_tools(
+        "custom",
+        "verified-model",
+        {"capabilities": {"tools": True}},
+    )
+
+
+def test_coder_tools_exclude_personal_data_sources():
+    tools = [
+        SimpleNamespace(name="inspect_codebase"),
+        SimpleNamespace(name="search_code_symbols"),
+        SimpleNamespace(name="query_memory"),
+        SimpleNamespace(name="search_vault"),
+    ]
+    assert [tool.name for tool in _coder_read_only_tools(tools)] == [
+        "inspect_codebase",
+        "search_code_symbols",
+    ]
 
 
 def test_sensitive_project_paths_are_not_readable():
@@ -145,6 +180,39 @@ def test_attachment_delete_is_contained(tmp_path):
         ".gnosi/chat-attachments/safe.txt",
     )
     assert not attachment.exists()
+
+
+def test_attachment_consumer_cleans_up_when_extraction_fails(tmp_path, monkeypatch):
+    vault = tmp_path / "vault"
+    root = vault / ".gnosi" / "chat-attachments"
+    root.mkdir(parents=True)
+    attachment = root / "broken.pdf"
+    attachment.write_bytes(b"broken")
+    ref = agent_routes.AttachmentRef(
+        name="broken.pdf",
+        size=6,
+        type="application/pdf",
+        path=".gnosi/chat-attachments/broken.pdf",
+    )
+
+    def fail_extraction(_vault, _refs):
+        raise RuntimeError("extraction failed")
+
+    monkeypatch.setattr(agent_routes, "_attachment_context", fail_extraction)
+    with pytest.raises(RuntimeError, match="extraction failed"):
+        agent_routes._consume_attachment_context(vault, [ref])
+    assert not attachment.exists()
+
+
+def test_tool_stream_events_do_not_expose_arguments_or_output():
+    event = json.loads(
+        agent_routes._tool_stream_event("tool_end", "search_vault", "Brain")
+    )
+    assert event == {
+        "type": "tool_end",
+        "tool": "search_vault",
+        "node": "Brain",
+    }
 
 
 def test_session_delete_removes_checkpoint_thread(tmp_path, monkeypatch):
