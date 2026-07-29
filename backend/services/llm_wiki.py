@@ -419,7 +419,7 @@ def _base_note_metadata(
     source_id: str,
     position: Optional[int] = None,
 ) -> dict:
-    """Legacy-compatible metadata helper retained for unit callers."""
+    """Build metadata shared by every generated reading note."""
     note_type = str(note.get("type") or "").strip().lower()
     if note_type not in NOTE_TYPES:
         note_type = "concepte"
@@ -432,7 +432,6 @@ def _base_note_metadata(
         "Estat de verificació": "provisional",
         "Última revisió": _today(),
         "Tags": tags,
-        "Fonts": [f"[[{source_title}|{source_id}]]"],
     }
     if position is not None:
         metadata["Posició"] = position
@@ -475,7 +474,13 @@ def _apply_plan(
         for role, prop_id in (config.get("brain_roles") or {}).items()
     }
     relation_prop = props_by_id.get(str(source_config.get("relation_property_id") or ""))
-    relation_name = str((relation_prop or {}).get("name") or "Fonts")
+    locale = str(config.get("ui_locale") or "en").split("-", 1)[0].lower()
+    relation_name = str((relation_prop or {}).get("name") or {
+        "ca": "Font",
+        "en": "Source",
+        "es": "Fuente",
+        "fr": "Source",
+    }.get(locale, "Source"))
 
     brain_dir = _resolve_table_folder_from_metadata({"table_id": brain_table_id})
     if not brain_dir:
@@ -526,8 +531,6 @@ def _apply_plan(
             "llm_wiki_stale": False,
             relation_name: [f"[[{source_title}|{source_page_id}]]"],
         })
-        if relation_name != "Fonts":
-            metadata.pop("Fonts", None)
         for fallback_name, role in (
             ("Tipus", "idea_type"),
             ("Posició", "position"),
@@ -538,7 +541,11 @@ def _apply_plan(
             if role_names.get(role) and role_names[role] != fallback_name:
                 metadata.pop(fallback_name, None)
         if role_names.get("note_type"):
-            metadata[role_names["note_type"]] = "lectura"
+            metadata[role_names["note_type"]] = llm_wiki_config.note_type_value(
+                "reading",
+                config,
+                props_by_id.get(str((config.get("brain_roles") or {}).get("note_type") or "")),
+            )
         if role_names.get("idea_type"):
             metadata[role_names["idea_type"]] = metadata.get("Tipus")
         if role_names.get("position"):

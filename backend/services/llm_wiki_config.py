@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import re
 import threading
+import unicodedata
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Iterable, Optional
@@ -36,7 +37,15 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "source_tables": [],
     "index_field_ids": [],
     "brain_roles": {},
+    "source_contract_revision": 0,
     "configured": False,
+}
+
+NOTE_TYPE_LABELS = {
+    "ca": {"reading": "Nota de lectura", "index": "Nota índex"},
+    "en": {"reading": "Reading note", "index": "Index note"},
+    "es": {"reading": "Nota de lectura", "index": "Nota índice"},
+    "fr": {"reading": "Note de lecture", "index": "Note d’index"},
 }
 
 
@@ -57,6 +66,57 @@ def _property_id(prop: dict) -> str:
 
 def _property_type(prop: dict) -> str:
     return str(prop.get("type") or "").strip().lower()
+
+
+def _semantic_token(value: Any) -> str:
+    ascii_text = "".join(
+        char
+        for char in unicodedata.normalize("NFKD", str(value or "").casefold())
+        if not unicodedata.combining(char)
+    )
+    return re.sub(r"[^a-z0-9]+", "", ascii_text)
+
+
+def _property_options(prop: Optional[dict]) -> list[str]:
+    raw_options = (
+        (prop or {}).get("options")
+        or ((prop or {}).get("config") or {}).get("options")
+        or ((prop or {}).get("select") or {}).get("options")
+        or []
+    )
+    return [
+        str(option.get("name") if isinstance(option, dict) else option).strip()
+        for option in raw_options
+        if str(option.get("name") if isinstance(option, dict) else option).strip()
+    ]
+
+
+def note_type_value(kind: str, config: dict, prop: Optional[dict]) -> str:
+    """Return the existing visible option for one semantic note kind."""
+    normalized_kind = _semantic_token(kind)
+    semantic_kind = (
+        "index"
+        if "index" in normalized_kind or "indice" in normalized_kind
+        else "reading"
+    )
+    markers = {
+        "reading": ("reading", "lectura", "lecture"),
+        "index": ("index", "indice"),
+    }[semantic_kind]
+    for option in _property_options(prop):
+        token = _semantic_token(option)
+        if any(marker in token for marker in markers):
+            return option
+    locale = str((config or {}).get("ui_locale") or "en").split("-", 1)[0].lower()
+    labels = NOTE_TYPE_LABELS.get(locale, NOTE_TYPE_LABELS["en"])
+    return labels[semantic_kind]
+
+
+def _revision(value: Any) -> int:
+    try:
+        return max(0, int(value or 0))
+    except (TypeError, ValueError):
+        return 0
 
 
 def _properties(table: Optional[dict]) -> list[dict]:
@@ -143,6 +203,7 @@ def normalize_config(raw: Any, *, reference_table_id: str = "") -> dict[str, Any
         "source_tables": sources,
         "index_field_ids": index_ids,
         "brain_roles": roles,
+        "source_contract_revision": _revision(data.get("source_contract_revision")),
         "configured": bool(data.get("configured") or brain_id or sources),
     }
 

@@ -86,6 +86,7 @@ export default function VaultDashboard() {
     const [llmWikiConfig, setLlmWikiConfig] = useState(null);
     const [llmWikiJobs, setLlmWikiJobs] = useState({});
     const [resourceToProcess, setResourceToProcess] = useState(null);
+    const [backgroundLlmWikiJobs, setBackgroundLlmWikiJobs] = useState({});
 
     useEffect(() => {
         let alive = true;
@@ -602,6 +603,52 @@ export default function VaultDashboard() {
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [syncPagesState, isAbortLikeError]);
+
+    useEffect(() => {
+        const jobs = Object.values(backgroundLlmWikiJobs);
+        if (jobs.length === 0) return undefined;
+        let alive = true;
+        const pollBackgroundJobs = async () => {
+            await Promise.all(jobs.map(async (job) => {
+                try {
+                    const response = await axios.get(
+                        `/api/vault/llm-wiki/status/${encodeURIComponent(job.job_id)}`,
+                        { params: { source_table_id: job.source_table_id } },
+                    );
+                    if (!alive) return;
+                    const nextJob = response.data || {};
+                    setLlmWikiJobs((current) => ({
+                        ...current,
+                        [job.source_table_id]: {
+                            ...(current[job.source_table_id] || {}),
+                            [job.resource_id]: nextJob,
+                        },
+                    }));
+                    if (nextJob.running) return;
+                    setBackgroundLlmWikiJobs((current) => {
+                        const next = { ...current };
+                        delete next[job.job_id];
+                        return next;
+                    });
+                    if (nextJob.phase === 'done') {
+                        const count = (nextJob.created?.length || 0) + (nextJob.updated?.length || 0);
+                        toast.success(t('llm_wiki.done_toast', '{{count}} Brain pages updated', { count }));
+                        fetchPages();
+                    } else {
+                        toast.error(nextJob.error || t('llm_wiki.error_generic', 'Error processing the resource'));
+                    }
+                } catch (error) {
+                    console.warn('Could not poll the background LLM Wiki job:', error);
+                }
+            }));
+        };
+        pollBackgroundJobs();
+        const intervalId = setInterval(pollBackgroundJobs, 1500);
+        return () => {
+            alive = false;
+            clearInterval(intervalId);
+        };
+    }, [backgroundLlmWikiJobs, fetchPages, t]);
 
     const fetchRegistry = useCallback(async (attempt = 0) => {
         if (attempt === 0) {
@@ -3813,6 +3860,12 @@ export default function VaultDashboard() {
                         }));
                     }}
                     onProcessed={fetchPages}
+                    onContinueInBackground={(job) => {
+                        setBackgroundLlmWikiJobs((current) => ({
+                            ...current,
+                            [job.job_id]: job,
+                        }));
+                    }}
                 />
             )}
 
