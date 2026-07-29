@@ -27,6 +27,15 @@ Hover and context-menu UI render through body portals.
 Embedded contexts may expose fewer handlers. Degrade to an available opening
 mode rather than making the link inert.
 
+Page hover previews share one adaptive layout contract:
+
+- width grows with the content between a compact minimum and a viewport-safe
+  maximum;
+- height grows naturally until the viewport-safe maximum;
+- excess content scrolls vertically inside the card;
+- horizontal scrolling is never exposed. Long words, code, and table cells wrap
+  inside the available width.
+
 ## Preview API
 
 `GET /api/vault/pages/{page_id}/preview` returns ID, title, a short sanitized
@@ -74,6 +83,9 @@ treat it as an atomic node and suppress React interaction.
 - Keep the hover delay to avoid network requests during ordinary pointer
   movement.
 - Never return an entire page body for a tooltip.
+- Never clamp or hide overflowing preview text without a vertical-scroll path.
+- Never add a horizontal scrollbar to a page hover preview. Constrain intrinsic
+  width and wrap nested Markdown content instead.
 - App tabs are not browser windows; do not use `window.open`.
 - A UUID link returning `404` may indicate that the target page lost its
   frontmatter ID. Repair the ID through the page guard and reindex.
