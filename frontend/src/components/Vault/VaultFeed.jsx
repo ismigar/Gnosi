@@ -16,6 +16,11 @@ import { useLocaleSettings } from '../../hooks/useLocaleSettings';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
+import { RelationItem } from './RelationItem';
+import {
+    normalizeRelationValues,
+    unlinkRelationFromRecord,
+} from './relationItemUtils';
 
 // How many records are rendered per batch; infinite scroll adds more as
 // that the sentinel enters the view. Keeping it low saves initial DOM.
@@ -332,7 +337,7 @@ function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSele
     );
 }
 
-export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onDeleteSelected, onDeletePage, searchTerm = '' }) {
+export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onDeleteSelected, onDeletePage, onUpdateNote, searchTerm = '' }) {
     const { t } = useTranslation();
     const localeSettings = useLocaleSettings();
 
@@ -359,7 +364,7 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
         };
     }, [schema, allNotes, idToTitle]);
 
-    const renderPropertyValue = useCallback((value, type, field) => {
+    const renderPropertyValue = useCallback((value, type, field, note, metadataKey) => {
         if (value === undefined || value === null || value === '') return null;
 
         switch (type) {
@@ -428,14 +433,26 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
                 );
             }
             case 'relation': {
-                const items = Array.isArray(value) ? value : String(value).split(',').map(s => s.trim());
+                const items = normalizeRelationValues(value);
                 const displayMap = getRelationDisplayMap(field);
                 return (
                     <span className="inline-flex flex-wrap gap-1.5">
-                        {items.map((it, idx) => (
-                            <span key={idx} className="px-2 py-0.5 rounded text-xs font-medium bg-indigo-500/10 text-indigo-400">
-                                {displayMap[it] || (it.length > 20 ? it.substring(0, 8) + '…' : it)}
-                            </span>
+                        {items.map(relationId => (
+                            <RelationItem
+                                key={relationId}
+                                relationId={relationId}
+                                title={displayMap[relationId] || relationId}
+                                onOpen={onNoteSelect}
+                                onRemove={onUpdateNote ? () => unlinkRelationFromRecord({
+                                    pageId: note.id,
+                                    field,
+                                    metadataKey,
+                                    value,
+                                    relationId,
+                                    relationTitle: displayMap[relationId] || relationId,
+                                    onUpdate: onUpdateNote,
+                                }) : undefined}
+                            />
                         ))}
                     </span>
                 );
@@ -489,7 +506,7 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
                 }
                 return <span className="text-sm text-[var(--text-primary)]">{Array.isArray(value) ? value.map(v => String(v)).join(', ') : String(value)}</span>;
         }
-    }, [schema, localeSettings, getRelationDisplayMap, t]);
+    }, [schema, localeSettings, getRelationDisplayMap, t, onNoteSelect, onUpdateNote]);
 
     // Property pills for a note (values without labels, schema order).
     const buildPills = useCallback((note) => {
@@ -500,7 +517,7 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
             const schemaKeyNorm = normalizeKey(key);
             const targetKeyNorm = aliasMap[schemaKeyNorm] ? normalizeKey(aliasMap[schemaKeyNorm]) : schemaKeyNorm;
             const originalMetaKey = note.metadata ? (Object.keys(note.metadata).find(k => normalizeKey(k) === targetKeyNorm) || key) : key;
-            const node = renderPropertyValue(note.metadata?.[originalMetaKey], type, key);
+            const node = renderPropertyValue(note.metadata?.[originalMetaKey], type, key, note, originalMetaKey);
             return node ? { key, node } : null;
         }).filter(Boolean);
     }, [dynamicColumns, renderPropertyValue]);
