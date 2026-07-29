@@ -183,6 +183,9 @@ environment-specific frontend assumptions.
 - Mobile Vault icon controls use the shared 44-pixel touch size, including shell
   navigation, page actions, summary toggles, embedded-view actions, and feed
   controls. Reduce redundant chrome before shrinking a control below that size.
+- Adjacent collapsed Vault summary panels share the same 44-pixel header height.
+  Do not add vertical container padding around children that already use the
+  touch-height control because it makes sibling panels visibly misalign.
 - Nested mobile feed views remove both the embed padding and the feed's desktop
   inline padding. Keeping either layer makes a readable card materially narrower
   than the surrounding page summary.
