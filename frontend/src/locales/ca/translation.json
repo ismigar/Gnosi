@@ -4332,6 +4332,7 @@
     "created": "Creades",
     "updated": "Enriquides",
     "error_generic": "Error processant el recurs",
+    "error_no_brain_table": "No hi ha cap taula del Cervell configurada. Crea'n una a Configuració → Connectors → LLM Wiki.",
     "running_hint": "Pots tancar; continuarà en segon pla.",
     "inbox_button": "Bústia",
     "inbox_button_title": "Bústia del Cervell: suggeriments de notes permanents",
