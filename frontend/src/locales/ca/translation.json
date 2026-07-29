@@ -4383,6 +4383,16 @@
       "notes": "Notes"
     }
   },
+  "relation_item": {
+    "open_new_tab": "Obre en una pestanya nova",
+    "open_new_tab_named": "Obre {{title}} en una pestanya nova",
+    "remove": "Elimina d'aquest registre",
+    "remove_named": "Elimina {{title}} d'aquest registre",
+    "removed_toast": "Relació eliminada: {{title}}",
+    "history_error": "No s'ha pogut restaurar el canvi de relació",
+    "undo_success": "Relació restaurada",
+    "redo_success": "Relació eliminada de nou"
+  },
   "reader_articles_pending_many": "{{count}} articles pendents",
   "reader_sources_count_many": "{{count}} fonts"
 }

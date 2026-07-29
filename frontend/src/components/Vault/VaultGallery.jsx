@@ -16,8 +16,13 @@ import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
 import { useTitlePreview } from './useTitlePreview';
 import { asBool } from '../../utils/vaultFilters';
+import { RelationItem } from './RelationItem';
+import {
+    normalizeRelationValues,
+    unlinkRelationFromRecord,
+} from './relationItemUtils';
 
-export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onUpdateView, onEditSchema, onCreateRecord, onDeleteSelected, onDeletePage, searchTerm: externalSearchTerm, registerNavApi, onExitTop, onExitBottom, onFocusShell }) {
+export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onUpdateView, onEditSchema, onCreateRecord, onDeleteSelected, onDeletePage, onUpdateNote, searchTerm: externalSearchTerm, registerNavApi, onExitTop, onExitBottom, onFocusShell }) {
     const { t } = useTranslation();
     const localeSettings = useLocaleSettings();
     const [internalSearchTerm, setInternalSearchTerm] = useState('');
@@ -432,7 +437,7 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
         };
     };
 
-    const renderPropertyValue = (value, type, field) => {
+    const renderPropertyValue = (value, type, field, note, metadataKey) => {
         if (value === undefined || value === null || value === '') return <span className="text-[var(--text-tertiary)] opacity-40">-</span>;
 
         switch (type) {
@@ -458,20 +463,43 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                         {value}
                     </span>
                 );
-            case 'multi_select':
-            case 'relation': {
+            case 'multi_select': {
                 // String() + filter(Boolean) like in the kanban: without this, "a, " or an
                 // array with empty values would paint empty pills and inflate the "+N".
-                const items = (Array.isArray(value) ? value : String(value).split(',')).map(s => String(s).trim()).filter(Boolean);
-                const displayMap = type === 'relation' ? getRelationDisplayMap(field) : idToTitle;
+                const items = normalizeRelationValues(value);
                 return (
                     <div className="flex flex-wrap gap-1 max-w-full overflow-hidden h-4">
                         {items.slice(0, 2).map((it, idx) => (
                             <span key={idx} className="px-1.5 py-0 rounded-sm text-[10px] font-medium bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] whitespace-nowrap truncate max-w-full block" title={it}>
-                                {displayMap[it] || (it.length > 20 ? it.substring(0, 8) + '…' : it)}
+                                {idToTitle[it] || (it.length > 20 ? it.substring(0, 8) + '…' : it)}
                             </span>
                         ))}
                         {items.length > 2 && <span className="text-[10px] text-[var(--text-tertiary)]">+{items.length - 2}</span>}
+                    </div>
+                );
+            }
+            case 'relation': {
+                const items = normalizeRelationValues(value);
+                const displayMap = getRelationDisplayMap(field);
+                return (
+                    <div className="flex flex-wrap gap-1 max-w-full">
+                        {items.map(relationId => (
+                            <RelationItem
+                                key={relationId}
+                                relationId={relationId}
+                                title={displayMap[relationId] || relationId}
+                                onOpen={onNoteSelect}
+                                onRemove={onUpdateNote ? () => unlinkRelationFromRecord({
+                                    pageId: note.id,
+                                    field,
+                                    metadataKey,
+                                    value,
+                                    relationId,
+                                    relationTitle: displayMap[relationId] || relationId,
+                                    onUpdate: onUpdateNote,
+                                }) : undefined}
+                            />
+                        ))}
                     </div>
                 );
             }
@@ -609,10 +637,14 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                         {dynamicColumns.map(([key, type], propIndex) => {
                             const keyNorm = normalizeMetaKey(key);
 
+                            let metadataKey = key;
                             let val = note.metadata?.[key];
                             if (val === undefined || val === null || val === '') {
-                                const metaKey = Object.keys(note.metadata || {}).find(k => normalizeMetaKey(k) === keyNorm);
-                                if (metaKey) val = note.metadata[metaKey];
+                                const matchedKey = Object.keys(note.metadata || {}).find(k => normalizeMetaKey(k) === keyNorm);
+                                if (matchedKey) {
+                                    metadataKey = matchedKey;
+                                    val = note.metadata[matchedKey];
+                                }
                             }
 
                             if (val === undefined || val === null || val === '') return null;
@@ -621,7 +653,7 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                                 <div key={`${key}-${propIndex}`} className="flex items-center gap-2 text-[var(--text-secondary)] overflow-hidden min-h-[18px]">
                                     <span className="text-[10px] font-medium uppercase tracking-wider text-[var(--text-tertiary)] w-16 shrink-0 truncate">{key}</span>
                                     <div className="flex-1 min-w-0">
-                                        {renderPropertyValue(val, type, key)}
+                                        {renderPropertyValue(val, type, key, note, metadataKey)}
                                     </div>
                                 </div>
                             );
