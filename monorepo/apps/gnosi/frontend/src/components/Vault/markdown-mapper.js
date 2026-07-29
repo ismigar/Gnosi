@@ -3,6 +3,8 @@
  * Utility for the bidirectional conversion between BlockNote JSON and Enriched Markdown.
  */
 
+import { normalizeManagedBlockSpacing } from './managedMarkdownUtils';
+
 // Sentinel for file:// links inside the editor.
 //
 // BlockNote/Tiptap (extension-link) blanks out any href whose protocol
@@ -1361,7 +1363,9 @@ const parseInlineFromMarkdown = async (text, editor) => {
  */
 export const richMarkdownToBlocks = async (markdown, editor) => {
     if (!markdown || typeof markdown !== 'string') return [];
-    
+
+    markdown = normalizeManagedBlockSpacing(markdown);
+
     const trimmed = markdown.trim();
     if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
         try { return JSON.parse(markdown); } catch (e) { console.error(e); }

@@ -223,6 +223,9 @@ overwrite user-edited instructions.
 - Do not render attachment names, URL labels, or other source headings in a
   managed resource index. The canonical source is already visible in the
   relation property, while citations preserve origin-level provenance.
+- Keep a blank line between managed HTML markers and their Markdown content.
+  Without that boundary, BlockNote parses ordered index entries as one
+  paragraph and visually collapses the source-order line breaks.
 - Deterministic index maintenance re-synchronizes source-mapped fields into
   existing managed reading notes and clears target values when the source value
   is empty. Configuration repairs must not require another LLM ingest.

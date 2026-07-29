@@ -679,7 +679,7 @@ def _find_managed_page(
 def _replace_managed_block(body: str, key: str, content: str) -> str:
     start = MANAGED_START.format(key=key)
     end = MANAGED_END.format(key=key)
-    block = f"{start}\n{content.strip()}\n{end}"
+    block = f"{start}\n\n{content.strip()}\n\n{end}"
     pattern = re.compile(re.escape(start) + r".*?" + re.escape(end), re.DOTALL)
     if pattern.search(body or ""):
         return pattern.sub(block, body).rstrip() + "\n"

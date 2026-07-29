@@ -757,6 +757,11 @@ def test_managed_blocks_preserve_manual_content():
     assert "[[First index]]" not in second
     assert second.count("<!-- gnosi:llm-wiki:start general -->") == 1
     assert "[[Updated index]]" in second
+    assert (
+        "<!-- gnosi:llm-wiki:start general -->\n\n"
+        "- [[Updated index]]\n\n"
+        "<!-- gnosi:llm-wiki:end general -->"
+    ) in second
 
 
 def test_resource_index_is_flat_and_preserves_appearance_order(monkeypatch):
