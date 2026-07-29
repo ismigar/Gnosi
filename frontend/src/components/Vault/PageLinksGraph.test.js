@@ -99,4 +99,24 @@ describe('PageLinksGraph', () => {
         });
         expect(onOpenPage).toHaveBeenCalledWith('page-a');
     });
+
+    it('renders compact single-circle nodes without a core-and-sphere layer', () => {
+        act(() => {
+            root.render(React.createElement(PageLinksGraph, {
+                currentTitle: 'Current page',
+                outgoingLinks: [{ id: 'page-a', title: 'Connected page' }],
+                incomingLinks: [],
+                relatedPages: [],
+                onOpenPage: vi.fn(),
+                labels,
+            }));
+        });
+
+        const connectedNode = container.querySelector('[data-graph-node="connected"]');
+        const centerNode = container.querySelector('[data-graph-node="center"]');
+        expect(connectedNode?.querySelectorAll('circle')).toHaveLength(1);
+        expect(connectedNode?.querySelector('circle')?.getAttribute('r')).toBe('8');
+        expect(centerNode?.querySelectorAll('circle')).toHaveLength(1);
+        expect(centerNode?.querySelector('circle')?.getAttribute('r')).toBe('14');
+    });
 });

@@ -4,6 +4,8 @@ import { buildPageLinksGraphModel, truncateGraphLabel } from './pageLinksGraphMo
 const VIEWBOX_WIDTH = 720;
 const CENTER_X = VIEWBOX_WIDTH / 2;
 const RING_CAPACITIES = [10, 16, 22];
+const CONNECTED_NODE_RADIUS = 8;
+const CENTER_NODE_RADIUS = 14;
 
 const KIND_STYLES = {
     outgoing: {
@@ -117,6 +119,7 @@ export function PageLinksGraph({
                     return (
                         <g
                             key={node.key}
+                            data-graph-node="connected"
                             role={isInteractive ? 'button' : undefined}
                             tabIndex={isInteractive ? 0 : undefined}
                             aria-label={isInteractive ? tooltip : undefined}
@@ -132,18 +135,17 @@ export function PageLinksGraph({
                             <circle
                                 cx={node.x}
                                 cy={node.y}
-                                r="17"
+                                r={CONNECTED_NODE_RADIUS}
                                 fill={style.fill}
-                                fillOpacity={isInteractive ? '0.14' : '0.08'}
+                                fillOpacity={isInteractive ? '0.92' : '0.45'}
                                 stroke={style.fill}
-                                strokeWidth="2"
-                                strokeOpacity={isInteractive ? '0.85' : '0.4'}
-                                className={isInteractive ? 'group-hover:fill-opacity-25 group-focus:fill-opacity-25' : undefined}
+                                strokeWidth="1.5"
+                                strokeOpacity={isInteractive ? '1' : '0.55'}
+                                className={isInteractive ? 'group-hover:fill-opacity-100 group-focus:fill-opacity-100' : undefined}
                             />
-                            <circle cx={node.x} cy={node.y} r="4.5" fill={style.fill} />
                             <text
                                 x={node.x}
-                                y={node.y + 30}
+                                y={node.y + 23}
                                 textAnchor="middle"
                                 fontSize="11"
                                 fontWeight="600"
@@ -155,21 +157,20 @@ export function PageLinksGraph({
                     );
                 })}
 
-                <g>
+                <g data-graph-node="center">
                     <title>{safeCurrentTitle}</title>
                     <circle
                         cx={CENTER_X}
                         cy={layout.centerY}
-                        r="29"
+                        r={CENTER_NODE_RADIUS}
                         fill="var(--gnosi-primary)"
-                        fillOpacity="0.16"
+                        fillOpacity="0.95"
                         stroke="var(--gnosi-primary)"
-                        strokeWidth="2.5"
+                        strokeWidth="2"
                     />
-                    <circle cx={CENTER_X} cy={layout.centerY} r="8" fill="var(--gnosi-primary)" />
                     <text
                         x={CENTER_X}
-                        y={layout.centerY + 47}
+                        y={layout.centerY + 34}
                         textAnchor="middle"
                         fontSize="12"
                         fontWeight="700"
