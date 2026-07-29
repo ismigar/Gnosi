@@ -55,6 +55,269 @@ def test_default_brain_schema_and_names_are_english():
 
     assert llm_wiki_config.normalize_config({})["ui_locale"] == "en"
     assert _brain_schema()[0] == ("note_type", "Note type", "select")
+    assert all(role != "legacy_source" for role, _name, _type in _brain_schema())
+    assert all(name != "Sources" for _role, name, _type in _brain_schema())
+
+
+def test_visible_note_type_uses_existing_semantic_option():
+    prop = {
+        "name": "Tipus de nota",
+        "type": "select",
+        "config": {
+            "options": [
+                {"name": "Nota índex"},
+                {"name": "Nota permanent"},
+                {"name": "Nota de lectura"},
+            ],
+        },
+    }
+    config = {"ui_locale": "ca"}
+
+    assert llm_wiki_config.note_type_value("reading", config, prop) == "Nota de lectura"
+    assert llm_wiki_config.note_type_value("index", config, prop) == "Nota índex"
+
+
+def test_legacy_brain_property_ids_are_recovered_from_configured_mappings(monkeypatch):
+    from backend.api import vault_routes
+
+    source = {
+        "id": "resources",
+        "properties": [
+            {"id": "source-area", "name": "Àrees", "type": "relation"},
+            {"id": "source-project", "name": "Projecte", "type": "relation"},
+        ],
+    }
+    brain = {
+        "id": "brain",
+        "properties": [
+            {"name": "Tipus de nota", "type": "select"},
+            {"name": "Àrea", "type": "relation"},
+            {"name": "Projecte", "type": "relation"},
+        ],
+    }
+    config = {
+        "brain_roles": {"note_type": "note-type-id", "areas": "area-id"},
+        "index_field_ids": ["area-id", "project-id"],
+        "source_tables": [{
+            "table_id": "resources",
+            "dimension_mappings": {
+                "area-id": {
+                    "mode": "source",
+                    "source_property_id": "source-area",
+                },
+                "project-id": {
+                    "mode": "source",
+                    "source_property_id": "source-project",
+                },
+            },
+        }],
+    }
+    monkeypatch.setattr(
+        vault_routes,
+        "_table_by_id",
+        lambda table_id: source if table_id == "resources" else None,
+    )
+
+    hints = vault_routes._brain_property_id_hints(config, brain)
+
+    assert hints["tipusdenota"] == "note-type-id"
+    assert hints["area"] == "area-id"
+    assert hints["projecte"] == "project-id"
+
+
+def test_resource_brain_view_uses_contextual_singular_source_filter():
+    from backend.api.vault_routes import _normalize_brain_source_view
+
+    view = {
+        "filters": [
+            {
+                "field": "Font",
+                "operator": "equals",
+                "value": "http://localhost:5173/vault/page/resource-uid",
+            },
+            {"field": "Tipus de nota", "value": "Nota de lectura"},
+        ],
+    }
+
+    assert _normalize_brain_source_view(view, "Font", {"Font", "Fonts"}) is True
+    assert view["filters"] == [
+        {"field": "Font", "value": "this"},
+        {"field": "Tipus de nota", "value": "Nota de lectura"},
+    ]
+    assert _normalize_brain_source_view(view, "Font", {"Font", "Fonts"}) is False
+
+
+def test_brain_source_relation_merges_and_removes_plural_field(monkeypatch, tmp_path: Path):
+    from backend.api import vault_routes
+
+    registry = {
+        "tables": [
+            {
+                "id": "brain",
+                "name": "Cervell",
+                "properties": [
+                    {
+                        "name": "Font",
+                        "type": "relation",
+                        "relation_database_id": "resources",
+                        "cardinality": "many-to-one",
+                    },
+                    {
+                        "name": "Fonts",
+                        "type": "relation",
+                        "relation_database_id": "resources",
+                        "cardinality": "many-to-one",
+                    },
+                ],
+            },
+            {"id": "resources", "name": "Recursos", "properties": []},
+        ],
+        "views": [],
+    }
+    note_path = tmp_path / "note.md"
+    note_path.write_text("placeholder", encoding="utf-8")
+    saved_page: dict = {}
+    monkeypatch.setattr(vault_routes, "load_registry", lambda: registry)
+    monkeypatch.setattr(vault_routes, "save_registry", lambda _registry: None)
+    monkeypatch.setattr(
+        vault_routes,
+        "_get_pages_for_table",
+        lambda table_id: [SimpleNamespace(path=note_path)] if table_id == "brain" else [],
+    )
+    monkeypatch.setattr(
+        vault_routes,
+        "parse_frontmatter",
+        lambda _raw, _path: (
+            {
+                "title": "Reading note",
+                "Font": ["[[Resource|resource-1]]"],
+                "Fonts": [
+                    "[[Resource|resource-1]]",
+                    "[[Other resource|resource-2]]",
+                ],
+            },
+            "Body",
+        ),
+    )
+    monkeypatch.setattr(
+        vault_routes,
+        "save_page_md",
+        lambda _path, metadata, body: saved_page.update(
+            {"metadata": metadata, "body": body},
+        ),
+    )
+    monkeypatch.setattr(vault_routes, "register_page_in_index", lambda _path: None)
+
+    relation_id = vault_routes.ensure_brain_source_relation(
+        "brain",
+        "resources",
+        "ca",
+    )
+
+    source_properties = [
+        prop
+        for prop in registry["tables"][0]["properties"]
+        if prop.get("relation_database_id") == "resources"
+    ]
+    assert relation_id
+    assert len(source_properties) == 1
+    assert source_properties[0]["name"] == "Font"
+    assert source_properties[0]["id"] == relation_id
+    assert saved_page["metadata"]["Font"] == [
+        "[[Resource|resource-1]]",
+        "[[Other resource|resource-2]]",
+    ]
+    assert "Fonts" not in saved_page["metadata"]
+
+
+def test_process_title_prefers_configured_source_title_over_uid(tmp_path: Path):
+    from backend.api.vault_routes import _llm_wiki_source_title
+
+    path = tmp_path / "acd052f1-9788-5036-bf5e-4e945806e15d.md"
+    metadata = {
+        "title": "acd052f1-9788-5036-bf5e-4e945806e15d",
+        "Title": "Distinció entre afirmacions i judicis",
+    }
+    source_table = {
+        "properties": [
+            {"id": "title-field", "name": "Title", "type": "title"},
+        ],
+    }
+    source_config = {"title_property_id": "title-field"}
+
+    assert _llm_wiki_source_title(
+        metadata,
+        path,
+        source_table,
+        source_config,
+    ) == "Distinció entre afirmacions i judicis"
+
+
+def test_existing_reading_and_permanent_notes_follow_source_contract():
+    from backend.api.vault_routes import _normalize_brain_page_contract
+
+    brain = {
+        "properties": [
+            {
+                "id": "note-type",
+                "name": "Tipus de nota",
+                "type": "select",
+                "config": {
+                    "options": [
+                        {"name": "Nota índex"},
+                        {"name": "Nota permanent"},
+                        {"name": "Nota de lectura"},
+                    ],
+                },
+            },
+            {
+                "id": "source",
+                "name": "Font",
+                "aliases": ["Fonts"],
+                "type": "relation",
+                "relation_database_id": "resources",
+            },
+        ],
+    }
+    config = {
+        "ui_locale": "ca",
+        "brain_roles": {"note_type": "note-type"},
+        "source_tables": [{
+            "table_id": "resources",
+            "relation_property_id": "source",
+        }],
+    }
+    reading = {
+        "title": "Atomic idea",
+        "note_type": "lectura",
+        "llm_wiki_source_table_id": "resources",
+        "llm_wiki_resource_id": "resource-1",
+        "llm_wiki_resource_title": "resource-1",
+        "Fonts": ["[[resource-1|resource-1]]"],
+        "Tipus de nota": "lectura",
+    }
+    permanent = {
+        "title": "Manual idea",
+        "note_type": "permanent",
+        "Font": ["[[Resource title|resource-1]]"],
+        "Fonts": ["[[Resource title|resource-1]]"],
+        "Tipus de nota": "Nota permanent",
+    }
+
+    assert _normalize_brain_page_contract(
+        reading,
+        config,
+        brain,
+        {("resources", "resource-1"): "Resource title"},
+    )
+    assert reading["Tipus de nota"] == "Nota de lectura"
+    assert reading["llm_wiki_resource_title"] == "Resource title"
+    assert reading["Font"] == ["[[Resource title|resource-1]]"]
+    assert "Fonts" not in reading
+
+    assert _normalize_brain_page_contract(permanent, config, brain, {}) is True
+    assert "Font" not in permanent
+    assert "Fonts" not in permanent
 
 
 def test_source_detection_handles_different_schemas_and_ai_fallback():
@@ -694,7 +957,7 @@ def test_v2_config_http_contract_uses_a_disposable_vault(monkeypatch, tmp_path: 
     monkeypatch.setattr(
         vault_routes,
         "ensure_brain_source_relation",
-        lambda _brain, table_id: f"relation-{table_id}",
+        lambda _brain, table_id, *_args: f"relation-{table_id}",
     )
     monkeypatch.setattr(vault_routes, "_load_plugins_state", lambda: {"disabled": []})
     monkeypatch.setattr(vault_routes, "_llm_wiki_enabled", lambda _state: True)

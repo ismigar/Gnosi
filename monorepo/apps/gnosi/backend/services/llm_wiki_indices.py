@@ -321,7 +321,7 @@ def _upsert_resource_index(
     relation_prop = props_by_id.get(str(source_config.get("relation_property_id") or ""))
     if relation_prop:
         metadata[str(relation_prop.get("name"))] = [f"[[{resource_title}|{resource_id}]]"]
-    _set_visible_note_type(metadata, config, props_by_id, "índex")
+    _set_visible_note_type(metadata, config, props_by_id, "index")
     return _upsert_managed_page(
         brain_table_id,
         f"{_index_prefix(config)} · {resource_title}",
@@ -389,7 +389,7 @@ def _rebuild_dimension_indexes(
             for p in (brain_table or {}).get("properties") or []
             if isinstance(p, dict)
         }
-        _set_visible_note_type(metadata, config, props_by_id, "índex")
+        _set_visible_note_type(metadata, config, props_by_id, "index")
         out.append(
             _upsert_managed_page(
                 brain_table_id,
@@ -479,12 +479,16 @@ def _set_visible_note_type(
     metadata: dict[str, Any],
     config: dict[str, Any],
     props_by_id: dict[str, dict],
-    value: str,
+    kind: str,
 ) -> None:
     role_id = str((config.get("brain_roles") or {}).get("note_type") or "")
     prop = props_by_id.get(role_id)
     if prop and prop.get("name"):
-        metadata[str(prop["name"])] = value
+        metadata[str(prop["name"])] = llm_wiki_config.note_type_value(
+            kind,
+            config,
+            prop,
+        )
 
 
 def _upsert_managed_page(
