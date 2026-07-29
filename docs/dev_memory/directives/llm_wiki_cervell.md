@@ -38,8 +38,8 @@ synchronized with the vault. It contains `brain_table_id`, `brain_roles`,
 
 The default generated-content language is **English**. New table names, properties,
 relations, system rows, and the managed agent therefore use English by default:
-**Brain**, **Note type**, **Sources**, **Position**, **General index**, **Brain schema**,
-**Brain log**, and **Source · <table>**. Interface copy remains localized through i18n.
+**Brain**, **Note type**, **Source**, **Position**, **General index**, **Brain schema**,
+and **Brain log**. Interface copy remains localized through i18n.
 Existing configured vaults retain their saved locale and are never renamed automatically.
 
 Each source table stores property IDs for its title, attachments, URLs, language, the
@@ -77,6 +77,9 @@ deleting existing properties:
 
 Code uses persistent IDs and semantic roles, never visible field names. Compatible existing
 fields are reused. A relation always targets exactly one table; it is never retargeted.
+Each reading note and resource index links to exactly one source row through the canonical
+singular source relation. A permanent note has no source relation. Legacy plural source
+properties are merged into the singular relation and removed.
 
 The ethical contract is that automation performs mechanical work while the user retains
 cognitive authorship:
@@ -184,10 +187,22 @@ overwrite user-edited instructions.
 
 - Do not use the legacy processed-date property to discover sources. Use
   `source_tables[]`, manifests, and jobs.
+- Do not keep a parallel plural source relation. Merge its values into the
+  canonical singular relation and remove the duplicate property.
+- Embedded Brain views on source pages must use the contextual
+  `<source relation> = this` filter. Do not persist a URL or UID for one
+  particular row because copied resource pages would show the wrong notes.
+- Resolve generated source labels from the configured title property before
+  generic metadata or the path stem. A UUID filename is only a last-resort
+  fallback when the row genuinely has no title.
 - Do not hide Process or Reprocess for a configured source row merely because
   the frontend cannot resolve its attachment/URL field. Stale schemas and
   interrupted jobs can make that client-side check incomplete; expose the
   action and let the backend inspect the durable row data.
+- Closing an in-progress Process modal must not abandon its durable job. Keep
+  polling it from the dashboard and show a localized terminal notification;
+  this in-session notification does not persist after the whole application is
+  closed.
 - Do not use `tempfile` without an explicit `llm_wiki/tmp` directory under
   `GNOSI_LOCAL_DATA`.
 - Do not create unconstrained categorical values. Canonicalize them against existing
