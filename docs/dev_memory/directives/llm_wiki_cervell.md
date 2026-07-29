@@ -203,6 +203,9 @@ overwrite user-edited instructions.
   polling it from the dashboard and show a localized terminal notification;
   this in-session notification does not persist after the whole application is
   closed.
+- Generated Markdown wikilinks use `[[stable-id|visible title]]`. Do not write
+  `[[title|id]]`: the editor treats the text after `|` as the visible alias and
+  would expose internal UUIDs in managed indexes and logs.
 - Do not use `tempfile` without an explicit `llm_wiki/tmp` directory under
   `GNOSI_LOCAL_DATA`.
 - Do not create unconstrained categorical values. Canonicalize them against existing
