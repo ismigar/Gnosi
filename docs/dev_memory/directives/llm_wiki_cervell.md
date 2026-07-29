@@ -163,7 +163,8 @@ outside them is preserved. Existing manual MOCs are never adopted by title alone
 
 The system maintains:
 
-- a resource index with sections per attachment/URL and reading notes in appearance order;
+- a flat resource index with reading notes in appearance order; the source relation stores
+  the resource and citations retain attachment/URL provenance;
 - a direct category index for each selected field value, grouped by resource, with manual
   permanent notes in a separate section;
 - **General index**, **Brain schema**, and append-only **Brain log**;
@@ -219,6 +220,9 @@ overwrite user-edited instructions.
   values. The source relation property is the canonical provenance link; do not
   duplicate it in reading-note citations or as a resource line in the managed
   resource index.
+- Do not render attachment names, URL labels, or other source headings in a
+  managed resource index. The canonical source is already visible in the
+  relation property, while citations preserve origin-level provenance.
 - Deterministic index maintenance re-synchronizes source-mapped fields into
   existing managed reading notes and clears target values when the source value
   is empty. Configuration repairs must not require another LLM ingest.
