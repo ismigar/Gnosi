@@ -4208,6 +4208,7 @@
     "no_results": "No se ha encontrado ningún resultado para \"{{query}}\""
   },
   "chat": {
+    "default_session_title": "Nueva conversación",
     "mention_type_page": "Página",
     "mention_type_table": "Tabla",
     "mention_type_database": "BD",

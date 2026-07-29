@@ -4072,6 +4072,7 @@
     "no_results": "No results found for \"{{query}}\""
   },
   "chat": {
+    "default_session_title": "New conversation",
     "mention_type_page": "Page",
     "mention_type_table": "Table",
     "mention_type_database": "DB",
