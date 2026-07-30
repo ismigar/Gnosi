@@ -892,8 +892,9 @@ function GraphPage() {
                     graph={graphInstance}
                     mainRenderer={rendererInstance}
                     isDarkMode={isDarkMode}
-                    onPanTo={(x, y, ratio) => graphViewerRef.current?.panTo(x, y, ratio)}
+                    onPanToGraph={(x, y, ratio) => graphViewerRef.current?.panToGraphPoint(x, y, ratio)}
                     onPanToNode={(nodeId, ratio) => graphViewerRef.current?.panToNode(nodeId, ratio)}
+                    onCenter={() => graphViewerRef.current?.center()}
                 />
                 <NodeDetailsPanel
                     nodeId={selectedNode}
