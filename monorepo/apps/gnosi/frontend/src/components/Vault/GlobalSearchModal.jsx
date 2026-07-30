@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Search, FileText, Hash, FolderClosed, Star, X, Database } from 'lucide-react';
 import { isCalendarPage } from './schemaUtils';
 import { normalizeForSearch } from '../../utils/vaultFilters';
+import { openVaultNote } from '../../utils/vaultQuickNavigation';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import { IconRenderer } from './IconRenderer';
 
@@ -188,7 +189,7 @@ export function GlobalSearchModal({ isOpen, onClose, allNotes = [], onNoteSelect
                 e.preventDefault();
                 if (filteredNotes.length > 0 && filteredNotes[selectedIndex]) {
                     const selected = filteredNotes[selectedIndex];
-                    onNoteSelect(selected.id, selected.folder);
+                    openVaultNote(onNoteSelect, selected);
                     onClose();
                 }
             }
@@ -294,7 +295,7 @@ export function GlobalSearchModal({ isOpen, onClose, allNotes = [], onNoteSelect
                                 return (
                                     <button
                                         key={note.id}
-                                        onClick={() => { onNoteSelect(note.id, note.folder); onClose(); }}
+                                        onClick={() => { openVaultNote(onNoteSelect, note); onClose(); }}
                                         onMouseEnter={() => setSelectedIndex(index)}
                                         className={`w-full flex items-center justify-between p-3 rounded-lg text-left transition-colors ${isSelected ? 'bg-[var(--gnosi-primary)]/10' : 'hover:bg-[var(--bg-secondary)]'}`}
                                     >
