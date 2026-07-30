@@ -182,6 +182,18 @@ def test_partial_build_is_marked_and_not_cached(vault, monkeypatch):
     assert any(v is result2 for v in GraphService._graph_cache.values())
 
 
+def test_build_recovers_from_legacy_none_graph_cache(vault):
+    """A stale scheduler cache state must not turn GET /api/graph into a 500."""
+    GraphService._graph_cache = None
+    GraphService._last_graph_time = None
+
+    result = GraphService().build_unified_graph()
+
+    assert result["nodes"]
+    assert isinstance(GraphService._graph_cache, dict)
+    assert isinstance(GraphService._last_graph_time, dict)
+
+
 def test_node_count_keeps_previous_value_on_partial_scan(vault, monkeypatch):
     svc = GraphService()
 
