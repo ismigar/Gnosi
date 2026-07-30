@@ -41,6 +41,11 @@ from backend.agent.vault_tools import (
     create_page,
     summarize_to_cornell,
 )
+from backend.agent.gnosi_tools import (
+    CONFIRMED_WRITE_TOOLS,
+    EXPLICIT_WRITE_TOOLS,
+    READ_TOOLS as GNOSI_READ_TOOLS,
+)
 from backend.agent.agent_context import build_context_tools, describe_context_refs
 from backend.agent.tools import get_mcp_tools
 from backend.config.app_config import load_params
@@ -232,6 +237,93 @@ def _explicit_brain_write_tool_names(message: str) -> set[str]:
     if any(pattern in text for pattern in memory_patterns):
         authorized.add("save_memory")
 
+    intent_patterns = {
+        "create_table_row": (
+            "crea una fila", "afegeix una fila", "create a row", "add a row",
+            "crea una fila", "añade una fila", "crée une ligne",
+        ),
+        "update_page": (
+            "actualitza la pàgina", "edita la pàgina", "update the page",
+            "edit the page", "actualiza la página", "modifie la page",
+        ),
+        "append_to_page": (
+            "afegeix a la pàgina", "append to the page", "añade a la página",
+            "ajoute à la page",
+        ),
+        "update_table_row": (
+            "actualitza la fila", "edita la fila", "update the row",
+            "edit the row", "actualiza la fila", "modifie la ligne",
+        ),
+        "add_tags": (
+            "afegeix etiquetes", "afegeix l'etiqueta", "add tags", "add the tag",
+            "añade etiquetas", "ajoute des étiquettes",
+        ),
+        "add_page_comment": (
+            "afegeix un comentari", "add a comment", "añade un comentario",
+            "ajoute un commentaire",
+        ),
+        "mark_task_complete": (
+            "marca la tasca com", "completa la tasca", "mark the task complete",
+            "complete the task", "marca la tarea como", "termine la tâche",
+        ),
+        "create_calendar_event": (
+            "crea un esdeveniment", "afegeix al calendari", "create an event",
+            "add to the calendar", "crea un evento", "crée un événement",
+        ),
+        "create_contact": (
+            "crea un contacte", "afegeix un contacte", "create a contact",
+            "add a contact", "crea un contacto", "crée un contact",
+        ),
+        "save_mail_draft": (
+            "desa un esborrany", "guarda un esborrany", "save a draft",
+            "draft an email", "guarda un borrador", "enregistre un brouillon",
+        ),
+    }
+    for name, patterns in intent_patterns.items():
+        if any(pattern in text for pattern in patterns):
+            authorized.add(name)
+
+    confirmation_words = (
+        "confirmo", "confirma", "confirmat", "confirmed", "i confirm",
+        "confirm deletion", "confirmo la eliminación", "je confirme",
+    )
+    delete_patterns = (
+        "elimina la pàgina", "esborra la pàgina", "delete the page",
+        "remove the page", "elimina la página", "supprime la page",
+    )
+    if (
+        any(word in text for word in confirmation_words)
+        and any(pattern in text for pattern in delete_patterns)
+    ):
+        authorized.add("delete_page")
+
+    confirmed_patterns = {
+        "delete_contact": (
+            "elimina el contacte", "esborra el contacte", "delete the contact",
+            "elimina el contacto", "supprime le contact",
+        ),
+        "send_mail": (
+            "envia el correu", "envia aquest correu", "send the email",
+            "send this email", "envía el correo", "envoie le courriel",
+        ),
+        "archive_mail": (
+            "arxiva el correu", "archive the email", "archiva el correo",
+            "archive le courriel",
+        ),
+        "move_mail": (
+            "mou el correu", "move the email", "mueve el correo",
+            "déplace le courriel",
+        ),
+        "invite_attendees": (
+            "convida els assistents", "envia les invitacions", "invite attendees",
+            "send the invitations", "invita a los asistentes", "invite les participants",
+        ),
+    }
+    if any(word in text for word in confirmation_words):
+        for name, patterns in confirmed_patterns.items():
+            if any(pattern in text for pattern in patterns):
+                authorized.add(name)
+
     return authorized
 
 
@@ -241,6 +333,8 @@ def _authorized_brain_write_tools(names: set[str]) -> List[Any]:
         "create_page": create_page,
         "summarize_to_cornell": summarize_to_cornell,
         "save_memory": save_memory,
+        **{tool.name: tool for tool in EXPLICIT_WRITE_TOOLS},
+        **{tool.name: tool for tool in CONFIRMED_WRITE_TOOLS},
     }
     return [
         tool
@@ -1060,7 +1154,13 @@ async def create_agent_workflow(
     # query_wiki is now available only through plugin.llm-wiki.query.
     legacy_write_tools = (
         _authorized_brain_write_tools(
-            {"create_page", "summarize_to_cornell", "save_memory"},
+            {
+                "create_page",
+                "summarize_to_cornell",
+                "save_memory",
+                *(tool.name for tool in EXPLICIT_WRITE_TOOLS),
+                *(tool.name for tool in CONFIRMED_WRITE_TOOLS),
+            },
         )
         if legacy_bundle_active
         else []
@@ -1097,10 +1197,16 @@ async def create_agent_workflow(
     # Tools scoped to the sources the user attached to THIS agent. They close over
     # its refs, so an agent can never read another agent's context.
     context_tools = build_context_tools(context_refs)
-    read_only_vault_tools = [
-        item for item in VAULT_KNOWLEDGE_TOOLS
-        if item.name in {"read_page", "read_pdf", "propose_links"}
-    ] if legacy_bundle_active else []
+    read_only_vault_tools = (
+        [
+            item
+            for item in VAULT_KNOWLEDGE_TOOLS
+            if item.name in {"read_page", "read_pdf", "propose_links"}
+        ]
+        + list(GNOSI_READ_TOOLS)
+        if legacy_bundle_active
+        else []
+    )
     brain_tools = (
         (mcp_langchain_tools if legacy_bundle_active else [])
         + memory_tools

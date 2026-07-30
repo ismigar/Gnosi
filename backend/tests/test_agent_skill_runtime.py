@@ -179,7 +179,7 @@ def test_model_tool_support_falls_back_to_global_catalog(monkeypatch):
     )
 
 
-def test_legacy_bundle_does_not_expose_query_wiki_globally(monkeypatch):
+def test_legacy_bundle_exposes_core_gnosi_tools_without_query_wiki(monkeypatch):
     llm = RecordingLlm()
     agent = _agent()
     runtime = _runtime(
@@ -195,6 +195,12 @@ def test_legacy_bundle_does_not_expose_query_wiki_globally(monkeypatch):
         "query_wiki" not in tool_names
         for tool_names in llm.bound_tool_names
     )
+    brain_tool_names = max(llm.bound_tool_names, key=len)
+    assert {
+        "list_table_rows",
+        "create_table_row",
+        "send_mail",
+    } <= set(brain_tool_names)
 
 
 def test_assigned_skill_binds_its_exact_registered_tool(monkeypatch):
