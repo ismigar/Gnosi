@@ -4672,6 +4672,40 @@ class PluginSettingsRequest(BaseModel):
     settings: dict = {}
 
 
+class VaultSummaryRequest(BaseModel):
+    """Payload accepted by the built-in vault summary plugin."""
+
+    content: str
+    language: str = "en"
+
+
+def _configured_summary_model() -> tuple[str, str]:
+    """Return the enabled model selected for the vault-summary plugin."""
+    state = _load_plugins_state()
+    settings = (state.get("settings") or {}).get("vault-summary") or {}
+    model_ref = str(settings.get("model") or "").strip()
+    provider, separator, model_id = model_ref.partition(":")
+    if not separator or not provider or not model_id:
+        raise HTTPException(
+            status_code=409,
+            detail="Configure an active model for the vault-summary plugin first.",
+        )
+
+    from backend.agent.model_router import load_registry
+
+    active_models = {
+        f"{row.get('provider')}:{row.get('model_id')}"
+        for row in load_registry()
+        if row.get("enabled", True)
+    }
+    if model_ref not in active_models:
+        raise HTTPException(
+            status_code=409,
+            detail="The configured vault-summary model is no longer active.",
+        )
+    return provider, model_id
+
+
 @router.get("/plugins/{plugin_id}/settings")
 async def get_plugin_settings(plugin_id: str):
     """Returns a plugin's own configuration (`settings[plugin_id]`)."""
@@ -4694,6 +4728,56 @@ async def set_plugin_settings(plugin_id: str, request: PluginSettingsRequest):
         return {"settings": settings[plugin_id]}
     async with _plugins_mutation_lock:
         return await asyncio.to_thread(_work)
+
+
+@router.post(
+    "/plugins/vault-summary/summarize",
+    dependencies=[Depends(require_role("editor"))],
+)
+async def summarize_with_vault_plugin(request: VaultSummaryRequest):
+    """Create a concise summary using the explicitly configured active model."""
+    content = request.content.strip()
+    if not content:
+        raise HTTPException(status_code=422, detail="Content is required.")
+    if len(content) > 60_000:
+        raise HTTPException(status_code=422, detail="Content exceeds the 60,000 character limit.")
+
+    provider, model_id = await asyncio.to_thread(_configured_summary_model)
+
+    def _summarize() -> dict:
+        from backend.agent.factory import get_llm
+        from backend.agent.model_router import record_llm_usage, usage_from_message
+        from backend.security.ai_credentials import resolve_provider_api_key
+
+        ai_cfg = load_params(strict_env=False).get("ai", {}) or {}
+        provider_cfg = (ai_cfg.get("providers") or {}).get(provider, {}) or {}
+        llm = get_llm(
+            provider=provider,
+            model=model_id,
+            api_key=resolve_provider_api_key(provider, provider_cfg),
+            base_url=provider_cfg.get("base_url"),
+            timeout=60,
+        )
+        if not llm:
+            raise HTTPException(status_code=503, detail="The configured summary model is unavailable.")
+        prompt = (
+            "Summarize the following vault record in the requested language. "
+            "Return a concise, factual Markdown summary with a short heading and 3–5 bullets. "
+            "Do not invent facts.\n\n"
+            f"Language: {request.language}\n\nRecord:\n{content}"
+        )
+        from langchain_core.messages import HumanMessage
+
+        response = llm.invoke([HumanMessage(content=prompt)])
+        summary = getattr(response, "content", "") or ""
+        if not isinstance(summary, str):
+            summary = str(summary)
+        usage = usage_from_message(response)
+        if usage:
+            record_llm_usage(provider, model_id, usage[0], usage[1])
+        return {"summary": summary.strip(), "model": f"{provider}:{model_id}"}
+
+    return await asyncio.to_thread(_summarize)
 
 
 @router.get("/plugins/{plugin_id}/asset/{asset_path:path}")

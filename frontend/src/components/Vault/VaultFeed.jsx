@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import axios from 'axios';
 import { FileText, Calendar, Clock, Link as LinkIcon, CheckSquare, Loader2, ExternalLink, ChevronDown, ChevronUp, PanelRight, X, ArrowLeft, ArrowRight, SlidersHorizontal } from 'lucide-react';
 import { getFieldConfig, getFieldType, getSchemaFieldNames, resolveViewSorts, resolveViewFilters } from './schemaUtils';
 import { normalizeOptions, optionChipStyle, autoColorFor } from './optionCatalogUtils';
@@ -382,7 +383,7 @@ function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSele
 }
 
 export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onDeleteSelected, onDeletePage, onUpdateNote, onCreateRecord, onOpenConfig, onClearSearch, onSearchChange, searchTerm = '', density = 'comfortable', groupMode = 'none' }) {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const localeSettings = useLocaleSettings();
     const preferenceKey = `gnosi.feed.preferences.${activeView?.id || 'default'}`;
     const [feedPreferences, setFeedPreferences] = useState(() => {
@@ -398,6 +399,11 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
         try { return localStorage.getItem('gnosi.feed.dockReadingPane') === 'true'; } catch { return false; }
     });
     const [feedFocus, setFeedFocus] = useState(false);
+    const [summaryModels, setSummaryModels] = useState([]);
+    const [summaryModel, setSummaryModel] = useState('');
+    const [summaryText, setSummaryText] = useState('');
+    const [summaryState, setSummaryState] = useState('idle');
+    const [summaryForId, setSummaryForId] = useState('');
     const readStorageKey = `gnosi.feed.read.${activeView?.id || 'default'}`;
     const [readIds, setReadIds] = useState(() => {
         try { return new Set(JSON.parse(localStorage.getItem(readStorageKey) || '[]')); } catch { return new Set(); }
@@ -429,6 +435,37 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
             return next;
         });
     }, [preferenceKey]);
+
+    useEffect(() => {
+        let cancelled = false;
+        const loadSummaryPlugin = async () => {
+            try {
+                const [modelsResponse, settingsResponse] = await Promise.all([
+                    axios.get('/api/ai/models'),
+                    axios.get('/api/vault/plugins/vault-summary/settings'),
+                ]);
+                if (cancelled) return;
+                const models = (modelsResponse.data?.models || []).filter((model) => model?.enabled !== false && model?.provider && model?.model_id);
+                setSummaryModels(models);
+                const configured = settingsResponse.data?.settings?.model || '';
+                setSummaryModel(configured || (models[0] ? `${models[0].provider}:${models[0].model_id}` : ''));
+            } catch {
+                if (!cancelled) setSummaryModels([]);
+            }
+        };
+        loadSummaryPlugin();
+        return () => { cancelled = true; };
+    }, []);
+
+    const saveSummaryModel = useCallback(async (model) => {
+        setSummaryModel(model);
+        try {
+            await axios.put('/api/vault/plugins/vault-summary/settings', { settings: { model } });
+            toast.success(t('feed.summary_model_saved', 'Summary model saved'));
+        } catch {
+            toast.error(t('feed.summary_model_error', 'Could not save the summary model'));
+        }
+    }, [t]);
 
     // The feed shows ALL properties of the record (like Notion's feed),
     // regardless of the view's `visibleProperties`: the card is the
@@ -636,6 +673,24 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
     }, [lastRecordStorageKey, markRead, onNoteSelect]);
     const previewIndex = sortedNotes.findIndex((note) => note.id === previewId);
     const previewNote = previewIndex >= 0 ? sortedNotes[previewIndex] : null;
+    const summarizePreview = async () => {
+        if (!previewNote || !summaryModel) return;
+        setSummaryState('loading');
+        setSummaryText('');
+        setSummaryForId(previewNote.id);
+        try {
+            await axios.put('/api/vault/plugins/vault-summary/settings', { settings: { model: summaryModel } });
+            const response = await axios.post('/api/vault/plugins/vault-summary/summarize', {
+                content: `${previewNote.title || ''}\n\n${prepareBodyMd(previewNote.metadata?.description || '')}`,
+                language: i18n.resolvedLanguage || i18n.language || 'en',
+            });
+            setSummaryText(response.data?.summary || '');
+            setSummaryState('success');
+        } catch (error) {
+            setSummaryState('error');
+            toast.error(error?.response?.data?.detail || t('feed.summary_error', 'Could not create the summary'));
+        }
+    };
     const movePreview = useCallback((offset) => {
         const next = sortedNotes[previewIndex + offset];
         if (next) setPreviewId(next.id);
@@ -766,6 +821,7 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
                     <label>{t('feed.visible_tags', 'Visible tags')}<select value={feedPreferences.pillLimit} onChange={(event) => updateFeedPreferences({ pillLimit: Number(event.target.value) })}><option value="3">3</option><option value="5">5</option><option value="8">8</option></select></label>
                     <label>{t('feed.excerpt_length', 'Excerpt length')}<select value={feedPreferences.excerptLines} onChange={(event) => updateFeedPreferences({ excerptLines: Number(event.target.value) })}><option value="3">3</option><option value="6">6</option><option value="9">9</option></select></label>
                     <label className="vault-feed-preferences__toggle"><input type="checkbox" checked={feedFocus} onChange={(event) => setFeedFocus(event.target.checked)} />{t('feed.focus_feed', 'Focus feed')}</label>
+                    <label>{t('feed.summary_model', 'Summary model')}<select value={summaryModel} onChange={(event) => saveSummaryModel(event.target.value)} disabled={!summaryModels.length}><option value="">{t('feed.summary_model_placeholder', 'Select an active model')}</option>{summaryModels.map((model) => <option key={`${model.provider}:${model.model_id}`} value={`${model.provider}:${model.model_id}`}>{model.provider}: {model.model_id}</option>)}</select></label>
                 </div>}
             </div>
             <div className="vault-feed-progress" role="status">{t('feed.reading_progress', { read: sortedNotes.filter((note) => readIds.has(note.id)).length, total: sortedNotes.length, defaultValue: '{{read}} of {{total}} read' })}</div>
@@ -816,7 +872,7 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
             {previewNote && <aside className={`vault-feed-reading-pane ${cleanReading ? 'is-clean' : ''} ${dockReadingPane ? 'is-docked' : ''}`} style={{ width: `min(${paneWidth}px, 92vw)` }} aria-label={t('feed.reading_pane', 'Reading pane')}>
                 <div className="vault-feed-reading-pane__resize" onPointerDown={startPaneResize} role="separator" aria-orientation="vertical" aria-label={t('feed.resize_reading_pane', 'Resize reading pane')} />
                 <div className="vault-feed-reading-pane__header"><span>{t('feed.reading_pane', 'Reading pane')}</span><button type="button" onClick={() => setDockReadingPane((current) => { const next = !current; try { localStorage.setItem('gnosi.feed.dockReadingPane', String(next)); } catch { /* noop */ } return next; })} aria-pressed={dockReadingPane}>{dockReadingPane ? t('feed.undock_pane', 'Float pane') : t('feed.dock_pane', 'Dock pane')}</button><button type="button" onClick={() => setCleanReading((current) => !current)} aria-pressed={cleanReading}>{cleanReading ? t('feed.show_details', 'Show details') : t('feed.clean_reading', 'Clean reading')}</button><button type="button" onClick={() => setPreviewId('')} aria-label={t('common.close')}><X size={18} /></button></div>
-                <div className="vault-feed-reading-pane__content"><h2>{previewNote.title || t('common.untitled', 'Untitled')}</h2>{!cleanReading && <p className="vault-feed-reading-pane__meta">{t('feed.reading_shortcuts', 'Use ← → to navigate · Esc to close')}</p>}{previewNote.metadata?.description ? <VaultMarkdown md={prepareBodyMd(previewNote.metadata.description)} onActivate={() => openFeedRecord(previewNote.id)} imageTitle={previewNote.title || ''} /> : <p>{t('feed.no_excerpt', 'This record has no excerpt yet.')}</p>}</div>
+                <div className="vault-feed-reading-pane__content"><div className="flex items-start justify-between gap-3"><h2>{previewNote.title || t('common.untitled', 'Untitled')}</h2><button type="button" className="btn-gnosi btn-gnosi-secondary !text-xs" onClick={summarizePreview} disabled={!summaryModel || summaryState === 'loading'}>{summaryState === 'loading' ? t('feed.summarizing', 'Summarizing…') : t('feed.summarize', 'Summarize')}</button></div>{summaryText && summaryForId === previewNote.id && <section className="vault-feed-summary" aria-label={t('feed.summary', 'AI summary')}><strong>{t('feed.summary', 'AI summary')}</strong><VaultMarkdown md={summaryText} onActivate={() => openFeedRecord(previewNote.id)} imageTitle={previewNote.title || ''} /></section>}{summaryState === 'error' && summaryForId === previewNote.id && <p className="vault-feed-reading-pane__meta">{t('feed.summary_error_hint', 'Check that the selected model is active and available.')}</p>}{!cleanReading && <p className="vault-feed-reading-pane__meta">{t('feed.reading_shortcuts', 'Use ← → to navigate · Esc to close')}</p>}{previewNote.metadata?.description ? <VaultMarkdown md={prepareBodyMd(previewNote.metadata.description)} onActivate={() => openFeedRecord(previewNote.id)} imageTitle={previewNote.title || ''} /> : <p>{t('feed.no_excerpt', 'This record has no excerpt yet.')}</p>}</div>
                 <div className="vault-feed-reading-pane__footer"><button type="button" onClick={() => movePreview(-1)} disabled={previewIndex <= 0} aria-label={t('feed.previous_record', 'Previous record')}><ArrowLeft size={16} /></button><span>{previewIndex + 1} / {sortedNotes.length}</span><button type="button" onClick={() => movePreview(1)} disabled={previewIndex >= sortedNotes.length - 1} aria-label={t('feed.next_record', 'Next record')}><ArrowRight size={16} /></button><button type="button" className="btn-gnosi btn-gnosi-primary !text-xs" onClick={() => openFeedRecord(previewNote.id)}>{t('feed.open_page', 'Open page')}</button></div>
             </aside>}
         </div>
