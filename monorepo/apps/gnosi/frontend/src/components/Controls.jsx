@@ -6,9 +6,30 @@ export function Controls({ onZoomIn, onZoomOut, onCenter, onFullscreen }) {
     return (
         <div className="graph-controls">
             <button id="btn-fullscreen" title={t('graph.controls.fullscreen', "Fullscreen")} onClick={onFullscreen}>⛶</button>
-            <button id="btn-center" title={t('graph.controls.recenter', "Recenter")} onClick={onCenter}>⨁</button>
-            <button id="btn-zoom-in" title={t('graph.controls.zoom_in', "Zoom in")} onClick={onZoomIn}>＋</button>
-            <button id="btn-zoom-out" title={t('graph.controls.zoom_out', "Zoom out")} onClick={onZoomOut}>－</button>
+            <button
+                id="btn-center"
+                title={`${t('graph.controls.recenter', "Recenter")} (0)`}
+                aria-keyshortcuts="0"
+                onClick={onCenter}
+            >
+                ⨁
+            </button>
+            <button
+                id="btn-zoom-in"
+                title={`${t('graph.controls.zoom_in', "Zoom in")} (+)`}
+                aria-keyshortcuts="+"
+                onClick={onZoomIn}
+            >
+                ＋
+            </button>
+            <button
+                id="btn-zoom-out"
+                title={`${t('graph.controls.zoom_out', "Zoom out")} (-)`}
+                aria-keyshortcuts="-"
+                onClick={onZoomOut}
+            >
+                －
+            </button>
         </div>
     );
 }
