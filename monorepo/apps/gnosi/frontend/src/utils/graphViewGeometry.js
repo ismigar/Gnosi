@@ -1,5 +1,4 @@
 const MIN_EXTENT = 1;
-const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 
 export function getVisibleGraphBounds(graph) {
   if (!graph) return null;
@@ -131,48 +130,4 @@ export function getCameraViewportRect(renderer, transform) {
     width: Math.max(4, maxX - minX),
     height: Math.max(4, maxY - minY),
   };
-}
-
-export function arrangeVisibleIsolatedNodes(graph) {
-  if (!graph) return false;
-
-  const connected = [];
-  const isolated = [];
-
-  graph.forEachNode((node, attrs) => {
-    if (attrs.hidden || !Number.isFinite(attrs.x) || !Number.isFinite(attrs.y)) return;
-
-    let visibleDegree = 0;
-    graph.forEachNeighbor(node, (neighbor) => {
-      if (!graph.getNodeAttribute(neighbor, 'hidden')) visibleDegree += 1;
-    });
-
-    if (visibleDegree > 0) connected.push({ node, x: attrs.x, y: attrs.y });
-    else isolated.push(node);
-  });
-
-  if (isolated.length === 0) return false;
-
-  const centerX = connected.length
-    ? connected.reduce((sum, item) => sum + item.x, 0) / connected.length
-    : 0;
-  const centerY = connected.length
-    ? connected.reduce((sum, item) => sum + item.y, 0) / connected.length
-    : 0;
-
-  const connectedRadius = connected.reduce((radius, item) => {
-    return Math.max(radius, Math.hypot(item.x - centerX, item.y - centerY));
-  }, 30);
-  const haloStart = connectedRadius * 1.05 + 30;
-  const haloDepth = connectedRadius * 0.55 + 50;
-
-  isolated.sort().forEach((node, index) => {
-    const angle = index * GOLDEN_ANGLE - Math.PI / 2;
-    const radialOffset = ((index * 0.61803398875) % 1) * haloDepth;
-    const radius = haloStart + radialOffset;
-    graph.setNodeAttribute(node, 'x', centerX + Math.cos(angle) * radius);
-    graph.setNodeAttribute(node, 'y', centerY + Math.sin(angle) * radius);
-  });
-
-  return true;
 }

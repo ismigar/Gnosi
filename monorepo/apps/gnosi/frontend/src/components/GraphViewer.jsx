@@ -1,12 +1,17 @@
 import React, { useEffect, useRef, useState, useImperativeHandle, forwardRef } from 'react';
+import {
+    forceCenter,
+    forceCollide,
+    forceLink,
+    forceManyBody,
+    forceSimulation,
+    forceX,
+    forceY,
+} from 'd3-force';
 import Graph from 'graphology';
 import Sigma from 'sigma';
 import { applyFilters } from '../utils/graphFilters';
-import { assign as fa2Assign } from 'graphology-layout-forceatlas2';
-import { assign as forceAssign } from 'graphology-layout-force';
-import noverlapAssign from 'graphology-layout-noverlap';
 import {
-    arrangeVisibleIsolatedNodes,
     getVisibleCameraRatio,
     getVisibleGraphBounds,
 } from '../utils/graphViewGeometry';
@@ -23,6 +28,16 @@ function stringToColor(str) {
         color += ('00' + value.toString(16)).substr(-2);
     }
     return color;
+}
+
+function seededUnitInterval(value) {
+    let hash = 2166136261;
+    const text = String(value);
+    for (let index = 0; index < text.length; index += 1) {
+        hash ^= text.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0) / 4294967295;
 }
 
 export const GraphViewer = forwardRef(({
@@ -59,7 +74,7 @@ export const GraphViewer = forwardRef(({
     const rendererRef = useRef(null);
     const graphRef = useRef(null);
     const layoutRef = useRef(null); // Ref for the layout worker
-    const [edgeTooltip, setEdgeTooltip] = useState(null);
+    const [edgeTooltip] = useState(null);
 
     // Sync prop to ref so renderer can access latest value without re-init
     const isDarkModeRef = useRef(isDarkMode);
@@ -162,9 +177,8 @@ export const GraphViewer = forwardRef(({
 
     const fitTimerRef = useRef(null);
 
-    // Fit every visible node using Sigma's own square normalization. Isolated
-    // nodes are first moved from the global-layout outskirts into a local ring,
-    // so the camera and minimap describe the same visible graph.
+    // Fit every visible node using Sigma's own square normalization so the
+    // camera and minimap describe the same graph-space extent.
     const fitVisibleNodes = (durationMs = 800) => {
         const graph = graphRef.current;
         const renderer = rendererRef.current;
@@ -328,6 +342,10 @@ export const GraphViewer = forwardRef(({
             } else if (colorModeRef.current === 'ai_cluster' && data.ai_cluster) {
                 res.color = data.ai_cluster_color || stringToColor(data.ai_cluster);
                 res.borderColor = res.color;
+            } else if (data.kind === 'unresolved') {
+                res.color = isDarkModeRef.current ? '#94a3b8' : '#cbd5e1';
+                res.borderColor = res.color;
+                res.fontColor = isDarkModeRef.current ? '#cbd5e1' : '#64748b';
             } else {
                 if (config && config.colors && config.colors.node_types) {
                     const nodeType = data.kind || 'default';
@@ -373,8 +391,8 @@ export const GraphViewer = forwardRef(({
             if (data.hidden) return { ...data, hidden: true };
             const isDark = isDarkModeRef.current;
             const baseColor = isDark
-                ? '#64748b'
-                : '#cbd0d8';
+                ? '#475569'
+                : '#d9dde3';
             const activeColor = isDark
                 ? 'rgba(226, 232, 240, 0.72)'
                 : 'rgba(71, 85, 105, 0.58)';
@@ -403,7 +421,7 @@ export const GraphViewer = forwardRef(({
                 zIndex: 1
             };
             const thickness = edgeThicknessRef.current || 1.0;
-            result.size = Math.max(0.2, 0.4 * thickness);
+            result.size = Math.max(0.2, 0.3 * thickness);
             
             return result;
 
@@ -565,8 +583,9 @@ export const GraphViewer = forwardRef(({
             });
         });
         graphData.edges.forEach(e => {
-            // We show ONLY real wikilinks [[...]] like Obsidian does.
-            // Edges structural (parent_id) i relation distorsionen la topologia.
+            // The compared Obsidian sub-vault renders body wikilinks only.
+            // Database relations, structural hierarchy, and inferred similarity
+            // edges would change its connected components.
             if (e.kind !== 'link') return;
             const source = String(e.source);
             const target = String(e.target);
@@ -588,8 +607,9 @@ export const GraphViewer = forwardRef(({
 
         if (rendererRef.current && containerRef.current?.offsetWidth > 0) {
             rendererRef.current.refresh();
-            // Fit camera to visible nodes once the graph loads
-            setTimeout(() => fitVisibleNodes(800), 100);
+            if (!isPhysicsEnabled) {
+                setTimeout(() => fitVisibleNodes(800), 100);
+            }
         }
 
     }, [graphData]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -604,34 +624,52 @@ export const GraphViewer = forwardRef(({
 
         const { visibleNodes, visibleEdges } = applyFilters(graph, filters);
 
-        graph.forEachNode((node) => {
-            graph.setNodeAttribute(node, "hidden", !visibleNodes.has(node));
+        const visibleDegree = new Map();
+        visibleEdges.forEach((edge) => {
+            const source = graph.source(edge);
+            const target = graph.target(edge);
+            visibleDegree.set(source, (visibleDegree.get(source) || 0) + 1);
+            visibleDegree.set(target, (visibleDegree.get(target) || 0) + 1);
         });
 
-        graph.forEachEdge((edge) => {
-            graph.setEdgeAttribute(edge, "hidden", !visibleEdges.has(edge));
-        });
+        // Obsidian sizes nodes by the number of visible connections. Apply the
+        // same rule in one Graphology event so hubs stand out without flooding
+        // Sigma and the minimap with per-node updates.
+        graph.updateEachNodeAttributes((node, attrs) => {
+            const hidden = !visibleNodes.has(node);
+            const degree = visibleDegree.get(node) || 0;
+            const size = attrs.kind === 'unresolved'
+                ? 0.5
+                : Math.min(3.2, 0.7 + Math.sqrt(degree) * 0.27);
+            return { ...attrs, hidden, size };
+        }, { attributes: ['hidden', 'size'] });
 
-        arrangeVisibleIsolatedNodes(graph);
+        graph.updateEachEdgeAttributes((edge, attrs) => {
+            return { ...attrs, hidden: !visibleEdges.has(edge) };
+        }, { attributes: ['hidden'] });
 
         if (containerRef.current?.offsetWidth > 0) {
             renderer.refresh();
-            if (fitTimerRef.current) clearTimeout(fitTimerRef.current);
-            fitTimerRef.current = setTimeout(() => fitVisibleNodes(500), 120);
+            if (!isPhysicsEnabled) {
+                if (fitTimerRef.current) clearTimeout(fitTimerRef.current);
+                fitTimerRef.current = setTimeout(() => fitVisibleNodes(500), 120);
+            }
         }
 
         return () => {
             if (fitTimerRef.current) clearTimeout(fitTimerRef.current);
         };
-    }, [filters, graphData]); // Re-run when filters change
+    }, [filters, graphData, isPhysicsEnabled]); // Re-run when filters change
 
-    // Physics Effect - synchronous FA2 over the SUBGRAPH of visible nodes (without interference from hidden ones)
+    // Obsidian-style D3 simulation over the complete visible subgraph. Isolates
+    // and small components remain in the same force field instead of being
+    // removed and placed into an artificial ring after the layout.
     useEffect(() => {
         // Cancel any previous loop
         if (typeof layoutRef.current === 'number') {
             cancelAnimationFrame(layoutRef.current);
         } else if (layoutRef.current?.stop) {
-            try { layoutRef.current.stop(); } catch (_) {}
+            try { layoutRef.current.stop(); } catch { /* Layout may already be stopped. */ }
         }
         layoutRef.current = null;
 
@@ -652,51 +690,76 @@ export const GraphViewer = forwardRef(({
 
         if (subG.order === 0) return;
 
-        // FA2/force runs on the connected component to refine the layout
-        // that the backend has already calculated with igraph.
-        const connectedG = new Graph();
+        const simulationNodes = [];
+        const simulationNodeById = new Map();
         subG.forEachNode((node, attrs) => {
-            if (subG.degree(node) > 0) connectedG.addNode(node, { ...attrs });
+            const angle = seededUnitInterval(`${node}:angle`) * Math.PI * 2;
+            const seedRadius = Math.max(240, Math.sqrt(subG.order) * 25);
+            const radius = Math.sqrt(seededUnitInterval(`${node}:radius`)) * seedRadius;
+            const item = {
+                id: node,
+                radius: Number(attrs.size || 2),
+                x: Math.cos(angle) * radius,
+                y: Math.sin(angle) * radius,
+            };
+            simulationNodes.push(item);
+            simulationNodeById.set(node, item);
         });
-        subG.forEachEdge((_e, attrs, s, t) => connectedG.addEdge(s, t, attrs));
 
-        // Adaptive strategy: for small graphs (<500) we use force (spring-based,
-        // high quality, look closer to Obsidian); for large graphs, FA2 with Barnes-Hut
-        // to maintain O(N log N) performance.
-        const useForceLayout = connectedG.order < 500;
+        const simulationLinks = [];
+        subG.forEachEdge((_edge, attrs, source, target) => {
+            simulationLinks.push({
+                source,
+                target,
+                weight: Number(attrs.weight || 1),
+            });
+        });
 
-        const fa2Settings = {
-            gravity,
-            scalingRatio:        repulsion / 50,
-            slowDown:            Math.max(1, friction),
-            edgeWeightInfluence: edgeInfluence,
-            linLogMode,
-            outboundAttractionDistribution,
-            adjustSizes:         false,
-            barnesHutOptimize:   connectedG.order > 500,
-            barnesHutTheta:      0.5,
-            strongGravityMode,
-        };
+        const centerStrength = Math.min(
+            1,
+            Math.max(0, gravity * 5.18713248970312 * (strongGravityMode ? 1.35 : 1)),
+        );
+        // Normalize Gnosi's legacy 0-1000 control to D3 graph-space and clamp
+        // close encounters so dense hubs do not collapse into one point.
+        const chargeStrength = -Math.max(1, repulsion / 10);
+        const velocityDecay = Math.min(0.9, Math.max(0.1, 0.2 + friction / 50));
+        const linkDistance = linLogMode ? 300 : 250;
+        const centeringStrength = centerStrength * 0.06;
 
-        const forceSettings = {
-            // This layout does not use edge weights, so edgeInfluence=0 means
-            // uniform links rather than almost disabling link attraction.
-            attraction:        0.0005,
-            repulsion:         Math.max(0.05, repulsion / 5000),
-            gravity:           gravity * 0.001,
-            inertia:           Math.max(0.1, Math.min(0.9, 1 - friction / 20)),
-            maxMove:           Math.max(10, 200 / Math.max(1, friction)),
-        };
+        const linkForce = forceLink(simulationLinks)
+            .id(node => node.id)
+            .distance(linkDistance)
+            .strength((link) => {
+                const weightedStrength = edgeInfluence > 0
+                    ? Math.pow(Math.max(0.01, link.weight), edgeInfluence)
+                    : 1;
+                const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
+                const targetId = typeof link.target === 'object' ? link.target.id : link.target;
+                const degreeDivisor = outboundAttractionDistribution
+                    ? subG.degree(sourceId)
+                    : Math.min(subG.degree(sourceId), subG.degree(targetId));
+                return weightedStrength / Math.max(1, degreeDivisor);
+            });
 
-        const ITERS_PER_FRAME = useForceLayout ? 4 : 6;
-        const MAX_ITERS = useForceLayout ? 320 : 900;
-        let totalIters = 0;
+        const simulation = forceSimulation(simulationNodes)
+            .force('link', linkForce)
+            .force('charge', forceManyBody().strength(chargeStrength).distanceMin(30))
+            .force('center', forceCenter(0, 0))
+            .force('centerX', forceX(0).strength(centeringStrength))
+            .force('centerY', forceY(0).strength(centeringStrength))
+            .force('collision', forceCollide(node => node.radius * 1.5 + 1).strength(0.7))
+            .velocityDecay(velocityDecay)
+            .stop();
+
+        const TICKS_PER_FRAME = 4;
+        const MAX_TICKS = 300;
+        let totalTicks = 0;
         let running = true;
 
-        const copyPositions = (source, target) => {
-            target.updateEachNodeAttributes((node, attrs) => {
-                if (!source.hasNode(node)) return attrs;
-                const position = source.getNodeAttributes(node);
+        const copyPositions = () => {
+            graph.updateEachNodeAttributes((node, attrs) => {
+                const position = simulationNodeById.get(node);
+                if (!position) return attrs;
                 return { ...attrs, x: position.x, y: position.y };
             }, { attributes: ['x', 'y'] });
         };
@@ -705,39 +768,23 @@ export const GraphViewer = forwardRef(({
             if (!running) return;
 
             try {
-                if (useForceLayout) {
-                    forceAssign(connectedG, { maxIterations: ITERS_PER_FRAME, settings: forceSettings });
-                } else {
-                    fa2Assign(connectedG, { iterations: ITERS_PER_FRAME, settings: fa2Settings });
-                }
+                simulation.tick(TICKS_PER_FRAME);
             } catch (e) {
                 console.error('Layout error:', e);
                 running = false;
                 return;
             }
 
-            // A bulk Graphology update emits one event per frame instead of one
-            // event per node, keeping Sigma and the minimap responsive.
-            copyPositions(connectedG, graph);
-
-            totalIters += ITERS_PER_FRAME;
+            copyPositions();
+            totalTicks += TICKS_PER_FRAME;
 
             if (renderer && containerRef.current?.offsetWidth > 0) renderer.refresh();
 
-            if (totalIters >= MAX_ITERS) {
+            if (totalTicks >= MAX_TICKS || simulation.alpha() <= simulation.alphaMin()) {
                 running = false;
-                try {
-                    copyPositions(connectedG, subG);
-                    arrangeVisibleIsolatedNodes(subG);
-                    noverlapAssign(subG, {
-                        maxIterations: 250,
-                        settings: { margin: 6, ratio: 1.2, expansion: 1.2, gridSize: 20 },
-                    });
-                    copyPositions(subG, graph);
-                    if (renderer) renderer.refresh();
-                } catch (e) {
-                    console.error('Post-layout error:', e);
-                }
+                simulation.stop();
+                copyPositions();
+                if (renderer) renderer.refresh();
                 setTimeout(() => fitVisibleNodes(900), 300);
                 layoutRef.current = null;
                 return;
@@ -748,14 +795,25 @@ export const GraphViewer = forwardRef(({
         };
 
         const rafId = requestAnimationFrame(step);
-        layoutRef.current = rafId;
+        layoutRef.current = {
+            stop: () => {
+                running = false;
+                simulation.stop();
+                cancelAnimationFrame(rafId);
+            },
+        };
 
         return () => {
             running = false;
-            if (typeof layoutRef.current === 'number') cancelAnimationFrame(layoutRef.current);
+            simulation.stop();
+            if (typeof layoutRef.current === 'number') {
+                cancelAnimationFrame(layoutRef.current);
+            } else {
+                layoutRef.current?.stop?.();
+            }
             layoutRef.current = null;
         };
-    }, [isPhysicsEnabled, graphData, filters, repulsion, edgeInfluence, gravity, friction, linLogMode, strongGravityMode, outboundAttractionDistribution]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [isPhysicsEnabled, graphData, filters, repulsion, edgeInfluence, gravity, friction, linLogMode, strongGravityMode, outboundAttractionDistribution]);
 
     return (
         <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }}>

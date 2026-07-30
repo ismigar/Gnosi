@@ -76,12 +76,35 @@ asserts graph construction still produces nodes.
 ## Filtered layout and minimap projection
 
 The backend layout describes the complete vault, but the global graph often
-renders a filtered table. Nodes that are isolated inside that filtered view
-must not retain distant coordinates from the complete-vault orphan ring.
-Arrange visible isolates deterministically in a multi-radius halo around the
-visible connected component before fitting the camera. Avoid a perfect ring:
-Obsidian distributes isolates at varied radii and the circular artifact makes
-the layout look synthetic.
+renders a filtered table. Do not reuse those coordinates or arrange filtered
+isolates in a synthetic halo. Obsidian simulates every node in the current
+sub-vault together, including disconnected components and isolates. Run one
+visible-subgraph simulation over all of them before fitting the camera so the
+overview preserves the natural component structure.
+
+When comparing a filtered table with an Obsidian sub-vault, the topology must
+also match the folder boundary. Render the body-wikilink edge set used by the
+compared sub-vault; do not add database relation-property edges when Obsidian
+does not include them, because they collapse disconnected components into the
+main component. Represent genuinely unresolved wikilinks as scoped placeholder
+nodes, and represent outgoing links to notes outside the selected table as
+scoped placeholders. Hide a placeholder when its resolved target is visible
+through the active filters. Incoming links from outside the table must not
+leak into the filtered topology because Obsidian cannot discover them from
+inside the sub-vault.
+
+Use the compared sub-vault's `.obsidian/graph.json` as the diagnostic source
+for force values. The default mapping uses the configured center strength,
+the magnitude of the negative charge, a uniform link strength, and the stored
+link distance. Node size must be derived from degree in the visible topology,
+not degree in the complete backend graph.
+
+Do not initialize the visible-subgraph simulation from the complete-vault
+coordinates: filtered nodes inherit remote full-vault clusters and circular
+orphan artifacts. Do not leave D3 to use its symmetric phyllotaxis fallback
+either, because dense hubs settle into repeated crescents. Seed all visible
+nodes deterministically over a disk using their stable IDs, then let the
+visible links and forces refine that neutral starting distribution.
 
 Camera navigation and the minimap must use Sigma's own normalization and
 viewport conversion functions. Do not derive camera coordinates by scaling X
