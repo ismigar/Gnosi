@@ -4366,13 +4366,75 @@
       "cancel": "Annuler l'action",
       "review": "Vérifier et confirmer",
       "completed": "Action terminée après confirmation.",
+      "partial": "L'action a été partiellement effectuée : {{completed}} terminées et {{failed}} échouées.",
+      "outcome_unknown": "La connexion a été perdue et le résultat de l'action est inconnu. Vérifiez la cible avant de réessayer.",
       "failed": "L'action n'a pas pu être effectuée : {{message}}",
       "status": {
         "pending": "En attente de confirmation",
+        "executing": "En cours",
         "completed": "Terminée",
+        "partial": "Partiellement terminée",
         "cancelled": "Annulée",
+        "expired": "Expirée",
         "failed": "Échec",
+        "outcome_unknown": "Résultat inconnu",
         "unavailable": "Plus disponible"
+      },
+      "errors": {
+        "confirmation_not_found": "L'action en attente n'existe plus.",
+        "confirmation_scope_mismatch": "Cette action appartient à un autre Vault, utilisateur, agent ou fil de discussion.",
+        "confirmation_expired": "L'action en attente a expiré. Préparez-la à nouveau si elle est toujours nécessaire.",
+        "confirmation_unavailable": "L'action en attente n'est plus disponible.",
+        "confirmation_admin_required": "Une autorisation d'administration est requise pour cette action.",
+        "confirmation_action_rejected": "La cible a changé ou l'action n'est plus autorisée.",
+        "confirmation_action_failed": "L'action n'a pas pu être effectuée.",
+        "confirmation_outcome_unknown": "L'action a peut-être été effectuée, mais Gnosi n'a pas pu vérifier le résultat. Vérifiez la cible avant de réessayer."
+      },
+      "details": {
+        "account": "Compte",
+        "arguments": "Arguments exacts",
+        "attendees": "Participants",
+        "bcc": "Cci",
+        "body": "Corps",
+        "body_sha256": "Empreinte du corps",
+        "calendar_id": "Calendrier",
+        "cc": "Cc",
+        "company": "Entreprise",
+        "count": "Nombre d'éléments",
+        "current_revision": "Révision actuelle",
+        "date": "Date",
+        "description": "Description",
+        "effects": "Effets",
+        "email": "Courriel",
+        "end": "Fin",
+        "entries": "Éléments exacts",
+        "entries_truncated": "Liste d'éléments tronquée",
+        "event_id": "ID de l'événement",
+        "folder": "Dossier",
+        "location": "Lieu",
+        "message_id": "ID du message",
+        "page": "Page",
+        "page_id": "ID de la page",
+        "page_revision": "Révision de la page",
+        "phone": "Téléphone",
+        "properties": "Propriétés",
+        "property_count": "Nombre de propriétés",
+        "row_count": "Nombre de lignes",
+        "schema_sha256": "Empreinte du schéma",
+        "sender": "Expéditeur",
+        "snapshot_digest": "Empreinte de l'instantané",
+        "start": "Début",
+        "subject": "Objet",
+        "table": "Table",
+        "table_id": "ID de la table",
+        "target_folder": "Dossier cible",
+        "timestamp": "Version",
+        "title": "Titre",
+        "to": "Destinataires",
+        "tool": "Outil",
+        "tool_id": "ID de l'outil",
+        "updates": "Modifications exactes des lignes",
+        "version_revision": "Révision de la version"
       },
       "actions": {
         "delete_page": {
@@ -4387,6 +4449,10 @@
           "title": "Envoyer le courriel",
           "summary": "Envoyer « {{subject}} » de {{account}} à {{to}} ?"
         },
+        "save_mail_draft": {
+          "title": "Enregistrer le brouillon",
+          "summary": "Enregistrer « {{subject}} » comme brouillon dans {{account}} pour {{to}} ?"
+        },
         "archive_mail": {
           "title": "Archiver le courriel",
           "summary": "Archiver le message {{message_id}} de {{account}} ?"
@@ -4399,6 +4465,14 @@
           "title": "Envoyer les invitations",
           "summary": "Inviter {{attendees}} à l'événement {{event_id}} depuis {{account}} ?"
         },
+        "create_calendar_event": {
+          "title": "Créer un événement",
+          "summary": "Créer « {{title}} » dans {{calendar_id}} de {{start}} à {{end}} ?"
+        },
+        "governed_tool": {
+          "title": "Exécuter un outil gouverné",
+          "summary": "Vérifiez les arguments et les effets exacts de {{tool}} avant l'exécution."
+        },
         "delete_table": {
           "title": "Supprimer la table",
           "summary": "Supprimer la table « {{table}} », ses vues et ses ressources stockées ?"
@@ -4409,7 +4483,9 @@
         },
         "empty_trash": {
           "title": "Vider définitivement la corbeille",
-          "summary": "Supprimer définitivement {{count}} élément(s) de la corbeille du Vault ?"
+          "summary_one": "Supprimer définitivement {{count}} élément de la corbeille du Vault ?",
+          "summary_other": "Supprimer définitivement {{count}} éléments de la corbeille du Vault ?",
+          "summary_many": "Supprimer définitivement {{count}} éléments de la corbeille du Vault ?"
         },
         "change_schema": {
           "title": "Remplacer le schéma",
@@ -4417,7 +4493,9 @@
         },
         "bulk_update_rows": {
           "title": "Mettre les lignes à jour en masse",
-          "summary": "Appliquer les modifications à {{count}} ligne(s) de table ?"
+          "summary_one": "Appliquer les modifications à {{count}} ligne de table ?",
+          "summary_other": "Appliquer les modifications à {{count}} lignes de table ?",
+          "summary_many": "Appliquer les modifications à {{count}} lignes de table ?"
         }
       }
     }

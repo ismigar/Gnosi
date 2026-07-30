@@ -189,6 +189,37 @@ def test_vague_or_quoted_content_does_not_authorize_writes(message):
     assert _explicit_brain_write_tool_names(message) == set()
 
 
+@pytest.mark.parametrize(
+    "message",
+    [
+        "Do not send this email",
+        "Never delete the table Projectes",
+        "No envía el correo",
+        "Do not empty the trash",
+        "Do not create an event tomorrow",
+        "Explain why the phrase send this email is unsafe",
+        "Can this agent delete the table?",
+        '"send this email"',
+        "`delete the table`",
+    ],
+)
+def test_negated_meta_or_quoted_intent_never_authorizes_writes(message):
+    assert _explicit_brain_write_tool_names(message) == set()
+
+
+def test_structured_mentions_require_an_affirmative_current_turn_verb():
+    mention = [{"type": "table", "id": "projects", "label": "Projectes"}]
+
+    assert _explicit_brain_write_tool_names(
+        "Elimina @[Projectes](table:projects)",
+        mention,
+    ) == {"delete_table"}
+    assert _explicit_brain_write_tool_names(
+        "No eliminis @[Projectes](table:projects)",
+        mention,
+    ) == set()
+
+
 def test_sensitive_project_paths_are_not_readable():
     assert system_tools._is_sensitive_path(system_tools.BASE_DIR / ".env_shared")
     assert system_tools._is_sensitive_path(
@@ -208,6 +239,14 @@ def test_chat_request_limits_attachment_count():
     ]
     with pytest.raises(ValidationError):
         agent_routes.ChatRequest(message="Summarize", attachments=refs)
+
+
+def test_chat_request_rejects_client_side_tool_confirmation_grants():
+    with pytest.raises(ValidationError, match="not accepted"):
+        agent_routes.ChatRequest(
+            message="Hello",
+            confirmed_tool_ids=["plugin.example.external-write"],
+        )
 
 
 def test_structured_model_content_is_normalized():
@@ -280,9 +319,19 @@ def test_session_delete_removes_checkpoint_thread(tmp_path, monkeypatch):
         "vault-scope:agent".encode("utf-8")
     ).hexdigest()[:32]
     db_path = checkpoints / f"agent_{checkpoint_key}.sqlite"
+    workspace_context = agent_routes.WorkspaceContext(
+        workspace_id="personal",
+        user_id="user-a",
+        role="owner",
+        vault_path=vault,
+    )
     async def exercise():
         async with agent_routes.AsyncSqliteSaver.from_conn_string(str(db_path)) as saver:
             await saver.setup()
-        return await agent_routes.delete_chat_session("agent", "session")
+        return await agent_routes.delete_chat_session(
+            "agent",
+            "session",
+            workspace_context,
+        )
 
     assert asyncio.run(exercise()) == {"deleted": True}

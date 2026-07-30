@@ -6,8 +6,10 @@ bounded JSON so a read tool cannot accidentally export an entire Vault.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import re
+import threading
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -24,6 +26,11 @@ except Exception:  # pragma: no cover - keeps pure helpers importable in lean te
 
 MAX_LIST_ITEMS = 100
 MAX_BODY_CHARS = 12_000
+_BULK_UPDATE_LOCK = threading.RLock()
+
+
+class ActionConflictError(RuntimeError):
+    """Raised when a confirmed target changed before execution."""
 
 
 def _confirmation(
@@ -55,11 +62,141 @@ def _vault() -> Path:
     return Path(vault).resolve()
 
 
-def _workspace_id() -> str:
-    """Returns the authenticated workspace bound to the current chat turn."""
+def _confirmation_scope() -> Dict[str, str]:
+    """Return the authenticated workspace bound to the current chat turn."""
     from backend.agent.action_confirmations import current_confirmation_scope
 
-    return current_confirmation_scope()["workspace_id"]
+    return current_confirmation_scope()
+
+
+def _workspace_id() -> str:
+    return _confirmation_scope()["workspace_id"]
+
+
+def _assert_global_integration_access(account: str, *, calendar: bool = False) -> str:
+    """Confine installation-global mail/calendar accounts to personal workspaces."""
+    scope = _confirmation_scope()
+    if scope["workspace_id"] != "personal":
+        raise PermissionError(
+            "Installation-global integrations are unavailable outside "
+            "the personal workspace."
+        )
+    normalized = str(account or "").strip().lower()
+    if not normalized:
+        raise ValueError("A configured integration account is required.")
+
+    from backend.services.integration_manager import integration_manager
+
+    if calendar:
+        integrations = integration_manager.get_all_safe()
+        candidates = (
+            list(integrations.get("calendars") or [])
+            + list(integrations.get("emails") or [])
+            + list(integrations.get("mail_accounts") or [])
+        )
+        matched = next(
+            (
+                item
+                for item in candidates
+                if str(item.get("email") or item.get("username") or "")
+                .strip()
+                .lower()
+                == normalized
+            ),
+            None,
+        )
+    else:
+        matched = integration_manager.get_mail_account(normalized)
+    if not matched or matched.get("enabled", True) is False:
+        raise PermissionError("The integration account is unavailable.")
+    return normalized
+
+
+def _file_revision(path: Path) -> str:
+    """Return an immutable content digest for optimistic concurrency checks."""
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _value_revision(value: Any) -> str:
+    return hashlib.sha256(
+        json.dumps(
+            value,
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+            default=str,
+        ).encode("utf-8")
+    ).hexdigest()
+
+
+def _require_file_revision(path: Path, expected: str, target: str) -> None:
+    if not path.exists() or _file_revision(path) != str(expected or ""):
+        raise ActionConflictError(
+            f"{target} changed after the confirmation preview."
+        )
+
+
+def _contact_snapshot(contact: Any) -> Dict[str, Any]:
+    return {
+        "id": str(contact.id),
+        "name": str(contact.name or ""),
+        "email": str(contact.email or ""),
+        "phone": str(contact.phone or ""),
+        "company": str(contact.company or ""),
+        "job_title": str(contact.job_title or ""),
+    }
+
+
+def _mail_message_preview(message_id: str) -> Dict[str, str]:
+    """Resolve bounded local mail metadata for a human-readable preview."""
+    try:
+        from backend.api.mail_routes import (
+            _find_message_files,
+            get_frontmatter,
+            get_mail_vault_path,
+        )
+
+        files = _find_message_files(get_mail_vault_path(), message_id)
+        if not files:
+            return {"message_id": message_id}
+        raw = files[0].read_text(encoding="utf-8", errors="replace")
+        metadata, _body = get_frontmatter(raw)
+        return {
+            "message_id": message_id,
+            "subject": str(metadata.get("subject") or "")[:500],
+            "sender": str(metadata.get("sender") or metadata.get("from") or "")[:500],
+            "date": str(metadata.get("date") or "")[:100],
+        }
+    except Exception:
+        return {"message_id": message_id}
+
+
+def _trash_snapshot() -> List[Dict[str, str]]:
+    root = _vault() / ".trash"
+    if not root.exists():
+        return []
+    snapshot = []
+    for entry in sorted(root.iterdir(), key=lambda item: item.name):
+        if not entry.is_dir():
+            continue
+        sidecar = entry / "_trash.json"
+        revision_source = sidecar if sidecar.exists() else entry / "page.md"
+        revision = _file_revision(revision_source) if revision_source.exists() else ""
+        title = entry.name
+        if sidecar.exists():
+            try:
+                title = str(
+                    json.loads(sidecar.read_text(encoding="utf-8")).get("title")
+                    or entry.name
+                )
+            except Exception:
+                pass
+        snapshot.append({
+            "id": entry.name,
+            "revision": revision,
+            "title": title[:500],
+        })
+    return snapshot
 
 
 def _page_files() -> Iterable[Path]:
@@ -444,8 +581,15 @@ def delete_page(page_id_or_title: str) -> str:
     title = str(metadata.get("title") or path.stem)
     return _confirmation(
         "delete_page",
-        {"page_id": page_id},
-        {"page": title},
+        {
+            "page_id": page_id,
+            "page_revision": _file_revision(path),
+        },
+        {
+            "page": title,
+            "page_id": page_id,
+            "page_revision": _file_revision(path),
+        },
     )
 
 
@@ -482,6 +626,11 @@ async def list_calendar_events(
     import asyncio
     from backend.api.calendar_routes import collect_all_events
 
+    if _workspace_id() != "personal":
+        raise PermissionError(
+            "Installation-global calendar integrations are unavailable "
+            "outside the personal workspace."
+        )
     events = await asyncio.to_thread(
         collect_all_events,
         time_min,
@@ -504,6 +653,7 @@ async def search_mail(
     """Searches bounded mail headers and previews for one configured account."""
     from backend.api.mail_routes import get_messages
 
+    account = _assert_global_integration_access(account)
     result = await get_messages(
         email=account,
         folder=folder,
@@ -562,24 +712,30 @@ async def create_calendar_event(
     description: str = "",
     location: str = "",
 ) -> str:
-    """Creates a calendar event after an explicit user request."""
-    import asyncio
-    from backend.api.calendar_routes import _invalidate_calendar_cache
-    from backend.services.google_calendar_service import create_google_calendar_event
-
-    payload = {
-        "summary": title,
-        "start": {"dateTime": start},
-        "end": {"dateTime": end},
-        "description": description,
-        "location": location,
-    }
-    event = await asyncio.to_thread(
-        create_google_calendar_event, account, payload, calendar_id
+    """Prepare an external calendar event and wait for confirmation."""
+    account = _assert_global_integration_access(account, calendar=True)
+    return _confirmation(
+        "create_calendar_event",
+        {
+            "account": account,
+            "title": title,
+            "start": start,
+            "end": end,
+            "calendar_id": calendar_id,
+            "description": description,
+            "location": location,
+        },
+        {
+            "account": account,
+            "title": title,
+            "start": start,
+            "end": end,
+            "calendar_id": calendar_id,
+            "description": description,
+            "location": location,
+        },
+        destructive=False,
     )
-    if event:
-        _invalidate_calendar_cache()
-    return _json(event or {"error": "The calendar event could not be created."})
 
 
 @tool
@@ -620,10 +776,10 @@ async def save_mail_draft(
     cc: str = "",
     bcc: str = "",
 ) -> str:
-    """Saves a mail draft after an explicit user request; it never sends mail."""
-    from backend.api.mail_routes import save_draft
-
-    result = await save_draft(
+    """Prepare an external mail draft and wait for confirmation."""
+    account = _assert_global_integration_access(account)
+    return _confirmation(
+        "save_mail_draft",
         {
             "account": account,
             "to": to,
@@ -631,15 +787,22 @@ async def save_mail_draft(
             "body": body,
             "cc": cc,
             "bcc": bcc,
-        }
+        },
+        {
+            "account": account,
+            "to": to,
+            "cc": cc,
+            "bcc": bcc,
+            "subject": subject,
+            "body": body,
+        },
+        destructive=False,
     )
-    return _json(result)
 
 
 READ_TOOLS.extend([list_calendar_events, search_mail, list_contacts])
-EXPLICIT_WRITE_TOOLS.extend(
-    [create_calendar_event, create_contact, save_mail_draft]
-)
+EXPLICIT_WRITE_TOOLS.append(create_contact)
+CONFIRMED_WRITE_TOOLS.extend([create_calendar_event, save_mail_draft])
 
 
 @tool
@@ -654,10 +817,19 @@ def delete_contact(contact_id: str) -> str:
         contact = service.get_contact(contact_id)
         if not contact:
             return _json({"error": "Contact not found."})
+        snapshot = _contact_snapshot(contact)
         return _confirmation(
             "delete_contact",
-            {"contact_id": contact_id},
-            {"contact": contact.name, "email": contact.email},
+            {
+                "contact_id": contact_id,
+                "contact_revision": _value_revision(snapshot),
+            },
+            {
+                "contact": contact.name,
+                "email": contact.email,
+                "phone": contact.phone,
+                "company": contact.company,
+            },
         )
     finally:
         db.close()
@@ -673,6 +845,7 @@ async def send_mail(
     bcc: str = "",
 ) -> str:
     """Prepares sending mail and waits for interactive confirmation."""
+    account = _assert_global_integration_access(account)
     return _confirmation(
         "send_mail",
         {
@@ -683,7 +856,15 @@ async def send_mail(
             "cc": cc,
             "bcc": bcc,
         },
-        {"account": account, "to": to, "subject": subject},
+        {
+            "account": account,
+            "to": to,
+            "cc": cc,
+            "bcc": bcc,
+            "subject": subject,
+            "body": body,
+            "body_sha256": hashlib.sha256(body.encode("utf-8")).hexdigest(),
+        },
         destructive=False,
     )
 
@@ -691,10 +872,15 @@ async def send_mail(
 @tool
 async def archive_mail(account: str, message_id: str, folder: str = "") -> str:
     """Prepares archiving mail and waits for interactive confirmation."""
+    account = _assert_global_integration_access(account)
     return _confirmation(
         "archive_mail",
         {"account": account, "message_id": message_id, "folder": folder},
-        {"account": account, "message_id": message_id},
+        {
+            "account": account,
+            "folder": folder,
+            **_mail_message_preview(message_id),
+        },
         destructive=False,
     )
 
@@ -706,12 +892,13 @@ async def move_mail(
     target_folder: str,
 ) -> str:
     """Prepares moving mail and waits for interactive confirmation."""
+    account = _assert_global_integration_access(account)
     return _confirmation(
         "move_mail",
         {
             "account": account,
-            "message_id": message_id,
             "target_folder": target_folder,
+            **_mail_message_preview(message_id),
         },
         {
             "account": account,
@@ -730,6 +917,27 @@ async def invite_attendees(
     calendar_id: str = "primary",
 ) -> str:
     """Prepares invitations and waits for interactive confirmation."""
+    import asyncio
+
+    from backend.services.hybrid_calendar_service import get_event
+
+    account = _assert_global_integration_access(account, calendar=True)
+    event = await asyncio.to_thread(
+        get_event,
+        account,
+        event_id,
+        calendar_id,
+    )
+    if not event:
+        return _json({"error": "Calendar event not found."})
+    event_snapshot = {
+        "id": str(event.get("id") or event_id),
+        "title": str(event.get("title") or ""),
+        "start": str(event.get("start") or ""),
+        "end": str(event.get("end") or ""),
+        "calendar_id": str(event.get("calendar_id") or calendar_id),
+        "attendees": list(event.get("attendees") or []),
+    }
     return _confirmation(
         "invite_attendees",
         {
@@ -737,11 +945,17 @@ async def invite_attendees(
             "event_id": event_id,
             "attendees": attendees,
             "calendar_id": calendar_id,
+            "event_revision": _value_revision(event_snapshot),
         },
         {
             "account": account,
             "event_id": event_id,
+            "title": event_snapshot["title"],
+            "start": event_snapshot["start"],
+            "end": event_snapshot["end"],
+            "calendar_id": calendar_id,
             "attendees": ", ".join(attendees),
+            "existing_attendee_count": len(event_snapshot["attendees"]),
         },
         destructive=False,
     )
@@ -758,30 +972,65 @@ def delete_table(table_id_or_name: str) -> str:
     table = _table(table_id_or_name)
     if not table:
         return _json({"error": "Table not found."})
+    table_id = str(table.get("id") or "")
+    row_count = 0
+    for path in _page_files():
+        try:
+            metadata, _body = _parse(path)
+        except Exception:
+            continue
+        if str(
+            metadata.get("table_id")
+            or metadata.get("database_table_id")
+            or ""
+        ) == table_id:
+            row_count += 1
     return _confirmation(
         "delete_table",
-        {"table_id": str(table.get("id") or "")},
-        {"table": str(table.get("name") or table.get("id") or "")},
+        {
+            "table_id": table_id,
+            "table_revision": _value_revision(table),
+        },
+        {
+            "table": str(table.get("name") or table_id),
+            "table_id": table_id,
+            "folder": str(table.get("folder") or ""),
+            "row_count": row_count,
+        },
     )
 
 
 @tool
 def restore_page_version(page_id_or_title: str, timestamp: str) -> str:
     """Prepares restoring a page version and waits for confirmation."""
+    from backend.api.vault_routes import (
+        _validate_history_timestamp,
+        _validate_safe_page_id,
+    )
+
     path = _resolve_page(page_id_or_title)
     if not path:
         return _json({"error": "Page not found."})
     metadata, _body = _parse(path)
-    page_id = str(metadata.get("id") or "")
-    version = _vault() / ".history" / page_id / f"{timestamp}.md"
+    page_id = _validate_safe_page_id(str(metadata.get("id") or ""))
+    safe_timestamp = _validate_history_timestamp(timestamp)
+    version = _vault() / ".history" / page_id / f"{safe_timestamp}.md"
     if not version.exists():
         return _json({"error": "Page version not found."})
     return _confirmation(
         "restore_page_version",
-        {"page_id": page_id, "timestamp": timestamp},
+        {
+            "page_id": page_id,
+            "timestamp": safe_timestamp,
+            "current_revision": _file_revision(path),
+            "version_revision": _file_revision(version),
+        },
         {
             "page": str(metadata.get("title") or path.stem),
-            "timestamp": timestamp,
+            "page_id": page_id,
+            "timestamp": safe_timestamp,
+            "current_revision": _file_revision(path),
+            "version_revision": _file_revision(version),
         },
     )
 
@@ -789,12 +1038,23 @@ def restore_page_version(page_id_or_title: str, timestamp: str) -> str:
 @tool
 def empty_trash() -> str:
     """Prepares permanently emptying Vault trash and waits for confirmation."""
-    trash = _vault() / ".trash"
-    entry_count = len(list(trash.iterdir())) if trash.exists() else 0
+    snapshot = _trash_snapshot()
+    snapshot_digest = _value_revision(snapshot)
     return _confirmation(
         "empty_trash",
-        {},
-        {"count": entry_count},
+        {
+            "entries": snapshot,
+            "snapshot_digest": snapshot_digest,
+        },
+        {
+            "count": len(snapshot),
+            "entries": [
+                {"id": item["id"], "title": item["title"]}
+                for item in snapshot[:50]
+            ],
+            "entries_truncated": len(snapshot) > 50,
+            "snapshot_digest": snapshot_digest,
+        },
     )
 
 
@@ -804,12 +1064,28 @@ def change_schema(folder: str, schema_definition: Dict[str, Any]) -> str:
     safe_folder = sanitize_rel_folder(folder, fallback="")
     if not safe_folder:
         return _json({"error": "A valid schema folder is required."})
+    schema_path = (_vault() / safe_folder / "schema.json").resolve()
+    vault = _vault()
+    if schema_path != vault and vault not in schema_path.parents:
+        return _json({"error": "The schema folder is outside the active Vault."})
+    current_revision = _file_revision(schema_path) if schema_path.exists() else ""
+    properties = schema_definition.get("properties") or []
     return _confirmation(
         "change_schema",
-        {"folder": safe_folder, "schema_definition": schema_definition},
         {
             "folder": safe_folder,
-            "property_count": len(schema_definition.get("properties") or []),
+            "schema_definition": schema_definition,
+            "current_revision": current_revision,
+        },
+        {
+            "folder": safe_folder,
+            "property_count": len(properties),
+            "properties": [
+                str(item.get("name") or item.get("id") or "")
+                for item in properties
+                if isinstance(item, dict)
+            ][:100],
+            "schema_sha256": _value_revision(schema_definition),
         },
     )
 
@@ -827,11 +1103,35 @@ def bulk_update_rows(updates: List[Dict[str, Any]]) -> str:
         properties = update.get("properties")
         if not identifier or not isinstance(properties, dict):
             return _json({"error": "Each row update requires an id and properties."})
-        normalized.append({"id": identifier, "properties": properties})
+        path = _resolve_page(identifier)
+        if not path:
+            return _json({"error": f"Row not found: {identifier}"})
+        metadata, _body = _parse(path)
+        if not (
+            metadata.get("table_id")
+            or metadata.get("database_table_id")
+        ):
+            return _json({"error": f"The page is not a table row: {identifier}"})
+        normalized.append({
+            "id": str(metadata.get("id") or identifier),
+            "title": str(metadata.get("title") or path.stem),
+            "properties": properties,
+            "revision": _file_revision(path),
+        })
     return _confirmation(
         "bulk_update_rows",
         {"updates": normalized},
-        {"count": len(normalized)},
+        {
+            "count": len(normalized),
+            "updates": [
+                {
+                    "id": item["id"],
+                    "title": item["title"],
+                    "properties": item["properties"],
+                }
+                for item in normalized
+            ],
+        },
     )
 
 
@@ -845,6 +1145,7 @@ async def execute_confirmed_action(
     arguments: Dict[str, Any],
     *,
     workspace_id: str,
+    background_tasks: Any = None,
 ) -> Dict[str, Any]:
     """Executes one allowlisted action after the confirmation store claims it."""
     if action == "delete_page":
@@ -853,6 +1154,11 @@ async def execute_confirmed_action(
         path = _resolve_page(str(arguments["page_id"]))
         if not path:
             raise LookupError("Page not found.")
+        _require_file_revision(
+            path,
+            str(arguments.get("page_revision") or ""),
+            "The page",
+        )
         _move_page_to_trash(str(arguments["page_id"]), path)
         return {"status": "trashed", "page_id": str(arguments["page_id"])}
 
@@ -864,8 +1170,15 @@ async def execute_confirmed_action(
         try:
             service = ContactsService(db, workspace_id)
             contact_id = str(arguments["contact_id"])
-            if not service.get_contact(contact_id):
+            contact = service.get_contact(contact_id)
+            if not contact:
                 raise LookupError("Contact not found.")
+            if _value_revision(_contact_snapshot(contact)) != str(
+                arguments.get("contact_revision") or ""
+            ):
+                raise ActionConflictError(
+                    "The contact changed after the confirmation preview."
+                )
             if not service.delete_contact(contact_id):
                 raise RuntimeError("The contact could not be deleted.")
             return {"status": "deleted", "contact_id": contact_id}
@@ -875,8 +1188,9 @@ async def execute_confirmed_action(
     if action == "send_mail":
         from backend.api.mail_routes import send_mail as route_send_mail
 
+        account = _assert_global_integration_access(str(arguments["account"]))
         return await route_send_mail(
-            email=str(arguments["account"]),
+            email=account,
             to=str(arguments["to"]),
             subject=str(arguments.get("subject") or ""),
             body=str(arguments["body"]),
@@ -887,47 +1201,134 @@ async def execute_confirmed_action(
             attachments=[],
         )
 
+    if action == "save_mail_draft":
+        from backend.api.mail_routes import save_draft
+
+        account = _assert_global_integration_access(str(arguments["account"]))
+        return await save_draft(
+            {
+                "account": account,
+                "to": str(arguments["to"]),
+                "subject": str(arguments.get("subject") or ""),
+                "body": str(arguments["body"]),
+                "cc": str(arguments.get("cc") or ""),
+                "bcc": str(arguments.get("bcc") or ""),
+            }
+        )
+
     if action == "archive_mail":
         from backend.api.mail_routes import archive_msg
 
+        account = _assert_global_integration_access(str(arguments["account"]))
         return await archive_msg(
             str(arguments["message_id"]),
-            str(arguments["account"]),
+            account,
             str(arguments.get("folder") or "") or None,
         )
 
     if action == "move_mail":
         from backend.api.mail_routes import move_message
 
+        account = _assert_global_integration_access(str(arguments["account"]))
         return await move_message(
             str(arguments["message_id"]),
-            str(arguments["account"]),
+            account,
             {"target_folder": str(arguments["target_folder"])},
         )
 
     if action == "invite_attendees":
-        from backend.api.calendar_routes import invite_to_event
+        import asyncio
 
+        from backend.api.calendar_routes import invite_to_event
+        from backend.services.hybrid_calendar_service import get_event
+
+        account = _assert_global_integration_access(
+            str(arguments["account"]),
+            calendar=True,
+        )
+        event_id = str(arguments["event_id"])
+        calendar_id = str(arguments.get("calendar_id") or "primary")
+        event = await asyncio.to_thread(
+            get_event,
+            account,
+            event_id,
+            calendar_id,
+        )
+        if not event:
+            raise LookupError("Calendar event not found.")
+        event_snapshot = {
+            "id": str(event.get("id") or event_id),
+            "title": str(event.get("title") or ""),
+            "start": str(event.get("start") or ""),
+            "end": str(event.get("end") or ""),
+            "calendar_id": str(event.get("calendar_id") or calendar_id),
+            "attendees": list(event.get("attendees") or []),
+        }
+        if _value_revision(event_snapshot) != str(
+            arguments.get("event_revision") or ""
+        ):
+            raise ActionConflictError(
+                "The calendar event changed after the confirmation preview."
+            )
         return await invite_to_event(
-            str(arguments["event_id"]),
+            event_id,
             {
-                "email": str(arguments["account"]),
+                "email": account,
                 "attendees": [
                     {"email": str(address)}
                     for address in arguments.get("attendees") or []
                 ],
-                "calendar_id": str(arguments.get("calendar_id") or "primary"),
+                "calendar_id": calendar_id,
             },
         )
+
+    if action == "create_calendar_event":
+        import asyncio
+
+        from backend.api.calendar_routes import _invalidate_calendar_cache
+        from backend.services.google_calendar_service import (
+            create_google_calendar_event,
+        )
+
+        account = _assert_global_integration_access(
+            str(arguments["account"]),
+            calendar=True,
+        )
+        payload = {
+            "summary": str(arguments.get("title") or ""),
+            "start": {"dateTime": str(arguments["start"])},
+            "end": {"dateTime": str(arguments["end"])},
+            "description": str(arguments.get("description") or ""),
+            "location": str(arguments.get("location") or ""),
+        }
+        event = await asyncio.to_thread(
+            create_google_calendar_event,
+            account,
+            payload,
+            str(arguments.get("calendar_id") or "primary"),
+        )
+        if not event:
+            raise RuntimeError("The calendar event could not be created.")
+        _invalidate_calendar_cache()
+        return {"status": "created", "event_id": str(event.get("id") or "")}
 
     if action == "delete_table":
         from fastapi import BackgroundTasks
         from backend.api.vault_routes import delete_table as route_delete_table
 
-        tasks = BackgroundTasks()
+        table = _table(str(arguments["table_id"]))
+        if not table:
+            raise LookupError("Table not found.")
+        if _value_revision(table) != str(arguments.get("table_revision") or ""):
+            raise ActionConflictError(
+                "The table changed after the confirmation preview."
+            )
+        tasks = background_tasks or BackgroundTasks()
         result = await route_delete_table(str(arguments["table_id"]), tasks)
-        await tasks()
-        return result
+        return {
+            **(result if isinstance(result, dict) else {}),
+            "cleanup_status": "queued" if tasks.tasks else "not_required",
+        }
 
     if action == "restore_page_version":
         from fastapi import BackgroundTasks
@@ -935,44 +1336,158 @@ async def execute_confirmed_action(
             restore_page_version as route_restore_page_version,
         )
 
-        tasks = BackgroundTasks()
+        page_id = str(arguments["page_id"])
+        timestamp = str(arguments["timestamp"])
+        path = _resolve_page(page_id)
+        if not path:
+            raise LookupError("Current page not found.")
+        version = _vault() / ".history" / page_id / f"{timestamp}.md"
+        _require_file_revision(
+            path,
+            str(arguments.get("current_revision") or ""),
+            "The current page",
+        )
+        _require_file_revision(
+            version,
+            str(arguments.get("version_revision") or ""),
+            "The saved version",
+        )
+        tasks = background_tasks or BackgroundTasks()
         result = await route_restore_page_version(
-            str(arguments["page_id"]),
-            str(arguments["timestamp"]),
+            page_id,
+            timestamp,
             tasks,
         )
-        await tasks()
-        return result
+        return {
+            **(result if isinstance(result, dict) else {}),
+            "cleanup_status": "queued" if tasks.tasks else "not_required",
+        }
 
     if action == "empty_trash":
-        from backend.api.vault_routes import empty_trash as route_empty_trash
+        import asyncio
 
-        return await route_empty_trash()
+        from backend.api.vault_routes import _purge_trash_entry
+
+        expected_entries = list(arguments.get("entries") or [])
+        if _value_revision(expected_entries) != str(
+            arguments.get("snapshot_digest") or ""
+        ):
+            raise ActionConflictError("The trash snapshot is invalid.")
+        current = {item["id"]: item for item in _trash_snapshot()}
+        purged = 0
+        failed_ids: List[str] = []
+        freed = 0
+        for expected in expected_entries:
+            entry_id = str(expected.get("id") or "")
+            actual = current.get(entry_id)
+            if (
+                not actual
+                or str(actual.get("revision") or "")
+                != str(expected.get("revision") or "")
+            ):
+                failed_ids.append(entry_id)
+                continue
+            try:
+                result = await asyncio.to_thread(_purge_trash_entry, entry_id)
+                purged += 1
+                freed += int(result.get("freed_bytes") or 0)
+            except Exception:
+                failed_ids.append(entry_id)
+        return {
+            "status": "partial" if failed_ids else "completed",
+            "purged_count": purged,
+            "failed_count": len(failed_ids),
+            "failed_ids": failed_ids,
+            "freed_bytes": freed,
+        }
 
     if action == "change_schema":
         from backend.api.vault_routes import save_schema
 
+        schema_path = (
+            _vault() / str(arguments["folder"]) / "schema.json"
+        ).resolve()
+        current_revision = _file_revision(schema_path) if schema_path.exists() else ""
+        if current_revision != str(arguments.get("current_revision") or ""):
+            raise ActionConflictError(
+                "The schema changed after the confirmation preview."
+            )
         return await save_schema(
             str(arguments["folder"]),
             dict(arguments.get("schema_definition") or {}),
         )
 
     if action == "bulk_update_rows":
-        update_function = (
-            update_table_row.func
-            if hasattr(update_table_row, "func")
-            else update_table_row
-        )
-        results = []
-        for update in arguments.get("updates") or []:
-            raw = update_function(
-                str(update["id"]),
-                dict(update.get("properties") or {}),
-            )
-            result = json.loads(raw)
-            if result.get("error"):
-                raise RuntimeError(str(result["error"]))
-            results.append(result)
-        return {"status": "updated", "results": results}
+        updates = list(arguments.get("updates") or [])
+        if not updates or len(updates) > MAX_LIST_ITEMS:
+            raise ValueError("The bulk update size is invalid.")
+        with _BULK_UPDATE_LOCK:
+            prepared = []
+            seen_ids = set()
+            for update in updates:
+                row_id = str(update["id"])
+                if row_id in seen_ids:
+                    raise ValueError(f"Duplicate row update: {row_id}")
+                seen_ids.add(row_id)
+                path = _resolve_page(row_id)
+                if not path:
+                    raise LookupError(f"Row not found: {row_id}")
+                _require_file_revision(
+                    path,
+                    str(update.get("revision") or ""),
+                    f"Row {row_id}",
+                )
+                metadata, body = _parse(path)
+                if not (
+                    metadata.get("table_id")
+                    or metadata.get("database_table_id")
+                ):
+                    raise ValueError(f"The page is not a table row: {row_id}")
+                new_metadata = dict(metadata)
+                for key, value in dict(update.get("properties") or {}).items():
+                    if key not in {"id", "table_id", "database_table_id"}:
+                        new_metadata[key] = value
+                prepared.append({
+                    "id": row_id,
+                    "path": path,
+                    "original": path.read_bytes(),
+                    "metadata": new_metadata,
+                    "body": body,
+                })
+
+            written = []
+            try:
+                for item in prepared:
+                    _write_page(
+                        item["path"],
+                        item["metadata"],
+                        item["body"],
+                    )
+                    written.append(item)
+            except Exception as error:
+                rollback_failed = []
+                from backend.api.vault_routes import register_page_in_index
+
+                for item in reversed(written):
+                    try:
+                        item["path"].write_bytes(item["original"])
+                        register_page_in_index(item["path"])
+                    except Exception:
+                        rollback_failed.append(item["id"])
+                if rollback_failed:
+                    return {
+                        "status": "partial",
+                        "updated_count": len(written),
+                        "rollback_failed_ids": rollback_failed,
+                        "error": str(error)[:500],
+                    }
+                raise RuntimeError(
+                    "The bulk update failed and all changed rows were rolled back."
+                ) from error
+        return {
+            "status": "completed",
+            "updated_count": len(prepared),
+            "row_ids": [item["id"] for item in prepared],
+        }
 
     raise ValueError(f"Unsupported confirmed action: {action}")

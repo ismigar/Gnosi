@@ -6,6 +6,10 @@ import { useConfigChanged } from '../lib/configEvents';
 import { announceFloatingPanelOpen, useExclusiveFloatingPanel } from '../hooks/useExclusiveFloatingPanel';
 import { useFloatingActionDock } from '../hooks/useFloatingActionDock';
 import ConfirmModal from './ConfirmModal';
+import {
+    confirmationForStorage,
+    mergeConfirmationRecords,
+} from './agentConfirmationUtils';
 
 const CHAT_SESSIONS_KEY = 'agent_chat_sessions_v2';
 const CHAT_ACTIVE_SESSION_KEY = 'agent_chat_active_session_id_v2';
@@ -20,6 +24,27 @@ const MAX_STORED_SESSIONS = 20;
 const MAX_STORED_MESSAGES = 100;
 const MAX_STORED_MESSAGE_CHARS = 20_000;
 
+const confirmationScope = confirmation => {
+    if (confirmation?.client_scope) return confirmation.client_scope;
+    if (confirmation?.agent_id && confirmation?.session_id) {
+        return `${confirmation.agent_id}:${confirmation.session_id}`;
+    }
+    return '';
+};
+
+const formatConfirmationValue = value => {
+    if (typeof value === 'string') return value;
+    if (value === null || value === undefined) return '—';
+    if (typeof value === 'object') {
+        try {
+            return JSON.stringify(value, null, 2);
+        } catch {
+            return String(value);
+        }
+    }
+    return String(value);
+};
+
 const boundedChatSessions = (sessions) => [...(Array.isArray(sessions) ? sessions : [])]
     .filter((session) => session && typeof session === 'object' && session.id)
     .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
@@ -30,9 +55,15 @@ const boundedChatSessions = (sessions) => [...(Array.isArray(sessions) ? session
             .slice(-MAX_STORED_MESSAGES)
             .map((message) => ({
                 ...message,
-                content: typeof message?.content === 'string'
-                    ? message.content.slice(0, MAX_STORED_MESSAGE_CHARS)
-                    : String(message?.content || '').slice(0, MAX_STORED_MESSAGE_CHARS),
+                content: message?.confirmation
+                    ? ''
+                    : (
+                        typeof message?.content === 'string'
+                            ? message.content.slice(0, MAX_STORED_MESSAGE_CHARS)
+                            : String(message?.content || '')
+                                .slice(0, MAX_STORED_MESSAGE_CHARS)
+                    ),
+                confirmation: confirmationForStorage(message?.confirmation),
             })),
     }));
 
@@ -563,20 +594,154 @@ const AgentChat = () => {
         confirmation?.details || {},
     ), [t]);
 
+    const confirmationReview = useCallback(confirmation => {
+        const details = Object.entries(confirmation?.details || {});
+        return (
+            <div>
+                <p style={{ margin: '0 0 12px' }}>
+                    {confirmationSummary(confirmation)}
+                </p>
+                {details.length > 0 && (
+                    <dl style={{
+                        display: 'grid',
+                        gap: '8px',
+                        margin: 0,
+                        maxHeight: '45vh',
+                        overflowY: 'auto',
+                    }}>
+                        {details.map(([key, value]) => (
+                            <div key={key}>
+                                <dt style={{
+                                    color: 'var(--text-primary)',
+                                    fontWeight: 700,
+                                    fontSize: '0.72rem',
+                                }}>
+                                    {t(
+                                        `chat.confirmations.details.${key}`,
+                                        key.replaceAll('_', ' '),
+                                    )}
+                                </dt>
+                                <dd style={{
+                                    margin: '2px 0 0',
+                                    whiteSpace: 'pre-wrap',
+                                    overflowWrap: 'anywhere',
+                                    fontFamily: key === 'body' || key === 'arguments'
+                                        ? 'monospace'
+                                        : 'inherit',
+                                }}>
+                                    {formatConfirmationValue(value)}
+                                </dd>
+                            </div>
+                        ))}
+                    </dl>
+                )}
+            </div>
+        );
+    }, [confirmationSummary, t]);
+
     const updateConfirmationStatus = useCallback((confirmationId, status) => {
+        const terminal = [
+            'cancelled',
+            'completed',
+            'expired',
+            'failed',
+            'outcome_unknown',
+            'partial',
+        ].includes(status);
         setMessages((prev) => prev.map((message) => (
             message?.confirmation?.confirmation_id === confirmationId
                 ? {
                     ...message,
-                    confirmation: { ...message.confirmation, status },
+                    confirmation: {
+                        ...message.confirmation,
+                        status,
+                        ...(terminal ? {
+                            details: {},
+                            summary_key: 'chat.confirmations.summary',
+                            destructive: false,
+                        } : {}),
+                    },
                 }
                 : message
         )));
     }, []);
 
+    useEffect(() => {
+        if (!sessionsHydrated || !selectedAgentId || !sessionId) return undefined;
+        const requestScope = `${selectedAgentId}:${sessionId}`;
+        const controller = new AbortController();
+        const params = new URLSearchParams({
+            agent_id: selectedAgentId,
+            session_id: sessionId,
+        });
+        void fetch(`/api/chat/confirmations?${params.toString()}`, {
+            signal: controller.signal,
+        })
+            .then(async response => {
+                if (!response.ok) return null;
+                return response.json();
+            })
+            .then(payload => {
+                if (
+                    !payload
+                    || controller.signal.aborted
+                    || activeScopeRef.current !== requestScope
+                ) return;
+                const records = (payload.confirmations || []).map(item => ({
+                    ...item,
+                    client_scope: requestScope,
+                    agent_id: selectedAgentId,
+                    session_id: sessionId,
+                }));
+                setMessages(prev => mergeConfirmationRecords(
+                    prev,
+                    records,
+                    confirmationSummary,
+                ));
+            })
+            .catch(error => {
+                if (error.name !== 'AbortError') {
+                    console.error('Could not resume pending agent actions', error);
+                }
+            });
+        return () => controller.abort();
+    }, [
+        confirmationSummary,
+        selectedAgentId,
+        sessionId,
+        sessionsHydrated,
+    ]);
+
+    const localizedConfirmationError = useCallback((payload, fallback) => {
+        const code = payload?.detail?.code || payload?.code || '';
+        if (!code) return fallback;
+        return t(
+            `chat.confirmations.errors.${code}`,
+            fallback,
+        );
+    }, [t]);
+
+    const fetchConfirmationStatus = useCallback(async confirmation => {
+        const agentId = confirmation?.agent_id || selectedAgentId;
+        const chatSessionId = confirmation?.session_id || sessionId;
+        const params = new URLSearchParams({
+            agent_id: agentId,
+            session_id: chatSessionId,
+        });
+        const response = await fetch(
+            `/api/chat/confirmations/${encodeURIComponent(confirmation.confirmation_id)}?${params.toString()}`,
+        );
+        if (!response.ok) return null;
+        return response.json();
+    }, [selectedAgentId, sessionId]);
+
     const confirmPendingAction = useCallback(async () => {
         const confirmation = pendingConfirmation;
         if (!confirmation?.confirmation_id) return;
+        const agentId = confirmation.agent_id || selectedAgentId;
+        const chatSessionId = confirmation.session_id || sessionId;
+        const requestScope = confirmationScope(confirmation)
+            || `${agentId}:${chatSessionId}`;
         let response;
         try {
             response = await fetch(
@@ -585,52 +750,120 @@ const AgentChat = () => {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        agent_id: selectedAgentId,
-                        session_id: sessionId,
+                        agent_id: agentId,
+                        session_id: chatSessionId,
                     }),
                 },
             );
         } catch (error) {
             console.error('Could not confirm pending agent action', error);
-            updateConfirmationStatus(confirmation.confirmation_id, 'unavailable');
+            let recovered = null;
+            try {
+                recovered = await fetchConfirmationStatus(confirmation);
+            } catch (statusError) {
+                console.error('Could not reconcile pending agent action', statusError);
+            }
             setPendingConfirmation(null);
+            if (activeScopeRef.current !== requestScope) return;
+            const recoveredStatus = recovered?.status || 'outcome_unknown';
+            updateConfirmationStatus(
+                confirmation.confirmation_id,
+                recoveredStatus,
+            );
+            const recoveredResult = recovered?.result || {};
+            let recoveredMessage;
+            if (recoveredStatus === 'completed') {
+                recoveredMessage = t(
+                    'chat.confirmations.completed',
+                    'Action completed after confirmation.',
+                );
+            } else if (recoveredStatus === 'partial') {
+                recoveredMessage = t(
+                    'chat.confirmations.partial',
+                    'The action completed partially: {{completed}} completed, {{failed}} failed.',
+                    {
+                        completed: recoveredResult.purged_count
+                            || recoveredResult.updated_count
+                            || 0,
+                        failed: recoveredResult.failed_count
+                            || recoveredResult.rollback_failed_ids?.length
+                            || 0,
+                    },
+                );
+            } else if (recoveredStatus === 'outcome_unknown') {
+                recoveredMessage = t(
+                    'chat.confirmations.outcome_unknown',
+                    'The connection was lost and the action outcome is unknown. Check the target before trying again.',
+                );
+            } else {
+                recoveredMessage = t(
+                    `chat.confirmations.status.${recoveredStatus}`,
+                    recoveredStatus,
+                );
+            }
             setMessages((prev) => [...prev, {
                 role: 'system',
-                content: t(
-                    'chat.confirmations.failed',
-                    'The action could not be completed: {{message}}',
-                    { message: error.message },
-                ),
+                content: recoveredMessage,
             }]);
             return;
+        }
+        let payload = {};
+        try {
+            payload = await response.json();
+        } catch {
+            payload = {};
         }
         if (!response.ok) {
-            let detail = response.statusText;
+            let authoritative = payload;
             try {
-                const payload = await response.json();
-                detail = payload?.detail || detail;
-            } catch {
-                // Preserve the HTTP fallback for non-JSON errors.
+                authoritative = (
+                    await fetchConfirmationStatus(confirmation)
+                ) || payload;
+            } catch (statusError) {
+                console.error('Could not reconcile failed agent action', statusError);
             }
-            updateConfirmationStatus(confirmation.confirmation_id, 'failed');
             setPendingConfirmation(null);
+            if (activeScopeRef.current !== requestScope) return;
+            const status = authoritative?.status || (
+                payload?.detail?.code === 'confirmation_outcome_unknown'
+                    ? 'outcome_unknown'
+                    : 'failed'
+            );
+            updateConfirmationStatus(confirmation.confirmation_id, status);
+            const fallback = response.statusText || t(
+                'chat.confirmations.errors.confirmation_action_failed',
+                'The action could not be completed.',
+            );
             setMessages((prev) => [...prev, {
                 role: 'system',
-                content: t(
-                    'chat.confirmations.failed',
-                    'The action could not be completed: {{message}}',
-                    { message: detail },
-                ),
+                content: localizedConfirmationError(payload, fallback),
             }]);
             return;
         }
-        updateConfirmationStatus(confirmation.confirmation_id, 'completed');
+        const status = payload.status || 'completed';
         setPendingConfirmation(null);
+        if (activeScopeRef.current !== requestScope) return;
+        updateConfirmationStatus(confirmation.confirmation_id, status);
+        const result = payload.result || {};
         setMessages((prev) => [...prev, {
             role: 'system',
-            content: t('chat.confirmations.completed', 'Action completed after confirmation.'),
+            content: status === 'partial'
+                ? t(
+                    'chat.confirmations.partial',
+                    'The action completed partially: {{completed}} completed, {{failed}} failed.',
+                    {
+                        completed: result.purged_count || result.updated_count || 0,
+                        failed: result.failed_count || result.rollback_failed_ids?.length || 0,
+                    },
+                )
+                : t(
+                    'chat.confirmations.completed',
+                    'Action completed after confirmation.',
+                ),
         }]);
     }, [
+        fetchConfirmationStatus,
+        localizedConfirmationError,
         pendingConfirmation,
         selectedAgentId,
         sessionId,
@@ -642,6 +875,10 @@ const AgentChat = () => {
         const confirmation = pendingConfirmation;
         setPendingConfirmation(null);
         if (!confirmation?.confirmation_id) return;
+        const agentId = confirmation.agent_id || selectedAgentId;
+        const chatSessionId = confirmation.session_id || sessionId;
+        const requestScope = confirmationScope(confirmation)
+            || `${agentId}:${chatSessionId}`;
         try {
             const response = await fetch(
                 `/api/chat/confirmations/${encodeURIComponent(confirmation.confirmation_id)}/cancel`,
@@ -649,20 +886,51 @@ const AgentChat = () => {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        agent_id: selectedAgentId,
-                        session_id: sessionId,
+                        agent_id: agentId,
+                        session_id: chatSessionId,
                     }),
                 },
             );
+            if (activeScopeRef.current !== requestScope) return;
+            let status = response.ok ? 'cancelled' : 'pending';
+            if (!response.ok) {
+                try {
+                    const authoritative = await fetchConfirmationStatus(
+                        confirmation,
+                    );
+                    status = authoritative?.status || status;
+                } catch (statusError) {
+                    console.error(
+                        'Could not reconcile cancelled agent action',
+                        statusError,
+                    );
+                }
+            }
+            if (activeScopeRef.current !== requestScope) return;
             updateConfirmationStatus(
                 confirmation.confirmation_id,
-                response.ok ? 'cancelled' : 'unavailable',
+                status,
             );
         } catch (error) {
             console.error('Could not cancel pending agent action', error);
-            updateConfirmationStatus(confirmation.confirmation_id, 'unavailable');
+            if (activeScopeRef.current !== requestScope) return;
+            let status = 'pending';
+            try {
+                const authoritative = await fetchConfirmationStatus(
+                    confirmation,
+                );
+                status = authoritative?.status || status;
+            } catch (statusError) {
+                console.error(
+                    'Could not reconcile pending cancellation',
+                    statusError,
+                );
+            }
+            if (activeScopeRef.current !== requestScope) return;
+            updateConfirmationStatus(confirmation.confirmation_id, status);
         }
     }, [
+        fetchConfirmationStatus,
         pendingConfirmation,
         selectedAgentId,
         sessionId,
@@ -737,9 +1005,11 @@ const AgentChat = () => {
             let selectedLlm = null;
             let terminalReceived = false;
             let responseReceived = false;
+            let streamDone = false;
 
-            while (true) {
+            while (!streamDone) {
                 const { done, value } = await reader.read();
+                streamDone = done;
 
                 // We accumulate in the buffer and only process COMPLETE lines: a line
                 // JSON can end up split across two network chunks (losing the
@@ -789,12 +1059,21 @@ const AgentChat = () => {
                             && activeScopeRef.current === requestScope
                         ) {
                             data.status = 'pending';
-                            setPendingConfirmation(data);
+                            data.client_scope = requestScope;
+                            data.agent_id = selectedAgentId;
+                            data.session_id = sessionId;
                         }
                         const addAssistant = !aiMsgAdded;
                         aiMsgAdded = true;
                         setMessages(prev => {
                             if (activeScopeRef.current !== requestScope) return prev;
+                            if (data.type === 'confirmation_required') {
+                                return mergeConfirmationRecords(
+                                    prev,
+                                    [data],
+                                    confirmationSummary,
+                                );
+                            }
                             const newMsgs = [...prev];
 
                             // Metadata never creates an empty assistant bubble.
@@ -811,9 +1090,6 @@ const AgentChat = () => {
                                 lastMsg.content = t('chat.tool_end', "✅ *Tool {{tool}} finished.*", { tool: data.tool });
                             } else if (data.type === 'message' || data.type === 'thought') {
                                 if (data.content) lastMsg.content = data.content;
-                            } else if (data.type === 'confirmation_required') {
-                                lastMsg.content = confirmationSummary(data);
-                                lastMsg.confirmation = data;
                             } else if (data.type === 'error') {
                                 // Translation and improvement of common messages
                                 let errorContent = data.content || t('errors.unknown');
@@ -832,8 +1108,6 @@ const AgentChat = () => {
                         console.error("Error parsing JSON line:", line, e);
                     }
                 }
-
-                if (done) break;
             }
             if (!terminalReceived || !responseReceived) {
                 setMessages((prev) => {
@@ -1278,10 +1552,12 @@ const AgentChat = () => {
                 onClose={() => { void cancelPendingAction(); }}
                 onConfirm={confirmPendingAction}
                 title={pendingConfirmation ? confirmationTitle(pendingConfirmation) : ''}
-                message={pendingConfirmation ? confirmationSummary(pendingConfirmation) : ''}
+                message={pendingConfirmation ? confirmationReview(pendingConfirmation) : ''}
                 confirmText={t('chat.confirmations.confirm', 'Confirm and execute')}
                 cancelText={t('chat.confirmations.cancel', 'Cancel action')}
                 isDestructive={pendingConfirmation?.destructive !== false}
+                confirmOnEnter={false}
+                autofocusConfirm={false}
             />
         </div>
     );

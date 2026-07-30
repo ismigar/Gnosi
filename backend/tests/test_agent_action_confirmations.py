@@ -1,11 +1,14 @@
 """One-shot, scope-bound confirmation tests for consequential agent actions."""
 import asyncio
 import json
+import sqlite3
+import stat
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from fastapi import HTTPException
+from fastapi import BackgroundTasks, HTTPException
 
 from backend.agent import action_confirmations
 from backend.agent import gnosi_tools
@@ -13,10 +16,13 @@ from backend.agent.factory import _latest_tool_batch_requires_confirmation
 from backend.api import agent_routes
 from backend.agent.action_confirmations import (
     cancel_confirmation,
+    cancel_scope_confirmations,
     claim_confirmation,
     confirmation_context,
     confirmation_event,
     finish_confirmation,
+    get_confirmation_status,
+    list_confirmations,
     request_confirmation,
 )
 
@@ -178,7 +184,13 @@ def test_confirmation_endpoint_executes_once(monkeypatch):
     )
     calls = []
 
-    async def fake_execute(action, arguments, *, workspace_id):
+    async def fake_execute(
+        action,
+        arguments,
+        *,
+        workspace_id,
+        background_tasks,
+    ):
         calls.append((action, arguments, workspace_id))
         return {"status": "success"}
 
@@ -198,6 +210,7 @@ def test_confirmation_endpoint_executes_once(monkeypatch):
         agent_routes.confirm_agent_action(
             pending["confirmation_id"],
             payload,
+            BackgroundTasks(),
             context,
         )
     )
@@ -209,7 +222,276 @@ def test_confirmation_endpoint_executes_once(monkeypatch):
             agent_routes.confirm_agent_action(
                 pending["confirmation_id"],
                 payload,
+                BackgroundTasks(),
                 context,
             )
         )
     assert repeated.value.status_code == 409
+
+
+def test_database_is_private_and_terminal_rows_scrub_arguments(
+    isolated_confirmation_database,
+):
+    with confirmation_context(**_scope()):
+        pending = json.loads(request_confirmation(
+            "send_mail",
+            {
+                "to": "person@example.com",
+                "body": "sensitive body",
+            },
+            title_key="send",
+            summary_key="send",
+            details={"subject": "Private"},
+        ))
+    mode = stat.S_IMODE(isolated_confirmation_database.stat().st_mode)
+    assert mode == 0o600
+
+    claim_confirmation(pending["confirmation_id"], _scope())
+    finish_confirmation(
+        pending["confirmation_id"],
+        result={
+            "status": "sent",
+            "body": "must not persist",
+            "token": "must not persist",
+        },
+    )
+    connection = sqlite3.connect(isolated_confirmation_database)
+    try:
+        row = connection.execute(
+            """
+            SELECT status, arguments_json, preview_json, result_json
+            FROM pending_agent_actions WHERE id = ?
+            """,
+            (pending["confirmation_id"],),
+        ).fetchone()
+    finally:
+        connection.close()
+    assert row == (
+        "completed",
+        "{}",
+        action_confirmations.SCRUBBED_PREVIEW_JSON,
+        '{"status":"sent"}',
+    )
+    public = get_confirmation_status(pending["confirmation_id"], _scope())
+    assert public["title_key"].endswith(".send_mail.title")
+    assert public["summary_key"] == "chat.confirmations.summary"
+    assert public["details"] == {}
+
+
+def test_expiry_and_session_deletion_scrub_arguments(
+    isolated_confirmation_database,
+    monkeypatch,
+):
+    now = 5_000.0
+    monkeypatch.setattr(action_confirmations.time, "time", lambda: now)
+    expired = _prepare()
+    later = now + action_confirmations.CONFIRMATION_TTL_SECONDS + 1
+    monkeypatch.setattr(
+        action_confirmations.time,
+        "time",
+        lambda: later,
+    )
+    assert list_confirmations(_scope())[0]["status"] == "expired"
+    cancelled = _prepare()
+    assert cancel_scope_confirmations(_scope()) == 1
+
+    connection = sqlite3.connect(isolated_confirmation_database)
+    try:
+        rows = dict(connection.execute(
+            "SELECT id, arguments_json FROM pending_agent_actions"
+        ).fetchall())
+    finally:
+        connection.close()
+    assert rows[expired["confirmation_id"]] == "{}"
+    assert rows[cancelled["confirmation_id"]] == "{}"
+
+
+def test_stale_execution_becomes_unknown_and_cannot_retry(monkeypatch):
+    now = 7_000.0
+    monkeypatch.setattr(action_confirmations.time, "time", lambda: now)
+    pending = _prepare()
+    claim_confirmation(pending["confirmation_id"], _scope())
+    monkeypatch.setattr(
+        action_confirmations.time,
+        "time",
+        lambda: now + action_confirmations.EXECUTION_LEASE_SECONDS + 1,
+    )
+
+    status = get_confirmation_status(pending["confirmation_id"], _scope())
+    assert status["status"] == "outcome_unknown"
+    with pytest.raises(RuntimeError):
+        claim_confirmation(pending["confirmation_id"], _scope())
+
+
+def test_terminal_audit_rows_are_removed_after_retention(
+    isolated_confirmation_database,
+    monkeypatch,
+):
+    now = 8_000.0
+    monkeypatch.setattr(action_confirmations.time, "time", lambda: now)
+    pending = _prepare()
+    claim_confirmation(pending["confirmation_id"], _scope())
+    finish_confirmation(
+        pending["confirmation_id"],
+        result={"status": "completed"},
+    )
+    monkeypatch.setattr(
+        action_confirmations.time,
+        "time",
+        lambda: now + action_confirmations.TERMINAL_RETENTION_SECONDS + 1,
+    )
+
+    assert list_confirmations(_scope()) == []
+    connection = sqlite3.connect(isolated_confirmation_database)
+    try:
+        count = connection.execute(
+            "SELECT COUNT(*) FROM pending_agent_actions"
+        ).fetchone()[0]
+    finally:
+        connection.close()
+    assert count == 0
+
+
+def test_concurrent_claim_and_cancel_have_one_winner():
+    pending = _prepare()
+
+    def claim():
+        try:
+            claim_confirmation(pending["confirmation_id"], _scope())
+            return "claimed"
+        except RuntimeError:
+            return "lost"
+
+    def cancel():
+        return "cancelled" if cancel_confirmation(
+            pending["confirmation_id"],
+            _scope(),
+        ) else "lost"
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        claim_future = pool.submit(claim)
+        cancel_future = pool.submit(cancel)
+        results = {
+            claim_future.result(),
+            cancel_future.result(),
+        }
+    assert "lost" in results
+    assert len({"claimed", "cancelled"}.intersection(results)) == 1
+
+
+def test_endpoint_surfaces_partial_and_unknown_outcomes(monkeypatch):
+    monkeypatch.setattr(
+        agent_routes,
+        "_vault_scope",
+        lambda: (Path("/vault"), "vault-a"),
+    )
+    context = agent_routes.WorkspaceContext(
+        workspace_id="personal",
+        user_id="user-a",
+        role="owner",
+        vault_path=Path("/vault"),
+    )
+    payload = agent_routes.ActionConfirmationRequest(
+        agent_id="brain",
+        session_id="session-a",
+    )
+
+    partial = _prepare()
+
+    async def partial_execute(*_args, **_kwargs):
+        return {
+            "status": "partial",
+            "purged_count": 2,
+            "failed_count": 1,
+        }
+
+    monkeypatch.setattr(
+        agent_routes,
+        "execute_confirmed_action",
+        partial_execute,
+    )
+    result = asyncio.run(agent_routes.confirm_agent_action(
+        partial["confirmation_id"],
+        payload,
+        BackgroundTasks(),
+        context,
+    ))
+    assert result["status"] == "partial"
+    assert result["result"]["failed_count"] == 1
+
+    unknown = _prepare()
+
+    async def uncertain_execute(*_args, **_kwargs):
+        raise RuntimeError("connection lost after request")
+
+    monkeypatch.setattr(
+        agent_routes,
+        "execute_confirmed_action",
+        uncertain_execute,
+    )
+    with pytest.raises(HTTPException) as response:
+        asyncio.run(agent_routes.confirm_agent_action(
+            unknown["confirmation_id"],
+            payload,
+            BackgroundTasks(),
+            context,
+        ))
+    assert response.value.detail["code"] == "confirmation_outcome_unknown"
+    assert get_confirmation_status(
+        unknown["confirmation_id"],
+        _scope(),
+    )["status"] == "outcome_unknown"
+
+
+def test_governed_tool_descriptor_change_blocks_execution(monkeypatch):
+    from langchain_core.tools import tool
+
+    from backend.models.agent_skills import (
+        CatalogOrigin,
+        ConfirmationPolicy,
+        OriginType,
+        ToolDescriptor,
+        ToolEffect,
+    )
+
+    @tool
+    def external_write(target: str) -> str:
+        """Write to a test external target."""
+        return target
+
+    common = {
+        "id": "plugin.example.external-write",
+        "name": "External write",
+        "origin": CatalogOrigin(type=OriginType.PLUGIN, id="example"),
+        "effects": [ToolEffect.EXTERNAL_WRITE],
+        "confirmation": ConfirmationPolicy.ALWAYS,
+    }
+    original = ToolDescriptor(description="Original", **common)
+    changed = ToolDescriptor(description="Changed", **common)
+    monkeypatch.setattr(
+        agent_routes,
+        "prepare_agent_runtime",
+        lambda *_args, **_kwargs: (
+            {},
+            {"id": "brain"},
+            SimpleNamespace(
+                tool_descriptors=(changed,),
+                tools=(external_write,),
+            ),
+        ),
+    )
+
+    with pytest.raises(gnosi_tools.ActionConflictError):
+        asyncio.run(agent_routes._execute_governed_tool(
+            {
+                "tool_id": original.id,
+                "tool_name": external_write.name,
+                "tool_arguments": {"target": "exact"},
+                "descriptor_digest": action_confirmations._descriptor_digest(
+                    original
+                ),
+                "active_skill_ids": ["plugin.example.external"],
+            },
+            scope=_scope(role="admin"),
+            vault=Path("/vault"),
+        ))
