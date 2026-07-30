@@ -84,9 +84,11 @@ overview preserves the natural component structure.
 
 When comparing a filtered table with an Obsidian sub-vault, the topology must
 also match the folder boundary. Render the body-wikilink edge set used by the
-compared sub-vault; do not add database relation-property edges when Obsidian
-does not include them, because they collapse disconnected components into the
-main component. Represent genuinely unresolved wikilinks as scoped placeholder
+compared sub-vault. A body wikilink remains part of this set when the same edge
+also belongs to a database-view relation, so export an explicit body-link
+provenance flag. Do not add frontmatter-only relation edges when Obsidian does
+not include them, because they collapse disconnected components into the main
+component. Represent genuinely unresolved wikilinks as scoped placeholder
 nodes, and represent outgoing links to notes outside the selected table as
 scoped placeholders. Hide a placeholder when its resolved target is visible
 through the active filters. Incoming links from outside the table must not
@@ -105,6 +107,22 @@ orphan artifacts. Do not leave D3 to use its symmetric phyllotaxis fallback
 either, because dense hubs settle into repeated crescents. Seed all visible
 nodes deterministically over a disk using their stable IDs, then let the
 visible links and forces refine that neutral starting distribution.
+
+Keep zero-degree nodes at their deterministic seeded positions and exclude
+them as many-body charge sources. Letting global repulsion move every isolate
+pushes them into a nearly perfect circular shell around the connected graph,
+which is a layout artifact rather than Obsidian's scattered-isolate view.
+Connected unresolved placeholders must still participate in the force field
+and use a shorter link distance so unresolved wikilinks form compact radial
+stars instead of long spokes.
+
+Resolve body wikilinks with Obsidian's file semantics, never through Gnosi's
+internal page identity. In particular, `[[uuid|Readable title]]` targets a
+file named `uuid.md`; it remains unresolved when the real page has a readable
+filename even if its frontmatter `id` equals that UUID. Resolving such links
+through the internal ID merges otherwise separate components and produces
+large artificial hub arcs. A direct ID target may resolve only when the
+Markdown filename stem actually matches the ID.
 
 Camera navigation and the minimap must use Sigma's own normalization and
 viewport conversion functions. Do not derive camera coordinates by scaling X
