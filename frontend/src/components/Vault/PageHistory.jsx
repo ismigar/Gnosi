@@ -18,6 +18,7 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
   const [isPurgeOpen, setIsPurgeOpen] = useState(false);
   const [restoreTarget, setRestoreTarget] = useState(null);
   const [comparisonContent, setComparisonContent] = useState(null);
+  const [comparisonVersion, setComparisonVersion] = useState(null);
 
   const diffSummary = (left, right) => {
     const before = new Set(String(left || '').split('\n').filter(Boolean));
@@ -74,16 +75,27 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
     try {
       const response = await axios.get(`/api/vault/pages/${pageId}/history/${version.id}`);
       setPreviewContent(response.data.content);
-      const index = history.findIndex((item) => item.id === version.id);
-      const older = history[index + 1];
-      if (older) {
-        const olderResponse = await axios.get(`/api/vault/pages/${pageId}/history/${older.id}`);
+      const fallback = history[history.findIndex((item) => item.id === version.id) + 1];
+      if (comparisonVersion || fallback) {
+        const target = comparisonVersion || fallback;
+        const olderResponse = await axios.get(`/api/vault/pages/${pageId}/history/${target.id}`);
         setComparisonContent(olderResponse.data.content);
       } else {
         setComparisonContent(null);
       }
     } catch (error) {
       console.error('Error fetching version content:', error);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+  const selectComparison = async (version) => {
+    setComparisonVersion(version);
+    if (!previewVersion) return;
+    setPreviewLoading(true);
+    try {
+      const response = await axios.get(`/api/vault/pages/${pageId}/history/${version.id}`);
+      setComparisonContent(response.data.content);
     } finally {
       setPreviewLoading(false);
     }
@@ -212,6 +224,7 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
                       >
                         <RotateCcw size={14} />
                       </button>
+                      <button onClick={(e) => { e.stopPropagation(); selectComparison(version); }} className="p-1.5 text-xs text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]" title={t('vault.history.compare_version', 'Compare with this version')}>⇄</button>
                     </div>
                   ))}
                 </div>
