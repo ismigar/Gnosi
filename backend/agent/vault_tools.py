@@ -23,6 +23,13 @@ MAX_PAGE_READ_CHARS = 16_000
 MAX_PDF_READ_CHARS = 20_000
 DEFAULT_PDF_READ_CHARS = 12_000
 
+
+def _read_text_prefix(path, max_chars: int) -> tuple[str, bool]:
+    """Read at most one character beyond a server-owned text ceiling."""
+    with path.open("r", encoding="utf-8", errors="replace") as handle:
+        text = handle.read(max_chars + 1)
+    return text[:max_chars], len(text) > max_chars
+
 try:
     from langchain_core.tools import tool
 except Exception:  # allows importing the pure helpers without langchain (for tests)
@@ -107,7 +114,7 @@ def _resolve_page_path(page_id_or_title: str):
         try:
             if p.stem.casefold() == needle.casefold():
                 return p
-            head = p.read_text(encoding="utf-8")[:2000]
+            head, _truncated = _read_text_prefix(p, 2_000)
         except Exception:
             continue
         if re.search(rf'(^|\n)id:\s*["\']?{re.escape(needle)}["\']?\s*(\n|$)', head):
@@ -122,9 +129,8 @@ def read_page(page_id_or_title: str) -> str:
     if not p:
         return f"No page was found for '{page_id_or_title}'."
     try:
-        text = p.read_text(encoding="utf-8")
-        bounded = text[:MAX_PAGE_READ_CHARS]
-        if len(text) > MAX_PAGE_READ_CHARS:
+        bounded, truncated = _read_text_prefix(p, MAX_PAGE_READ_CHARS)
+        if truncated:
             bounded += "\n\n[Page content truncated by Gnosi.]"
         return bounded
     except Exception as e:

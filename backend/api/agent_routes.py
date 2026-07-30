@@ -246,12 +246,16 @@ def _delete_attachment(vault: Path, relative_path: str, scope_key: str) -> None:
         target.unlink(missing_ok=True)
 
 
-def _cleanup_expired_attachments(vault: Path) -> None:
-    root = _attachment_root(vault)
+def _cleanup_expired_attachments(vault: Path, scope_key: str) -> None:
+    """Remove expired uploads only within the authenticated request scope."""
+    root = _attachment_root(vault, scope_key)
     if not root.exists():
         return
     cutoff = time.time() - ATTACHMENT_MAX_AGE_SECONDS
-    for item in root.rglob("*"):
+    deadline = time.monotonic() + 0.05
+    for index, item in enumerate(root.iterdir()):
+        if index >= 256 or time.monotonic() >= deadline:
+            break
         try:
             if item.is_file() and item.stat().st_mtime < cutoff:
                 item.unlink(missing_ok=True)
@@ -396,6 +400,17 @@ def _public_checkpoint_messages(stored_messages: List[Any]) -> List[Dict[str, st
             if visible_content is not None
             else _message_text(getattr(message, "content", ""))
         )
+        if role == "human" and visible_content is None:
+            marker_positions = [
+                position
+                for marker in (
+                    "\n\nAttachment:",
+                    "\n\nSelected mentions context:",
+                )
+                if (position := content.find(marker)) >= 0
+            ]
+            if marker_positions:
+                content = content[:min(marker_positions)]
         if content.strip():
             messages.append({
                 "role": "user" if role == "human" else "assistant",
@@ -544,7 +559,14 @@ async def upload_chat_attachment(
 ):
     """Store one bounded chat attachment inside the active Vault."""
     vault, vault_scope = _vault_scope()
-    _cleanup_expired_attachments(vault)
+    scope_key = _attachment_scope_key(
+        vault_scope,
+        workspace_context.workspace_id,
+        workspace_context.user_id,
+        _validated_identifier(agent_id, "agent_id"),
+        _validated_identifier(session_id, "session_id"),
+    )
+    _cleanup_expired_attachments(vault, scope_key)
     original_name = Path(file.filename or "attachment").name
     suffix = Path(original_name).suffix.lower()
     if suffix not in CHAT_ATTACHMENT_TYPES:
@@ -555,13 +577,6 @@ async def upload_chat_attachment(
     if len(content) > MAX_ATTACHMENT_BYTES:
         raise HTTPException(status_code=413, detail="Chat attachment exceeds 15 MB")
 
-    scope_key = _attachment_scope_key(
-        vault_scope,
-        workspace_context.workspace_id,
-        workspace_context.user_id,
-        _validated_identifier(agent_id, "agent_id"),
-        _validated_identifier(session_id, "session_id"),
-    )
     root = _attachment_root(vault, scope_key)
     root.mkdir(parents=True, exist_ok=True)
     target = root / f"{uuid.uuid4().hex}{suffix}"

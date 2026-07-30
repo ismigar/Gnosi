@@ -68,9 +68,13 @@ MAX_SINGLE_MESSAGE_CHARS = 16_000
 MAX_SKILL_INSTRUCTION_CHARS = 24_000
 MAX_SYSTEM_PROMPT_CHARS = 32_000
 MAX_BOUND_TOOLS = 64
+DEFAULT_CONTEXT_WINDOW_TOKENS = 8_192
 
 
-def _bounded_model_messages(messages: Sequence[BaseMessage]) -> List[BaseMessage]:
+def _bounded_model_messages(
+    messages: Sequence[BaseMessage],
+    max_chars: int = MAX_MODEL_MESSAGE_CHARS,
+) -> List[BaseMessage]:
     """Keep newest complete assistant/tool protocol groups within the budget."""
     source = list(messages)[-MAX_MODEL_MESSAGE_COUNT:]
     while source and isinstance(source[0], ToolMessage):
@@ -101,7 +105,7 @@ def _bounded_model_messages(messages: Sequence[BaseMessage]) -> List[BaseMessage
         units.append(unit)
 
     bounded_units: List[List[BaseMessage]] = []
-    remaining = MAX_MODEL_MESSAGE_CHARS
+    remaining = max(1, int(max_chars))
     for unit in reversed(units):
         prepared = []
         unit_chars = 0
@@ -616,6 +620,40 @@ def _model_supports_tools(
     # Unknown/custom models fail closed. Agent profiles can explicitly opt in
     # through `capabilities.tools: true` after compatibility is verified.
     return False
+
+
+def _model_context_window(provider_name: str, model_name: Optional[str]) -> int:
+    """Resolve the selected model context window with a fail-small fallback."""
+    try:
+        from backend.agent.model_router import load_registry
+        match = next(
+            (
+                row for row in load_registry(with_catalog_prices=False)
+                if row.get("provider") == provider_name
+                and row.get("model_id") == model_name
+            ),
+            None,
+        )
+        if match:
+            return max(2_048, int(match.get("context_window") or 0))
+    except Exception:
+        pass
+    return DEFAULT_CONTEXT_WINDOW_TOKENS
+
+
+def _tool_schema_chars(tools: Sequence[Any]) -> int:
+    """Estimate serialized tool-schema input charged by providers."""
+    total = 0
+    for item in tools:
+        schema = getattr(item, "args_schema", None)
+        try:
+            payload = schema.model_json_schema() if schema else {}
+        except Exception:
+            payload = {}
+        total += len(str(getattr(item, "name", "")))
+        total += len(str(getattr(item, "description", "")))
+        total += len(json.dumps(payload, ensure_ascii=False, default=str))
+    return total
 
 
 def _select_agent_profile(ai_cfg: dict, agent_id: str) -> Optional[dict]:
@@ -1315,6 +1353,11 @@ async def create_agent_workflow(
         return None, {}
 
     # 3. Prepare prompts (persona and active skill instructions).
+    context_window_tokens = _model_context_window(provider_name, model_name)
+    model_input_chars = max(
+        8_000,
+        min(240_000, int(context_window_tokens * 0.75 * 3)),
+    )
     persona = str(agent_data.get("persona", ""))[:8_000]
     agent_name = agent_data.get("name", "Gnosy")
     
@@ -1323,7 +1366,8 @@ async def create_agent_workflow(
     detailed_persona = ""
     if persona_file.exists():
         try:
-            detailed_persona = persona_file.read_text(encoding="utf-8")[:16_000]
+            with persona_file.open("r", encoding="utf-8", errors="replace") as handle:
+                detailed_persona = handle.read(16_000)
         except Exception as e:
             log.warning(f"Could not read persona file {persona_file}: {e}")
     
@@ -1381,15 +1425,36 @@ async def create_agent_workflow(
     # on demand through the context tools (directive `agent_context_sources.md`).
     context_notes = str(agent_data.get("context") or "").strip()[:8_000]
     context_refs = agent_data.get("context_refs") or []
+    context_inventory = describe_context_refs(context_refs)[:4_000]
+    context_notes_limit = max(0, 8_000 - len(context_inventory))
+    bounded_context_notes = context_notes[:context_notes_limit]
     context_block = "\n\n".join(
         part for part in (
-            f"Working context provided by the user:\n{context_notes}" if context_notes else "",
-            describe_context_refs(context_refs),
+            context_inventory,
+            (
+                f"Working context provided by the user:\n{bounded_context_notes}"
+                if bounded_context_notes
+                else ""
+            ),
         ) if part
     )
     if context_block:
-        combined_persona = f"{combined_persona}\n\n{context_block}" if combined_persona else context_block
-    combined_persona = combined_persona[:MAX_SYSTEM_PROMPT_CHARS]
+        bounded_context = context_block[:8_000]
+        persona_budget = max(
+            0,
+            min(MAX_SYSTEM_PROMPT_CHARS, model_input_chars // 3)
+            - len(bounded_context)
+            - 2,
+        )
+        combined_persona = (
+            f"{combined_persona[:persona_budget]}\n\n{bounded_context}"
+            if combined_persona
+            else bounded_context
+        )
+    combined_persona = combined_persona[:min(
+        MAX_SYSTEM_PROMPT_CHARS,
+        model_input_chars // 3,
+    )]
 
     general_prompt = combined_persona or "You are a helpful assistant."
     if context_refs:
@@ -1485,6 +1550,27 @@ async def create_agent_workflow(
     )
     brain_tools = _deduplicate_tools(brain_tools)
     brain_tools = brain_tools[:MAX_BOUND_TOOLS]
+    bound_tool_names = {
+        str(getattr(item, "name", "") or getattr(item, "__name__", ""))
+        for item in brain_tools
+    }
+    omitted_runtime_tool_ids = [
+        str(item.get("id") or "")
+        for item in runtime_tool_metadata
+        if item.get("name") not in bound_tool_names and item.get("id")
+    ]
+    schema_chars = _tool_schema_chars(brain_tools)
+    reserved_output_chars = max(2_000, int(context_window_tokens * 0.15 * 3))
+    message_budget_chars = max(
+        4_000,
+        min(
+            180_000,
+            model_input_chars
+            - len(supervisor_prompt)
+            - schema_chars
+            - reserved_output_chars,
+        ),
+    )
     brain_llm = llm.bind_tools(brain_tools) if brain_tools else llm
 
     requested_active_skill_ids = {
@@ -1495,6 +1581,7 @@ async def create_agent_workflow(
         for item in runtime_tool_metadata
         if requested_active_skill_ids.intersection(item.get("skill_ids") or ())
         and item["name"] in guarded_tool_names
+        and item["name"] in bound_tool_names
         and item.get("confirmation") == "explicit_request"
     }
 
@@ -1523,7 +1610,7 @@ async def create_agent_workflow(
         )
         if obvious:
             return {"next": obvious}
-        prompt = [SystemMessage(content=supervisor_prompt)] + _bounded_model_messages(messages)
+        prompt = [SystemMessage(content=supervisor_prompt)] + _bounded_model_messages(messages, message_budget_chars)
         response = llm.invoke(prompt)
 
         decision = response.content.strip().replace("'", "").replace('"', "")
@@ -1550,7 +1637,7 @@ async def create_agent_workflow(
             )
         )
         response = coder_llm.invoke(
-            [SystemMessage(content=coder_system)] + _bounded_model_messages(messages)
+            [SystemMessage(content=coder_system)] + _bounded_model_messages(messages, message_budget_chars)
         )
         return {"messages": [response], "next": "supervisor"}
 
@@ -1629,14 +1716,8 @@ async def create_agent_workflow(
                 + ", ".join(rejected_mcp_names)
                 + ". Explain this limitation if the request depends on one of them."
             )
-        if context_tools:
-            # The Brain node is the one holding the context tools, so it needs the
-            # INVENTORY too: without it the model does not know which source ids
-            # exist and starts inventing references (observed with llama-3.3-70b,
-            # which answered from memory after three fabricated BOE ids 404'd).
-            brain_system += "\n\n" + describe_context_refs(context_refs)
         response = brain_llm.invoke(
-            [SystemMessage(content=brain_system)] + _bounded_model_messages(messages),
+            [SystemMessage(content=brain_system)] + _bounded_model_messages(messages, message_budget_chars),
         )
         return {"messages": [response], "next": "supervisor"}
 
@@ -1644,7 +1725,7 @@ async def create_agent_workflow(
         messages = state["messages"]
         # Use explicit persona for general conversation
         response = llm.invoke(
-            [SystemMessage(content=general_prompt)] + _bounded_model_messages(messages)
+            [SystemMessage(content=general_prompt)] + _bounded_model_messages(messages, message_budget_chars)
         )
         return {"messages": [response], "next": "FINISH"}
 
@@ -1718,14 +1799,19 @@ async def create_agent_workflow(
         "missing_skill_ids": list(
             getattr(resolved_runtime, "missing_skill_ids", ()) or ()
         ),
-        "unavailable_tool_ids": list(
-            getattr(resolved_runtime, "unavailable_tool_ids", ()) or ()
+        "unavailable_tool_ids": sorted(
+            set(
+                list(getattr(resolved_runtime, "unavailable_tool_ids", ()) or ())
+                + omitted_runtime_tool_ids
+            )
         ),
         "catalog_revision": str(
             getattr(resolved_runtime, "catalog_revision", "") or ""
         ),
         "supports_tools": supports_tools,
-        "tool_count": len(runtime_tool_metadata),
+        "tool_count": len(bound_tool_names),
+        "context_window_tokens": context_window_tokens,
+        "message_budget_chars": message_budget_chars,
         "tools": [
             {
                 key: value

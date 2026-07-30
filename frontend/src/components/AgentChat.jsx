@@ -535,6 +535,7 @@ const AgentChat = ({ storageIdentity = '' }) => {
 
     const createNewSession = () => {
         if (isLoading) return;
+        historyHydrationRef.current += 1;
         const next = createChatSession(defaultSessionTitle, selectedAgentId);
         setChatSessions((prev) => [
             next,
@@ -549,6 +550,7 @@ const AgentChat = ({ storageIdentity = '' }) => {
 
     const deleteSessionById = async (targetId) => {
         if (!targetId || isLoading) return;
+        historyHydrationRef.current += 1;
         const target = chatSessions.find((session) => session.id === targetId);
         try {
             await deleteSessionCheckpoint(target);
