@@ -94,16 +94,21 @@ def _resolve_page_path(page_id_or_title: str):
     if not vault:
         return None
     needle = str(page_id_or_title).strip()
-    # 1) by id in the frontmatter / 2) by filename (title)
-    for p in vault.rglob("*.md"):
+    from backend.services.path_resolver import path_resolver
+    indexed = path_resolver.find_path(needle, vault)
+    if indexed:
+        return indexed
+    # Resolve titles over the shared cached file inventory.
+    for p in path_resolver.list_all_files(vault):
         try:
+            if p.stem.casefold() == needle.casefold():
+                return p
             head = p.read_text(encoding="utf-8")[:2000]
         except Exception:
             continue
         if re.search(rf'(^|\n)id:\s*["\']?{re.escape(needle)}["\']?\s*(\n|$)', head):
             return p
-    cand = list(vault.rglob(f"{needle}.md"))
-    return cand[0] if cand else None
+    return None
 
 
 @tool

@@ -147,7 +147,7 @@ function App() {
       <Toaster position="bottom-right" containerStyle={{ zIndex: 'var(--z-toast)' }} />
       <CommandPalette />
       <PageOutline />
-      <AgentChat />
+      <AgentChat storageIdentity={user?.id || 'personal'} />
       <MeetingReminderWatcher />
       <MeetingRecorder />
     </div>
