@@ -4367,7 +4367,147 @@
     "model_required": "Configura aquest agent abans d'enviar un missatge",
     "agent_model_unavailable": "El model de l'agent seleccionat no està disponible. Configura l'agent i torna-ho a provar.",
     "new_session": "Nova sessio",
-    "messages_count_many": "{{count}} missatges"
+    "messages_count_many": "{{count}} missatges",
+    "confirmations": {
+      "title": "Confirmar acció",
+      "summary": "Revisa aquesta acció abans de continuar.",
+      "confirm": "Confirmar i executar",
+      "cancel": "Cancel·lar l'acció",
+      "review": "Revisar i confirmar",
+      "completed": "Acció completada després de la confirmació.",
+      "partial": "L'acció s'ha completat parcialment: {{completed}} completades i {{failed}} fallides.",
+      "outcome_unknown": "S'ha perdut la connexió i no es coneix el resultat de l'acció. Comprova la destinació abans de tornar-ho a provar.",
+      "failed": "No s'ha pogut completar l'acció: {{message}}",
+      "status": {
+        "pending": "Pendent de confirmació",
+        "executing": "En execució",
+        "completed": "Completada",
+        "partial": "Completada parcialment",
+        "cancelled": "Cancel·lada",
+        "expired": "Caducada",
+        "failed": "Ha fallat",
+        "outcome_unknown": "Resultat desconegut",
+        "unavailable": "Ja no està disponible"
+      },
+      "errors": {
+        "confirmation_not_found": "L'acció pendent ja no existeix.",
+        "confirmation_scope_mismatch": "Aquesta acció pertany a un altre Vault, usuari, agent o sessió.",
+        "confirmation_expired": "L'acció pendent ha caducat. Torna-la a preparar si encara cal.",
+        "confirmation_unavailable": "L'acció pendent ja no està disponible.",
+        "confirmation_admin_required": "Cal permís d'administració per a aquesta acció.",
+        "confirmation_action_rejected": "La destinació ha canviat o l'acció ja no està permesa.",
+        "confirmation_action_failed": "No s'ha pogut completar l'acció.",
+        "confirmation_outcome_unknown": "És possible que l'acció s'hagi completat, però Gnosi no ho ha pogut verificar. Comprova la destinació abans de tornar-ho a provar."
+      },
+      "details": {
+        "account": "Compte",
+        "arguments": "Arguments exactes",
+        "attendees": "Assistents",
+        "bcc": "Còpia oculta",
+        "body": "Cos",
+        "body_sha256": "Empremta del cos",
+        "calendar_id": "Calendari",
+        "cc": "Còpia",
+        "company": "Empresa",
+        "count": "Nombre d'elements",
+        "current_revision": "Revisió actual",
+        "date": "Data",
+        "description": "Descripció",
+        "effects": "Efectes",
+        "email": "Correu",
+        "end": "Final",
+        "entries": "Elements exactes",
+        "entries_truncated": "Llista d'elements truncada",
+        "event_id": "ID de l'esdeveniment",
+        "folder": "Carpeta",
+        "location": "Ubicació",
+        "message_id": "ID del missatge",
+        "page": "Pàgina",
+        "page_id": "ID de la pàgina",
+        "page_revision": "Revisió de la pàgina",
+        "phone": "Telèfon",
+        "properties": "Propietats",
+        "property_count": "Nombre de propietats",
+        "row_count": "Nombre de files",
+        "schema_sha256": "Empremta de l'esquema",
+        "sender": "Remitent",
+        "snapshot_digest": "Empremta de la instantània",
+        "start": "Inici",
+        "subject": "Assumpte",
+        "table": "Taula",
+        "table_id": "ID de la taula",
+        "target_folder": "Carpeta de destinació",
+        "timestamp": "Versió",
+        "title": "Títol",
+        "to": "Destinataris",
+        "tool": "Eina",
+        "tool_id": "ID de l'eina",
+        "updates": "Canvis exactes de les files",
+        "version_revision": "Revisió de la versió"
+      },
+      "actions": {
+        "delete_page": {
+          "title": "Moure la pàgina a la paperera",
+          "summary": "Vols moure «{{page}}» a la paperera del Vault?"
+        },
+        "delete_contact": {
+          "title": "Eliminar el contacte",
+          "summary": "Vols eliminar permanentment {{contact}} ({{email}})?"
+        },
+        "send_mail": {
+          "title": "Enviar el correu",
+          "summary": "Vols enviar «{{subject}}» des de {{account}} a {{to}}?"
+        },
+        "save_mail_draft": {
+          "title": "Desar l'esborrany de correu",
+          "summary": "Vols desar «{{subject}}» com a esborrany a {{account}} per a {{to}}?"
+        },
+        "archive_mail": {
+          "title": "Arxivar el correu",
+          "summary": "Vols arxivar el missatge {{message_id}} de {{account}}?"
+        },
+        "move_mail": {
+          "title": "Moure el correu",
+          "summary": "Vols moure el missatge {{message_id}} de {{account}} a {{target_folder}}?"
+        },
+        "invite_attendees": {
+          "title": "Enviar invitacions",
+          "summary": "Vols convidar {{attendees}} a l'esdeveniment {{event_id}} des de {{account}}?"
+        },
+        "create_calendar_event": {
+          "title": "Crear un esdeveniment",
+          "summary": "Vols crear «{{title}}» a {{calendar_id}} de {{start}} a {{end}}?"
+        },
+        "governed_tool": {
+          "title": "Executar una eina governada",
+          "summary": "Revisa els arguments i els efectes exactes de {{tool}} abans d'executar-la."
+        },
+        "delete_table": {
+          "title": "Eliminar la taula",
+          "summary": "Vols eliminar la taula «{{table}}», les seves vistes i els recursos emmagatzemats?"
+        },
+        "restore_page_version": {
+          "title": "Restaurar la versió",
+          "summary": "Vols substituir «{{page}}» per la versió de {{timestamp}}?"
+        },
+        "empty_trash": {
+          "title": "Buidar permanentment la paperera",
+          "summary_one": "Vols eliminar permanentment {{count}} element de la paperera del Vault?",
+          "summary_other": "Vols eliminar permanentment {{count}} elements de la paperera del Vault?",
+          "summary_many": "Vols eliminar permanentment {{count}} elements de la paperera del Vault?"
+        },
+        "change_schema": {
+          "title": "Substituir l'esquema",
+          "summary": "Vols substituir l'esquema de {{folder}} per un de {{property_count}} propietats?"
+        },
+        "bulk_update_rows": {
+          "title": "Actualitzar files massivament",
+          "summary_one": "Vols aplicar canvis a {{count}} fila de taula?",
+          "summary_other": "Vols aplicar canvis a {{count}} files de taula?",
+          "summary_many": "Vols aplicar canvis a {{count}} files de taula?"
+        }
+      }
+    }
   },
   "bulk_actions": {
     "selected_count_one": "{{count}} seleccionat",

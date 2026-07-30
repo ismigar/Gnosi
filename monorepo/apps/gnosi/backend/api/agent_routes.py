@@ -1,5 +1,14 @@
-from fastapi import APIRouter, HTTPException, Request, Depends, File, UploadFile
-from pydantic import BaseModel, Field
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+)
+from pydantic import BaseModel, Field, model_validator
 from typing import List, Dict, Any, Optional
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import HumanMessage
@@ -18,6 +27,20 @@ from backend.agent.factory import (
     create_agent_workflow,
     prepare_agent_runtime,
 )
+from backend.agent.action_confirmations import (
+    _descriptor_digest,
+    bind_confirmation_context,
+    cancel_confirmation,
+    cancel_scope_confirmations,
+    claim_confirmation,
+    confirmation_context,
+    confirmation_event,
+    finish_confirmation,
+    get_confirmation_status,
+    list_confirmations,
+    reset_confirmation_context,
+)
+from backend.agent.gnosi_tools import ActionConflictError, execute_confirmed_action
 from backend.agent.model_router import record_llm_usage, usage_from_message
 from backend.agent.model_reliability import (
     blames_the_model, model_evidence, record_failure, reliability_report,
@@ -80,14 +103,29 @@ class ChatRequest(BaseModel):
     mentions: List[MentionRef] = Field(default_factory=list, max_length=20)
     attachments: List[AttachmentRef] = Field(default_factory=list, max_length=8)
     active_skill_ids: Optional[List[str]] = Field(default=None, max_length=64)
-    confirmed_tool_ids: List[str] = Field(default_factory=list, max_length=64)
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_client_confirmation_grants(cls, value):
+        """Reject the removed client-side approval bypass explicitly."""
+        if isinstance(value, dict) and "confirmed_tool_ids" in value:
+            raise ValueError(
+                "Client-provided tool confirmations are not accepted."
+            )
+        return value
 
 
 class AttachmentDeleteRequest(BaseModel):
     path: str = Field(max_length=512)
 
 
+class ActionConfirmationRequest(BaseModel):
+    agent_id: str = Field(max_length=128)
+    session_id: str = Field(max_length=128)
+
+
 IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$")
+ACTION_ID_RE = re.compile(r"^[a-f0-9]{32}$")
 SKILL_IDENTIFIER_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,191}$")
 MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024
 MAX_ATTACHMENT_TEXT = 20_000
@@ -425,11 +463,354 @@ async def delete_chat_attachment(delete_req: AttachmentDeleteRequest):
     return {"deleted": True}
 
 
+def _action_scope(
+    payload: ActionConfirmationRequest,
+    workspace_context: WorkspaceContext,
+) -> Dict[str, str]:
+    """Builds the exact authenticated scope used by pending actions."""
+    _vault, vault_scope = _vault_scope()
+    return {
+        "vault_scope": vault_scope,
+        "workspace_id": workspace_context.workspace_id,
+        "user_id": workspace_context.user_id,
+        "role": workspace_context.role,
+        "agent_id": _validated_identifier(payload.agent_id, "agent_id"),
+        "session_id": _validated_identifier(payload.session_id, "session_id"),
+    }
+
+
+def _validated_action_id(action_id: str) -> str:
+    candidate = str(action_id or "").strip()
+    if not ACTION_ID_RE.fullmatch(candidate):
+        raise HTTPException(status_code=422, detail="Invalid confirmation ID")
+    return candidate
+
+
+def _raise_confirmation_error(error: Exception) -> None:
+    if isinstance(error, LookupError):
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "confirmation_not_found"},
+        )
+    if isinstance(error, PermissionError):
+        raise HTTPException(
+            status_code=403,
+            detail={"code": "confirmation_scope_mismatch"},
+        )
+    if isinstance(error, TimeoutError):
+        raise HTTPException(
+            status_code=410,
+            detail={"code": "confirmation_expired"},
+        )
+    if isinstance(error, RuntimeError):
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "confirmation_unavailable"},
+        )
+    raise error
+
+
+def _minimum_role_allows(current_role: str, required_role: str) -> bool:
+    weights = {"viewer": 0, "editor": 1, "admin": 2, "owner": 3}
+    return weights.get(current_role, -1) >= weights.get(required_role, 0)
+
+
+async def _execute_governed_tool(
+    arguments: Dict[str, Any],
+    *,
+    scope: Dict[str, str],
+    vault: Path,
+) -> Dict[str, Any]:
+    """Re-resolve and execute one exact assigned `confirmation=always` tool."""
+    active_skill_ids = list(arguments.get("active_skill_ids") or [])
+    _ai_cfg, agent_data, runtime = prepare_agent_runtime(
+        scope["agent_id"],
+        vault_path=vault,
+        active_skill_ids=active_skill_ids,
+    )
+    if not agent_data or runtime is None:
+        raise PermissionError("The agent runtime is unavailable.")
+
+    tool_id = str(arguments.get("tool_id") or "")
+    tool_name = str(arguments.get("tool_name") or "")
+    descriptor = None
+    handler = None
+    for current_descriptor, current_handler in zip(
+        getattr(runtime, "tool_descriptors", ()) or (),
+        getattr(runtime, "tools", ()) or (),
+    ):
+        if str(getattr(current_descriptor, "id", "") or "") == tool_id:
+            descriptor = current_descriptor
+            handler = current_handler
+            break
+    if descriptor is None or handler is None:
+        raise PermissionError("The governed tool is no longer assigned.")
+    visible_name = str(
+        getattr(handler, "name", "")
+        or getattr(handler, "__name__", "")
+        or ""
+    )
+    if visible_name != tool_name:
+        raise PermissionError("The governed tool identity changed.")
+    confirmation = str(
+        getattr(getattr(descriptor, "confirmation", ""), "value", "")
+        or getattr(descriptor, "confirmation", "")
+    )
+    if confirmation != "always":
+        raise PermissionError("The governed tool no longer requires this approval.")
+    if _descriptor_digest(descriptor) != str(
+        arguments.get("descriptor_digest") or ""
+    ):
+        raise ActionConflictError("The governed tool changed after the preview.")
+    if not _minimum_role_allows(
+        scope["role"],
+        str(getattr(descriptor, "minimum_role", "viewer") or "viewer"),
+    ):
+        raise PermissionError("The current role cannot execute this tool.")
+
+    call_arguments = dict(arguments.get("tool_arguments") or {})
+    if callable(getattr(handler, "ainvoke", None)):
+        result = await handler.ainvoke(call_arguments)
+    elif callable(getattr(handler, "invoke", None)):
+        result = await asyncio.to_thread(handler.invoke, call_arguments)
+    elif asyncio.iscoroutinefunction(handler):
+        result = await handler(**call_arguments)
+    else:
+        result = await asyncio.to_thread(handler, **call_arguments)
+    if isinstance(result, dict):
+        return result
+    if isinstance(result, str):
+        try:
+            parsed = json.loads(result)
+        except (TypeError, ValueError):
+            return {"status": "completed", "result": result[:2_000]}
+        return parsed if isinstance(parsed, dict) else {
+            "status": "completed",
+            "result": parsed,
+        }
+    return {"status": "completed"}
+
+
+def _action_has_uncertain_effect(action: str, arguments: Dict[str, Any]) -> bool:
+    if action in {
+        "archive_mail",
+        "create_calendar_event",
+        "delete_table",
+        "empty_trash",
+        "invite_attendees",
+        "move_mail",
+        "restore_page_version",
+        "save_mail_draft",
+        "send_mail",
+    }:
+        return True
+    if action == "governed_tool":
+        return bool({
+            "code_execution",
+            "destructive",
+            "external_write",
+        }.intersection(arguments.get("effects") or []))
+    return False
+
+
+@router.get("/chat/confirmations")
+async def list_agent_confirmations(
+    agent_id: str = Query(..., max_length=128),
+    session_id: str = Query(..., max_length=128),
+    workspace_context: WorkspaceContext = Depends(require_role("editor")),
+):
+    """Return resumable public confirmation cards for one exact chat scope."""
+    scope = _action_scope(
+        ActionConfirmationRequest(agent_id=agent_id, session_id=session_id),
+        workspace_context,
+    )
+    records = await asyncio.to_thread(list_confirmations, scope)
+    return {"confirmations": records}
+
+
+@router.get("/chat/confirmations/{action_id}")
+async def get_agent_confirmation(
+    action_id: str,
+    agent_id: str = Query(..., max_length=128),
+    session_id: str = Query(..., max_length=128),
+    workspace_context: WorkspaceContext = Depends(require_role("editor")),
+):
+    """Return one public confirmation status for transport reconciliation."""
+    safe_action_id = _validated_action_id(action_id)
+    scope = _action_scope(
+        ActionConfirmationRequest(agent_id=agent_id, session_id=session_id),
+        workspace_context,
+    )
+    try:
+        return await asyncio.to_thread(
+            get_confirmation_status,
+            safe_action_id,
+            scope,
+        )
+    except Exception as error:
+        _raise_confirmation_error(error)
+
+
+@router.post("/chat/confirmations/{action_id}/confirm")
+async def confirm_agent_action(
+    action_id: str,
+    payload: ActionConfirmationRequest,
+    background_tasks: BackgroundTasks,
+    workspace_context: WorkspaceContext = Depends(require_role("editor")),
+):
+    """Claims and executes one scope-bound pending agent action exactly once."""
+    safe_action_id = _validated_action_id(action_id)
+    scope = _action_scope(payload, workspace_context)
+    try:
+        pending = await asyncio.to_thread(
+            claim_confirmation,
+            safe_action_id,
+            scope,
+        )
+    except Exception as error:
+        _raise_confirmation_error(error)
+
+    admin_actions = {"delete_table", "empty_trash"}
+    if pending["action"] in admin_actions and workspace_context.role not in {
+        "owner",
+        "admin",
+    }:
+        await asyncio.to_thread(
+            finish_confirmation,
+            safe_action_id,
+            error="Administrator permission is required.",
+        )
+        raise HTTPException(
+            status_code=403,
+            detail={"code": "confirmation_admin_required"},
+        )
+
+    try:
+        vault, _vault_scope_id = _vault_scope()
+        with confirmation_context(**scope):
+            if pending["action"] == "governed_tool":
+                result = await _execute_governed_tool(
+                    pending["arguments"],
+                    scope=scope,
+                    vault=vault,
+                )
+            else:
+                result = await execute_confirmed_action(
+                    pending["action"],
+                    pending["arguments"],
+                    workspace_id=workspace_context.workspace_id,
+                    background_tasks=background_tasks,
+                )
+    except HTTPException as error:
+        await asyncio.to_thread(
+            finish_confirmation,
+            safe_action_id,
+            error="confirmation_action_rejected",
+            status="failed",
+        )
+        raise error
+    except Exception as error:
+        known_precondition_failure = isinstance(
+            error,
+            (ActionConflictError, LookupError, PermissionError, ValueError),
+        )
+        outcome_unknown = (
+            not known_precondition_failure
+            and _action_has_uncertain_effect(
+                pending["action"],
+                pending["arguments"],
+            )
+        )
+        await asyncio.to_thread(
+            finish_confirmation,
+            safe_action_id,
+            error=(
+                "execution_outcome_unknown"
+                if outcome_unknown
+                else "confirmation_action_failed"
+            ),
+            status="outcome_unknown" if outcome_unknown else "failed",
+        )
+        if outcome_unknown:
+            raise HTTPException(
+                status_code=409,
+                detail={"code": "confirmation_outcome_unknown"},
+            )
+        status_code = 409 if isinstance(error, (LookupError, RuntimeError)) else 500
+        raise HTTPException(
+            status_code=status_code,
+            detail={"code": "confirmation_action_failed"},
+        )
+
+    result_status = (
+        str(result.get("status") or "")
+        if isinstance(result, dict)
+        else ""
+    )
+    terminal_status = "partial" if result_status == "partial" else "completed"
+    await asyncio.to_thread(
+        finish_confirmation,
+        safe_action_id,
+        result=result,
+        status=terminal_status,
+    )
+    return {
+        "status": terminal_status,
+        "confirmation_id": safe_action_id,
+        "action": pending["action"],
+        "result_status": result_status,
+        "result": (
+            {
+                key: result.get(key)
+                for key in (
+                    "cleanup_status",
+                    "failed_count",
+                    "freed_bytes",
+                    "purged_count",
+                    "rollback_failed_ids",
+                    "updated_count",
+                )
+                if key in result
+            }
+            if isinstance(result, dict)
+            else {}
+        ),
+    }
+
+
+@router.post("/chat/confirmations/{action_id}/cancel")
+async def cancel_agent_action(
+    action_id: str,
+    payload: ActionConfirmationRequest,
+    workspace_context: WorkspaceContext = Depends(require_role("editor")),
+):
+    """Cancels one still-pending action in the exact same chat scope."""
+    safe_action_id = _validated_action_id(action_id)
+    scope = _action_scope(payload, workspace_context)
+    try:
+        cancelled = await asyncio.to_thread(
+            cancel_confirmation,
+            safe_action_id,
+            scope,
+        )
+    except Exception as error:
+        _raise_confirmation_error(error)
+    if not cancelled:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "confirmation_unavailable"},
+        )
+    return {"status": "cancelled", "confirmation_id": safe_action_id}
+
+
 @router.delete(
     "/chat/sessions/{agent_id}/{session_id}",
-    dependencies=[Depends(require_role("editor"))],
 )
-async def delete_chat_session(agent_id: str, session_id: str):
+async def delete_chat_session(
+    agent_id: str,
+    session_id: str,
+    workspace_context: WorkspaceContext = Depends(require_role("editor")),
+):
     """Remove the persisted LangGraph checkpoints for one scoped chat thread."""
     safe_agent_id = _validated_identifier(agent_id, "agent_id")
     safe_session_id = _validated_identifier(session_id, "session_id")
@@ -445,6 +826,17 @@ async def delete_chat_session(agent_id: str, session_id: str):
         async with _thread_lock(thread_id):
             async with AsyncSqliteSaver.from_conn_string(str(db_path)) as saver:
                 await saver.adelete_thread(thread_id)
+    await asyncio.to_thread(
+        cancel_scope_confirmations,
+        {
+            "vault_scope": vault_scope,
+            "workspace_id": workspace_context.workspace_id,
+            "user_id": workspace_context.user_id,
+            "role": workspace_context.role,
+            "agent_id": safe_agent_id,
+            "session_id": safe_session_id,
+        },
+    )
     return {"deleted": True}
 
 
@@ -482,7 +874,6 @@ async def chat_endpoint(
         agent_id = _validated_identifier(chat_req.agent_id, "agent_id")
         session_id = _validated_identifier(chat_req.session_id, "session_id")
         requested_skill_ids = _validated_skill_ids(chat_req.active_skill_ids)
-        confirmed_tool_ids = _validated_skill_ids(chat_req.confirmed_tool_ids) or []
         vault, vault_scope = _vault_scope()
 
         # 1. Build bounded attachment context and delete the temporary files
@@ -521,16 +912,10 @@ async def chat_endpoint(
 
         authorized_tool_names = _explicit_brain_write_tool_names(
             chat_req.message,
+            chat_req.mentions,
         )
         authorized_tool_names.update(
             (llm_selection or {}).get("turn_grant_tool_names") or [],
-        )
-        confirmed_tool_id_set = set(confirmed_tool_ids)
-        authorized_tool_names.update(
-            item.get("name")
-            for item in (llm_selection or {}).get("tools", [])
-            if item.get("id") in confirmed_tool_id_set
-            and item.get("name")
         )
         inputs = {
             "messages": [HumanMessage(content=user_content)],
@@ -563,6 +948,14 @@ async def chat_endpoint(
         
         async def event_generator():
             answer_count = 0
+            confirmation_token = bind_confirmation_context(
+                vault_scope=vault_scope,
+                workspace_id=workspace_context.workspace_id,
+                user_id=workspace_context.user_id,
+                role=workspace_context.role,
+                agent_id=agent_id,
+                session_id=session_id,
+            )
             try:
                 if llm_selection:
                     yield json.dumps({
@@ -640,6 +1033,15 @@ async def chat_endpoint(
                                                     msg.name,
                                                 ),
                                             )
+                                            pending_confirmation = confirmation_event(
+                                                content,
+                                            )
+                                            if pending_confirmation:
+                                                answer_count += 1
+                                                yield json.dumps(
+                                                    pending_confirmation,
+                                                    ensure_ascii=False,
+                                                ) + "\n"
                                         elif msg.type == "ai" and content:
                                             answer_count += 1
                                             yield json.dumps({
@@ -697,6 +1099,8 @@ async def chat_endpoint(
                     "has_response": True,
                     "message_count": 1,
                 }) + "\n"
+            finally:
+                reset_confirmation_context(confirmation_token)
         return StreamingResponse(event_generator(), media_type="application/x-ndjson")
 
     except HTTPException as e:

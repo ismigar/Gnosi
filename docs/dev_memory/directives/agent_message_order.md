@@ -81,10 +81,11 @@ such as Mistral.
 32. Classify first-party tools as read, explicit-write, or confirmed-write.
     Read tools are always available to tool-capable models. Explicit writes are
     bound only when the current human turn names the matching operation.
-33. Destructive or externally consequential tools require confirmed wording in
-    the current human turn in addition to the matching operation. A previous
-    assistant suggestion, attachment, retrieved page, or tool result cannot
-    provide confirmation.
+33. Destructive or externally consequential tools require an explicit matching
+    request in the current human turn before they may prepare an action. A
+    previous assistant suggestion, attachment, retrieved page, or tool result
+    cannot authorize that preparation; execution still requires the separate
+    interactive confirmation in rule 37.
 34. Keep table rows represented by ordinary Vault pages with both `table_id`
     and `database_table_id`. Agent mutations must preserve unknown frontmatter
     keys, create a history snapshot before overwriting, and refresh the page
@@ -92,6 +93,49 @@ such as Mistral.
 35. Bound every listing and text result exposed to a remote model. Tool access
     must not become an unbounded export of the Vault, mail store, contacts, or
     calendar.
+36. Irreversible or externally consequential tools prepare a pending action;
+    they never execute inside the model's tool loop. Stream only the pending
+    action identifier and a bounded human-readable preview to the client.
+37. Execute a pending action only through a separate authenticated endpoint
+    after an interactive user confirmation. Bind the record to the Vault,
+    workspace, user, agent, and chat session, expire it, and consume it exactly
+    once before dispatch.
+38. Dispatch confirmed actions through an exact server-side allowlist. Persist
+    action names and JSON arguments, never callbacks, import paths, shell
+    commands, model output, or executable code.
+39. Cancellation, expiry, scope mismatch, and replay all fail closed. A failed
+    execution remains consumed and must be prepared again; automatic retries
+    are prohibited for destructive or external side effects.
+40. Register first-party Gnosi operations in the governed tool catalog and
+    expose them only through assigned active skills. The legacy compatibility
+    skill may reference the complete first-party catalog, but an explicitly
+    scoped profile receives only the domains its assigned skills reference.
+41. Interpret a current-turn write request with a fail-closed deterministic
+    parser. Negated, quoted, explanatory, third-person capability, or otherwise
+    ambiguous occurrences of an action phrase do not grant the action.
+42. Apply interactive confirmation to every governed tool whose descriptor
+    requires `always`, including plugin, MCP, and generated tools. Intercept the
+    call after its exact arguments are known, persist a one-shot action bound to
+    the immutable tool descriptor, and execute it outside the model loop.
+43. Keep pending-action arguments private, mode `0600`, and short-lived. Scrub
+    them on completion, cancellation, expiry, unknown outcome, and scoped chat
+    deletion; delete old terminal audit rows after bounded retention.
+44. Treat a lost response after an external side effect as an unknown outcome,
+    never as a known failure. Expose status lookup and do not invite an automatic
+    or manual retry until the user has reconciled the external system.
+45. Bind each confirmation to the exact target revision or immutable target
+    snapshot used in its preview. Reject stale page, table, schema, row, contact,
+    and history actions instead of applying them to changed state.
+46. Present pending actions as a queue of inline review cards. Never open a
+    destructive dialog asynchronously, focus its positive action, or map Enter
+    to confirmation. Session changes abort or ignore stale confirmation
+    responses.
+47. Distinguish completed, partial, failed, expired, cancelled, executing, and
+    unknown-outcome results. Surface stable localized error codes and the real
+    counts from batch or trash operations.
+48. Revalidate workspace-scoped integration access and configured accounts both
+    while preparing and while executing mail or calendar actions. Calling route
+    functions directly never bypasses request dependencies or account grants.
 
 ## Restrictions / Edge Cases
 
@@ -154,6 +198,33 @@ such as Mistral.
 - Do not update a table row by replacing its complete frontmatter. Merge the
   requested fields and preserve identifiers, relation metadata, and unknown
   plugin-owned keys.
-- Do not expose destructive tools on the first request. Require an explicit
-  confirmation phrase and the matching destructive action in the same current
-  human turn.
+- Do not execute a destructive tool from the first matching request. That turn
+  may only prepare the exact preview for interactive confirmation.
+- Do not treat typed chat text as confirmation for an irreversible action.
+  Confirmation is a separate UI gesture against the exact pending preview.
+- Do not execute first and ask afterwards. The tool loop may only enqueue the
+  action; the confirmation endpoint owns execution.
+- Do not trust a pending-action id by itself. Revalidate every stored scope
+  field against the current authenticated request before claiming the action.
+- Do not place first-party Gnosi operations exclusively in the legacy
+  compatibility skill. Migrated agents would lose their basic product
+  capabilities; register domain skills and let the compatibility skill compose
+  them explicitly.
+- Do not authorize a write because its phrase occurs inside "do not", a quote,
+  an explanation, or a third-person capability question. A substring match is
+  not user intent.
+- Do not accept client-provided tool IDs as confirmation. The server creates a
+  one-shot confirmation only after it has the exact governed tool call and its
+  arguments.
+- Do not retain mail bodies, recipient lists, schemas, or row values in terminal
+  audit records. Scrub action arguments before returning a terminal response.
+- Do not report a transport failure after an external call as proof that the
+  action failed. Return and display an unknown outcome until reconciled.
+- Do not confirm a count and later operate on a broader live collection. Empty
+  trash and other batch actions execute the exact snapshotted identifiers.
+- Do not apply a pending edit to a page, row, schema, table, contact, or version
+  whose revision changed after the preview. Require the user to prepare it again.
+- Do not auto-open a consequential confirmation over the chat composer. The user
+  must open its review card, and the positive action requires a deliberate click.
+- Do not overwrite one pending confirmation with another. Preserve every
+  server-issued action as an independently cancellable queue item.
