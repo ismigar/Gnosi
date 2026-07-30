@@ -78,8 +78,10 @@ asserts graph construction still produces nodes.
 The backend layout describes the complete vault, but the global graph often
 renders a filtered table. Nodes that are isolated inside that filtered view
 must not retain distant coordinates from the complete-vault orphan ring.
-Arrange visible isolates deterministically around the visible connected
-component before fitting the camera.
+Arrange visible isolates deterministically in a multi-radius halo around the
+visible connected component before fitting the camera. Avoid a perfect ring:
+Obsidian distributes isolates at varied radii and the circular artifact makes
+the layout look synthetic.
 
 Camera navigation and the minimap must use Sigma's own normalization and
 viewport conversion functions. Do not derive camera coordinates by scaling X
@@ -94,3 +96,18 @@ Sigma v3 uses `labelRenderedSizeThreshold`. Do not use
 `labelRenderThreshold`; the unknown setting is ignored and the default causes
 hundreds of overview labels to overlap. Keep label density bounded at overview
 zoom and let labels progressively appear when the user zooms in.
+
+## Obsidian-style visible-subgraph refinement
+
+The Forces controls must never be decorative. Load their persisted values from
+`graph.physics`, enable the refinement pass, and run it only after filters have
+set node and edge visibility. Building the physics subgraph before filters
+causes hidden vault nodes to compress or displace the current table view.
+The UI repulsion range is designed for ForceAtlas2 and must be scaled before it
+is passed to `graphology-layout-force`; treating `1000` as a near-direct force
+value explodes small visible graphs.
+
+Sigma defaults `minEdgeThickness` to 1.7 pixels. This overrides small values
+from the edge-thickness control and turns dense wikilink graphs into a solid
+mass. Set an explicit sub-pixel minimum and use a low-opacity neutral base
+color; reserve saturated edges for hover, pathfinding, and suggestions.
