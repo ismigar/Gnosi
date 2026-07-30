@@ -4341,6 +4341,7 @@
     "error_prefix": "Erreur",
     "open_chat": "Ouvrir le chat",
     "online": "En ligne",
+    "runtime_limited": "Connecté · outils limités",
     "expand_chat": "Agrandir le chat",
     "minimize_chat": "Réduire le chat",
     "close_chat": "Fermer le chat",
