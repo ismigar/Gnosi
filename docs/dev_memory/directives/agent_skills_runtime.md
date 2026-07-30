@@ -191,6 +191,8 @@ during migration.
   model output count toward the same context budget.
 - Runtime metadata sent to clients states whether the model supports tool calls
   and whether assigned skills are missing or unavailable.
+- Reset capability state whenever the selected agent or session changes;
+  evidence from one agent must never be displayed for another.
 
 - Do not allow skill instructions to weaken core safety or tool policy.
 - Do not import third-party Python into the FastAPI process.

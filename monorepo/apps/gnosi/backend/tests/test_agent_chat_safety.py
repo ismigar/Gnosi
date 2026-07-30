@@ -3,10 +3,12 @@ import json
 from types import SimpleNamespace
 
 import pytest
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from pydantic import ValidationError
 
 from backend.agent.factory import (
     _authorized_brain_write_tools,
+    _bounded_model_messages,
     _coder_read_only_tools,
     _explicit_brain_write_tool_names,
     _model_supports_tools,
@@ -376,3 +378,48 @@ def test_session_delete_removes_checkpoint_thread(tmp_path, monkeypatch):
         )
 
     assert asyncio.run(exercise()) == {"deleted": True}
+def test_context_compaction_preserves_tool_protocol_groups():
+    messages = [
+        HumanMessage(content="x" * 70_000),
+        AIMessage(
+            content="",
+            tool_calls=[{
+                "name": "read_page",
+                "args": {"page_id_or_title": "page"},
+                "id": "call-1",
+                "type": "tool_call",
+            }],
+        ),
+        ToolMessage(content="result", tool_call_id="call-1"),
+    ]
+
+    bounded = _bounded_model_messages(messages)
+
+    assert any(getattr(message, "tool_calls", None) for message in bounded)
+    assert any(isinstance(message, ToolMessage) for message in bounded)
+    assert sum(len(str(message.content)) for message in bounded) <= 60_000
+
+
+def test_checkpoint_history_hides_attachment_enrichment_and_tool_calls():
+    stored = [
+        HumanMessage(
+            content="Visible\n\nAttachment: secret.txt\nprivate text",
+            additional_kwargs={"gnosi_visible_content": "Visible"},
+        ),
+        AIMessage(
+            content="",
+            tool_calls=[{
+                "name": "read_page",
+                "args": {},
+                "id": "call-1",
+                "type": "tool_call",
+            }],
+        ),
+        ToolMessage(content="private result", tool_call_id="call-1"),
+        AIMessage(content="Public answer"),
+    ]
+
+    assert agent_routes._public_checkpoint_messages(stored) == [
+        {"role": "user", "content": "Visible"},
+        {"role": "assistant", "content": "Public answer"},
+    ]

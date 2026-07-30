@@ -157,6 +157,15 @@ such as Mistral.
   model reliability. Telemetry finalizes on every terminal path.
 - Reliability is tenant-scoped; page lookup uses an index or bounded cache
   instead of a complete vault scan per tool call.
+- Message compaction preserves complete assistant-tool-call/tool-result groups;
+  it never leaves an orphan tool result in provider input.
+- The aggregate input budget includes persona text, user context notes, source
+  inventories, skill instructions, tool schemas, history, and reserved output.
+- Checkpoints distinguish the visible user message from internal attachment
+  enrichment. History returns only visible transcript content and suppresses
+  routing/tool protocol messages.
+- Asynchronous history hydration is bound to the selected agent/session and
+  cannot overwrite a session selected later.
 
 - Do not route a completed Coder or Brain response back to the supervisor. It
   makes `assistant` the last message in a subsequent provider call and Mistral
