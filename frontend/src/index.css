@@ -710,6 +710,17 @@ html[data-vault-text="large"] .vault-page-editor {
 .vault-feed-card--compact {
   contain-intrinsic-size: auto 240px;
 }
+@media (max-width: 960px) { .vault-feed-card--adaptive .vault-feed-card__body { padding: 1rem; gap: 0.625rem; } .vault-feed-card--adaptive .vault-feed-card__preview { max-height: 4.875rem; } .vault-feed-card--adaptive .vault-feed-card__title { font-size: 1.0625rem; } }
+.vault-feed-card.is-read { opacity: 0.72; }
+.vault-feed.is-focus .vault-feed-card__date, .vault-feed.is-focus .vault-feed-card__pills, .vault-feed.is-focus .vault-feed-card__preview, .vault-feed.is-focus .vault-feed-card__open { display: none; }
+.vault-feed.is-focus .vault-feed-card__body { padding-block: 1rem; }
+.vault-feed-progress { align-self: flex-start; width: 100%; max-width: 48rem; margin: 0 0 0.75rem; color: var(--text-tertiary); font-size: 0.75rem; font-variant-numeric: tabular-nums; }
+.vault-feed-preferences__toggle { display: flex !important; align-items: center; gap: 0.5rem; }
+.vault-feed-bulk-proposal { position: fixed; z-index: var(--z-modal); right: 1rem; bottom: 1rem; display: grid; max-width: min(25rem, calc(100vw - 2rem)); gap: 0.6rem; border: 1px solid var(--border-primary); border-radius: var(--radius-lg); padding: 1rem; background: var(--bg-primary); color: var(--text-primary); box-shadow: var(--shadow-xl); font-size: 0.8125rem; }
+.vault-feed-bulk-proposal > div { display: flex; justify-content: flex-end; gap: 0.5rem; }
+.vault-history-diff-line { display: block; padding-inline: 0.375rem; }
+.vault-history-diff-line--added { background: color-mix(in srgb, var(--status-success) 16%, transparent); color: var(--text-primary); }
+.vault-history-diff-line--removed { background: color-mix(in srgb, var(--status-error) 14%, transparent); color: var(--text-secondary); text-decoration: line-through; }
 
 .vault-feed,
 .vault-view-skeleton {
@@ -870,6 +881,8 @@ html[data-vault-text="large"] .vault-page-editor {
   background: var(--bg-primary);
   box-shadow: var(--shadow-xl);
 }
+.vault-feed-reading-pane.is-docked { border-left-width: 2px; }
+@media (max-width: 960px) { .vault-feed.has-docked-pane { padding-right: 1rem !important; } .vault-feed-reading-pane.is-docked { width: min(30rem, 92vw) !important; } }
 .vault-feed-reading-pane__resize { position: absolute; top: 0; bottom: 0; left: -0.375rem; width: 0.75rem; cursor: col-resize; touch-action: none; }
 .vault-feed-reading-pane__resize::after { position: absolute; top: 40%; bottom: 40%; left: 0.25rem; width: 2px; border-radius: 999px; background: var(--border-primary); content: ""; }
 .vault-feed-reading-pane__header, .vault-feed-reading-pane__footer { display: flex; min-height: 3.5rem; align-items: center; gap: 0.5rem; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-primary); color: var(--text-secondary); font-size: 0.75rem; font-weight: 750; }
