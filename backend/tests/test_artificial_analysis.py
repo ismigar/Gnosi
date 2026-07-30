@@ -106,6 +106,7 @@ def test_build_payload_enriches_context_from_models_dev():
         "cost_out": 2,
         "context_window": 1_000_000,
         "tags": ["long"],
+        "modes": ["text", "image"],
         "quality": 3,
         "release_date": "2026-07-01",
     }]}]}
@@ -114,6 +115,7 @@ def test_build_payload_enriches_context_from_models_dev():
     assert model["context_window"] == 1_000_000
     assert model["metric_sources"]["context_window"] == "models_dev"
     assert model["profile"] == "expert"
+    assert model["modes"] == ["image", "text"]
     assert model["routes"] == [{
         "provider": "cloud-host",
         "provider_name": "Cloud Host",

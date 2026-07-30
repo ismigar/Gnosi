@@ -4546,6 +4546,8 @@
     "keyboard_scroll_hint": "Use ↑/↓ or Page Up/Page Down for vertical scrolling",
     "configuration_loading": "Loading…",
     "availability": "Status",
+    "modes": "Supported modes",
+    "modes_list": {"text": "Text", "image": "Image", "audio": "Audio", "video": "Video"},
     "all_availability": "Active and inactive",
     "active": "Active",
     "inactive": "Inactive",
@@ -4592,7 +4594,7 @@
       "activate": "Enable model"
     },
     "profiles": { "worker": "Worker", "administrative": "Administrative", "documentalist": "Documentalist", "allrounder": "All-rounder", "expert": "Expert / Director", "unrated": "Unrated" },
-    "columns": { "model": "Model", "creator": "Creator", "provider": "Provider", "intelligence": "Intelligence", "coding": "Coding", "agentic": "Agentic", "input_price": "Input $/1M", "output_price": "Output $/1M", "context": "Context", "speed": "Speed", "latency": "Latency", "uptime": "Uptime", "profile": "Recommended use", "quantization": "Quantization", "monthly_cost": "Est. $/month", "available": "Available" }
+    "columns": { "model": "Model", "creator": "Creator", "provider": "Provider", "modes": "Supported modes", "intelligence": "Intelligence", "coding": "Coding", "agentic": "Agentic", "input_price": "Input $/1M", "output_price": "Output $/1M", "context": "Context", "speed": "Speed", "latency": "Latency", "uptime": "Uptime", "profile": "Recommended use", "quantization": "Quantization", "monthly_cost": "Est. $/month", "available": "Available" }
   },
   "relation_item": {
     "open_new_tab": "Open in a new tab",

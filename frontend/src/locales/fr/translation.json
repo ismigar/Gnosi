@@ -3831,6 +3831,8 @@
     "keyboard_scroll_hint": "Utilisez ↑/↓ ou Page précédente/Page suivante pour le défilement vertical",
     "configuration_loading": "Chargement…",
     "availability": "État",
+    "modes": "Modes pris en charge",
+    "modes_list": {"text": "Texte", "image": "Image", "audio": "Audio", "video": "Vidéo"},
     "all_availability": "Actifs et inactifs",
     "active": "Actif",
     "inactive": "Inactif",
@@ -3877,7 +3879,7 @@
       "activate": "Activer le modèle"
     },
     "profiles": { "worker": "Exécutant", "administrative": "Administratif", "documentalist": "Documentaliste", "allrounder": "Polyvalent", "expert": "Expert / Directeur", "unrated": "Non évalué" },
-    "columns": { "model": "Modèle", "creator": "Créateur", "provider": "Fournisseur", "intelligence": "Intelligence", "coding": "Code", "agentic": "Agents", "input_price": "Entrée $/1M", "output_price": "Sortie $/1M", "context": "Contexte", "speed": "Vitesse", "latency": "Latence", "uptime": "Disponibilité", "profile": "Usage recommandé", "quantization": "Quantification", "monthly_cost": "Est. $/mois", "available": "Disponible" }
+    "columns": { "model": "Modèle", "creator": "Créateur", "provider": "Fournisseur", "modes": "Modes pris en charge", "intelligence": "Intelligence", "coding": "Code", "agentic": "Agents", "input_price": "Entrée $/1M", "output_price": "Sortie $/1M", "context": "Contexte", "speed": "Vitesse", "latency": "Latence", "uptime": "Disponibilité", "profile": "Usage recommandé", "quantization": "Quantification", "monthly_cost": "Est. $/mois", "available": "Disponible" }
   },
   "tags": {
     "empty": "Aucune étiquette pour l'instant. Ajoutez-en via la propriété « tags ».",
