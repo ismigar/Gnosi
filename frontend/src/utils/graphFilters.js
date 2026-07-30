@@ -134,7 +134,7 @@ export function applyFilters(graph, filters) {
                         queue.push({ node: neighbor, d: d + 1 });
                     }
                 });
-            } catch (_) { /* node not found */ }
+            } catch { /* node not found */ }
         }
 
         graph.forEachEdge((edge, attrs, source, target) => {
@@ -151,6 +151,10 @@ export function applyFilters(graph, filters) {
 
             // Registry structure nodes are never content
             if (nodeKind === 'table' || nodeKind === 'database' || nodeKind === 'view') return;
+            // Unresolved placeholders are evaluated after their source notes.
+            // They are visible only when at least one visible note references
+            // them and the real cross-scope target is not already visible.
+            if (nodeKind === 'unresolved') return;
 
             const nodeDb = attrs.database_id || attrs.metadata?.database_id;
             const nodeTableRaw = attrs.table_id || attrs.database_table_id
@@ -262,6 +266,16 @@ export function applyFilters(graph, filters) {
             }
 
             if (isNodeVisible) visibleNodes.add(node);
+        });
+
+        graph.forEachNode((node, attrs) => {
+            if ((attrs.kind || "").toLowerCase() !== 'unresolved') return;
+            const resolvedTargetId = attrs.metadata?.resolved_target_id;
+            if (resolvedTargetId && visibleNodes.has(String(resolvedTargetId))) return;
+
+            const hasVisibleSource = graph.neighbors(node)
+                .some(neighbor => visibleNodes.has(neighbor));
+            if (hasVisibleSource) visibleNodes.add(node);
         });
 
         graph.forEachEdge((edge, attrs, source, target) => {
