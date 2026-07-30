@@ -4201,6 +4201,7 @@
     "error_prefix": "Error",
     "open_chat": "Open chat",
     "online": "Online",
+    "runtime_limited": "Connected · tools limited",
     "expand_chat": "Expand chat",
     "minimize_chat": "Minimize chat",
     "close_chat": "Close chat",

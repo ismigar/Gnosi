@@ -107,6 +107,9 @@ unchanged.
 
 ## Restrictions
 
+- Temporary attachments belong to one vault/workspace/user/agent/session scope.
+  Upload, consume, and delete recompute that scope and reject cross-scope paths.
+
 - Never trust a client-selected vault or path.
 - Never store all members' tokens in one file.
 - Never spread authorization checks endpoint by endpoint when a central I/O

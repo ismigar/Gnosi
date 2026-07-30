@@ -308,8 +308,10 @@ def _trash_snapshot() -> List[Dict[str, str]]:
 
 
 def _page_files() -> Iterable[Path]:
+    from backend.services.path_resolver import path_resolver
+
     vault = _vault()
-    for path in vault.rglob("*.md"):
+    for path in path_resolver.list_all_files(vault):
         relative_parts = path.relative_to(vault).parts
         if any(part.startswith(".") for part in relative_parts):
             continue
@@ -323,10 +325,15 @@ def _parse(path: Path) -> tuple[Dict[str, Any], str]:
 
 
 def _resolve_page(identifier: str) -> Optional[Path]:
+    from backend.services.path_resolver import path_resolver
+
     needle = str(identifier or "").strip()
     if not needle:
         return None
     lowered = needle.casefold()
+    indexed = path_resolver.find_path(needle, _vault())
+    if indexed:
+        return indexed
     title_match = None
     for path in _page_files():
         try:
@@ -351,13 +358,19 @@ def _bounded_limit(limit: int) -> int:
 
 def _serialize_page(path: Path, *, include_body: bool = False) -> Dict[str, Any]:
     metadata, body = _parse(path)
+    bounded_metadata = {
+        str(key)[:128]: (
+            value[:2_000] if isinstance(value, str) else value
+        )
+        for key, value in list(metadata.items())[:100]
+    }
     result = {
         "id": str(metadata.get("id") or ""),
         "title": str(metadata.get("title") or path.stem),
         "table_id": str(
             metadata.get("table_id") or metadata.get("database_table_id") or ""
         ),
-        "metadata": metadata,
+        "metadata": bounded_metadata,
     }
     if include_body:
         result["content"] = body[:MAX_BODY_CHARS]
@@ -680,12 +693,12 @@ def update_page(
     path = _resolve_page(page_id_or_title)
     if not path:
         return _json({"error": "Page not found."})
-    metadata, old_body = _parse(path)
-    protected = {"id"}
-    for key, value in (properties or {}).items():
-        if key not in protected:
-            metadata[key] = value
-    _write_page(path, metadata, old_body if content is None else content)
+    def mutate(metadata, old_body):
+        for key, value in (properties or {}).items():
+            if key != "id":
+                metadata[key] = value
+        return metadata, old_body if content is None else content
+    metadata = _mutate_page(path, mutate)
     return _json({"status": "updated", "id": metadata.get("id"), "title": metadata.get("title")})
 
 
@@ -695,9 +708,10 @@ def append_to_page(page_id_or_title: str, content: str) -> str:
     path = _resolve_page(page_id_or_title)
     if not path:
         return _json({"error": "Page not found."})
-    metadata, body = _parse(path)
-    separator = "\n\n" if body.strip() else ""
-    _write_page(path, metadata, f"{body.rstrip()}{separator}{content.strip()}")
+    def mutate(metadata, body):
+        separator = "\n\n" if body.strip() else ""
+        return metadata, f"{body.rstrip()}{separator}{content.strip()}"
+    metadata = _mutate_page(path, mutate)
     return _json({"status": "appended", "id": metadata.get("id"), "title": metadata.get("title")})
 
 
@@ -723,13 +737,14 @@ def add_tags(page_id_or_title: str, tags: List[str]) -> str:
     path = _resolve_page(page_id_or_title)
     if not path:
         return _json({"error": "Page not found."})
-    metadata, body = _parse(path)
-    current = metadata.get("tags") or []
-    if isinstance(current, str):
-        current = re.split(r"[,;]", current)
-    merged = {str(item).strip().lstrip("#") for item in [*current, *tags] if str(item).strip()}
-    metadata["tags"] = sorted(merged, key=str.casefold)
-    _write_page(path, metadata, body)
+    def mutate(metadata, body):
+        current = metadata.get("tags") or []
+        if isinstance(current, str):
+            current = re.split(r"[,;]", current)
+        merged = {str(item).strip().lstrip("#") for item in [*current, *tags] if str(item).strip()}
+        metadata["tags"] = sorted(merged, key=str.casefold)
+        return metadata, body
+    metadata = _mutate_page(path, mutate)
     return _json({"status": "updated", "tags": metadata["tags"]})
 
 
@@ -741,19 +756,19 @@ def add_page_comment(page_id_or_title: str, comment: str) -> str:
     path = _resolve_page(page_id_or_title)
     if not path:
         return _json({"error": "Page not found."})
-    metadata, body = _parse(path)
-    comments = metadata.get("comments") or []
-    if not isinstance(comments, list):
-        comments = []
-    comments.append(
-        {
+    def mutate(metadata, body):
+        comments = metadata.get("comments") or []
+        if not isinstance(comments, list):
+            comments = []
+        comments.append({
             "author": "agent",
             "content": comment.strip(),
             "created_at": datetime.now(timezone.utc).isoformat(),
-        }
-    )
-    metadata["comments"] = comments
-    _write_page(path, metadata, body)
+        })
+        metadata["comments"] = comments
+        return metadata, body
+    metadata = _mutate_page(path, mutate)
+    comments = metadata["comments"]
     return _json({"status": "created", "comment_count": len(comments)})
 
 
@@ -1862,3 +1877,21 @@ async def execute_confirmed_action(
         }
 
     raise ValueError(f"Unsupported confirmed action: {action}")
+_PAGE_LOCKS_GUARD = threading.Lock()
+_PAGE_LOCKS: Dict[str, threading.RLock] = {}
+
+
+def _page_lock(path: Path) -> threading.RLock:
+    """Return the process-local mutation lock for one canonical page path."""
+    key = str(path.resolve())
+    with _PAGE_LOCKS_GUARD:
+        return _PAGE_LOCKS.setdefault(key, threading.RLock())
+
+
+def _mutate_page(path: Path, mutator) -> Dict[str, Any]:
+    """Read, mutate, version, and write a page as one serialized operation."""
+    with _page_lock(path):
+        metadata, body = _parse(path)
+        next_metadata, next_body = mutator(metadata, body)
+        _write_page(path, next_metadata, next_body)
+        return next_metadata

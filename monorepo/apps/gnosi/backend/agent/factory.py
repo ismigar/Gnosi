@@ -1,6 +1,7 @@
 import os
 import operator
 import re
+import json
 from typing import Annotated, Any, Iterable, TypedDict, List, Sequence, Optional
 import logging
 from langchain_core.messages import BaseMessage, SystemMessage, ToolMessage
@@ -60,6 +61,29 @@ cfg = load_params(strict_env=False)
 BASE_DIR = cfg.paths.get("PROJECT_DIR") or Path(__file__).resolve().parent.parent.parent
 INSTRUCTIONS_DIR = cfg.paths.get("AGENT_INSTRUCTIONS") or (Path(__file__).resolve().parent / "instructions")
 log = logging.getLogger(__name__)
+
+MAX_MODEL_MESSAGE_CHARS = 60_000
+MAX_MODEL_MESSAGE_COUNT = 32
+MAX_SINGLE_MESSAGE_CHARS = 16_000
+MAX_SKILL_INSTRUCTION_CHARS = 24_000
+
+
+def _bounded_model_messages(messages: Sequence[BaseMessage]) -> List[BaseMessage]:
+    """Keep the newest complete messages inside a deterministic input budget."""
+    bounded: List[BaseMessage] = []
+    remaining = MAX_MODEL_MESSAGE_CHARS
+    for message in reversed(list(messages)[-MAX_MODEL_MESSAGE_COUNT:]):
+        content = message.content
+        text = content if isinstance(content, str) else json.dumps(
+            content, ensure_ascii=False, default=str,
+        )
+        text = text[:MAX_SINGLE_MESSAGE_CHARS]
+        if not text or remaining <= 0:
+            continue
+        text = text[-remaining:]
+        remaining -= len(text)
+        bounded.append(message.model_copy(update={"content": text}))
+    return list(reversed(bounded))
 
 
 AUTO_SIMPLE_KEYWORDS = {
@@ -283,8 +307,17 @@ def _affirmative_pattern_present(text: str, patterns: Sequence[str]) -> bool:
                 masked.rfind(separator, 0, index)
                 for separator in (".", "!", "?", ";", "\n")
             ) + 1
+            clause_end_candidates = [
+                position
+                for separator in (".", "!", "?", ";", "\n")
+                if (position := masked.find(separator, index + len(pattern))) >= 0
+            ]
+            clause_end = min(clause_end_candidates, default=len(masked))
+            clause = masked[clause_start:clause_end]
             prefix = masked[clause_start:index][-80:]
-            if not negations.search(prefix) and not meta_context.search(prefix):
+            # A denial anywhere in the same clause overrides an affirmative
+            # phrase, including suffixes such as "but do not actually do it".
+            if not negations.search(clause) and not meta_context.search(prefix):
                 return True
             start = index + len(pattern)
     return False
@@ -1265,10 +1298,18 @@ async def create_agent_workflow(
     )
 
     if skill_instructions:
+        bounded_skill_instructions = []
+        remaining_skill_chars = MAX_SKILL_INSTRUCTION_CHARS
+        for instruction in skill_instructions:
+            if remaining_skill_chars <= 0:
+                break
+            bounded = instruction[:remaining_skill_chars]
+            bounded_skill_instructions.append(bounded)
+            remaining_skill_chars -= len(bounded)
         skill_block = (
             "Active skill instructions (subordinate to system safety and tool "
             "policy):\n\n"
-            + "\n\n---\n\n".join(skill_instructions)
+            + "\n\n---\n\n".join(bounded_skill_instructions)
         )
         combined_persona = (
             f"{combined_persona}\n\n{skill_block}"
@@ -1421,7 +1462,7 @@ async def create_agent_workflow(
         )
         if obvious:
             return {"next": obvious}
-        prompt = [SystemMessage(content=supervisor_prompt)] + messages
+        prompt = [SystemMessage(content=supervisor_prompt)] + _bounded_model_messages(messages)
         response = llm.invoke(prompt)
 
         decision = response.content.strip().replace("'", "").replace('"', "")
@@ -1448,7 +1489,7 @@ async def create_agent_workflow(
             )
         )
         response = coder_llm.invoke(
-            [SystemMessage(content=coder_system)] + messages
+            [SystemMessage(content=coder_system)] + _bounded_model_messages(messages)
         )
         return {"messages": [response], "next": "supervisor"}
 
@@ -1533,14 +1574,16 @@ async def create_agent_workflow(
             # exist and starts inventing references (observed with llama-3.3-70b,
             # which answered from memory after three fabricated BOE ids 404'd).
             brain_system += "\n\n" + describe_context_refs(context_refs)
-        response = brain_llm.invoke([SystemMessage(content=brain_system)] + messages)
+        response = brain_llm.invoke(
+            [SystemMessage(content=brain_system)] + _bounded_model_messages(messages),
+        )
         return {"messages": [response], "next": "supervisor"}
 
     def general_node(state: AgentState):
         messages = state["messages"]
         # Use explicit persona for general conversation
         response = llm.invoke(
-            [SystemMessage(content=general_prompt)] + messages
+            [SystemMessage(content=general_prompt)] + _bounded_model_messages(messages)
         )
         return {"messages": [response], "next": "FINISH"}
 
@@ -1620,6 +1663,8 @@ async def create_agent_workflow(
         "catalog_revision": str(
             getattr(resolved_runtime, "catalog_revision", "") or ""
         ),
+        "supports_tools": supports_tools,
+        "tool_count": len(runtime_tool_metadata),
         "tools": [
             {
                 key: value

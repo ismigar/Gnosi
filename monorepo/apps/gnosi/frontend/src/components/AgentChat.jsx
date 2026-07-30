@@ -100,11 +100,13 @@ const deriveSessionTitle = (messages, fallback) => {
     return clean.length > 42 ? `${clean.slice(0, 42)}...` : clean;
 };
 
-const deleteSessionCheckpoint = (session) => {
-    if (!session?.agentId || !session?.id) return;
-    void fetch(`/api/chat/sessions/${encodeURIComponent(session.agentId)}/${encodeURIComponent(session.id)}`, {
+const deleteSessionCheckpoint = async (session) => {
+    if (!session?.agentId || !session?.id) return true;
+    const response = await fetch(`/api/chat/sessions/${encodeURIComponent(session.agentId)}/${encodeURIComponent(session.id)}`, {
         method: 'DELETE',
-    }).catch((error) => console.warn('Could not delete assistant checkpoint', error));
+    });
+    if (!response.ok) throw new Error(`Checkpoint deletion failed (${response.status})`);
+    return true;
 };
 
 const parseMentions = (text) => {
@@ -141,6 +143,7 @@ const AgentChat = ({ storageIdentity = '' }) => {
     const [attachments, setAttachments] = useState([]);
     const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
     const [pendingConfirmation, setPendingConfirmation] = useState(null);
+    const [agentRuntime, setAgentRuntime] = useState(null);
     const [isDockOpen, setIsDockOpen] = useFloatingActionDock();
     useExclusiveFloatingPanel('chat', isOpen, setIsOpen);
 
@@ -196,7 +199,11 @@ const AgentChat = ({ storageIdentity = '' }) => {
         const retainedIds = new Set(retainedSessions.map((session) => session.id));
         parsedSessions
             .filter((session) => session?.id && !retainedIds.has(session.id))
-            .forEach(deleteSessionCheckpoint);
+            .forEach((session) => {
+                void deleteSessionCheckpoint(session).catch(
+                    (error) => console.warn('Could not delete evicted assistant checkpoint', error),
+                );
+            });
         parsedSessions = retainedSessions.map((session) => ({
             ...session,
             agentId: session.agentId || savedAgentId,
@@ -248,7 +255,11 @@ const AgentChat = ({ storageIdentity = '' }) => {
         const retainedIds = new Set(retainedSessions.map((session) => session.id));
         const evictedSessions = chatSessions.filter((session) => !retainedIds.has(session.id));
         if (evictedSessions.length) {
-            evictedSessions.forEach(deleteSessionCheckpoint);
+            evictedSessions.forEach((session) => {
+                void deleteSessionCheckpoint(session).catch(
+                    (error) => console.warn('Could not delete evicted assistant checkpoint', error),
+                );
+            });
             setChatSessions(retainedSessions);
             return;
         }
@@ -436,7 +447,7 @@ const AgentChat = ({ storageIdentity = '' }) => {
         void loadMentionCatalog();
     }, [loadConfig, loadMentionCatalog]);
 
-    const selectSession = (nextId) => {
+    const selectSession = async (nextId) => {
         if (isLoading) return;
         const target = chatSessions.find((s) => s.id === nextId);
         if (!target) return;
@@ -444,6 +455,24 @@ const AgentChat = ({ storageIdentity = '' }) => {
         setSessionId(target.id);
         setMessages(target.messages || []);
         setShowSessionsView(false);
+        try {
+            const response = await fetch(
+                `/api/chat/sessions/${encodeURIComponent(target.agentId)}/${encodeURIComponent(target.id)}`,
+            );
+            if (response.ok) {
+                const canonical = await response.json();
+                if (Array.isArray(canonical.messages) && canonical.messages.length) {
+                    setMessages(canonical.messages);
+                    setChatSessions((prev) => prev.map((session) => (
+                        session.id === target.id
+                            ? { ...session, messages: canonical.messages }
+                            : session
+                    )));
+                }
+            }
+        } catch (error) {
+            console.warn('Could not load canonical assistant history', error);
+        }
     };
 
     const archiveCurrentSession = () => {
@@ -464,10 +493,15 @@ const AgentChat = ({ storageIdentity = '' }) => {
         setShowSessionsView(false);
     };
 
-    const deleteSessionById = (targetId) => {
+    const deleteSessionById = async (targetId) => {
         if (!targetId || isLoading) return;
         const target = chatSessions.find((session) => session.id === targetId);
-        deleteSessionCheckpoint(target);
+        try {
+            await deleteSessionCheckpoint(target);
+        } catch (error) {
+            console.warn('Could not delete assistant checkpoint', error);
+            return;
+        }
 
         const remaining = chatSessions.filter((s) => s.id !== targetId);
         const remainingForAgent = remaining.filter((s) => s.agentId === selectedAgentId);
@@ -527,6 +561,8 @@ const AgentChat = ({ storageIdentity = '' }) => {
     const uploadAttachmentFile = async (file) => {
         const formData = new FormData();
         formData.append('file', file);
+        formData.append('agent_id', selectedAgentId);
+        formData.append('session_id', sessionId);
 
         const res = await fetch('/api/chat/attachments', {
             method: 'POST',
@@ -580,7 +616,7 @@ const AgentChat = ({ storageIdentity = '' }) => {
                 void fetch('/api/chat/attachments', {
                     method: 'DELETE',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ path: item.path }),
+                    body: JSON.stringify({ path: item.path, agent_id: selectedAgentId, session_id: sessionId }),
                 }).catch(() => {});
             }
             setMessages((prev) => [...prev, { role: 'system', content: t('chat.attachment_upload_error', "Error uploading attachment: {{message}}", { message: error.message }) }]);
@@ -596,7 +632,7 @@ const AgentChat = ({ storageIdentity = '' }) => {
             void fetch('/api/chat/attachments', {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ path: target.path }),
+                body: JSON.stringify({ path: target.path, agent_id: selectedAgentId, session_id: sessionId }),
             }).catch((error) => console.warn('Could not delete abandoned chat attachment', error));
         }
     };
@@ -1085,6 +1121,10 @@ const AgentChat = ({ storageIdentity = '' }) => {
                             };
                             continue;
                         }
+                        if (data.type === 'agent_runtime') {
+                            setAgentRuntime(data);
+                            continue;
+                        }
                         if (data.type === 'done') {
                             terminalReceived = true;
                             responseReceived = responseReceived || Boolean(data.has_response);
@@ -1199,6 +1239,11 @@ const AgentChat = ({ storageIdentity = '' }) => {
     const agentModel = agentHasModel
         ? `${agentConfig.provider} · ${agentConfig.model}`
         : t('chat.model_not_configured', 'Model not configured');
+    const runtimeLimited = Boolean(agentRuntime && (
+        (agentRuntime.active_skill_ids?.length && !agentRuntime.supports_tools)
+        || agentRuntime.missing_skill_ids?.length
+        || agentRuntime.unavailable_tool_ids?.length
+    ));
     const sortedSessions = chatSessions
         .filter((session) => session.agentId === selectedAgentId)
         .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
@@ -1292,9 +1337,9 @@ const AgentChat = ({ storageIdentity = '' }) => {
                                 <option key={a.id} value={a.id}>{a.name || a.id}</option>
                             ))}
                         </select>
-                        {!isMinimized && <div style={{ fontSize: '0.7rem', color: agentHasModel ? '#10b981' : '#ef4444', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: agentHasModel ? '#10b981' : '#ef4444' }}></span>
-                            {agentHasModel ? t('chat.online', "Online") : t('chat.model_not_configured', 'Model not configured')}
+                        {!isMinimized && <div style={{ fontSize: '0.7rem', color: runtimeLimited ? '#f59e0b' : (agentHasModel ? '#10b981' : '#ef4444'), display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: runtimeLimited ? '#f59e0b' : (agentHasModel ? '#10b981' : '#ef4444') }}></span>
+                            {runtimeLimited ? t('chat.runtime_limited', 'Connected · tools limited') : (agentHasModel ? t('chat.online', "Online") : t('chat.model_not_configured', 'Model not configured'))}
                             {agentHasModel && <span style={{ color: 'var(--text-secondary)' }}>· {t('chat.agent_model', 'Model: {{model}}', { model: agentModel })}</span>}
                         </div>}
                     </div>

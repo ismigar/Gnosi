@@ -88,6 +88,10 @@ success, failure, and an unknown external outcome.
 
 ## Restrictions and edge cases
 
+- Normalize governed handler statuses: `error`/`failed` become `failed`,
+  `cancelled` and `partial` are preserved, and only documented success statuses
+  become `completed`. Unknown or error-bearing results never become success.
+
 - Do not use raw text substrings as sufficient write authorization.
 - Do not accept a client-side list of pre-confirmed tool IDs.
 - Do not stream secret-bearing arguments or retain them in terminal rows.

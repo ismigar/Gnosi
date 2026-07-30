@@ -141,6 +141,23 @@ such as Mistral.
 
 ## Restrictions / Edge Cases
 
+- Authorization is evaluated over the complete current-turn clause. A denial or
+  negation after an action phrase overrides an earlier affirmative match.
+- Compact messages and tool results before every model invocation against a
+  deterministic model input budget, reserving room for prompts, tool schemas,
+  and output. Page bodies, metadata, PDFs, and skill instructions are bounded.
+- Read-modify-write tools serialize by canonical page path and reject stale
+  revisions. Create operations reserve their destination under the same lock.
+- Attachments are scoped to vault, workspace, user, agent, and session.
+- Clients consume `agent_runtime` metadata and distinguish connectivity from
+  tool/skill compatibility.
+- Server checkpoints are canonical; browser history is only a cache and
+  checkpoint deletion is awaited or durably retried.
+- Session-lock waiting is separate from provider execution and does not affect
+  model reliability. Telemetry finalizes on every terminal path.
+- Reliability is tenant-scoped; page lookup uses an index or bounded cache
+  instead of a complete vault scan per tool call.
+
 - Do not route a completed Coder or Brain response back to the supervisor. It
   makes `assistant` the last message in a subsequent provider call and Mistral
   rejects it with `invalid_request_message_order`.
