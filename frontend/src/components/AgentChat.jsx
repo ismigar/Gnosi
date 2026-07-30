@@ -16,6 +16,7 @@ import {
 const CHAT_SESSIONS_KEY = 'agent_chat_sessions_v2';
 const CHAT_ACTIVE_SESSION_KEY = 'agent_chat_active_session_id_v2';
 const CHAT_SELECTED_AGENT_KEY = 'agent_selected_id_v2';
+const CHAT_PENDING_CHECKPOINT_DELETES_KEY = 'agent_pending_checkpoint_deletes_v1';
 const MAX_CHAT_ATTACHMENT_SIZE = 15 * 1024 * 1024;
 const MAX_CHAT_ATTACHMENTS = 8;
 const CHAT_ATTACHMENT_ACCEPT = [
@@ -152,6 +153,7 @@ const AgentChat = ({ storageIdentity = '' }) => {
     const inputRef = useRef(null);
     const fileInputRef = useRef(null);
     const requestAbortRef = useRef(null);
+    const historyHydrationRef = useRef(0);
     const activeScopeRef = useRef('');
     const activeVaultStorageScope = localStorage.getItem('gnosi_active_vault') || 'default';
     const workspaceStorageScope = localStorage.getItem('gnosi_workspace_id') || 'personal';
@@ -173,6 +175,21 @@ const AgentChat = ({ storageIdentity = '' }) => {
         sessionsHydrated
         && hydratedStorageScope === browserStorageScope
     );
+    const queueCheckpointDeletion = useCallback((session) => {
+        if (!session?.agentId || !session?.id) return;
+        const key = scopedStorageKey(CHAT_PENDING_CHECKPOINT_DELETES_KEY);
+        let pending = [];
+        try {
+            pending = JSON.parse(localStorage.getItem(key) || '[]');
+        } catch {
+            pending = [];
+        }
+        const unique = new Map(
+            [...pending, { agentId: session.agentId, id: session.id }]
+                .map((item) => [`${item.agentId}:${item.id}`, item]),
+        );
+        safeLocalStorageSet(key, JSON.stringify([...unique.values()]));
+    }, [scopedStorageKey]);
 
     // Init session ID
     useEffect(() => {
@@ -201,7 +218,10 @@ const AgentChat = ({ storageIdentity = '' }) => {
             .filter((session) => session?.id && !retainedIds.has(session.id))
             .forEach((session) => {
                 void deleteSessionCheckpoint(session).catch(
-                    (error) => console.warn('Could not delete evicted assistant checkpoint', error),
+                    (error) => {
+                        queueCheckpointDeletion(session);
+                        console.warn('Could not delete evicted assistant checkpoint', error);
+                    },
                 );
             });
         parsedSessions = retainedSessions.map((session) => ({
@@ -247,7 +267,7 @@ const AgentChat = ({ storageIdentity = '' }) => {
 
         setHydratedStorageScope(browserStorageScope);
         setSessionsHydrated(true);
-    }, [browserStorageScope, defaultSessionTitle, scopedStorageKey]);
+    }, [browserStorageScope, defaultSessionTitle, queueCheckpointDeletion, scopedStorageKey]);
 
     useEffect(() => {
         if (!scopeReady) return;
@@ -257,7 +277,10 @@ const AgentChat = ({ storageIdentity = '' }) => {
         if (evictedSessions.length) {
             evictedSessions.forEach((session) => {
                 void deleteSessionCheckpoint(session).catch(
-                    (error) => console.warn('Could not delete evicted assistant checkpoint', error),
+                    (error) => {
+                        queueCheckpointDeletion(session);
+                        console.warn('Could not delete evicted assistant checkpoint', error);
+                    },
                 );
             });
             setChatSessions(retainedSessions);
@@ -267,17 +290,43 @@ const AgentChat = ({ storageIdentity = '' }) => {
             scopedStorageKey(CHAT_SESSIONS_KEY),
             JSON.stringify(retainedSessions),
         );
-    }, [chatSessions, scopeReady, scopedStorageKey]);
+    }, [chatSessions, queueCheckpointDeletion, scopeReady, scopedStorageKey]);
+
+    useEffect(() => {
+        if (!scopeReady) return;
+        const key = scopedStorageKey(CHAT_PENDING_CHECKPOINT_DELETES_KEY);
+        let pending = [];
+        try {
+            pending = JSON.parse(localStorage.getItem(key) || '[]');
+        } catch {
+            pending = [];
+        }
+        if (!Array.isArray(pending) || !pending.length) return;
+        void (async () => {
+            const failed = [];
+            for (const session of pending) {
+                try {
+                    await deleteSessionCheckpoint(session);
+                } catch {
+                    failed.push(session);
+                }
+            }
+            safeLocalStorageSet(key, JSON.stringify(failed));
+        })();
+    }, [scopeReady, scopedStorageKey]);
 
     useEffect(() => {
         if (!scopeReady || !sessionId) return;
         safeLocalStorageSet(scopedStorageKey(CHAT_ACTIVE_SESSION_KEY), sessionId);
         safeLocalStorageSet(scopedStorageKey('agent_session_id_v2'), sessionId);
+        setAgentRuntime(null);
     }, [scopeReady, scopedStorageKey, sessionId]);
 
     useEffect(() => {
         if (!scopeReady) return;
         safeLocalStorageSet(scopedStorageKey(CHAT_SELECTED_AGENT_KEY), selectedAgentId);
+        historyHydrationRef.current += 1;
+        setAgentRuntime(null);
     }, [scopeReady, scopedStorageKey, selectedAgentId]);
 
     useEffect(() => {
@@ -451,6 +500,9 @@ const AgentChat = ({ storageIdentity = '' }) => {
         if (isLoading) return;
         const target = chatSessions.find((s) => s.id === nextId);
         if (!target) return;
+        const hydrationId = historyHydrationRef.current + 1;
+        historyHydrationRef.current = hydrationId;
+        setAgentRuntime(null);
         setChatSessions((prev) => prev.map((s) => s.id === nextId ? { ...s, archived: false, updatedAt: Date.now() } : s));
         setSessionId(target.id);
         setMessages(target.messages || []);
@@ -461,6 +513,7 @@ const AgentChat = ({ storageIdentity = '' }) => {
             );
             if (response.ok) {
                 const canonical = await response.json();
+                if (historyHydrationRef.current !== hydrationId) return;
                 if (Array.isArray(canonical.messages) && canonical.messages.length) {
                     setMessages(canonical.messages);
                     setChatSessions((prev) => prev.map((session) => (
@@ -489,6 +542,7 @@ const AgentChat = ({ storageIdentity = '' }) => {
         ]);
         setSessionId(next.id);
         setMessages([]);
+        setAgentRuntime(null);
         setInputValue('');
         setShowSessionsView(false);
     };

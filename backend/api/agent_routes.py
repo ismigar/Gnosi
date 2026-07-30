@@ -375,6 +375,35 @@ def _message_text(content: Any) -> str:
     return str(content)
 
 
+def _public_checkpoint_messages(stored_messages: List[Any]) -> List[Dict[str, str]]:
+    """Serialize only user-visible transcript messages from checkpoint state."""
+    messages = []
+    for message in stored_messages[-200:]:
+        role = getattr(message, "type", "")
+        if role not in {"human", "ai"}:
+            continue
+        if role == "ai" and getattr(message, "tool_calls", None):
+            continue
+        visible_content = (
+            getattr(message, "additional_kwargs", {}).get(
+                "gnosi_visible_content",
+            )
+            if role == "human"
+            else None
+        )
+        content = (
+            str(visible_content)
+            if visible_content is not None
+            else _message_text(getattr(message, "content", ""))
+        )
+        if content.strip():
+            messages.append({
+                "role": "user" if role == "human" else "assistant",
+                "content": content,
+            })
+    return messages
+
+
 def _thread_lock(thread_id: str) -> asyncio.Lock:
     lock = _THREAD_LOCKS.get(thread_id)
     if lock is None:
@@ -1053,16 +1082,7 @@ async def get_chat_session(
     stored_messages = (
         (checkpoint or {}).get("channel_values", {}).get("messages", [])
     )
-    messages = []
-    for message in stored_messages[-200:]:
-        role = getattr(message, "type", "")
-        if role not in {"human", "ai"}:
-            continue
-        messages.append({
-            "role": "user" if role == "human" else "assistant",
-            "content": _message_text(getattr(message, "content", "")),
-        })
-    return {"messages": messages}
+    return {"messages": _public_checkpoint_messages(stored_messages)}
 
 
 @router.get("/ai/model-reliability")
@@ -1166,7 +1186,12 @@ async def chat_endpoint(
             (llm_selection or {}).get("turn_grant_tool_names") or [],
         )
         inputs = {
-            "messages": [HumanMessage(content=user_content)],
+            "messages": [HumanMessage(
+                content=user_content,
+                additional_kwargs={
+                    "gnosi_visible_content": chat_req.message,
+                },
+            )],
             # Always overwrite these request-scoped channels, including with
             # empty lists, so checkpoint state from a previous turn cannot
             # retain authorization or activation.

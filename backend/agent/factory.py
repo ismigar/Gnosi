@@ -66,24 +66,83 @@ MAX_MODEL_MESSAGE_CHARS = 60_000
 MAX_MODEL_MESSAGE_COUNT = 32
 MAX_SINGLE_MESSAGE_CHARS = 16_000
 MAX_SKILL_INSTRUCTION_CHARS = 24_000
+MAX_SYSTEM_PROMPT_CHARS = 32_000
+MAX_BOUND_TOOLS = 64
 
 
 def _bounded_model_messages(messages: Sequence[BaseMessage]) -> List[BaseMessage]:
-    """Keep the newest complete messages inside a deterministic input budget."""
-    bounded: List[BaseMessage] = []
+    """Keep newest complete assistant/tool protocol groups within the budget."""
+    source = list(messages)[-MAX_MODEL_MESSAGE_COUNT:]
+    while source and isinstance(source[0], ToolMessage):
+        source.pop(0)
+    units: List[List[BaseMessage]] = []
+    index = 0
+    while index < len(source):
+        message = source[index]
+        unit = [message]
+        tool_call_ids = {
+            str(call.get("id") or "")
+            for call in (getattr(message, "tool_calls", None) or [])
+            if isinstance(call, dict)
+        }
+        if tool_call_ids:
+            cursor = index + 1
+            while cursor < len(source):
+                candidate = source[cursor]
+                if not isinstance(candidate, ToolMessage):
+                    break
+                if str(getattr(candidate, "tool_call_id", "") or "") not in tool_call_ids:
+                    break
+                unit.append(candidate)
+                cursor += 1
+            index = cursor
+        else:
+            index += 1
+        units.append(unit)
+
+    bounded_units: List[List[BaseMessage]] = []
     remaining = MAX_MODEL_MESSAGE_CHARS
-    for message in reversed(list(messages)[-MAX_MODEL_MESSAGE_COUNT:]):
-        content = message.content
-        text = content if isinstance(content, str) else json.dumps(
-            content, ensure_ascii=False, default=str,
-        )
-        text = text[:MAX_SINGLE_MESSAGE_CHARS]
-        if not text or remaining <= 0:
+    for unit in reversed(units):
+        prepared = []
+        unit_chars = 0
+        for message in unit:
+            content = message.content
+            text = content if isinstance(content, str) else json.dumps(
+                content, ensure_ascii=False, default=str,
+            )
+            if len(text) > MAX_SINGLE_MESSAGE_CHARS:
+                text = text[:MAX_SINGLE_MESSAGE_CHARS]
+                message = message.model_copy(update={"content": text})
+            unit_chars += len(text)
+            prepared.append(message)
+        if unit_chars > remaining and bounded_units:
             continue
-        text = text[-remaining:]
-        remaining -= len(text)
-        bounded.append(message.model_copy(update={"content": text}))
-    return list(reversed(bounded))
+        if unit_chars > remaining:
+            available = max(0, remaining)
+            truncated = []
+            for message in prepared:
+                content = message.content
+                text = content if isinstance(content, str) else json.dumps(
+                    content, ensure_ascii=False, default=str,
+                )
+                kept = text[:available]
+                truncated.append(
+                    message
+                    if kept == text
+                    else message.model_copy(update={"content": kept})
+                )
+                available -= len(kept)
+            prepared = truncated
+            unit_chars = remaining
+        bounded_units.append(prepared)
+        remaining -= unit_chars
+        if remaining <= 0:
+            break
+    return [
+        message
+        for unit in reversed(bounded_units)
+        for message in unit
+    ]
 
 
 AUTO_SIMPLE_KEYWORDS = {
@@ -1256,7 +1315,7 @@ async def create_agent_workflow(
         return None, {}
 
     # 3. Prepare prompts (persona and active skill instructions).
-    persona = agent_data.get("persona", "")
+    persona = str(agent_data.get("persona", ""))[:8_000]
     agent_name = agent_data.get("name", "Gnosy")
     
     # Load detailed persona from markdown if exists
@@ -1264,7 +1323,7 @@ async def create_agent_workflow(
     detailed_persona = ""
     if persona_file.exists():
         try:
-            detailed_persona = persona_file.read_text(encoding="utf-8")
+            detailed_persona = persona_file.read_text(encoding="utf-8")[:16_000]
         except Exception as e:
             log.warning(f"Could not read persona file {persona_file}: {e}")
     
@@ -1320,7 +1379,7 @@ async def create_agent_workflow(
     # Free-text notes go into the prompt verbatim (short and always relevant);
     # attached sources contribute only their INVENTORY — the agent reads them
     # on demand through the context tools (directive `agent_context_sources.md`).
-    context_notes = (agent_data.get("context") or "").strip()
+    context_notes = str(agent_data.get("context") or "").strip()[:8_000]
     context_refs = agent_data.get("context_refs") or []
     context_block = "\n\n".join(
         part for part in (
@@ -1330,6 +1389,7 @@ async def create_agent_workflow(
     )
     if context_block:
         combined_persona = f"{combined_persona}\n\n{context_block}" if combined_persona else context_block
+    combined_persona = combined_persona[:MAX_SYSTEM_PROMPT_CHARS]
 
     general_prompt = combined_persona or "You are a helpful assistant."
     if context_refs:
@@ -1415,15 +1475,16 @@ async def create_agent_workflow(
         else []
     )
     brain_tools = (
-        (mcp_langchain_tools if legacy_bundle_active else [])
-        + memory_tools
-        + legacy_vault_tools
+        runtime_tools
         + context_tools
-        + runtime_tools
+        + legacy_vault_tools
+        + memory_tools
+        + (mcp_langchain_tools if legacy_bundle_active else [])
         if supports_tools
         else []
     )
     brain_tools = _deduplicate_tools(brain_tools)
+    brain_tools = brain_tools[:MAX_BOUND_TOOLS]
     brain_llm = llm.bind_tools(brain_tools) if brain_tools else llm
 
     requested_active_skill_ids = {
