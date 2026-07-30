@@ -347,6 +347,10 @@ textarea,
   color: var(--text-secondary);
 }
 
+.vault-page-summary-badges {
+  display: none;
+}
+
 .vault-page-link-chip {
   font-size: 0.6875rem;
   line-height: 1rem;
@@ -441,12 +445,52 @@ textarea,
 }
 
 .vault-shell__checkout-warning {
-  padding: 0.375rem 1rem;
+  display: flex;
+  min-height: 2rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.5rem 0.25rem 1rem;
   border-bottom: 1px solid color-mix(in srgb, var(--status-warning) 42%, var(--border-primary));
   background: color-mix(in srgb, var(--status-warning) 12%, var(--bg-primary));
   color: var(--text-primary);
   font-size: 0.75rem;
   text-align: center;
+}
+
+.vault-shell__checkout-warning-short {
+  display: none;
+}
+
+.vault-shell__checkout-warning button,
+.vault-shell__drawer-close,
+.vault-sidebar-icon-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vault-shell__checkout-warning button {
+  width: var(--control-height-sm);
+  height: var(--control-height-sm);
+  flex: 0 0 auto;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+}
+
+.vault-shell__checkout-warning button:hover,
+.vault-shell__checkout-warning button:focus-visible {
+  background: color-mix(in srgb, var(--status-warning) 18%, transparent);
+  color: var(--text-primary);
+}
+
+.vault-shell__drawer-close {
+  display: none;
+}
+
+.vault-sidebar-icon-action {
+  min-width: var(--control-height-sm);
+  min-height: var(--control-height-sm);
 }
 
 .gnosi-floating-action {
@@ -1367,7 +1411,33 @@ button:hover > .row-action-tooltip {
   }
 
   .vault-shell__sidebar-content {
+    height: 100%;
     width: min(82vw, 300px);
+  }
+
+  .vault-shell__drawer-close {
+    position: absolute;
+    inset-block-start: 0.5rem;
+    inset-inline-end: 0.5rem;
+    z-index: 2;
+    width: var(--control-height-touch);
+    height: var(--control-height-touch);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+  }
+
+  .vault-shell__drawer-close:hover,
+  .vault-shell__drawer-close:focus-visible {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+  }
+
+  .vault-sidebar__identity {
+    min-height: 3.75rem;
+    margin-inline: 0 !important;
+    padding-block-start: 0.75rem !important;
+    padding-inline-start: 3.75rem !important;
+    padding-inline-end: 3.75rem !important;
   }
 
   .vault-shell__backdrop {
@@ -1424,6 +1494,7 @@ button:hover > .row-action-tooltip {
 
   .vault-feed-card__body {
     padding: 1rem !important;
+    gap: 0.625rem;
   }
 
   .vault-feed-card__header {
@@ -1445,7 +1516,7 @@ button:hover > .row-action-tooltip {
   }
 
   .vault-feed-card__preview {
-    max-height: 8.125rem;
+    max-height: 5.5rem;
   }
 
   .vault-page-spell-action {
@@ -1489,6 +1560,57 @@ button:hover > .row-action-tooltip {
   }
 
   .vault-page-summary-grid > div > div:first-child > button:first-child {
+    min-height: var(--control-height-touch);
+  }
+
+  .vault-page-summary-meta {
+    display: none;
+  }
+
+  .vault-page-summary-badges {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.25rem;
+    overflow: hidden;
+  }
+
+  .vault-page-summary-badges > span {
+    max-width: 7.5rem;
+    overflow: hidden;
+    border: 1px solid var(--border-primary);
+    border-radius: 999px;
+    padding: 0.0625rem 0.375rem;
+    color: var(--text-secondary);
+    font-size: 0.625rem;
+    font-weight: 600;
+    line-height: 1rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .vault-shell__checkout-warning {
+    min-height: var(--control-height-touch);
+    justify-content: space-between;
+    padding: 0 0.375rem 0 0.75rem;
+    text-align: start;
+  }
+
+  .vault-shell__checkout-warning-full {
+    display: none;
+  }
+
+  .vault-shell__checkout-warning-short {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .vault-shell__checkout-warning button,
+  .vault-sidebar-icon-action {
+    min-width: var(--control-height-touch);
     min-height: var(--control-height-touch);
   }
 

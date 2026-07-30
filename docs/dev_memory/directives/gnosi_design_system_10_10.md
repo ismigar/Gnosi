@@ -191,3 +191,27 @@ environment-specific frontend assumptions.
   than the surrounding page summary.
 - Every icon-removal and disclosure control needs a translated accessible name.
   A visible icon or a sibling text label does not name a separate button.
+- Feed cards are semantic articles, not synthetic links containing checkboxes,
+  disclosure buttons, Markdown links, and other interactive descendants. Use
+  the record title as the single primary navigation control and name the
+  selection checkbox with the record title.
+- At widths below 360 pixels, the Vault shell exposes at most one applicable
+  history direction alongside document actions. Rendering both disabled
+  history buttons makes the left and right control groups overlap without
+  producing detectable horizontal overflow.
+- A mobile Vault drawer includes its own translated close control and Escape
+  behavior. Its identity row reserves space for both the global navigation
+  toggle and drawer close button; relying only on the backdrop leaves no clear
+  way to exit and clips the active-vault label.
+- Sidebar icon actions have translated names and use the shared small control
+  size on desktop and touch size on mobile. An opacity-zero hover treatment
+  does not excuse an unnamed or 18-pixel target.
+- Development checkout warnings remain informative without displacing the
+  product: use a one-line mobile summary, preserve the full message as
+  supplementary text, and provide a translated dismiss action.
+- Desktop page titles keep a stable primary action set. Favorite, comments,
+  and active mode toggles may remain inline; destructive and secondary actions
+  use progressive disclosure even when the pane is wide.
+- Compact feed cards show at most three property pills and a short measured
+  excerpt before disclosure. Compact summary panels replace long zero-heavy
+  metadata strings with badges for nonzero counts.
