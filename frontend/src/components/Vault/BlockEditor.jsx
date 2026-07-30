@@ -3859,6 +3859,17 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const linksHeaderRef = useRef(null);
     const registerEditorApi = useCallback((api) => { editorApiRef.current = api; }, []);
     const [isHeaderHovered, setIsHeaderHovered] = useState(false);
+    const [isPageHeaderCompact, setIsPageHeaderCompact] = useState(false);
+    useEffect(() => {
+        const hero = headerHoverRef.current;
+        if (!hero || typeof IntersectionObserver !== 'function') return undefined;
+        const observer = new IntersectionObserver(
+            ([entry]) => setIsPageHeaderCompact(!entry.isIntersecting && entry.boundingClientRect.bottom < 0),
+            { threshold: 0 },
+        );
+        observer.observe(hero);
+        return () => observer.disconnect();
+    }, [noteFilename]);
 
     const openPageViewModalFromContext = useCallback((tableId = '', editingBlock = null) => {
         setPageViewPreselectedTable(tableId);
@@ -4573,6 +4584,15 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     return (
         <div className="vault-page-editor w-full flex justify-center bg-[var(--bg-primary)] min-h-full transition-colors duration-300">
             <div ref={contentRef} className="max-w-7xl w-full flex flex-col min-h-full bg-[var(--bg-primary)] relative transition-colors duration-300">
+                {isPageHeaderCompact && (
+                    <div className="vault-page-compact-header">
+                        <span className="vault-page-compact-header__title">{metadata.title || t('editor.untitled')}</span>
+                        <PageActionsBar
+                            pageActions={isActivePage ? pageActions : null}
+                            containerWidth={contentWidth}
+                        />
+                    </div>
+                )}
                 <div
                     className={`vault-page-hero relative w-full group/cover ${metadata.cover ? 'vault-page-hero--covered' : 'vault-page-hero--bare'}`}
                     onMouseEnter={() => setIsHeaderHovered(true)}
