@@ -4620,14 +4620,14 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                         </div>
                     </div>
 
-                    <div className="vault-page-icon absolute -bottom-10 left-12 group/icon z-10">
+                    <div className={`vault-page-icon absolute left-12 group/icon z-10 ${metadata.cover ? '-bottom-10' : '-bottom-8'}`}>
                         <div 
                             ref={iconTriggerRef}
                             onClick={() => setIsIconPickerOpen(true)}
-                            className={`relative flex items-center justify-center bg-[var(--bg-primary)] border-4 border-[var(--bg-primary)] rounded-3xl shadow-sm cursor-pointer hover:bg-[var(--bg-secondary)] transition-all group-hover/icon:scale-105 active:scale-95 ${metadata.icon ? 'w-24 h-24' : 'w-24 h-24 opacity-0 group-hover/cover:opacity-100'}`}
+                            className={`relative flex items-center justify-center bg-[var(--bg-primary)] border-4 border-[var(--bg-primary)] shadow-sm cursor-pointer hover:bg-[var(--bg-secondary)] transition-all group-hover/icon:scale-105 active:scale-95 ${metadata.cover ? 'h-24 w-24 rounded-3xl' : 'h-20 w-20 rounded-2xl'} ${metadata.icon ? '' : 'opacity-0 group-hover/cover:opacity-100 group-focus-within/cover:opacity-100'}`}
                         >
                             {metadata.icon ? (
-                                <IconRenderer icon={metadata.icon} size={64} />
+                                <IconRenderer icon={metadata.icon} size={metadata.cover ? 64 : 52} />
                             ) : (
                                 <div className="flex flex-col items-center gap-1 text-[var(--text-tertiary)]/40 hover:text-[var(--gnosi-primary)]">
                                     <Plus size={24} />
@@ -4651,7 +4651,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                     </div>
                 </div>
 
-                <div className={`vault-page-overview px-12 pb-2 ${metadata.icon ? 'vault-page-overview--with-icon' : 'vault-page-overview--without-icon'}`}>
+                <div className={`vault-page-overview px-12 pb-2 ${metadata.cover ? '' : 'vault-page-overview--bare'} ${metadata.icon ? 'vault-page-overview--with-icon' : 'vault-page-overview--without-icon'}`}>
                     <div className="mb-4 space-y-1.5">
                         <div className="flex items-center justify-between gap-4 group/title mb-6">
                             <textarea

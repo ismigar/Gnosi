@@ -310,11 +310,11 @@ textarea,
 }
 
 .vault-page-hero--bare {
-  margin-top: 0.5rem;
+  margin-top: 0.25rem;
 }
 
 .vault-page-hero--bare .vault-page-cover {
-  height: 2rem;
+  height: 0.75rem;
 }
 
 .vault-page-cover-actions {
@@ -333,8 +333,20 @@ textarea,
   padding-top: 3.5rem;
 }
 
+.vault-page-overview--bare.vault-page-overview--with-icon {
+  padding-top: 2.75rem;
+}
+
 .vault-page-overview--without-icon {
   padding-top: 1.5rem;
+}
+
+.vault-page-overview--bare.vault-page-overview--without-icon {
+  padding-top: 0.75rem;
+}
+
+.vault-page-overview--bare > div:first-child {
+  margin-bottom: 0.5rem;
 }
 
 .vault-page-summary-grid {
@@ -418,6 +430,44 @@ textarea,
   overflow-wrap: anywhere;
 }
 
+.vault-feed-card__date {
+  color: color-mix(in srgb, var(--text-secondary) 78%, transparent);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.vault-feed-card__title {
+  border-radius: var(--radius-sm);
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.018em;
+}
+
+.vault-feed-card__pills {
+  color: var(--text-secondary);
+}
+
+.vault-feed-card__pills > :not(button) {
+  filter: saturate(0.82);
+}
+
+.vault-view-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 25;
+  min-height: var(--control-height-touch);
+  padding-block: 0.25rem;
+  background: color-mix(in srgb, var(--bg-primary) 94%, transparent);
+  border-bottom: 1px solid transparent;
+  backdrop-filter: blur(10px);
+}
+
+.gnosi-view-embed-container:focus-within .vault-view-toolbar {
+  border-bottom-color: var(--border-primary);
+}
+
 .vault-feed-card__preview {
   position: relative;
   max-height: 9.75rem;
@@ -491,6 +541,29 @@ textarea,
 .vault-sidebar-icon-action {
   min-width: var(--control-height-sm);
   min-height: var(--control-height-sm);
+}
+
+.vault-sidebar-icon-action:focus-visible,
+.vault-feed-card button:focus-visible,
+.vault-feed-card input:focus-visible,
+.vault-view-toolbar button:focus-visible,
+.vault-page-cover-action:focus-visible,
+.vault-page-icon:focus-within {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.group:focus-within .vault-sidebar-icon-action,
+.vault-sidebar-icon-action:focus-visible {
+  opacity: 1;
+}
+
+.vault-sidebar-icon-action:hover,
+.vault-sidebar-icon-action:focus-visible,
+.vault-view-toolbar button:hover,
+.vault-view-toolbar button:focus-visible {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 .gnosi-floating-action {
@@ -1463,6 +1536,18 @@ button:hover > .row-action-tooltip {
     font-size: clamp(1.875rem, 8vw, 2rem);
   }
 
+  .vault-page-hero--bare .vault-page-cover {
+    height: 0.5rem;
+  }
+
+  .vault-page-overview--bare.vault-page-overview--with-icon {
+    padding-top: 2.5rem;
+  }
+
+  .vault-page-overview--bare.vault-page-overview--without-icon {
+    padding-top: 0.5rem;
+  }
+
   .vault-page-overview,
   .vault-page-body {
     padding-inline: 1rem !important;
@@ -1509,6 +1594,11 @@ button:hover > .row-action-tooltip {
   .vault-feed-card__date {
     align-items: flex-start;
     line-height: 1.35;
+  }
+
+  .vault-view-toolbar {
+    margin-inline: -0.25rem;
+    padding-inline: 0.25rem;
   }
 
   .vault-feed-card__open {

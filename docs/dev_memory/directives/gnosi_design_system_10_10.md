@@ -215,3 +215,16 @@ environment-specific frontend assumptions.
 - Compact feed cards show at most three property pills and a short measured
   excerpt before disclosure. Compact summary panels replace long zero-heavy
   metadata strings with badges for nonzero counts.
+- Bare Vault pages use a smaller icon and collapse cover-only geometry. Do not
+  reserve covered-page vertical space when neither a cover nor its actions are
+  visible.
+- Embedded-view toolbars remain sticky within the document flow so record
+  count, search, filters, and creation stay reachable while browsing long
+  datasets.
+- Vault sidebar section expansion is persisted as one version-tolerant local
+  object. Secondary sections default closed; adding independent ad-hoc keys
+  makes the navigation state inconsistent between sessions.
+- Hover-only sidebar actions must also appear on `focus-within`, and every Vault
+  icon action shares a visible theme-aware focus ring in both color schemes.
+- Feed hierarchy prioritizes the record title over its timestamp and property
+  pills without lowering secondary text below accessible contrast.
