@@ -203,7 +203,7 @@ def test_legacy_bundle_exposes_core_gnosi_tools_without_query_wiki(monkeypatch):
     } <= set(brain_tool_names)
 
 
-def test_assigned_skill_binds_its_exact_registered_tool(monkeypatch):
+def test_assigned_skill_adds_its_tool_to_core_gnosi_tools(monkeypatch):
     @tool
     def skill_query(query: str) -> str:
         """Search the test knowledge source."""
@@ -235,7 +235,15 @@ def test_assigned_skill_binds_its_exact_registered_tool(monkeypatch):
         llm,
     )
 
-    assert llm.bound_tool_names == [["skill_query"]]
+    assert len(llm.bound_tool_names) == 1
+    bound_names = set(llm.bound_tool_names[0])
+    assert "skill_query" in bound_names
+    assert {
+        "list_table_rows",
+        "create_page",
+        "create_table_row",
+        "empty_trash",
+    } <= bound_names
 
 
 def test_tool_backed_skill_routes_directly_to_tool_enabled_specialist(monkeypatch):
@@ -310,7 +318,8 @@ def test_plain_callable_tool_handler_is_not_dropped(monkeypatch):
         llm,
     )
 
-    assert llm.bound_tool_names == [["callable_query"]]
+    assert len(llm.bound_tool_names) == 1
+    assert "callable_query" in llm.bound_tool_names[0]
 
 
 def test_configured_persona_applies_to_brain_specialist(monkeypatch):

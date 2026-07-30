@@ -4358,7 +4358,69 @@
     "model_required": "Configura aquest agent abans d'enviar un missatge",
     "agent_model_unavailable": "El model de l'agent seleccionat no està disponible. Configura l'agent i torna-ho a provar.",
     "new_session": "Nova sessio",
-    "messages_count_many": "{{count}} missatges"
+    "messages_count_many": "{{count}} missatges",
+    "confirmations": {
+      "title": "Confirmar acció",
+      "summary": "Revisa aquesta acció abans de continuar.",
+      "confirm": "Confirmar i executar",
+      "cancel": "Cancel·lar l'acció",
+      "review": "Revisar i confirmar",
+      "completed": "Acció completada després de la confirmació.",
+      "failed": "No s'ha pogut completar l'acció: {{message}}",
+      "status": {
+        "pending": "Pendent de confirmació",
+        "completed": "Completada",
+        "cancelled": "Cancel·lada",
+        "failed": "Ha fallat",
+        "unavailable": "Ja no està disponible"
+      },
+      "actions": {
+        "delete_page": {
+          "title": "Moure la pàgina a la paperera",
+          "summary": "Vols moure «{{page}}» a la paperera del Vault?"
+        },
+        "delete_contact": {
+          "title": "Eliminar el contacte",
+          "summary": "Vols eliminar permanentment {{contact}} ({{email}})?"
+        },
+        "send_mail": {
+          "title": "Enviar el correu",
+          "summary": "Vols enviar «{{subject}}» des de {{account}} a {{to}}?"
+        },
+        "archive_mail": {
+          "title": "Arxivar el correu",
+          "summary": "Vols arxivar el missatge {{message_id}} de {{account}}?"
+        },
+        "move_mail": {
+          "title": "Moure el correu",
+          "summary": "Vols moure el missatge {{message_id}} de {{account}} a {{target_folder}}?"
+        },
+        "invite_attendees": {
+          "title": "Enviar invitacions",
+          "summary": "Vols convidar {{attendees}} a l'esdeveniment {{event_id}} des de {{account}}?"
+        },
+        "delete_table": {
+          "title": "Eliminar la taula",
+          "summary": "Vols eliminar la taula «{{table}}», les seves vistes i els recursos emmagatzemats?"
+        },
+        "restore_page_version": {
+          "title": "Restaurar la versió",
+          "summary": "Vols substituir «{{page}}» per la versió de {{timestamp}}?"
+        },
+        "empty_trash": {
+          "title": "Buidar permanentment la paperera",
+          "summary": "Vols eliminar permanentment {{count}} element(s) de la paperera del Vault?"
+        },
+        "change_schema": {
+          "title": "Substituir l'esquema",
+          "summary": "Vols substituir l'esquema de {{folder}} per un de {{property_count}} propietats?"
+        },
+        "bulk_update_rows": {
+          "title": "Actualitzar files massivament",
+          "summary": "Vols aplicar canvis a {{count}} fila(es) de taula?"
+        }
+      }
+    }
   },
   "bulk_actions": {
     "selected_count_one": "{{count}} seleccionat",

@@ -4358,7 +4358,69 @@
     "model_required": "Configurez cet agent avant d'envoyer un message",
     "agent_model_unavailable": "Le modèle de l'agent sélectionné n'est pas disponible. Configurez l'agent puis réessayez.",
     "new_session": "Nouvelle session",
-    "messages_count_many": "{{count}} messages"
+    "messages_count_many": "{{count}} messages",
+    "confirmations": {
+      "title": "Confirmer l'action",
+      "summary": "Vérifiez cette action avant de continuer.",
+      "confirm": "Confirmer et exécuter",
+      "cancel": "Annuler l'action",
+      "review": "Vérifier et confirmer",
+      "completed": "Action terminée après confirmation.",
+      "failed": "L'action n'a pas pu être effectuée : {{message}}",
+      "status": {
+        "pending": "En attente de confirmation",
+        "completed": "Terminée",
+        "cancelled": "Annulée",
+        "failed": "Échec",
+        "unavailable": "Plus disponible"
+      },
+      "actions": {
+        "delete_page": {
+          "title": "Déplacer la page vers la corbeille",
+          "summary": "Déplacer « {{page}} » vers la corbeille du Vault ?"
+        },
+        "delete_contact": {
+          "title": "Supprimer le contact",
+          "summary": "Supprimer définitivement {{contact}} ({{email}}) ?"
+        },
+        "send_mail": {
+          "title": "Envoyer le courriel",
+          "summary": "Envoyer « {{subject}} » de {{account}} à {{to}} ?"
+        },
+        "archive_mail": {
+          "title": "Archiver le courriel",
+          "summary": "Archiver le message {{message_id}} de {{account}} ?"
+        },
+        "move_mail": {
+          "title": "Déplacer le courriel",
+          "summary": "Déplacer le message {{message_id}} de {{account}} vers {{target_folder}} ?"
+        },
+        "invite_attendees": {
+          "title": "Envoyer les invitations",
+          "summary": "Inviter {{attendees}} à l'événement {{event_id}} depuis {{account}} ?"
+        },
+        "delete_table": {
+          "title": "Supprimer la table",
+          "summary": "Supprimer la table « {{table}} », ses vues et ses ressources stockées ?"
+        },
+        "restore_page_version": {
+          "title": "Restaurer la version",
+          "summary": "Remplacer « {{page}} » par sa version du {{timestamp}} ?"
+        },
+        "empty_trash": {
+          "title": "Vider définitivement la corbeille",
+          "summary": "Supprimer définitivement {{count}} élément(s) de la corbeille du Vault ?"
+        },
+        "change_schema": {
+          "title": "Remplacer le schéma",
+          "summary": "Remplacer le schéma de {{folder}} par {{property_count}} propriétés ?"
+        },
+        "bulk_update_rows": {
+          "title": "Mettre les lignes à jour en masse",
+          "summary": "Appliquer les modifications à {{count}} ligne(s) de table ?"
+        }
+      }
+    }
   },
   "bulk_actions": {
     "selected_count_one": "{{count}} sélectionné",

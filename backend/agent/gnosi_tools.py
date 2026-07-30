@@ -26,6 +26,26 @@ MAX_LIST_ITEMS = 100
 MAX_BODY_CHARS = 12_000
 
 
+def _confirmation(
+    action: str,
+    arguments: Dict[str, Any],
+    details: Dict[str, Any],
+    *,
+    destructive: bool = True,
+) -> str:
+    from backend.agent.action_confirmations import request_confirmation
+
+    prefix = f"chat.confirmations.actions.{action}"
+    return request_confirmation(
+        action,
+        arguments,
+        title_key=f"{prefix}.title",
+        summary_key=f"{prefix}.summary",
+        details=details,
+        destructive=destructive,
+    )
+
+
 def _vault() -> Path:
     from backend.services.context_vars import get_active_vault_path
 
@@ -33,6 +53,13 @@ def _vault() -> Path:
     if not vault:
         raise RuntimeError("There is no active Vault.")
     return Path(vault).resolve()
+
+
+def _workspace_id() -> str:
+    """Returns the authenticated workspace bound to the current chat turn."""
+    from backend.agent.action_confirmations import current_confirmation_scope
+
+    return current_confirmation_scope()["workspace_id"]
 
 
 def _page_files() -> Iterable[Path]:
@@ -408,15 +435,18 @@ def mark_task_complete(row_id_or_title: str) -> str:
 
 @tool
 def delete_page(page_id_or_title: str) -> str:
-    """Moves a page to Vault trash. Bind only after explicit user confirmation."""
-    from backend.api.vault_routes import _move_page_to_trash
-
+    """Prepares moving a page to trash and waits for interactive confirmation."""
     path = _resolve_page(page_id_or_title)
     if not path:
         return _json({"error": "Page not found."})
     metadata, _body = _parse(path)
-    _move_page_to_trash(str(metadata.get("id") or ""), path)
-    return _json({"status": "trashed", "page": path.stem})
+    page_id = str(metadata.get("id") or "")
+    title = str(metadata.get("title") or path.stem)
+    return _confirmation(
+        "delete_page",
+        {"page_id": page_id},
+        {"page": title},
+    )
 
 
 READ_TOOLS = [
@@ -501,7 +531,7 @@ def list_contacts(search: str = "", limit: int = 50) -> str:
 
     db = get_mgmt_session()
     try:
-        contacts = ContactsService(db, "personal").list_contacts(
+        contacts = ContactsService(db, _workspace_id()).list_contacts(
             None, search or None, None
         )
         rows = []
@@ -566,7 +596,7 @@ def create_contact(
 
     db = get_mgmt_session()
     try:
-        contact = ContactsService(db, "personal").create_contact(
+        contact = ContactsService(db, _workspace_id()).create_contact(
             {
                 "name": name,
                 "email": email,
@@ -614,17 +644,20 @@ EXPLICIT_WRITE_TOOLS.extend(
 
 @tool
 def delete_contact(contact_id: str) -> str:
-    """Deletes a local contact. Bind only after explicit user confirmation."""
+    """Prepares deleting a contact and waits for interactive confirmation."""
     from backend.data.management_db import get_mgmt_session
     from backend.services.contacts_service import ContactsService
 
     db = get_mgmt_session()
     try:
-        service = ContactsService(db, "personal")
-        if not service.get_contact(contact_id):
+        service = ContactsService(db, _workspace_id())
+        contact = service.get_contact(contact_id)
+        if not contact:
             return _json({"error": "Contact not found."})
-        return _json(
-            {"status": "deleted" if service.delete_contact(contact_id) else "failed"}
+        return _confirmation(
+            "delete_contact",
+            {"contact_id": contact_id},
+            {"contact": contact.name, "email": contact.email},
         )
     finally:
         db.close()
@@ -639,29 +672,31 @@ async def send_mail(
     cc: str = "",
     bcc: str = "",
 ) -> str:
-    """Sends mail without attachments. Bind only after explicit user confirmation."""
-    from backend.api.mail_routes import send_mail as route_send_mail
-
-    result = await route_send_mail(
-        email=account,
-        to=to,
-        subject=subject,
-        body=body,
-        cc=cc or None,
-        bcc=bcc or None,
-        from_name=None,
-        from_email=None,
-        attachments=[],
+    """Prepares sending mail and waits for interactive confirmation."""
+    return _confirmation(
+        "send_mail",
+        {
+            "account": account,
+            "to": to,
+            "subject": subject,
+            "body": body,
+            "cc": cc,
+            "bcc": bcc,
+        },
+        {"account": account, "to": to, "subject": subject},
+        destructive=False,
     )
-    return _json(result)
 
 
 @tool
 async def archive_mail(account: str, message_id: str, folder: str = "") -> str:
-    """Archives one mail message. Bind only after explicit user confirmation."""
-    from backend.api.mail_routes import archive_msg
-
-    return _json(await archive_msg(message_id, account, folder or None))
+    """Prepares archiving mail and waits for interactive confirmation."""
+    return _confirmation(
+        "archive_mail",
+        {"account": account, "message_id": message_id, "folder": folder},
+        {"account": account, "message_id": message_id},
+        destructive=False,
+    )
 
 
 @tool
@@ -670,11 +705,20 @@ async def move_mail(
     message_id: str,
     target_folder: str,
 ) -> str:
-    """Moves one mail message. Bind only after explicit user confirmation."""
-    from backend.api.mail_routes import move_message
-
-    return _json(
-        await move_message(message_id, account, {"target_folder": target_folder})
+    """Prepares moving mail and waits for interactive confirmation."""
+    return _confirmation(
+        "move_mail",
+        {
+            "account": account,
+            "message_id": message_id,
+            "target_folder": target_folder,
+        },
+        {
+            "account": account,
+            "message_id": message_id,
+            "target_folder": target_folder,
+        },
+        destructive=False,
     )
 
 
@@ -685,21 +729,250 @@ async def invite_attendees(
     attendees: List[str],
     calendar_id: str = "primary",
 ) -> str:
-    """Invites attendees to an event. Bind only after explicit confirmation."""
-    from backend.api.calendar_routes import invite_to_event
-
-    return _json(
-        await invite_to_event(
-            event_id,
-            {
-                "email": account,
-                "attendees": [{"email": address} for address in attendees],
-                "calendar_id": calendar_id,
-            },
-        )
+    """Prepares invitations and waits for interactive confirmation."""
+    return _confirmation(
+        "invite_attendees",
+        {
+            "account": account,
+            "event_id": event_id,
+            "attendees": attendees,
+            "calendar_id": calendar_id,
+        },
+        {
+            "account": account,
+            "event_id": event_id,
+            "attendees": ", ".join(attendees),
+        },
+        destructive=False,
     )
 
 
 CONFIRMED_WRITE_TOOLS.extend(
     [delete_contact, send_mail, archive_mail, move_mail, invite_attendees]
 )
+
+
+@tool
+def delete_table(table_id_or_name: str) -> str:
+    """Prepares deleting a table and waits for interactive confirmation."""
+    table = _table(table_id_or_name)
+    if not table:
+        return _json({"error": "Table not found."})
+    return _confirmation(
+        "delete_table",
+        {"table_id": str(table.get("id") or "")},
+        {"table": str(table.get("name") or table.get("id") or "")},
+    )
+
+
+@tool
+def restore_page_version(page_id_or_title: str, timestamp: str) -> str:
+    """Prepares restoring a page version and waits for confirmation."""
+    path = _resolve_page(page_id_or_title)
+    if not path:
+        return _json({"error": "Page not found."})
+    metadata, _body = _parse(path)
+    page_id = str(metadata.get("id") or "")
+    version = _vault() / ".history" / page_id / f"{timestamp}.md"
+    if not version.exists():
+        return _json({"error": "Page version not found."})
+    return _confirmation(
+        "restore_page_version",
+        {"page_id": page_id, "timestamp": timestamp},
+        {
+            "page": str(metadata.get("title") or path.stem),
+            "timestamp": timestamp,
+        },
+    )
+
+
+@tool
+def empty_trash() -> str:
+    """Prepares permanently emptying Vault trash and waits for confirmation."""
+    trash = _vault() / ".trash"
+    entry_count = len(list(trash.iterdir())) if trash.exists() else 0
+    return _confirmation(
+        "empty_trash",
+        {},
+        {"count": entry_count},
+    )
+
+
+@tool
+def change_schema(folder: str, schema_definition: Dict[str, Any]) -> str:
+    """Prepares replacing a folder schema and waits for confirmation."""
+    safe_folder = sanitize_rel_folder(folder, fallback="")
+    if not safe_folder:
+        return _json({"error": "A valid schema folder is required."})
+    return _confirmation(
+        "change_schema",
+        {"folder": safe_folder, "schema_definition": schema_definition},
+        {
+            "folder": safe_folder,
+            "property_count": len(schema_definition.get("properties") or []),
+        },
+    )
+
+
+@tool
+def bulk_update_rows(updates: List[Dict[str, Any]]) -> str:
+    """Prepares up to 100 row updates and waits for confirmation."""
+    if not updates or len(updates) > MAX_LIST_ITEMS:
+        return _json(
+            {"error": f"Between 1 and {MAX_LIST_ITEMS} row updates are required."}
+        )
+    normalized = []
+    for update in updates:
+        identifier = str(update.get("id") or update.get("title") or "").strip()
+        properties = update.get("properties")
+        if not identifier or not isinstance(properties, dict):
+            return _json({"error": "Each row update requires an id and properties."})
+        normalized.append({"id": identifier, "properties": properties})
+    return _confirmation(
+        "bulk_update_rows",
+        {"updates": normalized},
+        {"count": len(normalized)},
+    )
+
+
+CONFIRMED_WRITE_TOOLS.extend(
+    [delete_table, restore_page_version, empty_trash, change_schema, bulk_update_rows]
+)
+
+
+async def execute_confirmed_action(
+    action: str,
+    arguments: Dict[str, Any],
+    *,
+    workspace_id: str,
+) -> Dict[str, Any]:
+    """Executes one allowlisted action after the confirmation store claims it."""
+    if action == "delete_page":
+        from backend.api.vault_routes import _move_page_to_trash
+
+        path = _resolve_page(str(arguments["page_id"]))
+        if not path:
+            raise LookupError("Page not found.")
+        _move_page_to_trash(str(arguments["page_id"]), path)
+        return {"status": "trashed", "page_id": str(arguments["page_id"])}
+
+    if action == "delete_contact":
+        from backend.data.management_db import get_mgmt_session
+        from backend.services.contacts_service import ContactsService
+
+        db = get_mgmt_session()
+        try:
+            service = ContactsService(db, workspace_id)
+            contact_id = str(arguments["contact_id"])
+            if not service.get_contact(contact_id):
+                raise LookupError("Contact not found.")
+            if not service.delete_contact(contact_id):
+                raise RuntimeError("The contact could not be deleted.")
+            return {"status": "deleted", "contact_id": contact_id}
+        finally:
+            db.close()
+
+    if action == "send_mail":
+        from backend.api.mail_routes import send_mail as route_send_mail
+
+        return await route_send_mail(
+            email=str(arguments["account"]),
+            to=str(arguments["to"]),
+            subject=str(arguments.get("subject") or ""),
+            body=str(arguments["body"]),
+            cc=str(arguments.get("cc") or "") or None,
+            bcc=str(arguments.get("bcc") or "") or None,
+            from_name=None,
+            from_email=None,
+            attachments=[],
+        )
+
+    if action == "archive_mail":
+        from backend.api.mail_routes import archive_msg
+
+        return await archive_msg(
+            str(arguments["message_id"]),
+            str(arguments["account"]),
+            str(arguments.get("folder") or "") or None,
+        )
+
+    if action == "move_mail":
+        from backend.api.mail_routes import move_message
+
+        return await move_message(
+            str(arguments["message_id"]),
+            str(arguments["account"]),
+            {"target_folder": str(arguments["target_folder"])},
+        )
+
+    if action == "invite_attendees":
+        from backend.api.calendar_routes import invite_to_event
+
+        return await invite_to_event(
+            str(arguments["event_id"]),
+            {
+                "email": str(arguments["account"]),
+                "attendees": [
+                    {"email": str(address)}
+                    for address in arguments.get("attendees") or []
+                ],
+                "calendar_id": str(arguments.get("calendar_id") or "primary"),
+            },
+        )
+
+    if action == "delete_table":
+        from fastapi import BackgroundTasks
+        from backend.api.vault_routes import delete_table as route_delete_table
+
+        tasks = BackgroundTasks()
+        result = await route_delete_table(str(arguments["table_id"]), tasks)
+        await tasks()
+        return result
+
+    if action == "restore_page_version":
+        from fastapi import BackgroundTasks
+        from backend.api.vault_routes import (
+            restore_page_version as route_restore_page_version,
+        )
+
+        tasks = BackgroundTasks()
+        result = await route_restore_page_version(
+            str(arguments["page_id"]),
+            str(arguments["timestamp"]),
+            tasks,
+        )
+        await tasks()
+        return result
+
+    if action == "empty_trash":
+        from backend.api.vault_routes import empty_trash as route_empty_trash
+
+        return await route_empty_trash()
+
+    if action == "change_schema":
+        from backend.api.vault_routes import save_schema
+
+        return await save_schema(
+            str(arguments["folder"]),
+            dict(arguments.get("schema_definition") or {}),
+        )
+
+    if action == "bulk_update_rows":
+        update_function = (
+            update_table_row.func
+            if hasattr(update_table_row, "func")
+            else update_table_row
+        )
+        results = []
+        for update in arguments.get("updates") or []:
+            raw = update_function(
+                str(update["id"]),
+                dict(update.get("properties") or {}),
+            )
+            result = json.loads(raw)
+            if result.get("error"):
+                raise RuntimeError(str(result["error"]))
+            results.append(result)
+        return {"status": "updated", "results": results}
+
+    raise ValueError(f"Unsupported confirmed action: {action}")

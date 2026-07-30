@@ -5,6 +5,7 @@ import { Send, X, Paperclip, Minimize2, Maximize2, Bot, Sparkles, Plus, AtSign, 
 import { useConfigChanged } from '../lib/configEvents';
 import { announceFloatingPanelOpen, useExclusiveFloatingPanel } from '../hooks/useExclusiveFloatingPanel';
 import { useFloatingActionDock } from '../hooks/useFloatingActionDock';
+import ConfirmModal from './ConfirmModal';
 
 const CHAT_SESSIONS_KEY = 'agent_chat_sessions_v2';
 const CHAT_ACTIVE_SESSION_KEY = 'agent_chat_active_session_id_v2';
@@ -102,6 +103,7 @@ const AgentChat = () => {
     const [mentionAnchorIndex, setMentionAnchorIndex] = useState(-1);
     const [attachments, setAttachments] = useState([]);
     const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
+    const [pendingConfirmation, setPendingConfirmation] = useState(null);
     const [isDockOpen, setIsDockOpen] = useFloatingActionDock();
     useExclusiveFloatingPanel('chat', isOpen, setIsOpen);
 
@@ -231,6 +233,7 @@ const AgentChat = () => {
         const nextScope = `${selectedAgentId}:${sessionId}`;
         if (activeScopeRef.current && activeScopeRef.current !== nextScope) {
             requestAbortRef.current?.abort();
+            setPendingConfirmation(null);
         }
         activeScopeRef.current = nextScope;
     }, [selectedAgentId, sessionId]);
@@ -548,6 +551,124 @@ const AgentChat = () => {
         scrollToBottom();
     }, [messages, isOpen, isMinimized]);
 
+    const confirmationTitle = useCallback((confirmation) => t(
+        confirmation?.title_key || 'chat.confirmations.title',
+        'Confirm action',
+        confirmation?.details || {},
+    ), [t]);
+
+    const confirmationSummary = useCallback((confirmation) => t(
+        confirmation?.summary_key || 'chat.confirmations.summary',
+        'Review this action before continuing.',
+        confirmation?.details || {},
+    ), [t]);
+
+    const updateConfirmationStatus = useCallback((confirmationId, status) => {
+        setMessages((prev) => prev.map((message) => (
+            message?.confirmation?.confirmation_id === confirmationId
+                ? {
+                    ...message,
+                    confirmation: { ...message.confirmation, status },
+                }
+                : message
+        )));
+    }, []);
+
+    const confirmPendingAction = useCallback(async () => {
+        const confirmation = pendingConfirmation;
+        if (!confirmation?.confirmation_id) return;
+        let response;
+        try {
+            response = await fetch(
+                `/api/chat/confirmations/${encodeURIComponent(confirmation.confirmation_id)}/confirm`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        agent_id: selectedAgentId,
+                        session_id: sessionId,
+                    }),
+                },
+            );
+        } catch (error) {
+            console.error('Could not confirm pending agent action', error);
+            updateConfirmationStatus(confirmation.confirmation_id, 'unavailable');
+            setPendingConfirmation(null);
+            setMessages((prev) => [...prev, {
+                role: 'system',
+                content: t(
+                    'chat.confirmations.failed',
+                    'The action could not be completed: {{message}}',
+                    { message: error.message },
+                ),
+            }]);
+            return;
+        }
+        if (!response.ok) {
+            let detail = response.statusText;
+            try {
+                const payload = await response.json();
+                detail = payload?.detail || detail;
+            } catch {
+                // Preserve the HTTP fallback for non-JSON errors.
+            }
+            updateConfirmationStatus(confirmation.confirmation_id, 'failed');
+            setPendingConfirmation(null);
+            setMessages((prev) => [...prev, {
+                role: 'system',
+                content: t(
+                    'chat.confirmations.failed',
+                    'The action could not be completed: {{message}}',
+                    { message: detail },
+                ),
+            }]);
+            return;
+        }
+        updateConfirmationStatus(confirmation.confirmation_id, 'completed');
+        setPendingConfirmation(null);
+        setMessages((prev) => [...prev, {
+            role: 'system',
+            content: t('chat.confirmations.completed', 'Action completed after confirmation.'),
+        }]);
+    }, [
+        pendingConfirmation,
+        selectedAgentId,
+        sessionId,
+        t,
+        updateConfirmationStatus,
+    ]);
+
+    const cancelPendingAction = useCallback(async () => {
+        const confirmation = pendingConfirmation;
+        setPendingConfirmation(null);
+        if (!confirmation?.confirmation_id) return;
+        try {
+            const response = await fetch(
+                `/api/chat/confirmations/${encodeURIComponent(confirmation.confirmation_id)}/cancel`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        agent_id: selectedAgentId,
+                        session_id: sessionId,
+                    }),
+                },
+            );
+            updateConfirmationStatus(
+                confirmation.confirmation_id,
+                response.ok ? 'cancelled' : 'unavailable',
+            );
+        } catch (error) {
+            console.error('Could not cancel pending agent action', error);
+            updateConfirmationStatus(confirmation.confirmation_id, 'unavailable');
+        }
+    }, [
+        pendingConfirmation,
+        selectedAgentId,
+        sessionId,
+        updateConfirmationStatus,
+    ]);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         if ((!inputValue.trim() && attachments.length === 0) || isLoading || !agentHasModel) return;
@@ -651,11 +772,24 @@ const AgentChat = () => {
                         }
                         const carriesResponse = [
                             'tool_start', 'tool_end', 'message', 'thought', 'error',
+                            'confirmation_required',
                         ].includes(data.type);
                         if (!carriesResponse) continue;
 
-                        if (data.type === 'message' || data.type === 'thought' || data.type === 'error') {
+                        if ([
+                            'message',
+                            'thought',
+                            'error',
+                            'confirmation_required',
+                        ].includes(data.type)) {
                             responseReceived = true;
+                        }
+                        if (
+                            data.type === 'confirmation_required'
+                            && activeScopeRef.current === requestScope
+                        ) {
+                            data.status = 'pending';
+                            setPendingConfirmation(data);
                         }
                         const addAssistant = !aiMsgAdded;
                         aiMsgAdded = true;
@@ -677,6 +811,9 @@ const AgentChat = () => {
                                 lastMsg.content = t('chat.tool_end', "✅ *Tool {{tool}} finished.*", { tool: data.tool });
                             } else if (data.type === 'message' || data.type === 'thought') {
                                 if (data.content) lastMsg.content = data.content;
+                            } else if (data.type === 'confirmation_required') {
+                                lastMsg.content = confirmationSummary(data);
+                                lastMsg.confirmation = data;
                             } else if (data.type === 'error') {
                                 // Translation and improvement of common messages
                                 let errorContent = data.content || t('errors.unknown');
@@ -922,6 +1059,45 @@ const AgentChat = () => {
                                     whiteSpace: 'pre-wrap'
                                 }}>
                                     {msg.content}
+                                    {msg.confirmation && (
+                                        <div style={{
+                                            marginTop: '10px',
+                                            padding: '10px',
+                                            border: '1px solid var(--border-primary)',
+                                            borderRadius: '10px',
+                                            background: 'var(--bg-primary)',
+                                            color: 'var(--text-primary)',
+                                        }}>
+                                            <div style={{ fontWeight: 700, fontSize: '0.8rem' }}>
+                                                {confirmationTitle(msg.confirmation)}
+                                            </div>
+                                            <div style={{ marginTop: '4px', fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                                                {t(
+                                                    `chat.confirmations.status.${msg.confirmation.status || 'pending'}`,
+                                                    msg.confirmation.status || 'pending',
+                                                )}
+                                            </div>
+                                            {msg.confirmation.status === 'pending' && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setPendingConfirmation(msg.confirmation)}
+                                                    style={{
+                                                        marginTop: '8px',
+                                                        border: 'none',
+                                                        borderRadius: '8px',
+                                                        padding: '6px 10px',
+                                                        background: 'var(--status-error)',
+                                                        color: 'white',
+                                                        cursor: 'pointer',
+                                                        fontSize: '0.72rem',
+                                                        fontWeight: 600,
+                                                    }}
+                                                >
+                                                    {t('chat.confirmations.review', 'Review and confirm')}
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
                                     {Array.isArray(msg.attachments) && msg.attachments.length > 0 && (
                                         <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                             {msg.attachments.map((item, idx2) => (
@@ -1097,6 +1273,16 @@ const AgentChat = () => {
                     </div>
                 </>
             )}
+            <ConfirmModal
+                isOpen={Boolean(pendingConfirmation)}
+                onClose={() => { void cancelPendingAction(); }}
+                onConfirm={confirmPendingAction}
+                title={pendingConfirmation ? confirmationTitle(pendingConfirmation) : ''}
+                message={pendingConfirmation ? confirmationSummary(pendingConfirmation) : ''}
+                confirmText={t('chat.confirmations.confirm', 'Confirm and execute')}
+                cancelText={t('chat.confirmations.cancel', 'Cancel action')}
+                isDestructive={pendingConfirmation?.destructive !== false}
+            />
         </div>
     );
 };

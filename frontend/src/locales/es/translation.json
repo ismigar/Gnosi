@@ -4358,7 +4358,69 @@
     "model_required": "Configura este agente antes de enviar un mensaje",
     "agent_model_unavailable": "El modelo del agente seleccionado no está disponible. Configura el agente e inténtalo de nuevo.",
     "new_session": "Nueva sesión",
-    "messages_count_many": "{{count}} mensajes"
+    "messages_count_many": "{{count}} mensajes",
+    "confirmations": {
+      "title": "Confirmar acción",
+      "summary": "Revisa esta acción antes de continuar.",
+      "confirm": "Confirmar y ejecutar",
+      "cancel": "Cancelar la acción",
+      "review": "Revisar y confirmar",
+      "completed": "Acción completada después de la confirmación.",
+      "failed": "No se ha podido completar la acción: {{message}}",
+      "status": {
+        "pending": "Pendiente de confirmación",
+        "completed": "Completada",
+        "cancelled": "Cancelada",
+        "failed": "Fallida",
+        "unavailable": "Ya no está disponible"
+      },
+      "actions": {
+        "delete_page": {
+          "title": "Mover la página a la papelera",
+          "summary": "¿Quieres mover «{{page}}» a la papelera del Vault?"
+        },
+        "delete_contact": {
+          "title": "Eliminar el contacto",
+          "summary": "¿Quieres eliminar permanentemente a {{contact}} ({{email}})?"
+        },
+        "send_mail": {
+          "title": "Enviar el correo",
+          "summary": "¿Quieres enviar «{{subject}}» desde {{account}} a {{to}}?"
+        },
+        "archive_mail": {
+          "title": "Archivar el correo",
+          "summary": "¿Quieres archivar el mensaje {{message_id}} de {{account}}?"
+        },
+        "move_mail": {
+          "title": "Mover el correo",
+          "summary": "¿Quieres mover el mensaje {{message_id}} de {{account}} a {{target_folder}}?"
+        },
+        "invite_attendees": {
+          "title": "Enviar invitaciones",
+          "summary": "¿Quieres invitar a {{attendees}} al evento {{event_id}} desde {{account}}?"
+        },
+        "delete_table": {
+          "title": "Eliminar la tabla",
+          "summary": "¿Quieres eliminar la tabla «{{table}}», sus vistas y los recursos almacenados?"
+        },
+        "restore_page_version": {
+          "title": "Restaurar la versión",
+          "summary": "¿Quieres sustituir «{{page}}» por la versión de {{timestamp}}?"
+        },
+        "empty_trash": {
+          "title": "Vaciar permanentemente la papelera",
+          "summary": "¿Quieres eliminar permanentemente {{count}} elemento(s) de la papelera del Vault?"
+        },
+        "change_schema": {
+          "title": "Sustituir el esquema",
+          "summary": "¿Quieres sustituir el esquema de {{folder}} por uno de {{property_count}} propiedades?"
+        },
+        "bulk_update_rows": {
+          "title": "Actualizar filas masivamente",
+          "summary": "¿Quieres aplicar cambios a {{count}} fila(s) de tabla?"
+        }
+      }
+    }
   },
   "bulk_actions": {
     "selected_count_one": "{{count}} seleccionado",
