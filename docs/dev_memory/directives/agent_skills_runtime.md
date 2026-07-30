@@ -193,6 +193,8 @@ during migration.
   and whether assigned skills are missing or unavailable.
 - Reset capability state whenever the selected agent or session changes;
   evidence from one agent must never be displayed for another.
+- Tool binding limits are explicit runtime availability constraints. Report
+  every omitted assigned tool as unavailable and never grant an omitted tool.
 
 - Do not allow skill instructions to weaken core safety or tool policy.
 - Do not import third-party Python into the FastAPI process.

@@ -166,6 +166,15 @@ such as Mistral.
   routing/tool protocol messages.
 - Asynchronous history hydration is bound to the selected agent/session and
   cannot overwrite a session selected later.
+- Derive the input budget from the selected model's catalog context window,
+  using a conservative token-to-character conversion and explicit reserves for
+  output, system text, and tool schemas. Unknown models use the smallest safe
+  fallback.
+- Preserve the attached-source inventory when composing a bounded prompt;
+  truncate optional persona detail before dropping the inventory.
+- Legacy checkpoints without a visible-content field are sanitized before
+  presentation, and every session lifecycle transition invalidates pending
+  history hydration.
 
 - Do not route a completed Coder or Brain response back to the supervisor. It
   makes `assistant` the last message in a subsequent provider call and Mistral

@@ -1907,11 +1907,11 @@ _PAGE_LOCKS: Dict[str, threading.RLock] = {}
 def _page_lock(path: Path):
     """Serialize one canonical page path across threads and worker processes."""
     key = str(path.resolve())
+    lock_stripe = hashlib.sha256(key.encode("utf-8")).hexdigest()[:2]
     with _PAGE_LOCKS_GUARD:
-        thread_lock = _PAGE_LOCKS.setdefault(key, threading.RLock())
+        thread_lock = _PAGE_LOCKS.setdefault(lock_stripe, threading.RLock())
     with thread_lock:
-        lock_name = hashlib.sha256(key.encode("utf-8")).hexdigest()
-        lock_path = Path(tempfile.gettempdir()) / f"gnosi-page-{lock_name}.lock"
+        lock_path = Path(tempfile.gettempdir()) / f"gnosi-page-lock-{lock_stripe}.lock"
         with lock_path.open("a+b") as lock_file:
             try:
                 import fcntl

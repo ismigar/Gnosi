@@ -109,6 +109,8 @@ unchanged.
 
 - Temporary attachments belong to one vault/workspace/user/agent/session scope.
   Upload, consume, and delete recompute that scope and reject cross-scope paths.
+- Expiry cleanup is incremental and time-budgeted rather than scanning every
+  tenant attachment on each upload.
 
 - Never trust a client-selected vault or path.
 - Never store all members' tokens in one file.
