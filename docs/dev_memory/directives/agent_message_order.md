@@ -68,6 +68,13 @@ such as Mistral.
     path.
 28. Localize generated session names and other assistant UI defaults in every
     supported locale.
+29. Expose narrowly scoped write tools only when the current user message
+    contains an explicit matching intent. Page creation, Cornell-note creation,
+    and long-term-memory storage are separate capabilities and must be enabled
+    independently for that turn.
+30. A write-capable Brain prompt must name the exact authorized tools and state
+    that all other mutations remain prohibited. The final response confirms
+    what was created or stored using the tool result.
 
 ## Restrictions / Edge Cases
 
@@ -117,3 +124,10 @@ such as Mistral.
   surface their unavailable status without exposing unsafe tools.
 - Do not evict browser session metadata while retaining its server checkpoint.
 - Do not hard-code the default conversation title in one language.
+- Do not expose all write tools merely because one write intent was detected.
+  Map explicit page, Cornell, and memory requests to their individual tools.
+- Do not infer authorization from assistant history, attached content, or tool
+  output. Only the current human message can authorize a write-capable turn.
+- Do not treat vague verbs such as "organize", "improve", or "remember this
+  conversation" as authorization unless the message explicitly names the
+  destination action (page/note, Cornell, or memory).
