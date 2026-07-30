@@ -115,6 +115,7 @@ export function VaultViewBody({
     } else if (t === 'feed') {
         body = (
             <VaultFeed
+                key={activeView?.id || 'default'}
                 notes={notes}
                 schema={schema}
                 idToTitle={idToTitle}
@@ -126,6 +127,9 @@ export function VaultViewBody({
                 onDeletePage={onDeletePage}
                 onDeleteSelected={onDeleteSelected}
                 onUpdateNote={onUpdateNote}
+                onCreateRecord={onCreateRecord}
+                onOpenConfig={() => onEditSchema?.('filters')}
+                onClearSearch={() => onSearchChange?.('')}
                 density={feedDensity}
                 groupMode={feedGroupMode}
             />

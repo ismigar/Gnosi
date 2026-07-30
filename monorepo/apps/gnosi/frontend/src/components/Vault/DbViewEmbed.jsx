@@ -1198,21 +1198,24 @@ export function DbViewEmbed({ block }) {
         return multiKeySort(filtered, sorts);
     }, [rawRecords, effectiveView, pageId]);
 
-    // Local search over the set of records: title + ALL the metadata,
+    // Local concept search over the set of records: title + ALL the metadata,
     // accent-insensitive (normalizeForSearch) — parity with matchesSearch from
     // the main view. It used to be bare toLowerCase ("merce" would not find
     // "Mercè") and it only looked at the visible columns.
     const rows = useMemo(() => {
         const q = normalizeForSearch(searchTerm.trim());
         if (!q) return allRows;
-        return allRows.filter(r => {
-            if (normalizeForSearch(r.title || '').includes(q)) return true;
-            return Object.values(r.metadata || {}).some(v => {
-                if (v == null) return false;
-                const s = Array.isArray(v) ? v.join(' ') : String(v);
-                return normalizeForSearch(s).includes(q);
-            });
-        });
+        // Matching individual concepts keeps searches useful when the user writes a
+        // natural phrase whose words are distributed between the title, tags and body.
+        // It remains completely local: no request, index, or user data leaves the vault.
+        const terms = q.split(/\s+/).filter((term) => term.length > 1);
+        return allRows.map((record) => {
+            const title = normalizeForSearch(record.title || '');
+            const metadata = Object.values(record.metadata || {}).map((value) => Array.isArray(value) ? value.join(' ') : String(value ?? '')).join(' ');
+            const haystack = `${title} ${normalizeForSearch(metadata)}`;
+            const score = terms.reduce((total, term) => total + (haystack.includes(term) ? 1 : 0) + (title.includes(term) ? 2 : 0), 0);
+            return { record, score };
+        }).filter(({ score }) => score > 0).sort((left, right) => right.score - left.score).map(({ record }) => record);
     }, [allRows, searchTerm]);
 
     const handleCreate = useCallback(async (extra = {}, template = null) => {

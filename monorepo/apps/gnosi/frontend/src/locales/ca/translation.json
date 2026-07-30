@@ -3029,7 +3029,8 @@
     "group_this_week": "Aquesta setmana",
     "group_this_month": "Aquest mes",
     "position": "{{current}} de {{total}}",
-    "return_to_last_record": "Torna a l’últim registre"
+    "return_to_last_record": "Torna a l’últim registre",
+    "open_reading_pane": "Obre el panell de lectura", "reading_pane": "Panell de lectura", "previous_record": "Registre anterior", "next_record": "Registre següent", "no_excerpt": "Aquest registre encara no té extracte.", "reading_preferences": "Preferències de lectura", "visible_tags": "Etiquetes visibles", "excerpt_length": "Longitud de l’extracte", "empty_search": "Cap registre no coincideix amb la cerca.", "empty_search_hint": "Prova amb menys paraules o neteja la cerca.", "empty_hint": "Crea el primer registre o ajusta els filtres de la vista.", "clear_search": "Neteja la cerca", "adjust_view": "Ajusta la vista", "create_record": "Crea un registre", "apply_field_to_selection": "Aplica un camp a la selecció", "batch_update": "Actualitza la selecció…"
   },
   "files": {
     "delete_title": "Eliminar fitxer",

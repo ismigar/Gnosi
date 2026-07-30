@@ -2036,7 +2036,8 @@
     "group_this_week": "Cette semaine",
     "group_this_month": "Ce mois-ci",
     "position": "{{current}} sur {{total}}",
-    "return_to_last_record": "Revenir au dernier enregistrement"
+    "return_to_last_record": "Revenir au dernier enregistrement",
+    "open_reading_pane": "Ouvrir le panneau de lecture", "reading_pane": "Panneau de lecture", "previous_record": "Enregistrement précédent", "next_record": "Enregistrement suivant", "no_excerpt": "Cet enregistrement n’a pas encore d’extrait.", "reading_preferences": "Préférences de lecture", "visible_tags": "Étiquettes visibles", "excerpt_length": "Longueur de l’extrait", "empty_search": "Aucun enregistrement ne correspond à cette recherche.", "empty_search_hint": "Essayez moins de mots ou effacez la recherche.", "empty_hint": "Créez le premier enregistrement ou ajustez les filtres de la vue.", "clear_search": "Effacer la recherche", "adjust_view": "Ajuster la vue", "create_record": "Créer un enregistrement", "apply_field_to_selection": "Appliquer un champ à la sélection", "batch_update": "Mettre à jour la sélection…"
   },
   "files": {
     "delete_title": "Supprimer le fichier",

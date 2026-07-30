@@ -17,6 +17,16 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
   const [isRestoreOpen, setIsRestoreOpen] = useState(false);
   const [isPurgeOpen, setIsPurgeOpen] = useState(false);
   const [restoreTarget, setRestoreTarget] = useState(null);
+  const [comparisonContent, setComparisonContent] = useState(null);
+
+  const diffSummary = (left, right) => {
+    const before = new Set(String(left || '').split('\n').filter(Boolean));
+    const after = new Set(String(right || '').split('\n').filter(Boolean));
+    return {
+      added: [...after].filter((line) => !before.has(line)).length,
+      removed: [...before].filter((line) => !after.has(line)).length,
+    };
+  };
 
   useEffect(() => {
     if (open && pageId) {
@@ -54,6 +64,14 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
     try {
       const response = await axios.get(`/api/vault/pages/${pageId}/history/${version.id}`);
       setPreviewContent(response.data.content);
+      const index = history.findIndex((item) => item.id === version.id);
+      const older = history[index + 1];
+      if (older) {
+        const olderResponse = await axios.get(`/api/vault/pages/${pageId}/history/${older.id}`);
+        setComparisonContent(olderResponse.data.content);
+      } else {
+        setComparisonContent(null);
+      }
     } catch (error) {
       console.error('Error fetching version content:', error);
     } finally {
@@ -213,6 +231,10 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
                     {t('vault.history.restore_now')}
                   </button>
                 </div>
+                {comparisonContent !== null && (() => {
+                  const diff = diffSummary(comparisonContent, previewContent);
+                  return <div className="px-6 py-2 border-b border-[var(--border-primary)] text-xs text-[var(--text-secondary)] bg-[var(--gnosi-primary)]/5">{t('vault.history.visual_diff', { added: diff.added, removed: diff.removed, defaultValue: '{{added}} lines added · {{removed}} lines removed versus the previous version' })}</div>;
+                })()}
                 <div className="flex-1 p-8 overflow-y-auto custom-scrollbar bg-[var(--bg-primary)]">
                   <div className="max-w-3xl mx-auto">
                     <pre className="text-sm font-mono text-[var(--text-primary)] whitespace-pre-wrap break-words leading-relaxed selection:bg-[var(--gnosi-primary)]/20">
