@@ -55,6 +55,11 @@ def test_catalog_has_unique_names_and_expected_risk_classes():
         "archive_mail",
         "move_mail",
         "invite_attendees",
+        "delete_table",
+        "restore_page_version",
+        "empty_trash",
+        "change_schema",
+        "bulk_update_rows",
     } <= confirmed
 
 

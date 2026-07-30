@@ -4219,7 +4219,69 @@
     "model_not_configured": "Model not configured",
     "model_required": "Configure this agent before sending a message",
     "agent_model_unavailable": "The selected agent model is unavailable. Configure the agent and try again.",
-    "new_session": "New session"
+    "new_session": "New session",
+    "confirmations": {
+      "title": "Confirm action",
+      "summary": "Review this action before continuing.",
+      "confirm": "Confirm and execute",
+      "cancel": "Cancel action",
+      "review": "Review and confirm",
+      "completed": "Action completed after confirmation.",
+      "failed": "The action could not be completed: {{message}}",
+      "status": {
+        "pending": "Awaiting confirmation",
+        "completed": "Completed",
+        "cancelled": "Cancelled",
+        "failed": "Failed",
+        "unavailable": "No longer available"
+      },
+      "actions": {
+        "delete_page": {
+          "title": "Move page to trash",
+          "summary": "Move “{{page}}” to the Vault trash?"
+        },
+        "delete_contact": {
+          "title": "Delete contact",
+          "summary": "Permanently delete {{contact}} ({{email}})?"
+        },
+        "send_mail": {
+          "title": "Send email",
+          "summary": "Send “{{subject}}” from {{account}} to {{to}}?"
+        },
+        "archive_mail": {
+          "title": "Archive email",
+          "summary": "Archive message {{message_id}} in {{account}}?"
+        },
+        "move_mail": {
+          "title": "Move email",
+          "summary": "Move message {{message_id}} in {{account}} to {{target_folder}}?"
+        },
+        "invite_attendees": {
+          "title": "Send event invitations",
+          "summary": "Invite {{attendees}} to event {{event_id}} from {{account}}?"
+        },
+        "delete_table": {
+          "title": "Delete table",
+          "summary": "Delete the table “{{table}}”, its views, and its stored assets?"
+        },
+        "restore_page_version": {
+          "title": "Restore page version",
+          "summary": "Replace “{{page}}” with its version from {{timestamp}}?"
+        },
+        "empty_trash": {
+          "title": "Permanently empty trash",
+          "summary": "Permanently delete {{count}} item(s) from the Vault trash?"
+        },
+        "change_schema": {
+          "title": "Replace schema",
+          "summary": "Replace the schema for {{folder}} with {{property_count}} properties?"
+        },
+        "bulk_update_rows": {
+          "title": "Update rows in bulk",
+          "summary": "Apply changes to {{count}} table row(s)?"
+        }
+      }
+    }
   },
   "bulk_actions": {
     "selected_count_one": "{{count}} selected",

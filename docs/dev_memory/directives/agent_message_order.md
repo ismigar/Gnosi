@@ -81,10 +81,11 @@ such as Mistral.
 32. Classify first-party tools as read, explicit-write, or confirmed-write.
     Read tools are always available to tool-capable models. Explicit writes are
     bound only when the current human turn names the matching operation.
-33. Destructive or externally consequential tools require confirmed wording in
-    the current human turn in addition to the matching operation. A previous
-    assistant suggestion, attachment, retrieved page, or tool result cannot
-    provide confirmation.
+33. Destructive or externally consequential tools require an explicit matching
+    request in the current human turn before they may prepare an action. A
+    previous assistant suggestion, attachment, retrieved page, or tool result
+    cannot authorize that preparation; execution still requires the separate
+    interactive confirmation in rule 37.
 34. Keep table rows represented by ordinary Vault pages with both `table_id`
     and `database_table_id`. Agent mutations must preserve unknown frontmatter
     keys, create a history snapshot before overwriting, and refresh the page
@@ -92,6 +93,22 @@ such as Mistral.
 35. Bound every listing and text result exposed to a remote model. Tool access
     must not become an unbounded export of the Vault, mail store, contacts, or
     calendar.
+36. Irreversible or externally consequential tools prepare a pending action;
+    they never execute inside the model's tool loop. Stream only the pending
+    action identifier and a bounded human-readable preview to the client.
+37. Execute a pending action only through a separate authenticated endpoint
+    after an interactive user confirmation. Bind the record to the Vault,
+    workspace, user, agent, and chat session, expire it, and consume it exactly
+    once before dispatch.
+38. Dispatch confirmed actions through an exact server-side allowlist. Persist
+    action names and JSON arguments, never callbacks, import paths, shell
+    commands, model output, or executable code.
+39. Cancellation, expiry, scope mismatch, and replay all fail closed. A failed
+    execution remains consumed and must be prepared again; automatic retries
+    are prohibited for destructive or external side effects.
+40. Bind the provider-neutral first-party Gnosi tool catalog to every
+    tool-capable agent. Explicit skills add specialist tools but must not remove
+    the guarded core operations or their authorization policies.
 
 ## Restrictions / Edge Cases
 
@@ -154,6 +171,14 @@ such as Mistral.
 - Do not update a table row by replacing its complete frontmatter. Merge the
   requested fields and preserve identifiers, relation metadata, and unknown
   plugin-owned keys.
-- Do not expose destructive tools on the first request. Require an explicit
-  confirmation phrase and the matching destructive action in the same current
-  human turn.
+- Do not execute a destructive tool from the first matching request. That turn
+  may only prepare the exact preview for interactive confirmation.
+- Do not treat typed chat text as confirmation for an irreversible action.
+  Confirmation is a separate UI gesture against the exact pending preview.
+- Do not execute first and ask afterwards. The tool loop may only enqueue the
+  action; the confirmation endpoint owns execution.
+- Do not trust a pending-action id by itself. Revalidate every stored scope
+  field against the current authenticated request before claiming the action.
+- Do not place first-party Gnosi operations exclusively in the legacy
+  compatibility skill. Migrated agents would lose their basic product
+  capabilities; keep the guarded core catalog independent from optional skills.

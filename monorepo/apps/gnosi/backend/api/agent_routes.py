@@ -18,6 +18,15 @@ from backend.agent.factory import (
     create_agent_workflow,
     prepare_agent_runtime,
 )
+from backend.agent.action_confirmations import (
+    bind_confirmation_context,
+    cancel_confirmation,
+    claim_confirmation,
+    confirmation_event,
+    finish_confirmation,
+    reset_confirmation_context,
+)
+from backend.agent.gnosi_tools import execute_confirmed_action
 from backend.agent.model_router import record_llm_usage, usage_from_message
 from backend.agent.model_reliability import (
     blames_the_model, model_evidence, record_failure, reliability_report,
@@ -87,7 +96,13 @@ class AttachmentDeleteRequest(BaseModel):
     path: str = Field(max_length=512)
 
 
+class ActionConfirmationRequest(BaseModel):
+    agent_id: str = Field(max_length=128)
+    session_id: str = Field(max_length=128)
+
+
 IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$")
+ACTION_ID_RE = re.compile(r"^[a-f0-9]{32}$")
 SKILL_IDENTIFIER_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,191}$")
 MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024
 MAX_ATTACHMENT_TEXT = 20_000
@@ -425,6 +440,130 @@ async def delete_chat_attachment(delete_req: AttachmentDeleteRequest):
     return {"deleted": True}
 
 
+def _action_scope(
+    payload: ActionConfirmationRequest,
+    workspace_context: WorkspaceContext,
+) -> Dict[str, str]:
+    """Builds the exact authenticated scope used by pending actions."""
+    _vault, vault_scope = _vault_scope()
+    return {
+        "vault_scope": vault_scope,
+        "workspace_id": workspace_context.workspace_id,
+        "user_id": workspace_context.user_id,
+        "role": workspace_context.role,
+        "agent_id": _validated_identifier(payload.agent_id, "agent_id"),
+        "session_id": _validated_identifier(payload.session_id, "session_id"),
+    }
+
+
+def _validated_action_id(action_id: str) -> str:
+    candidate = str(action_id or "").strip()
+    if not ACTION_ID_RE.fullmatch(candidate):
+        raise HTTPException(status_code=422, detail="Invalid confirmation ID")
+    return candidate
+
+
+def _raise_confirmation_error(error: Exception) -> None:
+    if isinstance(error, LookupError):
+        raise HTTPException(status_code=404, detail="Pending action not found")
+    if isinstance(error, PermissionError):
+        raise HTTPException(
+            status_code=403,
+            detail="Pending action belongs to another chat scope",
+        )
+    if isinstance(error, TimeoutError):
+        raise HTTPException(status_code=410, detail="Pending action expired")
+    if isinstance(error, RuntimeError):
+        raise HTTPException(status_code=409, detail="Pending action is unavailable")
+    raise error
+
+
+@router.post("/chat/confirmations/{action_id}/confirm")
+async def confirm_agent_action(
+    action_id: str,
+    payload: ActionConfirmationRequest,
+    workspace_context: WorkspaceContext = Depends(require_role("editor")),
+):
+    """Claims and executes one scope-bound pending agent action exactly once."""
+    safe_action_id = _validated_action_id(action_id)
+    scope = _action_scope(payload, workspace_context)
+    try:
+        pending = await asyncio.to_thread(
+            claim_confirmation,
+            safe_action_id,
+            scope,
+        )
+    except Exception as error:
+        _raise_confirmation_error(error)
+
+    admin_actions = {"delete_table", "empty_trash"}
+    if pending["action"] in admin_actions and workspace_context.role not in {
+        "owner",
+        "admin",
+    }:
+        await asyncio.to_thread(
+            finish_confirmation,
+            safe_action_id,
+            error="Administrator permission is required.",
+        )
+        raise HTTPException(status_code=403, detail="Administrator permission required")
+
+    try:
+        result = await execute_confirmed_action(
+            pending["action"],
+            pending["arguments"],
+            workspace_id=workspace_context.workspace_id,
+        )
+    except Exception as error:
+        await asyncio.to_thread(
+            finish_confirmation,
+            safe_action_id,
+            error=safe_error_detail(error, context="confirm agent action"),
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=safe_error_detail(error, context="confirm agent action"),
+        )
+
+    await asyncio.to_thread(
+        finish_confirmation,
+        safe_action_id,
+        result=result,
+    )
+    return {
+        "status": "completed",
+        "confirmation_id": safe_action_id,
+        "action": pending["action"],
+        "result_status": (
+            str(result.get("status") or "")
+            if isinstance(result, dict)
+            else ""
+        ),
+    }
+
+
+@router.post("/chat/confirmations/{action_id}/cancel")
+async def cancel_agent_action(
+    action_id: str,
+    payload: ActionConfirmationRequest,
+    workspace_context: WorkspaceContext = Depends(require_role("editor")),
+):
+    """Cancels one still-pending action in the exact same chat scope."""
+    safe_action_id = _validated_action_id(action_id)
+    scope = _action_scope(payload, workspace_context)
+    try:
+        cancelled = await asyncio.to_thread(
+            cancel_confirmation,
+            safe_action_id,
+            scope,
+        )
+    except Exception as error:
+        _raise_confirmation_error(error)
+    if not cancelled:
+        raise HTTPException(status_code=409, detail="Pending action is unavailable")
+    return {"status": "cancelled", "confirmation_id": safe_action_id}
+
+
 @router.delete(
     "/chat/sessions/{agent_id}/{session_id}",
     dependencies=[Depends(require_role("editor"))],
@@ -563,6 +702,14 @@ async def chat_endpoint(
         
         async def event_generator():
             answer_count = 0
+            confirmation_token = bind_confirmation_context(
+                vault_scope=vault_scope,
+                workspace_id=workspace_context.workspace_id,
+                user_id=workspace_context.user_id,
+                role=workspace_context.role,
+                agent_id=agent_id,
+                session_id=session_id,
+            )
             try:
                 if llm_selection:
                     yield json.dumps({
@@ -640,6 +787,15 @@ async def chat_endpoint(
                                                     msg.name,
                                                 ),
                                             )
+                                            pending_confirmation = confirmation_event(
+                                                content,
+                                            )
+                                            if pending_confirmation:
+                                                answer_count += 1
+                                                yield json.dumps(
+                                                    pending_confirmation,
+                                                    ensure_ascii=False,
+                                                ) + "\n"
                                         elif msg.type == "ai" and content:
                                             answer_count += 1
                                             yield json.dumps({
@@ -697,6 +853,8 @@ async def chat_endpoint(
                     "has_response": True,
                     "message_count": 1,
                 }) + "\n"
+            finally:
+                reset_confirmation_context(confirmation_token)
         return StreamingResponse(event_generator(), media_type="application/x-ndjson")
 
     except HTTPException as e:

@@ -164,6 +164,10 @@ def test_coder_tools_exclude_personal_data_sources():
             "Confirmo: elimina la pàgina Esborrany",
             {"delete_page"},
         ),
+        ("Elimina la pàgina Esborrany", {"delete_page"}),
+        ("Envia aquest correu a Anna", {"send_mail"}),
+        ("Buida la paperera", {"empty_trash"}),
+        ("Elimina la taula Projectes", {"delete_table"}),
     ],
 )
 def test_explicit_user_intent_authorizes_individual_write_tools(message, expected):
@@ -179,8 +183,6 @@ def test_explicit_user_intent_authorizes_individual_write_tools(message, expecte
         "Organitza millor el meu Vault",
         "Quines pàgines tinc?",
         "Recordes què vam parlar ahir?",
-        "Elimina la pàgina Esborrany",
-        "Envia aquest correu a Anna",
     ],
 )
 def test_vague_or_quoted_content_does_not_authorize_writes(message):

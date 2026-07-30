@@ -46,6 +46,7 @@ from backend.agent.gnosi_tools import (
     EXPLICIT_WRITE_TOOLS,
     READ_TOOLS as GNOSI_READ_TOOLS,
 )
+from backend.agent.action_confirmations import confirmation_event
 from backend.agent.agent_context import build_context_tools, describe_context_refs
 from backend.agent.tools import get_mcp_tools
 from backend.config.app_config import load_params
@@ -283,21 +284,14 @@ def _explicit_brain_write_tool_names(message: str) -> set[str]:
         if any(pattern in text for pattern in patterns):
             authorized.add(name)
 
-    confirmation_words = (
-        "confirmo", "confirma", "confirmat", "confirmed", "i confirm",
-        "confirm deletion", "confirmo la eliminación", "je confirme",
-    )
     delete_patterns = (
         "elimina la pàgina", "esborra la pàgina", "delete the page",
         "remove the page", "elimina la página", "supprime la page",
     )
-    if (
-        any(word in text for word in confirmation_words)
-        and any(pattern in text for pattern in delete_patterns)
-    ):
+    if any(pattern in text for pattern in delete_patterns):
         authorized.add("delete_page")
 
-    confirmed_patterns = {
+    confirmation_request_patterns = {
         "delete_contact": (
             "elimina el contacte", "esborra el contacte", "delete the contact",
             "elimina el contacto", "supprime le contact",
@@ -318,11 +312,31 @@ def _explicit_brain_write_tool_names(message: str) -> set[str]:
             "convida els assistents", "envia les invitacions", "invite attendees",
             "send the invitations", "invita a los asistentes", "invite les participants",
         ),
+        "delete_table": (
+            "elimina la taula", "esborra la taula", "delete the table",
+            "elimina la tabla", "supprime la table",
+        ),
+        "restore_page_version": (
+            "restaura la versió", "restore the version", "restaura la versión",
+            "restaure la version",
+        ),
+        "empty_trash": (
+            "buida la paperera", "empty the trash", "vacía la papelera",
+            "vide la corbeille",
+        ),
+        "change_schema": (
+            "canvia l'esquema", "substitueix l'esquema", "change the schema",
+            "replace the schema", "cambia el esquema", "modifie le schéma",
+        ),
+        "bulk_update_rows": (
+            "actualitza massivament", "actualitza totes les files",
+            "bulk update", "update all rows", "actualiza masivamente",
+            "mise à jour en masse",
+        ),
     }
-    if any(word in text for word in confirmation_words):
-        for name, patterns in confirmed_patterns.items():
-            if any(pattern in text for pattern in patterns):
-                authorized.add(name)
+    for name, patterns in confirmation_request_patterns.items():
+        if any(pattern in text for pattern in patterns):
+            authorized.add(name)
 
     return authorized
 
@@ -472,6 +486,19 @@ def _deduplicate_tools(tools: Iterable[Any]) -> List[Any]:
         names.add(name)
         result.append(item)
     return result
+
+
+def _latest_tool_batch_requires_confirmation(messages: Iterable[Any]) -> bool:
+    """Stops the model loop once a consequential action preview is ready."""
+    for message in reversed(list(messages)):
+        message_type = str(getattr(message, "type", "") or "")
+        if message_type == "ai":
+            break
+        if message_type == "tool" and confirmation_event(
+            getattr(message, "content", ""),
+        ):
+            return True
+    return False
 
 
 def _descriptor_value(descriptor: Any, field: str, default: Any = None) -> Any:
@@ -1149,24 +1176,20 @@ async def create_agent_workflow(
         resolved_runtime,
     )
 
-    # The compatibility bundle preserves the former general-purpose tool belt
-    # for profiles not migrated yet. Brain search is intentionally absent:
-    # query_wiki is now available only through plugin.llm-wiki.query.
-    legacy_write_tools = (
-        _authorized_brain_write_tools(
-            {
-                "create_page",
-                "summarize_to_cornell",
-                "save_memory",
-                *(tool.name for tool in EXPLICIT_WRITE_TOOLS),
-                *(tool.name for tool in CONFIRMED_WRITE_TOOLS),
-            },
-        )
-        if legacy_bundle_active
-        else []
+    # First-party Gnosi operations are the provider-neutral contract that lets
+    # every tool-capable agent operate the product. Skills add specialist
+    # capabilities; they do not remove this guarded core.
+    core_write_tools = _authorized_brain_write_tools(
+        {
+            "create_page",
+            "summarize_to_cornell",
+            "save_memory",
+            *(tool.name for tool in EXPLICIT_WRITE_TOOLS),
+            *(tool.name for tool in CONFIRMED_WRITE_TOOLS),
+        },
     )
     guarded_tool_names = set(runtime_guarded_names)
-    guarded_tool_names.update(tool.name for tool in legacy_write_tools)
+    guarded_tool_names.update(tool.name for tool in core_write_tools)
     tool_policies = {
         item["name"]: {
             "minimum_role": item.get("minimum_role") or "viewer",
@@ -1174,9 +1197,13 @@ async def create_agent_workflow(
         }
         for item in runtime_tool_metadata
     }
-    for item in legacy_write_tools:
+    for item in core_write_tools:
         tool_policies[item.name] = {
-            "minimum_role": "editor",
+            "minimum_role": (
+                "admin"
+                if item.name in {"delete_table", "empty_trash"}
+                else "editor"
+            ),
             "confirmation": "explicit_request",
         }
 
@@ -1197,23 +1224,24 @@ async def create_agent_workflow(
     # Tools scoped to the sources the user attached to THIS agent. They close over
     # its refs, so an agent can never read another agent's context.
     context_tools = build_context_tools(context_refs)
-    read_only_vault_tools = (
+    legacy_vault_tools = (
         [
             item
             for item in VAULT_KNOWLEDGE_TOOLS
             if item.name in {"read_page", "read_pdf", "propose_links"}
         ]
-        + list(GNOSI_READ_TOOLS)
         if legacy_bundle_active
         else []
     )
+    core_gnosi_read_tools = list(GNOSI_READ_TOOLS)
     brain_tools = (
         (mcp_langchain_tools if legacy_bundle_active else [])
         + memory_tools
-        + read_only_vault_tools
+        + legacy_vault_tools
+        + core_gnosi_read_tools
         + context_tools
         + runtime_tools
-        + legacy_write_tools
+        + core_write_tools
         if supports_tools
         else []
     )
@@ -1311,6 +1339,9 @@ async def create_agent_workflow(
                 current_authorized_names.intersection(guarded_tool_names)
             )
             if authorized_guarded_names:
+                confirmation_only_names = authorized_guarded_names.intersection(
+                    {_tool_name(tool) for tool in CONFIRMED_WRITE_TOOLS}
+                )
                 brain_system += (
                     "\nThe current user message explicitly authorizes only these "
                     "guarded tools for this turn: "
@@ -1318,6 +1349,13 @@ async def create_agent_workflow(
                     + ". Use them only to fulfill that explicit request. All other "
                     "writes remain prohibited. Confirm the actual tool result."
                 )
+                if confirmation_only_names:
+                    brain_system += (
+                        "\nThese consequential tools only prepare a pending action: "
+                        + ", ".join(sorted(confirmation_only_names))
+                        + ". Never claim the action has happened. It executes only "
+                        "after the user confirms the exact preview in Gnosi."
+                    )
             if guarded_tool_names and not authorized_guarded_names:
                 brain_system += (
                     "\nNo guarded tool is authorized for this turn. Calls to write, "
@@ -1398,7 +1436,19 @@ async def create_agent_workflow(
         brain_router,
         {"brain_tools": "brain_tools", "END": END},
     )
-    workflow.add_edge("brain_tools", "brain")
+
+    def brain_tools_router(state):
+        return (
+            "END"
+            if _latest_tool_batch_requires_confirmation(state["messages"])
+            else "brain"
+        )
+
+    workflow.add_conditional_edges(
+        "brain_tools",
+        brain_tools_router,
+        {"brain": "brain", "END": END},
+    )
     workflow.add_edge("general", END)
 
     # 6. Return the uncompiled workflow + metadata of the chosen model
