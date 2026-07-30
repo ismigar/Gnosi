@@ -3823,6 +3823,7 @@
     "configuration_loading": "Carregant…",
     "availability": "Estat",
     "modes": "Modes compatibles",
+    "all_modes": "Tots els modes",
     "modes_list": {"text": "Text", "image": "Imatge", "audio": "Àudio", "video": "Vídeo"},
     "all_availability": "Actius i inactius",
     "active": "Actiu",

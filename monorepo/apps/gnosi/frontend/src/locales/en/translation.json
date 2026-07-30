@@ -4400,6 +4400,7 @@
     "configuration_loading": "Loading…",
     "availability": "Status",
     "modes": "Supported modes",
+    "all_modes": "All modes",
     "modes_list": {"text": "Text", "image": "Image", "audio": "Audio", "video": "Video"},
     "all_availability": "Active and inactive",
     "active": "Active",

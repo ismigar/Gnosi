@@ -3823,6 +3823,7 @@
     "configuration_loading": "Chargement…",
     "availability": "État",
     "modes": "Modes pris en charge",
+    "all_modes": "Tous les modes",
     "modes_list": {"text": "Texte", "image": "Image", "audio": "Audio", "video": "Vidéo"},
     "all_availability": "Actifs et inactifs",
     "active": "Actif",
