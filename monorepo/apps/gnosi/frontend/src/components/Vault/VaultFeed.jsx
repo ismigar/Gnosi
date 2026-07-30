@@ -381,7 +381,7 @@ function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSele
     );
 }
 
-export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onDeleteSelected, onDeletePage, onUpdateNote, onCreateRecord, onOpenConfig, onClearSearch, searchTerm = '', density = 'comfortable', groupMode = 'none' }) {
+export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onDeleteSelected, onDeletePage, onUpdateNote, onCreateRecord, onOpenConfig, onClearSearch, onSearchChange, searchTerm = '', density = 'comfortable', groupMode = 'none' }) {
     const { t } = useTranslation();
     const localeSettings = useLocaleSettings();
     const preferenceKey = `gnosi.feed.preferences.${activeView?.id || 'default'}`;
@@ -403,9 +403,17 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
         try { return new Set(JSON.parse(localStorage.getItem(readStorageKey) || '[]')); } catch { return new Set(); }
     });
     const [bulkProposal, setBulkProposal] = useState(null);
+    const [isCommandOpen, setIsCommandOpen] = useState(false);
     const [bulkSaveState, setBulkSaveState] = useState('idle');
     const [pendingBulkUndo, setPendingBulkUndo] = useState(null);
     const titlePreview = useTitlePreview({ onOpenPage: onNoteSelect });
+    useEffect(() => {
+        const onKeyDown = (event) => {
+            if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); setIsCommandOpen(true); }
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, []);
     const markRead = useCallback((id) => {
         setReadIds((current) => {
             if (current.has(id)) return current;
@@ -781,6 +789,7 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
                 <span>{t('feed.bulk_preview_hint', { count: bulkProposal.changes.length, field: bulkProposal.field, value: bulkProposal.value, defaultValue: '{{count}} records: {{field}} → {{value}}' })}</span>
                 <div><button type="button" onClick={() => setBulkProposal(null)}>{t('common.cancel', 'Cancel')}</button><button type="button" className="btn-gnosi btn-gnosi-primary !text-xs" onClick={confirmBulkField}>{t('feed.apply_changes', 'Apply changes')}</button></div>
             </div>}
+            {isCommandOpen && <div className="vault-feed-command" role="dialog" aria-label={t('feed.command_title', 'Feed command')}><button type="button" className="vault-feed-command__close" onClick={() => setIsCommandOpen(false)} aria-label={t('common.close')}><X size={16} /></button><strong>{t('feed.command_title', 'Feed command')}</strong><input autoFocus value={searchTerm} onChange={(event) => onSearchChange?.(event.target.value)} placeholder={t('feed.command_search', 'Filter records…')} /><div><button type="button" onClick={() => { onCreateRecord?.(); setIsCommandOpen(false); }}>{t('feed.create_record', 'Create record')}</button><button type="button" onClick={() => { if (sortedNotes[0]) setPreviewId(sortedNotes[0].id); setIsCommandOpen(false); }}>{t('feed.command_open_first', 'Open first result')}</button></div></div>}
             {lastRecordId && sortedNotes.some((note) => note.id === lastRecordId) && (
                 <button type="button" className="vault-feed-return" onClick={returnToLastRecord}>
                     {t('feed.return_to_last_record')}
