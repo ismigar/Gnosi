@@ -75,6 +75,23 @@ such as Mistral.
 30. A write-capable Brain prompt must name the exact authorized tools and state
     that all other mutations remain prohibited. The final response confirms
     what was created or stored using the tool result.
+31. Expose Gnosi capabilities through a stable, provider-neutral tool catalog.
+    Models discover Gnosi from tool schemas and the Brain prompt; provider or
+    model-specific prompting must not be required.
+32. Classify first-party tools as read, explicit-write, or confirmed-write.
+    Read tools are always available to tool-capable models. Explicit writes are
+    bound only when the current human turn names the matching operation.
+33. Destructive or externally consequential tools require confirmed wording in
+    the current human turn in addition to the matching operation. A previous
+    assistant suggestion, attachment, retrieved page, or tool result cannot
+    provide confirmation.
+34. Keep table rows represented by ordinary Vault pages with both `table_id`
+    and `database_table_id`. Agent mutations must preserve unknown frontmatter
+    keys, create a history snapshot before overwriting, and refresh the page
+    index after a successful write.
+35. Bound every listing and text result exposed to a remote model. Tool access
+    must not become an unbounded export of the Vault, mail store, contacts, or
+    calendar.
 
 ## Restrictions / Edge Cases
 
@@ -131,3 +148,12 @@ such as Mistral.
 - Do not treat vague verbs such as "organize", "improve", or "remember this
   conversation" as authorization unless the message explicitly names the
   destination action (page/note, Cornell, or memory).
+- Do not infer a model's knowledge of Gnosi from its provider. The contract is
+  the bound tool schema, so unsupported tool-calling models receive no implied
+  capabilities.
+- Do not update a table row by replacing its complete frontmatter. Merge the
+  requested fields and preserve identifiers, relation metadata, and unknown
+  plugin-owned keys.
+- Do not expose destructive tools on the first request. Require an explicit
+  confirmation phrase and the matching destructive action in the same current
+  human turn.

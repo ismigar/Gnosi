@@ -194,6 +194,10 @@ during migration.
 - Do not make all pipeline `SKILL.md` files agent-assignable.
 - Do not cache per-turn authorization in an agent graph.
 - Do not expose a tool to an agent unless an assigned active skill references it.
+- During the compatibility release, core Gnosi read and explicitly authorized
+  write tools may remain in `core.legacy-default-v1`, but only while that bundle
+  is active. Never leak them into an explicitly skill-scoped profile, and never
+  reintroduce `query_wiki` there because it belongs to the Brain query skill.
 - Do not let the supervisor route a profile with active governed tools to a
   tool-less worker. A non-legacy tool-backed runtime enters the tool-enabled
   specialist directly; the model still decides whether it needs to invoke an
