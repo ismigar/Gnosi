@@ -7,8 +7,10 @@ import { announceFloatingPanelOpen, useExclusiveFloatingPanel } from '../hooks/u
 import { useFloatingActionDock } from '../hooks/useFloatingActionDock';
 import ConfirmModal from './ConfirmModal';
 import {
+    agentChatStorageScope,
     confirmationForStorage,
     mergeConfirmationRecords,
+    startConfirmationRefresh,
 } from './agentConfirmationUtils';
 
 const CHAT_SESSIONS_KEY = 'agent_chat_sessions_v2';
@@ -23,11 +25,14 @@ const CHAT_ATTACHMENT_ACCEPT = [
 const MAX_STORED_SESSIONS = 20;
 const MAX_STORED_MESSAGES = 100;
 const MAX_STORED_MESSAGE_CHARS = 20_000;
-
-const confirmationScope = confirmation => {
+const confirmationScope = (confirmation, browserStorageScope = '') => {
     if (confirmation?.client_scope) return confirmation.client_scope;
     if (confirmation?.agent_id && confirmation?.session_id) {
-        return `${confirmation.agent_id}:${confirmation.session_id}`;
+        return [
+            browserStorageScope,
+            confirmation.agent_id,
+            confirmation.session_id,
+        ].filter(Boolean).join(':');
     }
     return '';
 };
@@ -113,7 +118,7 @@ const parseMentions = (text) => {
     return mentions;
 };
 
-const AgentChat = () => {
+const AgentChat = ({ storageIdentity = '' }) => {
     const { t } = useTranslation();
     const defaultSessionTitle = t('chat.default_session_title', 'New conversation');
     const [isOpen, setIsOpen] = useState(false);
@@ -127,6 +132,7 @@ const AgentChat = () => {
     const [isMinimized, setIsMinimized] = useState(false);
     const [chatSessions, setChatSessions] = useState([]);
     const [sessionsHydrated, setSessionsHydrated] = useState(false);
+    const [hydratedStorageScope, setHydratedStorageScope] = useState('');
     const [showSessionsView, setShowSessionsView] = useState(false);
     const [mentionCatalog, setMentionCatalog] = useState([]);
     const [mentionResults, setMentionResults] = useState([]);
@@ -144,14 +150,33 @@ const AgentChat = () => {
     const fileInputRef = useRef(null);
     const requestAbortRef = useRef(null);
     const activeScopeRef = useRef('');
-    const vaultStorageScope = localStorage.getItem('gnosi_active_vault') || 'default';
+    const activeVaultStorageScope = localStorage.getItem('gnosi_active_vault') || 'default';
+    const workspaceStorageScope = localStorage.getItem('gnosi_workspace_id') || 'personal';
+    const userStorageScope = (
+        storageIdentity
+        || localStorage.getItem('gnosi_user_id')
+        || 'personal'
+    );
+    const browserStorageScope = agentChatStorageScope({
+        vaultId: activeVaultStorageScope,
+        workspaceId: workspaceStorageScope,
+        userId: userStorageScope,
+    });
     const scopedStorageKey = useCallback(
-        (key) => `${key}:${vaultStorageScope}`,
-        [vaultStorageScope],
+        (key) => `${key}:${browserStorageScope}`,
+        [browserStorageScope],
+    );
+    const scopeReady = (
+        sessionsHydrated
+        && hydratedStorageScope === browserStorageScope
     );
 
     // Init session ID
     useEffect(() => {
+        requestAbortRef.current?.abort();
+        setPendingConfirmation(null);
+        setSessionsHydrated(false);
+        setHydratedStorageScope('');
         const savedAgentId = localStorage.getItem(scopedStorageKey(CHAT_SELECTED_AGENT_KEY)) || 'gnosy';
         let sid = localStorage.getItem(scopedStorageKey('agent_session_id_v2'));
         const savedSessionsRaw = localStorage.getItem(scopedStorageKey(CHAT_SESSIONS_KEY));
@@ -213,11 +238,12 @@ const AgentChat = () => {
             safeLocalStorageSet(scopedStorageKey('agent_session_id_v2'), activeSession.id);
         }
 
+        setHydratedStorageScope(browserStorageScope);
         setSessionsHydrated(true);
-    }, [defaultSessionTitle, scopedStorageKey]);
+    }, [browserStorageScope, defaultSessionTitle, scopedStorageKey]);
 
     useEffect(() => {
-        if (!sessionsHydrated) return;
+        if (!scopeReady) return;
         const retainedSessions = boundedChatSessions(chatSessions);
         const retainedIds = new Set(retainedSessions.map((session) => session.id));
         const evictedSessions = chatSessions.filter((session) => !retainedIds.has(session.id));
@@ -230,20 +256,21 @@ const AgentChat = () => {
             scopedStorageKey(CHAT_SESSIONS_KEY),
             JSON.stringify(retainedSessions),
         );
-    }, [chatSessions, scopedStorageKey, sessionsHydrated]);
+    }, [chatSessions, scopeReady, scopedStorageKey]);
 
     useEffect(() => {
-        if (!sessionsHydrated || !sessionId) return;
+        if (!scopeReady || !sessionId) return;
         safeLocalStorageSet(scopedStorageKey(CHAT_ACTIVE_SESSION_KEY), sessionId);
         safeLocalStorageSet(scopedStorageKey('agent_session_id_v2'), sessionId);
-    }, [scopedStorageKey, sessionId, sessionsHydrated]);
+    }, [scopeReady, scopedStorageKey, sessionId]);
 
     useEffect(() => {
+        if (!scopeReady) return;
         safeLocalStorageSet(scopedStorageKey(CHAT_SELECTED_AGENT_KEY), selectedAgentId);
-    }, [scopedStorageKey, selectedAgentId]);
+    }, [scopeReady, scopedStorageKey, selectedAgentId]);
 
     useEffect(() => {
-        if (!sessionsHydrated || !selectedAgentId) return;
+        if (!scopeReady || !selectedAgentId) return;
         const current = chatSessions.find((session) => session.id === sessionId);
         if (current?.agentId === selectedAgentId) return;
         let target = [...chatSessions]
@@ -256,21 +283,21 @@ const AgentChat = () => {
         setSessionId(target.id);
         setMessages(target.messages || []);
         setAttachments([]);
-    }, [chatSessions, defaultSessionTitle, selectedAgentId, sessionId, sessionsHydrated]);
+    }, [chatSessions, defaultSessionTitle, scopeReady, selectedAgentId, sessionId]);
 
     useEffect(() => () => requestAbortRef.current?.abort(), []);
 
     useEffect(() => {
-        const nextScope = `${selectedAgentId}:${sessionId}`;
+        const nextScope = `${browserStorageScope}:${selectedAgentId}:${sessionId}`;
         if (activeScopeRef.current && activeScopeRef.current !== nextScope) {
             requestAbortRef.current?.abort();
             setPendingConfirmation(null);
         }
         activeScopeRef.current = nextScope;
-    }, [selectedAgentId, sessionId]);
+    }, [browserStorageScope, selectedAgentId, sessionId]);
 
     useEffect(() => {
-        if (!sessionsHydrated || !sessionId) return;
+        if (!scopeReady || !sessionId) return;
         setChatSessions((prev) => prev.map((session) => {
             if (session.id !== sessionId) return session;
             return {
@@ -280,7 +307,7 @@ const AgentChat = () => {
                 title: deriveSessionTitle(messages, session.title || defaultSessionTitle),
             };
         }));
-    }, [defaultSessionTitle, messages, sessionId, sessionsHydrated]);
+    }, [defaultSessionTitle, messages, scopeReady, sessionId]);
 
     useEffect(() => {
         const current = inputValue || '';
@@ -667,49 +694,66 @@ const AgentChat = () => {
     }, []);
 
     useEffect(() => {
-        if (!sessionsHydrated || !selectedAgentId || !sessionId) return undefined;
-        const requestScope = `${selectedAgentId}:${sessionId}`;
+        if (!scopeReady || !selectedAgentId || !sessionId) return undefined;
+        const requestScope = `${browserStorageScope}:${selectedAgentId}:${sessionId}`;
         const controller = new AbortController();
+        let inFlight = false;
         const params = new URLSearchParams({
             agent_id: selectedAgentId,
             session_id: sessionId,
         });
-        void fetch(`/api/chat/confirmations?${params.toString()}`, {
-            signal: controller.signal,
-        })
-            .then(async response => {
-                if (!response.ok) return null;
-                return response.json();
+        const refreshConfirmations = () => {
+            if (inFlight || controller.signal.aborted) return;
+            inFlight = true;
+            void fetch(`/api/chat/confirmations?${params.toString()}`, {
+                signal: controller.signal,
             })
-            .then(payload => {
-                if (
-                    !payload
-                    || controller.signal.aborted
-                    || activeScopeRef.current !== requestScope
-                ) return;
-                const records = (payload.confirmations || []).map(item => ({
-                    ...item,
-                    client_scope: requestScope,
-                    agent_id: selectedAgentId,
-                    session_id: sessionId,
-                }));
-                setMessages(prev => mergeConfirmationRecords(
-                    prev,
-                    records,
-                    confirmationSummary,
-                ));
-            })
-            .catch(error => {
-                if (error.name !== 'AbortError') {
-                    console.error('Could not resume pending agent actions', error);
-                }
-            });
-        return () => controller.abort();
+                .then(async response => {
+                    if (!response.ok) return null;
+                    return response.json();
+                })
+                .then(payload => {
+                    if (
+                        !payload
+                        || controller.signal.aborted
+                        || activeScopeRef.current !== requestScope
+                    ) return;
+                    const records = (payload.confirmations || []).map(item => ({
+                        ...item,
+                        client_scope: requestScope,
+                        agent_id: selectedAgentId,
+                        session_id: sessionId,
+                    }));
+                    setMessages(prev => mergeConfirmationRecords(
+                        prev,
+                        records,
+                        confirmationSummary,
+                    ));
+                })
+                .catch(error => {
+                    if (error.name !== 'AbortError') {
+                        console.error('Could not refresh pending agent actions', error);
+                    }
+                })
+                .finally(() => {
+                    inFlight = false;
+                });
+        };
+        const stopRefreshing = startConfirmationRefresh(
+            refreshConfirmations,
+            window.setInterval.bind(window),
+            window.clearInterval.bind(window),
+        );
+        return () => {
+            stopRefreshing();
+            controller.abort();
+        };
     }, [
         confirmationSummary,
+        browserStorageScope,
+        scopeReady,
         selectedAgentId,
         sessionId,
-        sessionsHydrated,
     ]);
 
     const localizedConfirmationError = useCallback((payload, fallback) => {
@@ -740,8 +784,10 @@ const AgentChat = () => {
         if (!confirmation?.confirmation_id) return;
         const agentId = confirmation.agent_id || selectedAgentId;
         const chatSessionId = confirmation.session_id || sessionId;
-        const requestScope = confirmationScope(confirmation)
-            || `${agentId}:${chatSessionId}`;
+        const requestScope = confirmationScope(
+            confirmation,
+            browserStorageScope,
+        ) || `${browserStorageScope}:${agentId}:${chatSessionId}`;
         let response;
         try {
             response = await fetch(
@@ -862,6 +908,7 @@ const AgentChat = () => {
                 ),
         }]);
     }, [
+        browserStorageScope,
         fetchConfirmationStatus,
         localizedConfirmationError,
         pendingConfirmation,
@@ -877,8 +924,10 @@ const AgentChat = () => {
         if (!confirmation?.confirmation_id) return;
         const agentId = confirmation.agent_id || selectedAgentId;
         const chatSessionId = confirmation.session_id || sessionId;
-        const requestScope = confirmationScope(confirmation)
-            || `${agentId}:${chatSessionId}`;
+        const requestScope = confirmationScope(
+            confirmation,
+            browserStorageScope,
+        ) || `${browserStorageScope}:${agentId}:${chatSessionId}`;
         try {
             const response = await fetch(
                 `/api/chat/confirmations/${encodeURIComponent(confirmation.confirmation_id)}/cancel`,
@@ -930,6 +979,7 @@ const AgentChat = () => {
             updateConfirmationStatus(confirmation.confirmation_id, status);
         }
     }, [
+        browserStorageScope,
         fetchConfirmationStatus,
         pendingConfirmation,
         selectedAgentId,
@@ -963,7 +1013,7 @@ const AgentChat = () => {
         setAttachments([]);
         setShowMentionMenu(false);
         setIsLoading(true);
-        const requestScope = `${selectedAgentId}:${sessionId}`;
+        const requestScope = `${browserStorageScope}:${selectedAgentId}:${sessionId}`;
 
         try {
             requestAbortRef.current?.abort();

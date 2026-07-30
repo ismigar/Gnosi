@@ -114,3 +114,6 @@ unchanged.
 - Never weaken personal mode while adding team behavior.
 - Do not rush a security-critical refactor without the isolated organization
   test bank.
+- Never scope assistant browser history or LangGraph checkpoints by Vault and
+  session alone. Include the authenticated workspace and user in storage keys,
+  checkpoint filenames, thread IDs, locks, deletion, and response guards.

@@ -4404,6 +4404,7 @@
       "details": {
         "account": "Compte",
         "arguments": "Arguments exactes",
+        "asset_revision": "Revisió de l’arbre de recursos",
         "attendees": "Assistents",
         "bcc": "Còpia oculta",
         "body": "Cos",
@@ -4423,7 +4424,11 @@
         "event_id": "ID de l'esdeveniment",
         "folder": "Carpeta",
         "location": "Ubicació",
+        "imap_folder": "Carpeta d’origen del correu",
+        "imap_uid": "Identificador IMAP del missatge",
         "message_id": "ID del missatge",
+        "message_revision": "Revisió del missatge",
+        "message_source": "Origen del missatge",
         "page": "Pàgina",
         "page_id": "ID de la pàgina",
         "page_revision": "Revisió de la pàgina",
@@ -4431,6 +4436,8 @@
         "properties": "Propietats",
         "property_count": "Nombre de propietats",
         "row_count": "Nombre de files",
+        "row_action": "Tractament de les files",
+        "rows_revision": "Revisió del conjunt de files",
         "schema_sha256": "Empremta de l'esquema",
         "sender": "Remitent",
         "snapshot_digest": "Empremta de la instantània",
@@ -4438,6 +4445,7 @@
         "subject": "Assumpte",
         "table": "Taula",
         "table_id": "ID de la taula",
+        "table_revision": "Revisió de la taula",
         "target_folder": "Carpeta de destinació",
         "timestamp": "Versió",
         "title": "Títol",
@@ -4445,7 +4453,9 @@
         "tool": "Eina",
         "tool_id": "ID de l'eina",
         "updates": "Canvis exactes de les files",
-        "version_revision": "Revisió de la versió"
+        "version_revision": "Revisió de la versió",
+        "views_count": "Nombre de vistes",
+        "views_revision": "Revisió del conjunt de vistes"
       },
       "actions": {
         "delete_page": {

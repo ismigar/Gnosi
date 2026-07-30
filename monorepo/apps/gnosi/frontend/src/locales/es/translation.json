@@ -4404,6 +4404,7 @@
       "details": {
         "account": "Cuenta",
         "arguments": "Argumentos exactos",
+        "asset_revision": "Revisión del árbol de recursos",
         "attendees": "Asistentes",
         "bcc": "Copia oculta",
         "body": "Cuerpo",
@@ -4423,7 +4424,11 @@
         "event_id": "ID del evento",
         "folder": "Carpeta",
         "location": "Ubicación",
+        "imap_folder": "Carpeta de origen del correo",
+        "imap_uid": "Identificador IMAP del mensaje",
         "message_id": "ID del mensaje",
+        "message_revision": "Revisión del mensaje",
+        "message_source": "Origen del mensaje",
         "page": "Página",
         "page_id": "ID de la página",
         "page_revision": "Revisión de la página",
@@ -4431,6 +4436,8 @@
         "properties": "Propiedades",
         "property_count": "Número de propiedades",
         "row_count": "Número de filas",
+        "row_action": "Tratamiento de las filas",
+        "rows_revision": "Revisión del conjunto de filas",
         "schema_sha256": "Huella del esquema",
         "sender": "Remitente",
         "snapshot_digest": "Huella de la instantánea",
@@ -4438,6 +4445,7 @@
         "subject": "Asunto",
         "table": "Tabla",
         "table_id": "ID de la tabla",
+        "table_revision": "Revisión de la tabla",
         "target_folder": "Carpeta de destino",
         "timestamp": "Versión",
         "title": "Título",
@@ -4445,7 +4453,9 @@
         "tool": "Herramienta",
         "tool_id": "ID de la herramienta",
         "updates": "Cambios exactos de las filas",
-        "version_revision": "Revisión de la versión"
+        "version_revision": "Revisión de la versión",
+        "views_count": "Número de vistas",
+        "views_revision": "Revisión del conjunto de vistas"
       },
       "actions": {
         "delete_page": {

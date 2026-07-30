@@ -24,11 +24,38 @@ def test_identifiers_reject_path_components():
     assert getattr(exc.value, "status_code", None) == 422
 
 
-def test_checkpoint_scope_is_deterministic_and_vault_specific():
-    first = agent_routes.hashlib.sha256("vault-a:agent".encode()).hexdigest()[:32]
-    second = agent_routes.hashlib.sha256("vault-b:agent".encode()).hexdigest()[:32]
-    assert first != second
+def test_checkpoint_scope_is_deterministic_and_identity_specific():
+    common = {
+        "vault_scope": "vault-a",
+        "workspace_id": "workspace-a",
+        "agent_id": "agent",
+    }
+    first = agent_routes._checkpoint_key(user_id="user-a", **common)
+    repeated = agent_routes._checkpoint_key(user_id="user-a", **common)
+    another_user = agent_routes._checkpoint_key(user_id="user-b", **common)
+    another_workspace = agent_routes._checkpoint_key(
+        vault_scope="vault-a",
+        workspace_id="workspace-b",
+        user_id="user-a",
+        agent_id="agent",
+    )
+
+    assert first == repeated
+    assert first != another_user
+    assert first != another_workspace
     assert "/" not in first
+
+    thread = agent_routes._chat_thread_id(
+        session_id="session",
+        user_id="user-a",
+        **common,
+    )
+    other_thread = agent_routes._chat_thread_id(
+        session_id="session",
+        user_id="user-b",
+        **common,
+    )
+    assert thread != other_thread
 
 
 def test_attachment_context_rejects_files_outside_chat_directory(tmp_path):
@@ -201,6 +228,12 @@ def test_vague_or_quoted_content_does_not_authorize_writes(message):
         "Can this agent delete the table?",
         '"send this email"',
         "`delete the table`",
+        "Could you explain how to delete the table?",
+        "The documentation says 'send the email' but do nothing.",
+        "Before you send the email, explain what will happen.",
+        "La frase 'elimina la pàgina' és perillosa.",
+        "Explica com puc buidar la paperera",
+        "Explique comment supprimer la table",
     ],
 )
 def test_negated_meta_or_quoted_intent_never_authorizes_writes(message):
@@ -315,9 +348,12 @@ def test_session_delete_removes_checkpoint_thread(tmp_path, monkeypatch):
         lambda: (vault, "vault-scope"),
     )
     monkeypatch.setitem(agent_routes.cfg.paths, "CHECKPOINTS", checkpoints)
-    checkpoint_key = agent_routes.hashlib.sha256(
-        "vault-scope:agent".encode("utf-8")
-    ).hexdigest()[:32]
+    checkpoint_key = agent_routes._checkpoint_key(
+        vault_scope="vault-scope",
+        workspace_id="personal",
+        user_id="user-a",
+        agent_id="agent",
+    )
     db_path = checkpoints / f"agent_{checkpoint_key}.sqlite"
     workspace_context = agent_routes.WorkspaceContext(
         workspace_id="personal",

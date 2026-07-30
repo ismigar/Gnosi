@@ -21,6 +21,7 @@ import re
 import uuid
 import time
 import weakref
+from contextlib import suppress
 from pathlib import Path
 from backend.agent.factory import (
     _explicit_brain_write_tool_names,
@@ -37,6 +38,7 @@ from backend.agent.action_confirmations import (
     confirmation_event,
     finish_confirmation,
     get_confirmation_status,
+    heartbeat_confirmation,
     list_confirmations,
     reset_confirmation_context,
 )
@@ -134,6 +136,8 @@ MAX_PDF_PAGES = 50
 ATTACHMENT_EXTRACTION_SECONDS = 5
 ATTACHMENT_MAX_AGE_SECONDS = 24 * 60 * 60
 TURN_TIMEOUT_SECONDS = 120
+CONFIRMED_ACTION_TIMEOUT_SECONDS = 120
+CONFIRMATION_HEARTBEAT_SECONDS = 30
 CHAT_ATTACHMENT_TYPES = {
     ".txt", ".md", ".markdown", ".csv", ".tsv", ".json", ".yaml", ".yml",
     ".xml", ".html", ".css", ".js", ".jsx", ".ts", ".tsx", ".py", ".pdf",
@@ -146,6 +150,37 @@ def _validated_identifier(value: str, label: str) -> str:
     if not IDENTIFIER_RE.fullmatch(candidate):
         raise HTTPException(status_code=422, detail=f"Invalid {label}")
     return candidate
+
+
+def _chat_thread_id(
+    *,
+    vault_scope: str,
+    workspace_id: str,
+    user_id: str,
+    agent_id: str,
+    session_id: str,
+) -> str:
+    """Return a tenant- and user-isolated LangGraph thread identifier."""
+    payload = ":".join((
+        vault_scope,
+        workspace_id,
+        user_id,
+        agent_id,
+        session_id,
+    ))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _checkpoint_key(
+    *,
+    vault_scope: str,
+    workspace_id: str,
+    user_id: str,
+    agent_id: str,
+) -> str:
+    """Return the isolated checkpoint database key for one agent identity."""
+    payload = ":".join((vault_scope, workspace_id, user_id, agent_id))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:32]
 
 
 def _validated_skill_ids(values: Optional[List[str]]) -> Optional[List[str]]:
@@ -594,7 +629,10 @@ async def _execute_governed_tool(
 def _action_has_uncertain_effect(action: str, arguments: Dict[str, Any]) -> bool:
     if action in {
         "archive_mail",
+        "change_schema",
         "create_calendar_event",
+        "delete_contact",
+        "delete_page",
         "delete_table",
         "empty_trash",
         "invite_attendees",
@@ -611,6 +649,31 @@ def _action_has_uncertain_effect(action: str, arguments: Dict[str, Any]) -> bool
             "external_write",
         }.intersection(arguments.get("effects") or []))
     return False
+
+
+async def _heartbeat_claimed_confirmation(action_id: str) -> None:
+    """Keep a live execution lease from being mistaken for an abandoned call."""
+    while True:
+        await asyncio.sleep(CONFIRMATION_HEARTBEAT_SECONDS)
+        alive = await asyncio.to_thread(heartbeat_confirmation, action_id)
+        if not alive:
+            return
+
+
+def _execute_first_party_confirmation_in_worker(
+    action: str,
+    arguments: Dict[str, Any],
+    *,
+    workspace_id: str,
+    background_tasks: BackgroundTasks,
+) -> Dict[str, Any]:
+    """Run blocking provider/filesystem handlers outside the server event loop."""
+    return asyncio.run(execute_confirmed_action(
+        action,
+        arguments,
+        workspace_id=workspace_id,
+        background_tasks=background_tasks,
+    ))
 
 
 @router.get("/chat/confirmations")
@@ -685,62 +748,94 @@ async def confirm_agent_action(
             detail={"code": "confirmation_admin_required"},
         )
 
+    heartbeat_task = asyncio.create_task(
+        _heartbeat_claimed_confirmation(safe_action_id)
+    )
     try:
-        vault, _vault_scope_id = _vault_scope()
-        with confirmation_context(**scope):
-            if pending["action"] == "governed_tool":
-                result = await _execute_governed_tool(
-                    pending["arguments"],
-                    scope=scope,
-                    vault=vault,
-                )
-            else:
-                result = await execute_confirmed_action(
+        try:
+            vault, _vault_scope_id = _vault_scope()
+            async with asyncio.timeout(CONFIRMED_ACTION_TIMEOUT_SECONDS):
+                with confirmation_context(**scope):
+                    if pending["action"] == "governed_tool":
+                        result = await _execute_governed_tool(
+                            pending["arguments"],
+                            scope=scope,
+                            vault=vault,
+                        )
+                    else:
+                        result = await asyncio.to_thread(
+                            _execute_first_party_confirmation_in_worker,
+                            pending["action"],
+                            pending["arguments"],
+                            workspace_id=workspace_context.workspace_id,
+                            background_tasks=background_tasks,
+                        )
+        except HTTPException as error:
+            outcome_unknown = (
+                error.status_code >= 500
+                and _action_has_uncertain_effect(
                     pending["action"],
                     pending["arguments"],
-                    workspace_id=workspace_context.workspace_id,
-                    background_tasks=background_tasks,
                 )
-    except HTTPException as error:
-        await asyncio.to_thread(
-            finish_confirmation,
-            safe_action_id,
-            error="confirmation_action_rejected",
-            status="failed",
-        )
-        raise error
-    except Exception as error:
-        known_precondition_failure = isinstance(
-            error,
-            (ActionConflictError, LookupError, PermissionError, ValueError),
-        )
-        outcome_unknown = (
-            not known_precondition_failure
-            and _action_has_uncertain_effect(
-                pending["action"],
-                pending["arguments"],
             )
-        )
-        await asyncio.to_thread(
-            finish_confirmation,
-            safe_action_id,
-            error=(
-                "execution_outcome_unknown"
-                if outcome_unknown
-                else "confirmation_action_failed"
-            ),
-            status="outcome_unknown" if outcome_unknown else "failed",
-        )
-        if outcome_unknown:
+            await asyncio.to_thread(
+                finish_confirmation,
+                safe_action_id,
+                error=(
+                    "execution_outcome_unknown"
+                    if outcome_unknown
+                    else "confirmation_action_rejected"
+                ),
+                status="outcome_unknown" if outcome_unknown else "failed",
+            )
+            if outcome_unknown:
+                raise HTTPException(
+                    status_code=409,
+                    detail={"code": "confirmation_outcome_unknown"},
+                ) from error
+            raise error
+        except Exception as error:
+            timed_out = isinstance(error, TimeoutError)
+            known_precondition_failure = isinstance(
+                error,
+                (ActionConflictError, LookupError, PermissionError, ValueError),
+            )
+            outcome_unknown = (
+                timed_out
+                or (
+                    not known_precondition_failure
+                    and _action_has_uncertain_effect(
+                        pending["action"],
+                        pending["arguments"],
+                    )
+                )
+            )
+            await asyncio.to_thread(
+                finish_confirmation,
+                safe_action_id,
+                error=(
+                    "execution_outcome_unknown"
+                    if outcome_unknown
+                    else "confirmation_action_failed"
+                ),
+                status="outcome_unknown" if outcome_unknown else "failed",
+            )
+            if outcome_unknown:
+                raise HTTPException(
+                    status_code=409,
+                    detail={"code": "confirmation_outcome_unknown"},
+                )
+            status_code = (
+                409 if isinstance(error, (LookupError, RuntimeError)) else 500
+            )
             raise HTTPException(
-                status_code=409,
-                detail={"code": "confirmation_outcome_unknown"},
+                status_code=status_code,
+                detail={"code": "confirmation_action_failed"},
             )
-        status_code = 409 if isinstance(error, (LookupError, RuntimeError)) else 500
-        raise HTTPException(
-            status_code=status_code,
-            detail={"code": "confirmation_action_failed"},
-        )
+    finally:
+        heartbeat_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await heartbeat_task
 
     result_status = (
         str(result.get("status") or "")
@@ -815,12 +910,19 @@ async def delete_chat_session(
     safe_agent_id = _validated_identifier(agent_id, "agent_id")
     safe_session_id = _validated_identifier(session_id, "session_id")
     _vault, vault_scope = _vault_scope()
-    thread_id = hashlib.sha256(
-        f"{vault_scope}:{safe_agent_id}:{safe_session_id}".encode("utf-8")
-    ).hexdigest()
-    checkpoint_key = hashlib.sha256(
-        f"{vault_scope}:{safe_agent_id}".encode("utf-8")
-    ).hexdigest()[:32]
+    thread_id = _chat_thread_id(
+        vault_scope=vault_scope,
+        workspace_id=workspace_context.workspace_id,
+        user_id=workspace_context.user_id,
+        agent_id=safe_agent_id,
+        session_id=safe_session_id,
+    )
+    checkpoint_key = _checkpoint_key(
+        vault_scope=vault_scope,
+        workspace_id=workspace_context.workspace_id,
+        user_id=workspace_context.user_id,
+        agent_id=safe_agent_id,
+    )
     db_path = cfg.paths["CHECKPOINTS"] / f"agent_{checkpoint_key}.sqlite"
     if db_path.exists():
         async with _thread_lock(thread_id):
@@ -930,9 +1032,13 @@ async def chat_endpoint(
         }
         
         # 3. Configure memory thread (per agent + session)
-        thread_id = hashlib.sha256(
-            f"{vault_scope}:{agent_id}:{session_id}".encode("utf-8")
-        ).hexdigest()
+        thread_id = _chat_thread_id(
+            vault_scope=vault_scope,
+            workspace_id=workspace_context.workspace_id,
+            user_id=workspace_context.user_id,
+            agent_id=agent_id,
+            session_id=session_id,
+        )
         config = {
             "configurable": {"thread_id": thread_id},
             "recursion_limit": 12,
@@ -940,9 +1046,12 @@ async def chat_endpoint(
         turn_lock = _thread_lock(thread_id)
         
         # 4. Persistence setup
-        checkpoint_key = hashlib.sha256(
-            f"{vault_scope}:{agent_id}".encode("utf-8")
-        ).hexdigest()[:32]
+        checkpoint_key = _checkpoint_key(
+            vault_scope=vault_scope,
+            workspace_id=workspace_context.workspace_id,
+            user_id=workspace_context.user_id,
+            agent_id=agent_id,
+        )
         db_path = cfg.paths["CHECKPOINTS"] / f"agent_{checkpoint_key}.sqlite"
         os.makedirs(db_path.parent, exist_ok=True)
         
