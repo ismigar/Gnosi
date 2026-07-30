@@ -98,6 +98,7 @@ def test_build_catalog_maps_cost_context_and_tags():
 
     big = catalog["providers"][1]["models"][0]
     assert set(big["tags"]) == {"vision", "long", "reasoning"}
+    assert big["modes"] == ["image", "text"]
     assert big["quality"] == 3
 
 
