@@ -1145,7 +1145,7 @@
     "configure_view_tooltip": "Configurar Vista",
     "wip_tooltip": "En desarrollo para una próxima iteración",
     "soon_badge": "Pronto",
-    "records_count_many": "{{count}} registros"
+    "records_count_many": "{{count}} registros", "export_quick_views": "Copiar configuración", "import_quick_views": "Importar configuración", "import_quick_views_hint": "Pega una configuración copiada de otra vista.", "quick_views_copied": "Configuración de vista copiada", "quick_views_copy_error": "No se ha podido copiar la configuración", "quick_views_imported": "Configuración de vista importada", "quick_views_import_error": "Esta configuración no es válida"
   },
   "fs_picker": {
     "title_any": "Seleccionar archivo o carpeta",
@@ -2976,7 +2976,7 @@
     "group_this_month": "Este mes",
     "position": "{{current}} de {{total}}",
     "return_to_last_record": "Volver al último registro",
-    "open_reading_pane": "Abrir panel de lectura", "reading_pane": "Panel de lectura", "previous_record": "Registro anterior", "next_record": "Registro siguiente", "no_excerpt": "Este registro aún no tiene extracto.", "reading_preferences": "Preferencias de lectura", "visible_tags": "Etiquetas visibles", "excerpt_length": "Longitud del extracto", "empty_search": "No hay registros que coincidan con la búsqueda.", "empty_search_hint": "Prueba con menos palabras o borra la búsqueda.", "empty_hint": "Crea el primer registro o ajusta los filtros de la vista.", "clear_search": "Borrar búsqueda", "adjust_view": "Ajustar vista", "create_record": "Crear registro", "apply_field_to_selection": "Aplicar un campo a la selección", "batch_update": "Actualizar selección…"
+    "open_reading_pane": "Abrir panel de lectura", "reading_pane": "Panel de lectura", "previous_record": "Registro anterior", "next_record": "Registro siguiente", "no_excerpt": "Este registro aún no tiene extracto.", "reading_preferences": "Preferencias de lectura", "visible_tags": "Etiquetas visibles", "excerpt_length": "Longitud del extracto", "empty_search": "No hay registros que coincidan con la búsqueda.", "empty_search_hint": "Prueba con menos palabras o borra la búsqueda.", "empty_hint": "Crea el primer registro o ajusta los filtros de la vista.", "clear_search": "Borrar búsqueda", "adjust_view": "Ajustar vista", "create_record": "Crear registro", "apply_field_to_selection": "Aplicar un campo a la selección", "batch_update": "Actualizar selección…", "resize_reading_pane": "Redimensionar panel de lectura", "clean_reading": "Lectura limpia", "show_details": "Mostrar detalles", "reading_shortcuts": "Usa ← → para navegar · Esc para cerrar", "sync_saving": "Guardando cambios…", "sync_saved": "Cambios guardados", "sync_error": "Los cambios requieren atención", "bulk_saved": "Cambios guardados", "bulk_undone": "Cambios deshechos", "bulk_save_error": "No se han podido guardar algunos cambios"
   },
   "files": {
     "delete_title": "Eliminar archivo",

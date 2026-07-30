@@ -2037,7 +2037,7 @@
     "group_this_month": "Ce mois-ci",
     "position": "{{current}} sur {{total}}",
     "return_to_last_record": "Revenir au dernier enregistrement",
-    "open_reading_pane": "Ouvrir le panneau de lecture", "reading_pane": "Panneau de lecture", "previous_record": "Enregistrement précédent", "next_record": "Enregistrement suivant", "no_excerpt": "Cet enregistrement n’a pas encore d’extrait.", "reading_preferences": "Préférences de lecture", "visible_tags": "Étiquettes visibles", "excerpt_length": "Longueur de l’extrait", "empty_search": "Aucun enregistrement ne correspond à cette recherche.", "empty_search_hint": "Essayez moins de mots ou effacez la recherche.", "empty_hint": "Créez le premier enregistrement ou ajustez les filtres de la vue.", "clear_search": "Effacer la recherche", "adjust_view": "Ajuster la vue", "create_record": "Créer un enregistrement", "apply_field_to_selection": "Appliquer un champ à la sélection", "batch_update": "Mettre à jour la sélection…"
+    "open_reading_pane": "Ouvrir le panneau de lecture", "reading_pane": "Panneau de lecture", "previous_record": "Enregistrement précédent", "next_record": "Enregistrement suivant", "no_excerpt": "Cet enregistrement n’a pas encore d’extrait.", "reading_preferences": "Préférences de lecture", "visible_tags": "Étiquettes visibles", "excerpt_length": "Longueur de l’extrait", "empty_search": "Aucun enregistrement ne correspond à cette recherche.", "empty_search_hint": "Essayez moins de mots ou effacez la recherche.", "empty_hint": "Créez le premier enregistrement ou ajustez les filtres de la vue.", "clear_search": "Effacer la recherche", "adjust_view": "Ajuster la vue", "create_record": "Créer un enregistrement", "apply_field_to_selection": "Appliquer un champ à la sélection", "batch_update": "Mettre à jour la sélection…", "resize_reading_pane": "Redimensionner le panneau de lecture", "clean_reading": "Lecture épurée", "show_details": "Afficher les détails", "reading_shortcuts": "Utilisez ← → pour naviguer · Échap pour fermer", "sync_saving": "Enregistrement des modifications…", "sync_saved": "Modifications enregistrées", "sync_error": "Les modifications nécessitent une attention", "bulk_saved": "Modifications enregistrées", "bulk_undone": "Modifications annulées", "bulk_save_error": "Certaines modifications n’ont pas pu être enregistrées"
   },
   "files": {
     "delete_title": "Supprimer le fichier",
@@ -2211,7 +2211,7 @@
     "configure_view_tooltip": "Configurer la vue",
     "wip_tooltip": "En développement pour une prochaine itération",
     "soon_badge": "Bientôt",
-    "records_count_many": "{{count}} enregistrements"
+    "records_count_many": "{{count}} enregistrements", "export_quick_views": "Copier la configuration", "import_quick_views": "Importer la configuration", "import_quick_views_hint": "Collez une configuration copiée depuis une autre vue.", "quick_views_copied": "Configuration de vue copiée", "quick_views_copy_error": "Impossible de copier la configuration", "quick_views_imported": "Configuration de vue importée", "quick_views_import_error": "Cette configuration n’est pas valide"
   },
   "errors": {
     "hide_main_view": "Impossible de masquer la vue principale",

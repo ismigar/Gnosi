@@ -279,6 +279,8 @@ function ViewActionsBar({
     onApplyPreset,
     onRenamePreset,
     onDeletePreset,
+    onExportPresets,
+    onImportPresets,
     groupMode = 'none',
     onToggleGroup,
     loadDuration = null,
@@ -485,6 +487,10 @@ function ViewActionsBar({
                         {presets.length > 0 && (
                             <>
                                 <div className="vault-view-tools-title">{t('views_header.manage_quick_views')}</div>
+                                <div className="flex gap-1 px-2 pb-1">
+                                    <button type="button" className="vault-view-tools-row" onClick={onExportPresets}><Copy size={14} /><span>{t('views_header.export_quick_views', 'Copy configuration')}</span></button>
+                                    <button type="button" className="vault-view-tools-row" onClick={onImportPresets}><Plus size={14} /><span>{t('views_header.import_quick_views', 'Import configuration')}</span></button>
+                                </div>
                                 {presets.map((preset) => (
                                     <div className="vault-view-preset-row" key={preset.id}>
                                         <button type="button" onClick={() => onApplyPreset?.(preset.id)}>{preset.label}</button>
@@ -881,6 +887,7 @@ export function DbViewEmbed({ block }) {
     const presetStorageKey = `gnosi.view.quickPresets.${preferenceProfile}.${pageId}.${viewId}`;
     const [quickPresets, setQuickPresets] = useState([]);
     const [renameQuickPresetId, setRenameQuickPresetId] = useState(null);
+    const [isImportQuickPresetOpen, setIsImportQuickPresetOpen] = useState(false);
     const persistQuickPresets = useCallback((next) => {
         try { localStorage.setItem(presetStorageKey, JSON.stringify(next)); } catch { /* noop */ }
         if (viewId) {
@@ -944,6 +951,29 @@ export function DbViewEmbed({ block }) {
             return next;
         });
     }, [persistQuickPresets]);
+    const exportQuickPresets = useCallback(async () => {
+        const payload = JSON.stringify({ version: 1, presets: quickPresets });
+        try {
+            await navigator.clipboard.writeText(payload);
+            toast.success(t('views_header.quick_views_copied', 'View configuration copied'));
+        } catch {
+            toast.error(t('views_header.quick_views_copy_error', 'Could not copy the configuration'));
+        }
+    }, [quickPresets, t]);
+    const importQuickPresets = useCallback((raw) => {
+        try {
+            const parsed = JSON.parse(raw);
+            const incoming = Array.isArray(parsed) ? parsed : parsed.presets;
+            if (!Array.isArray(incoming)) throw new Error('invalid preset payload');
+            const next = incoming.filter((preset) => preset && typeof preset.label === 'string').slice(-5).map((preset, index) => ({ ...preset, id: `${Date.now()}-${index}` }));
+            setQuickPresets(next);
+            persistQuickPresets(next);
+            setIsImportQuickPresetOpen(false);
+            toast.success(t('views_header.quick_views_imported', 'View configuration imported'));
+        } catch {
+            toast.error(t('views_header.quick_views_import_error', 'That configuration is not valid'));
+        }
+    }, [persistQuickPresets, t]);
     const [tabMenuFor, setTabMenuFor] = useState(null);     // id of the view with its (remove/delete) menu open
     const [menuUp, setMenuUp] = useState(false);            // open the dropdown upward if it doesn't fit below
     const [confirmDeleteView, setConfirmDeleteView] = useState(null); // view pending deletion everywhere (ConfirmModal)
@@ -1678,6 +1708,8 @@ export function DbViewEmbed({ block }) {
                     onApplyPreset={applyQuickPreset}
                     onRenamePreset={renameQuickPreset}
                     onDeletePreset={deleteQuickPreset}
+                    onExportPresets={exportQuickPresets}
+                    onImportPresets={() => setIsImportQuickPresetOpen(true)}
                     groupMode={feedGroupMode}
                     onToggleGroup={viewType === 'feed' ? toggleFeedGroupMode : null}
                     loadDuration={loadDuration}
@@ -1788,6 +1820,15 @@ export function DbViewEmbed({ block }) {
                 defaultValue={renameView ? (renameView.name || renameView.heading || '') : ''}
                 confirmText={t('common.rename', "Rename")}
                 cancelText={t('common.cancel', "Cancel")}
+            />
+            <PromptModal
+                isOpen={isImportQuickPresetOpen}
+                onClose={() => setIsImportQuickPresetOpen(false)}
+                onSubmit={importQuickPresets}
+                title={t('views_header.import_quick_views', 'Import configuration')}
+                message={t('views_header.import_quick_views_hint', 'Paste a configuration copied from another view.')}
+                defaultValue=""
+                confirmText={t('views_header.import_quick_views', 'Import configuration')}
             />
             <PromptModal
                 isOpen={renameQuickPresetId != null}
