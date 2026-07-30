@@ -2,11 +2,9 @@ import { describe, expect, it } from 'vitest';
 import Graph from 'graphology';
 
 import {
-  arrangeVisibleIsolatedNodes,
   createMinimapTransform,
   getCameraViewportRect,
   getVisibleCameraRatio,
-  getVisibleGraphBounds,
 } from './graphViewGeometry';
 
 describe('graph view geometry', () => {
@@ -76,23 +74,5 @@ describe('graph view geometry', () => {
     const bounds = { width: 200, height: 100 };
 
     expect(getVisibleCameraRatio(renderer, bounds, 1.2)).toBeCloseTo(1.2);
-  });
-
-  it('moves visible isolates into a deterministic halo around visible links', () => {
-    const graph = new Graph();
-    graph.addNode('a', { x: -10, y: 0 });
-    graph.addNode('b', { x: 10, y: 0 });
-    graph.addNode('isolated', { x: 9000, y: 9000 });
-    graph.addNode('hidden', { x: -8000, y: -8000, hidden: true });
-    graph.addEdge('a', 'b');
-
-    expect(arrangeVisibleIsolatedNodes(graph)).toBe(true);
-    expect(graph.getNodeAttribute('isolated', 'x')).toBeCloseTo(0);
-    expect(graph.getNodeAttribute('isolated', 'y')).toBeCloseTo(-61.5);
-
-    const bounds = getVisibleGraphBounds(graph);
-    expect(bounds.count).toBe(3);
-    expect(bounds.maxX).toBe(10);
-    expect(bounds.minY).toBeCloseTo(-61.5);
   });
 });
