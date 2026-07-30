@@ -503,6 +503,13 @@ class GraphService:
         # 0. Load live config (needed to resolve the active vault for the cache key)
         cfg = load_params(strict_env=False)
         vault_key = str(_resolve_active_vault_path(cfg) or "")
+        # Tolerate caches invalidated by an older scheduler implementation
+        # that used ``None`` instead of the documented per-vault dictionary.
+        if not isinstance(GraphService._graph_cache, dict):
+            log.warning("Resetting invalid graph cache state")
+            GraphService._graph_cache = {}
+        if not isinstance(GraphService._last_graph_time, dict):
+            GraphService._last_graph_time = {}
         cached = GraphService._graph_cache.get(vault_key)
         if cached and (now - GraphService._last_graph_time.get(vault_key, 0) < self._GRAPH_CACHE_TTL):
             log.info("Serving graph from cache")

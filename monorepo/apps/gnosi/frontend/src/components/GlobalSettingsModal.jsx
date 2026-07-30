@@ -29,10 +29,17 @@ import AIModelComparisonModal from './AIModelComparisonModal';
 import NotionImportSettings from './NotionImportSettings';
 import VaultSwitcher from './VaultSwitcher';
 import AgentContextSources from './AgentContextSources';
+import {
+    AgentSkillsField,
+    SkillsSettingsPanel,
+    ToolsSettingsPanel,
+} from './AI/AIResourcesSettings';
+import { useAIResources } from './AI/useAIResources';
 import { useModelReliability, findModelFault, MODEL_FAULT_REASONS } from '../lib/modelReliability';
 import { availableLocales, resolveLocale } from '../locales/registry';
 import { sortFieldItems } from '../utils/fieldOrdering';
 import './GlobalSettingsModal.css';
+import './AI/AIResourcesSettings.css';
 
 const CURRENCIES = ['EUR (€)', 'USD ($)', 'GBP (£)', 'JPY (¥)', 'CHF (₣)'];
 const DECIMAL_SYMBOLS = [',', '.'];
@@ -548,9 +555,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     });
 
     const [activeTab, setActiveTab] = useState(initialTab);
+    const [aiSection, setAiSection] = useState('agents');
     const [isAdvancedOpen, setIsAdvancedOpen] = useState(
         () => ['api', 'plugins'].includes(initialTab)
     );
+    const aiResources = useAIResources(isOpen && activeTab === 'ai');
     const [integrations, setIntegrations] = useState({ calendars: [], contacts: [], mail_accounts: [] });
     // Prevent autosave until every request that hydrates the unified draft has
     // settled. Saving a partially hydrated draft can remove protected agents or
@@ -4011,7 +4020,30 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             {/* IA */}
                             {activeTab === 'ai' && (
                                 <>
-                                    <div className="ai-comparison-launcher">
+                                    <nav className="ai-settings-sections" aria-label={t('settings.ai.resources.sections_label')}>
+                                        {[
+                                            { id: 'models', icon: Activity, label: t('settings.ai.resources.models_tab') },
+                                            { id: 'agents', icon: Bot, label: t('settings.ai.resources.agents_tab') },
+                                            { id: 'skills', icon: Zap, label: t('settings.ai.resources.skills_tab') },
+                                            { id: 'tools', icon: Sliders, label: t('settings.ai.resources.tools_tab') },
+                                        ].map(({ id, icon: Icon, label }) => (
+                                            <button
+                                                key={id}
+                                                type="button"
+                                                className={aiSection === id ? 'is-active' : ''}
+                                                aria-current={aiSection === id ? 'page' : undefined}
+                                                onClick={() => {
+                                                    setAiSection(id);
+                                                    setEditingAgent(null);
+                                                }}
+                                            >
+                                                <Icon size={17} />
+                                                {label}
+                                            </button>
+                                        ))}
+                                    </nav>
+
+                                    {aiSection === 'models' && <div className="ai-comparison-launcher">
                                         <div>
                                             <strong>{t('model_comparison.launch_title')}</strong>
                                             <span>{t('model_comparison.launch_description')}</span>
@@ -4020,12 +4052,12 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             <Activity size={18} />
                                             {t('model_comparison.open')}
                                         </button>
-                                    </div>
+                                    </div>}
 
 
-                                    <div style={{ height: '30px' }} />
+                                    {aiSection === 'models' && <div style={{ height: '30px' }} />}
 
-                                    <Section
+                                    {aiSection === 'agents' && <Section
                                         title={tn('ai.agents_section')}
                                         icon={Bot}
                                         extra={
@@ -4051,10 +4083,30 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                     <AIAgentForm
                                                         key={editingAgent.id || 'new-agent'}
                                                         agent={editingAgent}
-                                                        onSave={(newAgent) => {
+                                                        onSave={async (newAgent) => {
                                                             const isNew = !newAgent.id;
                                                             const id = isNew ? `agent_${Date.now()}` : newAgent.id;
                                                             const agentToSave = { ...newAgent, id };
+                                                            const previousSkillIds = (
+                                                                draft.ai.agents.find(item => item.id === id)?.skill_ids || []
+                                                            );
+                                                            const nextSkillIds = agentToSave.skill_ids || [];
+                                                            const skillsChanged = (
+                                                                previousSkillIds.length !== nextSkillIds.length
+                                                                || previousSkillIds.some(skillId => !nextSkillIds.includes(skillId))
+                                                            );
+                                                            if (!isNew && skillsChanged) {
+                                                                try {
+                                                                    agentToSave.skill_ids = await aiResources.assignAgentSkills(
+                                                                        id,
+                                                                        nextSkillIds,
+                                                                    );
+                                                                } catch (error) {
+                                                                    console.error('Error assigning skills to AI agent:', error);
+                                                                    toast.error(t('settings.ai.resources.assignment_error'));
+                                                                    throw error;
+                                                                }
+                                                            }
                                                             setDraft(prev => ({
                                                                 ...prev,
                                                                 ai: {
@@ -4067,6 +4119,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             setEditingAgent(null);
                                                         }}
                                                         aiRegistry={aiRegistry}
+                                                        skills={aiResources.skills}
+                                                        tools={aiResources.tools}
                                                     />
                                                 </div>
                                             </InlineEditorPlacement>
@@ -4119,6 +4173,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                         <div style={{ minWidth: 0 }}>
                                                             <div style={{ fontWeight: '900', fontSize: '1.1rem', color: 'var(--text-primary)' }}>{agent.name}</div>
                                                             <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{agent.model}</div>
+                                                            <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', marginTop: '5px' }}>
+                                                                {t('settings.ai.resources.assigned_skill_count', { count: (agent.skill_ids || []).length })}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexShrink: 0 }}>
@@ -4139,7 +4196,26 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 </React.Fragment>
                                             ))}
                                         </div>
-                                    </Section>
+                                    </Section>}
+
+                                    {aiSection === 'skills' && (
+                                        <Section title={t('settings.ai.resources.skills_title')} icon={Zap}>
+                                            <SkillsSettingsPanel
+                                                resources={aiResources}
+                                                agents={draft.ai.agents}
+                                                onAgentsChanged={agents => setDraft(prev => ({
+                                                    ...prev,
+                                                    ai: { ...prev.ai, agents },
+                                                }))}
+                                            />
+                                        </Section>
+                                    )}
+
+                                    {aiSection === 'tools' && (
+                                        <Section title={t('settings.ai.resources.tools_title')} icon={Sliders}>
+                                            <ToolsSettingsPanel resources={aiResources} />
+                                        </Section>
+                                    )}
                                 </>
                             )}
 
@@ -4286,7 +4362,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 // --- SUB-COMPONENTS FOR AI ---
 
 
-function AIAgentForm({ agent, onSave, aiRegistry }) {
+function AIAgentForm({ agent, onSave, aiRegistry, skills, tools }) {
     const { t } = useTranslation();
     const [name, setName] = useState(agent.name || '');
     const [provider, setProvider] = useState(agent.provider || '');
@@ -4302,6 +4378,8 @@ function AIAgentForm({ agent, onSave, aiRegistry }) {
     // their content — the agent reads them on demand through its scoped tools
     // (directive `agent_context_sources.md`).
     const [contextRefs, setContextRefs] = useState(agent.context_refs || []);
+    const [selectedSkillIds, setSelectedSkillIds] = useState(agent.skill_ids || []);
+    const [savingAgent, setSavingAgent] = useState(false);
 
     // Group registry rows by provider for the <select> optgroups. Rows carry
     // {provider, model_id, ...}; we keep first-seen order of providers.
@@ -4415,23 +4493,46 @@ function AIAgentForm({ agent, onSave, aiRegistry }) {
                             description={t('settings.ai.context_sources_desc')}>
                             <AgentContextSources value={contextRefs} onChange={setContextRefs} />
                         </FormGroup>
+
+                        <FormGroup
+                            label={t('settings.ai.resources.assigned_skills')}
+                            description={t('settings.ai.resources.assigned_skills_help')}
+                        >
+                            <AgentSkillsField
+                                agent={{ ...agent, provider, model }}
+                                skills={skills}
+                                tools={tools}
+                                registry={aiRegistry}
+                                selectedIds={selectedSkillIds}
+                                onChange={setSelectedSkillIds}
+                            />
+                        </FormGroup>
                     </div>
                     <div style={{ marginTop: '32px', display: 'flex', justifyContent: 'flex-end' }}>
                         <button
                             className="btn-gnosi-primary"
-                            disabled={!name || !provider || !model}
-                            onClick={() => onSave({
-                                ...agent,
-                                name,
-                                provider,
-                                model,
-                                icon,
-                                persona,
-                                context,
-                                context_refs: contextRefs,
-                            })}
+                            disabled={!name || !provider || !model || savingAgent}
+                            onClick={async () => {
+                                setSavingAgent(true);
+                                try {
+                                    await onSave({
+                                        ...agent,
+                                        name,
+                                        provider,
+                                        model,
+                                        icon,
+                                        persona,
+                                        context,
+                                        context_refs: contextRefs,
+                                        skill_ids: selectedSkillIds,
+                                    });
+                                } finally {
+                                    setSavingAgent(false);
+                                }
+                            }}
                             style={{ padding: '14px 28px', borderRadius: '18px' }}
                         >
+                            {savingAgent && <Loader2 size={16} className="animate-spin" />}
                             {agent.id ? t('settings.ai.update_agent') : t('settings.ai.create_agent_action')}
                         </button>
                     </div>

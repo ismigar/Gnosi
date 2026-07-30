@@ -1,8 +1,8 @@
 import os
 import operator
-from typing import Annotated, Any, TypedDict, List, Sequence, Optional
+from typing import Annotated, Any, Iterable, TypedDict, List, Sequence, Optional
 import logging
-from langchain_core.messages import BaseMessage, SystemMessage
+from langchain_core.messages import BaseMessage, SystemMessage, ToolMessage
 from langgraph.graph import StateGraph, END, START
 from langgraph.prebuilt import ToolNode
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
@@ -348,7 +348,7 @@ def _model_supports_tools(
     model_name: Optional[str],
     agent_data: dict,
 ) -> bool:
-    """Respect an explicit agent override, then the editable model registry."""
+    """Resolve tool support from profile override, registry, then catalog."""
     capabilities = agent_data.get("capabilities")
     if isinstance(capabilities, list):
         return "tools" in capabilities
@@ -370,15 +370,256 @@ def _model_supports_tools(
             return "tools" in set(match.get("tags") or [])
     except Exception:
         pass
+    try:
+        from backend.agent.model_catalog import catalog_provider
+
+        provider = catalog_provider(provider_name)
+        match = next(
+            (
+                row
+                for row in (provider or {}).get("models", [])
+                if row.get("id") == model_name
+            ),
+            None,
+        )
+        if match is not None:
+            return "tools" in set(match.get("tags") or [])
+    except Exception:
+        pass
     # Unknown/custom models fail closed. Agent profiles can explicitly opt in
     # through `capabilities.tools: true` after compatibility is verified.
     return False
+
+
+def _select_agent_profile(ai_cfg: dict, agent_id: str) -> Optional[dict]:
+    """Select one enabled-compatible profile using the historical fallback."""
+    agents = ai_cfg.get("agents", []) or []
+    target_id = agent_id or ai_cfg.get("active_agent_id")
+    agent_data = next(
+        (agent for agent in agents if agent.get("id") == target_id),
+        None,
+    )
+    if not agent_data and agents:
+        agent_data = next(
+            (agent for agent in agents if agent.get("enabled", True)),
+            agents[0],
+        )
+    return agent_data
+
+
+def _resolve_runtime_capabilities(
+    agent_data: dict,
+    *,
+    vault_path: Optional[Path] = None,
+    active_skill_ids: Optional[Iterable[str]] = None,
+):
+    """Resolve assigned skills through the governed catalog.
+
+    The import remains local while the catalog is introduced so older installs
+    can still start during the compatibility release. Once the catalog exists,
+    validation or resolution errors are deliberately propagated: silently
+    falling back to a broader legacy tool belt would be a privilege escalation.
+    """
+    try:
+        from backend.services.agent_skill_catalog import resolve_agent_runtime
+    except ImportError:
+        return None
+    return resolve_agent_runtime(
+        agent_data,
+        vault_path=vault_path,
+        active_skill_ids=active_skill_ids,
+    )
+
+
+def prepare_agent_runtime(
+    agent_id: str,
+    *,
+    vault_path: Optional[Path] = None,
+    active_skill_ids: Optional[Iterable[str]] = None,
+) -> tuple[dict, Optional[dict], Any]:
+    """Load current AI config, selected profile, and resolved capabilities."""
+    ai_cfg = load_params(strict_env=False).get("ai", {}) or {}
+    agent_data = _select_agent_profile(ai_cfg, agent_id)
+    runtime = (
+        _resolve_runtime_capabilities(
+            agent_data,
+            vault_path=vault_path,
+            active_skill_ids=active_skill_ids,
+        )
+        if agent_data
+        else None
+    )
+    return ai_cfg, agent_data, runtime
+
+
+def _tool_name(item: Any) -> str:
+    """Return the model-visible name of a BaseTool or plain callable."""
+    return str(
+        getattr(item, "name", "")
+        or getattr(item, "__name__", "")
+        or ""
+    )
+
+
+def _deduplicate_tools(tools: Iterable[Any]) -> List[Any]:
+    """Deduplicate LangChain tools and callables by model-visible name."""
+    result = []
+    names: set[str] = set()
+    for item in tools:
+        name = _tool_name(item)
+        if not name or name in names:
+            continue
+        names.add(name)
+        result.append(item)
+    return result
+
+
+def _descriptor_value(descriptor: Any, field: str, default: Any = None) -> Any:
+    if isinstance(descriptor, dict):
+        return descriptor.get(field, default)
+    return getattr(descriptor, field, default)
+
+
+def _descriptor_effects(descriptor: Any) -> tuple[str, ...]:
+    """Normalize descriptor effects without depending on its concrete model."""
+    values = _descriptor_value(descriptor, "effects", ()) or ()
+    result = []
+    for value in values:
+        raw = getattr(value, "value", value)
+        if raw:
+            result.append(str(raw))
+    return tuple(result)
+
+
+def _runtime_tool_metadata(runtime: Any) -> tuple[list[dict], set[str]]:
+    """Build public metadata and guarded names for resolved runtime tools."""
+    tools = list(getattr(runtime, "tools", ()) or ())
+    descriptors = list(getattr(runtime, "tool_descriptors", ()) or ())
+    skills = list(getattr(runtime, "skills", ()) or ())
+    active_skill_ids = {
+        str(skill_id)
+        for skill_id in (getattr(runtime, "active_skill_ids", ()) or ())
+    }
+    tool_skill_ids: dict[str, list[str]] = {}
+    for skill in skills:
+        skill_descriptor = _descriptor_value(skill, "descriptor", skill)
+        skill_id = str(_descriptor_value(skill_descriptor, "id", "") or "")
+        if skill_id not in active_skill_ids:
+            continue
+        for tool_id in _descriptor_value(skill_descriptor, "tool_ids", ()) or ():
+            tool_skill_ids.setdefault(str(tool_id), []).append(skill_id)
+
+    metadata = []
+    guarded_names: set[str] = set()
+    for index, tool in enumerate(tools):
+        descriptor = descriptors[index] if index < len(descriptors) else None
+        tool_id = str(_descriptor_value(descriptor, "id", "") or "")
+        tool_name = _tool_name(tool) or tool_id
+        effects = _descriptor_effects(descriptor)
+        confirmation = str(
+            getattr(
+                _descriptor_value(descriptor, "confirmation", ""),
+                "value",
+                _descriptor_value(descriptor, "confirmation", ""),
+            )
+            or ""
+        )
+        minimum_role = str(
+            _descriptor_value(descriptor, "minimum_role", "viewer")
+            or "viewer"
+        )
+        if any(effect != "read" for effect in effects) or confirmation not in {
+            "",
+            "never",
+            "none",
+        }:
+            guarded_names.add(tool_name)
+        metadata.append({
+            "id": tool_id or tool_name,
+            "name": tool_name,
+            "effects": list(effects),
+            "skill_ids": tool_skill_ids.get(tool_id, []),
+            "minimum_role": minimum_role,
+            "confirmation": confirmation or "none",
+        })
+    return metadata, guarded_names
 
 
 # --- 1. Define the State ---
 class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], operator.add]
     next: str
+    turn_authorized_tool_names: Sequence[str]
+    active_skill_ids: Sequence[str]
+    current_user_role: str
+
+
+def _turn_authorized_tool_names(state: Any) -> set[str]:
+    """Read current-turn tool grants from graph state.
+
+    This state field is overwritten on every invocation. It must never be
+    sourced from a workflow-construction closure because workflows are cached
+    across turns.
+    """
+    if isinstance(state, dict):
+        values = state.get("turn_authorized_tool_names") or []
+    else:
+        values = getattr(state, "turn_authorized_tool_names", []) or []
+    return {str(value) for value in values if value}
+
+
+def _tool_policy_wrapper(tool_policies: Any):
+    """Build a just-in-time execution gate for tool role and turn grants."""
+    if isinstance(tool_policies, dict):
+        policies = {
+            str(name): dict(policy or {})
+            for name, policy in tool_policies.items()
+            if name
+        }
+    else:
+        policies = {
+            str(name): {
+                "minimum_role": "editor",
+                "confirmation": "explicit_request",
+            }
+            for name in tool_policies
+            if name
+        }
+
+    def enforce_policy(request, execute):
+        tool_call = request.tool_call
+        tool_name = str(tool_call.get("name") or "")
+        policy = policies.get(tool_name, {})
+        state = request.state if isinstance(request.state, dict) else {}
+        current_role = str(state.get("current_user_role") or "viewer").lower()
+        required_role = str(policy.get("minimum_role") or "viewer").lower()
+        role_weights = {"viewer": 0, "editor": 1, "admin": 2, "owner": 3}
+        if role_weights.get(current_role, -1) < role_weights.get(required_role, 0):
+            return ToolMessage(
+                content=(
+                    "Tool execution denied: "
+                    f"`{tool_name}` requires role `{required_role}`."
+                ),
+                name=tool_name,
+                tool_call_id=str(tool_call.get("id") or ""),
+                status="error",
+            )
+        confirmation = str(policy.get("confirmation") or "none")
+        if confirmation not in {"", "never", "none"} and (
+            tool_name not in _turn_authorized_tool_names(request.state)
+        ):
+            return ToolMessage(
+                content=(
+                    "Tool execution denied: the current user turn did not "
+                    f"explicitly authorize `{tool_name}`."
+                ),
+                name=tool_name,
+                tool_call_id=str(tool_call.get("id") or ""),
+                status="error",
+            )
+        return execute(request)
+
+    return enforce_policy
 
 
 # --- 2. Agent Prompts (Base) ---
@@ -690,6 +931,11 @@ async def create_agent_workflow(
     llm_model: Optional[str] = None,
     user_message: str = "",
     timeout: int = 60,
+    active_skill_ids: Optional[Iterable[str]] = None,
+    vault_path: Optional[Path] = None,
+    prepared_ai_cfg: Optional[dict] = None,
+    prepared_agent_data: Optional[dict] = None,
+    runtime_capabilities: Any = None,
 ) -> tuple[StateGraph, dict]:
     """
         Creates the Multi-Agent workflow (graph) based on a specific agent profile.
@@ -701,22 +947,33 @@ async def create_agent_workflow(
     # created (or edited) from Settings afterwards would be invisible here and the
     # chat would answer "No LLM provider available" until the process restarted.
     # `get_default_llm_with_meta` already re-reads for the same reason.
-    ai_cfg = load_params(strict_env=False).get("ai", {}) or {}
-    agents = ai_cfg.get("agents", [])
+    if prepared_ai_cfg is None:
+        ai_cfg, selected_agent, resolved_runtime = prepare_agent_runtime(
+            agent_id,
+            vault_path=vault_path,
+            active_skill_ids=active_skill_ids,
+        )
+    else:
+        ai_cfg = prepared_ai_cfg
+        selected_agent = prepared_agent_data
+        resolved_runtime = runtime_capabilities
+
     providers = ai_cfg.get("providers", {})
-    
-        # Priority: supplied agent_id -> active_agent_id -> first enabled agent.
+
+    # Priority: supplied agent_id -> active_agent_id -> first enabled agent.
     target_id = agent_id or ai_cfg.get("active_agent_id")
-    
-    agent_data = next((a for a in agents if a.get("id") == target_id), None)
-    
-    if not agent_data and agents:
-        # Find the first enabled one, or the first in the list
-        agent_data = next((a for a in agents if a.get("enabled", True)), agents[0])
+    agent_data = selected_agent or _select_agent_profile(ai_cfg, target_id)
 
     if not agent_data:
 
         return None, {}
+    target_id = str(agent_data.get("id") or target_id)
+    if resolved_runtime is None:
+        resolved_runtime = _resolve_runtime_capabilities(
+            agent_data,
+            vault_path=vault_path,
+            active_skill_ids=active_skill_ids,
+        )
 
     # 2. Configure LLM for the agent
     provider_name = agent_data.get("provider") or ""
@@ -776,7 +1033,7 @@ async def create_agent_workflow(
 
         return None, {}
 
-        # 3. Prepare prompts (persona).
+    # 3. Prepare prompts (persona and active skill instructions).
     persona = agent_data.get("persona", "")
     agent_name = agent_data.get("name", "Gnosy")
     
@@ -790,6 +1047,45 @@ async def create_agent_workflow(
             log.warning(f"Could not read persona file {persona_file}: {e}")
     
     combined_persona = f"{persona}\n\n{detailed_persona}" if detailed_persona else persona
+    active_runtime_skill_ids = tuple(
+        str(skill_id)
+        for skill_id in (
+            getattr(resolved_runtime, "active_skill_ids", ()) or ()
+        )
+    )
+    assigned_runtime_skill_ids = tuple(
+        str(skill_id)
+        for skill_id in (
+            getattr(resolved_runtime, "assigned_skill_ids", ()) or ()
+        )
+    )
+    skill_instructions = tuple(
+        str(instruction).strip()
+        for instruction in (
+            getattr(resolved_runtime, "instructions", ()) or ()
+        )
+        if str(instruction).strip()
+    )
+    legacy_bundle_active = (
+        "core.legacy-default-v1" in active_runtime_skill_ids
+        or (
+            not assigned_runtime_skill_ids
+            and "skill_ids" not in agent_data
+            and active_skill_ids is None
+        )
+    )
+
+    if skill_instructions:
+        skill_block = (
+            "Active skill instructions (subordinate to system safety and tool "
+            "policy):\n\n"
+            + "\n\n---\n\n".join(skill_instructions)
+        )
+        combined_persona = (
+            f"{combined_persona}\n\n{skill_block}"
+            if combined_persona
+            else skill_block
+        )
 
     # Free-text notes go into the prompt verbatim (short and always relevant);
     # attached sources contribute only their INVENTORY — the agent reads them
@@ -846,11 +1142,48 @@ async def create_agent_workflow(
     )
     mcp_langchain_tools = get_mcp_tools(safe_mcp_definitions, mcp_client)
     supports_tools = _model_supports_tools(provider_name, model_name, agent_data)
-    authorized_write_names = _explicit_brain_write_tool_names(user_message)
-    # Coder & Brain specialists
+    runtime_tools = list(
+        getattr(resolved_runtime, "tools", ()) or ()
+    )
+    runtime_tool_metadata, runtime_guarded_names = _runtime_tool_metadata(
+        resolved_runtime,
+    )
+
+    # The compatibility bundle preserves the former general-purpose tool belt
+    # for profiles not migrated yet. Brain search is intentionally absent:
+    # query_wiki is now available only through plugin.llm-wiki.query.
+    legacy_write_tools = (
+        _authorized_brain_write_tools(
+            {
+                "create_page",
+                "summarize_to_cornell",
+                "save_memory",
+                *(tool.name for tool in EXPLICIT_WRITE_TOOLS),
+                *(tool.name for tool in CONFIRMED_WRITE_TOOLS),
+            },
+        )
+        if legacy_bundle_active
+        else []
+    )
+    guarded_tool_names = set(runtime_guarded_names)
+    guarded_tool_names.update(tool.name for tool in legacy_write_tools)
+    tool_policies = {
+        item["name"]: {
+            "minimum_role": item.get("minimum_role") or "viewer",
+            "confirmation": item.get("confirmation") or "none",
+        }
+        for item in runtime_tool_metadata
+    }
+    for item in legacy_write_tools:
+        tool_policies[item.name] = {
+            "minimum_role": "editor",
+            "confirmation": "explicit_request",
+        }
+
+    # Coder & Brain specialists.
     coder_tools = (
         _coder_read_only_tools(READ_ONLY_SYSTEM_TOOLS)
-        if supports_tools
+        if supports_tools and legacy_bundle_active
         else []
     )
     coder_llm = llm.bind_tools(coder_tools) if coder_tools else llm
@@ -859,27 +1192,44 @@ async def create_agent_workflow(
         t
         for t in READ_ONLY_SYSTEM_TOOLS
         if t.name
-        in ["save_memory", "query_memory", "get_vault_registry", "search_vault"]
-    ]
+        in ["query_memory", "get_vault_registry", "search_vault"]
+    ] if legacy_bundle_active else []
     # Tools scoped to the sources the user attached to THIS agent. They close over
     # its refs, so an agent can never read another agent's context.
     context_tools = build_context_tools(context_refs)
-    read_only_vault_tools = [
-        item for item in VAULT_KNOWLEDGE_TOOLS
-        if item.name in {"read_page", "read_pdf", "propose_links", "query_wiki"}
-    ]
-    read_only_vault_tools += GNOSI_READ_TOOLS
-    authorized_write_tools = _authorized_brain_write_tools(authorized_write_names)
+    read_only_vault_tools = (
+        [
+            item
+            for item in VAULT_KNOWLEDGE_TOOLS
+            if item.name in {"read_page", "read_pdf", "propose_links"}
+        ]
+        + list(GNOSI_READ_TOOLS)
+        if legacy_bundle_active
+        else []
+    )
     brain_tools = (
-        mcp_langchain_tools
+        (mcp_langchain_tools if legacy_bundle_active else [])
         + memory_tools
         + read_only_vault_tools
         + context_tools
-        + authorized_write_tools
+        + runtime_tools
+        + legacy_write_tools
         if supports_tools
         else []
     )
+    brain_tools = _deduplicate_tools(brain_tools)
     brain_llm = llm.bind_tools(brain_tools) if brain_tools else llm
+
+    requested_active_skill_ids = {
+        str(skill_id) for skill_id in (active_skill_ids or ()) if skill_id
+    }
+    explicitly_activated_tool_names = {
+        item["name"]
+        for item in runtime_tool_metadata
+        if requested_active_skill_ids.intersection(item.get("skill_ids") or ())
+        and item["name"] in guarded_tool_names
+        and item.get("confirmation") == "explicit_request"
+    }
 
     # --- Graph Nodes ---
 
@@ -893,9 +1243,15 @@ async def create_agent_workflow(
             ),
             "",
         )
+        # Explicit skill assignments define the effective agent runtime. A
+        # governed, tool-backed profile must therefore enter the tool-enabled
+        # specialist directly; delegating that decision to a model can route
+        # the turn to General, where the assigned tools are unavailable.
+        if runtime_tools and not legacy_bundle_active:
+            return {"next": "Brain"}
         obvious = (
             "Brain"
-            if authorized_write_names
+            if _turn_authorized_tool_names(state)
             else _obvious_route(latest_user, has_context=bool(context_refs))
         )
         if obvious:
@@ -917,33 +1273,56 @@ async def create_agent_workflow(
 
     def coder_node(state: AgentState):
         messages = state["messages"]
-        # Inject persona preference for coding style if defined? Optional for now.
+        coder_system = (
+            f"You are the Coder specialist for {agent_name}."
+            + (
+                "\n\nConfigured agent persona and instructions:\n"
+                + combined_persona
+                if combined_persona
+                else ""
+            )
+        )
         response = coder_llm.invoke(
-            [SystemMessage(content="You are the Coder Agent.")] + messages
+            [SystemMessage(content=coder_system)] + messages
         )
         return {"messages": [response], "next": "supervisor"}
 
     def brain_node(state: AgentState):
         messages = state["messages"]
-        brain_system = "You are the Brain Agent (Gnosi Vault, Sovereign Memory)."
+        current_authorized_names = _turn_authorized_tool_names(state)
+        brain_system = (
+            f"You are the Brain specialist for {agent_name} "
+            "(Gnosi Vault and sovereign memory)."
+        )
+        if combined_persona:
+            brain_system += (
+                "\n\nConfigured agent persona and instructions:\n"
+                + combined_persona
+            )
         if brain_tools:
-            tool_names = ", ".join(sorted({item.name for item in brain_tools}))
+            tool_names = ", ".join(
+                sorted({_tool_name(item) for item in brain_tools})
+            )
             brain_system += (
                 "\nYou may use only these tools: "
                 f"{tool_names}."
             )
-            if authorized_write_names:
+            authorized_guarded_names = (
+                current_authorized_names.intersection(guarded_tool_names)
+            )
+            if authorized_guarded_names:
                 brain_system += (
                     "\nThe current user message explicitly authorizes only these "
-                    "write tools for this turn: "
-                    + ", ".join(sorted(authorized_write_names))
+                    "guarded tools for this turn: "
+                    + ", ".join(sorted(authorized_guarded_names))
                     + ". Use them only to fulfill that explicit request. All other "
                     "writes remain prohibited. Confirm the actual tool result."
                 )
-            else:
+            if guarded_tool_names and not authorized_guarded_names:
                 brain_system += (
-                    "\nAll available tools are read-only. Never claim to have "
-                    "created, edited, or stored data."
+                    "\nNo guarded tool is authorized for this turn. Calls to write, "
+                    "destructive, external, code-execution, or cost-bearing tools "
+                    "will be denied by policy."
                 )
         else:
             brain_system += (
@@ -981,7 +1360,13 @@ async def create_agent_workflow(
     workflow.add_node("brain", brain_node)
     workflow.add_node("general", general_node)
     workflow.add_node("coder_tools", ToolNode(coder_tools))
-    workflow.add_node("brain_tools", ToolNode(brain_tools))
+    workflow.add_node(
+        "brain_tools",
+        ToolNode(
+            brain_tools,
+            wrap_tool_call=_tool_policy_wrapper(tool_policies),
+        ),
+    )
 
     workflow.add_edge(START, "supervisor")
     workflow.add_conditional_edges(
@@ -1021,4 +1406,17 @@ async def create_agent_workflow(
         "mode": llm_mode,
         "provider": provider_name,
         "model": model_name,
+        "assigned_skill_ids": list(assigned_runtime_skill_ids),
+        "active_skill_ids": list(active_runtime_skill_ids),
+        "missing_skill_ids": list(
+            getattr(resolved_runtime, "missing_skill_ids", ()) or ()
+        ),
+        "unavailable_tool_ids": list(
+            getattr(resolved_runtime, "unavailable_tool_ids", ()) or ()
+        ),
+        "catalog_revision": str(
+            getattr(resolved_runtime, "catalog_revision", "") or ""
+        ),
+        "tools": runtime_tool_metadata,
+        "turn_grant_tool_names": sorted(explicitly_activated_tool_names),
     }

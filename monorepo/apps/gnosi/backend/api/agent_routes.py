@@ -13,7 +13,11 @@ import uuid
 import time
 import weakref
 from pathlib import Path
-from backend.agent.factory import create_agent_workflow
+from backend.agent.factory import (
+    _explicit_brain_write_tool_names,
+    create_agent_workflow,
+    prepare_agent_runtime,
+)
 from backend.agent.model_router import record_llm_usage, usage_from_message
 from backend.agent.model_reliability import (
     blames_the_model, model_evidence, record_failure, reliability_report,
@@ -21,7 +25,7 @@ from backend.agent.model_reliability import (
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from backend.config.app_config import load_params
 from backend.utils.errors import safe_error_detail
-from backend.services.workspace_service import require_role
+from backend.services.workspace_service import require_role, WorkspaceContext
 from backend.services.context_vars import get_active_vault_path
 
 cfg = load_params()
@@ -75,6 +79,8 @@ class ChatRequest(BaseModel):
     llm_model: Optional[str] = None
     mentions: List[MentionRef] = Field(default_factory=list, max_length=20)
     attachments: List[AttachmentRef] = Field(default_factory=list, max_length=8)
+    active_skill_ids: Optional[List[str]] = Field(default=None, max_length=64)
+    confirmed_tool_ids: List[str] = Field(default_factory=list, max_length=64)
 
 
 class AttachmentDeleteRequest(BaseModel):
@@ -82,6 +88,7 @@ class AttachmentDeleteRequest(BaseModel):
 
 
 IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$")
+SKILL_IDENTIFIER_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,191}$")
 MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024
 MAX_ATTACHMENT_TEXT = 20_000
 MAX_ATTACHMENT_CONTEXT = 40_000
@@ -101,6 +108,22 @@ def _validated_identifier(value: str, label: str) -> str:
     if not IDENTIFIER_RE.fullmatch(candidate):
         raise HTTPException(status_code=422, detail=f"Invalid {label}")
     return candidate
+
+
+def _validated_skill_ids(values: Optional[List[str]]) -> Optional[List[str]]:
+    """Validate and deduplicate optional per-turn skill activations."""
+    if values is None:
+        return None
+    result = []
+    seen = set()
+    for value in values:
+        candidate = (value or "").strip()
+        if not SKILL_IDENTIFIER_RE.fullmatch(candidate):
+            raise HTTPException(status_code=422, detail="Invalid skill ID")
+        if candidate not in seen:
+            seen.add(candidate)
+            result.append(candidate)
+    return result
 
 
 def _vault_scope() -> tuple[Path, str]:
@@ -207,13 +230,25 @@ def _consume_attachment_context(vault: Path, refs: List[AttachmentRef]) -> str:
                 )
 
 
-def _tool_stream_event(event_type: str, tool_name: Optional[str], node_name: str) -> str:
+def _tool_stream_event(
+    event_type: str,
+    tool_name: Optional[str],
+    node_name: str,
+    metadata: Optional[Dict[str, Any]] = None,
+) -> str:
     """Serialize public tool lifecycle metadata without arguments or results."""
-    return json.dumps({
+    payload = {
         "type": event_type,
         "tool": tool_name,
         "node": node_name,
-    }) + "\n"
+    }
+    if metadata:
+        payload.update({
+            "tool_id": metadata.get("id"),
+            "skill_ids": list(metadata.get("skill_ids") or []),
+            "effects": list(metadata.get("effects") or []),
+        })
+    return json.dumps(payload) + "\n"
 
 
 def _message_text(content: Any) -> str:
@@ -255,6 +290,8 @@ async def get_agent_workflow(
     llm_model: Optional[str] = None,
     user_message: str = "",
     vault_scope: str = "",
+    vault_path: Optional[Path] = None,
+    active_skill_ids: Optional[List[str]] = None,
 ):
     """
     Helper to get or build the agent workflow for a specific ID.
@@ -265,14 +302,8 @@ async def get_agent_workflow(
     if not hasattr(request.app.state, "agent_cache"):
         request.app.state.agent_cache = {}
 
-    cache_key = f"{vault_scope}:{agent_id}"
-    if use_cache and cache_key in request.app.state.agent_cache:
-        cached = request.app.state.agent_cache[cache_key]
-        return cached["workflow"], cached.get("llm_selection", {})
-
     mcp_client = getattr(request.app.state, "mcp_client", None)
     mcp_ready = mcp_client is not None
-
     tools_list = []
     if mcp_ready:
         tools_list = getattr(request.app.state, "tools_list", [])
@@ -284,6 +315,47 @@ async def get_agent_workflow(
         log.warning("MCP client not ready, creating workflow without MCP tools")
         use_cache = False
 
+    from backend.services.mcp_tool_contributions import (
+        refresh_mcp_tool_contributions,
+    )
+
+    refresh_mcp_tool_contributions(tools_list, mcp_client)
+    ai_cfg, agent_data, runtime_capabilities = prepare_agent_runtime(
+        agent_id,
+        vault_path=vault_path,
+        active_skill_ids=active_skill_ids,
+    )
+    runtime_active_ids = list(
+        getattr(runtime_capabilities, "active_skill_ids", ()) or ()
+    )
+    catalog_revision = str(
+        getattr(runtime_capabilities, "catalog_revision", "") or ""
+    )
+    agent_revision = hashlib.sha256(
+        json.dumps(
+            agent_data or {},
+            sort_keys=True,
+            separators=(",", ":"),
+            default=str,
+        ).encode("utf-8")
+    ).hexdigest()[:16]
+    runtime_revision = hashlib.sha256(
+        json.dumps(
+            {
+                "active_skill_ids": runtime_active_ids,
+                "catalog_revision": catalog_revision,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()[:16]
+    cache_key = (
+        f"{vault_scope}:{agent_id}:{agent_revision}:{runtime_revision}"
+    )
+    if use_cache and cache_key in request.app.state.agent_cache:
+        cached = request.app.state.agent_cache[cache_key]
+        return cached["workflow"], cached.get("llm_selection", {})
+
     workflow, llm_selection = await create_agent_workflow(
         tools_list,
         mcp_client,
@@ -293,6 +365,11 @@ async def get_agent_workflow(
         llm_model=llm_model,
         user_message=user_message,
         timeout=60,
+        active_skill_ids=active_skill_ids,
+        vault_path=vault_path,
+        prepared_ai_cfg=ai_cfg,
+        prepared_agent_data=agent_data,
+        runtime_capabilities=runtime_capabilities,
     )
 
     if workflow is None:
@@ -301,6 +378,10 @@ async def get_agent_workflow(
         raise HTTPException(status_code=503, detail="No LLM provider available")
 
     if use_cache:
+        cache_prefix = f"{vault_scope}:{agent_id}:"
+        for stale_key in tuple(request.app.state.agent_cache):
+            if stale_key.startswith(cache_prefix) and stale_key != cache_key:
+                request.app.state.agent_cache.pop(stale_key, None)
         request.app.state.agent_cache[cache_key] = {
             "workflow": workflow,
             "llm_selection": llm_selection,
@@ -388,14 +469,20 @@ async def list_context_sources():
     return list_sources()
 
 
-@router.post("/chat", dependencies=[Depends(require_role("editor"))])
-async def chat_endpoint(request: Request, chat_req: ChatRequest):
+@router.post("/chat")
+async def chat_endpoint(
+    request: Request,
+    chat_req: ChatRequest,
+    workspace_context: WorkspaceContext = Depends(require_role("editor")),
+):
     """
     Main endpoint for chatting with a specific agent.
     """
     try:
         agent_id = _validated_identifier(chat_req.agent_id, "agent_id")
         session_id = _validated_identifier(chat_req.session_id, "session_id")
+        requested_skill_ids = _validated_skill_ids(chat_req.active_skill_ids)
+        confirmed_tool_ids = _validated_skill_ids(chat_req.confirmed_tool_ids) or []
         vault, vault_scope = _vault_scope()
 
         # 1. Build bounded attachment context and delete the temporary files
@@ -428,9 +515,34 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
             llm_model=chat_req.llm_model,
             user_message=chat_req.message,
             vault_scope=vault_scope,
+            vault_path=vault,
+            active_skill_ids=requested_skill_ids,
         )
 
-        inputs = {"messages": [HumanMessage(content=user_content)]}
+        authorized_tool_names = _explicit_brain_write_tool_names(
+            chat_req.message,
+        )
+        authorized_tool_names.update(
+            (llm_selection or {}).get("turn_grant_tool_names") or [],
+        )
+        confirmed_tool_id_set = set(confirmed_tool_ids)
+        authorized_tool_names.update(
+            item.get("name")
+            for item in (llm_selection or {}).get("tools", [])
+            if item.get("id") in confirmed_tool_id_set
+            and item.get("name")
+        )
+        inputs = {
+            "messages": [HumanMessage(content=user_content)],
+            # Always overwrite these request-scoped channels, including with
+            # empty lists, so checkpoint state from a previous turn cannot
+            # retain authorization or activation.
+            "turn_authorized_tool_names": sorted(authorized_tool_names),
+            "active_skill_ids": list(
+                (llm_selection or {}).get("active_skill_ids") or [],
+            ),
+            "current_user_role": workspace_context.role,
+        }
         
         # 3. Configure memory thread (per agent + session)
         thread_id = hashlib.sha256(
@@ -459,11 +571,34 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
                         "provider": llm_selection.get("provider"),
                         "model": llm_selection.get("model"),
                     }) + "\n"
+                    yield json.dumps({
+                        "type": "agent_runtime",
+                        "assigned_skill_ids": list(
+                            llm_selection.get("assigned_skill_ids") or [],
+                        ),
+                        "active_skill_ids": list(
+                            llm_selection.get("active_skill_ids") or [],
+                        ),
+                        "missing_skill_ids": list(
+                            llm_selection.get("missing_skill_ids") or [],
+                        ),
+                        "unavailable_tool_ids": list(
+                            llm_selection.get("unavailable_tool_ids") or [],
+                        ),
+                        "catalog_revision": llm_selection.get(
+                            "catalog_revision",
+                        ) or "",
+                    }) + "\n"
 
                 # Spend ledger: every AIMessage in the stream carries
                 # usage_metadata; accumulate and record once per turn.
                 total_in_tok = 0
                 total_out_tok = 0
+                tool_metadata_by_name = {
+                    item.get("name"): item
+                    for item in (llm_selection or {}).get("tools", [])
+                    if item.get("name")
+                }
                 async with asyncio.timeout(TURN_TIMEOUT_SECONDS):
                     async with turn_lock:
                         async with AsyncSqliteSaver.from_conn_string(str(db_path)) as saver:
@@ -489,6 +624,9 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
                                                     "tool_start",
                                                     tool_call.get("name"),
                                                     node_name,
+                                                    tool_metadata_by_name.get(
+                                                        tool_call.get("name"),
+                                                    ),
                                                 )
                                             continue
 
@@ -498,6 +636,9 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
                                                 "tool_end",
                                                 msg.name,
                                                 node_name,
+                                                tool_metadata_by_name.get(
+                                                    msg.name,
+                                                ),
                                             )
                                         elif msg.type == "ai" and content:
                                             answer_count += 1

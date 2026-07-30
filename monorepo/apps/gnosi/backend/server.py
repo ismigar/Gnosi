@@ -39,7 +39,7 @@ from backend.api import (
     vault_routes, vault_graph_routes, vault_views_routes, calendar_routes, mail_routes,
     reader, meeting_routes, google_auth_routes, integrations_routes,
     auth_routes,
-    config_routes, env_routes, credentials_routes, ai_routes,
+    config_routes, env_routes, credentials_routes, ai_routes, agent_skills_routes,
     workspace_routes, contacts_routes, identity_routes,
     microsoft_auth_routes,
     collab_routes,
@@ -68,6 +68,21 @@ async def lifespan(app: FastAPI):
 
     # 0b. Start Scheduler
     scheduler_manager.start()
+
+    # 0c. Reconcile declarative plugin contributions before any agent graph is
+    # built. This applies the idempotent Brain migration and restores/suspends
+    # third-party managed profiles without discarding user overrides.
+    try:
+        from backend.services.llm_wiki_agent import transition_agent
+        from backend.services.plugin_ai_contributions import (
+            reconcile_plugin_ai_contributions,
+        )
+
+        if vault_routes._llm_wiki_enabled(vault_routes._load_plugins_state()):
+            transition_agent(True)
+        reconcile_plugin_ai_contributions()
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Could not reconcile plugin AI contributions: %s", exc)
 
     # 1. Init MCP Client
     mcp_client = MultiServerMCPClient(MCP_SERVERS)
@@ -401,6 +416,7 @@ app.include_router(config_routes.router, prefix="/api", tags=["Config"])
 app.include_router(env_routes.router, prefix="/api", tags=["Env"])
 app.include_router(credentials_routes.router, prefix="/api", tags=["Credentials"])
 app.include_router(ai_routes.router, prefix="/api", tags=["AI Settings"])
+app.include_router(agent_skills_routes.router, prefix="/api", tags=["AI Skills"])
 app.include_router(notion_routes.router, prefix="/api", tags=["Notion Import"])
 app.include_router(notion_oauth_routes.router, prefix="/api", tags=["Notion MCP OAuth"])
 app.include_router(vaults_routes.router, prefix="/api", tags=["Vaults"])
