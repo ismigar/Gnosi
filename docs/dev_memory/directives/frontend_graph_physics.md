@@ -133,6 +133,15 @@ that can be confused with a graph node. Minimap clicks must derive their zoom
 from the visible-subset extent; a fixed absolute camera ratio refers to the
 complete graph and can unexpectedly zoom far away from a filtered view.
 
+Keyboard navigation must call the same Sigma camera operations as the visible
+controls. Map plus and minus to zoom, zero to the visible-subgraph fit, and the
+arrow keys to camera movement proportional to the current camera ratio so the
+perceived step stays stable at every zoom level. Ignore shortcuts while focus
+is in an input, textarea, select, textbox, or editable region, and preserve
+modified browser or operating-system shortcuts. Prevent the default browser
+action only after a graph shortcut has been accepted, and always remove the
+global listener when the graph viewer unmounts.
+
 Sigma v3 uses `labelRenderedSizeThreshold`. Do not use
 `labelRenderThreshold`; the unknown setting is ignored and the default causes
 hundreds of overview labels to overlap. Keep label density bounded at overview
