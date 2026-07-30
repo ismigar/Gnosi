@@ -16,6 +16,7 @@ import { useLocaleSettings } from '../../hooks/useLocaleSettings';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { RelationItem } from './RelationItem';
 import {
     normalizeRelationValues,
@@ -26,6 +27,7 @@ import {
 // that the sentinel enters the view. Keeping it low saves initial DOM.
 const FEED_BATCH = 12;
 const PILL_PREVIEW_LIMIT = 5;
+const MOBILE_PILL_PREVIEW_LIMIT = 3;
 
 // The `metadata.description` (body excerpt) is capped at this limit by the
 // backend: if it gets close to it, the real body continues and it makes sense to offer "See more".
@@ -56,6 +58,7 @@ function prepareBodyMd(raw) {
  */
 function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, onOpen }) {
     const { t, i18n } = useTranslation();
+    const isCompact = useMediaQuery('(max-width: 768px)');
     const [expanded, setExpanded] = useState(false);
     const [showAllPills, setShowAllPills] = useState(false);
     const [previewOverflows, setPreviewOverflows] = useState(false);
@@ -71,7 +74,8 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
     const hasCover = !!coverUrl;
 
     const previewMd = useMemo(() => prepareBodyMd(note.metadata?.description || ''), [note]);
-    const visiblePills = showAllPills ? pills : pills.slice(0, PILL_PREVIEW_LIMIT);
+    const pillPreviewLimit = isCompact ? MOBILE_PILL_PREVIEW_LIMIT : PILL_PREVIEW_LIMIT;
+    const visiblePills = showAllPills ? pills : pills.slice(0, pillPreviewLimit);
     const hiddenPillCount = Math.max(0, pills.length - visiblePills.length);
     // The excerpt is approaching the limit → the actual body continues further.
     const looksTruncated = (note.metadata?.description || '').length >= EXCERPT_CAP;
@@ -104,34 +108,9 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
     const openNote = useCallback((e) => { e?.stopPropagation?.(); onOpen(note.id); }, [onOpen, note.id]);
     const openLabel = `${t('feed.open_page', "Open page")}: ${note.title || t('common.untitled', "Untitled")}`;
 
-    const handleCardClick = useCallback((event) => {
-        if (selectionActive) {
-            onToggleSelect(note.id, event);
-            return;
-        }
-        if (event.target instanceof Element && event.target.closest('a, button, input, select, textarea, [role="button"]')) {
-            return;
-        }
-        if (window.getSelection?.()?.toString().trim()) return;
-        openNote(event);
-    }, [note.id, onToggleSelect, openNote, selectionActive]);
-
-    const handleCardKeyDown = useCallback((event) => {
-        if (selectionActive || event.target !== event.currentTarget) return;
-        if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            openNote(event);
-        }
-    }, [openNote, selectionActive]);
-
     return (
-        <div
-            role={selectionActive ? undefined : 'link'}
-            tabIndex={selectionActive ? undefined : 0}
-            aria-label={selectionActive ? undefined : openLabel}
-            onClick={handleCardClick}
-            onKeyDown={handleCardKeyDown}
-            className={`vault-feed-card relative bg-[var(--bg-primary)] rounded-2xl shadow-sm border overflow-hidden hover:shadow-md transition-all group flex flex-col cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gnosi-primary)] ${isSelected ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/40'}`}
+        <article
+            className={`vault-feed-card relative bg-[var(--bg-primary)] rounded-2xl shadow-sm border overflow-hidden hover:shadow-md transition-all group flex flex-col ${isSelected ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/40'}`}
         >
             {/* The label only stops propagation (not opening the card): the
                 toggle is handled by the input's onChange. If the label also called
@@ -146,6 +125,9 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
                     type="checkbox"
                     checked={isSelected}
                     onChange={(e) => onToggleSelect(note.id, e)}
+                    aria-label={t('feed.select_record', {
+                        title: note.title || t('common.untitled', 'Untitled'),
+                    })}
                     className="w-4 h-4 rounded border-[var(--border-primary)] text-[var(--gnosi-primary)] focus:ring-[var(--gnosi-primary)] cursor-pointer bg-[var(--bg-secondary)]/90 shadow-sm"
                 />
             </label>
@@ -161,7 +143,10 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
             )}
 
             <div className="vault-feed-card__body p-6 flex flex-col gap-3">
-                {/* Header: small date + (icon+title inline) + Open button */}
+                {/* Header: small date + icon and title. The title is the sole
+                    primary navigation target; the card remains a semantic
+                    article so its checkbox and disclosure buttons are never
+                    nested inside a link. */}
                 <div className="vault-feed-card__header flex items-start justify-between gap-3">
                     <div className="vault-feed-card__identity min-w-0">
                         <div className="vault-feed-card__date flex items-center gap-1.5 text-xs font-medium text-[var(--text-tertiary)] mb-1.5">
@@ -182,26 +167,22 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
                                 })}
                             </span>
                         </div>
-                        <h2
-                            onClick={selectionActive ? undefined : openNote}
-                            className={`vault-feed-card__title text-xl font-bold text-[var(--text-primary)] leading-tight flex items-center gap-2 min-w-0 ${selectionActive ? '' : 'cursor-pointer hover:text-[var(--gnosi-primary)]'} transition-colors`}
-                            title={note.title || ''}
-                        >
-                            {note.metadata?.icon && (
-                                <span className="shrink-0 inline-flex"><IconRenderer icon={note.metadata.icon} size={24} /></span>
-                            )}
-                            <span className="min-w-0">{note.title || t('common.untitled', "Untitled")}</span>
+                        <h2 className="min-w-0">
+                            <button
+                                type="button"
+                                onClick={selectionActive ? undefined : openNote}
+                                disabled={selectionActive}
+                                aria-label={openLabel}
+                                className={`vault-feed-card__title text-xl font-bold text-[var(--text-primary)] leading-tight flex items-center gap-2 min-w-0 text-left ${selectionActive ? 'cursor-default' : 'cursor-pointer hover:text-[var(--gnosi-primary)]'} transition-colors`}
+                                title={note.title || ''}
+                            >
+                                {note.metadata?.icon && (
+                                    <span className="shrink-0 inline-flex"><IconRenderer icon={note.metadata.icon} size={24} /></span>
+                                )}
+                                <span className="min-w-0">{note.title || t('common.untitled', "Untitled")}</span>
+                            </button>
                         </h2>
                     </div>
-                    <button
-                        type="button"
-                        onClick={openNote}
-                        className="vault-feed-card__open shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)] text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--gnosi-primary)] hover:border-[var(--gnosi-primary)]/50 transition-colors"
-                        title={t('feed.open_page', "Open page")}
-                    >
-                        <ExternalLink size={13} />
-                        {t('feed.open', "Open")}
-                    </button>
                 </div>
 
                 {/* ALL properties inline (Notion style): value only. */}
@@ -221,7 +202,7 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
                                 +{hiddenPillCount}
                             </button>
                         )}
-                        {showAllPills && pills.length > PILL_PREVIEW_LIMIT && (
+                        {showAllPills && pills.length > pillPreviewLimit && (
                             <button
                                 type="button"
                                 onClick={(event) => { event.stopPropagation(); setShowAllPills(false); }}
@@ -275,7 +256,7 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
                     </div>
                 )}
             </div>
-        </div>
+        </article>
     );
 }
 
