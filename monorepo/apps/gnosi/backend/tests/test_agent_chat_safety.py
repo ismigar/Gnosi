@@ -24,11 +24,38 @@ def test_identifiers_reject_path_components():
     assert getattr(exc.value, "status_code", None) == 422
 
 
-def test_checkpoint_scope_is_deterministic_and_vault_specific():
-    first = agent_routes.hashlib.sha256("vault-a:agent".encode()).hexdigest()[:32]
-    second = agent_routes.hashlib.sha256("vault-b:agent".encode()).hexdigest()[:32]
-    assert first != second
+def test_checkpoint_scope_is_deterministic_and_identity_specific():
+    common = {
+        "vault_scope": "vault-a",
+        "workspace_id": "workspace-a",
+        "agent_id": "agent",
+    }
+    first = agent_routes._checkpoint_key(user_id="user-a", **common)
+    repeated = agent_routes._checkpoint_key(user_id="user-a", **common)
+    another_user = agent_routes._checkpoint_key(user_id="user-b", **common)
+    another_workspace = agent_routes._checkpoint_key(
+        vault_scope="vault-a",
+        workspace_id="workspace-b",
+        user_id="user-a",
+        agent_id="agent",
+    )
+
+    assert first == repeated
+    assert first != another_user
+    assert first != another_workspace
     assert "/" not in first
+
+    thread = agent_routes._chat_thread_id(
+        session_id="session",
+        user_id="user-a",
+        **common,
+    )
+    other_thread = agent_routes._chat_thread_id(
+        session_id="session",
+        user_id="user-b",
+        **common,
+    )
+    assert thread != other_thread
 
 
 def test_attachment_context_rejects_files_outside_chat_directory(tmp_path):
@@ -43,13 +70,13 @@ def test_attachment_context_rejects_files_outside_chat_directory(tmp_path):
         path="secret.txt",
     )
     with pytest.raises(Exception) as exc:
-        agent_routes._attachment_context(vault, [ref])
+        agent_routes._attachment_context(vault, [ref], "scope")
     assert getattr(exc.value, "status_code", None) == 422
 
 
 def test_attachment_context_extracts_bounded_text(tmp_path):
     vault = tmp_path / "vault"
-    root = vault / ".gnosi" / "chat-attachments"
+    root = vault / ".gnosi" / "chat-attachments" / "scope"
     root.mkdir(parents=True)
     attachment = root / "safe.txt"
     attachment.write_text("verified text", encoding="utf-8")
@@ -57,9 +84,9 @@ def test_attachment_context_extracts_bounded_text(tmp_path):
         name="notes.txt",
         size=13,
         type="text/plain",
-        path=".gnosi/chat-attachments/safe.txt",
+        path=".gnosi/chat-attachments/scope/safe.txt",
     )
-    assert "verified text" in agent_routes._attachment_context(vault, [ref])
+    assert "verified text" in agent_routes._attachment_context(vault, [ref], "scope")
 
 
 def test_obvious_general_route_avoids_supervisor_call():
@@ -201,6 +228,16 @@ def test_vague_or_quoted_content_does_not_authorize_writes(message):
         "Can this agent delete the table?",
         '"send this email"',
         "`delete the table`",
+        "Could you explain how to delete the table?",
+        "The documentation says 'send the email' but do nothing.",
+        "Before you send the email, explain what will happen.",
+        "La frase 'elimina la pàgina' és perillosa.",
+        "Explica com puc buidar la paperera",
+        "Explique comment supprimer la table",
+        "Update the page, but do not actually change anything",
+        "Envia el correu, però no l’enviïs realment",
+        "Actualiza la página, pero no cambies nada",
+        "Modifie la page, mais ne la change pas",
     ],
 )
 def test_negated_meta_or_quoted_intent_never_authorizes_writes(message):
@@ -260,20 +297,21 @@ def test_structured_model_content_is_normalized():
 
 def test_attachment_delete_is_contained(tmp_path):
     vault = tmp_path / "vault"
-    root = vault / ".gnosi" / "chat-attachments"
+    root = vault / ".gnosi" / "chat-attachments" / "scope"
     root.mkdir(parents=True)
     attachment = root / "safe.txt"
     attachment.write_text("temporary", encoding="utf-8")
     agent_routes._delete_attachment(
         vault,
-        ".gnosi/chat-attachments/safe.txt",
+        ".gnosi/chat-attachments/scope/safe.txt",
+        "scope",
     )
     assert not attachment.exists()
 
 
 def test_attachment_consumer_cleans_up_when_extraction_fails(tmp_path, monkeypatch):
     vault = tmp_path / "vault"
-    root = vault / ".gnosi" / "chat-attachments"
+    root = vault / ".gnosi" / "chat-attachments" / "scope"
     root.mkdir(parents=True)
     attachment = root / "broken.pdf"
     attachment.write_bytes(b"broken")
@@ -281,15 +319,15 @@ def test_attachment_consumer_cleans_up_when_extraction_fails(tmp_path, monkeypat
         name="broken.pdf",
         size=6,
         type="application/pdf",
-        path=".gnosi/chat-attachments/broken.pdf",
+        path=".gnosi/chat-attachments/scope/broken.pdf",
     )
 
-    def fail_extraction(_vault, _refs):
+    def fail_extraction(_vault, _refs, _scope_key):
         raise RuntimeError("extraction failed")
 
     monkeypatch.setattr(agent_routes, "_attachment_context", fail_extraction)
     with pytest.raises(RuntimeError, match="extraction failed"):
-        agent_routes._consume_attachment_context(vault, [ref])
+        agent_routes._consume_attachment_context(vault, [ref], "scope")
     assert not attachment.exists()
 
 
@@ -315,9 +353,12 @@ def test_session_delete_removes_checkpoint_thread(tmp_path, monkeypatch):
         lambda: (vault, "vault-scope"),
     )
     monkeypatch.setitem(agent_routes.cfg.paths, "CHECKPOINTS", checkpoints)
-    checkpoint_key = agent_routes.hashlib.sha256(
-        "vault-scope:agent".encode("utf-8")
-    ).hexdigest()[:32]
+    checkpoint_key = agent_routes._checkpoint_key(
+        vault_scope="vault-scope",
+        workspace_id="personal",
+        user_id="user-a",
+        agent_id="agent",
+    )
     db_path = checkpoints / f"agent_{checkpoint_key}.sqlite"
     workspace_context = agent_routes.WorkspaceContext(
         workspace_id="personal",

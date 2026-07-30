@@ -187,6 +187,11 @@ during migration.
 
 ## 10. Restrictions and edge cases
 
+- Apply per-skill and aggregate instruction budgets. Tool schemas and reserved
+  model output count toward the same context budget.
+- Runtime metadata sent to clients states whether the model supports tool calls
+  and whether assigned skills are missing or unavailable.
+
 - Do not allow skill instructions to weaken core safety or tool policy.
 - Do not import third-party Python into the FastAPI process.
 - Do not let plugin activation grant permissions.

@@ -525,12 +525,20 @@ def list_confirmations(
     with _database_connection() as connection:
         rows = connection.execute(
             f"""
-            SELECT * FROM pending_agent_actions
-            WHERE vault_scope = ? AND workspace_id = ? AND user_id = ?
-              AND role = ? AND agent_id = ? AND session_id = ?
-              AND status IN ({placeholders})
+            SELECT * FROM (
+                SELECT * FROM pending_agent_actions
+                WHERE vault_scope = ? AND workspace_id = ? AND user_id = ?
+                  AND role = ? AND agent_id = ? AND session_id = ?
+                  AND status IN ({placeholders})
+                ORDER BY
+                    CASE
+                        WHEN status IN ('pending', 'executing') THEN 0
+                        ELSE 1
+                    END ASC,
+                    created_at DESC
+                LIMIT 100
+            ) AS bounded_confirmations
             ORDER BY created_at ASC
-            LIMIT 100
             """,
             (
                 scope["vault_scope"],
@@ -543,6 +551,12 @@ def list_confirmations(
             ),
         ).fetchall()
     return [_public_record(row) for row in rows]
+
+
+def maintain_confirmation_store() -> None:
+    """Apply expiry, stale-lease, retention, and permission maintenance now."""
+    connection = _connect()
+    connection.close()
 
 
 def get_confirmation_status(
@@ -665,6 +679,20 @@ def finish_confirmation(
         )
         if updated.rowcount != 1:
             raise RuntimeError("The executing action audit record could not be finalized.")
+
+
+def heartbeat_confirmation(action_id: str) -> bool:
+    """Extend the lease of one executing action without changing its outcome."""
+    with _database_connection() as connection:
+        updated = connection.execute(
+            """
+            UPDATE pending_agent_actions
+            SET claimed_at = ?
+            WHERE id = ? AND status = 'executing'
+            """,
+            (time.time(), action_id),
+        )
+    return updated.rowcount == 1
 
 
 def cancel_confirmation(action_id: str, scope: Dict[str, str]) -> bool:

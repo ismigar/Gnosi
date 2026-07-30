@@ -17,7 +17,9 @@ such as Mistral.
 3. Keep the specialist-to-tool-to-specialist loop while a tool call is pending.
 4. Test both the fallback route and the completed-specialist routes.
 5. Namespace browser sessions, graph caches, checkpoint files, and thread IDs
-   by the active Vault. Scope every visible conversation to its selected agent.
+   by the active Vault, authenticated workspace, authenticated user, and agent.
+   Scope every visible conversation to that complete identity; logout/login on
+   the same browser must never reveal another user's messages.
 6. Validate agent and session identifiers as opaque identifiers before using
    them. Derive filesystem names from hashes, never from request text.
 7. Upload chat attachments to a dedicated directory in the active Vault.
@@ -139,14 +141,31 @@ such as Mistral.
 
 ## Restrictions / Edge Cases
 
+- Authorization is evaluated over the complete current-turn clause. A denial or
+  negation after an action phrase overrides an earlier affirmative match.
+- Compact messages and tool results before every model invocation against a
+  deterministic model input budget, reserving room for prompts, tool schemas,
+  and output. Page bodies, metadata, PDFs, and skill instructions are bounded.
+- Read-modify-write tools serialize by canonical page path and reject stale
+  revisions. Create operations reserve their destination under the same lock.
+- Attachments are scoped to vault, workspace, user, agent, and session.
+- Clients consume `agent_runtime` metadata and distinguish connectivity from
+  tool/skill compatibility.
+- Server checkpoints are canonical; browser history is only a cache and
+  checkpoint deletion is awaited or durably retried.
+- Session-lock waiting is separate from provider execution and does not affect
+  model reliability. Telemetry finalizes on every terminal path.
+- Reliability is tenant-scoped; page lookup uses an index or bounded cache
+  instead of a complete vault scan per tool call.
+
 - Do not route a completed Coder or Brain response back to the supervisor. It
   makes `assistant` the last message in a subsequent provider call and Mistral
   rejects it with `invalid_request_message_order`.
 - Do not map an unknown initial supervisor decision to END. It produces an
   empty chat turn; route it to General instead.
 - Do not key sessions, caches, checkpoints, or graph thread IDs only by agent
-  or session. That leaks context when the user changes Vault or agent; include
-  both scopes.
+  or session. That leaks context when the user changes Vault, workspace, user,
+  or agent; include every scope.
 - Do not interpolate request identifiers into paths. A slash or `..` can
   escape the checkpoint directory; validate the identifier and hash the
   resulting scope instead.
@@ -213,6 +232,9 @@ such as Mistral.
 - Do not authorize a write because its phrase occurs inside "do not", a quote,
   an explanation, or a third-person capability question. A substring match is
   not user intent.
+- Do not treat conditional/subordinate wording such as "before you send",
+  quoted examples using single quotes, or "explain how to delete" as an
+  imperative write request.
 - Do not accept client-provided tool IDs as confirmation. The server creates a
   one-shot confirmation only after it has the exact governed tool call and its
   arguments.

@@ -42,6 +42,10 @@ ledger groups `provider:model` by reason and day under
 
 ## Restrictions
 
+- Reliability events and reports are scoped to the authenticated tenant/user.
+- Local session-lock contention is not a provider failure. Record usage exactly
+  once in a `finally` path, including failures, timeouts, and disconnects.
+
 - Keep this observational. Future routing may use only model-attributable
   reasons and only for the affected capability; `tool_use_failed` can remove
   tool capability without banning text generation.

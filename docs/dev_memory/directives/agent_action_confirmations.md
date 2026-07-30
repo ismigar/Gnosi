@@ -36,8 +36,24 @@ success, failure, and an unknown external outcome.
    handler resolved from the assigned active runtime.
 5. Make local batches atomic through full prevalidation and rollback. If
    rollback itself cannot restore every item, return an explicit partial result.
-6. Queue slow cleanup outside the HTTP response and report that cleanup state.
-7. Record only bounded non-sensitive result metadata; scrub arguments and
+6. Register every attempted local write for rollback before the write starts.
+   A failure after the file replacement but before index refresh must restore
+   that same file and must never be reported as a complete rollback otherwise.
+7. Seal slow destructive cleanup through a same-filesystem quarantine before
+   returning. Queue deletion of the quarantine outside the HTTP response,
+   recover abandoned quarantines after restart, and report that cleanup state.
+   Keep an `in-progress` manifest until the registry commit is durable, mark it
+   `ready` under the same registry lock, restore it if the target still exists
+   after a restart, and purge it only when the deletion commit is visible.
+   Maintenance must inspect every registered Vault, not only the default Vault.
+   If the registry cannot be read directly, leave every `in-progress`
+   quarantine untouched; an empty fallback registry is not deletion proof.
+8. Heartbeat an executing record while its handler is alive and enforce a
+   finite confirmation-execution deadline. A timed-out consequential action is
+   an unknown outcome and is never retried automatically.
+9. Run blocking first-party provider and filesystem dispatch outside the server
+   event loop so the deadline and heartbeat remain live during slow native I/O.
+10. Record only bounded non-sensitive result metadata; scrub arguments and
    detailed previews immediately on every terminal transition, and reject
    replay.
 
@@ -51,6 +67,8 @@ success, failure, and an unknown external outcome.
 5. Chat-session deletion cancels and scrubs its pending actions.
 6. Expired, cancelled, completed, partial, failed, and unknown records keep
    minimal audit metadata for seven days, then are deleted.
+7. Run retention and stale-lease maintenance at startup and periodically; it
+   must not depend on a future user opening the confirmation list.
 
 ## User experience
 
@@ -65,18 +83,48 @@ success, failure, and an unknown external outcome.
 7. Never persist exact preview details in browser storage; restore pending
    previews only from the scoped server endpoint.
 8. Localize stable status/error codes and use locale pluralization.
+9. Refresh pending/executing cards while the chat remains open so expiry and
+   terminal transitions do not remain visually pending.
 
 ## Restrictions and edge cases
+
+- Normalize governed handler statuses: `error`/`failed` become `failed`,
+  `cancelled` and `partial` are preserved, and only documented success statuses
+  become `completed`. Unknown or error-bearing results never become success.
 
 - Do not use raw text substrings as sufficient write authorization.
 - Do not accept a client-side list of pre-confirmed tool IDs.
 - Do not stream secret-bearing arguments or retain them in terminal rows.
 - Do not retry an unknown external outcome.
 - Do not execute newly added trash items from an older count preview.
+- Do not hash only a trash sidecar when purging the whole entry. The immutable
+  snapshot covers every path and byte that will be deleted.
+- Do not delete table views or assets that were added after the preview. Table
+  deletion binds the table, views, rows, row disposition, and asset tree.
+- Do not quarantine an entire database asset root when a table's flat asset
+  name collides with the database name. Seal only that table's structured
+  subtree and loose flat files; preserve every sibling table subtree.
+- Do not resolve a table-owned asset symlink to its target before hashing or
+  quarantine. Preserve and move the link itself, and reject paths whose parent
+  resolves outside the active Vault.
+- Do not purge unknown or malformed entries from the quarantine root. Only a
+  `ready` entry or an `in-progress` manifest whose registry commit state is
+  known may be removed.
+- Do not delete a table until the user has chosen whether its rows are unlinked
+  or moved to trash.
 - Do not overwrite concurrent page, row, schema, contact, or registry changes.
 - Do not convert a route's meaningful `404` or `409` into a generic `500`.
+- Do not classify a provider-side `5xx` after an external/destructive dispatch
+  as a known failure merely because it is represented by `HTTPException`.
 - Do not report a batch as complete when any item failed.
 - Do not await cloud filesystem cleanup in the confirmation HTTP response.
+- Do not let bounded terminal history crowd a newer pending action out of the
+  resumable list; pending/executing records have retrieval priority.
+- Do not preview or execute a mail target by message ID alone. Bind the account
+  and exact local or provider message revision, source folder, and provider
+  identity, and show the same resolved metadata in the modal.
+- Do not invoke repair-on-read parsers while preparing a confirmation preview;
+  preview resolution is read-only.
 
 ## Verification
 
