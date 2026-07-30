@@ -12,13 +12,19 @@ from backend.utils.safe_io import safe_write_text
 
 LLM_WIKI_AGENT_ID = "llm-wiki"
 LLM_WIKI_AGENT_MARKER = "llm-wiki"
+LLM_WIKI_SKILL_IDS = [
+    "plugin.llm-wiki.query",
+    "plugin.llm-wiki.process-source",
+    "plugin.llm-wiki.process-status",
+    "plugin.llm-wiki.maintain",
+    "plugin.llm-wiki.propose-connections",
+]
+LLM_WIKI_REQUIRED_SKILL_IDS = ["plugin.llm-wiki.query"]
+LEGACY_DEFAULT_SKILL_IDS = ["core.legacy-default-v1"]
 
 DEFAULT_PERSONA = """You are Gnosi's Brain agent, a persistent knowledge wiki.
-Consult the Brain first when a question asks about knowledge that has already been processed.
-Always distinguish reading notes from permanent notes and preserve source citations.
-Propose connections or syntheses, but never create permanent notes without human confirmation.
-When processing a source, preserve provenance, the order in which ideas appear, and any
-profile-specific instructions added by the user."""
+Use the skills assigned by the LLM Wiki plugin and any profile-specific instructions
+added by the user. Never create permanent notes without human confirmation."""
 
 _config_lock = threading.RLock()
 
@@ -58,8 +64,32 @@ def ensure_agent(ai_config: dict[str, Any]) -> tuple[dict[str, Any], bool]:
             raise LlmWikiAgentError(
                 "The reserved 'llm-wiki' ID already belongs to another agent; it was not changed."
             )
+        changed = False
+        # The global assignment migration may have materialized the legacy
+        # bundle before this plugin-specific migration runs. Replace only that
+        # exact synthetic value; preserve every explicit user selection.
+        if (
+            "skill_ids" not in existing
+            or existing.get("skill_ids") == LEGACY_DEFAULT_SKILL_IDS
+        ):
+            existing["skill_ids"] = list(LLM_WIKI_SKILL_IDS)
+            changed = True
+        required_skill_ids = list(existing.get("required_skill_ids") or [])
+        for skill_id in LLM_WIKI_REQUIRED_SKILL_IDS:
+            if skill_id not in required_skill_ids:
+                required_skill_ids.append(skill_id)
+                changed = True
+        existing["required_skill_ids"] = required_skill_ids
+        if existing.pop("plugin_suspended", False):
+            existing["enabled"] = bool(
+                existing.pop(
+                    "plugin_enabled_before_suspend",
+                    bool(existing.get("provider") and existing.get("model")),
+                )
+            )
+            changed = True
         next_ai["agents"] = agents
-        return next_ai, False
+        return next_ai, changed
 
     provider, model = _model_seed(agents, str(next_ai.get("active_agent_id") or ""))
     agents.append({
@@ -76,6 +106,8 @@ def ensure_agent(ai_config: dict[str, Any]) -> tuple[dict[str, Any], bool]:
         "persona": DEFAULT_PERSONA,
         "context": "",
         "context_refs": [],
+        "skill_ids": list(LLM_WIKI_SKILL_IDS),
+        "required_skill_ids": list(LLM_WIKI_REQUIRED_SKILL_IDS),
     })
     next_ai["agents"] = agents
     return next_ai, True
@@ -97,6 +129,38 @@ def remove_agent(ai_config: dict[str, Any]) -> tuple[dict[str, Any], bool]:
     if next_ai.get("active_agent_id") == LLM_WIKI_AGENT_ID:
         next_ai["active_agent_id"] = next(
             (str(agent.get("id") or "") for agent in next_ai["agents"] if agent.get("enabled", True)),
+            "",
+        )
+    return next_ai, True
+
+
+def suspend_agent(ai_config: dict[str, Any]) -> tuple[dict[str, Any], bool]:
+    """Suspend the managed profile while preserving all user overrides."""
+
+    next_ai = deepcopy(ai_config or {})
+    agents = list(next_ai.get("agents") or [])
+    existing = _managed_agent(agents)
+    if not existing:
+        next_ai["agents"] = agents
+        return next_ai, False
+    if existing.get("managed_by") != LLM_WIKI_AGENT_MARKER:
+        raise LlmWikiAgentError(
+            "The reserved 'llm-wiki' ID is not managed by the plugin and cannot be suspended."
+        )
+    if existing.get("plugin_suspended"):
+        next_ai["agents"] = agents
+        return next_ai, False
+    existing["plugin_enabled_before_suspend"] = bool(existing.get("enabled", True))
+    existing["plugin_suspended"] = True
+    existing["enabled"] = False
+    next_ai["agents"] = agents
+    if next_ai.get("active_agent_id") == LLM_WIKI_AGENT_ID:
+        next_ai["active_agent_id"] = next(
+            (
+                str(agent.get("id") or "")
+                for agent in agents
+                if agent is not existing and agent.get("enabled", True)
+            ),
             "",
         )
     return next_ai, True
@@ -133,10 +197,14 @@ def transition_agent(enabled: bool) -> dict[str, Any]:
         if enabled:
             next_ai, changed = ensure_agent(dict(cfg.ai or {}))
         else:
-            next_ai, changed = remove_agent(dict(cfg.ai or {}))
-        persisted["ai"] = next_ai
-        yaml_text = yaml.safe_dump(
-            persisted, default_flow_style=False, allow_unicode=True, sort_keys=False,
-        )
-        safe_write_text(path, yaml_text)
+            next_ai, changed = suspend_agent(dict(cfg.ai or {}))
+        if changed:
+            persisted["ai"] = next_ai
+            yaml_text = yaml.safe_dump(
+                persisted,
+                default_flow_style=False,
+                allow_unicode=True,
+                sort_keys=False,
+            )
+            safe_write_text(path, yaml_text)
         return {"agent_id": LLM_WIKI_AGENT_ID, "agent_changed": changed}

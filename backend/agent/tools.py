@@ -6,7 +6,13 @@ from backend.mcp.client import MultiServerMCPClient
 
 log = logging.getLogger(__name__)
 
-def create_mcp_tool(tool_def: Dict[str, Any], client: MultiServerMCPClient) -> StructuredTool:
+def create_mcp_tool(
+    tool_def: Dict[str, Any],
+    client: MultiServerMCPClient,
+    *,
+    exposed_name: str | None = None,
+    server_name: str | None = None,
+) -> StructuredTool:
     """
     Creates a LangChain tool from an MCP definition.
     """
@@ -35,12 +41,14 @@ def create_mcp_tool(tool_def: Dict[str, Any], client: MultiServerMCPClient) -> S
 
     async def tool_func(**kwargs):
         # This function will be called by the agent when it uses the tool
+        if server_name:
+            return await client.call_server_tool(server_name, name, kwargs)
         return await client.call_tool(name, kwargs)
 
     return StructuredTool.from_function(
         func=None,
         coroutine=tool_func,
-        name=name,
+        name=exposed_name or name,
         description=description,
         args_schema=ArgsModel
     )
