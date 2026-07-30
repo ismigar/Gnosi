@@ -869,7 +869,7 @@ export function DbViewEmbed({ block }) {
     }, [densityStorageKey]);
     const toggleFeedDensity = useCallback(() => {
         setFeedDensity((current) => {
-            const next = current === 'compact' ? 'comfortable' : 'compact';
+            const next = current === 'compact' ? 'comfortable' : current === 'comfortable' ? 'adaptive' : 'compact';
             try { localStorage.setItem(densityStorageKey, next); } catch { /* noop */ }
             return next;
         });
@@ -914,13 +914,14 @@ export function DbViewEmbed({ block }) {
                 label: t('views_header.quick_view_name', { count: nextNumber }),
                 searchTerm,
                 density: feedDensity,
+                groupMode: feedGroupMode,
                 activeViewId,
             };
             const next = [...current.slice(-4), preset];
             persistQuickPresets(next);
             return next;
         });
-    }, [activeViewId, feedDensity, persistQuickPresets, searchTerm, t]);
+    }, [activeViewId, feedDensity, feedGroupMode, persistQuickPresets, searchTerm, t]);
     const applyQuickPreset = useCallback((presetId) => {
         const preset = quickPresets.find((candidate) => candidate.id === presetId);
         if (!preset) return;
@@ -930,6 +931,7 @@ export function DbViewEmbed({ block }) {
             setFeedDensity(preset.density);
             try { localStorage.setItem(densityStorageKey, preset.density); } catch { /* noop */ }
         }
+        if (preset.groupMode) setFeedGroupMode(preset.groupMode);
         if (preset.activeViewId) setActiveViewId(preset.activeViewId);
     }, [densityStorageKey, quickPresets]);
     const renameQuickPreset = useCallback((presetId) => {
@@ -954,7 +956,10 @@ export function DbViewEmbed({ block }) {
     const exportQuickPresets = useCallback(async () => {
         const payload = JSON.stringify({ version: 1, presets: quickPresets });
         try {
-            await navigator.clipboard.writeText(payload);
+            const encoded = btoa(unescape(encodeURIComponent(payload)));
+            const url = new URL(window.location.href);
+            url.hash = `gnosi-view-presets=${encoded}`;
+            await navigator.clipboard.writeText(url.toString());
             toast.success(t('views_header.quick_views_copied', 'View configuration copied'));
         } catch {
             toast.error(t('views_header.quick_views_copy_error', 'Could not copy the configuration'));
@@ -962,7 +967,10 @@ export function DbViewEmbed({ block }) {
     }, [quickPresets, t]);
     const importQuickPresets = useCallback((raw) => {
         try {
-            const parsed = JSON.parse(raw);
+            const candidate = String(raw || '').includes('gnosi-view-presets=')
+                ? decodeURIComponent(escape(atob(String(raw).split('gnosi-view-presets=')[1].split('#')[0])))
+                : raw;
+            const parsed = JSON.parse(candidate);
             const incoming = Array.isArray(parsed) ? parsed : parsed.presets;
             if (!Array.isArray(incoming)) throw new Error('invalid preset payload');
             const next = incoming.filter((preset) => preset && typeof preset.label === 'string').slice(-5).map((preset, index) => ({ ...preset, id: `${Date.now()}-${index}` }));

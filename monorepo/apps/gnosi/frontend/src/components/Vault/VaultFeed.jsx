@@ -68,7 +68,7 @@ function highlightSearchMatch(value, searchTerm) {
  * interact with the body); opening the page is done with the "Open" button or
  * by clicking the title.
  */
-function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, onOpen, onPreview, titlePreviewProps, searchTerm, density, index, onVisible, pillLimit = PILL_PREVIEW_LIMIT, excerptLines = 6 }) {
+function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, onOpen, onPreview, titlePreviewProps, searchTerm, isRead, density, index, onVisible, pillLimit = PILL_PREVIEW_LIMIT, excerptLines = 6 }) {
     const { t, i18n } = useTranslation();
     const isCompact = useMediaQuery('(max-width: 768px)');
     const [expanded, setExpanded] = useState(false);
@@ -135,7 +135,7 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
         <article
             ref={cardRef}
             data-feed-note-id={note.id}
-            className={`vault-feed-card ${density === 'compact' ? 'vault-feed-card--compact' : ''} relative bg-[var(--bg-primary)] rounded-2xl shadow-sm border overflow-hidden hover:shadow-md transition-all group flex flex-col ${isSelected ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/40'}`}
+            className={`vault-feed-card ${density === 'compact' ? 'vault-feed-card--compact' : ''} ${density === 'adaptive' ? 'vault-feed-card--adaptive' : ''} ${isRead ? 'is-read' : ''} relative bg-[var(--bg-primary)] rounded-2xl shadow-sm border overflow-hidden hover:shadow-md transition-all group flex flex-col ${isSelected ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/40'}`}
         >
             {/* The label only stops propagation (not opening the card): the
                 toggle is handled by the input's onChange. If the label also called
@@ -294,7 +294,7 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
  * dedicated component so the parent can remount it (via `key`) and reset the
  * count when the set changes, without `setState` inside an effect or mutating refs during render.
  */
-function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSelect, onOpen, onPreview, getTitleProps, searchTerm, density, groupMode, pillLimit, excerptLines }) {
+function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSelect, onOpen, onPreview, getTitleProps, searchTerm, readIds, density, groupMode, pillLimit, excerptLines }) {
     const { t, i18n } = useTranslation();
     const sentinelRef = useRef(null);
     const [visibleCount, setVisibleCount] = useState(FEED_BATCH);
@@ -360,6 +360,7 @@ function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSele
                             onPreview={onPreview}
                             titlePreviewProps={getTitleProps(note.id)}
                             searchTerm={searchTerm}
+                            isRead={readIds.has(note.id)}
                             density={density}
                             index={index}
                             onVisible={handleVisible}
@@ -393,9 +394,26 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
         try { return Number(localStorage.getItem('gnosi.feed.readingPaneWidth')) || 480; } catch { return 480; }
     });
     const [cleanReading, setCleanReading] = useState(false);
+    const [dockReadingPane, setDockReadingPane] = useState(() => {
+        try { return localStorage.getItem('gnosi.feed.dockReadingPane') === 'true'; } catch { return false; }
+    });
+    const [feedFocus, setFeedFocus] = useState(false);
+    const readStorageKey = `gnosi.feed.read.${activeView?.id || 'default'}`;
+    const [readIds, setReadIds] = useState(() => {
+        try { return new Set(JSON.parse(localStorage.getItem(readStorageKey) || '[]')); } catch { return new Set(); }
+    });
+    const [bulkProposal, setBulkProposal] = useState(null);
     const [bulkSaveState, setBulkSaveState] = useState('idle');
     const [pendingBulkUndo, setPendingBulkUndo] = useState(null);
     const titlePreview = useTitlePreview({ onOpenPage: onNoteSelect });
+    const markRead = useCallback((id) => {
+        setReadIds((current) => {
+            if (current.has(id)) return current;
+            const next = new Set(current).add(id);
+            try { localStorage.setItem(readStorageKey, JSON.stringify([...next].slice(-500))); } catch { /* noop */ }
+            return next;
+        });
+    }, [readStorageKey]);
     const updateFeedPreferences = useCallback((patch) => {
         setFeedPreferences((current) => {
             const next = { ...current, ...patch };
@@ -603,10 +621,11 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
         try { return localStorage.getItem(lastRecordStorageKey) || ''; } catch { return ''; }
     });
     const openFeedRecord = useCallback((id) => {
+        markRead(id);
         setLastRecordId(id);
         try { localStorage.setItem(lastRecordStorageKey, id); } catch { /* noop */ }
         onNoteSelect?.(id);
-    }, [lastRecordStorageKey, onNoteSelect]);
+    }, [lastRecordStorageKey, markRead, onNoteSelect]);
     const previewIndex = sortedNotes.findIndex((note) => note.id === previewId);
     const previewNote = previewIndex >= 0 ? sortedNotes[previewIndex] : null;
     const movePreview = useCallback((offset) => {
@@ -665,6 +684,11 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
                 : value;
             return { id, field, previous: current, next: nextValue };
         });
+        setBulkProposal({ field, value, changes });
+    }, [notes, onUpdateNote, schema, selectedIds, setBulkProposal]);
+    const confirmBulkField = useCallback(async () => {
+        const changes = bulkProposal?.changes || [];
+        if (!changes.length || !onUpdateNote) return;
         setBulkSaveState('saving');
         try {
             await Promise.all(changes.map((change) => onUpdateNote(change.id, { metadata: { [change.field]: change.next } })));
@@ -676,7 +700,8 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
             toast.error(t('feed.bulk_save_error', 'Some changes could not be saved'));
         }
         clearSelection();
-    }, [clearSelection, notes, onUpdateNote, schema, selectedIds, setBulkSaveState, setPendingBulkUndo, t]);
+        setBulkProposal(null);
+    }, [bulkProposal, clearSelection, onUpdateNote, setBulkProposal, setBulkSaveState, setPendingBulkUndo, t]);
     const undoBulkField = useCallback(async () => {
         if (!pendingBulkUndo || !onUpdateNote) return;
         setBulkSaveState('saving');
@@ -726,14 +751,16 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
     }
 
     return (
-        <div className="vault-feed w-full h-full pt-vault-header-top px-4 md:px-6 pb-4 md:pb-6 overflow-y-auto custom-scrollbar bg-[var(--bg-primary)] flex flex-col items-center">
+        <div className={`vault-feed w-full h-full pt-vault-header-top px-4 md:px-6 pb-4 md:pb-6 overflow-y-auto custom-scrollbar bg-[var(--bg-primary)] flex flex-col items-center ${feedFocus ? 'is-focus' : ''} ${previewNote && dockReadingPane ? 'has-docked-pane' : ''}`} style={previewNote && dockReadingPane ? { paddingRight: `calc(${paneWidth}px + 1.5rem)` } : undefined}>
             <div className="relative self-end w-full max-w-3xl flex justify-end mb-2">
                 <button type="button" onClick={() => setShowPreferences((open) => !open)} className="vault-feed-preferences-trigger" aria-expanded={showPreferences} title={t('feed.reading_preferences', 'Reading preferences')}><SlidersHorizontal size={14} /> {t('feed.reading_preferences', 'Reading preferences')}</button>
                 {showPreferences && <div className="vault-feed-preferences">
                     <label>{t('feed.visible_tags', 'Visible tags')}<select value={feedPreferences.pillLimit} onChange={(event) => updateFeedPreferences({ pillLimit: Number(event.target.value) })}><option value="3">3</option><option value="5">5</option><option value="8">8</option></select></label>
                     <label>{t('feed.excerpt_length', 'Excerpt length')}<select value={feedPreferences.excerptLines} onChange={(event) => updateFeedPreferences({ excerptLines: Number(event.target.value) })}><option value="3">3</option><option value="6">6</option><option value="9">9</option></select></label>
+                    <label className="vault-feed-preferences__toggle"><input type="checkbox" checked={feedFocus} onChange={(event) => setFeedFocus(event.target.checked)} />{t('feed.focus_feed', 'Focus feed')}</label>
                 </div>}
             </div>
+            <div className="vault-feed-progress" role="status">{t('feed.reading_progress', { read: sortedNotes.filter((note) => readIds.has(note.id)).length, total: sortedNotes.length, defaultValue: '{{read}} of {{total}} read' })}</div>
             {selectedIds.size > 0 && (
                 <VaultBulkActionsBar
                         selectedIds={selectedIds}
@@ -748,6 +775,11 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
             {(bulkSaveState !== 'idle' || pendingBulkUndo) && <div className={`vault-feed-sync-state vault-feed-sync-state--${bulkSaveState}`} role="status">
                 <span>{bulkSaveState === 'saving' ? t('feed.sync_saving', 'Saving changes…') : bulkSaveState === 'error' ? t('feed.sync_error', 'Changes need attention') : t('feed.sync_saved', 'Changes saved')}</span>
                 {pendingBulkUndo && <button type="button" onClick={undoBulkField}>{t('common.undo', 'Undo')}</button>}
+            </div>}
+            {bulkProposal && <div className="vault-feed-bulk-proposal" role="dialog" aria-label={t('feed.confirm_bulk_update', 'Confirm batch update')}>
+                <strong>{t('feed.bulk_preview_title', 'Review batch update')}</strong>
+                <span>{t('feed.bulk_preview_hint', { count: bulkProposal.changes.length, field: bulkProposal.field, value: bulkProposal.value, defaultValue: '{{count}} records: {{field}} → {{value}}' })}</span>
+                <div><button type="button" onClick={() => setBulkProposal(null)}>{t('common.cancel', 'Cancel')}</button><button type="button" className="btn-gnosi btn-gnosi-primary !text-xs" onClick={confirmBulkField}>{t('feed.apply_changes', 'Apply changes')}</button></div>
             </div>}
             {lastRecordId && sortedNotes.some((note) => note.id === lastRecordId) && (
                 <button type="button" className="vault-feed-return" onClick={returnToLastRecord}>
@@ -765,15 +797,16 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
                 onPreview={setPreviewId}
                 getTitleProps={titlePreview.getTitleProps}
                 searchTerm={searchTerm}
+                readIds={readIds}
                 density={density}
                 groupMode={groupMode}
                 pillLimit={feedPreferences.pillLimit}
                 excerptLines={feedPreferences.excerptLines}
             />
             {titlePreview.preview}
-            {previewNote && <aside className={`vault-feed-reading-pane ${cleanReading ? 'is-clean' : ''}`} style={{ width: `min(${paneWidth}px, 92vw)` }} aria-label={t('feed.reading_pane', 'Reading pane')}>
+            {previewNote && <aside className={`vault-feed-reading-pane ${cleanReading ? 'is-clean' : ''} ${dockReadingPane ? 'is-docked' : ''}`} style={{ width: `min(${paneWidth}px, 92vw)` }} aria-label={t('feed.reading_pane', 'Reading pane')}>
                 <div className="vault-feed-reading-pane__resize" onPointerDown={startPaneResize} role="separator" aria-orientation="vertical" aria-label={t('feed.resize_reading_pane', 'Resize reading pane')} />
-                <div className="vault-feed-reading-pane__header"><span>{t('feed.reading_pane', 'Reading pane')}</span><button type="button" onClick={() => setCleanReading((current) => !current)} aria-pressed={cleanReading}>{cleanReading ? t('feed.show_details', 'Show details') : t('feed.clean_reading', 'Clean reading')}</button><button type="button" onClick={() => setPreviewId('')} aria-label={t('common.close')}><X size={18} /></button></div>
+                <div className="vault-feed-reading-pane__header"><span>{t('feed.reading_pane', 'Reading pane')}</span><button type="button" onClick={() => setDockReadingPane((current) => { const next = !current; try { localStorage.setItem('gnosi.feed.dockReadingPane', String(next)); } catch { /* noop */ } return next; })} aria-pressed={dockReadingPane}>{dockReadingPane ? t('feed.undock_pane', 'Float pane') : t('feed.dock_pane', 'Dock pane')}</button><button type="button" onClick={() => setCleanReading((current) => !current)} aria-pressed={cleanReading}>{cleanReading ? t('feed.show_details', 'Show details') : t('feed.clean_reading', 'Clean reading')}</button><button type="button" onClick={() => setPreviewId('')} aria-label={t('common.close')}><X size={18} /></button></div>
                 <div className="vault-feed-reading-pane__content"><h2>{previewNote.title || t('common.untitled', 'Untitled')}</h2>{!cleanReading && <p className="vault-feed-reading-pane__meta">{t('feed.reading_shortcuts', 'Use ← → to navigate · Esc to close')}</p>}{previewNote.metadata?.description ? <VaultMarkdown md={prepareBodyMd(previewNote.metadata.description)} onActivate={() => openFeedRecord(previewNote.id)} imageTitle={previewNote.title || ''} /> : <p>{t('feed.no_excerpt', 'This record has no excerpt yet.')}</p>}</div>
                 <div className="vault-feed-reading-pane__footer"><button type="button" onClick={() => movePreview(-1)} disabled={previewIndex <= 0} aria-label={t('feed.previous_record', 'Previous record')}><ArrowLeft size={16} /></button><span>{previewIndex + 1} / {sortedNotes.length}</span><button type="button" onClick={() => movePreview(1)} disabled={previewIndex >= sortedNotes.length - 1} aria-label={t('feed.next_record', 'Next record')}><ArrowRight size={16} /></button><button type="button" className="btn-gnosi btn-gnosi-primary !text-xs" onClick={() => openFeedRecord(previewNote.id)}>{t('feed.open_page', 'Open page')}</button></div>
             </aside>}

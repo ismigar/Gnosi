@@ -27,6 +27,16 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
       removed: [...before].filter((line) => !after.has(line)).length,
     };
   };
+  const diffLines = (left, right) => {
+    const before = String(left || '').split('\n');
+    const after = String(right || '').split('\n');
+    const beforeSet = new Set(before);
+    const afterSet = new Set(after);
+    return [
+      ...before.filter((line) => line && !afterSet.has(line)).map((line) => ({ line, kind: 'removed' })),
+      ...after.map((line) => ({ line, kind: line && !beforeSet.has(line) ? 'added' : 'unchanged' })),
+    ];
+  };
 
   useEffect(() => {
     if (open && pageId) {
@@ -238,7 +248,7 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
                 <div className="flex-1 p-8 overflow-y-auto custom-scrollbar bg-[var(--bg-primary)]">
                   <div className="max-w-3xl mx-auto">
                     <pre className="text-sm font-mono text-[var(--text-primary)] whitespace-pre-wrap break-words leading-relaxed selection:bg-[var(--gnosi-primary)]/20">
-                      {previewContent}
+                      {comparisonContent === null ? previewContent : diffLines(comparisonContent, previewContent).map(({ line, kind }, index) => <span key={`${kind}-${index}`} className={`vault-history-diff-line vault-history-diff-line--${kind}`}>{kind === 'added' ? '+ ' : kind === 'removed' ? '− ' : '  '}{line}{'\n'}</span>)}
                     </pre>
                   </div>
                 </div>
