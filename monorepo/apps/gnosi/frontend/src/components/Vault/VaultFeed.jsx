@@ -15,6 +15,8 @@ import { useVaultViewData } from '../../hooks/useVaultViewData';
 import { useLocaleSettings } from '../../hooks/useLocaleSettings';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
+import { useTitlePreview } from './useTitlePreview';
+import { toast } from '../../lib/toast';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { RelationItem } from './RelationItem';
@@ -48,6 +50,16 @@ function prepareBodyMd(raw) {
     return s.trim();
 }
 
+function highlightSearchMatch(value, searchTerm) {
+    const text = String(value || '');
+    const terms = String(searchTerm || '').trim().split(/\s+/).filter((term) => term.length > 1);
+    if (!terms.length) return text;
+    const pattern = new RegExp(`(${terms.map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'ig');
+    return text.split(pattern).map((part, index) => terms.some((term) => part.toLocaleLowerCase() === term.toLocaleLowerCase())
+        ? <mark key={index} className="vault-feed-search-match">{part}</mark>
+        : part);
+}
+
 /**
  * Feed card (Notion style): icon+title inline, ALL properties
  * inline as pills, generous formatted preview of the content, and
@@ -56,7 +68,7 @@ function prepareBodyMd(raw) {
  * interact with the body); opening the page is done with the "Open" button or
  * by clicking the title.
  */
-function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, onOpen, onPreview, density, index, onVisible, pillLimit = PILL_PREVIEW_LIMIT, excerptLines = 6 }) {
+function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, onOpen, onPreview, titlePreviewProps, searchTerm, density, index, onVisible, pillLimit = PILL_PREVIEW_LIMIT, excerptLines = 6 }) {
     const { t, i18n } = useTranslation();
     const isCompact = useMediaQuery('(max-width: 768px)');
     const [expanded, setExpanded] = useState(false);
@@ -186,13 +198,14 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
                                 onClick={selectionActive ? undefined : openNote}
                                 disabled={selectionActive}
                                 aria-label={openLabel}
+                                {...titlePreviewProps}
                                 className={`vault-feed-card__title text-xl font-bold text-[var(--text-primary)] leading-tight flex items-center gap-2 min-w-0 text-left ${selectionActive ? 'cursor-default' : 'cursor-pointer hover:text-[var(--gnosi-primary)]'} transition-colors`}
                                 title={note.title || ''}
                             >
                                 {note.metadata?.icon && (
                                     <span className="shrink-0 inline-flex"><IconRenderer icon={note.metadata.icon} size={24} /></span>
                                 )}
-                                <span className="min-w-0">{note.title || t('common.untitled', "Untitled")}</span>
+                                <span className="min-w-0">{highlightSearchMatch(note.title || t('common.untitled', "Untitled"), searchTerm)}</span>
                             </button>
                         </h2>
                     </div>
@@ -281,7 +294,7 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
  * dedicated component so the parent can remount it (via `key`) and reset the
  * count when the set changes, without `setState` inside an effect or mutating refs during render.
  */
-function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSelect, onOpen, onPreview, density, groupMode, pillLimit, excerptLines }) {
+function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSelect, onOpen, onPreview, getTitleProps, searchTerm, density, groupMode, pillLimit, excerptLines }) {
     const { t, i18n } = useTranslation();
     const sentinelRef = useRef(null);
     const [visibleCount, setVisibleCount] = useState(FEED_BATCH);
@@ -345,6 +358,8 @@ function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSele
                             onToggleSelect={onToggleSelect}
                             onOpen={onOpen}
                             onPreview={onPreview}
+                            titlePreviewProps={getTitleProps(note.id)}
+                            searchTerm={searchTerm}
                             density={density}
                             index={index}
                             onVisible={handleVisible}
@@ -374,6 +389,13 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
     });
     const [showPreferences, setShowPreferences] = useState(false);
     const [previewId, setPreviewId] = useState('');
+    const [paneWidth, setPaneWidth] = useState(() => {
+        try { return Number(localStorage.getItem('gnosi.feed.readingPaneWidth')) || 480; } catch { return 480; }
+    });
+    const [cleanReading, setCleanReading] = useState(false);
+    const [bulkSaveState, setBulkSaveState] = useState('idle');
+    const [pendingBulkUndo, setPendingBulkUndo] = useState(null);
+    const titlePreview = useTitlePreview({ onOpenPage: onNoteSelect });
     const updateFeedPreferences = useCallback((patch) => {
         setFeedPreferences((current) => {
             const next = { ...current, ...patch };
@@ -632,19 +654,55 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
         }
     }, [selectedIds, onDeleteSelected, onDeletePage, notes, clearSelection]);
     const bulkSelectFields = dynamicColumns.filter(([, type]) => type === 'status' || type === 'select' || type === 'multi_select');
-    const applyBulkField = useCallback((field, value, append = false) => {
+    const applyBulkField = useCallback(async (field, value, append = false) => {
         if (!field || !value || !onUpdateNote) return;
         const type = getFieldType(schema, field);
-        selectedIds.forEach((id) => {
+        const changes = [...selectedIds].map((id) => {
             const note = notes.find((item) => item.id === id);
             const current = note?.metadata?.[field];
             const nextValue = append || type === 'multi_select'
                 ? [...new Set([...(Array.isArray(current) ? current : current ? [current] : []), value])]
                 : value;
-            onUpdateNote(id, { metadata: { [field]: nextValue } });
+            return { id, field, previous: current, next: nextValue };
         });
+        setBulkSaveState('saving');
+        try {
+            await Promise.all(changes.map((change) => onUpdateNote(change.id, { metadata: { [change.field]: change.next } })));
+            setPendingBulkUndo(changes);
+            setBulkSaveState('saved');
+            toast.success(t('feed.bulk_saved', 'Changes saved'));
+        } catch {
+            setBulkSaveState('error');
+            toast.error(t('feed.bulk_save_error', 'Some changes could not be saved'));
+        }
         clearSelection();
-    }, [clearSelection, notes, onUpdateNote, schema, selectedIds]);
+    }, [clearSelection, notes, onUpdateNote, schema, selectedIds, setBulkSaveState, setPendingBulkUndo, t]);
+    const undoBulkField = useCallback(async () => {
+        if (!pendingBulkUndo || !onUpdateNote) return;
+        setBulkSaveState('saving');
+        try {
+            await Promise.all(pendingBulkUndo.map((change) => onUpdateNote(change.id, { metadata: { [change.field]: change.previous } })));
+            setPendingBulkUndo(null);
+            setBulkSaveState('saved');
+            toast.success(t('feed.bulk_undone', 'Changes undone'));
+        } catch {
+            setBulkSaveState('error');
+            toast.error(t('feed.bulk_save_error', 'Some changes could not be saved'));
+        }
+    }, [onUpdateNote, pendingBulkUndo, setBulkSaveState, setPendingBulkUndo, t]);
+    const startPaneResize = useCallback((event) => {
+        event.preventDefault();
+        const startX = event.clientX;
+        const startWidth = paneWidth;
+        const onMove = (moveEvent) => setPaneWidth(Math.max(320, Math.min(760, startWidth + startX - moveEvent.clientX)));
+        const onUp = () => {
+            try { localStorage.setItem('gnosi.feed.readingPaneWidth', String(paneWidth)); } catch { /* noop */ }
+            window.removeEventListener('pointermove', onMove);
+            window.removeEventListener('pointerup', onUp);
+        };
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp, { once: true });
+    }, [paneWidth, setPaneWidth]);
 
     useVaultSelectionShortcuts({
         selectedCount: selectedIds.size,
@@ -687,6 +745,10 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
                     className="vault-feed-selection-bar sticky top-2 w-full max-w-3xl mb-4 shrink-0 bg-[var(--gnosi-primary)]/10 border border-[var(--gnosi-primary)]/20 rounded-lg px-4 py-2 flex items-center gap-3 text-sm z-30"
                 />
             )}
+            {(bulkSaveState !== 'idle' || pendingBulkUndo) && <div className={`vault-feed-sync-state vault-feed-sync-state--${bulkSaveState}`} role="status">
+                <span>{bulkSaveState === 'saving' ? t('feed.sync_saving', 'Saving changes…') : bulkSaveState === 'error' ? t('feed.sync_error', 'Changes need attention') : t('feed.sync_saved', 'Changes saved')}</span>
+                {pendingBulkUndo && <button type="button" onClick={undoBulkField}>{t('common.undo', 'Undo')}</button>}
+            </div>}
             {lastRecordId && sortedNotes.some((note) => note.id === lastRecordId) && (
                 <button type="button" className="vault-feed-return" onClick={returnToLastRecord}>
                     {t('feed.return_to_last_record')}
@@ -701,14 +763,18 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
                 onToggleSelect={toggleSelect}
                 onOpen={openFeedRecord}
                 onPreview={setPreviewId}
+                getTitleProps={titlePreview.getTitleProps}
+                searchTerm={searchTerm}
                 density={density}
                 groupMode={groupMode}
                 pillLimit={feedPreferences.pillLimit}
                 excerptLines={feedPreferences.excerptLines}
             />
-            {previewNote && <aside className="vault-feed-reading-pane" aria-label={t('feed.reading_pane', 'Reading pane')}>
-                <div className="vault-feed-reading-pane__header"><span>{t('feed.reading_pane', 'Reading pane')}</span><button type="button" onClick={() => setPreviewId('')} aria-label={t('common.close')}><X size={18} /></button></div>
-                <div className="vault-feed-reading-pane__content"><h2>{previewNote.title || t('common.untitled', 'Untitled')}</h2>{previewNote.metadata?.description ? <VaultMarkdown md={prepareBodyMd(previewNote.metadata.description)} onActivate={() => openFeedRecord(previewNote.id)} imageTitle={previewNote.title || ''} /> : <p>{t('feed.no_excerpt', 'This record has no excerpt yet.')}</p>}</div>
+            {titlePreview.preview}
+            {previewNote && <aside className={`vault-feed-reading-pane ${cleanReading ? 'is-clean' : ''}`} style={{ width: `min(${paneWidth}px, 92vw)` }} aria-label={t('feed.reading_pane', 'Reading pane')}>
+                <div className="vault-feed-reading-pane__resize" onPointerDown={startPaneResize} role="separator" aria-orientation="vertical" aria-label={t('feed.resize_reading_pane', 'Resize reading pane')} />
+                <div className="vault-feed-reading-pane__header"><span>{t('feed.reading_pane', 'Reading pane')}</span><button type="button" onClick={() => setCleanReading((current) => !current)} aria-pressed={cleanReading}>{cleanReading ? t('feed.show_details', 'Show details') : t('feed.clean_reading', 'Clean reading')}</button><button type="button" onClick={() => setPreviewId('')} aria-label={t('common.close')}><X size={18} /></button></div>
+                <div className="vault-feed-reading-pane__content"><h2>{previewNote.title || t('common.untitled', 'Untitled')}</h2>{!cleanReading && <p className="vault-feed-reading-pane__meta">{t('feed.reading_shortcuts', 'Use ← → to navigate · Esc to close')}</p>}{previewNote.metadata?.description ? <VaultMarkdown md={prepareBodyMd(previewNote.metadata.description)} onActivate={() => openFeedRecord(previewNote.id)} imageTitle={previewNote.title || ''} /> : <p>{t('feed.no_excerpt', 'This record has no excerpt yet.')}</p>}</div>
                 <div className="vault-feed-reading-pane__footer"><button type="button" onClick={() => movePreview(-1)} disabled={previewIndex <= 0} aria-label={t('feed.previous_record', 'Previous record')}><ArrowLeft size={16} /></button><span>{previewIndex + 1} / {sortedNotes.length}</span><button type="button" onClick={() => movePreview(1)} disabled={previewIndex >= sortedNotes.length - 1} aria-label={t('feed.next_record', 'Next record')}><ArrowRight size={16} /></button><button type="button" className="btn-gnosi btn-gnosi-primary !text-xs" onClick={() => openFeedRecord(previewNote.id)}>{t('feed.open_page', 'Open page')}</button></div>
             </aside>}
         </div>

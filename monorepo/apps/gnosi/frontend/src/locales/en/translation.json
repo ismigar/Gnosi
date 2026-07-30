@@ -1184,7 +1184,7 @@
     "last_load_time": "Last load: {{duration}} ms",
     "configure_view_tooltip": "Configure View",
     "wip_tooltip": "In development for a future iteration",
-    "soon_badge": "Soon"
+    "soon_badge": "Soon", "export_quick_views": "Copy configuration", "import_quick_views": "Import configuration", "import_quick_views_hint": "Paste a configuration copied from another view.", "quick_views_copied": "View configuration copied", "quick_views_copy_error": "Could not copy the configuration", "quick_views_imported": "View configuration imported", "quick_views_import_error": "That configuration is not valid"
   },
   "fs_picker": {
     "title_any": "Select file or folder",
@@ -3002,7 +3002,7 @@
     "group_this_month": "This month",
     "position": "{{current}} of {{total}}",
     "return_to_last_record": "Return to last record",
-    "open_reading_pane": "Open reading pane", "reading_pane": "Reading pane", "previous_record": "Previous record", "next_record": "Next record", "no_excerpt": "This record has no excerpt yet.", "reading_preferences": "Reading preferences", "visible_tags": "Visible tags", "excerpt_length": "Excerpt length", "empty_search": "No records match this search.", "empty_search_hint": "Try fewer words or clear the search.", "empty_hint": "Create the first record or adjust the view filters.", "clear_search": "Clear search", "adjust_view": "Adjust view", "create_record": "Create record", "apply_field_to_selection": "Apply a field to the selection", "batch_update": "Update selected…"
+    "open_reading_pane": "Open reading pane", "reading_pane": "Reading pane", "previous_record": "Previous record", "next_record": "Next record", "no_excerpt": "This record has no excerpt yet.", "reading_preferences": "Reading preferences", "visible_tags": "Visible tags", "excerpt_length": "Excerpt length", "empty_search": "No records match this search.", "empty_search_hint": "Try fewer words or clear the search.", "empty_hint": "Create the first record or adjust the view filters.", "clear_search": "Clear search", "adjust_view": "Adjust view", "create_record": "Create record", "apply_field_to_selection": "Apply a field to the selection", "batch_update": "Update selected…", "resize_reading_pane": "Resize reading pane", "clean_reading": "Clean reading", "show_details": "Show details", "reading_shortcuts": "Use ← → to navigate · Esc to close", "sync_saving": "Saving changes…", "sync_saved": "Changes saved", "sync_error": "Changes need attention", "bulk_saved": "Changes saved", "bulk_undone": "Changes undone", "bulk_save_error": "Some changes could not be saved"
   },
   "files": {
     "delete_title": "Delete file",
