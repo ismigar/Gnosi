@@ -59,3 +59,16 @@ useEffect(() => {
 - `frontend/src/components/ForcesSection.jsx`
 - `frontend/src/pages/GraphPage.jsx`
 - `frontend/src/components/GraphViewer.jsx`
+
+## Backend cache integrity
+
+The global graph endpoint reads a per-vault dictionary cache. Scheduler
+invalidation must reset both the graph values and their timestamps to empty
+dictionaries. It must never assign `None`: graph construction calls `.get()`
+on both caches and a `None` value makes `/api/graph` return HTTP 500, leaving
+the interface empty.
+
+For resilience during hot reloads or older in-memory state, `GraphService`
+must normalize an invalid cache state to empty dictionaries before reading it.
+Add a regression test that starts with both cache attributes set to `None` and
+asserts graph construction still produces nodes.

@@ -890,7 +890,10 @@ class SchedulerManager:
         try:
             # 1. Clear Graph Cache and Force Rebuild
             log.info("⏰ Scheduler: Force rebuilding Unified Graph...")
-            GraphService._graph_cache = None
+            # Keep the cache contract stable: GraphService always expects a
+            # per-vault dictionary, including immediately after invalidation.
+            GraphService._graph_cache = {}
+            GraphService._last_graph_time = {}
             service = GraphService()
             graph = service.build_unified_graph()
             results["steps"].append(f"Graph rebuilt with {len(graph.get('nodes', []))} nodes")
