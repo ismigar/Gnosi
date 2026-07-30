@@ -371,34 +371,14 @@ export const GraphViewer = forwardRef(({
 
         const edgeReducer = (edge, data) => {
             if (data.hidden) return { ...data, hidden: true };
-            let color = data.color;
-
-            if (config && config.colors && config.colors.edges) {
-                const edgesConfig = config.colors.edges;
-                if (data.kind === 'tag' && edgesConfig.tag_edge_color) {
-                    color = edgesConfig.tag_edge_color;
-                } else if (data.kind === 'explicit') {
-                    if (data.directed && edgesConfig.direct_color) color = edgesConfig.direct_color;
-                    else if (edgesConfig.explicit_color) color = edgesConfig.explicit_color;
-                } else if (data.kind === 'inferred' || data.kind === 'similarity') {
-                    // Apply similarity bucket colors
-                    const sim = data.similarity || 0;
-                    const buckets = edgesConfig.similarity_buckets || [];
-                    // Buckets are sorted by min descending in config, so first match wins
-                    for (const bucket of buckets) {
-                        if (sim >= bucket.min) {
-                            color = bucket.color;
-                            break;
-                        }
-                    }
-                    // Fallback if no bucket matched
-                    if (!color || color === data.color) {
-                        color = edgesConfig.default_inferred_color || '#E0E0E0';
-                    }
-                }
-            } else if (data.kind === 'suggestion') {
-                color = '#FF4081';
-            }
+            const isDark = isDarkModeRef.current;
+            const baseColor = isDark
+                ? '#64748b'
+                : '#cbd0d8';
+            const activeColor = isDark
+                ? 'rgba(226, 232, 240, 0.72)'
+                : 'rgba(71, 85, 105, 0.58)';
+            const color = data.kind === 'suggestion' ? '#FF4081' : baseColor;
 
             const pathResult = pathResultRef.current;
             if (pathResult && pathResult.edges) {
@@ -409,20 +389,21 @@ export const GraphViewer = forwardRef(({
             if (hoveredNode) {
                 const source = graph.source(edge);
                 const target = graph.target(edge);
-                if (source === hoveredNode || target === hoveredNode) return { ...data, color, zIndex: 10 };
+                if (source === hoveredNode || target === hoveredNode) {
+                    return { ...data, color: activeColor, size: 0.65, zIndex: 10 };
+                }
                 else return { ...data, color: isDarkModeRef.current ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.05)", zIndex: 0 };
             }
 
             // Apply edge thickness multiplier and arrow toggle from visualization controls
-            let finalColor = color || (isDarkModeRef.current ? '#888888' : '#666666');
-            
             const result = {
                 ...data,
-                color: finalColor,
+                color,
+                type: showArrowsRef.current ? 'arrow' : 'line',
                 zIndex: 1
             };
             const thickness = edgeThicknessRef.current || 1.0;
-            result.size = Math.max(0.05, 0.08 * thickness);
+            result.size = Math.max(0.2, 0.4 * thickness);
             
             return result;
 
@@ -438,9 +419,10 @@ export const GraphViewer = forwardRef(({
             nodeReducer,
             edgeReducer,
             renderEdges: true, // Native edge rendering
-            defaultEdgeType: "arrow", // Global arrows
-            minArrowSize: 8,
-            maxArrowSize: 15,
+            defaultEdgeType: "line",
+            minEdgeThickness: 0.2,
+            minArrowSize: 3,
+            maxArrowSize: 6,
 
             labelColor: { color: isDarkMode ? "#ffffff" : "#000000" },
             labelRenderedSizeThreshold: labelThreshold,
@@ -612,6 +594,37 @@ export const GraphViewer = forwardRef(({
 
     }, [graphData]); // eslint-disable-line react-hooks/exhaustive-deps
 
+    // Apply filters before starting the physics pass. React executes effects in
+    // declaration order, so the simulation always sees the current visible
+    // subgraph instead of the complete vault.
+    useEffect(() => {
+        const graph = graphRef.current;
+        const renderer = rendererRef.current;
+        if (!graph || !renderer) return;
+
+        const { visibleNodes, visibleEdges } = applyFilters(graph, filters);
+
+        graph.forEachNode((node) => {
+            graph.setNodeAttribute(node, "hidden", !visibleNodes.has(node));
+        });
+
+        graph.forEachEdge((edge) => {
+            graph.setEdgeAttribute(edge, "hidden", !visibleEdges.has(edge));
+        });
+
+        arrangeVisibleIsolatedNodes(graph);
+
+        if (containerRef.current?.offsetWidth > 0) {
+            renderer.refresh();
+            if (fitTimerRef.current) clearTimeout(fitTimerRef.current);
+            fitTimerRef.current = setTimeout(() => fitVisibleNodes(500), 120);
+        }
+
+        return () => {
+            if (fitTimerRef.current) clearTimeout(fitTimerRef.current);
+        };
+    }, [filters, graphData]); // Re-run when filters change
+
     // Physics Effect - synchronous FA2 over the SUBGRAPH of visible nodes (without interference from hidden ones)
     useEffect(() => {
         // Cancel any previous loop
@@ -639,9 +652,6 @@ export const GraphViewer = forwardRef(({
 
         if (subG.order === 0) return;
 
-        // Identifies orphan nodes (degree 0) — they'll be placed in an outer ring post-FA2
-        const orphans = [];
-        subG.forEachNode((node) => { if (subG.degree(node) === 0) orphans.push(node); });
         // FA2/force runs on the connected component to refine the layout
         // that the backend has already calculated with igraph.
         const connectedG = new Graph();
@@ -669,43 +679,26 @@ export const GraphViewer = forwardRef(({
         };
 
         const forceSettings = {
-            attraction:        0.0005 * Math.max(0.1, edgeInfluence),
-            repulsion:         repulsion / 100,
-            gravity:           gravity * 0.0001,
-            inertia:           0.6,
-            maxMove:           200,
+            // This layout does not use edge weights, so edgeInfluence=0 means
+            // uniform links rather than almost disabling link attraction.
+            attraction:        0.0005,
+            repulsion:         Math.max(0.05, repulsion / 5000),
+            gravity:           gravity * 0.001,
+            inertia:           Math.max(0.1, Math.min(0.9, 1 - friction / 20)),
+            maxMove:           Math.max(10, 200 / Math.max(1, friction)),
         };
 
-        const ITERS_PER_FRAME = useForceLayout ? 1 : 6;
-        const MAX_ITERS = useForceLayout ? 500 : 3000;
+        const ITERS_PER_FRAME = useForceLayout ? 4 : 6;
+        const MAX_ITERS = useForceLayout ? 320 : 900;
         let totalIters = 0;
         let running = true;
 
-        const placeOrphansInRing = () => {
-            // Calculates the bbox of the connected component
-            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-            connectedG.forEachNode((_n, a) => {
-                if (a.x < minX) minX = a.x;
-                if (a.x > maxX) maxX = a.x;
-                if (a.y < minY) minY = a.y;
-                if (a.y > maxY) maxY = a.y;
-            });
-            if (!isFinite(minX)) { minX = -100; maxX = 100; minY = -100; maxY = 100; }
-            const cx = (minX + maxX) / 2;
-            const cy = (minY + maxY) / 2;
-            const halfW = (maxX - minX) / 2 || 100;
-            const halfH = (maxY - minY) / 2 || 100;
-            const baseRadius = Math.max(halfW, halfH) * 1.3 + 50;
-            const ringDepth = baseRadius * 0.6;
-            // We distribute orphans in a ring with uniform angles + radial jitter
-            const n = orphans.length;
-            for (let i = 0; i < n; i++) {
-                const angle = (i / n) * Math.PI * 2 + (Math.random() - 0.5) * 0.15;
-                const r = baseRadius + Math.random() * ringDepth;
-                const node = orphans[i];
-                subG.setNodeAttribute(node, 'x', cx + Math.cos(angle) * r);
-                subG.setNodeAttribute(node, 'y', cy + Math.sin(angle) * r);
-            }
+        const copyPositions = (source, target) => {
+            target.updateEachNodeAttributes((node, attrs) => {
+                if (!source.hasNode(node)) return attrs;
+                const position = source.getNodeAttributes(node);
+                return { ...attrs, x: position.x, y: position.y };
+            }, { attributes: ['x', 'y'] });
         };
 
         const step = () => {
@@ -723,17 +716,9 @@ export const GraphViewer = forwardRef(({
                 return;
             }
 
-            // Copies positions of the connected component to subG and to the main graph
-            connectedG.forEachNode((node, attrs) => {
-                if (subG.hasNode(node)) {
-                    subG.setNodeAttribute(node, 'x', attrs.x);
-                    subG.setNodeAttribute(node, 'y', attrs.y);
-                }
-                if (graph.hasNode(node)) {
-                    graph.setNodeAttribute(node, 'x', attrs.x);
-                    graph.setNodeAttribute(node, 'y', attrs.y);
-                }
-            });
+            // A bulk Graphology update emits one event per frame instead of one
+            // event per node, keeping Sigma and the minimap responsive.
+            copyPositions(connectedG, graph);
 
             totalIters += ITERS_PER_FRAME;
 
@@ -742,17 +727,13 @@ export const GraphViewer = forwardRef(({
             if (totalIters >= MAX_ITERS) {
                 running = false;
                 try {
-                    placeOrphansInRing();
+                    copyPositions(connectedG, subG);
+                    arrangeVisibleIsolatedNodes(subG);
                     noverlapAssign(subG, {
-                        maxIterations: 500,
-                        settings: { margin: 20, ratio: 2.0, expansion: 1.5, gridSize: 20 },
+                        maxIterations: 250,
+                        settings: { margin: 6, ratio: 1.2, expansion: 1.2, gridSize: 20 },
                     });
-                    subG.forEachNode((node, attrs) => {
-                        if (graph.hasNode(node)) {
-                            graph.setNodeAttribute(node, 'x', attrs.x);
-                            graph.setNodeAttribute(node, 'y', attrs.y);
-                        }
-                    });
+                    copyPositions(subG, graph);
                     if (renderer) renderer.refresh();
                 } catch (e) {
                     console.error('Post-layout error:', e);
@@ -774,37 +755,7 @@ export const GraphViewer = forwardRef(({
             if (typeof layoutRef.current === 'number') cancelAnimationFrame(layoutRef.current);
             layoutRef.current = null;
         };
-    }, [isPhysicsEnabled, graphData, repulsion, edgeInfluence, gravity, friction, linLogMode, strongGravityMode, outboundAttractionDistribution]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    // Handle Filters (Effect)
-    useEffect(() => {
-        const graph = graphRef.current;
-        const renderer = rendererRef.current;
-        if (!graph || !renderer) return;
-
-        // Apply filters logic using shared utility
-        const { visibleNodes, visibleEdges } = applyFilters(graph, filters);
-
-        graph.forEachNode((node) => {
-            graph.setNodeAttribute(node, "hidden", !visibleNodes.has(node));
-        });
-
-        graph.forEachEdge((edge) => {
-            graph.setEdgeAttribute(edge, "hidden", !visibleEdges.has(edge));
-        });
-
-        arrangeVisibleIsolatedNodes(graph);
-
-        if (renderer && containerRef.current?.offsetWidth > 0) {
-            renderer.refresh();
-            if (fitTimerRef.current) clearTimeout(fitTimerRef.current);
-            fitTimerRef.current = setTimeout(() => fitVisibleNodes(500), 120);
-        }
-
-        return () => {
-            if (fitTimerRef.current) clearTimeout(fitTimerRef.current);
-        };
-    }, [filters, graphData]); // Re-run when filters change
+    }, [isPhysicsEnabled, graphData, filters, repulsion, edgeInfluence, gravity, friction, linLogMode, strongGravityMode, outboundAttractionDistribution]); // eslint-disable-line react-hooks/exhaustive-deps
 
     return (
         <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
