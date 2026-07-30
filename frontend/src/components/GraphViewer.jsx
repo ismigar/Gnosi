@@ -1,4 +1,11 @@
-import React, { useEffect, useRef, useState, useImperativeHandle, forwardRef } from 'react';
+import React, {
+    useCallback,
+    useEffect,
+    useRef,
+    useState,
+    useImperativeHandle,
+    forwardRef,
+} from 'react';
 import {
     forceCenter,
     forceCollide,
@@ -11,6 +18,11 @@ import {
 import Graph from 'graphology';
 import Sigma from 'sigma';
 import { applyFilters } from '../utils/graphFilters';
+import {
+    GRAPH_KEYBOARD_ACTIONS,
+    getGraphKeyboardAction,
+    getPannedCameraState,
+} from '../utils/graphKeyboardNavigation';
 import {
     getVisibleCameraRatio,
     getVisibleGraphBounds,
@@ -179,7 +191,7 @@ export const GraphViewer = forwardRef(({
 
     // Fit every visible node using Sigma's own square normalization so the
     // camera and minimap describe the same graph-space extent.
-    const fitVisibleNodes = (durationMs = 800) => {
+    const fitVisibleNodes = useCallback((durationMs = 800) => {
         const graph = graphRef.current;
         const renderer = rendererRef.current;
         if (!graph || !renderer) return;
@@ -195,7 +207,7 @@ export const GraphViewer = forwardRef(({
             { x: centerNorm.x, y: centerNorm.y, ratio: cameraRatio },
             { duration: durationMs, easing: 'cubicInOut' }
         );
-    };
+    }, []);
 
     useImperativeHandle(ref, () => ({
         zoomIn: () => {
@@ -275,6 +287,42 @@ export const GraphViewer = forwardRef(({
             }
         }
     }));
+
+    useEffect(() => {
+        const handleKeyDown = (event) => {
+            const action = getGraphKeyboardAction(event);
+            if (!action) return;
+
+            const camera = rendererRef.current?.getCamera();
+            if (!camera) return;
+
+            event.preventDefault();
+
+            if (action === GRAPH_KEYBOARD_ACTIONS.ZOOM_IN) {
+                camera.animatedZoom({ duration: 300 });
+                return;
+            }
+            if (action === GRAPH_KEYBOARD_ACTIONS.ZOOM_OUT) {
+                camera.animatedUnzoom({ duration: 300 });
+                return;
+            }
+            if (action === GRAPH_KEYBOARD_ACTIONS.CENTER) {
+                fitVisibleNodes(400);
+                return;
+            }
+
+            const nextState = getPannedCameraState(camera.getState(), action);
+            if (nextState) {
+                camera.animate(nextState, {
+                    duration: 160,
+                    easing: 'cubicInOut',
+                });
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [fitVisibleNodes]);
 
     // 3. Initialize Sigma (Once)
     const initializedRef = useRef(false);
@@ -659,7 +707,7 @@ export const GraphViewer = forwardRef(({
         return () => {
             if (fitTimerRef.current) clearTimeout(fitTimerRef.current);
         };
-    }, [filters, graphData, isPhysicsEnabled]); // Re-run when filters change
+    }, [filters, graphData, isPhysicsEnabled, fitVisibleNodes]); // Re-run when filters change
 
     // Obsidian-style D3 simulation over the complete visible subgraph. Isolates
     // and small components remain in the same force field instead of being
@@ -840,7 +888,7 @@ export const GraphViewer = forwardRef(({
             }
             layoutRef.current = null;
         };
-    }, [isPhysicsEnabled, graphData, filters, repulsion, edgeInfluence, gravity, friction, linLogMode, strongGravityMode, outboundAttractionDistribution]);
+    }, [isPhysicsEnabled, graphData, filters, repulsion, edgeInfluence, gravity, friction, linLogMode, strongGravityMode, outboundAttractionDistribution, fitVisibleNodes]);
 
     return (
         <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
