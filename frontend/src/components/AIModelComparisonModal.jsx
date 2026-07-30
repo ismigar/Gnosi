@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
     ArrowDown, ArrowLeftRight, ArrowUp, ArrowUpDown, CheckCircle2,
-    Cloud, Loader2, RefreshCw, Search,
+    ChevronDown, Cloud, Loader2, RefreshCw, Search,
     Server, X,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -44,6 +44,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
     const [profile, setProfile] = useState('all');
     const [availability, setAvailability] = useState('all');
     const [modes, setModes] = useState([]);
+    const [modesMenuOpen, setModesMenuOpen] = useState(false);
     const [showProfileHelp, setShowProfileHelp] = useState(false);
     const [maxPrice, setMaxPrice] = useState('');
     const [minContext, setMinContext] = useState('');
@@ -682,9 +683,20 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                                         <option value="inactive">{t('model_comparison.inactive')}</option>
                                     </select>
                                 </label>
-                                <fieldset className="model-modes-filter">
-                                    <legend>{t('model_comparison.modes')}</legend>
-                                    <div>
+                                <div className="model-modes-filter">
+                                    <span>{t('model_comparison.modes')}</span>
+                                    <button
+                                        type="button"
+                                        aria-expanded={modesMenuOpen}
+                                        aria-haspopup="menu"
+                                        onClick={() => setModesMenuOpen((current) => !current)}
+                                    >
+                                        <span>{modes.length
+                                            ? modes.map((mode) => t(`model_comparison.modes_list.${mode}`)).join(', ')
+                                            : t('model_comparison.all_modes')}</span>
+                                        <ChevronDown size={16} />
+                                    </button>
+                                    {modesMenuOpen && <div className="model-modes-menu" role="menu">
                                         {MODE_KEYS.map((mode) => (
                                             <label key={mode}>
                                                 <input
@@ -699,8 +711,8 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                                                 {t(`model_comparison.modes_list.${mode}`)}
                                             </label>
                                         ))}
-                                    </div>
-                                </fieldset>
+                                    </div>}
+                                </div>
                                 <label>
                                     <span>{t('model_comparison.max_price')}</span>
                                     <input type="number" min="0" step="0.01" value={maxPrice} onChange={(event) => setMaxPrice(event.target.value)} placeholder="1.00" />

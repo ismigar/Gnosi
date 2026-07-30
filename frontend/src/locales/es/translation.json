@@ -3823,6 +3823,7 @@
     "configuration_loading": "Cargando…",
     "availability": "Estado",
     "modes": "Modos compatibles",
+    "all_modes": "Todos los modos",
     "modes_list": {"text": "Texto", "image": "Imagen", "audio": "Audio", "video": "Vídeo"},
     "all_availability": "Activos e inactivos",
     "active": "Activo",
