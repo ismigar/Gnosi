@@ -4367,7 +4367,147 @@
     "model_required": "Configura este agente antes de enviar un mensaje",
     "agent_model_unavailable": "El modelo del agente seleccionado no está disponible. Configura el agente e inténtalo de nuevo.",
     "new_session": "Nueva sesión",
-    "messages_count_many": "{{count}} mensajes"
+    "messages_count_many": "{{count}} mensajes",
+    "confirmations": {
+      "title": "Confirmar acción",
+      "summary": "Revisa esta acción antes de continuar.",
+      "confirm": "Confirmar y ejecutar",
+      "cancel": "Cancelar la acción",
+      "review": "Revisar y confirmar",
+      "completed": "Acción completada después de la confirmación.",
+      "partial": "La acción se ha completado parcialmente: {{completed}} completadas y {{failed}} fallidas.",
+      "outcome_unknown": "Se ha perdido la conexión y se desconoce el resultado de la acción. Comprueba el destino antes de volver a intentarlo.",
+      "failed": "No se ha podido completar la acción: {{message}}",
+      "status": {
+        "pending": "Pendiente de confirmación",
+        "executing": "En ejecución",
+        "completed": "Completada",
+        "partial": "Completada parcialmente",
+        "cancelled": "Cancelada",
+        "expired": "Caducada",
+        "failed": "Fallida",
+        "outcome_unknown": "Resultado desconocido",
+        "unavailable": "Ya no está disponible"
+      },
+      "errors": {
+        "confirmation_not_found": "La acción pendiente ya no existe.",
+        "confirmation_scope_mismatch": "Esta acción pertenece a otro Vault, usuario, agente o sesión.",
+        "confirmation_expired": "La acción pendiente ha caducado. Vuelve a prepararla si aún es necesaria.",
+        "confirmation_unavailable": "La acción pendiente ya no está disponible.",
+        "confirmation_admin_required": "Se necesita permiso de administración para esta acción.",
+        "confirmation_action_rejected": "El destino ha cambiado o la acción ya no está permitida.",
+        "confirmation_action_failed": "No se ha podido completar la acción.",
+        "confirmation_outcome_unknown": "Es posible que la acción se haya completado, pero Gnosi no ha podido verificarlo. Comprueba el destino antes de volver a intentarlo."
+      },
+      "details": {
+        "account": "Cuenta",
+        "arguments": "Argumentos exactos",
+        "attendees": "Asistentes",
+        "bcc": "Copia oculta",
+        "body": "Cuerpo",
+        "body_sha256": "Huella del cuerpo",
+        "calendar_id": "Calendario",
+        "cc": "Copia",
+        "company": "Empresa",
+        "count": "Número de elementos",
+        "current_revision": "Revisión actual",
+        "date": "Fecha",
+        "description": "Descripción",
+        "effects": "Efectos",
+        "email": "Correo",
+        "end": "Final",
+        "entries": "Elementos exactos",
+        "entries_truncated": "Lista de elementos truncada",
+        "event_id": "ID del evento",
+        "folder": "Carpeta",
+        "location": "Ubicación",
+        "message_id": "ID del mensaje",
+        "page": "Página",
+        "page_id": "ID de la página",
+        "page_revision": "Revisión de la página",
+        "phone": "Teléfono",
+        "properties": "Propiedades",
+        "property_count": "Número de propiedades",
+        "row_count": "Número de filas",
+        "schema_sha256": "Huella del esquema",
+        "sender": "Remitente",
+        "snapshot_digest": "Huella de la instantánea",
+        "start": "Inicio",
+        "subject": "Asunto",
+        "table": "Tabla",
+        "table_id": "ID de la tabla",
+        "target_folder": "Carpeta de destino",
+        "timestamp": "Versión",
+        "title": "Título",
+        "to": "Destinatarios",
+        "tool": "Herramienta",
+        "tool_id": "ID de la herramienta",
+        "updates": "Cambios exactos de las filas",
+        "version_revision": "Revisión de la versión"
+      },
+      "actions": {
+        "delete_page": {
+          "title": "Mover la página a la papelera",
+          "summary": "¿Quieres mover «{{page}}» a la papelera del Vault?"
+        },
+        "delete_contact": {
+          "title": "Eliminar el contacto",
+          "summary": "¿Quieres eliminar permanentemente a {{contact}} ({{email}})?"
+        },
+        "send_mail": {
+          "title": "Enviar el correo",
+          "summary": "¿Quieres enviar «{{subject}}» desde {{account}} a {{to}}?"
+        },
+        "save_mail_draft": {
+          "title": "Guardar borrador de correo",
+          "summary": "¿Quieres guardar «{{subject}}» como borrador en {{account}} para {{to}}?"
+        },
+        "archive_mail": {
+          "title": "Archivar el correo",
+          "summary": "¿Quieres archivar el mensaje {{message_id}} de {{account}}?"
+        },
+        "move_mail": {
+          "title": "Mover el correo",
+          "summary": "¿Quieres mover el mensaje {{message_id}} de {{account}} a {{target_folder}}?"
+        },
+        "invite_attendees": {
+          "title": "Enviar invitaciones",
+          "summary": "¿Quieres invitar a {{attendees}} al evento {{event_id}} desde {{account}}?"
+        },
+        "create_calendar_event": {
+          "title": "Crear un evento",
+          "summary": "¿Quieres crear «{{title}}» en {{calendar_id}} de {{start}} a {{end}}?"
+        },
+        "governed_tool": {
+          "title": "Ejecutar una herramienta gobernada",
+          "summary": "Revisa los argumentos y efectos exactos de {{tool}} antes de ejecutarla."
+        },
+        "delete_table": {
+          "title": "Eliminar la tabla",
+          "summary": "¿Quieres eliminar la tabla «{{table}}», sus vistas y los recursos almacenados?"
+        },
+        "restore_page_version": {
+          "title": "Restaurar la versión",
+          "summary": "¿Quieres sustituir «{{page}}» por la versión de {{timestamp}}?"
+        },
+        "empty_trash": {
+          "title": "Vaciar permanentemente la papelera",
+          "summary_one": "¿Quieres eliminar permanentemente {{count}} elemento de la papelera del Vault?",
+          "summary_other": "¿Quieres eliminar permanentemente {{count}} elementos de la papelera del Vault?",
+          "summary_many": "¿Quieres eliminar permanentemente {{count}} elementos de la papelera del Vault?"
+        },
+        "change_schema": {
+          "title": "Sustituir el esquema",
+          "summary": "¿Quieres sustituir el esquema de {{folder}} por uno de {{property_count}} propiedades?"
+        },
+        "bulk_update_rows": {
+          "title": "Actualizar filas masivamente",
+          "summary_one": "¿Quieres aplicar cambios a {{count}} fila de tabla?",
+          "summary_other": "¿Quieres aplicar cambios a {{count}} filas de tabla?",
+          "summary_many": "¿Quieres aplicar cambios a {{count}} filas de tabla?"
+        }
+      }
+    }
   },
   "bulk_actions": {
     "selected_count_one": "{{count}} seleccionado",

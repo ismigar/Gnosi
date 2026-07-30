@@ -11,7 +11,9 @@ export const ConfirmModal = ({
     message,
     confirmText,
     cancelText,
-    isDestructive = true
+    isDestructive = true,
+    confirmOnEnter = true,
+    autofocusConfirm = true,
 }) => {
     const { t } = useTranslation();
     // Localized fallbacks: callers may omit these props; default to i18n instead
@@ -42,7 +44,7 @@ export const ConfirmModal = ({
     useModalKeyboard({
         isOpen,
         onClose: () => { if (!isSubmitting) onClose(); },
-        onConfirm: handleConfirm,
+        onConfirm: confirmOnEnter ? handleConfirm : null,
         confirmDisabled: isSubmitting,
         containerRef: modalRef,
         trapFocus: true,
@@ -95,13 +97,14 @@ export const ConfirmModal = ({
                     <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">
                         {resolvedTitle}
                     </h3>
-                    <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-6">
+                    <div className="text-sm text-[var(--text-secondary)] leading-relaxed mb-6">
                         {resolvedMessage}
-                    </p>
+                    </div>
                 </div>
 
                 <div className="flex items-center justify-end gap-3 mt-2">
                     <button
+                        {...(!autofocusConfirm ? { 'data-autofocus': 'true' } : {})}
                         type="button"
                         onClick={onClose}
                         disabled={isSubmitting}
@@ -110,7 +113,7 @@ export const ConfirmModal = ({
                         {resolvedCancelText}
                     </button>
                     <button
-                        data-autofocus="true"
+                        {...(autofocusConfirm ? { 'data-autofocus': 'true' } : {})}
                         type="button"
                         onClick={handleConfirm}
                         disabled={isSubmitting}
