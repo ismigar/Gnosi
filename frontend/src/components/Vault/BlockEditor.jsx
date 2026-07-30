@@ -4782,6 +4782,11 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                         <div className="vault-page-summary-meta text-[11px] truncate">
                                             {t('common.schema')} {properties.length} · {t('common.local')} {adhocProperties.length}
                                         </div>
+                                        <div className="vault-page-summary-badges" aria-hidden="true">
+                                            {properties.length > 0 && <span>{t('common.schema')} {properties.length}</span>}
+                                            {adhocProperties.length > 0 && <span>{t('common.local')} {adhocProperties.length}</span>}
+                                            {properties.length === 0 && adhocProperties.length === 0 && <span>0</span>}
+                                        </div>
                                     </button>
                                     {/* Enrichment button by identifier (DOI/ISBN/arXiv/URL).
                                         Only on bibliographic sources (records of the designated
@@ -5112,6 +5117,17 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                         </div>
                                         <div className="vault-page-summary-meta text-[11px] truncate">
                                             {t('editor.outgoing')} {outgoingLinks.length} · {t('editor.incoming')} {incomingLinks.length} · {t('editor.relations')} {relatedPages.length} · {t('editor.pending')} {unlinkedMentions.length}
+                                        </div>
+                                        <div className="vault-page-summary-badges" aria-hidden="true">
+                                            {outgoingLinks.length > 0 && <span>{t('editor.outgoing')} {outgoingLinks.length}</span>}
+                                            {incomingLinks.length > 0 && <span>{t('editor.incoming')} {incomingLinks.length}</span>}
+                                            {relatedPages.length > 0 && <span>{t('editor.relations')} {relatedPages.length}</span>}
+                                            {unlinkedMentions.length > 0 && <span>{t('editor.pending')} {unlinkedMentions.length}</span>}
+                                            {outgoingLinks.length === 0
+                                                && incomingLinks.length === 0
+                                                && relatedPages.length === 0
+                                                && unlinkedMentions.length === 0
+                                                && <span>0</span>}
                                         </div>
                                     </div>
                                     {isLinksInfoOpen ? (

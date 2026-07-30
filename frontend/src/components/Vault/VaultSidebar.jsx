@@ -1,9 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import axios from 'axios';
 import { useApi } from '../../hooks/use-api';
 import { useActiveVaultName } from '../../hooks/useActiveVaultName';
-import { toast } from '../../lib/toast';
 import { createPortal } from 'react-dom';
 import {
     DndContext, closestCenter, PointerSensor, KeyboardSensor,
@@ -199,7 +197,7 @@ const SortableFavoriteItem = ({ page, draggable, onPageSelect }) => {
     );
 };
 
-const SectionHeader = ({ label, isExpanded, onToggle, onAdd }) => (
+const SectionHeader = ({ label, isExpanded, onToggle, onAdd, addLabel }) => (
     <div className="group relative flex items-center px-3 mt-6 mb-1">
         <button
             onClick={onToggle}
@@ -211,7 +209,9 @@ const SectionHeader = ({ label, isExpanded, onToggle, onAdd }) => (
         {onAdd && (
             <button
                 onClick={onAdd}
-                className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-0.5 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] rounded transition-all"
+                className="vault-sidebar-icon-action absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-0.5 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] rounded transition-all"
+                title={addLabel}
+                aria-label={addLabel}
             >
                 <Plus size={14} />
             </button>
@@ -233,7 +233,6 @@ const PageTreeItem = ({
     onRenamePage,
     onDuplicatePage,
     onDeletePage,
-    onRankPage,
     onToggleFavorite,
     onMovePage,
     menuState,
@@ -374,12 +373,18 @@ const PageTreeItem = ({
                 onDragEnd={() => setIsDropTarget(false)}
             >
                 <button
-                    className="p-0.5 hover:bg-[var(--bg-secondary)] rounded shrink-0 mr-1 text-[var(--text-secondary)]/60"
+                    className="vault-sidebar-icon-action p-0.5 hover:bg-[var(--bg-secondary)] rounded shrink-0 mr-1 text-[var(--text-secondary)]/60"
                     onClick={(e) => {
                         e.stopPropagation();
                         if (onToggleExpand) onToggleExpand(page.id);
                     }}
                     style={{ visibility: hasChildren ? 'visible' : 'hidden' }}
+                    title={t(isExpanded ? 'sidebar.collapse_children' : 'sidebar.expand_children', {
+                        name: page.title,
+                    })}
+                    aria-label={t(isExpanded ? 'sidebar.collapse_children' : 'sidebar.expand_children', {
+                        name: page.title,
+                    })}
                 >
                     {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                 </button>
@@ -414,7 +419,7 @@ const PageTreeItem = ({
                 {/* Hover actions to add child pages or context menu */}
                 <div className={`ml-auto flex items-center justify-end w-12 shrink-0 transition-opacity ${isMenuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} bg-transparent pl-1`}>
                     <button
-                        className="p-0.5 hover:bg-[var(--bg-secondary)] rounded text-[var(--text-secondary)]/60"
+                        className="vault-sidebar-icon-action p-0.5 hover:bg-[var(--bg-secondary)] rounded text-[var(--text-secondary)]/60"
                         onClick={(e) => {
                             e.stopPropagation();
                             if (isMenuOpen) {
@@ -442,8 +447,8 @@ const PageTreeItem = ({
                         <MoreHorizontal size={14} />
                     </button>
                     {canCreateChild && isEditor && (
-                        <button
-                            className="p-0.5 hover:bg-[var(--bg-secondary)] rounded text-[var(--text-secondary)]/60"
+                    <button
+                            className="vault-sidebar-icon-action p-0.5 hover:bg-[var(--bg-secondary)] rounded text-[var(--text-secondary)]/60"
                             onClick={(e) => { e.stopPropagation(); onCreatePage(page.id); }}
                             title={t('sidebar.add_child_page')}
                         >
@@ -577,19 +582,15 @@ export const VaultSidebar = ({
     onOpenParallel,
     onSearch,
     onCreatePage,
-    onOpenSettings,
     onNavigate,
     onDeletePage,
     onDuplicatePage,
     onRenamePage,
-    onDuplicateTable,
     onDeleteTable,
     onRenameTable,
     onMovePage,
-    onMoveTable,
     onToggleFavorite,
     onTableSelect,
-    isReadOnly = false,
     onCreateDatabaseGroup,
     onCreateTable,
     onCreateTableRecord,
@@ -608,7 +609,6 @@ export const VaultSidebar = ({
     const activeVaultName = useActiveVaultName();
 
     const { role } = useApi();
-    const isViewer = role === 'viewer';
     const isAdmin = role === 'admin' || role === 'owner';
     const isEditor = role === 'editor' || isAdmin;
     const WIKI_BATCH_SIZE = 150;
@@ -626,12 +626,12 @@ export const VaultSidebar = ({
         try {
             const raw = localStorage.getItem('gnosi.sidebar.wikiDragLocked');
             if (raw !== null) return raw === 'true';
-        } catch (e) { /* noop */ }
+        } catch { /* noop */ }
         return true;
     });
     useEffect(() => {
         try { localStorage.setItem('gnosi.sidebar.wikiDragLocked', String(isWikiDragLocked)); }
-        catch (e) { /* noop */ }
+        catch { /* noop */ }
     }, [isWikiDragLocked]);
     // Favorites ordering: {mode, manualOrder}. Persisted in localStorage.
     // mode can be 'manual' | 'alpha-asc' | 'alpha-desc' | 'recent' | 'oldest'.
@@ -639,7 +639,7 @@ export const VaultSidebar = ({
         try {
             const raw = localStorage.getItem('gnosi.sidebar.favoritesSort');
             if (raw) return { mode: 'manual', manualOrder: [], ...JSON.parse(raw) };
-        } catch (e) { /* noop */ }
+        } catch { /* noop */ }
         return { mode: 'manual', manualOrder: [] };
     });
     const [isFavoritesSortOpen, setIsFavoritesSortOpen] = useState(false);
@@ -648,7 +648,7 @@ export const VaultSidebar = ({
     useEffect(() => {
         try {
             localStorage.setItem('gnosi.sidebar.favoritesSort', JSON.stringify(favoritesSort));
-        } catch (e) { /* noop */ }
+        } catch { /* noop */ }
     }, [favoritesSort]);
 
     useEffect(() => {
@@ -936,7 +936,10 @@ export const VaultSidebar = ({
     const wikiBottomSpacerHeight = Math.max(0, (rootPages.length - wikiEndIndex) * WIKI_ITEM_HEIGHT);
 
     useEffect(() => {
-        setVisibleWikiCount(WIKI_BATCH_SIZE);
+        const frame = window.requestAnimationFrame(() => {
+            setVisibleWikiCount(WIKI_BATCH_SIZE);
+        });
+        return () => window.cancelAnimationFrame(frame);
     }, [rootPages.length]);
 
     useEffect(() => {
@@ -951,9 +954,11 @@ export const VaultSidebar = ({
     }, [isWorkspaceExpanded]);
 
     useEffect(() => {
-        if (wikiVirtualizationEnabled) {
+        if (!wikiVirtualizationEnabled) return undefined;
+        const frame = window.requestAnimationFrame(() => {
             setVisibleWikiCount(WIKI_BATCH_SIZE);
-        }
+        });
+        return () => window.cancelAnimationFrame(frame);
     }, [wikiVirtualizationEnabled]);
 
     const handleToggleWikiExpand = (pageId) => {
@@ -965,7 +970,10 @@ export const VaultSidebar = ({
     };
 
     useEffect(() => {
-        setVisibleDatabasesCount(DATABASES_BATCH_SIZE);
+        const frame = window.requestAnimationFrame(() => {
+            setVisibleDatabasesCount(DATABASES_BATCH_SIZE);
+        });
+        return () => window.cancelAnimationFrame(frame);
     }, [databases.length]);
 
     return (
@@ -978,10 +986,10 @@ export const VaultSidebar = ({
             }}
             className="flex flex-col h-full select-none overflow-y-auto custom-scrollbar pb-8 bg-[var(--bg-primary)]"
         >
-            <div className="px-3 pt-4 mb-2 flex items-center justify-between group cursor-pointer hover:bg-[var(--bg-secondary)] rounded mx-2 py-1.5 transition-colors">
-                <div className="flex items-center gap-2">
+            <div className="vault-sidebar__identity px-3 pt-4 mb-2 flex items-center justify-between group cursor-pointer hover:bg-[var(--bg-secondary)] rounded mx-2 py-1.5 transition-colors">
+                <div className="flex min-w-0 items-center gap-2">
                     <div className="w-5 h-5 bg-gnosi/10 rounded flex items-center justify-center text-gnosi font-bold text-[10px]">G</div>
-                    <span className="text-sm font-semibold text-[var(--text-primary)]">{t('common.vault_label', 'Vault')}: {activeVaultName || '…'}</span>
+                    <span className="truncate text-sm font-semibold text-[var(--text-primary)]">{t('common.vault_label', 'Vault')}: {activeVaultName || '…'}</span>
                 </div>
 
             </div>
@@ -1011,7 +1019,9 @@ export const VaultSidebar = ({
                     {onCreateDrawing && isEditor && (
                         <button
                             onClick={(e) => { e.stopPropagation(); onCreateDrawing(); }}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-0.5 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] rounded transition-all"
+                            className="vault-sidebar-icon-action absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 p-0.5 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] rounded transition-all"
+                            title={t('sidebar.add_drawing')}
+                            aria-label={t('sidebar.add_drawing')}
                         >
                             <Plus size={14} />
                         </button>
@@ -1050,8 +1060,9 @@ export const VaultSidebar = ({
                         <div className="relative" ref={favoritesSortMenuRef}>
                             <button
                                 onClick={(e) => { e.stopPropagation(); setIsFavoritesSortOpen((v) => !v); }}
-                                className="opacity-0 group-hover:opacity-100 p-0.5 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] rounded transition-all"
+                                className="vault-sidebar-icon-action opacity-0 group-hover:opacity-100 p-0.5 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] rounded transition-all"
                                 title={t('sidebar.favorites_sort', "Sort favorites")}
+                                aria-label={t('sidebar.favorites_sort', "Sort favorites")}
                             >
                                 <ArrowUpDown size={12} />
                             </button>
@@ -1105,6 +1116,7 @@ export const VaultSidebar = ({
                     setExpandedDashboardNodes({});
                 }}
                 onAdd={() => isEditor && onCreateDashboardPage && onCreateDashboardPage(null)}
+                addLabel={t('sidebar.add_dashboard')}
             />
             {isDashboardExpanded && (
                 <div className="px-2 space-y-0.5">
@@ -1141,13 +1153,13 @@ export const VaultSidebar = ({
                 isExpanded={isDatabasesExpanded}
                 onToggle={() => setIsDatabasesExpanded(!isDatabasesExpanded)}
                 onAdd={() => isEditor && onCreateDatabaseGroup && onCreateDatabaseGroup()}
+                addLabel={t('sidebar.add_database')}
             />
             {isDatabasesExpanded && (
                 <div className="px-2 space-y-0.5">
                     {visibleDatabases.map(db => {
                         const dbTables = tablesByDatabase[db.id] || [];
                         const isExpanded = expandedDatabases[db.id];
-                        const isMenuOpen = menuState?.id === db.id;
                         const visibleTableCount = visibleTablesByDb[db.id] || TABLES_BATCH_SIZE;
                         const renderedTables = dbTables.slice(0, visibleTableCount);
 
@@ -1184,15 +1196,18 @@ export const VaultSidebar = ({
                                                     y
                                                 });
                                             }}
-                                            className="p-0.5 hover:bg-[var(--bg-secondary)] rounded text-[var(--text-secondary)]/60"
+                                            className="vault-sidebar-icon-action p-0.5 hover:bg-[var(--bg-secondary)] rounded text-[var(--text-secondary)]/60"
+                                            title={t('sidebar.options')}
+                                            aria-label={t('sidebar.options')}
                                         >
                                             <MoreHorizontal size={14} />
                                         </button>
                                         {isEditor && (
                                             <button
-                                                className="p-0.5 hover:bg-[var(--bg-secondary)] rounded text-[var(--text-secondary)]/60 hover:text-gnosi"
+                                                className="vault-sidebar-icon-action p-0.5 hover:bg-[var(--bg-secondary)] rounded text-[var(--text-secondary)]/60 hover:text-gnosi"
                                                 onClick={(e) => { e.stopPropagation(); onCreateTable && onCreateTable(db.id); }}
                                                 title={t('sidebar.new_table')}
+                                                aria-label={t('sidebar.new_table')}
                                             >
                                                 <Plus size={14} />
                                             </button>
@@ -1208,12 +1223,18 @@ export const VaultSidebar = ({
                                                 <div key={table.id} className="w-full flex flex-col gap-0.5">
                                                      <div className="w-full flex items-center gap-1 px-2 py-1 rounded-md text-[13px] text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors group/tableItem">
                                                         <button
-                                                            className="p-0.5 hover:bg-[var(--bg-secondary)] rounded shrink-0 text-[var(--text-secondary)]/60"
+                                                            className="vault-sidebar-icon-action p-0.5 hover:bg-[var(--bg-secondary)] rounded shrink-0 text-[var(--text-secondary)]/60"
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 toggleTableExpand(table.id);
                                                             }}
                                                             style={{ visibility: dataChildrenMap[table.id]?.roots?.length > 0 ? 'visible' : 'hidden' }}
+                                                            title={t(expandedTables[table.id] ? 'sidebar.collapse_children' : 'sidebar.expand_children', {
+                                                                name: table.name,
+                                                            })}
+                                                            aria-label={t(expandedTables[table.id] ? 'sidebar.collapse_children' : 'sidebar.expand_children', {
+                                                                name: table.name,
+                                                            })}
                                                         >
                                                             {expandedTables[table.id] ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                                                         </button>
@@ -1247,7 +1268,9 @@ export const VaultSidebar = ({
                                                                     y
                                                                 });
                                                             }}
-                                                            className="opacity-0 group-hover/tableItem:opacity-100 p-0.5 hover:bg-[var(--bg-secondary)] rounded text-[var(--text-secondary)]"
+                                                            className="vault-sidebar-icon-action opacity-0 group-hover/tableItem:opacity-100 p-0.5 hover:bg-[var(--bg-secondary)] rounded text-[var(--text-secondary)]"
+                                                            title={t('sidebar.options')}
+                                                            aria-label={t('sidebar.options')}
                                                         >
                                                             <MoreHorizontal size={12} />
                                                         </button>
@@ -1257,8 +1280,9 @@ export const VaultSidebar = ({
                                                                     e.stopPropagation();
                                                                     if (onCreateTableRecord) onCreateTableRecord(table.id);
                                                                 }}
-                                                                className="opacity-0 group-hover/tableItem:opacity-100 p-0.5 hover:bg-[var(--bg-secondary)] rounded text-[var(--text-secondary)] hover:text-gnosi"
+                                                                className="vault-sidebar-icon-action opacity-0 group-hover/tableItem:opacity-100 p-0.5 hover:bg-[var(--bg-secondary)] rounded text-[var(--text-secondary)] hover:text-gnosi"
                                                                 title={t('sidebar.new_record')}
+                                                                aria-label={t('sidebar.new_record')}
                                                             >
                                                                 <Plus size={12} />
                                                             </button>
@@ -1376,19 +1400,22 @@ export const VaultSidebar = ({
                 <div className="flex items-center gap-0.5">
                     <button
                         onClick={() => setIsWikiDragLocked((v) => !v)}
-                        className={`p-0.5 rounded transition-all ${
+                        className={`vault-sidebar-icon-action p-0.5 rounded transition-all ${
                             isWikiDragLocked
                                 ? 'opacity-60 hover:opacity-100 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'
                                 : 'opacity-100 text-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/10 hover:bg-[var(--gnosi-primary)]/20'
                         }`}
                         title={isWikiDragLocked ? t('sidebar.wiki_unlock', "Unlock to reorder (drag&drop)") : t('sidebar.wiki_lock', "Lock dragging")}
+                        aria-label={isWikiDragLocked ? t('sidebar.wiki_unlock', "Unlock to reorder (drag&drop)") : t('sidebar.wiki_lock', "Lock dragging")}
                     >
                         {isWikiDragLocked ? <Lock size={12} /> : <Unlock size={12} />}
                     </button>
                     {isEditor && (
                         <button
                             onClick={() => onCreatePage(null)}
-                            className="opacity-0 group-hover:opacity-100 p-0.5 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] rounded transition-all"
+                            className="vault-sidebar-icon-action opacity-0 group-hover:opacity-100 p-0.5 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] rounded transition-all"
+                            title={t('sidebar.add_wiki_page')}
+                            aria-label={t('sidebar.add_wiki_page')}
                         >
                             <Plus size={14} />
                         </button>
