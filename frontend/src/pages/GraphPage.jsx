@@ -42,9 +42,9 @@ function GraphPage() {
     const [similarity, setSimilarity] = useState(100);
     const [hideIsolated, setHideIsolated] = useState(false);
     const [onlyIsolated, setOnlyIsolated] = useState(false);
-    const [activeClusters, setActiveClusters] = useState(new Set());
-    const [activeKinds, setActiveKinds] = useState(new Set());
-    const [activeProjects, setActiveProjects] = useState(new Set());
+    const [activeClusters] = useState(new Set());
+    const [activeKinds] = useState(new Set());
+    const [activeProjects] = useState(new Set());
     const [colorMode, setColorMode] = useState('kind');
 
     // Visibility & Configuration (from config.graph)
@@ -467,14 +467,15 @@ function GraphPage() {
     }), [activeClusters, activeKinds, activeProjects, similarity, hideIsolated, onlyIsolated, selectedNode, depth, searchTerm, timelineDate, pathResult, visibleDatabases, visibleTables, sourcesInitialized, activeTableFilters, fieldFilters, graphTableFiltersSettings, activeMediaTags]);
     
     // Efficiently calculate filtered counts as derived state (Clean v6)
-    // We only count "link" edges (wikilinks) to stay consistent with what's rendered.
+    // Match the body-wikilink topology rendered by GraphViewer and Obsidian.
+    // Count the same edge kind to stay consistent with the rendered graph.
     const memoizedGraph = useMemo(() => {
         if (!graphData?.nodes) return null;
         const g = new Graph();
         graphData.nodes.forEach(n => g.addNode(n.key, n));
         graphData.edges.forEach(e => {
             if (e.kind !== 'link') return;
-            try { g.addEdge(e.source, e.target, e); } catch (_) {}
+            try { g.addEdge(e.source, e.target, e); } catch { /* Duplicate edge. */ }
         });
         return g;
     }, [graphData]);
