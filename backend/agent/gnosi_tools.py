@@ -10,6 +10,8 @@ import hashlib
 import json
 import re
 import threading
+import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -356,14 +358,28 @@ def _bounded_limit(limit: int) -> int:
     return max(1, min(int(limit or 20), MAX_LIST_ITEMS))
 
 
+def _bounded_json_value(value: Any, *, depth: int = 0) -> Any:
+    """Recursively bound metadata before it enters a model tool result."""
+    if depth >= 4:
+        return str(value)[:500]
+    if isinstance(value, str):
+        return value[:2_000]
+    if isinstance(value, dict):
+        return {
+            str(key)[:128]: _bounded_json_value(item, depth=depth + 1)
+            for key, item in list(value.items())[:100]
+        }
+    if isinstance(value, (list, tuple, set)):
+        return [
+            _bounded_json_value(item, depth=depth + 1)
+            for item in list(value)[:100]
+        ]
+    return value
+
+
 def _serialize_page(path: Path, *, include_body: bool = False) -> Dict[str, Any]:
     metadata, body = _parse(path)
-    bounded_metadata = {
-        str(key)[:128]: (
-            value[:2_000] if isinstance(value, str) else value
-        )
-        for key, value in list(metadata.items())[:100]
-    }
+    bounded_metadata = _bounded_json_value(metadata)
     result = {
         "id": str(metadata.get("id") or ""),
         "title": str(metadata.get("title") or path.stem),
@@ -677,9 +693,10 @@ def create_table_row(
     destination.mkdir(parents=True, exist_ok=True)
     safe_title = sanitize_vault_title(title)
     path = destination / f"{safe_title}.md"
-    if path.exists():
-        path = destination / f"{safe_title} {page_id[:8]}.md"
-    _write_page(path, metadata, content)
+    with _page_lock(path):
+        if path.exists():
+            path = destination / f"{safe_title} {page_id[:8]}.md"
+        _write_page(path, metadata, content)
     return _json({"status": "created", "id": page_id, "title": title, "table_id": table_id})
 
 
@@ -721,13 +738,17 @@ def update_table_row(row_id_or_title: str, properties: Dict[str, Any]) -> str:
     path = _resolve_page(row_id_or_title)
     if not path:
         return _json({"error": "Row not found."})
-    metadata, body = _parse(path)
-    if not (metadata.get("table_id") or metadata.get("database_table_id")):
-        return _json({"error": "The page is not a table row."})
-    for key, value in properties.items():
-        if key not in {"id", "table_id", "database_table_id"}:
-            metadata[key] = value
-    _write_page(path, metadata, body)
+    def mutate(metadata, body):
+        if not (metadata.get("table_id") or metadata.get("database_table_id")):
+            raise ValueError("The page is not a table row.")
+        for key, value in properties.items():
+            if key not in {"id", "table_id", "database_table_id"}:
+                metadata[key] = value
+        return metadata, body
+    try:
+        metadata = _mutate_page(path, mutate)
+    except ValueError as error:
+        return _json({"error": str(error)})
     return _json({"status": "updated", "id": metadata.get("id")})
 
 
@@ -778,11 +799,12 @@ def mark_task_complete(row_id_or_title: str) -> str:
     path = _resolve_page(row_id_or_title)
     if not path:
         return _json({"error": "Task not found."})
-    metadata, body = _parse(path)
-    metadata["completed"] = True
-    if "status" in metadata:
-        metadata["status"] = "done"
-    _write_page(path, metadata, body)
+    def mutate(metadata, body):
+        metadata["completed"] = True
+        if "status" in metadata:
+            metadata["status"] = "done"
+        return metadata, body
+    metadata = _mutate_page(path, mutate)
     return _json({"status": "completed", "id": metadata.get("id")})
 
 
@@ -1881,17 +1903,37 @@ _PAGE_LOCKS_GUARD = threading.Lock()
 _PAGE_LOCKS: Dict[str, threading.RLock] = {}
 
 
-def _page_lock(path: Path) -> threading.RLock:
-    """Return the process-local mutation lock for one canonical page path."""
+@contextmanager
+def _page_lock(path: Path):
+    """Serialize one canonical page path across threads and worker processes."""
     key = str(path.resolve())
+    lock_stripe = hashlib.sha256(key.encode("utf-8")).hexdigest()[:2]
     with _PAGE_LOCKS_GUARD:
-        return _PAGE_LOCKS.setdefault(key, threading.RLock())
+        thread_lock = _PAGE_LOCKS.setdefault(lock_stripe, threading.RLock())
+    with thread_lock:
+        lock_path = Path(tempfile.gettempdir()) / f"gnosi-page-lock-{lock_stripe}.lock"
+        with lock_path.open("a+b") as lock_file:
+            try:
+                import fcntl
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+            except ImportError:
+                fcntl = None
+            try:
+                yield
+            finally:
+                if fcntl is not None:
+                    fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
 def _mutate_page(path: Path, mutator) -> Dict[str, Any]:
     """Read, mutate, version, and write a page as one serialized operation."""
     with _page_lock(path):
+        expected_revision = _file_revision(path)
         metadata, body = _parse(path)
         next_metadata, next_body = mutator(metadata, body)
+        if _file_revision(path) != expected_revision:
+            raise ActionConflictError(
+                "The page changed while the agent was preparing the update.",
+            )
         _write_page(path, next_metadata, next_body)
         return next_metadata

@@ -22,6 +22,29 @@ def _names(tools):
     return {tool.name for tool in tools}
 
 
+def test_nested_page_metadata_is_recursively_bounded():
+    value = {"nested": [{"secret": "x" * 10_000} for _ in range(150)]}
+
+    bounded = gnosi_tools._bounded_json_value(value)
+
+    assert len(bounded["nested"]) == 100
+    assert len(bounded["nested"][0]["secret"]) == 2_000
+
+
+def test_page_mutation_rejects_external_revision_change(tmp_path):
+    page = tmp_path / "page.md"
+    page.write_text("---\nid: page-1\ntitle: Page\n---\n\nOriginal\n", encoding="utf-8")
+
+    def conflicting_mutation(metadata, body):
+        page.write_text("---\nid: page-1\ntitle: Page\n---\n\nExternal\n", encoding="utf-8")
+        return metadata, f"{body}\nAgent"
+
+    with pytest.raises(gnosi_tools.ActionConflictError):
+        gnosi_tools._mutate_page(page, conflicting_mutation)
+
+    assert "External" in page.read_text(encoding="utf-8")
+
+
 def test_catalog_has_unique_names_and_expected_risk_classes():
     reads = _names(READ_TOOLS)
     writes = _names(EXPLICIT_WRITE_TOOLS)
