@@ -1,20 +1,25 @@
 import asyncio
 import json
+import os
+import time
 from types import SimpleNamespace
 
 import pytest
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from pydantic import ValidationError
 
+from backend.agent import gnosi_tools, system_tools
 from backend.agent.factory import (
     _authorized_brain_write_tools,
+    _bounded_model_messages,
     _coder_read_only_tools,
     _explicit_brain_write_tool_names,
     _model_supports_tools,
+    _model_context_window,
     _obvious_route,
     _rejected_mcp_names,
     _safe_mcp_definitions,
 )
-from backend.agent import system_tools
 from backend.api import agent_routes
 
 
@@ -376,3 +381,108 @@ def test_session_delete_removes_checkpoint_thread(tmp_path, monkeypatch):
         )
 
     assert asyncio.run(exercise()) == {"deleted": True}
+def test_context_compaction_preserves_tool_protocol_groups():
+    messages = [
+        HumanMessage(content="x" * 70_000),
+        AIMessage(
+            content="",
+            tool_calls=[{
+                "name": "read_page",
+                "args": {"page_id_or_title": "page"},
+                "id": "call-1",
+                "type": "tool_call",
+            }],
+        ),
+        ToolMessage(content="result", tool_call_id="call-1"),
+    ]
+
+    bounded = _bounded_model_messages(messages)
+
+    assert any(getattr(message, "tool_calls", None) for message in bounded)
+    assert any(isinstance(message, ToolMessage) for message in bounded)
+    assert sum(len(str(message.content)) for message in bounded) <= 60_000
+
+
+def test_checkpoint_history_hides_attachment_enrichment_and_tool_calls():
+    stored = [
+        HumanMessage(
+            content="Visible\n\nAttachment: secret.txt\nprivate text",
+            additional_kwargs={"gnosi_visible_content": "Visible"},
+        ),
+        AIMessage(
+            content="",
+            tool_calls=[{
+                "name": "read_page",
+                "args": {},
+                "id": "call-1",
+                "type": "tool_call",
+            }],
+        ),
+        ToolMessage(content="private result", tool_call_id="call-1"),
+        AIMessage(content="Public answer"),
+    ]
+
+    assert agent_routes._public_checkpoint_messages(stored) == [
+        {"role": "user", "content": "Visible"},
+        {"role": "assistant", "content": "Public answer"},
+    ]
+
+
+def test_legacy_checkpoint_history_strips_internal_enrichment():
+    stored = [
+        HumanMessage(
+            content=(
+                "Visible request\n\nAttachment: private.txt\nsecret"
+                "\n\nSelected mentions context:\n- page: Hidden"
+            ),
+        ),
+    ]
+
+    assert agent_routes._public_checkpoint_messages(stored) == [
+        {"role": "user", "content": "Visible request"},
+    ]
+
+
+def test_unknown_model_uses_small_context_fallback(monkeypatch):
+    monkeypatch.setattr(
+        "backend.agent.model_router.load_registry",
+        lambda **_kwargs: [],
+    )
+
+    assert _model_context_window("openrouter", "unknown/model") == 8_192
+
+
+def test_attachment_cleanup_is_scoped_and_removes_only_expired_files(tmp_path):
+    vault = tmp_path / "vault"
+    current = vault / ".gnosi" / "chat-attachments" / "current"
+    other = vault / ".gnosi" / "chat-attachments" / "other"
+    current.mkdir(parents=True)
+    other.mkdir(parents=True)
+    expired = current / "expired.txt"
+    fresh = current / "fresh.txt"
+    unrelated = other / "expired.txt"
+    for path in (expired, fresh, unrelated):
+        path.write_text("content", encoding="utf-8")
+    old_time = time.time() - agent_routes.ATTACHMENT_MAX_AGE_SECONDS - 60
+    os.utime(expired, (old_time, old_time))
+    os.utime(unrelated, (old_time, old_time))
+
+    agent_routes._cleanup_expired_attachments(vault, "current")
+
+    assert not expired.exists()
+    assert fresh.exists()
+    assert unrelated.exists()
+
+
+def test_page_locks_use_a_bounded_stripe_pool(tmp_path, monkeypatch):
+    lock_directory = tmp_path / "locks"
+    lock_directory.mkdir()
+    monkeypatch.setattr(gnosi_tools.tempfile, "gettempdir", lambda: str(lock_directory))
+    gnosi_tools._PAGE_LOCKS.clear()
+
+    for index in range(600):
+        with gnosi_tools._page_lock(tmp_path / f"page-{index}.md"):
+            pass
+
+    assert len(gnosi_tools._PAGE_LOCKS) <= 256
+    assert len(list(lock_directory.glob("gnosi-page-lock-*.lock"))) <= 256

@@ -91,6 +91,11 @@ success, failure, and an unknown external outcome.
 - Normalize governed handler statuses: `error`/`failed` become `failed`,
   `cancelled` and `partial` are preserved, and only documented success statuses
   become `completed`. Unknown or error-bearing results never become success.
+- Every mutation path, including legacy tools, uses the same canonical-path
+  lock and revision precondition. Filename selection and creation happen while
+  holding the destination lock.
+- Inter-process page locks use a fixed striped pool, so lock artifacts stay
+  bounded without unsafe unlink races against waiting worker processes.
 
 - Do not use raw text substrings as sufficient write authorization.
 - Do not accept a client-side list of pre-confirmed tool IDs.
