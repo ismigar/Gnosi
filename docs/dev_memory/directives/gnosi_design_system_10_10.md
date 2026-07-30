@@ -228,3 +228,15 @@ environment-specific frontend assumptions.
   icon action shares a visible theme-aware focus ring in both color schemes.
 - Feed hierarchy prioritizes the record title over its timestamp and property
   pills without lowering secondary text below accessible contrast.
+- Feed density is an explicit user preference stored independently for mobile
+  and desktop. Responsive defaults must not overwrite a choice made for the
+  other profile.
+- Long document workflows retain context with a minimal sticky title/action
+  header and sticky view controls; loading placeholders preserve the same
+  toolbar-and-content geometry to avoid layout shifts.
+- Active search and filter state remains visible beside its result count.
+  Hidden configuration state without a visible chip makes filtered datasets
+  look incomplete.
+- Sidebar navigation can reveal and center the active page by expanding only
+  its ancestor chain. Do not require users to manually reopen an entire tree
+  to recover their current context.

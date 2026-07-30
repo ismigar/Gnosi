@@ -1,7 +1,7 @@
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
-import { Loader2, AlertCircle, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp, X, LayoutTemplate, MoreHorizontal, Settings, Edit2, Copy, Trash2 } from 'lucide-react';
+import { AlertCircle, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp, X, LayoutTemplate, MoreHorizontal, Settings, Edit2, Copy, Trash2, Rows3 } from 'lucide-react';
 import { compareFieldValues, NUM_RE, ISO_DATE_RE, parseNumericValue, normalizeForSearch } from '../../utils/vaultFilters';
 import { VaultEditorContext } from './VaultEditorContext';
 import { VaultMarkdown, RetryableImage } from './VaultMarkdown';
@@ -269,6 +269,11 @@ function ViewActionsBar({
     setSearchTerm,
     showSearch,
     setShowSearch,
+    density,
+    onToggleDensity,
+    activeFilterCount = 0,
+    resultCount = 0,
+    totalCount = 0,
 }) {
     const { t } = useTranslation();
     const [showNewMenu, setShowNewMenu] = useState(false);
@@ -282,6 +287,28 @@ function ViewActionsBar({
 
     return (
         <div className="vault-view-actions flex items-center gap-1">
+            {(activeFilterCount > 0 || searchTerm) && (
+                <div className="vault-view-filter-status" role="status">
+                    {activeFilterCount > 0 && (
+                        <button type="button" onClick={onOpenConfig} className="vault-view-filter-chip">
+                            {t('views_header.active_filters', { count: activeFilterCount })}
+                        </button>
+                    )}
+                    {searchTerm && (
+                        <button
+                            type="button"
+                            onClick={() => setSearchTerm?.('')}
+                            className="vault-view-filter-chip"
+                            title={t('views_header.clear_search')}
+                        >
+                            “{searchTerm}” <X size={11} />
+                        </button>
+                    )}
+                    <span className="vault-view-result-count">
+                        {t('views_header.filtered_records_count', { count: resultCount, total: totalCount })}
+                    </span>
+                </div>
+            )}
             {showSearch ? (
                 <div className="flex items-center gap-1 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-md px-2 py-1">
                     <Search size={12} className="text-[var(--text-tertiary)]" />
@@ -324,6 +351,23 @@ function ViewActionsBar({
                     aria-label={t('views_header.view_settings', "View settings")}
                 >
                     <SlidersHorizontal size={13} />
+                </button>
+            )}
+
+            {onToggleDensity && (
+                <button
+                    type="button"
+                    onClick={onToggleDensity}
+                    className="vault-view-action"
+                    aria-pressed={density === 'compact'}
+                    title={density === 'compact'
+                        ? t('views_header.comfortable_density')
+                        : t('views_header.compact_density')}
+                    aria-label={density === 'compact'
+                        ? t('views_header.comfortable_density')
+                        : t('views_header.compact_density')}
+                >
+                    <Rows3 size={14} />
                 </button>
             )}
 
@@ -658,6 +702,39 @@ export function DbViewEmbed({ block }) {
     const lastSavedNonceRef = useRef(0);
     const [searchTerm, setSearchTerm] = useState('');
     const [showSearch, setShowSearch] = useState(false);
+    const [preferenceProfile, setPreferenceProfile] = useState(() => (
+        window.matchMedia('(max-width: 768px)').matches ? 'mobile' : 'desktop'
+    ));
+    useEffect(() => {
+        const query = window.matchMedia('(max-width: 768px)');
+        const update = () => setPreferenceProfile(query.matches ? 'mobile' : 'desktop');
+        query.addEventListener('change', update);
+        return () => query.removeEventListener('change', update);
+    }, []);
+    const densityStorageKey = `gnosi.view.feedDensity.${preferenceProfile}`;
+    const [feedDensity, setFeedDensity] = useState(() => {
+        try {
+            const profile = window.matchMedia('(max-width: 768px)').matches ? 'mobile' : 'desktop';
+            return localStorage.getItem(`gnosi.view.feedDensity.${profile}`) || 'comfortable';
+        } catch {
+            return 'comfortable';
+        }
+    });
+    useEffect(() => {
+        const frame = window.requestAnimationFrame(() => {
+            try {
+                setFeedDensity(localStorage.getItem(densityStorageKey) || 'comfortable');
+            } catch { /* noop */ }
+        });
+        return () => window.cancelAnimationFrame(frame);
+    }, [densityStorageKey]);
+    const toggleFeedDensity = useCallback(() => {
+        setFeedDensity((current) => {
+            const next = current === 'compact' ? 'comfortable' : 'compact';
+            try { localStorage.setItem(densityStorageKey, next); } catch { /* noop */ }
+            return next;
+        });
+    }, [densityStorageKey]);
     const [tabMenuFor, setTabMenuFor] = useState(null);     // id of the view with its (remove/delete) menu open
     const [menuUp, setMenuUp] = useState(false);            // open the dropdown upward if it doesn't fit below
     const [confirmDeleteView, setConfirmDeleteView] = useState(null); // view pending deletion everywhere (ConfirmModal)
@@ -868,6 +945,16 @@ export function DbViewEmbed({ block }) {
     );
     const rawType = String(effectiveView?.view_type || effectiveView?.type || 'table').toLowerCase();
     const viewType = rawType === 'db_view' ? 'table' : rawType;
+    const activeFilterCount = useMemo(() => {
+        if (isFilterGroup(effectiveView?.filterTree)) {
+            const countRules = (node) => (node?.rules || []).reduce(
+                (count, rule) => count + (isFilterGroup(rule) ? countRules(rule) : 1),
+                0,
+            );
+            return countRules(effectiveView.filterTree);
+        }
+        return effectiveView?.filters?.length || (effectiveView?.filter ? 1 : 0);
+    }, [effectiveView]);
     // The title/heading is carried by the block's section (it doesn't change with the tab).
     const displayHeading = headingProp || view?.heading;
     const displayLevel = headingLevelProp || view?.heading_level || 1;
@@ -1138,9 +1225,20 @@ export function DbViewEmbed({ block }) {
 
     if (loading) {
         return (
-            <div className="my-4 p-4 flex items-center gap-2 text-xs text-[var(--text-tertiary)]">
-                <Loader2 size={14} className="animate-spin" />
-                {t('views_header.loading_view', "Loading view...")}
+            <div className="vault-view-skeleton my-4" role="status" aria-label={t('views_header.loading_view', "Loading view...")}>
+                <div className="vault-view-skeleton__toolbar">
+                    <span className="vault-skeleton-block w-24" />
+                    <span className="vault-skeleton-block w-32" />
+                </div>
+                <div className="vault-view-skeleton__cards" aria-hidden="true">
+                    {[0, 1, 2].map((item) => (
+                        <div key={item} className="vault-view-skeleton__card">
+                            <span className="vault-skeleton-block w-2/3" />
+                            <span className="vault-skeleton-block w-1/3" />
+                            <span className="vault-skeleton-block w-full" />
+                        </div>
+                    ))}
+                </div>
             </div>
         );
     }
@@ -1248,6 +1346,7 @@ export function DbViewEmbed({ block }) {
         onExitBottom: () => ctx.exitEmbedToEditor?.(block?.id, 'down'),
         onEscape: () => ctx.exitEmbedToEditor?.(block?.id, 'escape'),
         onFocusShell: focusShell,
+        feedDensity,
     };
     const renderBody = () => {
         // The `graph` has no equivalent editable component → bespoke render.
@@ -1304,6 +1403,11 @@ export function DbViewEmbed({ block }) {
                     setSearchTerm={setSearchTerm}
                     showSearch={showSearch}
                     setShowSearch={setShowSearch}
+                    density={feedDensity}
+                    onToggleDensity={viewType === 'feed' ? toggleFeedDensity : null}
+                    activeFilterCount={activeFilterCount}
+                    resultCount={rows.length}
+                    totalCount={rawRecords.length}
                 />
             </div>
             {/* Tabs of views for THIS block: the section's view (anchor)

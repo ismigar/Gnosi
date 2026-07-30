@@ -12,7 +12,7 @@ import {
     useSortable, arrayMove, sortableKeyboardCoordinates
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Search, Star, FileText, Plus, ChevronRight, ChevronDown, Clock, Inbox, Settings, MoreHorizontal, Edit2, Copy, Trash2, Database, LayoutPanelLeft, Palette, Hash, Columns2, ArrowUpDown, ArrowDownAZ, ArrowUpAZ, Check, GripVertical, Lock, Unlock, CalendarDays } from 'lucide-react';
+import { Search, Star, FileText, Plus, ChevronRight, ChevronDown, Clock, Inbox, Settings, MoreHorizontal, Edit2, Copy, Trash2, Database, LayoutPanelLeft, Palette, Hash, Columns2, ArrowUpDown, ArrowDownAZ, ArrowUpAZ, Check, GripVertical, Lock, Unlock, CalendarDays, LocateFixed } from 'lucide-react';
 import { IconRenderer } from './IconRenderer';
 import { ConfirmModal } from '../ConfirmModal';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
@@ -175,6 +175,7 @@ const SortableFavoriteItem = ({ page, draggable, onPageSelect }) => {
     return (
         <div
             ref={setNodeRef}
+            data-vault-page-id={page.id}
             {...(draggable ? attributes : {})}
             {...(draggable ? listeners : {})}
             style={{
@@ -220,7 +221,9 @@ const SectionHeader = ({ label, isExpanded, onToggle, onAdd, addLabel }) => (
     </div>
 );
 
-const SIDEBAR_SECTION_STATE_KEY = 'gnosi.sidebar.sections';
+const sidebarSectionStateKey = () => (
+    `gnosi.sidebar.sections.${window.matchMedia('(max-width: 768px)').matches ? 'mobile' : 'desktop'}`
+);
 
 const loadSidebarSectionState = () => {
     try {
@@ -229,7 +232,7 @@ const loadSidebarSectionState = () => {
             dashboards: false,
             data: false,
             wiki: false,
-            ...JSON.parse(localStorage.getItem(SIDEBAR_SECTION_STATE_KEY) || '{}'),
+            ...JSON.parse(localStorage.getItem(sidebarSectionStateKey()) || '{}'),
         };
     } catch {
         return { favorites: true, dashboards: false, data: false, wiki: false };
@@ -316,6 +319,7 @@ const PageTreeItem = ({
     return (
         <div className="select-none relative">
             <div
+                data-vault-page-id={page.id}
                 title={page.title}
                 className={`group flex items-center gap-1 py-1 text-sm rounded-md transition-colors cursor-pointer ${isActive ? 'bg-[var(--bg-secondary)] text-[var(--text-primary)] font-medium' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]/50'} ${isDropTarget ? 'ring-2 ring-[var(--gnosi-primary)]/50 bg-[var(--gnosi-primary)]/10' : ''}`}
                 style={{ paddingLeft: `${depth * 12 + 8}px`, paddingRight: '8px' }}
@@ -634,6 +638,21 @@ export const VaultSidebar = ({
     const WIKI_ITEM_HEIGHT = 30;
     const WIKI_OVERSCAN = 10;
     const [sidebarSectionState, setSidebarSectionState] = useState(loadSidebarSectionState);
+    const [sidebarPreferenceProfile, setSidebarPreferenceProfile] = useState(() => (
+        window.matchMedia('(max-width: 768px)').matches ? 'mobile' : 'desktop'
+    ));
+    useEffect(() => {
+        const query = window.matchMedia('(max-width: 768px)');
+        const update = () => setSidebarPreferenceProfile(query.matches ? 'mobile' : 'desktop');
+        query.addEventListener('change', update);
+        return () => query.removeEventListener('change', update);
+    }, []);
+    useEffect(() => {
+        const frame = window.requestAnimationFrame(() => {
+            setSidebarSectionState(loadSidebarSectionState());
+        });
+        return () => window.cancelAnimationFrame(frame);
+    }, [sidebarPreferenceProfile]);
     const {
         favorites: isFavoritesExpanded,
         dashboards: isDashboardExpanded,
@@ -664,7 +683,7 @@ export const VaultSidebar = ({
     );
     useEffect(() => {
         try {
-            localStorage.setItem(SIDEBAR_SECTION_STATE_KEY, JSON.stringify(sidebarSectionState));
+            localStorage.setItem(sidebarSectionStateKey(), JSON.stringify(sidebarSectionState));
         } catch { /* noop */ }
     }, [sidebarSectionState]);
     // Wiki lock: when it's closed (true), pages cannot be dragged
@@ -1016,6 +1035,27 @@ export const VaultSidebar = ({
         setExpandedDashboardNodes(prev => ({ ...prev, [pageId]: !prev[pageId] }));
     };
 
+    const locateActivePage = useCallback(() => {
+        if (!activePageId) return;
+        const byId = Object.fromEntries((pages || []).map((page) => [page.id, page]));
+        const ancestors = {};
+        let current = byId[activePageId];
+        while (current?.parent_id && byId[current.parent_id]) {
+            ancestors[current.parent_id] = true;
+            current = byId[current.parent_id];
+        }
+        setIsFavoritesExpanded(true);
+        setIsWorkspaceExpanded(true);
+        setExpandedWikiNodes((existing) => ({ ...existing, ...ancestors }));
+        window.requestAnimationFrame(() => {
+            window.requestAnimationFrame(() => {
+                [...document.querySelectorAll('[data-vault-page-id]')]
+                    .find((element) => element.dataset.vaultPageId === String(activePageId))
+                    ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            });
+        });
+    }, [activePageId, pages, setIsFavoritesExpanded, setIsWorkspaceExpanded]);
+
     useEffect(() => {
         const frame = window.requestAnimationFrame(() => {
             setVisibleDatabasesCount(DATABASES_BATCH_SIZE);
@@ -1038,7 +1078,16 @@ export const VaultSidebar = ({
                     <div className="w-5 h-5 bg-gnosi/10 rounded flex items-center justify-center text-gnosi font-bold text-[10px]">G</div>
                     <span className="truncate text-sm font-semibold text-[var(--text-primary)]">{t('common.vault_label', 'Vault')}: {activeVaultName || '…'}</span>
                 </div>
-
+                <button
+                    type="button"
+                    onClick={locateActivePage}
+                    disabled={!activePageId}
+                    className="vault-sidebar-icon-action rounded-md text-[var(--text-secondary)] disabled:opacity-30"
+                    title={t('sidebar.locate_active_page')}
+                    aria-label={t('sidebar.locate_active_page')}
+                >
+                    <LocateFixed size={14} />
+                </button>
             </div>
 
             <div className="px-2 space-y-0.5">

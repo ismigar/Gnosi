@@ -52,6 +52,7 @@ export function VaultViewBody({
     onExitBottom,
     onEscape,
     onFocusShell,
+    feedDensity = 'comfortable',
 }) {
     const t = String(type || 'table').toLowerCase();
 
@@ -124,6 +125,7 @@ export function VaultViewBody({
                 onDeletePage={onDeletePage}
                 onDeleteSelected={onDeleteSelected}
                 onUpdateNote={onUpdateNote}
+                density={feedDensity}
             />
         );
     } else if (t === 'calendar') {

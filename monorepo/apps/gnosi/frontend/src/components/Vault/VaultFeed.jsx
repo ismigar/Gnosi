@@ -56,7 +56,7 @@ function prepareBodyMd(raw) {
  * interact with the body); opening the page is done with the "Open" button or
  * by clicking the title.
  */
-function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, onOpen }) {
+function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, onOpen, density }) {
     const { t, i18n } = useTranslation();
     const isCompact = useMediaQuery('(max-width: 768px)');
     const [expanded, setExpanded] = useState(false);
@@ -110,7 +110,7 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
 
     return (
         <article
-            className={`vault-feed-card relative bg-[var(--bg-primary)] rounded-2xl shadow-sm border overflow-hidden hover:shadow-md transition-all group flex flex-col ${isSelected ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/40'}`}
+            className={`vault-feed-card ${density === 'compact' ? 'vault-feed-card--compact' : ''} relative bg-[var(--bg-primary)] rounded-2xl shadow-sm border overflow-hidden hover:shadow-md transition-all group flex flex-col ${isSelected ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/40'}`}
         >
             {/* The label only stops propagation (not opening the card): the
                 toggle is handled by the input's onChange. If the label also called
@@ -266,7 +266,7 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
  * dedicated component so the parent can remount it (via `key`) and reset the
  * count when the set changes, without `setState` inside an effect or mutating refs during render.
  */
-function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSelect, onOpen }) {
+function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSelect, onOpen, density }) {
     const sentinelRef = useRef(null);
     const [visibleCount, setVisibleCount] = useState(FEED_BATCH);
     const hasMore = visibleCount < notes.length;
@@ -305,6 +305,7 @@ function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSele
                     selectionActive={selectionActive}
                     onToggleSelect={onToggleSelect}
                     onOpen={onOpen}
+                    density={density}
                 />
             ))}
 
@@ -318,7 +319,7 @@ function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSele
     );
 }
 
-export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onDeleteSelected, onDeletePage, onUpdateNote, searchTerm = '' }) {
+export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onDeleteSelected, onDeletePage, onUpdateNote, searchTerm = '', density = 'comfortable' }) {
     const { t } = useTranslation();
     const localeSettings = useLocaleSettings();
 
@@ -576,6 +577,7 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
                 selectionActive={selectedIds.size > 0}
                 onToggleSelect={toggleSelect}
                 onOpen={onNoteSelect}
+                density={density}
             />
         </div>
     );

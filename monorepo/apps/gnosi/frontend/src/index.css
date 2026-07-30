@@ -468,6 +468,115 @@ textarea,
   border-bottom-color: var(--border-primary);
 }
 
+.vault-page-compact-header {
+  position: sticky;
+  top: 0;
+  z-index: 35;
+  display: flex;
+  min-height: var(--control-height-touch);
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-inline: 1rem;
+  border-bottom: 1px solid var(--border-primary);
+  background: color-mix(in srgb, var(--bg-primary) 94%, transparent);
+  box-shadow: var(--shadow-subtle);
+  backdrop-filter: blur(12px);
+}
+
+.vault-page-compact-header__title {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vault-view-filter-status {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.vault-view-filter-chip {
+  display: inline-flex;
+  max-width: 9rem;
+  min-height: 1.75rem;
+  align-items: center;
+  gap: 0.25rem;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--gnosi-primary) 35%, var(--border-primary));
+  border-radius: 999px;
+  padding-inline: 0.5rem;
+  background: color-mix(in srgb, var(--gnosi-primary) 8%, var(--bg-primary));
+  color: var(--gnosi-primary);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vault-view-result-count {
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
+  white-space: nowrap;
+}
+
+.vault-feed-card--compact .vault-feed-card__body {
+  gap: 0.5rem;
+  padding: 0.875rem 1rem;
+}
+
+.vault-feed-card--compact .vault-feed-card__preview {
+  max-height: 3.25rem;
+}
+
+.vault-feed-card--compact .vault-feed-card__title {
+  font-size: 1.0625rem;
+}
+
+.vault-view-skeleton {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.vault-view-skeleton__toolbar {
+  display: flex;
+  min-height: var(--control-height-touch);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.vault-view-skeleton__cards {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.vault-view-skeleton__card {
+  display: grid;
+  gap: 0.625rem;
+  min-height: 7rem;
+  padding: 1rem;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+}
+
+.vault-skeleton-block {
+  display: block;
+  height: 0.75rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--bg-secondary), var(--bg-tertiary), var(--bg-secondary));
+  background-size: 200% 100%;
+  animation: vault-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes vault-skeleton-shimmer {
+  to { background-position: -200% 0; }
+}
+
 .vault-feed-card__preview {
   position: relative;
   max-height: 9.75rem;
@@ -1599,6 +1708,15 @@ button:hover > .row-action-tooltip {
   .vault-view-toolbar {
     margin-inline: -0.25rem;
     padding-inline: 0.25rem;
+  }
+
+  .vault-view-filter-status {
+    max-width: 45vw;
+    overflow-x: auto;
+  }
+
+  .vault-view-result-count {
+    display: none;
   }
 
   .vault-feed-card__open {
