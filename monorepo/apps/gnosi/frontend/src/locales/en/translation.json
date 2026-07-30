@@ -4227,13 +4227,75 @@
       "cancel": "Cancel action",
       "review": "Review and confirm",
       "completed": "Action completed after confirmation.",
+      "partial": "The action completed partially: {{completed}} completed, {{failed}} failed.",
+      "outcome_unknown": "The connection was lost and the action outcome is unknown. Check the target before trying again.",
       "failed": "The action could not be completed: {{message}}",
       "status": {
         "pending": "Awaiting confirmation",
+        "executing": "Executing",
         "completed": "Completed",
+        "partial": "Partially completed",
         "cancelled": "Cancelled",
+        "expired": "Expired",
         "failed": "Failed",
+        "outcome_unknown": "Outcome unknown",
         "unavailable": "No longer available"
+      },
+      "errors": {
+        "confirmation_not_found": "The pending action no longer exists.",
+        "confirmation_scope_mismatch": "This action belongs to another Vault, user, agent, or chat session.",
+        "confirmation_expired": "The pending action expired. Prepare it again if it is still needed.",
+        "confirmation_unavailable": "The pending action is no longer available.",
+        "confirmation_admin_required": "Administrator permission is required for this action.",
+        "confirmation_action_rejected": "The target changed or the action is no longer permitted.",
+        "confirmation_action_failed": "The action could not be completed.",
+        "confirmation_outcome_unknown": "The action may have completed, but Gnosi could not verify the outcome. Check the target before trying again."
+      },
+      "details": {
+        "account": "Account",
+        "arguments": "Exact arguments",
+        "attendees": "Attendees",
+        "bcc": "Bcc",
+        "body": "Body",
+        "body_sha256": "Body fingerprint",
+        "calendar_id": "Calendar",
+        "cc": "Cc",
+        "company": "Company",
+        "count": "Item count",
+        "current_revision": "Current revision",
+        "date": "Date",
+        "description": "Description",
+        "effects": "Effects",
+        "email": "Email",
+        "end": "End",
+        "entries": "Exact entries",
+        "entries_truncated": "Entry list truncated",
+        "event_id": "Event ID",
+        "folder": "Folder",
+        "location": "Location",
+        "message_id": "Message ID",
+        "page": "Page",
+        "page_id": "Page ID",
+        "page_revision": "Page revision",
+        "phone": "Phone",
+        "properties": "Properties",
+        "property_count": "Property count",
+        "row_count": "Row count",
+        "schema_sha256": "Schema fingerprint",
+        "sender": "Sender",
+        "snapshot_digest": "Snapshot fingerprint",
+        "start": "Start",
+        "subject": "Subject",
+        "table": "Table",
+        "table_id": "Table ID",
+        "target_folder": "Target folder",
+        "timestamp": "Version",
+        "title": "Title",
+        "to": "To",
+        "tool": "Tool",
+        "tool_id": "Tool ID",
+        "updates": "Exact row changes",
+        "version_revision": "Version revision"
       },
       "actions": {
         "delete_page": {
@@ -4248,6 +4310,10 @@
           "title": "Send email",
           "summary": "Send “{{subject}}” from {{account}} to {{to}}?"
         },
+        "save_mail_draft": {
+          "title": "Save email draft",
+          "summary": "Save “{{subject}}” as a draft in {{account}} for {{to}}?"
+        },
         "archive_mail": {
           "title": "Archive email",
           "summary": "Archive message {{message_id}} in {{account}}?"
@@ -4260,6 +4326,14 @@
           "title": "Send event invitations",
           "summary": "Invite {{attendees}} to event {{event_id}} from {{account}}?"
         },
+        "create_calendar_event": {
+          "title": "Create calendar event",
+          "summary": "Create “{{title}}” in {{calendar_id}} from {{start}} to {{end}}?"
+        },
+        "governed_tool": {
+          "title": "Execute governed tool",
+          "summary": "Review the exact arguments and effects for {{tool}} before execution."
+        },
         "delete_table": {
           "title": "Delete table",
           "summary": "Delete the table “{{table}}”, its views, and its stored assets?"
@@ -4270,7 +4344,8 @@
         },
         "empty_trash": {
           "title": "Permanently empty trash",
-          "summary": "Permanently delete {{count}} item(s) from the Vault trash?"
+          "summary_one": "Permanently delete {{count}} item from the Vault trash?",
+          "summary_other": "Permanently delete {{count}} items from the Vault trash?"
         },
         "change_schema": {
           "title": "Replace schema",
@@ -4278,7 +4353,8 @@
         },
         "bulk_update_rows": {
           "title": "Update rows in bulk",
-          "summary": "Apply changes to {{count}} table row(s)?"
+          "summary_one": "Apply changes to {{count}} table row?",
+          "summary_other": "Apply changes to {{count}} table rows?"
         }
       }
     }

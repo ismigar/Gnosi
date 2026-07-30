@@ -106,9 +106,36 @@ such as Mistral.
 39. Cancellation, expiry, scope mismatch, and replay all fail closed. A failed
     execution remains consumed and must be prepared again; automatic retries
     are prohibited for destructive or external side effects.
-40. Bind the provider-neutral first-party Gnosi tool catalog to every
-    tool-capable agent. Explicit skills add specialist tools but must not remove
-    the guarded core operations or their authorization policies.
+40. Register first-party Gnosi operations in the governed tool catalog and
+    expose them only through assigned active skills. The legacy compatibility
+    skill may reference the complete first-party catalog, but an explicitly
+    scoped profile receives only the domains its assigned skills reference.
+41. Interpret a current-turn write request with a fail-closed deterministic
+    parser. Negated, quoted, explanatory, third-person capability, or otherwise
+    ambiguous occurrences of an action phrase do not grant the action.
+42. Apply interactive confirmation to every governed tool whose descriptor
+    requires `always`, including plugin, MCP, and generated tools. Intercept the
+    call after its exact arguments are known, persist a one-shot action bound to
+    the immutable tool descriptor, and execute it outside the model loop.
+43. Keep pending-action arguments private, mode `0600`, and short-lived. Scrub
+    them on completion, cancellation, expiry, unknown outcome, and scoped chat
+    deletion; delete old terminal audit rows after bounded retention.
+44. Treat a lost response after an external side effect as an unknown outcome,
+    never as a known failure. Expose status lookup and do not invite an automatic
+    or manual retry until the user has reconciled the external system.
+45. Bind each confirmation to the exact target revision or immutable target
+    snapshot used in its preview. Reject stale page, table, schema, row, contact,
+    and history actions instead of applying them to changed state.
+46. Present pending actions as a queue of inline review cards. Never open a
+    destructive dialog asynchronously, focus its positive action, or map Enter
+    to confirmation. Session changes abort or ignore stale confirmation
+    responses.
+47. Distinguish completed, partial, failed, expired, cancelled, executing, and
+    unknown-outcome results. Surface stable localized error codes and the real
+    counts from batch or trash operations.
+48. Revalidate workspace-scoped integration access and configured accounts both
+    while preparing and while executing mail or calendar actions. Calling route
+    functions directly never bypasses request dependencies or account grants.
 
 ## Restrictions / Edge Cases
 
@@ -181,4 +208,23 @@ such as Mistral.
   field against the current authenticated request before claiming the action.
 - Do not place first-party Gnosi operations exclusively in the legacy
   compatibility skill. Migrated agents would lose their basic product
-  capabilities; keep the guarded core catalog independent from optional skills.
+  capabilities; register domain skills and let the compatibility skill compose
+  them explicitly.
+- Do not authorize a write because its phrase occurs inside "do not", a quote,
+  an explanation, or a third-person capability question. A substring match is
+  not user intent.
+- Do not accept client-provided tool IDs as confirmation. The server creates a
+  one-shot confirmation only after it has the exact governed tool call and its
+  arguments.
+- Do not retain mail bodies, recipient lists, schemas, or row values in terminal
+  audit records. Scrub action arguments before returning a terminal response.
+- Do not report a transport failure after an external call as proof that the
+  action failed. Return and display an unknown outcome until reconciled.
+- Do not confirm a count and later operate on a broader live collection. Empty
+  trash and other batch actions execute the exact snapshotted identifiers.
+- Do not apply a pending edit to a page, row, schema, table, contact, or version
+  whose revision changed after the preview. Require the user to prepare it again.
+- Do not auto-open a consequential confirmation over the chat composer. The user
+  must open its review card, and the positive action requires a deliberate click.
+- Do not overwrite one pending confirmation with another. Preserve every
+  server-issued action as an independently cancellable queue item.

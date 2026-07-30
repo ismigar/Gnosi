@@ -1,5 +1,6 @@
 import os
 import operator
+import re
 from typing import Annotated, Any, Iterable, TypedDict, List, Sequence, Optional
 import logging
 from langchain_core.messages import BaseMessage, SystemMessage, ToolMessage
@@ -46,7 +47,10 @@ from backend.agent.gnosi_tools import (
     EXPLICIT_WRITE_TOOLS,
     READ_TOOLS as GNOSI_READ_TOOLS,
 )
-from backend.agent.action_confirmations import confirmation_event
+from backend.agent.action_confirmations import (
+    confirmation_event,
+    request_governed_tool_confirmation,
+)
 from backend.agent.agent_context import build_context_tools, describe_context_refs
 from backend.agent.tools import get_mcp_tools
 from backend.config.app_config import load_params
@@ -202,8 +206,72 @@ def _coder_read_only_tools(tools: Sequence[Any]) -> List[Any]:
     return [tool for tool in tools if tool.name in allowed_names]
 
 
-def _explicit_brain_write_tool_names(message: str) -> set[str]:
-    """Authorize individual Brain mutations from explicit current-turn wording."""
+def _mask_quoted_text(text: str) -> str:
+    """Mask quoted/code spans so examples and copied instructions grant nothing."""
+    patterns = (
+        r"```.*?```",
+        r"`[^`]*`",
+        r'"[^"]*"',
+        r"“[^”]*”",
+        r"«[^»]*»",
+    )
+    masked = text
+    for pattern in patterns:
+        masked = re.sub(
+            pattern,
+            lambda match: " " * len(match.group(0)),
+            masked,
+            flags=re.DOTALL,
+        )
+    return masked
+
+
+def _affirmative_pattern_present(text: str, patterns: Sequence[str]) -> bool:
+    """Match an action phrase only outside negation and meta capability queries."""
+    meta_prefixes = (
+        "analitza ", "analyse ", "analyze ", "explica ", "explain ",
+        "explique ", "per què ", "por qué ", "why ", "què significa ",
+        "qué significa ", "what does ",
+    )
+    third_person_queries = (
+        "can this agent ", "can the agent ", "could this agent ",
+        "pot aquest agent ", "pot l'agent ", "puede este agente ",
+        "puede el agente ", "est-ce que cet agent ", "l'agent peut-il ",
+    )
+    stripped = text.strip()
+    if stripped.startswith(meta_prefixes):
+        return False
+    if any(query in stripped for query in third_person_queries):
+        return False
+
+    masked = _mask_quoted_text(text)
+    negations = re.compile(
+        r"\b(?:do not|don't|never|not|no|mai|nunca|jamais|sans|sense)\b"
+        r"|\bne\b.*\bpas\b",
+        re.IGNORECASE,
+    )
+    for pattern in patterns:
+        start = 0
+        while True:
+            index = masked.find(pattern, start)
+            if index < 0:
+                break
+            clause_start = max(
+                masked.rfind(separator, 0, index)
+                for separator in (".", "!", "?", ";", "\n")
+            ) + 1
+            prefix = masked[clause_start:index][-80:]
+            if not negations.search(prefix):
+                return True
+            start = index + len(pattern)
+    return False
+
+
+def _explicit_brain_write_tool_names(
+    message: str,
+    mentions: Optional[Sequence[Any]] = None,
+) -> set[str]:
+    """Authorize fail-closed Brain mutations from the current human wording."""
     text = " ".join((message or "").strip().lower().split())
     if not text:
         return set()
@@ -214,7 +282,10 @@ def _explicit_brain_write_tool_names(message: str) -> set[str]:
         "create", "make", "prepare", "generate", "summarize",
         "resume", "haz", "prepara", "genera", "résume", "crée", "prépare",
     )
-    if "cornell" in text and any(action in text for action in cornell_actions):
+    if (
+        "cornell" in text
+        and _affirmative_pattern_present(text, cornell_actions)
+    ):
         authorized.add("summarize_to_cornell")
 
     page_patterns = (
@@ -224,7 +295,10 @@ def _explicit_brain_write_tool_names(message: str) -> set[str]:
         "crea una página", "crear una página", "haz una página", "haz una nota",
         "crée une page", "crée une note", "créer une page", "créer une note",
     )
-    if "cornell" not in text and any(pattern in text for pattern in page_patterns):
+    if (
+        "cornell" not in text
+        and _affirmative_pattern_present(text, page_patterns)
+    ):
         authorized.add("create_page")
 
     memory_patterns = (
@@ -235,7 +309,7 @@ def _explicit_brain_write_tool_names(message: str) -> set[str]:
         "guárdalo en la memoria", "guarda esto en la memoria",
         "recuerda que ", "mémorise ", "enregistre ceci en mémoire",
     )
-    if any(pattern in text for pattern in memory_patterns):
+    if _affirmative_pattern_present(text, memory_patterns):
         authorized.add("save_memory")
 
     intent_patterns = {
@@ -281,14 +355,14 @@ def _explicit_brain_write_tool_names(message: str) -> set[str]:
         ),
     }
     for name, patterns in intent_patterns.items():
-        if any(pattern in text for pattern in patterns):
+        if _affirmative_pattern_present(text, patterns):
             authorized.add(name)
 
     delete_patterns = (
         "elimina la pàgina", "esborra la pàgina", "delete the page",
         "remove the page", "elimina la página", "supprime la page",
     )
-    if any(pattern in text for pattern in delete_patterns):
+    if _affirmative_pattern_present(text, delete_patterns):
         authorized.add("delete_page")
 
     confirmation_request_patterns = {
@@ -335,8 +409,32 @@ def _explicit_brain_write_tool_names(message: str) -> set[str]:
         ),
     }
     for name, patterns in confirmation_request_patterns.items():
-        if any(pattern in text for pattern in patterns):
+        if _affirmative_pattern_present(text, patterns):
             authorized.add(name)
+
+    mention_types = {
+        str(
+            mention.get("type", "")
+            if isinstance(mention, dict)
+            else getattr(mention, "type", "")
+        ).strip().lower()
+        for mention in (mentions or ())
+    }
+    delete_verbs = (
+        "elimina ", "esborra ", "delete ", "remove ",
+        "supprime ", "borra ",
+    )
+    update_verbs = (
+        "actualitza ", "edita ", "update ", "edit ", "modifie ",
+    )
+    if {"table", "database"}.intersection(mention_types):
+        if _affirmative_pattern_present(text, delete_verbs):
+            authorized.add("delete_table")
+    if "page" in mention_types:
+        if _affirmative_pattern_present(text, delete_verbs):
+            authorized.add("delete_page")
+        if _affirmative_pattern_present(text, update_verbs):
+            authorized.add("update_page")
 
     return authorized
 
@@ -568,6 +666,12 @@ def _runtime_tool_metadata(runtime: Any) -> tuple[list[dict], set[str]]:
             "skill_ids": tool_skill_ids.get(tool_id, []),
             "minimum_role": minimum_role,
             "confirmation": confirmation or "none",
+            "prepares_confirmation": bool(
+                (
+                    _descriptor_value(descriptor, "metadata", {}) or {}
+                ).get("prepares_confirmation")
+            ),
+            "_descriptor": descriptor,
         })
     return metadata, guarded_names
 
@@ -632,6 +736,41 @@ def _tool_policy_wrapper(tool_policies: Any):
                 status="error",
             )
         confirmation = str(policy.get("confirmation") or "none")
+        if confirmation == "always":
+            if policy.get("prepares_confirmation"):
+                if tool_name not in _turn_authorized_tool_names(request.state):
+                    return ToolMessage(
+                        content=(
+                            "Tool execution denied: the current user turn did not "
+                            f"explicitly authorize `{tool_name}`."
+                        ),
+                        name=tool_name,
+                        tool_call_id=str(tool_call.get("id") or ""),
+                        status="error",
+                    )
+                return execute(request)
+            try:
+                content = request_governed_tool_confirmation(
+                    descriptor=policy.get("_descriptor"),
+                    tool_name=tool_name,
+                    tool_arguments=dict(tool_call.get("args") or {}),
+                    active_skill_ids=(
+                        state.get("active_skill_ids") or ()
+                    ),
+                )
+            except Exception as error:
+                return ToolMessage(
+                    content=f"Tool confirmation preparation failed: {error}",
+                    name=tool_name,
+                    tool_call_id=str(tool_call.get("id") or ""),
+                    status="error",
+                )
+            return ToolMessage(
+                content=content,
+                name=tool_name,
+                tool_call_id=str(tool_call.get("id") or ""),
+                status="success",
+            )
         if confirmation not in {"", "never", "none"} and (
             tool_name not in _turn_authorized_tool_names(request.state)
         ):
@@ -1176,36 +1315,14 @@ async def create_agent_workflow(
         resolved_runtime,
     )
 
-    # First-party Gnosi operations are the provider-neutral contract that lets
-    # every tool-capable agent operate the product. Skills add specialist
-    # capabilities; they do not remove this guarded core.
-    core_write_tools = _authorized_brain_write_tools(
-        {
-            "create_page",
-            "summarize_to_cornell",
-            "save_memory",
-            *(tool.name for tool in EXPLICIT_WRITE_TOOLS),
-            *(tool.name for tool in CONFIRMED_WRITE_TOOLS),
-        },
-    )
+    # First-party and third-party operations now arrive through the exact
+    # assigned-skill runtime. Explicitly scoped profiles never inherit an
+    # unrelated global Gnosi tool belt.
     guarded_tool_names = set(runtime_guarded_names)
-    guarded_tool_names.update(tool.name for tool in core_write_tools)
     tool_policies = {
-        item["name"]: {
-            "minimum_role": item.get("minimum_role") or "viewer",
-            "confirmation": item.get("confirmation") or "none",
-        }
+        item["name"]: dict(item)
         for item in runtime_tool_metadata
     }
-    for item in core_write_tools:
-        tool_policies[item.name] = {
-            "minimum_role": (
-                "admin"
-                if item.name in {"delete_table", "empty_trash"}
-                else "editor"
-            ),
-            "confirmation": "explicit_request",
-        }
 
     # Coder & Brain specialists.
     coder_tools = (
@@ -1233,15 +1350,12 @@ async def create_agent_workflow(
         if legacy_bundle_active
         else []
     )
-    core_gnosi_read_tools = list(GNOSI_READ_TOOLS)
     brain_tools = (
         (mcp_langchain_tools if legacy_bundle_active else [])
         + memory_tools
         + legacy_vault_tools
-        + core_gnosi_read_tools
         + context_tools
         + runtime_tools
-        + core_write_tools
         if supports_tools
         else []
     )
@@ -1335,13 +1449,29 @@ async def create_agent_workflow(
                 "\nYou may use only these tools: "
                 f"{tool_names}."
             )
+            always_confirmed_names = {
+                item["name"]
+                for item in runtime_tool_metadata
+                if item.get("confirmation") == "always"
+            }
+            if always_confirmed_names:
+                brain_system += (
+                    "\nThese tools only prepare a pending review and never "
+                    "perform their consequential action inside the model loop: "
+                    + ", ".join(sorted(always_confirmed_names))
+                    + ". Never claim they completed until Gnosi reports the "
+                    "post-confirmation result."
+                )
             authorized_guarded_names = (
                 current_authorized_names.intersection(guarded_tool_names)
             )
             if authorized_guarded_names:
-                confirmation_only_names = authorized_guarded_names.intersection(
-                    {_tool_name(tool) for tool in CONFIRMED_WRITE_TOOLS}
-                )
+                confirmation_only_names = {
+                    item["name"]
+                    for item in runtime_tool_metadata
+                    if item["name"] in authorized_guarded_names
+                    and item.get("confirmation") == "always"
+                }
                 brain_system += (
                     "\nThe current user message explicitly authorizes only these "
                     "guarded tools for this turn: "
@@ -1467,6 +1597,13 @@ async def create_agent_workflow(
         "catalog_revision": str(
             getattr(resolved_runtime, "catalog_revision", "") or ""
         ),
-        "tools": runtime_tool_metadata,
+        "tools": [
+            {
+                key: value
+                for key, value in item.items()
+                if not key.startswith("_")
+            }
+            for item in runtime_tool_metadata
+        ],
         "turn_grant_tool_names": sorted(explicitly_activated_tool_names),
     }

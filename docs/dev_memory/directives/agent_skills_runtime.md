@@ -209,6 +209,12 @@ during migration.
   explicit profile override, matching editable registry row, global catalog;
   unknown models still fail closed.
 - Do not store credentials in skill files or synchronized manifests.
+- Do not treat a client-provided tool ID as approval. `confirmation=always`
+  tools are intercepted with their exact arguments and resumed only through the
+  server-owned pending-action endpoint.
+- Core Gnosi tools are registered and grouped into domain skills. The legacy
+  compatibility skill composes the complete set; an explicit skill profile does
+  not inherit unrelated Vault, mail, calendar, contact, or memory tools.
 - Do not reuse the existing developer Dashboard skill-directory deletion API for
   Settings → AI personal skills.
 - Do not mark a tool-backed skill available from metadata alone: the effective tool
@@ -228,6 +234,8 @@ Completion requires:
 - unit tests for descriptor validation, namespacing, duplicate IDs, unavailable tools,
   CRUD, assignment conflicts, and idempotent migration;
 - policy tests for every effect class and proof that authorization cannot survive a turn;
+- interception tests proving every `confirmation=always` runtime tool prepares
+  an immutable action instead of invoking its handler;
 - exact tool binding tests showing unassigned tools are unavailable;
 - plugin enable, update, disable, uninstall, re-enable, and override-preservation tests;
 - Brain query, ingest start/status, maintenance, and permission tests;

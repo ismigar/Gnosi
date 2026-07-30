@@ -477,7 +477,18 @@ _BUILTIN_PROVIDER_HOOKS_REGISTERED: set[str] = set()
 _BUILTIN_PROVIDERS_REGISTERING = False
 
 
-def _register_builtin_legacy_skill() -> None:
+def _register_builtin_gnosi_catalog() -> None:
+    """Register first-party tools, domain skills, and the legacy composition."""
+    from backend.services.gnosi_ai_contributions import (
+        core_gnosi_registrations,
+        core_gnosi_skill_descriptors,
+    )
+
+    registrations = core_gnosi_registrations()
+    for descriptor, handler in registrations:
+        _TOOL_CATALOG.register_core(descriptor, handler)
+    for descriptor in core_gnosi_skill_descriptors(registrations):
+        _SKILL_CATALOG.register_core(descriptor)
     _SKILL_CATALOG.register_core(
         SkillDescriptor(
             id="core.legacy-default-v1",
@@ -490,14 +501,16 @@ def _register_builtin_legacy_skill() -> None:
             origin=CatalogOrigin(type=OriginType.CORE, id="gnosi"),
             kind=SkillKind.AGENT,
             activation=SkillActivation.ALWAYS,
-            tool_ids=[],
+            tool_ids=sorted(
+                descriptor.id for descriptor, _handler in registrations
+            ),
             instructions="Use the legacy Gnosi agent capability bundle.",
             metadata={"legacy_bundle": True},
         )
     )
 
 
-_register_builtin_legacy_skill()
+_register_builtin_gnosi_catalog()
 
 
 def _ensure_builtin_providers() -> None:
