@@ -3822,6 +3822,8 @@
     "keyboard_scroll_hint": "Usa ↑/↓ o Re Pág/Av Pág para el desplazamiento vertical",
     "configuration_loading": "Cargando…",
     "availability": "Estado",
+    "modes": "Modos compatibles",
+    "modes_list": {"text": "Texto", "image": "Imagen", "audio": "Audio", "video": "Vídeo"},
     "all_availability": "Activos e inactivos",
     "active": "Activo",
     "inactive": "Inactivo",
@@ -3868,7 +3870,7 @@
       "activate": "Activar modelo"
     },
     "profiles": { "worker": "Peón", "administrative": "Administrativo", "documentalist": "Documentalista", "allrounder": "Todoterreno", "expert": "Perito / Director", "unrated": "Sin puntuación" },
-    "columns": { "model": "Modelo", "creator": "Creador", "provider": "Proveedor", "intelligence": "Inteligencia", "coding": "Código", "agentic": "Agentes", "input_price": "Entrada $/1M", "output_price": "Salida $/1M", "context": "Contexto", "speed": "Velocidad", "latency": "Latencia", "uptime": "Disponibilidad", "profile": "Uso recomendado", "quantization": "Cuantización", "monthly_cost": "Est. $/mes", "available": "Disponible" }
+    "columns": { "model": "Modelo", "creator": "Creador", "provider": "Proveedor", "modes": "Modos compatibles", "intelligence": "Inteligencia", "coding": "Código", "agentic": "Agentes", "input_price": "Entrada $/1M", "output_price": "Salida $/1M", "context": "Contexto", "speed": "Velocidad", "latency": "Latencia", "uptime": "Disponibilidad", "profile": "Uso recomendado", "quantization": "Cuantización", "monthly_cost": "Est. $/mes", "available": "Disponible" }
   },
   "tags": {
     "empty": "Aún no hay etiquetas. Añádelas mediante la propiedad «tags».",
