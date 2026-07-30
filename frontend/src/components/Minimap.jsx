@@ -113,6 +113,7 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanToGraph, onPanTo
         // If the graph instance supports events (Graphology does)
         if (graph.on) {
             graph.on('nodeAttributesUpdated', handleGraphUpdate);
+            graph.on('eachNodeAttributesUpdated', handleGraphUpdate);
             graph.on('cleared', handleGraphUpdate);
             graph.on('nodeAdded', handleGraphUpdate);
             graph.on('nodeDropped', handleGraphUpdate);
@@ -245,6 +246,7 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanToGraph, onPanTo
             }
             if (graph.off) {
                 graph.off('nodeAttributesUpdated', handleGraphUpdate);
+                graph.off('eachNodeAttributesUpdated', handleGraphUpdate);
                 graph.off('cleared', handleGraphUpdate);
                 graph.off('nodeAdded', handleGraphUpdate);
                 graph.off('nodeDropped', handleGraphUpdate);

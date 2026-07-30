@@ -1,4 +1,5 @@
 const MIN_EXTENT = 1;
+const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 
 export function getVisibleGraphBounds(graph) {
   if (!graph) return null;
@@ -162,12 +163,15 @@ export function arrangeVisibleIsolatedNodes(graph) {
   const connectedRadius = connected.reduce((radius, item) => {
     return Math.max(radius, Math.hypot(item.x - centerX, item.y - centerY));
   }, 30);
-  const ringRadius = connectedRadius * 1.45 + 80;
+  const haloStart = connectedRadius * 1.05 + 30;
+  const haloDepth = connectedRadius * 0.55 + 50;
 
   isolated.sort().forEach((node, index) => {
-    const angle = (index / isolated.length) * Math.PI * 2 - Math.PI / 2;
-    graph.setNodeAttribute(node, 'x', centerX + Math.cos(angle) * ringRadius);
-    graph.setNodeAttribute(node, 'y', centerY + Math.sin(angle) * ringRadius);
+    const angle = index * GOLDEN_ANGLE - Math.PI / 2;
+    const radialOffset = ((index * 0.61803398875) % 1) * haloDepth;
+    const radius = haloStart + radialOffset;
+    graph.setNodeAttribute(node, 'x', centerX + Math.cos(angle) * radius);
+    graph.setNodeAttribute(node, 'y', centerY + Math.sin(angle) * radius);
   });
 
   return true;

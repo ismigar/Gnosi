@@ -78,7 +78,7 @@ describe('graph view geometry', () => {
     expect(getVisibleCameraRatio(renderer, bounds, 1.2)).toBeCloseTo(1.2);
   });
 
-  it('moves visible isolates into a deterministic ring around visible links', () => {
+  it('moves visible isolates into a deterministic halo around visible links', () => {
     const graph = new Graph();
     graph.addNode('a', { x: -10, y: 0 });
     graph.addNode('b', { x: 10, y: 0 });
@@ -88,11 +88,11 @@ describe('graph view geometry', () => {
 
     expect(arrangeVisibleIsolatedNodes(graph)).toBe(true);
     expect(graph.getNodeAttribute('isolated', 'x')).toBeCloseTo(0);
-    expect(graph.getNodeAttribute('isolated', 'y')).toBeCloseTo(-123.5);
+    expect(graph.getNodeAttribute('isolated', 'y')).toBeCloseTo(-61.5);
 
     const bounds = getVisibleGraphBounds(graph);
     expect(bounds.count).toBe(3);
     expect(bounds.maxX).toBe(10);
-    expect(bounds.minY).toBeCloseTo(-123.5);
+    expect(bounds.minY).toBeCloseTo(-61.5);
   });
 });
