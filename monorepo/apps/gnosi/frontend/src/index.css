@@ -894,6 +894,8 @@ html[data-vault-text="large"] .vault-page-editor {
 .vault-feed-reading-pane__header button + button { margin-left: 0; }
 .vault-feed-reading-pane__content { flex: 1; overflow-y: auto; padding: 1.25rem; color: var(--text-primary); }
 .vault-feed-reading-pane__content h2 { margin-bottom: 1rem; font-size: 1.5rem; font-weight: 800; }
+.vault-feed-summary { margin: 0 0 1rem; padding: 0.875rem 1rem; border: 1px solid var(--border-primary); border-radius: var(--radius-md); background: var(--bg-secondary); }
+.vault-feed-summary > strong { display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
 .vault-feed-reading-pane__footer { border-top: 1px solid var(--border-primary); border-bottom: 0; }
 .vault-feed-reading-pane__footer span { color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
 .vault-feed-reading-pane__footer button:last-child { margin-left: auto; }
