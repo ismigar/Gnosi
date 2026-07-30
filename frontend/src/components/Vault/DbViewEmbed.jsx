@@ -1288,7 +1288,7 @@ export function DbViewEmbed({ block }) {
             onKeyDown={isInEditor ? handleShellKeyDown : undefined}
             className="mt-0 mb-4 min-w-0 w-full gnosi-view-embed-container rounded-lg outline-none focus:outline-none focus:ring-2 focus:ring-[var(--gnosi-primary)]/40"
         >
-            <div className="flex items-center justify-between gap-3 mb-2">
+            <div className="vault-view-toolbar flex items-center justify-between gap-3 mb-2">
                 <div className="flex items-baseline gap-2 min-w-0">
                     {displayHeading && <Heading level={displayLevel}>{displayHeading}</Heading>}
                     <span className="text-[11px] text-[var(--text-tertiary)] font-medium whitespace-nowrap">

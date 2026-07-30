@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useCallback, useState, useRef, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApi } from '../../hooks/use-api';
 import { useActiveVaultName } from '../../hooks/useActiveVaultName';
@@ -201,6 +201,7 @@ const SectionHeader = ({ label, isExpanded, onToggle, onAdd, addLabel }) => (
     <div className="group relative flex items-center px-3 mt-6 mb-1">
         <button
             onClick={onToggle}
+            aria-expanded={isExpanded}
             className="flex-1 min-w-0 flex items-center gap-1 text-[11px] font-bold text-[var(--text-secondary)]/60 uppercase tracking-wider hover:text-[var(--text-primary)] transition-colors text-left"
         >
             {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
@@ -218,6 +219,22 @@ const SectionHeader = ({ label, isExpanded, onToggle, onAdd, addLabel }) => (
         )}
     </div>
 );
+
+const SIDEBAR_SECTION_STATE_KEY = 'gnosi.sidebar.sections';
+
+const loadSidebarSectionState = () => {
+    try {
+        return {
+            favorites: true,
+            dashboards: false,
+            data: false,
+            wiki: false,
+            ...JSON.parse(localStorage.getItem(SIDEBAR_SECTION_STATE_KEY) || '{}'),
+        };
+    } catch {
+        return { favorites: true, dashboards: false, data: false, wiki: false };
+    }
+};
 
 const PageTreeItem = ({
     page,
@@ -616,9 +633,40 @@ export const VaultSidebar = ({
     const TABLES_BATCH_SIZE = 60;
     const WIKI_ITEM_HEIGHT = 30;
     const WIKI_OVERSCAN = 10;
-    const [isWorkspaceExpanded, setIsWorkspaceExpanded] = useState(true);
-    const [isDashboardExpanded, setIsDashboardExpanded] = useState(true);
-    const [isFavoritesExpanded, setIsFavoritesExpanded] = useState(true);
+    const [sidebarSectionState, setSidebarSectionState] = useState(loadSidebarSectionState);
+    const {
+        favorites: isFavoritesExpanded,
+        dashboards: isDashboardExpanded,
+        data: isDatabasesExpanded,
+        wiki: isWorkspaceExpanded,
+    } = sidebarSectionState;
+    const setSidebarSectionExpanded = useCallback((section, nextValue) => {
+        setSidebarSectionState((current) => ({
+            ...current,
+            [section]: typeof nextValue === 'function' ? nextValue(current[section]) : nextValue,
+        }));
+    }, []);
+    const setIsFavoritesExpanded = useCallback(
+        (nextValue) => setSidebarSectionExpanded('favorites', nextValue),
+        [setSidebarSectionExpanded],
+    );
+    const setIsDashboardExpanded = useCallback(
+        (nextValue) => setSidebarSectionExpanded('dashboards', nextValue),
+        [setSidebarSectionExpanded],
+    );
+    const setIsDatabasesExpanded = useCallback(
+        (nextValue) => setSidebarSectionExpanded('data', nextValue),
+        [setSidebarSectionExpanded],
+    );
+    const setIsWorkspaceExpanded = useCallback(
+        (nextValue) => setSidebarSectionExpanded('wiki', nextValue),
+        [setSidebarSectionExpanded],
+    );
+    useEffect(() => {
+        try {
+            localStorage.setItem(SIDEBAR_SECTION_STATE_KEY, JSON.stringify(sidebarSectionState));
+        } catch { /* noop */ }
+    }, [sidebarSectionState]);
     // Wiki lock: when it's closed (true), pages cannot be dragged
     // for reordering/nesting. Persisted in localStorage. Closed by default for
     // avoid accidental moves (the user has to "unlock" first).
@@ -704,7 +752,6 @@ export const VaultSidebar = ({
         if (oldIndex === -1 || newIndex === -1) return;
         setFavoritesSort({ mode: 'manual', manualOrder: arrayMove(currentIds, oldIndex, newIndex) });
     };
-    const [isDatabasesExpanded, setIsDatabasesExpanded] = useState(true);
     const [expandedDatabases, setExpandedDatabases] = useState({});
     const [menuState, setMenuState] = useState(null);
     const [confirmModal, setConfirmModal] = useState({ isOpen: false, type: '', id: '', name: '' });
@@ -1052,6 +1099,7 @@ export const VaultSidebar = ({
                     <div className="group relative flex items-center px-3 mt-6 mb-1">
                         <button
                             onClick={() => setIsFavoritesExpanded(!isFavoritesExpanded)}
+                            aria-expanded={isFavoritesExpanded}
                             className="flex-1 min-w-0 flex items-center gap-1 text-[11px] font-bold text-[var(--text-secondary)]/60 uppercase tracking-wider hover:text-[var(--text-primary)] transition-colors text-left"
                         >
                             {isFavoritesExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
@@ -1392,10 +1440,11 @@ export const VaultSidebar = ({
                         });
                         setExpandedWikiNodes({});
                     }}
+                    aria-expanded={isWorkspaceExpanded}
                     className="flex-1 min-w-0 flex items-center gap-1 text-[11px] font-bold text-[var(--text-secondary)]/60 uppercase tracking-wider hover:text-[var(--text-primary)] transition-colors text-left"
                 >
                     {isWorkspaceExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                    Wiki
+                    {t('sidebar.wiki', 'Wiki')}
                 </button>
                 <div className="flex items-center gap-0.5">
                     <button
