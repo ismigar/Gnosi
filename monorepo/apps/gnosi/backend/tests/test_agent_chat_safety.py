@@ -6,7 +6,9 @@ import pytest
 from pydantic import ValidationError
 
 from backend.agent.factory import (
+    _authorized_brain_write_tools,
     _coder_read_only_tools,
+    _explicit_brain_write_tool_names,
     _model_supports_tools,
     _obvious_route,
     _rejected_mcp_names,
@@ -137,6 +139,38 @@ def test_coder_tools_exclude_personal_data_sources():
         "inspect_codebase",
         "search_code_symbols",
     ]
+
+
+@pytest.mark.parametrize(
+    ("message", "expected"),
+    [
+        ("Crea una pàgina amb aquest contingut", {"create_page"}),
+        ("Prepare a Cornell summary of this PDF", {"summarize_to_cornell"}),
+        ("Crea una nota Cornell d'aquest document", {"summarize_to_cornell"}),
+        ("Recorda que prefereixo respostes breus", {"save_memory"}),
+        (
+            "Crea una nota i guarda això a la memòria",
+            {"create_page", "save_memory"},
+        ),
+    ],
+)
+def test_explicit_user_intent_authorizes_individual_write_tools(message, expected):
+    assert _explicit_brain_write_tool_names(message) == expected
+    assert {
+        tool.name for tool in _authorized_brain_write_tools(expected)
+    } == expected
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "Organitza millor el meu Vault",
+        "Quines pàgines tinc?",
+        "Recordes què vam parlar ahir?",
+    ],
+)
+def test_vague_or_quoted_content_does_not_authorize_writes(message):
+    assert _explicit_brain_write_tool_names(message) == set()
 
 
 def test_sensitive_project_paths_are_not_readable():

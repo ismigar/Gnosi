@@ -35,8 +35,12 @@ import sqlite3
 from pathlib import Path
 
 # Import tools
-from backend.agent.system_tools import READ_ONLY_SYSTEM_TOOLS
-from backend.agent.vault_tools import VAULT_KNOWLEDGE_TOOLS
+from backend.agent.system_tools import READ_ONLY_SYSTEM_TOOLS, save_memory
+from backend.agent.vault_tools import (
+    VAULT_KNOWLEDGE_TOOLS,
+    create_page,
+    summarize_to_cornell,
+)
 from backend.agent.agent_context import build_context_tools, describe_context_refs
 from backend.agent.tools import get_mcp_tools
 from backend.config.app_config import load_params
@@ -190,6 +194,59 @@ def _coder_read_only_tools(tools: Sequence[Any]) -> List[Any]:
         "read_directive",
     }
     return [tool for tool in tools if tool.name in allowed_names]
+
+
+def _explicit_brain_write_tool_names(message: str) -> set[str]:
+    """Authorize individual Brain mutations from explicit current-turn wording."""
+    text = " ".join((message or "").strip().lower().split())
+    if not text:
+        return set()
+
+    authorized: set[str] = set()
+    cornell_actions = (
+        "crea", "crear", "fes", "prepara", "genera",
+        "create", "make", "prepare", "generate", "summarize",
+        "resume", "haz", "prepara", "genera", "résume", "crée", "prépare",
+    )
+    if "cornell" in text and any(action in text for action in cornell_actions):
+        authorized.add("summarize_to_cornell")
+
+    page_patterns = (
+        "crea una pàgina", "crea una pagina", "crea una nota",
+        "crear una pàgina", "crear una pagina", "crear una nota",
+        "create a page", "create a note", "make a page", "make a note",
+        "crea una página", "crear una página", "haz una página", "haz una nota",
+        "crée une page", "crée une note", "créer une page", "créer une note",
+    )
+    if "cornell" not in text and any(pattern in text for pattern in page_patterns):
+        authorized.add("create_page")
+
+    memory_patterns = (
+        "guarda-ho a la memòria", "guarda això a la memòria",
+        "desa-ho a la memòria", "desa això a la memòria",
+        "recorda que ", "recorda això",
+        "save this to memory", "store this in memory", "remember that ",
+        "guárdalo en la memoria", "guarda esto en la memoria",
+        "recuerda que ", "mémorise ", "enregistre ceci en mémoire",
+    )
+    if any(pattern in text for pattern in memory_patterns):
+        authorized.add("save_memory")
+
+    return authorized
+
+
+def _authorized_brain_write_tools(names: set[str]) -> List[Any]:
+    """Resolve only the explicitly authorized write-tool names."""
+    tools_by_name = {
+        "create_page": create_page,
+        "summarize_to_cornell": summarize_to_cornell,
+        "save_memory": save_memory,
+    }
+    return [
+        tool
+        for name, tool in tools_by_name.items()
+        if name in names
+    ]
 
 
 def _model_supports_tools(
@@ -695,6 +752,7 @@ async def create_agent_workflow(
     )
     mcp_langchain_tools = get_mcp_tools(safe_mcp_definitions, mcp_client)
     supports_tools = _model_supports_tools(provider_name, model_name, agent_data)
+    authorized_write_names = _explicit_brain_write_tool_names(user_message)
     # Coder & Brain specialists
     coder_tools = (
         _coder_read_only_tools(READ_ONLY_SYSTEM_TOOLS)
@@ -716,8 +774,13 @@ async def create_agent_workflow(
         item for item in VAULT_KNOWLEDGE_TOOLS
         if item.name in {"read_page", "read_pdf", "propose_links", "query_wiki"}
     ]
+    authorized_write_tools = _authorized_brain_write_tools(authorized_write_names)
     brain_tools = (
-        mcp_langchain_tools + memory_tools + read_only_vault_tools + context_tools
+        mcp_langchain_tools
+        + memory_tools
+        + read_only_vault_tools
+        + context_tools
+        + authorized_write_tools
         if supports_tools
         else []
     )
@@ -735,7 +798,11 @@ async def create_agent_workflow(
             ),
             "",
         )
-        obvious = _obvious_route(latest_user, has_context=bool(context_refs))
+        obvious = (
+            "Brain"
+            if authorized_write_names
+            else _obvious_route(latest_user, has_context=bool(context_refs))
+        )
         if obvious:
             return {"next": obvious}
         prompt = [SystemMessage(content=supervisor_prompt)] + messages
@@ -767,9 +834,22 @@ async def create_agent_workflow(
         if brain_tools:
             tool_names = ", ".join(sorted({item.name for item in brain_tools}))
             brain_system += (
-                "\nYou may use only these read-only tools: "
-                f"{tool_names}.\nNever claim to have created, edited, or deleted data."
+                "\nYou may use only these tools: "
+                f"{tool_names}."
             )
+            if authorized_write_names:
+                brain_system += (
+                    "\nThe current user message explicitly authorizes only these "
+                    "write tools for this turn: "
+                    + ", ".join(sorted(authorized_write_names))
+                    + ". Use them only to fulfill that explicit request. All other "
+                    "writes remain prohibited. Confirm the actual tool result."
+                )
+            else:
+                brain_system += (
+                    "\nAll available tools are read-only. Never claim to have "
+                    "created, edited, or stored data."
+                )
         else:
             brain_system += (
                 "\nNo tools are available for this model. Answer only from the "
