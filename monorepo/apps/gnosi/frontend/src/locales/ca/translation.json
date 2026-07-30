@@ -3822,6 +3822,8 @@
     "keyboard_scroll_hint": "Usa ↑/↓ o Re Pàg/Av Pàg per al desplaçament vertical",
     "configuration_loading": "Carregant…",
     "availability": "Estat",
+    "modes": "Modes compatibles",
+    "modes_list": {"text": "Text", "image": "Imatge", "audio": "Àudio", "video": "Vídeo"},
     "all_availability": "Actius i inactius",
     "active": "Actiu",
     "inactive": "Inactiu",
@@ -3868,7 +3870,7 @@
       "activate": "Activa el model"
     },
     "profiles": { "worker": "Peó", "administrative": "Administratiu", "documentalist": "Documentalista", "allrounder": "Totterreny", "expert": "Perit / Director", "unrated": "Sense puntuació" },
-    "columns": { "model": "Model", "creator": "Creador", "provider": "Proveïdor", "intelligence": "Intel·ligència", "coding": "Codi", "agentic": "Agents", "input_price": "Entrada $/1M", "output_price": "Sortida $/1M", "context": "Context", "speed": "Velocitat", "latency": "Latència", "uptime": "Disponibilitat", "profile": "Ús recomanat", "quantization": "Quantització", "monthly_cost": "Est. $/mes", "available": "Disponible" }
+    "columns": { "model": "Model", "creator": "Creador", "provider": "Proveïdor", "modes": "Modes compatibles", "intelligence": "Intel·ligència", "coding": "Codi", "agentic": "Agents", "input_price": "Entrada $/1M", "output_price": "Sortida $/1M", "context": "Context", "speed": "Velocitat", "latency": "Latència", "uptime": "Disponibilitat", "profile": "Ús recomanat", "quantization": "Quantització", "monthly_cost": "Est. $/mes", "available": "Disponible" }
   },
   "tags": {
     "empty": "Encara no hi ha etiquetes. Afegeix-ne via la propietat «tags».",

@@ -192,6 +192,11 @@ context window, capabilities and quality, all editable afterwards.
   out visually and a save would destroy them.
 - Capability tags (`fast/code/vision/long/tools/reasoning`) are DATA matched
   verbatim by `model_router.py` → never translate them in the UI.
+- Do not reduce `models.dev` modalities to router capability tags → the model
+  comparison cannot show or filter its supported media modes → preserve the
+  normalized `text/image/audio/video` modes in the compact catalog and carry
+  them through comparison enrichment. A multi-mode filter matches a model when
+  it supports at least one selected mode.
 - Deleting a provider MUST cascade to all three stores: the config entry,
   the keychain credential AND its router-registry rows (filter the EFFECTIVE
   registry, materializing the seed default if needed). Leaving the credential
