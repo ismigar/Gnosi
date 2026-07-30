@@ -1963,8 +1963,8 @@ export function PluginsSettings() {
                 onClose={() => setConfirmLlmWikiDisable(false)}
                 onConfirm={confirmDisableLlmWiki}
                 title={tp('llm_wiki_disable_title', { defaultValue: "Disable the Brain?" })}
-                message={tp('llm_wiki_disable_message', { defaultValue: "The “Brain” agent profile will be removed from Settings → AI. The Brain table, notes, and sources will be kept." })}
-                confirmText={tp('llm_wiki_disable_confirm', { defaultValue: "Disable and remove agent" })}
+                message={tp('llm_wiki_disable_message', { defaultValue: "The Brain agent and skills will be suspended. Its configuration, table, notes, and sources will be preserved." })}
+                confirmText={tp('llm_wiki_disable_confirm', { defaultValue: "Disable and suspend" })}
                 isDestructive
             />
 

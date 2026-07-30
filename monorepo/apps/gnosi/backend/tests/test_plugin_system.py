@@ -28,6 +28,63 @@ def test_validate_manifest_ok():
     assert m["main"] == "main.js"
 
 
+def test_validate_manifest_ai_contributions_require_matching_permissions():
+    manifest = ps.validate_manifest({
+        "id": "ai-plugin",
+        "version": "1.0.0",
+        "apiVersion": 2,
+        "backend": "backend.mjs",
+        "permissions": ["ai:skills", "ai:agents", "ai:tools"],
+        "contributes": {
+            "skills": ["skills.yaml"],
+            "agents": ["agents.yaml"],
+            "agentTools": ["tools.json"],
+        },
+    })
+
+    assert manifest["contributes"] == {
+        "agentTools": ["tools.json"],
+        "agents": ["agents.yaml"],
+        "skills": ["skills.yaml"],
+    }
+
+    with pytest.raises(ps.PluginError):
+        ps.validate_manifest({
+            "id": "ai-no-grant",
+            "version": "1.0.0",
+            "apiVersion": 2,
+            "contributes": {"skills": ["skills.yaml"]},
+        })
+
+    with pytest.raises(ps.PluginError):
+        ps.validate_manifest({
+            "id": "ai-v1",
+            "version": "1.0.0",
+            "permissions": ["ai:skills"],
+            "contributes": {"skills": ["skills.yaml"]},
+        })
+
+    with pytest.raises(ps.PluginError):
+        ps.validate_manifest({
+            "id": "ai-no-backend",
+            "version": "1.0.0",
+            "apiVersion": 2,
+            "permissions": ["ai:tools"],
+            "contributes": {"agentTools": ["tools.yaml"]},
+        })
+
+
+def test_validate_manifest_ai_contribution_path_is_contained():
+    with pytest.raises(ps.PluginError):
+        ps.validate_manifest({
+            "id": "ai-escape",
+            "version": "1.0.0",
+            "apiVersion": 2,
+            "permissions": ["ai:skills"],
+            "contributes": {"skills": ["../skills.yaml"]},
+        })
+
+
 @pytest.mark.parametrize("bad_id", ["", "  ", "../evil", "UPPER", "a", "x/y", ".hidden"])
 def test_validate_manifest_bad_id(bad_id):
     with pytest.raises(ps.PluginError):
@@ -37,6 +94,11 @@ def test_validate_manifest_bad_id(bad_id):
 def test_validate_manifest_unknown_permission():
     with pytest.raises(ps.PluginError):
         ps.validate_manifest({"id": "p", "version": "1.0.0", "permissions": ["do:anything"]})
+
+
+def test_validate_manifest_rejects_builtin_plugin_namespace():
+    with pytest.raises(ps.PluginError, match="reserved"):
+        ps.validate_manifest({"id": "llm-wiki", "version": "1.0.0"})
 
 
 def test_validate_manifest_bad_version():

@@ -9,7 +9,6 @@ from pydantic import BaseModel
 from typing import List, Optional
 
 from backend.agent.generated_tools.registry import registry, ToolStatus
-from backend.agent.generated_tools.loader import loader
 from backend.config.app_config import load_params
 from backend.services.workspace_service import require_role
 
@@ -114,9 +113,6 @@ async def approve_tool(request: ApproveRequest):
     if pending_file.exists():
         pending_file.rename(approved_file)
 
-    # Refresh loaded tools
-    loader.refresh()
-    
     return {"status": "approved", "name": request.name}
 
 
