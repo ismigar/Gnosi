@@ -274,6 +274,9 @@ function ViewActionsBar({
     activeFilterCount = 0,
     resultCount = 0,
     totalCount = 0,
+    presets = [],
+    onSavePreset,
+    onApplyPreset,
 }) {
     const { t } = useTranslation();
     const [showNewMenu, setShowNewMenu] = useState(false);
@@ -369,6 +372,33 @@ function ViewActionsBar({
                 >
                     <Rows3 size={14} />
                 </button>
+            )}
+
+            {onSavePreset && (
+                <button
+                    type="button"
+                    onClick={onSavePreset}
+                    className="vault-view-action"
+                    title={t('views_header.save_quick_view')}
+                    aria-label={t('views_header.save_quick_view')}
+                >
+                    <LayoutTemplate size={14} />
+                </button>
+            )}
+            {presets.length > 0 && (
+                <select
+                    value=""
+                    onChange={(event) => {
+                        if (event.target.value) onApplyPreset?.(event.target.value);
+                    }}
+                    className="vault-view-preset-select"
+                    aria-label={t('views_header.quick_views')}
+                >
+                    <option value="">{t('views_header.quick_views')}</option>
+                    {presets.map((preset) => (
+                        <option key={preset.id} value={preset.id}>{preset.label}</option>
+                    ))}
+                </select>
             )}
 
             {onAddView && (
@@ -735,6 +765,45 @@ export function DbViewEmbed({ block }) {
             return next;
         });
     }, [densityStorageKey]);
+    const presetStorageKey = `gnosi.view.quickPresets.${preferenceProfile}.${pageId}.${viewId}`;
+    const [quickPresets, setQuickPresets] = useState([]);
+    useEffect(() => {
+        const frame = window.requestAnimationFrame(() => {
+            try {
+                const stored = JSON.parse(localStorage.getItem(presetStorageKey) || '[]');
+                setQuickPresets(Array.isArray(stored) ? stored : []);
+            } catch {
+                setQuickPresets([]);
+            }
+        });
+        return () => window.cancelAnimationFrame(frame);
+    }, [presetStorageKey]);
+    const saveQuickPreset = useCallback(() => {
+        setQuickPresets((current) => {
+            const nextNumber = current.length + 1;
+            const preset = {
+                id: `${Date.now()}`,
+                label: t('views_header.quick_view_name', { count: nextNumber }),
+                searchTerm,
+                density: feedDensity,
+                activeViewId,
+            };
+            const next = [...current.slice(-4), preset];
+            try { localStorage.setItem(presetStorageKey, JSON.stringify(next)); } catch { /* noop */ }
+            return next;
+        });
+    }, [activeViewId, feedDensity, presetStorageKey, searchTerm, t]);
+    const applyQuickPreset = useCallback((presetId) => {
+        const preset = quickPresets.find((candidate) => candidate.id === presetId);
+        if (!preset) return;
+        setSearchTerm(preset.searchTerm || '');
+        setShowSearch(Boolean(preset.searchTerm));
+        if (preset.density) {
+            setFeedDensity(preset.density);
+            try { localStorage.setItem(densityStorageKey, preset.density); } catch { /* noop */ }
+        }
+        if (preset.activeViewId) setActiveViewId(preset.activeViewId);
+    }, [densityStorageKey, quickPresets]);
     const [tabMenuFor, setTabMenuFor] = useState(null);     // id of the view with its (remove/delete) menu open
     const [menuUp, setMenuUp] = useState(false);            // open the dropdown upward if it doesn't fit below
     const [confirmDeleteView, setConfirmDeleteView] = useState(null); // view pending deletion everywhere (ConfirmModal)
@@ -1037,6 +1106,47 @@ export function DbViewEmbed({ block }) {
             });
         }
     }, [onOpenPageViewModal, tableId, block, activeViewId, headingProp, headingLevelProp]);
+
+    useEffect(() => {
+        const handleShortcut = (event) => {
+            const target = event.target;
+            const embed = embedContainerRef.current;
+            if (
+                !embed?.contains(document.activeElement)
+                || event.metaKey
+                || event.ctrlKey
+                || event.altKey
+                || target?.isContentEditable
+                || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName)
+            ) return;
+            const key = event.key.toLowerCase();
+            if (key === '/') {
+                event.preventDefault();
+                setShowSearch(true);
+            } else if (key === 'f' && onOpenPageViewModal && tableId) {
+                event.preventDefault();
+                handleOpenConfig();
+            } else if (key === 'n' && tableId) {
+                event.preventDefault();
+                handleCreate();
+            } else if (key === 'd' && viewType === 'feed') {
+                event.preventDefault();
+                toggleFeedDensity();
+            } else if (key === 'l') {
+                event.preventDefault();
+                window.dispatchEvent(new CustomEvent('gnosi:locate-active-page'));
+            }
+        };
+        window.addEventListener('keydown', handleShortcut);
+        return () => window.removeEventListener('keydown', handleShortcut);
+    }, [
+        handleCreate,
+        handleOpenConfig,
+        onOpenPageViewModal,
+        tableId,
+        toggleFeedDensity,
+        viewType,
+    ]);
 
     // --- PHASE 3: CRUD for the view tabs (registry.views) ---
     const refetchTableViews = useCallback(async () => {
@@ -1408,6 +1518,9 @@ export function DbViewEmbed({ block }) {
                     activeFilterCount={activeFilterCount}
                     resultCount={rows.length}
                     totalCount={rawRecords.length}
+                    presets={quickPresets}
+                    onSavePreset={saveQuickPreset}
+                    onApplyPreset={applyQuickPreset}
                 />
             </div>
             {/* Tabs of views for THIS block: the section's view (anchor)

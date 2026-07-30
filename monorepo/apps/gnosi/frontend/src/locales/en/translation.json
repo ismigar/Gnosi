@@ -1172,6 +1172,9 @@
     "filtered_records_count": "{{count}} of {{total}} records",
     "compact_density": "Use compact density",
     "comfortable_density": "Use comfortable density",
+    "save_quick_view": "Save quick view",
+    "quick_views": "Quick views",
+    "quick_view_name": "Quick view {{count}}",
     "configure_view_tooltip": "Configure View",
     "wip_tooltip": "In development for a future iteration",
     "soon_badge": "Soon"

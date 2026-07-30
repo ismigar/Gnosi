@@ -240,3 +240,18 @@ environment-specific frontend assumptions.
 - Sidebar navigation can reveal and center the active page by expanding only
   its ancestor chain. Do not require users to manually reopen an entire tree
   to recover their current context.
+- Variable-height feed cards use browser-native `content-visibility` together
+  with progressive batching. Do not assume fixed row heights or unmount
+  expanded cards, because that causes scroll jumps and loses local card state.
+- Quick views are lightweight, page-and-view-scoped local presets. Persist only
+  presentation state such as search, density, and active tab; server-backed
+  filters remain part of the canonical view configuration.
+- Contextual single-key shortcuts ignore editable controls and modified key
+  combinations. Keep `/`, `F`, `N`, `D`, and `L` scoped to the active embedded
+  view so normal typing and application shortcuts are unaffected.
+- Compact page headers appear after the hero leaves the viewport, hide while
+  scrolling down, and return while scrolling up. Motion is disabled when
+  `prefers-reduced-motion` is active.
+- Visual regression coverage for Vault pages includes mobile, tablet, and
+  desktop viewports in both color schemes. Mask live feed content so snapshots
+  detect layout regressions without becoming unstable from user data.
