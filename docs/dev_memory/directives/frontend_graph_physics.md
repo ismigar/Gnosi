@@ -72,3 +72,25 @@ For resilience during hot reloads or older in-memory state, `GraphService`
 must normalize an invalid cache state to empty dictionaries before reading it.
 Add a regression test that starts with both cache attributes set to `None` and
 asserts graph construction still produces nodes.
+
+## Filtered layout and minimap projection
+
+The backend layout describes the complete vault, but the global graph often
+renders a filtered table. Nodes that are isolated inside that filtered view
+must not retain distant coordinates from the complete-vault orphan ring.
+Arrange visible isolates deterministically around the visible connected
+component before fitting the camera.
+
+Camera navigation and the minimap must use Sigma's own normalization and
+viewport conversion functions. Do not derive camera coordinates by scaling X
+and Y independently from graph bounds: Sigma normalizes both axes with the
+largest extent, and the manual projection drifts whenever the graph is not
+square. Represent the camera as its actual viewport rectangle, not as a dot
+that can be confused with a graph node. Minimap clicks must derive their zoom
+from the visible-subset extent; a fixed absolute camera ratio refers to the
+complete graph and can unexpectedly zoom far away from a filtered view.
+
+Sigma v3 uses `labelRenderedSizeThreshold`. Do not use
+`labelRenderThreshold`; the unknown setting is ignored and the default causes
+hundreds of overview labels to overlap. Keep label density bounded at overview
+zoom and let labels progressively appear when the user zooms in.
