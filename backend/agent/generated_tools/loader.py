@@ -58,6 +58,17 @@ class ToolLoader:
         """Reload all approved tools (useful after new approvals)."""
         self._loaded_tools.clear()
         return self.load_all_approved()
+
+    def load_approved_record(self, record) -> Optional[BaseTool]:
+        """Load one approved record lazily when an assigned skill invokes it."""
+
+        existing = self._loaded_tools.get(record.name)
+        if existing is not None:
+            return existing
+        tool = self._load_tool(record.name, record.code)
+        if tool is not None:
+            self._loaded_tools[record.name] = tool
+        return tool
     
     def _load_tool(self, name: str, code: str) -> Optional[BaseTool]:
         """

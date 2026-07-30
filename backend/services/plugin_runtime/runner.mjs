@@ -13,7 +13,7 @@
  *   host → runner:  {"type":"rpc-result","id","ok",("result"|"error")}
  *   runner → host:  {"type":"rpc","id","method","args"}
  *   runner → host:  {"type":"log","level","message"}
- *   runner → host:  {"type":"done"}  |  {"type":"error","message"}
+ *   runner → host:  {"type":"done","result"}  |  {"type":"error","message"}
  *
  * Sandbox: --permission (host Node) blocks fs-write, child_process, worker and
  * native addons. If the plugin does NOT have the `network` permission, the network block
@@ -141,8 +141,8 @@ async function handleLine(line) {
         return;
       }
       const api = makeApi(msg.event);
-      await handler(msg.event, api);
-      send({ type: 'done' });
+      const result = await handler(msg.event, api);
+      send({ type: 'done', result });
     } catch (e) {
       send({ type: 'error', message: (e && e.message) || String(e) });
     } finally {
