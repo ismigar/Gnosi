@@ -786,6 +786,9 @@
     "page_duplicated": "Pàgina duplicada"
   },
   "editor": {
+    "toggle_focus_mode": "Activa o desactiva el mode focus",
+    "toggle_high_contrast": "Alterna el contrast reforçat",
+    "toggle_large_text": "Alterna el text ampliat",
     "loading_editor": "Carregant editor...",
     "select_table": "Selecciona Taula",
     "error_occurred": "S'ha produït un error a l'editor",
@@ -1135,6 +1138,10 @@
     "save_quick_view": "Desa la vista ràpida",
     "quick_views": "Vistes ràpides",
     "quick_view_name": "Vista ràpida {{count}}",
+    "manage_quick_views": "Gestiona les vistes ràpides",
+    "tools_and_shortcuts": "Eines i dreceres",
+    "shortcuts": "Dreceres",
+    "last_load_time": "Última càrrega: {{duration}} ms",
     "configure_view_tooltip": "Configurar Vista",
     "wip_tooltip": "En desenvolupament per propera iteració",
     "soon_badge": "Aviat",
@@ -3015,7 +3022,14 @@
     "show_more_tags": "Mostrar {{count}} etiquetes més",
     "show_fewer_tags": "Mostrar menys etiquetes",
     "read_full": "Llegir sencer",
-    "empty": "No hi ha publicacions al feed."
+    "empty": "No hi ha publicacions al feed.",
+    "enable_date_groups": "Agrupa per data",
+    "disable_date_groups": "Desactiva els grups per data",
+    "group_today": "Avui",
+    "group_this_week": "Aquesta setmana",
+    "group_this_month": "Aquest mes",
+    "position": "{{current}} de {{total}}",
+    "return_to_last_record": "Torna a l’últim registre"
   },
   "files": {
     "delete_title": "Eliminar fitxer",

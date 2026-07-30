@@ -1,7 +1,7 @@
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
-import { AlertCircle, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp, X, LayoutTemplate, MoreHorizontal, Settings, Edit2, Copy, Trash2, Rows3 } from 'lucide-react';
+import { Accessibility, AlertCircle, Focus, HelpCircle, LayoutTemplate, ListTree, MoreHorizontal, Plus, Search, Settings, SlidersHorizontal, ChevronDown, ChevronUp, X, Edit2, Copy, Trash2, Rows3 } from 'lucide-react';
 import { compareFieldValues, NUM_RE, ISO_DATE_RE, parseNumericValue, normalizeForSearch } from '../../utils/vaultFilters';
 import { VaultEditorContext } from './VaultEditorContext';
 import { VaultMarkdown, RetryableImage } from './VaultMarkdown';
@@ -277,16 +277,36 @@ function ViewActionsBar({
     presets = [],
     onSavePreset,
     onApplyPreset,
+    onRenamePreset,
+    onDeletePreset,
+    groupMode = 'none',
+    onToggleGroup,
+    loadDuration = null,
 }) {
     const { t } = useTranslation();
     const [showNewMenu, setShowNewMenu] = useState(false);
+    const [showTools, setShowTools] = useState(false);
     const menuRef = useRef(null);
+    const toolsRef = useRef(null);
     useEffect(() => {
         if (!showNewMenu) return undefined;
         const handler = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setShowNewMenu(false); };
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
     }, [showNewMenu]);
+    useEffect(() => {
+        if (!showTools) return undefined;
+        const handler = (event) => {
+            if (toolsRef.current && !toolsRef.current.contains(event.target)) setShowTools(false);
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [showTools]);
+    useEffect(() => {
+        const openTools = () => setShowTools(true);
+        window.addEventListener('gnosi:open-view-tools', openTools);
+        return () => window.removeEventListener('gnosi:open-view-tools', openTools);
+    }, []);
 
     return (
         <div className="vault-view-actions flex items-center gap-1">
@@ -400,6 +420,88 @@ function ViewActionsBar({
                     ))}
                 </select>
             )}
+            <div className="relative" ref={toolsRef}>
+                <button
+                    type="button"
+                    onClick={() => setShowTools((current) => !current)}
+                    className="vault-view-action"
+                    title={t('views_header.tools_and_shortcuts')}
+                    aria-label={t('views_header.tools_and_shortcuts')}
+                    aria-expanded={showTools}
+                    aria-haspopup="dialog"
+                >
+                    <HelpCircle size={14} />
+                </button>
+                {showTools && (
+                    <div className="vault-view-tools-popover" role="dialog" aria-label={t('views_header.tools_and_shortcuts')}>
+                        <div className="vault-view-tools-title">{t('views_header.shortcuts')}</div>
+                        <div className="vault-shortcut-grid">
+                            {[
+                                ['/', t('views_header.search_title')],
+                                ['F', t('views_header.view_settings')],
+                                ['N', t('views_header.new_action')],
+                                ['D', t('views_header.compact_density')],
+                                ['L', t('sidebar.locate_active_page')],
+                                ['?', t('views_header.tools_and_shortcuts')],
+                            ].map(([key, label]) => (
+                                <React.Fragment key={key}><kbd>{key}</kbd><span>{label}</span></React.Fragment>
+                            ))}
+                        </div>
+                        {onToggleGroup && (
+                            <button type="button" className="vault-view-tools-row" onClick={onToggleGroup}>
+                                <ListTree size={14} />
+                                <span>{groupMode === 'date' ? t('feed.disable_date_groups') : t('feed.enable_date_groups')}</span>
+                            </button>
+                        )}
+                        <button
+                            type="button"
+                            className="vault-view-tools-row"
+                            onClick={() => window.dispatchEvent(new CustomEvent('gnosi:toggle-focus-mode'))}
+                        >
+                            <Focus size={14} /><span>{t('editor.toggle_focus_mode')}</span>
+                        </button>
+                        <button
+                            type="button"
+                            className="vault-view-tools-row"
+                            onClick={() => {
+                                const next = document.documentElement.dataset.vaultContrast === 'high' ? 'normal' : 'high';
+                                document.documentElement.dataset.vaultContrast = next;
+                                localStorage.setItem('gnosi.vault.contrast', next);
+                            }}
+                        >
+                            <Accessibility size={14} /><span>{t('editor.toggle_high_contrast')}</span>
+                        </button>
+                        <button
+                            type="button"
+                            className="vault-view-tools-row"
+                            onClick={() => {
+                                const next = document.documentElement.dataset.vaultText === 'large' ? 'normal' : 'large';
+                                document.documentElement.dataset.vaultText = next;
+                                localStorage.setItem('gnosi.vault.textSize', next);
+                            }}
+                        >
+                            <Accessibility size={14} /><span>{t('editor.toggle_large_text')}</span>
+                        </button>
+                        {presets.length > 0 && (
+                            <>
+                                <div className="vault-view-tools-title">{t('views_header.manage_quick_views')}</div>
+                                {presets.map((preset) => (
+                                    <div className="vault-view-preset-row" key={preset.id}>
+                                        <button type="button" onClick={() => onApplyPreset?.(preset.id)}>{preset.label}</button>
+                                        <button type="button" onClick={() => onRenamePreset?.(preset.id)} aria-label={t('views_header.rename')}><Edit2 size={12} /></button>
+                                        <button type="button" onClick={() => onDeletePreset?.(preset.id)} aria-label={t('views_header.delete')}><Trash2 size={12} /></button>
+                                    </div>
+                                ))}
+                            </>
+                        )}
+                        {loadDuration != null && (
+                            <div className="vault-view-performance">
+                                {t('views_header.last_load_time', { duration: Math.round(loadDuration) })}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
 
             {onAddView && (
                 <button
@@ -732,6 +834,7 @@ export function DbViewEmbed({ block }) {
     const lastSavedNonceRef = useRef(0);
     const [searchTerm, setSearchTerm] = useState('');
     const [showSearch, setShowSearch] = useState(false);
+    const [loadDuration, setLoadDuration] = useState(null);
     const [preferenceProfile, setPreferenceProfile] = useState(() => (
         window.matchMedia('(max-width: 768px)').matches ? 'mobile' : 'desktop'
     ));
@@ -765,8 +868,26 @@ export function DbViewEmbed({ block }) {
             return next;
         });
     }, [densityStorageKey]);
+    const [feedGroupMode, setFeedGroupMode] = useState(() => {
+        try { return localStorage.getItem('gnosi.view.feedGroupMode') || 'none'; } catch { return 'none'; }
+    });
+    const toggleFeedGroupMode = useCallback(() => {
+        setFeedGroupMode((current) => {
+            const next = current === 'date' ? 'none' : 'date';
+            try { localStorage.setItem('gnosi.view.feedGroupMode', next); } catch { /* noop */ }
+            return next;
+        });
+    }, []);
     const presetStorageKey = `gnosi.view.quickPresets.${preferenceProfile}.${pageId}.${viewId}`;
     const [quickPresets, setQuickPresets] = useState([]);
+    const [renameQuickPresetId, setRenameQuickPresetId] = useState(null);
+    const persistQuickPresets = useCallback((next) => {
+        try { localStorage.setItem(presetStorageKey, JSON.stringify(next)); } catch { /* noop */ }
+        if (viewId) {
+            axios.put(`/api/vault/views/${encodeURIComponent(viewId)}`, { quickPresets: next })
+                .catch(() => { /* offline/local fallback remains available */ });
+        }
+    }, [presetStorageKey, viewId]);
     useEffect(() => {
         const frame = window.requestAnimationFrame(() => {
             try {
@@ -789,10 +910,10 @@ export function DbViewEmbed({ block }) {
                 activeViewId,
             };
             const next = [...current.slice(-4), preset];
-            try { localStorage.setItem(presetStorageKey, JSON.stringify(next)); } catch { /* noop */ }
+            persistQuickPresets(next);
             return next;
         });
-    }, [activeViewId, feedDensity, presetStorageKey, searchTerm, t]);
+    }, [activeViewId, feedDensity, persistQuickPresets, searchTerm, t]);
     const applyQuickPreset = useCallback((presetId) => {
         const preset = quickPresets.find((candidate) => candidate.id === presetId);
         if (!preset) return;
@@ -804,6 +925,25 @@ export function DbViewEmbed({ block }) {
         }
         if (preset.activeViewId) setActiveViewId(preset.activeViewId);
     }, [densityStorageKey, quickPresets]);
+    const renameQuickPreset = useCallback((presetId) => {
+        setRenameQuickPresetId(presetId);
+    }, []);
+    const submitQuickPresetRename = useCallback((label) => {
+        if (!label?.trim() || !renameQuickPresetId) return;
+        setQuickPresets((presets) => {
+            const next = presets.map((preset) => preset.id === renameQuickPresetId ? { ...preset, label: label.trim() } : preset);
+            persistQuickPresets(next);
+            return next;
+        });
+        setRenameQuickPresetId(null);
+    }, [persistQuickPresets, renameQuickPresetId]);
+    const deleteQuickPreset = useCallback((presetId) => {
+        setQuickPresets((presets) => {
+            const next = presets.filter((preset) => preset.id !== presetId);
+            persistQuickPresets(next);
+            return next;
+        });
+    }, [persistQuickPresets]);
     const [tabMenuFor, setTabMenuFor] = useState(null);     // id of the view with its (remove/delete) menu open
     const [menuUp, setMenuUp] = useState(false);            // open the dropdown upward if it doesn't fit below
     const [confirmDeleteView, setConfirmDeleteView] = useState(null); // view pending deletion everywhere (ConfirmModal)
@@ -843,6 +983,7 @@ export function DbViewEmbed({ block }) {
         if (!pageId || !viewId) return undefined;
         let cancelled = false;
         const load = async () => {
+            const startedAt = window.performance?.now?.() ?? Date.now();
             setError('');
             setLoading(true);
             try {
@@ -937,6 +1078,10 @@ export function DbViewEmbed({ block }) {
                         pinned = JSON.parse(localStorage.getItem(`gnosi_embed_pinned_${pageId}_${viewId}`) || '[]');
                     } catch { /* noop */ }
                     const anchorReg = registryViews.find(v => String(v.id) === String(viewId));
+                    if (Array.isArray(anchorReg?.quickPresets)) {
+                        setQuickPresets(anchorReg.quickPresets);
+                        try { localStorage.setItem(presetStorageKey, JSON.stringify(anchorReg.quickPresets)); } catch { /* noop */ }
+                    }
                     if (Array.isArray(anchorReg?.tabs)) pinned = [...pinned, ...anchorReg.tabs.map(String)];
                     setPinnedViewIds(new Set(pinned));
                     // We guarantee the section's view is always there.
@@ -980,6 +1125,9 @@ export function DbViewEmbed({ block }) {
                     try { saved = localStorage.getItem(`gnosi_embed_view_${pageId}_${viewId}`) || ''; } catch { /* noop */ }
                     const def = (saved && merged.some(v => v.id === saved)) ? saved : section.view_id;
                     setActiveViewId(prev => prev || def);
+                    const duration = (window.performance?.now?.() ?? Date.now()) - startedAt;
+                    setLoadDuration(duration);
+                    try { localStorage.setItem(`gnosi.view.lastLoad.${pageId}.${viewId}`, String(Math.round(duration))); } catch { /* noop */ }
                     setLoading(false);
                 }
             } catch (e) {
@@ -1135,6 +1283,9 @@ export function DbViewEmbed({ block }) {
             } else if (key === 'l') {
                 event.preventDefault();
                 window.dispatchEvent(new CustomEvent('gnosi:locate-active-page'));
+            } else if (key === '?') {
+                event.preventDefault();
+                window.dispatchEvent(new CustomEvent('gnosi:open-view-tools'));
             }
         };
         window.addEventListener('keydown', handleShortcut);
@@ -1335,7 +1486,7 @@ export function DbViewEmbed({ block }) {
 
     if (loading) {
         return (
-            <div className="vault-view-skeleton my-4" role="status" aria-label={t('views_header.loading_view', "Loading view...")}>
+            <div className={`vault-view-skeleton vault-view-skeleton--${viewType} my-4`} role="status" aria-label={t('views_header.loading_view', "Loading view...")}>
                 <div className="vault-view-skeleton__toolbar">
                     <span className="vault-skeleton-block w-24" />
                     <span className="vault-skeleton-block w-32" />
@@ -1441,6 +1592,7 @@ export function DbViewEmbed({ block }) {
         maxHeight: '70vh',
         searchTerm,
         onSearchChange: setSearchTerm,
+        feedGroupMode,
         onNoteSelect: (id) => onOpenPage?.(id),
         onCreateRecord: onCreateRecordAdapter,
         onDeletePage: onDeletePageAdapter,
@@ -1521,6 +1673,11 @@ export function DbViewEmbed({ block }) {
                     presets={quickPresets}
                     onSavePreset={saveQuickPreset}
                     onApplyPreset={applyQuickPreset}
+                    onRenamePreset={renameQuickPreset}
+                    onDeletePreset={deleteQuickPreset}
+                    groupMode={feedGroupMode}
+                    onToggleGroup={viewType === 'feed' ? toggleFeedGroupMode : null}
+                    loadDuration={loadDuration}
                 />
             </div>
             {/* Tabs of views for THIS block: the section's view (anchor)
@@ -1626,6 +1783,16 @@ export function DbViewEmbed({ block }) {
                 title={t('views_header.rename_view_title', "Rename view")}
                 label={t('views_header.new_view_name_label', "New view name")}
                 defaultValue={renameView ? (renameView.name || renameView.heading || '') : ''}
+                confirmText={t('common.rename', "Rename")}
+                cancelText={t('common.cancel', "Cancel")}
+            />
+            <PromptModal
+                isOpen={renameQuickPresetId != null}
+                onClose={() => setRenameQuickPresetId(null)}
+                onSubmit={submitQuickPresetRename}
+                title={t('views_header.rename_view_title', "Rename view")}
+                label={t('views_header.new_view_name_label', "New view name")}
+                defaultValue={quickPresets.find((preset) => preset.id === renameQuickPresetId)?.label || ''}
                 confirmText={t('common.rename', "Rename")}
                 cancelText={t('common.cancel', "Cancel")}
             />
