@@ -1057,6 +1057,11 @@ export const VaultSidebar = ({
     }, [activePageId, pages, setIsFavoritesExpanded, setIsWorkspaceExpanded]);
 
     useEffect(() => {
+        window.addEventListener('gnosi:locate-active-page', locateActivePage);
+        return () => window.removeEventListener('gnosi:locate-active-page', locateActivePage);
+    }, [locateActivePage]);
+
+    useEffect(() => {
         const frame = window.requestAnimationFrame(() => {
             setVisibleDatabasesCount(DATABASES_BATCH_SIZE);
         });

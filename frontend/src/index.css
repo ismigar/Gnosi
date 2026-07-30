@@ -426,6 +426,11 @@ textarea,
   flex: 1 1 220px;
 }
 
+.vault-feed-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 300px;
+}
+
 .vault-feed-card__title > span:last-child {
   overflow-wrap: anywhere;
 }
@@ -482,6 +487,13 @@ textarea,
   background: color-mix(in srgb, var(--bg-primary) 94%, transparent);
   box-shadow: var(--shadow-subtle);
   backdrop-filter: blur(12px);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.vault-page-compact-header.is-hidden {
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-100%);
 }
 
 .vault-page-compact-header__title {
@@ -525,6 +537,17 @@ textarea,
   white-space: nowrap;
 }
 
+.vault-view-preset-select {
+  max-width: 8.5rem;
+  min-height: 1.75rem;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  padding-inline: 0.375rem;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 0.6875rem;
+}
+
 .vault-feed-card--compact .vault-feed-card__body {
   gap: 0.5rem;
   padding: 0.875rem 1rem;
@@ -538,9 +561,34 @@ textarea,
   font-size: 1.0625rem;
 }
 
+.vault-feed-card--compact {
+  contain-intrinsic-size: auto 240px;
+}
+
+.vault-feed,
+.vault-view-skeleton {
+  animation: vault-content-enter 180ms ease-out;
+}
+
 .vault-view-skeleton {
   display: grid;
   gap: 0.75rem;
+}
+
+.vault-feed-selection-bar {
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(12px);
+}
+
+@keyframes vault-content-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .vault-view-skeleton__toolbar {
@@ -2287,6 +2335,14 @@ button:hover > .row-action-tooltip {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .vault-feed,
+  .vault-view-skeleton,
+  .vault-skeleton-block {
+    animation: none;
+  }
+  .vault-page-compact-header {
+    transition: none;
+  }
   .home-card,
   .home-card__icon-wrap,
   .home-card__arrow {

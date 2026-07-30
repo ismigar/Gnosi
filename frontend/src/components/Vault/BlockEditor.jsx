@@ -3860,16 +3860,34 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const registerEditorApi = useCallback((api) => { editorApiRef.current = api; }, []);
     const [isHeaderHovered, setIsHeaderHovered] = useState(false);
     const [isPageHeaderCompact, setIsPageHeaderCompact] = useState(false);
+    const [isCompactHeaderVisible, setIsCompactHeaderVisible] = useState(true);
+    const lastScrollTopRef = useRef(0);
     useEffect(() => {
         const hero = headerHoverRef.current;
         if (!hero || typeof IntersectionObserver !== 'function') return undefined;
         const observer = new IntersectionObserver(
-            ([entry]) => setIsPageHeaderCompact(!entry.isIntersecting && entry.boundingClientRect.bottom < 0),
+            ([entry]) => {
+                const compact = !entry.isIntersecting && entry.boundingClientRect.bottom < 0;
+                setIsPageHeaderCompact(compact);
+                if (compact) setIsCompactHeaderVisible(true);
+            },
             { threshold: 0 },
         );
         observer.observe(hero);
         return () => observer.disconnect();
     }, [noteFilename]);
+    useEffect(() => {
+        const handleScroll = (event) => {
+            const target = event.target === document ? document.scrollingElement : event.target;
+            if (!(target instanceof Element)) return;
+            const nextScrollTop = target.scrollTop;
+            const delta = nextScrollTop - lastScrollTopRef.current;
+            if (Math.abs(delta) > 6) setIsCompactHeaderVisible(delta < 0);
+            lastScrollTopRef.current = nextScrollTop;
+        };
+        document.addEventListener('scroll', handleScroll, true);
+        return () => document.removeEventListener('scroll', handleScroll, true);
+    }, []);
 
     const openPageViewModalFromContext = useCallback((tableId = '', editingBlock = null) => {
         setPageViewPreselectedTable(tableId);
@@ -4585,7 +4603,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         <div className="vault-page-editor w-full flex justify-center bg-[var(--bg-primary)] min-h-full transition-colors duration-300">
             <div ref={contentRef} className="max-w-7xl w-full flex flex-col min-h-full bg-[var(--bg-primary)] relative transition-colors duration-300">
                 {isPageHeaderCompact && (
-                    <div className="vault-page-compact-header">
+                    <div className={`vault-page-compact-header ${isCompactHeaderVisible ? '' : 'is-hidden'}`}>
                         <span className="vault-page-compact-header__title">{metadata.title || t('editor.untitled')}</span>
                         <PageActionsBar
                             pageActions={isActivePage ? pageActions : null}
