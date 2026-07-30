@@ -3861,6 +3861,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const [isHeaderHovered, setIsHeaderHovered] = useState(false);
     const [isPageHeaderCompact, setIsPageHeaderCompact] = useState(false);
     const [isCompactHeaderVisible, setIsCompactHeaderVisible] = useState(true);
+    const [isFocusMode, setIsFocusMode] = useState(false);
     const lastScrollTopRef = useRef(0);
     useEffect(() => {
         const hero = headerHoverRef.current;
@@ -3887,6 +3888,15 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         };
         document.addEventListener('scroll', handleScroll, true);
         return () => document.removeEventListener('scroll', handleScroll, true);
+    }, []);
+    useEffect(() => {
+        const toggleFocusMode = () => setIsFocusMode((current) => !current);
+        window.addEventListener('gnosi:toggle-focus-mode', toggleFocusMode);
+        try {
+            document.documentElement.dataset.vaultContrast = localStorage.getItem('gnosi.vault.contrast') || 'normal';
+            document.documentElement.dataset.vaultText = localStorage.getItem('gnosi.vault.textSize') || 'normal';
+        } catch { /* noop */ }
+        return () => window.removeEventListener('gnosi:toggle-focus-mode', toggleFocusMode);
     }, []);
 
     const openPageViewModalFromContext = useCallback((tableId = '', editingBlock = null) => {
@@ -4600,7 +4610,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     }, [noteFilename, t]);
 
     return (
-        <div className="vault-page-editor w-full flex justify-center bg-[var(--bg-primary)] min-h-full transition-colors duration-300">
+        <div className={`vault-page-editor ${isFocusMode ? 'vault-page-editor--focus' : ''} w-full flex justify-center bg-[var(--bg-primary)] min-h-full transition-colors duration-300`}>
             <div ref={contentRef} className="max-w-7xl w-full flex flex-col min-h-full bg-[var(--bg-primary)] relative transition-colors duration-300">
                 {isPageHeaderCompact && (
                     <div className={`vault-page-compact-header ${isCompactHeaderVisible ? '' : 'is-hidden'}`}>

@@ -2029,7 +2029,14 @@
     "show_more_tags": "Afficher {{count}} étiquettes de plus",
     "show_fewer_tags": "Afficher moins d’étiquettes",
     "read_full": "Lire en entier",
-    "empty": "Aucune publication dans le fil."
+    "empty": "Aucune publication dans le fil.",
+    "enable_date_groups": "Grouper par date",
+    "disable_date_groups": "Désactiver les groupes par date",
+    "group_today": "Aujourd’hui",
+    "group_this_week": "Cette semaine",
+    "group_this_month": "Ce mois-ci",
+    "position": "{{current}} sur {{total}}",
+    "return_to_last_record": "Revenir au dernier enregistrement"
   },
   "files": {
     "delete_title": "Supprimer le fichier",
@@ -2196,6 +2203,10 @@
     "save_quick_view": "Enregistrer la vue rapide",
     "quick_views": "Vues rapides",
     "quick_view_name": "Vue rapide {{count}}",
+    "manage_quick_views": "Gérer les vues rapides",
+    "tools_and_shortcuts": "Outils et raccourcis",
+    "shortcuts": "Raccourcis",
+    "last_load_time": "Dernier chargement : {{duration}} ms",
     "configure_view_tooltip": "Configurer la vue",
     "wip_tooltip": "En développement pour une prochaine itération",
     "soon_badge": "Bientôt",
@@ -2726,6 +2737,9 @@
     "usage_count_many": "Cette vue est déjà utilisée sur {{count}} pages."
   },
   "editor": {
+    "toggle_focus_mode": "Activer ou désactiver le mode concentration",
+    "toggle_high_contrast": "Alterner le contraste renforcé",
+    "toggle_large_text": "Alterner le texte agrandi",
     "ai_ask": "Demander à l'IA…",
     "ai_ask_subtext": "Écrivez une instruction et insérez le résultat",
     "ai_continue": "Continuer à écrire",

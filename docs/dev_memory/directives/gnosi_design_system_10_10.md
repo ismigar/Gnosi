@@ -255,3 +255,13 @@ environment-specific frontend assumptions.
 - Visual regression coverage for Vault pages includes mobile, tablet, and
   desktop viewports in both color schemes. Mask live feed content so snapshots
   detect layout regressions without becoming unstable from user data.
+- Advanced feed controls live in one discoverable tools popover rather than
+  expanding the primary toolbar. It contains shortcut help, quick-view
+  management, grouping, focus, accessibility, and local performance feedback.
+- Feed position and last-record recovery are local navigation aids. They do not
+  mutate the canonical sort order and must tolerate records disappearing.
+- Accessibility preferences for contrast and text scale persist locally and
+  remain scoped to Vault page content; they must not silently restyle unrelated
+  applications.
+- Loading skeletons reflect the geometry of each view family. A table skeleton
+  must not look like a feed, and live user data stays out of regression fixtures.

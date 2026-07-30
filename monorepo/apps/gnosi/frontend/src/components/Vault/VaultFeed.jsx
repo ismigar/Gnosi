@@ -56,13 +56,14 @@ function prepareBodyMd(raw) {
  * interact with the body); opening the page is done with the "Open" button or
  * by clicking the title.
  */
-function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, onOpen, density }) {
+function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, onOpen, density, index, onVisible }) {
     const { t, i18n } = useTranslation();
     const isCompact = useMediaQuery('(max-width: 768px)');
     const [expanded, setExpanded] = useState(false);
     const [showAllPills, setShowAllPills] = useState(false);
     const [previewOverflows, setPreviewOverflows] = useState(false);
     const previewRef = useRef(null);
+    const cardRef = useRef(null);
     // The cover is resolved the same way as in the other views (VaultGallery): `Assets/x`
     // → `/api/vault/assets/x` with the active vault in the query. A `background-image`
     // (like a native `<img>`) does NOT send the X-Vault-Id header, so without
@@ -98,6 +99,15 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
             observer?.disconnect();
         };
     }, [expanded, previewMd]);
+    useEffect(() => {
+        const card = cardRef.current;
+        if (!card || typeof IntersectionObserver !== 'function') return undefined;
+        const observer = new IntersectionObserver(([entry]) => {
+            if (entry.isIntersecting && entry.intersectionRatio >= 0.45) onVisible?.(index);
+        }, { threshold: [0.45] });
+        observer.observe(card);
+        return () => observer.disconnect();
+    }, [index, onVisible]);
 
     const handleToggleExpand = useCallback((e) => {
         e.stopPropagation();
@@ -110,6 +120,8 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
 
     return (
         <article
+            ref={cardRef}
+            data-feed-note-id={note.id}
             className={`vault-feed-card ${density === 'compact' ? 'vault-feed-card--compact' : ''} relative bg-[var(--bg-primary)] rounded-2xl shadow-sm border overflow-hidden hover:shadow-md transition-all group flex flex-col ${isSelected ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/40'}`}
         >
             {/* The label only stops propagation (not opening the card): the
@@ -266,9 +278,11 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
  * dedicated component so the parent can remount it (via `key`) and reset the
  * count when the set changes, without `setState` inside an effect or mutating refs during render.
  */
-function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSelect, onOpen, density }) {
+function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSelect, onOpen, density, groupMode }) {
+    const { t, i18n } = useTranslation();
     const sentinelRef = useRef(null);
     const [visibleCount, setVisibleCount] = useState(FEED_BATCH);
+    const [visibleIndex, setVisibleIndex] = useState(0);
     const hasMore = visibleCount < notes.length;
 
     useEffect(() => {
@@ -293,21 +307,47 @@ function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSele
     }, [hasMore, notes.length]);
 
     const visibleNotes = useMemo(() => notes.slice(0, visibleCount), [notes, visibleCount]);
+    const handleVisible = useCallback((index) => setVisibleIndex(index), []);
+    const dateGroup = useCallback((value) => {
+        const date = new Date(value);
+        const now = new Date();
+        const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const startWeek = new Date(startToday);
+        startWeek.setDate(startToday.getDate() - ((startToday.getDay() + 6) % 7));
+        const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        if (date >= startToday) return t('feed.group_today');
+        if (date >= startWeek) return t('feed.group_this_week');
+        if (date >= startMonth) return t('feed.group_this_month');
+        return date.toLocaleDateString(i18n.language, { month: 'long', year: 'numeric' });
+    }, [i18n.language, t]);
 
     return (
-        <div className="w-full max-w-3xl flex flex-col gap-8 pb-16">
-            {visibleNotes.map(note => (
-                <FeedCard
-                    key={note.id}
-                    note={note}
-                    pills={buildPills(note)}
-                    isSelected={isSelected(note.id)}
-                    selectionActive={selectionActive}
-                    onToggleSelect={onToggleSelect}
-                    onOpen={onOpen}
-                    density={density}
-                />
-            ))}
+        <div className="w-full max-w-3xl flex flex-col gap-8 pb-16 relative">
+            <div className="vault-feed-position" role="status">
+                {t('feed.position', { current: Math.min(visibleIndex + 1, notes.length), total: notes.length })}
+            </div>
+            {visibleNotes.map((note, index) => {
+                const group = groupMode === 'date' ? dateGroup(note.last_modified) : '';
+                const previousGroup = index > 0 && groupMode === 'date'
+                    ? dateGroup(visibleNotes[index - 1].last_modified)
+                    : '';
+                return (
+                    <React.Fragment key={note.id}>
+                        {group && group !== previousGroup && <h3 className="vault-feed-date-group">{group}</h3>}
+                        <FeedCard
+                            note={note}
+                            pills={buildPills(note)}
+                            isSelected={isSelected(note.id)}
+                            selectionActive={selectionActive}
+                            onToggleSelect={onToggleSelect}
+                            onOpen={onOpen}
+                            density={density}
+                            index={index}
+                            onVisible={handleVisible}
+                        />
+                    </React.Fragment>
+                );
+            })}
 
             {/* Infinite-scroll sentinel + loading indicator */}
             {hasMore && (
@@ -319,7 +359,7 @@ function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSele
     );
 }
 
-export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onDeleteSelected, onDeletePage, onUpdateNote, searchTerm = '', density = 'comfortable' }) {
+export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onDeleteSelected, onDeletePage, onUpdateNote, searchTerm = '', density = 'comfortable', groupMode = 'none' }) {
     const { t } = useTranslation();
     const localeSettings = useLocaleSettings();
 
@@ -517,6 +557,20 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
     const { sortedPages: sortedNotes } = useVaultViewData({ pages: notes, schema, view: viewConfig, searchTerm });
 
     const { selectedIds, isSelected, toggleSelect, selectAll, clearSelection } = useVaultSelection(sortedNotes);
+    const lastRecordStorageKey = `gnosi.feed.lastRecord.${activeView?.id || 'default'}`;
+    const [lastRecordId, setLastRecordId] = useState(() => {
+        try { return localStorage.getItem(lastRecordStorageKey) || ''; } catch { return ''; }
+    });
+    const openFeedRecord = useCallback((id) => {
+        setLastRecordId(id);
+        try { localStorage.setItem(lastRecordStorageKey, id); } catch { /* noop */ }
+        onNoteSelect?.(id);
+    }, [lastRecordStorageKey, onNoteSelect]);
+    const returnToLastRecord = useCallback(() => {
+        [...document.querySelectorAll('[data-feed-note-id]')]
+            .find((element) => element.dataset.feedNoteId === lastRecordId)
+            ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, [lastRecordId]);
 
     // Key for the visible set: when it changes (search, view change, filters, or
     // order) `FeedList` remounts and its infinite-scroll count is
@@ -569,6 +623,11 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
                     className="vault-feed-selection-bar sticky top-2 w-full max-w-3xl mb-4 shrink-0 bg-[var(--gnosi-primary)]/10 border border-[var(--gnosi-primary)]/20 rounded-lg px-4 py-2 flex items-center gap-3 text-sm z-30"
                 />
             )}
+            {lastRecordId && sortedNotes.some((note) => note.id === lastRecordId) && (
+                <button type="button" className="vault-feed-return" onClick={returnToLastRecord}>
+                    {t('feed.return_to_last_record')}
+                </button>
+            )}
             <FeedList
                 key={resetKey}
                 notes={sortedNotes}
@@ -576,8 +635,9 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
                 isSelected={isSelected}
                 selectionActive={selectedIds.size > 0}
                 onToggleSelect={toggleSelect}
-                onOpen={onNoteSelect}
+                onOpen={openFeedRecord}
                 density={density}
+                groupMode={groupMode}
             />
         </div>
     );
