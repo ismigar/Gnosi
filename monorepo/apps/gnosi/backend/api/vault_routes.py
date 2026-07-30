@@ -4511,6 +4511,16 @@ def _llm_wiki_enabled(state: dict) -> bool:
     return "llm-wiki" not in {str(item) for item in (state.get("disabled") or [])}
 
 
+def _reconcile_plugin_ai_contributions() -> dict:
+    """Refresh governed third-party skills, tools, and managed agents."""
+
+    from backend.services.plugin_ai_contributions import (
+        reconcile_plugin_ai_contributions,
+    )
+
+    return reconcile_plugin_ai_contributions()
+
+
 @router.put("/plugins", dependencies=[Depends(require_role("editor"))])
 async def set_plugins_state(request: PluginsUpdateRequest):
     """Persists which plugins are disabled and their per-plugin settings.
@@ -4529,7 +4539,9 @@ async def set_plugins_state(request: PluginsUpdateRequest):
             )
         current["disabled"] = [str(x) for x in (request.disabled or [])]
         current["settings"] = request.settings if isinstance(request.settings, dict) else {}
-        return _save_plugins_state(current)
+        saved = _save_plugins_state(current)
+        _reconcile_plugin_ai_contributions()
+        return saved
     async with _plugins_mutation_lock:
         return await asyncio.to_thread(_write)
 
@@ -4538,8 +4550,9 @@ async def set_plugins_state(request: PluginsUpdateRequest):
 async def set_llm_wiki_lifecycle(payload: LlmWikiLifecycleRequest, request: Request):
     """Enables/disables LLM Wiki together with its protected AI profile.
 
-    Disabling needs an explicit confirmation because it removes the associated
-    agent profile. The knowledge table and its notes are deliberately retained.
+    Disabling needs an explicit confirmation because it suspends the associated
+    agent and its skills. Profile overrides, the knowledge table, and notes are
+    deliberately retained so reactivation restores the exact state.
     """
     from backend.services.llm_wiki_agent import LlmWikiAgentError, transition_agent
 
@@ -4549,7 +4562,8 @@ async def set_llm_wiki_lifecycle(payload: LlmWikiLifecycleRequest, request: Requ
         was_enabled = "llm-wiki" not in disabled
         if not payload.enabled and was_enabled and not payload.confirm_disable:
             raise LlmWikiAgentError(
-                "Confirm disabling the LLM Wiki plugin because its agent will be removed."
+                "Confirm disabling the LLM Wiki plugin because its agent and skills "
+                "will be suspended."
             )
 
         agent_result = transition_agent(payload.enabled)
@@ -4643,6 +4657,7 @@ async def set_plugin_permissions(plugin_id: str, request: PluginPermissionsReque
         state = _load_plugins_state()
         new_state = ps.set_granted(state, plugin_id, clean)
         _save_plugins_state(new_state)
+        _reconcile_plugin_ai_contributions()
         return {"id": plugin_id, "granted": clean}
 
     try:
@@ -4745,6 +4760,7 @@ async def install_plugin(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail=str(e))
     async with _plugins_mutation_lock:
         await asyncio.to_thread(_quarantine_installed_plugin, manifest["id"])
+        await asyncio.to_thread(_reconcile_plugin_ai_contributions)
     return {"installed": manifest}
 
 
@@ -4761,6 +4777,7 @@ async def uninstall_plugin(plugin_id: str):
         state["disabled"] = [d for d in (state.get("disabled") or []) if d != plugin_id]
         state = ps.set_granted(state, plugin_id, [])
         _save_plugins_state(state)
+        _reconcile_plugin_ai_contributions()
         return True
 
     try:
@@ -4834,6 +4851,7 @@ async def install_from_catalog(request: CatalogInstallRequest):
         raise HTTPException(status_code=400, detail=str(e))
     async with _plugins_mutation_lock:
         await asyncio.to_thread(_quarantine_installed_plugin, manifest["id"])
+        await asyncio.to_thread(_reconcile_plugin_ai_contributions)
     return {"installed": manifest}
 
 
@@ -7875,101 +7893,43 @@ def mark_resource_processed(page_id: str, date_str: str) -> bool:
 @router.post("/llm-wiki/process", dependencies=[Depends(require_role("editor"))])
 async def llm_wiki_process(payload: dict = Body(...)):
     """Start a durable ingest for one row of a configured source table."""
-    from backend.services import llm_wiki, llm_wiki_config
+    from backend.services.llm_wiki_actions import (
+        LlmWikiActionError,
+        start_source_process,
+    )
 
-    if not _llm_wiki_enabled(_load_plugins_state()):
-        raise HTTPException(status_code=409, detail="The LLM Wiki plugin is disabled")
-
-    item_id = str((payload or {}).get("resource_id") or (payload or {}).get("item_id") or "").strip()
-    if not item_id:
-        raise HTTPException(status_code=400, detail="resource_id is required")
-    force = bool((payload or {}).get("force"))
-    language = str((payload or {}).get("language") or "").strip()
-
-    cfg = llm_wiki_config.load_config()
-    brain_table_id = str(cfg.get("brain_table_id") or "")
-    if not brain_table_id:
-        raise HTTPException(status_code=400,
-                            detail="No Brain table is configured")
-    if not _table_by_id(brain_table_id):
-        raise HTTPException(status_code=400, detail="The configured Brain table does not exist")
-
-    path = find_page_path(item_id)
-    if not path or not path.exists():
-        raise HTTPException(status_code=404, detail=f"Resource {item_id} was not found")
-    metadata, body = parse_frontmatter(path.read_text(encoding="utf-8"), path)
-    source_table_id = str(
-        (payload or {}).get("source_table_id")
-        or metadata.get("table_id")
-        or ""
-    ).strip()
-    source_config = llm_wiki_config.get_source_config(source_table_id)
-    source_table = _table_by_id(source_table_id)
-    if not source_config or not source_table:
-        raise HTTPException(status_code=400, detail="This row is not in a configured source table")
-    metadata_table_id = str(metadata.get("table_id") or "")
-    if metadata_table_id and metadata_table_id != source_table_id:
-        raise HTTPException(status_code=400, detail="source_table_id does not match the resource row")
-    if not language:
-        language_property_id = str(source_config.get("language_property_id") or "")
-        language_property = next(
-            (
-                prop for prop in source_table.get("properties") or []
-                if str(prop.get("id") or "") == language_property_id
-            ),
-            None,
-        )
-        if language_property:
-            language = str(
-                metadata.get(str(language_property.get("name") or ""))
-                or metadata.get(language_property_id)
+    try:
+        return await asyncio.to_thread(
+            start_source_process,
+            str(
+                (payload or {}).get("resource_id")
+                or (payload or {}).get("item_id")
                 or ""
-            ).strip()
-    language = language or "the main language detected in the source"
-    if llm_wiki.is_running(item_id, source_table_id):
-        raise HTTPException(status_code=409, detail="This resource is already being processed")
-    if not force and _resource_processed_value(metadata):
-        raise HTTPException(
-            status_code=409,
-            detail=f"Already processed on {_resource_processed_value(metadata)}; use force to reprocess",
+            ),
+            source_table_id=str((payload or {}).get("source_table_id") or ""),
+            force=bool((payload or {}).get("force")),
+            language=str((payload or {}).get("language") or ""),
         )
-
-    title = _llm_wiki_source_title(
-        metadata,
-        path,
-        source_table,
-        source_config,
-    )
-    vault_root = get_p("VAULT")
-    job = llm_wiki.start_ingest(
-        item_id,
-        title,
-        metadata,
-        body,
-        brain_table_id,
-        vault_root,
-        language,
-        source_table_id=source_table_id,
-        source_table=source_table,
-        source_config=source_config,
-        force=force,
-    )
-    return {
-        "status": "started",
-        "item_id": item_id,
-        "resource_id": item_id,
-        "source_table_id": source_table_id,
-        "job_id": job.get("job_id"),
-        "job": job,
-    }
+    except LlmWikiActionError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
 
 
 @router.get("/llm-wiki/status/{item_id}", dependencies=[Depends(require_role("editor"))])
 async def llm_wiki_status(item_id: str, source_table_id: str = Query(default="")):
     """Non-blocking status of a resource's ongoing/last ingest (for polling)."""
-    from backend.services import llm_wiki
+    from backend.services.llm_wiki_actions import (
+        LlmWikiActionError,
+        process_status,
+    )
 
-    return llm_wiki.get_job_status(item_id, source_table_id)
+    try:
+        return await asyncio.to_thread(
+            process_status,
+            item_id,
+            source_table_id=source_table_id,
+        )
+    except LlmWikiActionError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
 
 
 @router.get("/llm-wiki/evidence/{resource_id}/{snapshot_id}/{segment_id}",
@@ -7996,44 +7956,15 @@ async def llm_wiki_maintenance(semantic: bool = Query(default=False)):
     ``semantic=true`` additionally runs the connection/contradiction proposal
     pass. Scheduled maintenance always uses the deterministic default.
     """
-    from backend.services import (
-        llm_wiki_config,
-        llm_wiki_indices,
-        llm_wiki_lint,
-        llm_wiki_suggestions,
+    from backend.services.llm_wiki_actions import (
+        LlmWikiActionError,
+        run_maintenance_async,
     )
 
-    cfg = llm_wiki_config.load_config()
-    brain_table_id = str(cfg.get("brain_table_id") or "")
-    if not brain_table_id:
-        raise HTTPException(status_code=400, detail="No Brain table is configured")
-    index_report = await asyncio.to_thread(
-        llm_wiki_indices.rebuild_indexes,
-        brain_table_id,
-        cfg,
-    )
-    source_ids = [
-        str(item.get("table_id") or "")
-        for item in cfg.get("source_tables") or []
-        if item.get("table_id")
-    ]
-    lint_report = await asyncio.to_thread(
-        llm_wiki_lint.run_lint,
-        brain_table_id,
-        source_ids,
-    )
-    queued = 0
-    if semantic:
-        queued = await asyncio.to_thread(
-            llm_wiki_suggestions.generate_suggestions,
-            brain_table_id,
-        )
-    return {
-        "indexes": index_report,
-        "lint": lint_report,
-        "suggestions_queued": queued,
-        "suggestions_pending": len(llm_wiki_suggestions.load_queue()),
-    }
+    try:
+        return await run_maintenance_async(semantic=semantic)
+    except LlmWikiActionError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
 
 
 @router.get("/llm-wiki/lint", dependencies=[Depends(require_role("editor"))])

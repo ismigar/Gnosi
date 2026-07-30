@@ -362,19 +362,12 @@ async def delete_directive(path: str = Query(...)) -> Dict[str, Any]:
             skill_dir = file_path.parent
             if skill_dir.exists() and skill_dir.is_dir():
                 shutil.rmtree(skill_dir)
-                from backend.agent.generated_tools.loader import loader
-                loader.refresh()
                 return {"message": "Skill folder deleted successfully"}
         
         # Standard directive file deletion (must exist to be unlinked)
         if file_path.exists():
             file_path.unlink()
         
-        # Generic refresh if it looks like a skill-related path
-        if "pipeline/skills" in path or "pipeline/private_skills" in path:
-            from backend.agent.generated_tools.loader import loader
-            loader.refresh()
-            
         return {"message": "Deleted successfully"}
     except Exception as e:
         raise HTTPException(
