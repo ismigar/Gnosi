@@ -214,6 +214,10 @@ def _mask_quoted_text(text: str) -> str:
         r'"[^"]*"',
         r"“[^”]*”",
         r"«[^»]*»",
+        # Pair-delimited single quotes are examples/quotations too. The
+        # surrounding-boundary checks preserve apostrophes inside words such
+        # as Catalan ``l'esquema`` and French ``l'agent``.
+        r"(?<![\wÀ-ÿ])'[^'\n]+'(?![\wÀ-ÿ])",
     )
     masked = text
     for pattern in patterns:
@@ -238,16 +242,35 @@ def _affirmative_pattern_present(text: str, patterns: Sequence[str]) -> bool:
         "pot aquest agent ", "pot l'agent ", "puede este agente ",
         "puede el agente ", "est-ce que cet agent ", "l'agent peut-il ",
     )
-    stripped = text.strip()
+    masked = _mask_quoted_text(text)
+    stripped = masked.strip()
     if stripped.startswith(meta_prefixes):
         return False
     if any(query in stripped for query in third_person_queries):
         return False
 
-    masked = _mask_quoted_text(text)
     negations = re.compile(
         r"\b(?:do not|don't|never|not|no|mai|nunca|jamais|sans|sense)\b"
         r"|\bne\b.*\bpas\b",
+        re.IGNORECASE,
+    )
+    meta_context = re.compile(
+        r"\b(?:"
+        r"explain|describe|analy[sz]e|tell me|"
+        r"how\s+(?:to|do|can|could|would|should)|"
+        r"what\s+(?:happens|would happen)|whether|"
+        r"can i|could i|may i|before\s+you|if\s+(?:you|i|we)|"
+        r"documentation|docs?|phrase|example|"
+        r"explica|analitza|com\s+(?:puc|podria|es pot|cal)|"
+        r"què\s+passaria|abans\s+(?:que|de)|si\s+(?:tu|jo|et)|"
+        r"documentació|frase|exemple|"
+        r"analiza|cómo\s+(?:puedo|podría|se puede)|qué\s+pasaría|"
+        r"puedo|podría|antes\s+de|si\s+(?:tú|yo|te)|"
+        r"documentación|ejemplo|"
+        r"explique|analyse|comment\s+(?:puis-je|peut-on|faire)|"
+        r"que\s+se\s+passerait|puis-je|avant\s+de|"
+        r"si\s+(?:tu|je|vous)|documentation|phrase|exemple"
+        r")\b",
         re.IGNORECASE,
     )
     for pattern in patterns:
@@ -261,7 +284,7 @@ def _affirmative_pattern_present(text: str, patterns: Sequence[str]) -> bool:
                 for separator in (".", "!", "?", ";", "\n")
             ) + 1
             prefix = masked[clause_start:index][-80:]
-            if not negations.search(prefix):
+            if not negations.search(prefix) and not meta_context.search(prefix):
                 return True
             start = index + len(pattern)
     return False

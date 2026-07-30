@@ -4404,6 +4404,7 @@
       "details": {
         "account": "Compte",
         "arguments": "Arguments exacts",
+        "asset_revision": "Révision de l’arborescence des ressources",
         "attendees": "Participants",
         "bcc": "Cci",
         "body": "Corps",
@@ -4423,7 +4424,11 @@
         "event_id": "ID de l'événement",
         "folder": "Dossier",
         "location": "Lieu",
+        "imap_folder": "Dossier source du courrier",
+        "imap_uid": "Identifiant IMAP du message",
         "message_id": "ID du message",
+        "message_revision": "Révision du message",
+        "message_source": "Source du message",
         "page": "Page",
         "page_id": "ID de la page",
         "page_revision": "Révision de la page",
@@ -4431,6 +4436,8 @@
         "properties": "Propriétés",
         "property_count": "Nombre de propriétés",
         "row_count": "Nombre de lignes",
+        "row_action": "Traitement des lignes",
+        "rows_revision": "Révision de l’ensemble des lignes",
         "schema_sha256": "Empreinte du schéma",
         "sender": "Expéditeur",
         "snapshot_digest": "Empreinte de l'instantané",
@@ -4438,6 +4445,7 @@
         "subject": "Objet",
         "table": "Table",
         "table_id": "ID de la table",
+        "table_revision": "Révision de la table",
         "target_folder": "Dossier cible",
         "timestamp": "Version",
         "title": "Titre",
@@ -4445,7 +4453,9 @@
         "tool": "Outil",
         "tool_id": "ID de l'outil",
         "updates": "Modifications exactes des lignes",
-        "version_revision": "Révision de la version"
+        "version_revision": "Révision de la version",
+        "views_count": "Nombre de vues",
+        "views_revision": "Révision de l’ensemble des vues"
       },
       "actions": {
         "delete_page": {
