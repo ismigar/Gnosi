@@ -27,6 +27,7 @@ import {
     getVisibleCameraRatio,
     getVisibleGraphBounds,
 } from '../utils/graphViewGeometry';
+import { getSimilarityPercentage, getVisibleSimilarityEdges } from '../utils/similarityOverlay';
 
 
 function stringToColor(str) {
@@ -85,6 +86,8 @@ export const GraphViewer = forwardRef(({
     const containerRef = useRef(null);
     const rendererRef = useRef(null);
     const graphRef = useRef(null);
+    const similarityOverlayRef = useRef(null);
+    const visibleSimilarityEdgesRef = useRef([]);
     const layoutRef = useRef(null); // Ref for the layout worker
     const [edgeTooltip] = useState(null);
 
@@ -188,6 +191,38 @@ export const GraphViewer = forwardRef(({
     }, [colorMode]);
 
     const fitTimerRef = useRef(null);
+
+    const renderSimilarityOverlay = useCallback(() => {
+        const overlay = similarityOverlayRef.current;
+        const graph = graphRef.current;
+        const renderer = rendererRef.current;
+        if (!overlay || !graph || !renderer) return;
+
+        overlay.replaceChildren();
+        visibleSimilarityEdgesRef.current.forEach((edge) => {
+            const source = String(edge.source);
+            const target = String(edge.target);
+            if (!graph.hasNode(source) || !graph.hasNode(target)) return;
+
+            const sourceData = graph.getNodeAttributes(source);
+            const targetData = graph.getNodeAttributes(target);
+            if (sourceData.hidden || targetData.hidden) return;
+
+            const from = renderer.graphToViewport(sourceData);
+            const to = renderer.graphToViewport(targetData);
+            const score = getSimilarityPercentage(edge) || 0;
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', String(from.x));
+            line.setAttribute('y1', String(from.y));
+            line.setAttribute('x2', String(to.x));
+            line.setAttribute('y2', String(to.y));
+            line.setAttribute('stroke', '#a855f7');
+            line.setAttribute('stroke-width', String(0.6 + score / 200));
+            line.setAttribute('stroke-opacity', String(0.18 + score / 220));
+            line.setAttribute('stroke-dasharray', '4 4');
+            overlay.appendChild(line);
+        });
+    }, []);
 
     // Fit every visible node using Sigma's own square normalization so the
     // camera and minimap describe the same graph-space extent.
@@ -547,6 +582,9 @@ export const GraphViewer = forwardRef(({
         rendererRef.current = renderer;
         if (setRendererInstance) setRendererInstance(renderer);
         renderer.getCamera().setState({ x: 0.5, y: 0.4, ratio: 1.4 });
+        const updateSimilarityOverlay = () => renderSimilarityOverlay();
+        renderer.getCamera().on('updated', updateSimilarityOverlay);
+        renderer.on('afterRender', updateSimilarityOverlay);
 
         // Event Listeners
         renderer.on("enterNode", (e) => {
@@ -580,13 +618,15 @@ export const GraphViewer = forwardRef(({
         // Cleanup
         return () => {
             if (renderer) {
+                renderer.getCamera().off('updated', updateSimilarityOverlay);
+                renderer.off('afterRender', updateSimilarityOverlay);
                 try { renderer.kill(); } catch (e) { console.error(e); }
             }
             rendererRef.current = null;
             initializedRef.current = false;
             if (setRendererInstance) setRendererInstance(null);
         };
-    }, [graphData]); // Re-attempt initialization when graphData arrives (container might be ready then)
+    }, [graphData, renderSimilarityOverlay]); // Re-attempt initialization when graphData arrives (container might be ready then)
 
 
     // 4. Data Update Effect
@@ -653,6 +693,9 @@ export const GraphViewer = forwardRef(({
             }
         });
 
+        visibleSimilarityEdgesRef.current = [];
+        renderSimilarityOverlay();
+
         if (rendererRef.current && containerRef.current?.offsetWidth > 0) {
             rendererRef.current.refresh();
             if (!isPhysicsEnabled) {
@@ -660,7 +703,7 @@ export const GraphViewer = forwardRef(({
             }
         }
 
-    }, [graphData]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [graphData, renderSimilarityOverlay]);
 
     // Apply filters before starting the physics pass. React executes effects in
     // declaration order, so the simulation always sees the current visible
@@ -696,6 +739,13 @@ export const GraphViewer = forwardRef(({
             return { ...attrs, hidden: !visibleEdges.has(edge) };
         }, { attributes: ['hidden'] });
 
+        visibleSimilarityEdgesRef.current = getVisibleSimilarityEdges(
+            graphData?.edges,
+            visibleNodes,
+            filters?.similarity,
+        );
+        renderSimilarityOverlay();
+
         if (containerRef.current?.offsetWidth > 0) {
             renderer.refresh();
             if (!isPhysicsEnabled) {
@@ -707,7 +757,7 @@ export const GraphViewer = forwardRef(({
         return () => {
             if (fitTimerRef.current) clearTimeout(fitTimerRef.current);
         };
-    }, [filters, graphData, isPhysicsEnabled, fitVisibleNodes]); // Re-run when filters change
+    }, [filters, graphData, isPhysicsEnabled, fitVisibleNodes, renderSimilarityOverlay]); // Re-run when filters change
 
     // Obsidian-style D3 simulation over the complete visible subgraph. Isolates
     // and small components remain in the same force field instead of being
@@ -851,6 +901,7 @@ export const GraphViewer = forwardRef(({
             }
 
             copyPositions();
+            renderSimilarityOverlay();
             totalTicks += TICKS_PER_FRAME;
 
             if (renderer && containerRef.current?.offsetWidth > 0) renderer.refresh();
@@ -859,6 +910,7 @@ export const GraphViewer = forwardRef(({
                 running = false;
                 simulation.stop();
                 copyPositions();
+                renderSimilarityOverlay();
                 if (renderer) renderer.refresh();
                 setTimeout(() => fitVisibleNodes(900), 300);
                 layoutRef.current = null;
@@ -888,10 +940,16 @@ export const GraphViewer = forwardRef(({
             }
             layoutRef.current = null;
         };
-    }, [isPhysicsEnabled, graphData, filters, repulsion, edgeInfluence, gravity, friction, linLogMode, strongGravityMode, outboundAttractionDistribution, fitVisibleNodes]);
+    }, [isPhysicsEnabled, graphData, filters, repulsion, edgeInfluence, gravity, friction, linLogMode, strongGravityMode, outboundAttractionDistribution, fitVisibleNodes, renderSimilarityOverlay]);
 
     return (
-        <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
+        <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+            <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }} />
+            <svg
+                ref={similarityOverlayRef}
+                aria-hidden="true"
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1 }}
+            />
             {edgeTooltip && (
                 <div
                     style={{
