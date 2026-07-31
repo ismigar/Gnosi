@@ -3086,6 +3086,32 @@ def _is_metadata_stub(metadata: Dict[str, Any]) -> bool:
     return keys.issubset(bare)
 
 
+def _humanize_relation_index_title(title: Any, metadata: Dict[str, Any]) -> str:
+    """Replace a relation-index UUID suffix with its wikilink display name."""
+    display_title = str(title or "").strip()
+    match = re.match(
+        r"^(?:Index|Índex)\s*[·:]\s*(?:Projecte|Project|Àrea|Area)\s*:\s*"
+        r"([0-9a-f]{8}-[0-9a-f-]{27,})$",
+        display_title,
+        re.IGNORECASE,
+    )
+    if not match:
+        return display_title
+
+    target_id = match.group(1)
+    for raw_value in (metadata or {}).values():
+        values = raw_value if isinstance(raw_value, list) else [raw_value]
+        for value in values:
+            relation_match = re.search(
+                r"\[\[([^]|]+)\|\s*" + re.escape(target_id) + r"\s*\]\]",
+                str(value or ""),
+                re.IGNORECASE,
+            )
+            if relation_match:
+                return f"{display_title.split(':', 1)[0]}: {relation_match.group(1).strip()}"
+    return display_title
+
+
 def _build_page_cache_entry(file_path: Path, stat_result) -> Dict[str, Any]:
     # body always defined: if the dashboard branch or the except discards body,
     # the return further down references it → NameError → caller empties the whole
@@ -3156,30 +3182,7 @@ def _build_page_cache_entry(file_path: Path, stat_result) -> Dict[str, Any]:
     title = metadata.get("title")
     if not title:
         title = file_path.stem
-    relation_index_match = re.match(
-        r"^(?:Index|Índex)\s*[·:]\s*(?:Projecte|Project|Àrea|Area)\s*:\s*"
-        r"([0-9a-f]{8}-[0-9a-f-]{27,})$",
-        str(title).strip(),
-        re.IGNORECASE,
-    )
-    if relation_index_match:
-        target_id = relation_index_match.group(1).lower()
-        for raw_value in metadata.values():
-            values = raw_value if isinstance(raw_value, list) else [raw_value]
-            for value in values:
-                text = str(value or "")
-                relation_match = re.search(
-                    r"\[\[([^]|]+)\|\s*" + re.escape(target_id) + r"\s*\]\]",
-                    text,
-                    re.IGNORECASE,
-                )
-                if relation_match:
-                    prefix = str(title).split(":", 1)[0]
-                    title = f"{prefix}: {relation_match.group(1).strip()}"
-                    break
-            else:
-                continue
-            break
+    title = _humanize_relation_index_title(title, metadata)
 
     entry = {
         "path": str(file_path),
@@ -3886,12 +3889,13 @@ def _get_pages_for_table(table_id: str) -> List[PageInfo]:
     pages_by_id: Dict[str, PageInfo] = {}
     duplicate_ids: set = set()
     for entry in matching:
+        entry_metadata = entry.get("metadata") or {}
         page_info = PageInfo.model_construct(
             id=entry["id"],
-            title=entry["title"],
+            title=_humanize_relation_index_title(entry["title"], entry_metadata),
             parent_id=entry["parent_id"],
             is_database=entry["is_database"],
-            metadata=entry.get("metadata") or {},
+            metadata=entry_metadata,
             last_modified=datetime.fromtimestamp(entry["mtime"]).isoformat(),
             created_time=datetime.fromtimestamp(entry.get("created_mtime") or entry["mtime"]).isoformat(),
             size=entry["size"],
