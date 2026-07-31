@@ -3149,10 +3149,37 @@ def _build_page_cache_entry(file_path: Path, stat_result) -> Dict[str, Any]:
     if rel_folder == ".":
         rel_folder = ""
 
-    # Better title handling: metadata > filename stem > "Untitled"
+    # Better title handling: metadata > filename stem > "Untitled". Generated
+    # relation-index pages can have a filename such as ``Index · Projecte:
+    # <uuid>`` while their relation metadata still contains ``[[Name|uuid]]``;
+    # prefer that human title for table rows and page lists.
     title = metadata.get("title")
     if not title:
         title = file_path.stem
+    relation_index_match = re.match(
+        r"^(?:Index|Índex)\s*[·:]\s*(?:Projecte|Project|Àrea|Area)\s*:\s*"
+        r"([0-9a-f]{8}-[0-9a-f-]{27,})$",
+        str(title).strip(),
+        re.IGNORECASE,
+    )
+    if relation_index_match:
+        target_id = relation_index_match.group(1).lower()
+        for raw_value in metadata.values():
+            values = raw_value if isinstance(raw_value, list) else [raw_value]
+            for value in values:
+                text = str(value or "")
+                relation_match = re.search(
+                    r"\[\[([^]|]+)\|\s*" + re.escape(target_id) + r"\s*\]\]",
+                    text,
+                    re.IGNORECASE,
+                )
+                if relation_match:
+                    prefix = str(title).split(":", 1)[0]
+                    title = f"{prefix}: {relation_match.group(1).strip()}"
+                    break
+            else:
+                continue
+            break
 
     entry = {
         "path": str(file_path),
