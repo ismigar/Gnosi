@@ -419,6 +419,30 @@ def test_context_compaction_preserves_tool_protocol_groups():
     assert sum(len(str(message.content)) for message in bounded) <= 60_000
 
 
+def test_context_compaction_discards_incomplete_tool_protocol_groups():
+    messages = [
+        HumanMessage(content="First request"),
+        AIMessage(
+            content="",
+            tool_calls=[{
+                "name": "bulk_update_rows",
+                "args": {"rows": []},
+                "id": "call-pending",
+                "type": "tool_call",
+            }],
+        ),
+        HumanMessage(content="Second request"),
+    ]
+
+    bounded = _bounded_model_messages(messages)
+
+    assert [message.content for message in bounded] == [
+        "First request",
+        "Second request",
+    ]
+    assert not any(getattr(message, "tool_calls", None) for message in bounded)
+
+
 def test_checkpoint_history_hides_attachment_enrichment_and_tool_calls():
     stored = [
         HumanMessage(

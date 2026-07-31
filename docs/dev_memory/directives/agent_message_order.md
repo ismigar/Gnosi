@@ -158,7 +158,8 @@ such as Mistral.
 - Reliability is tenant-scoped; page lookup uses an index or bounded cache
   instead of a complete vault scan per tool call.
 - Message compaction preserves complete assistant-tool-call/tool-result groups;
-  it never leaves an orphan tool result in provider input.
+  it never leaves an orphan tool result or an unanswered assistant tool call in
+  provider input.
 - The aggregate input budget includes persona text, user context notes, source
   inventories, skill instructions, tool schemas, history, and reserved output.
 - Checkpoints distinguish the visible user message from internal attachment
