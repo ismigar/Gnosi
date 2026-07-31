@@ -8,7 +8,7 @@ import uvicorn
 import hashlib
 import json
 from datetime import datetime
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 # Configure paths
 BASE_DIR = Path(__file__).resolve().parents[1]  # monorepo/apps/gnosi
@@ -56,6 +56,52 @@ from backend.models import * # Register all models for SQLAlchemy
 
 log = logging.getLogger(__name__)
 
+
+def _registered_vault_paths() -> set[Path]:
+    """Return default and workspace-registered Vault paths for maintenance."""
+    paths: set[Path] = set()
+    default_vault = load_params(strict_env=False).paths.get("VAULT")
+    if default_vault:
+        paths.add(Path(default_vault).resolve())
+
+    from backend.data.management_db import get_mgmt_session
+    from backend.models.management import Vault
+
+    database = None
+    try:
+        database = get_mgmt_session()
+        for value, in database.query(Vault.path_override).filter(
+            Vault.path_override.isnot(None)
+        ):
+            if str(value or "").strip():
+                paths.add(Path(value).resolve())
+    except Exception as exc:
+        log.warning("Could not list registered Vaults for maintenance: %s", exc)
+    finally:
+        if database is not None:
+            database.close()
+    return paths
+
+
+async def _confirmation_maintenance_loop() -> None:
+    """Enforce confirmation expiry and retention without user traffic."""
+    from backend.agent.action_confirmations import maintain_confirmation_store
+    from backend.api.vault_routes import cleanup_pending_table_asset_quarantines
+
+    while True:
+        try:
+            await asyncio.to_thread(maintain_confirmation_store)
+            vault_paths = await asyncio.to_thread(_registered_vault_paths)
+            for vault_path in vault_paths:
+                await asyncio.to_thread(
+                    cleanup_pending_table_asset_quarantines,
+                    vault_path,
+                )
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Could not maintain agent action state: %s", exc)
+        await asyncio.sleep(60 * 60)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # STARTUP
@@ -68,6 +114,9 @@ async def lifespan(app: FastAPI):
 
     # 0b. Start Scheduler
     scheduler_manager.start()
+    confirmation_maintenance_task = asyncio.create_task(
+        _confirmation_maintenance_loop()
+    )
 
     # 0c. Reconcile declarative plugin contributions before any agent graph is
     # built. This applies the idempotent Brain migration and restores/suspends
@@ -260,6 +309,9 @@ async def lifespan(app: FastAPI):
 
     # SHUTDOWN
     log.info("🛑 Shutting down...")
+    confirmation_maintenance_task.cancel()
+    with suppress(asyncio.CancelledError):
+        await confirmation_maintenance_task
     try:
         from backend.services.imap_idle_service import idle_manager
         idle_manager.stop_all()

@@ -19,6 +19,17 @@ from typing import Any, Dict, List, Optional
 
 from backend.utils.safe_io import sanitize_rel_folder, sanitize_vault_title
 
+MAX_PAGE_READ_CHARS = 16_000
+MAX_PDF_READ_CHARS = 20_000
+DEFAULT_PDF_READ_CHARS = 12_000
+
+
+def _read_text_prefix(path, max_chars: int) -> tuple[str, bool]:
+    """Read at most one character beyond a server-owned text ceiling."""
+    with path.open("r", encoding="utf-8", errors="replace") as handle:
+        text = handle.read(max_chars + 1)
+    return text[:max_chars], len(text) > max_chars
+
 try:
     from langchain_core.tools import tool
 except Exception:  # allows importing the pure helpers without langchain (for tests)
@@ -94,32 +105,40 @@ def _resolve_page_path(page_id_or_title: str):
     if not vault:
         return None
     needle = str(page_id_or_title).strip()
-    # 1) by id in the frontmatter / 2) by filename (title)
-    for p in vault.rglob("*.md"):
+    from backend.services.path_resolver import path_resolver
+    indexed = path_resolver.find_path(needle, vault)
+    if indexed:
+        return indexed
+    # Resolve titles over the shared cached file inventory.
+    for p in path_resolver.list_all_files(vault):
         try:
-            head = p.read_text(encoding="utf-8")[:2000]
+            if p.stem.casefold() == needle.casefold():
+                return p
+            head, _truncated = _read_text_prefix(p, 2_000)
         except Exception:
             continue
         if re.search(rf'(^|\n)id:\s*["\']?{re.escape(needle)}["\']?\s*(\n|$)', head):
             return p
-    cand = list(vault.rglob(f"{needle}.md"))
-    return cand[0] if cand else None
+    return None
 
 
 @tool
 def read_page(page_id_or_title: str) -> str:
-    """Reads the content and metadata of a Vault page by id or title."""
+    """Reads a server-bounded prefix of a Vault page by id or title."""
     p = _resolve_page_path(page_id_or_title)
     if not p:
         return f"No page was found for '{page_id_or_title}'."
     try:
-        return p.read_text(encoding="utf-8")
+        bounded, truncated = _read_text_prefix(p, MAX_PAGE_READ_CHARS)
+        if truncated:
+            bounded += "\n\n[Page content truncated by Gnosi.]"
+        return bounded
     except Exception as e:
         return f"Error reading the page: {e}"
 
 
 @tool
-def read_pdf(path: str, max_chars: int = 12000) -> str:
+def read_pdf(path: str, max_chars: int = DEFAULT_PDF_READ_CHARS) -> str:
     """Extracts text from a PDF (from Assets/Library). Materializes it if online-only."""
     from pathlib import Path
     from backend.services.context_vars import get_active_vault_path
@@ -142,8 +161,17 @@ def read_pdf(path: str, max_chars: int = 12000) -> str:
     try:
         from pypdf import PdfReader  # dep present in the backend
         reader = PdfReader(str(target))
-        text = "\n".join((pg.extract_text() or "") for pg in reader.pages)
-        return text[:max_chars] if text.strip() else "(PDF has no extractable text; it may be scanned)"
+        requested_chars = max(1, min(int(max_chars or DEFAULT_PDF_READ_CHARS), MAX_PDF_READ_CHARS))
+        chunks = []
+        extracted = 0
+        for page in reader.pages:
+            if extracted >= requested_chars:
+                break
+            chunk = page.extract_text() or ""
+            chunks.append(chunk[:requested_chars - extracted])
+            extracted += len(chunks[-1])
+        text = "\n".join(chunks)
+        return text[:requested_chars] if text.strip() else "(PDF has no extractable text; it may be scanned)"
     except Exception as e:
         return f"Error reading the PDF: {e}"
 
@@ -173,10 +201,16 @@ def create_page(title: str, content: str = "", folder: str = "Imported",
         target_dir = vault_root / "Imported"
     target_dir.mkdir(parents=True, exist_ok=True)
     path = target_dir / f"{safe}.md"
-    if path.exists():
-        path = target_dir / f"{safe} {page_id[:8]}.md"
     try:
-        path.write_text(f"---\n{fm_str}\n---\n\n{content.strip()}\n", encoding="utf-8")
+        from backend.agent.gnosi_tools import _page_lock
+        from backend.utils.safe_io import safe_write_text
+        with _page_lock(path):
+            if path.exists():
+                path = target_dir / f"{safe} {page_id[:8]}.md"
+            safe_write_text(
+                path,
+                f"---\n{fm_str}\n---\n\n{content.strip()}\n",
+            )
         register_page_in_index(path)
         return f"Page created: {path.name} (id: {page_id})"
     except Exception as e:

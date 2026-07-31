@@ -3,6 +3,7 @@ from fastapi import (
     BackgroundTasks,
     Depends,
     File,
+    Form,
     HTTPException,
     Query,
     Request,
@@ -21,6 +22,7 @@ import re
 import uuid
 import time
 import weakref
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 from backend.agent.factory import (
     _explicit_brain_write_tool_names,
@@ -37,6 +39,7 @@ from backend.agent.action_confirmations import (
     confirmation_event,
     finish_confirmation,
     get_confirmation_status,
+    heartbeat_confirmation,
     list_confirmations,
     reset_confirmation_context,
 )
@@ -117,6 +120,8 @@ class ChatRequest(BaseModel):
 
 class AttachmentDeleteRequest(BaseModel):
     path: str = Field(max_length=512)
+    agent_id: str = Field(max_length=128)
+    session_id: str = Field(max_length=128)
 
 
 class ActionConfirmationRequest(BaseModel):
@@ -134,6 +139,9 @@ MAX_PDF_PAGES = 50
 ATTACHMENT_EXTRACTION_SECONDS = 5
 ATTACHMENT_MAX_AGE_SECONDS = 24 * 60 * 60
 TURN_TIMEOUT_SECONDS = 120
+TURN_LOCK_TIMEOUT_SECONDS = 5
+CONFIRMED_ACTION_TIMEOUT_SECONDS = 120
+CONFIRMATION_HEARTBEAT_SECONDS = 30
 CHAT_ATTACHMENT_TYPES = {
     ".txt", ".md", ".markdown", ".csv", ".tsv", ".json", ".yaml", ".yml",
     ".xml", ".html", ".css", ".js", ".jsx", ".ts", ".tsx", ".py", ".pdf",
@@ -146,6 +154,37 @@ def _validated_identifier(value: str, label: str) -> str:
     if not IDENTIFIER_RE.fullmatch(candidate):
         raise HTTPException(status_code=422, detail=f"Invalid {label}")
     return candidate
+
+
+def _chat_thread_id(
+    *,
+    vault_scope: str,
+    workspace_id: str,
+    user_id: str,
+    agent_id: str,
+    session_id: str,
+) -> str:
+    """Return a tenant- and user-isolated LangGraph thread identifier."""
+    payload = ":".join((
+        vault_scope,
+        workspace_id,
+        user_id,
+        agent_id,
+        session_id,
+    ))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _checkpoint_key(
+    *,
+    vault_scope: str,
+    workspace_id: str,
+    user_id: str,
+    agent_id: str,
+) -> str:
+    """Return the isolated checkpoint database key for one agent identity."""
+    payload = ":".join((vault_scope, workspace_id, user_id, agent_id))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:32]
 
 
 def _validated_skill_ids(values: Optional[List[str]]) -> Optional[List[str]]:
@@ -170,15 +209,30 @@ def _vault_scope() -> tuple[Path, str]:
     return vault, digest
 
 
-def _attachment_root(vault: Path) -> Path:
+def _attachment_scope_key(
+    vault_scope: str,
+    workspace_id: str,
+    user_id: str,
+    agent_id: str,
+    session_id: str,
+) -> str:
+    payload = ":".join(
+        (vault_scope, workspace_id, user_id, agent_id, session_id),
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _attachment_root(vault: Path, scope_key: Optional[str] = None) -> Path:
     root = (vault / ".gnosi" / "chat-attachments").resolve()
+    if scope_key:
+        root = (root / scope_key).resolve()
     if root != vault and vault not in root.parents:
         raise HTTPException(status_code=400, detail="Invalid attachment directory")
     return root
 
 
-def _attachment_target(vault: Path, relative_path: str) -> Path:
-    root = _attachment_root(vault)
+def _attachment_target(vault: Path, relative_path: str, scope_key: str) -> Path:
+    root = _attachment_root(vault, scope_key)
     relative = Path(relative_path)
     target = (vault / relative).resolve()
     if target == vault or vault not in target.parents or root not in target.parents:
@@ -186,18 +240,22 @@ def _attachment_target(vault: Path, relative_path: str) -> Path:
     return target
 
 
-def _delete_attachment(vault: Path, relative_path: str) -> None:
-    target = _attachment_target(vault, relative_path)
+def _delete_attachment(vault: Path, relative_path: str, scope_key: str) -> None:
+    target = _attachment_target(vault, relative_path, scope_key)
     if target.is_file():
         target.unlink(missing_ok=True)
 
 
-def _cleanup_expired_attachments(vault: Path) -> None:
-    root = _attachment_root(vault)
+def _cleanup_expired_attachments(vault: Path, scope_key: str) -> None:
+    """Remove expired uploads only within the authenticated request scope."""
+    root = _attachment_root(vault, scope_key)
     if not root.exists():
         return
     cutoff = time.time() - ATTACHMENT_MAX_AGE_SECONDS
-    for item in root.iterdir():
+    deadline = time.monotonic() + 0.05
+    for index, item in enumerate(root.iterdir()):
+        if index >= 256 or time.monotonic() >= deadline:
+            break
         try:
             if item.is_file() and item.stat().st_mtime < cutoff:
                 item.unlink(missing_ok=True)
@@ -205,14 +263,18 @@ def _cleanup_expired_attachments(vault: Path) -> None:
             continue
 
 
-def _attachment_context(vault: Path, refs: List[AttachmentRef]) -> str:
+def _attachment_context(
+    vault: Path,
+    refs: List[AttachmentRef],
+    scope_key: str,
+) -> str:
     sections = []
     remaining_total = MAX_ATTACHMENT_CONTEXT
     deadline = time.monotonic() + ATTACHMENT_EXTRACTION_SECONDS
     for ref in refs:
         if remaining_total <= 0 or time.monotonic() >= deadline:
             break
-        target = _attachment_target(vault, ref.path)
+        target = _attachment_target(vault, ref.path, scope_key)
         if not target.is_file() or target.stat().st_size > MAX_ATTACHMENT_BYTES:
             raise HTTPException(status_code=422, detail="Attachment is missing or too large")
 
@@ -252,14 +314,18 @@ def _attachment_context(vault: Path, refs: List[AttachmentRef]) -> str:
     return "\n\n".join(sections)
 
 
-def _consume_attachment_context(vault: Path, refs: List[AttachmentRef]) -> str:
+def _consume_attachment_context(
+    vault: Path,
+    refs: List[AttachmentRef],
+    scope_key: str,
+) -> str:
     """Extract request-owned attachment context and always remove its files."""
     try:
-        return _attachment_context(vault, refs)
+        return _attachment_context(vault, refs, scope_key)
     finally:
         for attachment in refs:
             try:
-                _delete_attachment(vault, attachment.path)
+                _delete_attachment(vault, attachment.path, scope_key)
             except Exception as cleanup_error:
                 log.warning(
                     "Could not remove chat attachment %s: %s",
@@ -313,12 +379,68 @@ def _message_text(content: Any) -> str:
     return str(content)
 
 
+def _public_checkpoint_messages(stored_messages: List[Any]) -> List[Dict[str, str]]:
+    """Serialize only user-visible transcript messages from checkpoint state."""
+    messages = []
+    for message in stored_messages[-200:]:
+        role = getattr(message, "type", "")
+        if role not in {"human", "ai"}:
+            continue
+        if role == "ai" and getattr(message, "tool_calls", None):
+            continue
+        visible_content = (
+            getattr(message, "additional_kwargs", {}).get(
+                "gnosi_visible_content",
+            )
+            if role == "human"
+            else None
+        )
+        content = (
+            str(visible_content)
+            if visible_content is not None
+            else _message_text(getattr(message, "content", ""))
+        )
+        if role == "human" and visible_content is None:
+            marker_positions = [
+                position
+                for marker in (
+                    "\n\nAttachment:",
+                    "\n\nSelected mentions context:",
+                )
+                if (position := content.find(marker)) >= 0
+            ]
+            if marker_positions:
+                content = content[:min(marker_positions)]
+        if content.strip():
+            messages.append({
+                "role": "user" if role == "human" else "assistant",
+                "content": content,
+            })
+    return messages
+
+
 def _thread_lock(thread_id: str) -> asyncio.Lock:
     lock = _THREAD_LOCKS.get(thread_id)
     if lock is None:
         lock = asyncio.Lock()
         _THREAD_LOCKS[thread_id] = lock
     return lock
+
+
+class SessionBusyError(RuntimeError):
+    """Raised when another turn still owns the same session."""
+
+
+@asynccontextmanager
+async def _acquire_turn_lock(lock: asyncio.Lock):
+    try:
+        await asyncio.wait_for(lock.acquire(), timeout=TURN_LOCK_TIMEOUT_SECONDS)
+    except TimeoutError as error:
+        raise SessionBusyError("chat_session_busy") from error
+    try:
+        yield
+    finally:
+        lock.release()
 
 async def get_agent_workflow(
     request: Request,
@@ -428,11 +550,23 @@ async def get_agent_workflow(
     return workflow, llm_selection
 
 
-@router.post("/chat/attachments", dependencies=[Depends(require_role("editor"))])
-async def upload_chat_attachment(file: UploadFile = File(...)):
+@router.post("/chat/attachments")
+async def upload_chat_attachment(
+    file: UploadFile = File(...),
+    agent_id: str = Form(...),
+    session_id: str = Form(...),
+    workspace_context: WorkspaceContext = Depends(require_role("editor")),
+):
     """Store one bounded chat attachment inside the active Vault."""
-    vault, _ = _vault_scope()
-    _cleanup_expired_attachments(vault)
+    vault, vault_scope = _vault_scope()
+    scope_key = _attachment_scope_key(
+        vault_scope,
+        workspace_context.workspace_id,
+        workspace_context.user_id,
+        _validated_identifier(agent_id, "agent_id"),
+        _validated_identifier(session_id, "session_id"),
+    )
+    _cleanup_expired_attachments(vault, scope_key)
     original_name = Path(file.filename or "attachment").name
     suffix = Path(original_name).suffix.lower()
     if suffix not in CHAT_ATTACHMENT_TYPES:
@@ -443,7 +577,7 @@ async def upload_chat_attachment(file: UploadFile = File(...)):
     if len(content) > MAX_ATTACHMENT_BYTES:
         raise HTTPException(status_code=413, detail="Chat attachment exceeds 15 MB")
 
-    root = _attachment_root(vault)
+    root = _attachment_root(vault, scope_key)
     root.mkdir(parents=True, exist_ok=True)
     target = root / f"{uuid.uuid4().hex}{suffix}"
     target.write_bytes(content)
@@ -455,11 +589,21 @@ async def upload_chat_attachment(file: UploadFile = File(...)):
     }
 
 
-@router.delete("/chat/attachments", dependencies=[Depends(require_role("editor"))])
-async def delete_chat_attachment(delete_req: AttachmentDeleteRequest):
+@router.delete("/chat/attachments")
+async def delete_chat_attachment(
+    delete_req: AttachmentDeleteRequest,
+    workspace_context: WorkspaceContext = Depends(require_role("editor")),
+):
     """Delete an abandoned chat upload from the active Vault."""
-    vault, _ = _vault_scope()
-    _delete_attachment(vault, delete_req.path)
+    vault, vault_scope = _vault_scope()
+    scope_key = _attachment_scope_key(
+        vault_scope,
+        workspace_context.workspace_id,
+        workspace_context.user_id,
+        _validated_identifier(delete_req.agent_id, "agent_id"),
+        _validated_identifier(delete_req.session_id, "session_id"),
+    )
+    _delete_attachment(vault, delete_req.path, scope_key)
     return {"deleted": True}
 
 
@@ -594,7 +738,10 @@ async def _execute_governed_tool(
 def _action_has_uncertain_effect(action: str, arguments: Dict[str, Any]) -> bool:
     if action in {
         "archive_mail",
+        "change_schema",
         "create_calendar_event",
+        "delete_contact",
+        "delete_page",
         "delete_table",
         "empty_trash",
         "invite_attendees",
@@ -611,6 +758,31 @@ def _action_has_uncertain_effect(action: str, arguments: Dict[str, Any]) -> bool
             "external_write",
         }.intersection(arguments.get("effects") or []))
     return False
+
+
+async def _heartbeat_claimed_confirmation(action_id: str) -> None:
+    """Keep a live execution lease from being mistaken for an abandoned call."""
+    while True:
+        await asyncio.sleep(CONFIRMATION_HEARTBEAT_SECONDS)
+        alive = await asyncio.to_thread(heartbeat_confirmation, action_id)
+        if not alive:
+            return
+
+
+def _execute_first_party_confirmation_in_worker(
+    action: str,
+    arguments: Dict[str, Any],
+    *,
+    workspace_id: str,
+    background_tasks: BackgroundTasks,
+) -> Dict[str, Any]:
+    """Run blocking provider/filesystem handlers outside the server event loop."""
+    return asyncio.run(execute_confirmed_action(
+        action,
+        arguments,
+        workspace_id=workspace_id,
+        background_tasks=background_tasks,
+    ))
 
 
 @router.get("/chat/confirmations")
@@ -685,69 +857,114 @@ async def confirm_agent_action(
             detail={"code": "confirmation_admin_required"},
         )
 
+    heartbeat_task = asyncio.create_task(
+        _heartbeat_claimed_confirmation(safe_action_id)
+    )
     try:
-        vault, _vault_scope_id = _vault_scope()
-        with confirmation_context(**scope):
-            if pending["action"] == "governed_tool":
-                result = await _execute_governed_tool(
-                    pending["arguments"],
-                    scope=scope,
-                    vault=vault,
-                )
-            else:
-                result = await execute_confirmed_action(
+        try:
+            vault, _vault_scope_id = _vault_scope()
+            async with asyncio.timeout(CONFIRMED_ACTION_TIMEOUT_SECONDS):
+                with confirmation_context(**scope):
+                    if pending["action"] == "governed_tool":
+                        result = await _execute_governed_tool(
+                            pending["arguments"],
+                            scope=scope,
+                            vault=vault,
+                        )
+                    else:
+                        result = await asyncio.to_thread(
+                            _execute_first_party_confirmation_in_worker,
+                            pending["action"],
+                            pending["arguments"],
+                            workspace_id=workspace_context.workspace_id,
+                            background_tasks=background_tasks,
+                        )
+        except HTTPException as error:
+            outcome_unknown = (
+                error.status_code >= 500
+                and _action_has_uncertain_effect(
                     pending["action"],
                     pending["arguments"],
-                    workspace_id=workspace_context.workspace_id,
-                    background_tasks=background_tasks,
                 )
-    except HTTPException as error:
-        await asyncio.to_thread(
-            finish_confirmation,
-            safe_action_id,
-            error="confirmation_action_rejected",
-            status="failed",
-        )
-        raise error
-    except Exception as error:
-        known_precondition_failure = isinstance(
-            error,
-            (ActionConflictError, LookupError, PermissionError, ValueError),
-        )
-        outcome_unknown = (
-            not known_precondition_failure
-            and _action_has_uncertain_effect(
-                pending["action"],
-                pending["arguments"],
             )
-        )
-        await asyncio.to_thread(
-            finish_confirmation,
-            safe_action_id,
-            error=(
-                "execution_outcome_unknown"
-                if outcome_unknown
-                else "confirmation_action_failed"
-            ),
-            status="outcome_unknown" if outcome_unknown else "failed",
-        )
-        if outcome_unknown:
+            await asyncio.to_thread(
+                finish_confirmation,
+                safe_action_id,
+                error=(
+                    "execution_outcome_unknown"
+                    if outcome_unknown
+                    else "confirmation_action_rejected"
+                ),
+                status="outcome_unknown" if outcome_unknown else "failed",
+            )
+            if outcome_unknown:
+                raise HTTPException(
+                    status_code=409,
+                    detail={"code": "confirmation_outcome_unknown"},
+                ) from error
+            raise error
+        except Exception as error:
+            timed_out = isinstance(error, TimeoutError)
+            known_precondition_failure = isinstance(
+                error,
+                (ActionConflictError, LookupError, PermissionError, ValueError),
+            )
+            outcome_unknown = (
+                timed_out
+                or (
+                    not known_precondition_failure
+                    and _action_has_uncertain_effect(
+                        pending["action"],
+                        pending["arguments"],
+                    )
+                )
+            )
+            await asyncio.to_thread(
+                finish_confirmation,
+                safe_action_id,
+                error=(
+                    "execution_outcome_unknown"
+                    if outcome_unknown
+                    else "confirmation_action_failed"
+                ),
+                status="outcome_unknown" if outcome_unknown else "failed",
+            )
+            if outcome_unknown:
+                raise HTTPException(
+                    status_code=409,
+                    detail={"code": "confirmation_outcome_unknown"},
+                )
+            status_code = (
+                409 if isinstance(error, (LookupError, RuntimeError)) else 500
+            )
             raise HTTPException(
-                status_code=409,
-                detail={"code": "confirmation_outcome_unknown"},
+                status_code=status_code,
+                detail={"code": "confirmation_action_failed"},
             )
-        status_code = 409 if isinstance(error, (LookupError, RuntimeError)) else 500
-        raise HTTPException(
-            status_code=status_code,
-            detail={"code": "confirmation_action_failed"},
-        )
+    finally:
+        heartbeat_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await heartbeat_task
 
     result_status = (
         str(result.get("status") or "")
         if isinstance(result, dict)
         else ""
     )
-    terminal_status = "partial" if result_status == "partial" else "completed"
+    normalized_result_status = result_status.strip().lower()
+    if normalized_result_status in {"failed", "error", "failure"}:
+        terminal_status = "failed"
+    elif normalized_result_status in {"cancelled", "canceled"}:
+        terminal_status = "cancelled"
+    elif normalized_result_status == "partial":
+        terminal_status = "partial"
+    elif normalized_result_status in {
+        "", "completed", "complete", "success", "succeeded", "created",
+        "updated", "deleted", "sent", "restored",
+    } and not (isinstance(result, dict) and result.get("error")):
+        terminal_status = "completed"
+    else:
+        terminal_status = "failed"
     await asyncio.to_thread(
         finish_confirmation,
         safe_action_id,
@@ -815,12 +1032,19 @@ async def delete_chat_session(
     safe_agent_id = _validated_identifier(agent_id, "agent_id")
     safe_session_id = _validated_identifier(session_id, "session_id")
     _vault, vault_scope = _vault_scope()
-    thread_id = hashlib.sha256(
-        f"{vault_scope}:{safe_agent_id}:{safe_session_id}".encode("utf-8")
-    ).hexdigest()
-    checkpoint_key = hashlib.sha256(
-        f"{vault_scope}:{safe_agent_id}".encode("utf-8")
-    ).hexdigest()[:32]
+    thread_id = _chat_thread_id(
+        vault_scope=vault_scope,
+        workspace_id=workspace_context.workspace_id,
+        user_id=workspace_context.user_id,
+        agent_id=safe_agent_id,
+        session_id=safe_session_id,
+    )
+    checkpoint_key = _checkpoint_key(
+        vault_scope=vault_scope,
+        workspace_id=workspace_context.workspace_id,
+        user_id=workspace_context.user_id,
+        agent_id=safe_agent_id,
+    )
     db_path = cfg.paths["CHECKPOINTS"] / f"agent_{checkpoint_key}.sqlite"
     if db_path.exists():
         async with _thread_lock(thread_id):
@@ -840,14 +1064,62 @@ async def delete_chat_session(
     return {"deleted": True}
 
 
+@router.get("/chat/sessions/{agent_id}/{session_id}")
+async def get_chat_session(
+    agent_id: str,
+    session_id: str,
+    workspace_context: WorkspaceContext = Depends(require_role("viewer")),
+):
+    """Return the canonical persisted transcript for one scoped session."""
+    safe_agent_id = _validated_identifier(agent_id, "agent_id")
+    safe_session_id = _validated_identifier(session_id, "session_id")
+    _vault, vault_scope = _vault_scope()
+    thread_id = _chat_thread_id(
+        vault_scope=vault_scope,
+        workspace_id=workspace_context.workspace_id,
+        user_id=workspace_context.user_id,
+        agent_id=safe_agent_id,
+        session_id=safe_session_id,
+    )
+    checkpoint_key = _checkpoint_key(
+        vault_scope=vault_scope,
+        workspace_id=workspace_context.workspace_id,
+        user_id=workspace_context.user_id,
+        agent_id=safe_agent_id,
+    )
+    db_path = cfg.paths["CHECKPOINTS"] / f"agent_{checkpoint_key}.sqlite"
+    if not db_path.exists():
+        return {"messages": []}
+    async with AsyncSqliteSaver.from_conn_string(str(db_path)) as saver:
+        checkpoint = await saver.aget(
+            {"configurable": {"thread_id": thread_id}},
+        )
+    stored_messages = (
+        (checkpoint or {}).get("channel_values", {}).get("messages", [])
+    )
+    return {"messages": _public_checkpoint_messages(stored_messages)}
+
+
 @router.get("/ai/model-reliability")
-async def model_reliability(window_days: int = 30):
+async def model_reliability(
+    window_days: int = 30,
+    workspace_context: WorkspaceContext = Depends(require_role("viewer")),
+):
     """Recorded failures per model, by reason.
 
     Evidence for the UI, not a policy: nothing here disables or reroutes a
     model — the user reads it and decides.
     """
-    return {"window_days": window_days, "models": reliability_report(window_days)}
+    _vault, vault_scope = _vault_scope()
+    reliability_scope = ":".join((
+        vault_scope,
+        workspace_context.workspace_id,
+        workspace_context.user_id,
+    ))
+    return {
+        "window_days": window_days,
+        "models": reliability_report(window_days, scope_key=reliability_scope),
+    }
 
 
 @router.get("/agent/context-sources")
@@ -881,7 +1153,18 @@ async def chat_endpoint(
         # configuration and workflow-construction failures.
         user_content = chat_req.message
         if chat_req.attachments:
-            attachment_text = _consume_attachment_context(vault, chat_req.attachments)
+            attachment_scope = _attachment_scope_key(
+                vault_scope,
+                workspace_context.workspace_id,
+                workspace_context.user_id,
+                agent_id,
+                session_id,
+            )
+            attachment_text = _consume_attachment_context(
+                vault,
+                chat_req.attachments,
+                attachment_scope,
+            )
             if attachment_text:
                 user_content += "\n\nVerified attachment context:\n" + attachment_text
         if chat_req.mentions:
@@ -918,7 +1201,12 @@ async def chat_endpoint(
             (llm_selection or {}).get("turn_grant_tool_names") or [],
         )
         inputs = {
-            "messages": [HumanMessage(content=user_content)],
+            "messages": [HumanMessage(
+                content=user_content,
+                additional_kwargs={
+                    "gnosi_visible_content": chat_req.message,
+                },
+            )],
             # Always overwrite these request-scoped channels, including with
             # empty lists, so checkpoint state from a previous turn cannot
             # retain authorization or activation.
@@ -930,9 +1218,13 @@ async def chat_endpoint(
         }
         
         # 3. Configure memory thread (per agent + session)
-        thread_id = hashlib.sha256(
-            f"{vault_scope}:{agent_id}:{session_id}".encode("utf-8")
-        ).hexdigest()
+        thread_id = _chat_thread_id(
+            vault_scope=vault_scope,
+            workspace_id=workspace_context.workspace_id,
+            user_id=workspace_context.user_id,
+            agent_id=agent_id,
+            session_id=session_id,
+        )
         config = {
             "configurable": {"thread_id": thread_id},
             "recursion_limit": 12,
@@ -940,14 +1232,20 @@ async def chat_endpoint(
         turn_lock = _thread_lock(thread_id)
         
         # 4. Persistence setup
-        checkpoint_key = hashlib.sha256(
-            f"{vault_scope}:{agent_id}".encode("utf-8")
-        ).hexdigest()[:32]
+        checkpoint_key = _checkpoint_key(
+            vault_scope=vault_scope,
+            workspace_id=workspace_context.workspace_id,
+            user_id=workspace_context.user_id,
+            agent_id=agent_id,
+        )
         db_path = cfg.paths["CHECKPOINTS"] / f"agent_{checkpoint_key}.sqlite"
         os.makedirs(db_path.parent, exist_ok=True)
         
         async def event_generator():
             answer_count = 0
+            total_in_tok = 0
+            total_out_tok = 0
+            usage_recorded = False
             confirmation_token = bind_confirmation_context(
                 vault_scope=vault_scope,
                 workspace_id=workspace_context.workspace_id,
@@ -981,19 +1279,23 @@ async def chat_endpoint(
                         "catalog_revision": llm_selection.get(
                             "catalog_revision",
                         ) or "",
+                        "supports_tools": bool(
+                            llm_selection.get("supports_tools", False),
+                        ),
+                        "tool_count": int(
+                            llm_selection.get("tool_count", 0) or 0,
+                        ),
                     }) + "\n"
 
                 # Spend ledger: every AIMessage in the stream carries
                 # usage_metadata; accumulate and record once per turn.
-                total_in_tok = 0
-                total_out_tok = 0
                 tool_metadata_by_name = {
                     item.get("name"): item
                     for item in (llm_selection or {}).get("tools", [])
                     if item.get("name")
                 }
-                async with asyncio.timeout(TURN_TIMEOUT_SECONDS):
-                    async with turn_lock:
+                async with _acquire_turn_lock(turn_lock):
+                    async with asyncio.timeout(TURN_TIMEOUT_SECONDS):
                         async with AsyncSqliteSaver.from_conn_string(str(db_path)) as saver:
                             agent_app = workflow.compile(checkpointer=saver)
                             async for event in agent_app.astream(
@@ -1060,6 +1362,7 @@ async def chat_endpoint(
                         total_in_tok,
                         total_out_tok,
                     )
+                    usage_recorded = True
                 yield json.dumps({
                     "type": "done",
                     "has_response": answer_count > 0,
@@ -1076,18 +1379,38 @@ async def chat_endpoint(
                 # model's abilities). See `model_reliability`.
                 provider = (llm_selection or {}).get("provider")
                 model_id = (llm_selection or {}).get("model")
-                reason = record_failure(provider, model_id, e)
+                reliability_scope = ":".join((
+                    vault_scope,
+                    workspace_context.workspace_id,
+                    workspace_context.user_id,
+                ))
+                reason = (
+                    None
+                    if isinstance(e, SessionBusyError)
+                    else record_failure(
+                        provider,
+                        model_id,
+                        e,
+                        scope_key=reliability_scope,
+                    )
+                )
 
                 if reason and reason in FAILURE_MESSAGES:
                     friendly_error = FAILURE_MESSAGES[reason]
                     if blames_the_model(reason):
-                        evidence = model_evidence(provider, model_id)
+                        evidence = model_evidence(
+                            provider,
+                            model_id,
+                            scope_key=reliability_scope,
+                        )
                         repeats = (evidence or {}).get("reasons", {}).get(reason, 0)
                         if repeats > 1:
                             friendly_error += (
                                 f" This model has already failed {repeats} times for "
                                 "the same reason this month; consider changing it."
                             )
+                elif isinstance(e, SessionBusyError):
+                    friendly_error = "This conversation is busy. Try again in a moment."
                 elif not error_str:
                     friendly_error = "An unexpected agent error occurred."
                 else:
@@ -1100,6 +1423,14 @@ async def chat_endpoint(
                     "message_count": 1,
                 }) + "\n"
             finally:
+                if not usage_recorded and (total_in_tok or total_out_tok):
+                    await asyncio.to_thread(
+                        record_llm_usage,
+                        (llm_selection or {}).get("provider"),
+                        (llm_selection or {}).get("model"),
+                        total_in_tok,
+                        total_out_tok,
+                    )
                 reset_confirmation_context(confirmation_token)
         return StreamingResponse(event_generator(), media_type="application/x-ndjson")
 

@@ -2,6 +2,8 @@
 import sys
 from pathlib import Path
 
+import pytest
+
 # `gnosi` root on the path → `backend.services...` importable (as at runtime)
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -9,7 +11,7 @@ from backend.services.notion_clone import (  # noqa: E402
     clone_table_id, clone_page_id, clone_table_schema, clone_values,
     resolve_view_markers, clone_workspace,
 )
-from backend.services import notion_mcp_md  # noqa: E402
+from backend.services import notion_clone, notion_mcp_md  # noqa: E402
 
 HOST = "1d3268e52714809ab328fc33d9331454"
 VIEW_MD = (
@@ -28,6 +30,12 @@ CLONE_TASQUES = {
         {"name": "Projecte", "type": "relation", "relation_database_id": clone_table_id("projects")},
     ],
 }
+
+
+@pytest.fixture(autouse=True)
+def _skip_retry_delays_for_fake_clone_requests(monkeypatch):
+    """Keep fake MCP failures deterministic without sleeping production backoff."""
+    monkeypatch.setattr(notion_clone.time, "sleep", lambda _seconds: None)
 
 
 def test_clone_ids_namespaced_and_deterministic():

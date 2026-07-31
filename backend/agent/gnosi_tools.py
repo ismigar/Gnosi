@@ -10,12 +10,20 @@ import hashlib
 import json
 import re
 import threading
+import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
 import yaml
 
-from backend.utils.safe_io import sanitize_rel_folder, sanitize_vault_title
+from backend.services.content_revision import tree_revision
+from backend.utils.safe_io import (
+    safe_write_bytes,
+    safe_write_text,
+    sanitize_rel_folder,
+    sanitize_vault_title,
+)
 
 try:
     from langchain_core.tools import tool
@@ -147,28 +155,131 @@ def _contact_snapshot(contact: Any) -> Dict[str, Any]:
     }
 
 
-def _mail_message_preview(message_id: str) -> Dict[str, str]:
-    """Resolve bounded local mail metadata for a human-readable preview."""
+def _mail_message_preview(
+    account: str,
+    message_id: str,
+) -> Optional[Dict[str, str]]:
+    """Resolve one account-bound local message and its immutable revision."""
     try:
         from backend.api.mail_routes import (
             _find_message_files,
-            get_frontmatter,
             get_mail_vault_path,
+            parse_frontmatter,
         )
 
         files = _find_message_files(get_mail_vault_path(), message_id)
-        if not files:
-            return {"message_id": message_id}
-        raw = files[0].read_text(encoding="utf-8", errors="replace")
-        metadata, _body = get_frontmatter(raw)
-        return {
-            "message_id": message_id,
-            "subject": str(metadata.get("subject") or "")[:500],
-            "sender": str(metadata.get("sender") or metadata.get("from") or "")[:500],
-            "date": str(metadata.get("date") or "")[:100],
-        }
+        normalized_account = str(account or "").strip().lower()
+        for path in files:
+            raw = path.read_text(encoding="utf-8", errors="replace")
+            # Confirmation preparation is read-only; omitting the path keeps
+            # the mail parser from repairing malformed frontmatter in place.
+            metadata, _body = parse_frontmatter(raw)
+            message_account = str(metadata.get("account") or "").strip().lower()
+            if message_account != normalized_account:
+                continue
+            return {
+                "message_id": message_id,
+                "message_source": "vault",
+                "subject": str(
+                    metadata.get("subject") or metadata.get("title") or ""
+                )[:500],
+                "sender": str(
+                    metadata.get("sender") or metadata.get("from") or ""
+                )[:500],
+                "date": str(metadata.get("date") or "")[:100],
+                "imap_uid": str(metadata.get("imap_uid") or ""),
+                "imap_folder": str(metadata.get("imap_folder") or ""),
+                "message_revision": _file_revision(path),
+            }
     except Exception:
-        return {"message_id": message_id}
+        return None
+    return None
+
+
+async def _mail_message_snapshot(
+    account: str,
+    message_id: str,
+    folder: str = "",
+) -> Optional[Dict[str, str]]:
+    """Resolve an account-bound message locally or from its remote provider."""
+    local = _mail_message_preview(account, message_id)
+    if local:
+        return local
+
+    import asyncio
+
+    from backend.api.mail_routes import get_message
+
+    try:
+        message = await asyncio.wait_for(
+            get_message(
+                message_id,
+                email=account,
+                folder=folder or None,
+            ),
+            timeout=30,
+        )
+    except Exception:
+        return None
+    if not isinstance(message, dict):
+        return None
+
+    normalized_account = str(account or "").strip().lower()
+    returned_account = str(message.get("account") or "").strip().lower()
+    if returned_account and returned_account != normalized_account:
+        return None
+    source = str(message.get("source") or "").strip().lower()
+    if source == "vault":
+        return None
+
+    canonical = {
+        "account": normalized_account,
+        "message_id": str(message.get("id") or message_id),
+        "thread_id": str(message.get("thread_id") or ""),
+        "subject": str(message.get("subject") or ""),
+        "sender": str(message.get("sender") or ""),
+        "recipient": str(message.get("recipient") or ""),
+        "cc": str(message.get("cc") or ""),
+        "date": str(message.get("date") or ""),
+        "body_text": str(message.get("body_text") or ""),
+        "body_html": str(message.get("body_html") or ""),
+        "has_attachments": bool(message.get("has_attachments")),
+        "imap_uid": str(message.get("imap_uid") or ""),
+        "imap_folder": str(
+            message.get("imap_folder") or folder or ""
+        ),
+        "provider_source": source,
+    }
+    return {
+        "message_id": str(message_id),
+        "message_source": "provider",
+        "subject": canonical["subject"][:500],
+        "sender": canonical["sender"][:500],
+        "date": canonical["date"][:100],
+        "imap_uid": canonical["imap_uid"],
+        "imap_folder": canonical["imap_folder"],
+        "message_revision": _value_revision(canonical),
+    }
+
+
+async def _require_mail_message_revision(
+    account: str,
+    message_id: str,
+    expected_revision: str,
+    *,
+    expected_source: str,
+    folder: str = "",
+) -> Dict[str, str]:
+    current = await _mail_message_snapshot(account, message_id, folder)
+    if (
+        not current
+        or current.get("message_revision") != str(expected_revision or "")
+        or current.get("message_source") != str(expected_source or "")
+    ):
+        raise ActionConflictError(
+            "The mail message changed after the confirmation preview."
+        )
+    return current
 
 
 def _trash_snapshot() -> List[Dict[str, str]]:
@@ -180,8 +291,7 @@ def _trash_snapshot() -> List[Dict[str, str]]:
         if not entry.is_dir():
             continue
         sidecar = entry / "_trash.json"
-        revision_source = sidecar if sidecar.exists() else entry / "page.md"
-        revision = _file_revision(revision_source) if revision_source.exists() else ""
+        revision = tree_revision(entry)
         title = entry.name
         if sidecar.exists():
             try:
@@ -200,8 +310,10 @@ def _trash_snapshot() -> List[Dict[str, str]]:
 
 
 def _page_files() -> Iterable[Path]:
+    from backend.services.path_resolver import path_resolver
+
     vault = _vault()
-    for path in vault.rglob("*.md"):
+    for path in path_resolver.list_all_files(vault):
         relative_parts = path.relative_to(vault).parts
         if any(part.startswith(".") for part in relative_parts):
             continue
@@ -215,10 +327,15 @@ def _parse(path: Path) -> tuple[Dict[str, Any], str]:
 
 
 def _resolve_page(identifier: str) -> Optional[Path]:
+    from backend.services.path_resolver import path_resolver
+
     needle = str(identifier or "").strip()
     if not needle:
         return None
     lowered = needle.casefold()
+    indexed = path_resolver.find_path(needle, _vault())
+    if indexed:
+        return indexed
     title_match = None
     for path in _page_files():
         try:
@@ -241,15 +358,35 @@ def _bounded_limit(limit: int) -> int:
     return max(1, min(int(limit or 20), MAX_LIST_ITEMS))
 
 
+def _bounded_json_value(value: Any, *, depth: int = 0) -> Any:
+    """Recursively bound metadata before it enters a model tool result."""
+    if depth >= 4:
+        return str(value)[:500]
+    if isinstance(value, str):
+        return value[:2_000]
+    if isinstance(value, dict):
+        return {
+            str(key)[:128]: _bounded_json_value(item, depth=depth + 1)
+            for key, item in list(value.items())[:100]
+        }
+    if isinstance(value, (list, tuple, set)):
+        return [
+            _bounded_json_value(item, depth=depth + 1)
+            for item in list(value)[:100]
+        ]
+    return value
+
+
 def _serialize_page(path: Path, *, include_body: bool = False) -> Dict[str, Any]:
     metadata, body = _parse(path)
+    bounded_metadata = _bounded_json_value(metadata)
     result = {
         "id": str(metadata.get("id") or ""),
         "title": str(metadata.get("title") or path.stem),
         "table_id": str(
             metadata.get("table_id") or metadata.get("database_table_id") or ""
         ),
-        "metadata": metadata,
+        "metadata": bounded_metadata,
     }
     if include_body:
         result["content"] = body[:MAX_BODY_CHARS]
@@ -265,8 +402,22 @@ def _write_page(path: Path, metadata: Dict[str, Any], body: str) -> None:
     frontmatter = yaml.safe_dump(
         metadata, allow_unicode=True, sort_keys=False
     ).strip()
-    path.write_text(f"---\n{frontmatter}\n---\n\n{body.rstrip()}\n", encoding="utf-8")
+    safe_write_text(path, f"---\n{frontmatter}\n---\n\n{body.rstrip()}\n")
     register_page_in_index(path)
+
+
+def _rollback_page_items(items: Iterable[Dict[str, Any]]) -> List[str]:
+    """Restore attempted page writes and return IDs that could not be restored."""
+    from backend.api.vault_routes import register_page_in_index
+
+    failed: List[str] = []
+    for item in reversed(list(items)):
+        try:
+            safe_write_bytes(item["path"], item["original"])
+            register_page_in_index(item["path"])
+        except Exception:
+            failed.append(str(item["id"]))
+    return failed
 
 
 def _table(table_id_or_name: str) -> Optional[Dict[str, Any]]:
@@ -286,6 +437,85 @@ def _table(table_id_or_name: str) -> Optional[Dict[str, Any]]:
         ),
         None,
     )
+
+
+def _table_rows_snapshot(table_id: str) -> List[Dict[str, str]]:
+    """Return an exact, path-contained snapshot of all rows in one table."""
+    vault = _vault()
+    rows: List[Dict[str, str]] = []
+    for path in _page_files():
+        try:
+            metadata, _body = _parse(path)
+        except Exception:
+            continue
+        current_table_id = str(
+            metadata.get("table_id")
+            or metadata.get("database_table_id")
+            or ""
+        )
+        if current_table_id != str(table_id):
+            continue
+        rows.append({
+            "id": str(metadata.get("id") or ""),
+            "title": str(metadata.get("title") or path.stem)[:500],
+            "relative_path": path.relative_to(vault).as_posix(),
+            "revision": _file_revision(path),
+        })
+    return sorted(rows, key=lambda row: row["relative_path"])
+
+
+def _table_delete_snapshot(table: Dict[str, Any]) -> Dict[str, Any]:
+    """Bind table, views, rows, and active assets to one confirmation."""
+    from backend.api.vault_routes import (
+        _table_asset_revision,
+        _table_views_revision,
+        load_registry,
+    )
+
+    registry = load_registry()
+    table_id = str(table.get("id") or "")
+    current_table = next(
+        (
+            item
+            for item in registry.get("tables", [])
+            if str(item.get("id") or "") == table_id
+        ),
+        None,
+    )
+    if not current_table:
+        raise LookupError("Table not found.")
+    database = next(
+        (
+            item
+            for item in registry.get("databases", [])
+            if str(item.get("id") or "")
+            == str(current_table.get("database_id") or "")
+        ),
+        None,
+    )
+    rows = _table_rows_snapshot(table_id)
+    views = [
+        item
+        for item in registry.get("views", [])
+        if str(item.get("table_id") or "") == table_id
+    ]
+    return {
+        "table_revision": _value_revision(current_table),
+        "views_revision": _table_views_revision(registry, table_id),
+        "views_count": len(views),
+        "rows": rows,
+        "rows_revision": _value_revision(rows),
+        "row_count": len(rows),
+        "asset_revision": _table_asset_revision(current_table, database),
+    }
+
+
+def _resolve_snapshotted_row_path(relative_path: str) -> Path:
+    vault = _vault()
+    candidate = (vault / str(relative_path or "")).resolve()
+    if candidate == vault or vault not in candidate.parents:
+        raise ValueError("The snapshotted row path is outside the Vault.")
+    return candidate
 
 
 def _table_folder(table: Dict[str, Any]) -> str:
@@ -463,9 +693,10 @@ def create_table_row(
     destination.mkdir(parents=True, exist_ok=True)
     safe_title = sanitize_vault_title(title)
     path = destination / f"{safe_title}.md"
-    if path.exists():
-        path = destination / f"{safe_title} {page_id[:8]}.md"
-    _write_page(path, metadata, content)
+    with _page_lock(path):
+        if path.exists():
+            path = destination / f"{safe_title} {page_id[:8]}.md"
+        _write_page(path, metadata, content)
     return _json({"status": "created", "id": page_id, "title": title, "table_id": table_id})
 
 
@@ -479,12 +710,12 @@ def update_page(
     path = _resolve_page(page_id_or_title)
     if not path:
         return _json({"error": "Page not found."})
-    metadata, old_body = _parse(path)
-    protected = {"id"}
-    for key, value in (properties or {}).items():
-        if key not in protected:
-            metadata[key] = value
-    _write_page(path, metadata, old_body if content is None else content)
+    def mutate(metadata, old_body):
+        for key, value in (properties or {}).items():
+            if key != "id":
+                metadata[key] = value
+        return metadata, old_body if content is None else content
+    metadata = _mutate_page(path, mutate)
     return _json({"status": "updated", "id": metadata.get("id"), "title": metadata.get("title")})
 
 
@@ -494,9 +725,10 @@ def append_to_page(page_id_or_title: str, content: str) -> str:
     path = _resolve_page(page_id_or_title)
     if not path:
         return _json({"error": "Page not found."})
-    metadata, body = _parse(path)
-    separator = "\n\n" if body.strip() else ""
-    _write_page(path, metadata, f"{body.rstrip()}{separator}{content.strip()}")
+    def mutate(metadata, body):
+        separator = "\n\n" if body.strip() else ""
+        return metadata, f"{body.rstrip()}{separator}{content.strip()}"
+    metadata = _mutate_page(path, mutate)
     return _json({"status": "appended", "id": metadata.get("id"), "title": metadata.get("title")})
 
 
@@ -506,13 +738,17 @@ def update_table_row(row_id_or_title: str, properties: Dict[str, Any]) -> str:
     path = _resolve_page(row_id_or_title)
     if not path:
         return _json({"error": "Row not found."})
-    metadata, body = _parse(path)
-    if not (metadata.get("table_id") or metadata.get("database_table_id")):
-        return _json({"error": "The page is not a table row."})
-    for key, value in properties.items():
-        if key not in {"id", "table_id", "database_table_id"}:
-            metadata[key] = value
-    _write_page(path, metadata, body)
+    def mutate(metadata, body):
+        if not (metadata.get("table_id") or metadata.get("database_table_id")):
+            raise ValueError("The page is not a table row.")
+        for key, value in properties.items():
+            if key not in {"id", "table_id", "database_table_id"}:
+                metadata[key] = value
+        return metadata, body
+    try:
+        metadata = _mutate_page(path, mutate)
+    except ValueError as error:
+        return _json({"error": str(error)})
     return _json({"status": "updated", "id": metadata.get("id")})
 
 
@@ -522,13 +758,14 @@ def add_tags(page_id_or_title: str, tags: List[str]) -> str:
     path = _resolve_page(page_id_or_title)
     if not path:
         return _json({"error": "Page not found."})
-    metadata, body = _parse(path)
-    current = metadata.get("tags") or []
-    if isinstance(current, str):
-        current = re.split(r"[,;]", current)
-    merged = {str(item).strip().lstrip("#") for item in [*current, *tags] if str(item).strip()}
-    metadata["tags"] = sorted(merged, key=str.casefold)
-    _write_page(path, metadata, body)
+    def mutate(metadata, body):
+        current = metadata.get("tags") or []
+        if isinstance(current, str):
+            current = re.split(r"[,;]", current)
+        merged = {str(item).strip().lstrip("#") for item in [*current, *tags] if str(item).strip()}
+        metadata["tags"] = sorted(merged, key=str.casefold)
+        return metadata, body
+    metadata = _mutate_page(path, mutate)
     return _json({"status": "updated", "tags": metadata["tags"]})
 
 
@@ -540,19 +777,19 @@ def add_page_comment(page_id_or_title: str, comment: str) -> str:
     path = _resolve_page(page_id_or_title)
     if not path:
         return _json({"error": "Page not found."})
-    metadata, body = _parse(path)
-    comments = metadata.get("comments") or []
-    if not isinstance(comments, list):
-        comments = []
-    comments.append(
-        {
+    def mutate(metadata, body):
+        comments = metadata.get("comments") or []
+        if not isinstance(comments, list):
+            comments = []
+        comments.append({
             "author": "agent",
             "content": comment.strip(),
             "created_at": datetime.now(timezone.utc).isoformat(),
-        }
-    )
-    metadata["comments"] = comments
-    _write_page(path, metadata, body)
+        })
+        metadata["comments"] = comments
+        return metadata, body
+    metadata = _mutate_page(path, mutate)
+    comments = metadata["comments"]
     return _json({"status": "created", "comment_count": len(comments)})
 
 
@@ -562,11 +799,12 @@ def mark_task_complete(row_id_or_title: str) -> str:
     path = _resolve_page(row_id_or_title)
     if not path:
         return _json({"error": "Task not found."})
-    metadata, body = _parse(path)
-    metadata["completed"] = True
-    if "status" in metadata:
-        metadata["status"] = "done"
-    _write_page(path, metadata, body)
+    def mutate(metadata, body):
+        metadata["completed"] = True
+        if "status" in metadata:
+            metadata["status"] = "done"
+        return metadata, body
+    metadata = _mutate_page(path, mutate)
     return _json({"status": "completed", "id": metadata.get("id")})
 
 
@@ -873,13 +1111,22 @@ async def send_mail(
 async def archive_mail(account: str, message_id: str, folder: str = "") -> str:
     """Prepares archiving mail and waits for interactive confirmation."""
     account = _assert_global_integration_access(account)
+    message = await _mail_message_snapshot(account, message_id, folder)
+    if not message:
+        return _json({"error": "Mail message not found for this account."})
     return _confirmation(
         "archive_mail",
-        {"account": account, "message_id": message_id, "folder": folder},
+        {
+            "account": account,
+            "message_id": message_id,
+            "folder": folder,
+            "message_revision": message["message_revision"],
+            "message_source": message["message_source"],
+        },
         {
             "account": account,
             "folder": folder,
-            **_mail_message_preview(message_id),
+            **message,
         },
         destructive=False,
     )
@@ -890,20 +1137,30 @@ async def move_mail(
     account: str,
     message_id: str,
     target_folder: str,
+    folder: str = "",
 ) -> str:
     """Prepares moving mail and waits for interactive confirmation."""
     account = _assert_global_integration_access(account)
+    message = await _mail_message_snapshot(account, message_id, folder)
+    if not message:
+        return _json({"error": "Mail message not found for this account."})
     return _confirmation(
         "move_mail",
         {
             "account": account,
+            "message_id": message_id,
             "target_folder": target_folder,
-            **_mail_message_preview(message_id),
+            "folder": folder,
+            "imap_uid": message["imap_uid"],
+            "imap_folder": message["imap_folder"],
+            "message_revision": message["message_revision"],
+            "message_source": message["message_source"],
         },
         {
             "account": account,
-            "message_id": message_id,
             "target_folder": target_folder,
+            "folder": folder,
+            **message,
         },
         destructive=False,
     )
@@ -967,35 +1224,42 @@ CONFIRMED_WRITE_TOOLS.extend(
 
 
 @tool
-def delete_table(table_id_or_name: str) -> str:
-    """Prepares deleting a table and waits for interactive confirmation."""
+def delete_table(table_id_or_name: str, row_action: str = "") -> str:
+    """Prepares deleting a table after choosing `unlink` or `delete` for rows."""
     table = _table(table_id_or_name)
     if not table:
         return _json({"error": "Table not found."})
+    normalized_row_action = str(row_action or "").strip().lower()
+    if normalized_row_action not in {"unlink", "delete"}:
+        return _json({
+            "error": (
+                "Choose row_action='unlink' to keep the pages without the table "
+                "or row_action='delete' to move every row page to trash."
+            )
+        })
     table_id = str(table.get("id") or "")
-    row_count = 0
-    for path in _page_files():
-        try:
-            metadata, _body = _parse(path)
-        except Exception:
-            continue
-        if str(
-            metadata.get("table_id")
-            or metadata.get("database_table_id")
-            or ""
-        ) == table_id:
-            row_count += 1
+    snapshot = _table_delete_snapshot(table)
     return _confirmation(
         "delete_table",
         {
             "table_id": table_id,
-            "table_revision": _value_revision(table),
+            "table_revision": snapshot["table_revision"],
+            "views_revision": snapshot["views_revision"],
+            "rows_revision": snapshot["rows_revision"],
+            "asset_revision": snapshot["asset_revision"],
+            "row_action": normalized_row_action,
         },
         {
             "table": str(table.get("name") or table_id),
             "table_id": table_id,
             "folder": str(table.get("folder") or ""),
-            "row_count": row_count,
+            "row_action": normalized_row_action,
+            "row_count": snapshot["row_count"],
+            "views_count": snapshot["views_count"],
+            "table_revision": snapshot["table_revision"],
+            "views_revision": snapshot["views_revision"],
+            "rows_revision": snapshot["rows_revision"],
+            "asset_revision": snapshot["asset_revision"],
         },
     )
 
@@ -1220,6 +1484,13 @@ async def execute_confirmed_action(
         from backend.api.mail_routes import archive_msg
 
         account = _assert_global_integration_access(str(arguments["account"]))
+        await _require_mail_message_revision(
+            account,
+            str(arguments["message_id"]),
+            str(arguments.get("message_revision") or ""),
+            expected_source=str(arguments.get("message_source") or ""),
+            folder=str(arguments.get("folder") or ""),
+        )
         return await archive_msg(
             str(arguments["message_id"]),
             account,
@@ -1230,10 +1501,21 @@ async def execute_confirmed_action(
         from backend.api.mail_routes import move_message
 
         account = _assert_global_integration_access(str(arguments["account"]))
+        await _require_mail_message_revision(
+            account,
+            str(arguments["message_id"]),
+            str(arguments.get("message_revision") or ""),
+            expected_source=str(arguments.get("message_source") or ""),
+            folder=str(arguments.get("folder") or ""),
+        )
         return await move_message(
             str(arguments["message_id"]),
             account,
-            {"target_folder": str(arguments["target_folder"])},
+            {
+                "target_folder": str(arguments["target_folder"]),
+                "imap_uid": str(arguments.get("imap_uid") or ""),
+                "imap_folder": str(arguments.get("imap_folder") or ""),
+            },
         )
 
     if action == "invite_attendees":
@@ -1313,21 +1595,152 @@ async def execute_confirmed_action(
         return {"status": "created", "event_id": str(event.get("id") or "")}
 
     if action == "delete_table":
-        from fastapi import BackgroundTasks
-        from backend.api.vault_routes import delete_table as route_delete_table
+        import asyncio
+
+        from fastapi import BackgroundTasks, HTTPException
+        from backend.api.vault_routes import (
+            _move_page_to_trash,
+            delete_table as route_delete_table,
+        )
 
         table = _table(str(arguments["table_id"]))
         if not table:
             raise LookupError("Table not found.")
-        if _value_revision(table) != str(arguments.get("table_revision") or ""):
+        snapshot = _table_delete_snapshot(table)
+        revision_fields = (
+            "table_revision",
+            "views_revision",
+            "rows_revision",
+            "asset_revision",
+        )
+        if any(
+            str(snapshot[field]) != str(arguments.get(field) or "")
+            for field in revision_fields
+        ):
             raise ActionConflictError(
-                "The table changed after the confirmation preview."
+                "The table, its views, rows, or assets changed after the preview."
             )
+        row_action = str(arguments.get("row_action") or "").strip().lower()
+        if row_action not in {"unlink", "delete"}:
+            raise ValueError("The confirmed table row action is invalid.")
+
+        prepared_rows = []
+        for row in snapshot["rows"]:
+            path = _resolve_snapshotted_row_path(row["relative_path"])
+            _require_file_revision(
+                path,
+                row["revision"],
+                f"Table row {row['id']}",
+            )
+            metadata, body = _parse(path)
+            current_table_id = str(
+                metadata.get("table_id")
+                or metadata.get("database_table_id")
+                or ""
+            )
+            if current_table_id != str(arguments["table_id"]):
+                raise ActionConflictError(
+                    f"Table row {row['id']} changed membership after the preview."
+                )
+            prepared_rows.append({
+                "id": row["id"],
+                "path": path,
+                "original": path.read_bytes(),
+                "metadata": metadata,
+                "body": body,
+            })
+
         tasks = background_tasks or BackgroundTasks()
-        result = await route_delete_table(str(arguments["table_id"]), tasks)
+        changed_rows = []
+        if row_action == "unlink":
+            try:
+                with _BULK_UPDATE_LOCK:
+                    for item in prepared_rows:
+                        new_metadata = dict(item["metadata"])
+                        new_metadata.pop("table_id", None)
+                        new_metadata.pop("database_table_id", None)
+                        changed_rows.append(item)
+                        _write_page(item["path"], new_metadata, item["body"])
+            except Exception as error:
+                rollback_failed = _rollback_page_items(changed_rows)
+                if rollback_failed:
+                    return {
+                        "status": "partial",
+                        "updated_count": len(rollback_failed),
+                        "rollback_failed_ids": rollback_failed,
+                        "error": str(error)[:500],
+                    }
+                raise RuntimeError(
+                    "Table row unlinking failed and all rows were rolled back."
+                ) from error
+        else:
+            failed_ids = []
+            for item in prepared_rows:
+                try:
+                    await asyncio.to_thread(
+                        _move_page_to_trash,
+                        str(item["id"]),
+                        item["path"],
+                    )
+                    changed_rows.append(item)
+                except Exception:
+                    failed_ids.append(str(item["id"]))
+                    break
+            if failed_ids:
+                return {
+                    "status": "partial",
+                    "updated_count": len(changed_rows),
+                    "failed_count": len(failed_ids),
+                    "failed_ids": failed_ids,
+                    "row_ids": [str(item["id"]) for item in changed_rows],
+                }
+
+        try:
+            result = await route_delete_table(
+                str(arguments["table_id"]),
+                tasks,
+                expected_table_revision=str(arguments["table_revision"]),
+                expected_views_revision=str(arguments["views_revision"]),
+                expected_asset_revision=str(arguments["asset_revision"]),
+            )
+        except HTTPException as error:
+            if row_action == "unlink":
+                rollback_failed = _rollback_page_items(changed_rows)
+                if rollback_failed:
+                    return {
+                        "status": "partial",
+                        "updated_count": len(rollback_failed),
+                        "rollback_failed_ids": rollback_failed,
+                        "error": str(error.detail)[:500],
+                    }
+            elif error.status_code == 409:
+                return {
+                    "status": "partial",
+                    "updated_count": len(changed_rows),
+                    "failed_count": 1,
+                    "failed_ids": [str(arguments["table_id"])],
+                    "row_ids": [str(item["id"]) for item in changed_rows],
+                }
+            raise
+        except Exception:
+            if row_action == "unlink":
+                rollback_failed = _rollback_page_items(changed_rows)
+                if rollback_failed:
+                    return {
+                        "status": "partial",
+                        "updated_count": len(rollback_failed),
+                        "rollback_failed_ids": rollback_failed,
+                    }
+            raise
         return {
             **(result if isinstance(result, dict) else {}),
-            "cleanup_status": "queued" if tasks.tasks else "not_required",
+            "updated_count": len(changed_rows),
+            "row_ids": [str(item["id"]) for item in changed_rows],
+            "cleanup_status": (
+                (result or {}).get("cleanup_status")
+                if isinstance(result, dict)
+                else ("queued" if tasks.tasks else "not_required")
+            ),
         }
 
     if action == "restore_page_version":
@@ -1455,29 +1868,24 @@ async def execute_confirmed_action(
                     "body": body,
                 })
 
-            written = []
+            attempted = []
             try:
                 for item in prepared:
+                    # Register before writing: `_write_page` replaces the file
+                    # before refreshing the index, so the same item must be
+                    # rolled back when the refresh itself raises.
+                    attempted.append(item)
                     _write_page(
                         item["path"],
                         item["metadata"],
                         item["body"],
                     )
-                    written.append(item)
             except Exception as error:
-                rollback_failed = []
-                from backend.api.vault_routes import register_page_in_index
-
-                for item in reversed(written):
-                    try:
-                        item["path"].write_bytes(item["original"])
-                        register_page_in_index(item["path"])
-                    except Exception:
-                        rollback_failed.append(item["id"])
+                rollback_failed = _rollback_page_items(attempted)
                 if rollback_failed:
                     return {
                         "status": "partial",
-                        "updated_count": len(written),
+                        "updated_count": len(rollback_failed),
                         "rollback_failed_ids": rollback_failed,
                         "error": str(error)[:500],
                     }
@@ -1491,3 +1899,41 @@ async def execute_confirmed_action(
         }
 
     raise ValueError(f"Unsupported confirmed action: {action}")
+_PAGE_LOCKS_GUARD = threading.Lock()
+_PAGE_LOCKS: Dict[str, threading.RLock] = {}
+
+
+@contextmanager
+def _page_lock(path: Path):
+    """Serialize one canonical page path across threads and worker processes."""
+    key = str(path.resolve())
+    lock_stripe = hashlib.sha256(key.encode("utf-8")).hexdigest()[:2]
+    with _PAGE_LOCKS_GUARD:
+        thread_lock = _PAGE_LOCKS.setdefault(lock_stripe, threading.RLock())
+    with thread_lock:
+        lock_path = Path(tempfile.gettempdir()) / f"gnosi-page-lock-{lock_stripe}.lock"
+        with lock_path.open("a+b") as lock_file:
+            try:
+                import fcntl
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+            except ImportError:
+                fcntl = None
+            try:
+                yield
+            finally:
+                if fcntl is not None:
+                    fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+
+def _mutate_page(path: Path, mutator) -> Dict[str, Any]:
+    """Read, mutate, version, and write a page as one serialized operation."""
+    with _page_lock(path):
+        expected_revision = _file_revision(path)
+        metadata, body = _parse(path)
+        next_metadata, next_body = mutator(metadata, body)
+        if _file_revision(path) != expected_revision:
+            raise ActionConflictError(
+                "The page changed while the agent was preparing the update.",
+            )
+        _write_page(path, next_metadata, next_body)
+        return next_metadata
