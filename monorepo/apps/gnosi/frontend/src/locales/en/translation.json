@@ -3957,7 +3957,17 @@
       "fullscreen": "Fullscreen",
       "recenter": "Recenter",
       "zoom_in": "Zoom in",
-      "zoom_out": "Zoom out"
+      "zoom_out": "Zoom out",
+      "legend": "Graph legend"
+    },
+    "legend": {
+      "nodes": "Nodes",
+      "connections": "Connections",
+      "connection_types": "Connection types",
+      "wikilink": "Wikilinks",
+      "database_wikilink": "Database-view wikilinks",
+      "unresolved": "Unresolved links",
+      "node_groups": "Node groups"
     },
     "node_panel": {
       "close": "Close details",

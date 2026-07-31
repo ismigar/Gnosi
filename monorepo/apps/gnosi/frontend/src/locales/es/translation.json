@@ -4095,7 +4095,17 @@
       "fullscreen": "Pantalla Completa",
       "recenter": "Recentrar",
       "zoom_in": "Acercar",
-      "zoom_out": "Alejar"
+      "zoom_out": "Alejar",
+      "legend": "Leyenda del grafo"
+    },
+    "legend": {
+      "nodes": "Nodos",
+      "connections": "Conexiones",
+      "connection_types": "Tipos de conexión",
+      "wikilink": "Enlaces wiki",
+      "database_wikilink": "Enlaces wiki de vista de base de datos",
+      "unresolved": "Enlaces sin resolver",
+      "node_groups": "Grupos de nodos"
     },
     "node_panel": {
       "close": "Cerrar detalles",

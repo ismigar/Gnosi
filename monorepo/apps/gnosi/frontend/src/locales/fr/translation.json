@@ -4095,7 +4095,17 @@
       "fullscreen": "Plein écran",
       "recenter": "Recentrer",
       "zoom_in": "Zoom avant",
-      "zoom_out": "Zoom arrière"
+      "zoom_out": "Zoom arrière",
+      "legend": "Légende du graphe"
+    },
+    "legend": {
+      "nodes": "Nœuds",
+      "connections": "Connexions",
+      "connection_types": "Types de connexion",
+      "wikilink": "Liens wiki",
+      "database_wikilink": "Liens wiki de vue de base de données",
+      "unresolved": "Liens non résolus",
+      "node_groups": "Groupes de nœuds"
     },
     "node_panel": {
       "close": "Fermer les détails",
