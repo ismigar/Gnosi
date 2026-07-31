@@ -48,6 +48,8 @@ function GraphPage() {
     const [activeKinds] = useState(new Set());
     const [activeProjects] = useState(new Set());
     const [colorMode, setColorMode] = useState('kind');
+    const hasClusterData = useMemo(() => (graphData?.nodes || []).some((node) => node.cluster), [graphData]);
+    const hasAiClusterData = useMemo(() => (graphData?.nodes || []).some((node) => node.ai_cluster), [graphData]);
 
     // Visibility & Configuration (from config.graph)
     const [visibleDatabases, setVisibleDatabases] = useState([]);
@@ -615,6 +617,8 @@ function GraphPage() {
                     onTimelineChange={setTimelineDate}
                     colorMode={colorMode}
                     onColorModeChange={setColorMode}
+                    hasClusterData={hasClusterData}
+                    hasAiClusterData={hasAiClusterData}
                     isPathfindingMode={isPathfindingMode}
                     onPathfindingModeChange={setIsPathfindingMode}
                     pathSource={pathSource}
