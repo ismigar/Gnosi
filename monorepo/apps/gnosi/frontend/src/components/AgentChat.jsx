@@ -1273,7 +1273,9 @@ const AgentChat = ({ storageIdentity = '' }) => {
                             if (data.type === 'tool_start') {
                                 lastMsg.content = t('chat.tool_start', "🛠️ *Calling tool: {{tool}}...*", { tool: data.tool });
                             } else if (data.type === 'tool_end') {
-                                lastMsg.content = t('chat.tool_end', "✅ *Tool {{tool}} finished.*", { tool: data.tool });
+                                lastMsg.content = data.awaiting_confirmation
+                                    ? t('chat.tool_pending_confirmation', "🟡 *Tool {{tool}} is awaiting confirmation.*", { tool: data.tool })
+                                    : t('chat.tool_end', "✅ *Tool {{tool}} finished.*", { tool: data.tool });
                             } else if (data.type === 'message' || data.type === 'thought') {
                                 if (data.content) lastMsg.content = data.content;
                             } else if (data.type === 'error') {

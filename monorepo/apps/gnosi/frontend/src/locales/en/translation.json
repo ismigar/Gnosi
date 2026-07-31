@@ -4233,6 +4233,7 @@
     "cancel_response": "Cancel",
     "tool_start": "🛠️ *Calling tool: {{tool}}...*",
     "tool_end": "✅ *Tool {{tool}} finished.*",
+    "tool_pending_confirmation": "🟡 *Tool {{tool}} is awaiting confirmation.*",
     "rate_limit_message": "You've exceeded this agent model's quota. Try a different agent or wait a few minutes.",
     "error_prefix": "Error",
     "open_chat": "Open chat",
