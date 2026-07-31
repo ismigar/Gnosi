@@ -133,23 +133,6 @@ that can be confused with a graph node. Minimap clicks must derive their zoom
 from the visible-subset extent; a fixed absolute camera ratio refers to the
 complete graph and can unexpectedly zoom far away from a filtered view.
 
-Keyboard navigation must call the same Sigma camera operations as the visible
-controls. Map plus and minus to zoom, zero to the visible-subgraph fit, and the
-arrow keys to camera movement proportional to the current camera ratio so the
-perceived step stays stable at every zoom level. Ignore shortcuts while focus
-is in an input, textarea, select, textbox, or editable region, and preserve
-modified browser or operating-system shortcuts. Prevent the default browser
-action only after a graph shortcut has been accepted, and always remove the
-global listener when the graph viewer unmounts.
-
-Keep the graph legend out of the canvas at overview scale. It belongs in an
-on-demand, keyboard-accessible tooltip anchored above the camera controls, so
-it cannot obscure nodes or compete with the minimap. Its counts must be
-derived from the current filtered body-wikilink subgraph, not from the complete
-backend response. Separate normal Markdown wikilinks, body links originating
-from database views, and unresolved targets; a relation edge without body-link
-provenance is not part of the Obsidian-parity topology and must not be counted.
-
 Sigma v3 uses `labelRenderedSizeThreshold`. Do not use
 `labelRenderThreshold`; the unknown setting is ignored and the default causes
 hundreds of overview labels to overlap. Keep label density bounded at overview
@@ -169,14 +152,3 @@ Sigma defaults `minEdgeThickness` to 1.7 pixels. This overrides small values
 from the edge-thickness control and turns dense wikilink graphs into a solid
 mass. Set an explicit sub-pixel minimum and use a low-opacity neutral base
 color; reserve saturated edges for hover, pathfinding, and suggestions.
-
-## Semantic similarity overlay
-
-Semantic suggestions are compatible with the Obsidian-like topology only as a
-separate visual overlay. Keep body wikilinks as the sole input for visible
-degrees, component discovery, D3/ForceAtlas layout, backend layout hashing,
-camera fitting, and the minimap. When the similarity threshold is below 100,
-draw only suggestion edges whose score meets the threshold and whose two nodes
-already pass the current node filters. These edges must not be inserted into
-the Graphology graph used for physics: doing so creates artificial bridges and
-changes the current graph dynamics. A threshold of 100 hides the overlay.
