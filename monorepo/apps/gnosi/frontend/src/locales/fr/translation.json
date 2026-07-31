@@ -2029,7 +2029,15 @@
     "show_more_tags": "Afficher {{count}} étiquettes de plus",
     "show_fewer_tags": "Afficher moins d’étiquettes",
     "read_full": "Lire en entier",
-    "empty": "Aucune publication dans le fil."
+    "empty": "Aucune publication dans le fil.",
+    "enable_date_groups": "Grouper par date",
+    "disable_date_groups": "Désactiver les groupes par date",
+    "group_today": "Aujourd’hui",
+    "group_this_week": "Cette semaine",
+    "group_this_month": "Ce mois-ci",
+    "position": "{{current}} sur {{total}}",
+    "return_to_last_record": "Revenir au dernier enregistrement",
+    "open_reading_pane": "Ouvrir le panneau de lecture", "reading_pane": "Panneau de lecture", "previous_record": "Enregistrement précédent", "next_record": "Enregistrement suivant", "no_excerpt": "Cet enregistrement n’a pas encore d’extrait.", "reading_preferences": "Préférences de lecture", "visible_tags": "Étiquettes visibles", "excerpt_length": "Longueur de l’extrait", "empty_search": "Aucun enregistrement ne correspond à cette recherche.", "empty_search_hint": "Essayez moins de mots ou effacez la recherche.", "empty_hint": "Créez le premier enregistrement ou ajustez les filtres de la vue.", "clear_search": "Effacer la recherche", "adjust_view": "Ajuster la vue", "create_record": "Créer un enregistrement", "apply_field_to_selection": "Appliquer un champ à la sélection", "batch_update": "Mettre à jour la sélection…", "resize_reading_pane": "Redimensionner le panneau de lecture", "clean_reading": "Lecture épurée", "show_details": "Afficher les détails", "reading_shortcuts": "Utilisez ← → pour naviguer · Échap pour fermer", "sync_saving": "Enregistrement des modifications…", "sync_saved": "Modifications enregistrées", "sync_error": "Les modifications nécessitent une attention", "bulk_saved": "Modifications enregistrées", "bulk_undone": "Modifications annulées", "bulk_save_error": "Certaines modifications n’ont pas pu être enregistrées", "focus_feed": "Feed concentré", "reading_progress": "{{read}} sur {{total}} lus", "confirm_bulk_update": "Confirmer la mise à jour groupée", "bulk_preview_title": "Vérifier la mise à jour groupée", "bulk_preview_hint": "{{count}} enregistrements : {{field}} → {{value}}", "apply_changes": "Appliquer les modifications", "dock_pane": "Ancrer le panneau", "undock_pane": "Détacher le panneau", "summary_model": "Modèle de résumé", "summary_model_placeholder": "Sélectionnez un modèle actif", "summary_model_saved": "Modèle de résumé enregistré", "summary_model_error": "Impossible d’enregistrer le modèle de résumé", "summarize": "Résumer", "summarizing": "Résumé en cours…", "summary": "Résumé IA", "summary_error": "Impossible de créer le résumé", "summary_error_hint": "Vérifiez que le modèle sélectionné est actif et disponible."
   },
   "files": {
     "delete_title": "Supprimer le fichier",
@@ -2072,6 +2080,7 @@
     "add_dashboard": "Ajouter un tableau de bord",
     "add_database": "Ajouter une base de données",
     "add_wiki_page": "Ajouter une page wiki",
+    "locate_active_page": "Localiser la page active",
     "expand_children": "Développer le contenu de {{name}}",
     "collapse_children": "Réduire le contenu de {{name}}",
     "options": "Options",
@@ -2185,10 +2194,24 @@
     "default_badge": "Déf.",
     "new_options": "Options de création",
     "loading_view": "Chargement de la vue...",
+    "active_filters_one": "{{count}} filtre",
+    "active_filters_other": "{{count}} filtres",
+    "active_filters_many": "{{count}} filtres",
+    "clear_search": "Effacer la recherche",
+    "filtered_records_count": "{{count}} sur {{total}} enregistrements",
+    "compact_density": "Utiliser la densité compacte",
+    "comfortable_density": "Utiliser la densité confortable",
+    "save_quick_view": "Enregistrer la vue rapide",
+    "quick_views": "Vues rapides",
+    "quick_view_name": "Vue rapide {{count}}",
+    "manage_quick_views": "Gérer les vues rapides",
+    "tools_and_shortcuts": "Outils et raccourcis",
+    "shortcuts": "Raccourcis",
+    "last_load_time": "Dernier chargement : {{duration}} ms",
     "configure_view_tooltip": "Configurer la vue",
     "wip_tooltip": "En développement pour une prochaine itération",
     "soon_badge": "Bientôt",
-    "records_count_many": "{{count}} enregistrements"
+    "records_count_many": "{{count}} enregistrements", "export_quick_views": "Copier la configuration", "import_quick_views": "Importer la configuration", "import_quick_views_hint": "Collez une configuration copiée depuis une autre vue.", "quick_views_copied": "Configuration de vue copiée", "quick_views_copy_error": "Impossible de copier la configuration", "quick_views_imported": "Configuration de vue importée", "quick_views_import_error": "Cette configuration n’est pas valide"
   },
   "errors": {
     "hide_main_view": "Impossible de masquer la vue principale",
@@ -2715,6 +2738,9 @@
     "usage_count_many": "Cette vue est déjà utilisée sur {{count}} pages."
   },
   "editor": {
+    "toggle_focus_mode": "Activer ou désactiver le mode concentration",
+    "toggle_high_contrast": "Alterner le contraste renforcé",
+    "toggle_large_text": "Alterner le texte agrandi",
     "ai_ask": "Demander à l'IA…",
     "ai_ask_subtext": "Écrivez une instruction et insérez le résultat",
     "ai_continue": "Continuer à écrire",

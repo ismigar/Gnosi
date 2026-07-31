@@ -380,6 +380,7 @@
     "add_dashboard": "Añadir tablero",
     "add_database": "Añadir base de datos",
     "add_wiki_page": "Añadir página wiki",
+    "locate_active_page": "Localizar la página activa",
     "expand_children": "Expandir el contenido de {{name}}",
     "collapse_children": "Contraer el contenido de {{name}}",
     "no_dashboard_pages": "No hay tableros",
@@ -785,6 +786,9 @@
     "page_moved": "Página movida"
   },
   "editor": {
+    "toggle_focus_mode": "Activar o desactivar modo enfoque",
+    "toggle_high_contrast": "Alternar contraste reforzado",
+    "toggle_large_text": "Alternar texto ampliado",
     "loading_editor": "Cargando editor...",
     "select_table": "Seleccionar Tabla",
     "error_occurred": "Se ha producido un error en el editor",
@@ -1124,10 +1128,24 @@
     "new_view_name_label": "Nuevo nombre de la vista",
     "new_options": "Opciones de creación",
     "loading_view": "Cargando vista...",
+    "active_filters_one": "{{count}} filtro",
+    "active_filters_other": "{{count}} filtros",
+    "active_filters_many": "{{count}} filtros",
+    "clear_search": "Limpiar la búsqueda",
+    "filtered_records_count": "{{count}} de {{total}} registros",
+    "compact_density": "Usar densidad compacta",
+    "comfortable_density": "Usar densidad cómoda",
+    "save_quick_view": "Guardar vista rápida",
+    "quick_views": "Vistas rápidas",
+    "quick_view_name": "Vista rápida {{count}}",
+    "manage_quick_views": "Gestionar vistas rápidas",
+    "tools_and_shortcuts": "Herramientas y atajos",
+    "shortcuts": "Atajos",
+    "last_load_time": "Última carga: {{duration}} ms",
     "configure_view_tooltip": "Configurar Vista",
     "wip_tooltip": "En desarrollo para una próxima iteración",
     "soon_badge": "Pronto",
-    "records_count_many": "{{count}} registros"
+    "records_count_many": "{{count}} registros", "export_quick_views": "Copiar configuración", "import_quick_views": "Importar configuración", "import_quick_views_hint": "Pega una configuración copiada de otra vista.", "quick_views_copied": "Configuración de vista copiada", "quick_views_copy_error": "No se ha podido copiar la configuración", "quick_views_imported": "Configuración de vista importada", "quick_views_import_error": "Esta configuración no es válida"
   },
   "fs_picker": {
     "title_any": "Seleccionar archivo o carpeta",
@@ -2950,7 +2968,15 @@
     "show_more_tags": "Mostrar {{count}} etiquetas más",
     "show_fewer_tags": "Mostrar menos etiquetas",
     "read_full": "Leer completo",
-    "empty": "No hay publicaciones en el feed."
+    "empty": "No hay publicaciones en el feed.",
+    "enable_date_groups": "Agrupar por fecha",
+    "disable_date_groups": "Desactivar grupos por fecha",
+    "group_today": "Hoy",
+    "group_this_week": "Esta semana",
+    "group_this_month": "Este mes",
+    "position": "{{current}} de {{total}}",
+    "return_to_last_record": "Volver al último registro",
+    "open_reading_pane": "Abrir panel de lectura", "reading_pane": "Panel de lectura", "previous_record": "Registro anterior", "next_record": "Registro siguiente", "no_excerpt": "Este registro aún no tiene extracto.", "reading_preferences": "Preferencias de lectura", "visible_tags": "Etiquetas visibles", "excerpt_length": "Longitud del extracto", "empty_search": "No hay registros que coincidan con la búsqueda.", "empty_search_hint": "Prueba con menos palabras o borra la búsqueda.", "empty_hint": "Crea el primer registro o ajusta los filtros de la vista.", "clear_search": "Borrar búsqueda", "adjust_view": "Ajustar vista", "create_record": "Crear registro", "apply_field_to_selection": "Aplicar un campo a la selección", "batch_update": "Actualizar selección…", "resize_reading_pane": "Redimensionar panel de lectura", "clean_reading": "Lectura limpia", "show_details": "Mostrar detalles", "reading_shortcuts": "Usa ← → para navegar · Esc para cerrar", "sync_saving": "Guardando cambios…", "sync_saved": "Cambios guardados", "sync_error": "Los cambios requieren atención", "bulk_saved": "Cambios guardados", "bulk_undone": "Cambios deshechos", "bulk_save_error": "No se han podido guardar algunos cambios", "focus_feed": "Feed de enfoque", "reading_progress": "{{read}} de {{total}} leídos", "confirm_bulk_update": "Confirmar actualización por lotes", "bulk_preview_title": "Revisar actualización por lotes", "bulk_preview_hint": "{{count}} registros: {{field}} → {{value}}", "apply_changes": "Aplicar cambios", "dock_pane": "Acoplar panel", "undock_pane": "Desacoplar panel", "summary_model": "Modelo del resumen", "summary_model_placeholder": "Selecciona un modelo activo", "summary_model_saved": "Modelo de resumen guardado", "summary_model_error": "No se ha podido guardar el modelo de resumen", "summarize": "Resumir", "summarizing": "Resumiendo…", "summary": "Resumen de IA", "summary_error": "No se ha podido crear el resumen", "summary_error_hint": "Comprueba que el modelo seleccionado esté activo y disponible."
   },
   "files": {
     "delete_title": "Eliminar archivo",

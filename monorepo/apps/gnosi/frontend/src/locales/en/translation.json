@@ -428,6 +428,7 @@
     "add_dashboard": "Add dashboard",
     "add_database": "Add database",
     "add_wiki_page": "Add wiki page",
+    "locate_active_page": "Locate active page",
     "expand_children": "Expand {{name}} contents",
     "collapse_children": "Collapse {{name}} contents",
     "no_dashboard_pages": "No dashboards",
@@ -826,6 +827,9 @@
     "page_moved": "Page moved"
   },
   "editor": {
+    "toggle_focus_mode": "Toggle focus mode",
+    "toggle_high_contrast": "Toggle high contrast",
+    "toggle_large_text": "Toggle large text",
     "loading_editor": "Loading editor...",
     "select_table": "Select Table",
     "error_occurred": "An error occurred in the editor",
@@ -1165,9 +1169,22 @@
     "new_view_name_label": "New view name",
     "new_options": "Creation options",
     "loading_view": "Loading view...",
+    "active_filters_one": "{{count}} filter",
+    "active_filters_other": "{{count}} filters",
+    "clear_search": "Clear search",
+    "filtered_records_count": "{{count}} of {{total}} records",
+    "compact_density": "Use compact density",
+    "comfortable_density": "Use comfortable density",
+    "save_quick_view": "Save quick view",
+    "quick_views": "Quick views",
+    "quick_view_name": "Quick view {{count}}",
+    "manage_quick_views": "Manage quick views",
+    "tools_and_shortcuts": "Tools and shortcuts",
+    "shortcuts": "Shortcuts",
+    "last_load_time": "Last load: {{duration}} ms",
     "configure_view_tooltip": "Configure View",
     "wip_tooltip": "In development for a future iteration",
-    "soon_badge": "Soon"
+    "soon_badge": "Soon", "export_quick_views": "Copy configuration", "import_quick_views": "Import configuration", "import_quick_views_hint": "Paste a configuration copied from another view.", "quick_views_copied": "View configuration copied", "quick_views_copy_error": "Could not copy the configuration", "quick_views_imported": "View configuration imported", "quick_views_import_error": "That configuration is not valid"
   },
   "fs_picker": {
     "title_any": "Select file or folder",
@@ -2977,7 +2994,15 @@
     "show_more_tags": "Show {{count}} more tags",
     "show_fewer_tags": "Show fewer tags",
     "read_full": "Read in full",
-    "empty": "No posts in the feed."
+    "empty": "No posts in the feed.",
+    "enable_date_groups": "Group by date",
+    "disable_date_groups": "Disable date groups",
+    "group_today": "Today",
+    "group_this_week": "This week",
+    "group_this_month": "This month",
+    "position": "{{current}} of {{total}}",
+    "return_to_last_record": "Return to last record",
+    "open_reading_pane": "Open reading pane", "reading_pane": "Reading pane", "previous_record": "Previous record", "next_record": "Next record", "no_excerpt": "This record has no excerpt yet.", "reading_preferences": "Reading preferences", "visible_tags": "Visible tags", "excerpt_length": "Excerpt length", "empty_search": "No records match this search.", "empty_search_hint": "Try fewer words or clear the search.", "empty_hint": "Create the first record or adjust the view filters.", "clear_search": "Clear search", "adjust_view": "Adjust view", "create_record": "Create record", "apply_field_to_selection": "Apply a field to the selection", "batch_update": "Update selected…", "resize_reading_pane": "Resize reading pane", "clean_reading": "Clean reading", "show_details": "Show details", "reading_shortcuts": "Use ← → to navigate · Esc to close", "sync_saving": "Saving changes…", "sync_saved": "Changes saved", "sync_error": "Changes need attention", "bulk_saved": "Changes saved", "bulk_undone": "Changes undone", "bulk_save_error": "Some changes could not be saved", "focus_feed": "Focus feed", "reading_progress": "{{read}} of {{total}} read", "confirm_bulk_update": "Confirm batch update", "bulk_preview_title": "Review batch update", "bulk_preview_hint": "{{count}} records: {{field}} → {{value}}", "apply_changes": "Apply changes", "dock_pane": "Dock pane", "undock_pane": "Float pane", "summary_model": "Summary model", "summary_model_placeholder": "Select an active model", "summary_model_saved": "Summary model saved", "summary_model_error": "Could not save the summary model", "summarize": "Summarize", "summarizing": "Summarizing…", "summary": "AI summary", "summary_error": "Could not create the summary", "summary_error_hint": "Check that the selected model is active and available."
   },
   "files": {
     "delete_title": "Delete file",

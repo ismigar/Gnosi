@@ -215,3 +215,53 @@ environment-specific frontend assumptions.
 - Compact feed cards show at most three property pills and a short measured
   excerpt before disclosure. Compact summary panels replace long zero-heavy
   metadata strings with badges for nonzero counts.
+- Bare Vault pages use a smaller icon and collapse cover-only geometry. Do not
+  reserve covered-page vertical space when neither a cover nor its actions are
+  visible.
+- Embedded-view toolbars remain sticky within the document flow so record
+  count, search, filters, and creation stay reachable while browsing long
+  datasets.
+- Vault sidebar section expansion is persisted as one version-tolerant local
+  object. Secondary sections default closed; adding independent ad-hoc keys
+  makes the navigation state inconsistent between sessions.
+- Hover-only sidebar actions must also appear on `focus-within`, and every Vault
+  icon action shares a visible theme-aware focus ring in both color schemes.
+- Feed hierarchy prioritizes the record title over its timestamp and property
+  pills without lowering secondary text below accessible contrast.
+- Feed density is an explicit user preference stored independently for mobile
+  and desktop. Responsive defaults must not overwrite a choice made for the
+  other profile.
+- Long document workflows retain context with a minimal sticky title/action
+  header and sticky view controls; loading placeholders preserve the same
+  toolbar-and-content geometry to avoid layout shifts.
+- Active search and filter state remains visible beside its result count.
+  Hidden configuration state without a visible chip makes filtered datasets
+  look incomplete.
+- Sidebar navigation can reveal and center the active page by expanding only
+  its ancestor chain. Do not require users to manually reopen an entire tree
+  to recover their current context.
+- Variable-height feed cards use browser-native `content-visibility` together
+  with progressive batching. Do not assume fixed row heights or unmount
+  expanded cards, because that causes scroll jumps and loses local card state.
+- Quick views are lightweight, page-and-view-scoped local presets. Persist only
+  presentation state such as search, density, and active tab; server-backed
+  filters remain part of the canonical view configuration.
+- Contextual single-key shortcuts ignore editable controls and modified key
+  combinations. Keep `/`, `F`, `N`, `D`, and `L` scoped to the active embedded
+  view so normal typing and application shortcuts are unaffected.
+- Compact page headers appear after the hero leaves the viewport, hide while
+  scrolling down, and return while scrolling up. Motion is disabled when
+  `prefers-reduced-motion` is active.
+- Visual regression coverage for Vault pages includes mobile, tablet, and
+  desktop viewports in both color schemes. Mask live feed content so snapshots
+  detect layout regressions without becoming unstable from user data.
+- Advanced feed controls live in one discoverable tools popover rather than
+  expanding the primary toolbar. It contains shortcut help, quick-view
+  management, grouping, focus, accessibility, and local performance feedback.
+- Feed position and last-record recovery are local navigation aids. They do not
+  mutate the canonical sort order and must tolerate records disappearing.
+- Accessibility preferences for contrast and text scale persist locally and
+  remain scoped to Vault page content; they must not silently restyle unrelated
+  applications.
+- Loading skeletons reflect the geometry of each view family. A table skeleton
+  must not look like a feed, and live user data stays out of regression fixtures.
