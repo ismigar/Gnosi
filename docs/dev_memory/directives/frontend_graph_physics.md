@@ -169,3 +169,14 @@ Sigma defaults `minEdgeThickness` to 1.7 pixels. This overrides small values
 from the edge-thickness control and turns dense wikilink graphs into a solid
 mass. Set an explicit sub-pixel minimum and use a low-opacity neutral base
 color; reserve saturated edges for hover, pathfinding, and suggestions.
+
+## Semantic similarity overlay
+
+Semantic suggestions are compatible with the Obsidian-like topology only as a
+separate visual overlay. Keep body wikilinks as the sole input for visible
+degrees, component discovery, D3/ForceAtlas layout, backend layout hashing,
+camera fitting, and the minimap. When the similarity threshold is below 100,
+draw only suggestion edges whose score meets the threshold and whose two nodes
+already pass the current node filters. These edges must not be inserted into
+the Graphology graph used for physics: doing so creates artificial bridges and
+changes the current graph dynamics. A threshold of 100 hides the overlay.
