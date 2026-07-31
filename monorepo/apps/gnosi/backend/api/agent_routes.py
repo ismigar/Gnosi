@@ -43,7 +43,12 @@ from backend.agent.action_confirmations import (
     list_confirmations,
     reset_confirmation_context,
 )
-from backend.agent.gnosi_tools import ActionConflictError, execute_confirmed_action
+from backend.agent.gnosi_tools import (
+    ActionConflictError,
+    bulk_update_rows,
+    execute_confirmed_action,
+    list_table_rows,
+)
 from backend.agent.model_router import record_llm_usage, usage_from_message
 from backend.agent.model_reliability import (
     blames_the_model, model_evidence, record_failure, reliability_report,
@@ -381,6 +386,39 @@ def _message_text(content: Any) -> str:
     if content is None:
         return ""
     return str(content)
+
+
+def _prepare_index_title_replacements(message: str) -> Optional[Dict[str, Any]]:
+    """Prepare the deterministic confirmation for index title replacements."""
+    normalized = message.casefold()
+    if (
+        "substitueix els ids" not in normalized
+        or "projectes" not in normalized
+        or ("àrees" not in normalized and "areas" not in normalized)
+    ):
+        return None
+    source_titles = {}
+    for table_name, prefix in (("Projectes", "Projecte"), ("Àrees", "Àrea")):
+        payload = json.loads(list_table_rows.invoke({"table_id_or_name": table_name}))
+        for row in payload.get("rows", []):
+            if row.get("id") and row.get("title"):
+                source_titles[(prefix, str(row["id"]))] = str(row["title"])
+    targets = json.loads(list_table_rows.invoke({"table_id_or_name": "Cervell digital"}))
+    updates = []
+    pattern = re.compile(r"^Índex - (Projecte|Àrea): ([0-9a-f-]{36})$")
+    for row in targets.get("rows", []):
+        match = pattern.match(str(row.get("title") or ""))
+        if not match:
+            continue
+        replacement = source_titles.get((match.group(1), match.group(2)))
+        if replacement:
+            updates.append({
+                "id": str(row["id"]),
+                "properties": {"title": f"Índex - {match.group(1)}: {replacement}"},
+            })
+    if not updates:
+        return None
+    return confirmation_event(bulk_update_rows.invoke({"updates": updates}))
 
 
 def _public_checkpoint_messages(stored_messages: List[Any]) -> List[Dict[str, str]]:
@@ -1259,6 +1297,21 @@ async def chat_endpoint(
                 session_id=session_id,
             )
             try:
+                deterministic_confirmation = _prepare_index_title_replacements(
+                    chat_req.message,
+                )
+                if deterministic_confirmation:
+                    answer_count += 1
+                    yield json.dumps(
+                        deterministic_confirmation,
+                        ensure_ascii=False,
+                    ) + "\n"
+                    yield json.dumps({
+                        "type": "done",
+                        "has_response": True,
+                        "message_count": answer_count,
+                    }) + "\n"
+                    return
                 if llm_selection:
                     yield json.dumps({
                         "type": "llm_selected",
