@@ -1691,7 +1691,12 @@ async def create_agent_workflow(
                 "complete bounded target table, count every matching target row, "
                 "and prepare one bulk update containing all of them. Never submit "
                 "a partial two-row sample when more matches exist. Do not claim "
-                "that the Vault is inaccessible when these tools are available."
+                "that the Vault is inaccessible when these tools are available. "
+                "When the current turn authorizes a bulk replacement, you MUST "
+                "call bulk_update_rows after the reads. Do not merely describe a "
+                "planned update, say that you are awaiting confirmation, or send "
+                "a final text response instead: only the tool call creates the "
+                "required Gnosi review card."
             )
             always_confirmed_names = {
                 item["name"]
