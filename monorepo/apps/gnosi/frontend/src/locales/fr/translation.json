@@ -3259,6 +3259,8 @@
     "view_graph": "Voir le graphe",
     "error_prefix": "Erreur",
     "control_center": "Centre de contrôle",
+    "pagination_range": "Affichage de {{start}} à {{end}} sur {{total}}",
+    "pagination_page": "Page {{page}}",
     "frequency_minutes_many": "Toutes les {{count}} min",
     "frequency_hours_many": "Toutes les {{count}} heures",
     "frequency_days_many": "Tous les {{count}} jours"
