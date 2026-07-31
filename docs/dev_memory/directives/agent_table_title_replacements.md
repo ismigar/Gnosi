@@ -24,9 +24,9 @@ of replying as if it cannot access the Vault.
   term or an explicit Vault-table reference.
 - Do not write rows immediately. Bulk table updates must remain pending until
   the user confirms the generated preview.
-- Treat a short affirmative follow-up such as "Sí, fes-la" as authorization to
-  prepare only `bulk_update_rows`; the persisted confirmation card remains the
-  mandatory execution gate.
+- Do not treat short chat acknowledgements such as "sí", "ok", or "fes-la"
+  as write authorization. The initial explicit replacement request prepares a
+  persisted review-and-confirm card, which is the only execution gate.
 - Do not claim that the Vault is inaccessible when the Brain tool bundle is
   available; inspect the tables through the registered tools first.
 - Do not run backend tests without `GNOSI_LOCAL_DATA` in a native shell,

@@ -200,7 +200,10 @@ def test_coder_tools_exclude_personal_data_sources():
         ("Envia aquest correu a Anna", {"send_mail"}),
         ("Buida la paperera", {"empty_trash"}),
         ("Elimina la taula Projectes", {"delete_table"}),
-        ("Sí, fes-la", {"bulk_update_rows"}),
+        (
+            "Substitueix els ids dels títols de la taula Cervell digital",
+            {"bulk_update_rows"},
+        ),
     ],
 )
 def test_explicit_user_intent_authorizes_individual_write_tools(message, expected):
@@ -244,7 +247,8 @@ def test_vague_or_quoted_content_does_not_authorize_writes(message):
         "Envia el correu, però no l’enviïs realment",
         "Actualiza la página, pero no cambies nada",
         "Modifie la page, mais ne la change pas",
-        "No, no la facis",
+        "Sí, fes-la",
+        "OK",
     ],
 )
 def test_negated_meta_or_quoted_intent_never_authorizes_writes(message):

@@ -532,8 +532,10 @@ def _explicit_brain_write_tool_names(
         "bulk_update_rows": (
             "actualitza massivament", "actualitza totes les files",
             "bulk update", "update all rows", "actualiza masivamente",
-            "mise à jour en masse", "sí, fes-la", "sí, fes-ho",
-            "si, hazlo", "sí, hazlo", "yes, do it", "oui, fais-le",
+            "mise à jour en masse", "substitueix els ids",
+            "substitueix els identificadors", "replace the ids",
+            "replace the identifiers", "reemplaza los ids",
+            "reemplaza los identificadores",
         ),
     }
     for name, patterns in confirmation_request_patterns.items():
