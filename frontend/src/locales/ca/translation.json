@@ -708,6 +708,8 @@
     "view_graph": "Veure Graf",
     "error_prefix": "Error",
     "control_center": "Centre de control",
+    "pagination_range": "Es mostren {{start}} a {{end}} de {{total}}",
+    "pagination_page": "Pàgina {{page}}",
     "frequency_minutes_many": "Cada {{count}} min",
     "frequency_hours_many": "Cada {{count}} hores",
     "frequency_days_many": "Cada {{count}} dies"
