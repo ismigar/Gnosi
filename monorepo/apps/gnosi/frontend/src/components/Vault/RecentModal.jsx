@@ -5,6 +5,7 @@ import { isCalendarPage } from './schemaUtils';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import { IconRenderer } from './IconRenderer';
 import { getIntlLocale } from '../../locales/registry';
+import { openVaultNote, selectRecentNotes } from '../../utils/vaultQuickNavigation';
 
 export function RecentModal({ isOpen, onClose, allNotes = [], onNoteSelect }) {
     const { t, i18n } = useTranslation();
@@ -21,15 +22,7 @@ export function RecentModal({ isOpen, onClose, allNotes = [], onNoteSelect }) {
         // Filter out calendar pages
         const filtered = (allNotes || []).filter(p => !isCalendarPage(p));
 
-        // Sort by last_modified descending
-        const sorted = filtered.sort((a, b) => {
-            const dateA = new Date(a.last_modified || 0).getTime();
-            const dateB = new Date(b.last_modified || 0).getTime();
-            return dateB - dateA;
-        });
-
-        // Take top 20
-        return sorted.slice(0, 20);
+        return selectRecentNotes(filtered, 20);
     }, [allNotes]);
 
     useEffect(() => {
@@ -52,7 +45,7 @@ export function RecentModal({ isOpen, onClose, allNotes = [], onNoteSelect }) {
                 e.preventDefault();
                 if (recentNotes.length > 0 && recentNotes[selectedIndex]) {
                     const selected = recentNotes[selectedIndex];
-                    onNoteSelect(selected.id, selected.folder); // Pass ID instead of filename, since loadPage takes ID
+                    openVaultNote(onNoteSelect, selected);
                     onClose();
                 }
             }
@@ -120,7 +113,7 @@ export function RecentModal({ isOpen, onClose, allNotes = [], onNoteSelect }) {
                                     <button
                                         key={note.id || note.filename}
                                         onClick={() => {
-                                            onNoteSelect(note.id, note.folder);
+                                            openVaultNote(onNoteSelect, note);
                                             onClose();
                                         }}
                                         onMouseEnter={() => setSelectedIndex(index)}
