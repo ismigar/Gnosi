@@ -278,6 +278,13 @@ class GraphService:
     _last_graph_time: dict = {}
     _GRAPH_CACHE_TTL = 30  # seconds — enough to avoid continuous rebuilds but reactive to changes
 
+    @classmethod
+    def invalidate_response_cache(cls) -> None:
+        """Invalidate all per-vault graph responses without touching layout caches."""
+
+        cls._graph_cache = {}
+        cls._last_graph_time = {}
+
     # Class-level Persistent Node Data Cache (metadata, links, etc.)
     # Format: { path_str: { mtime: float, metadata: dict, size: int, links: list, kind: str, color: str, title: str } }
     _NODE_DATA_CACHE = {}
@@ -571,6 +578,11 @@ class GraphService:
                 # start once OneDrive recovers. In-memory reuse is still fine.
                 GraphService._save_layout_cache()
 
+        # Pending semantic proposals are an overlay, not structural topology.
+        # Add them only after layout calculation so they never affect positions,
+        # degree-based sizing, or the stable layout hash.
+        self._add_suggestion_edges(G)
+
         # Index pages generated for relation fields sometimes inherit the raw
         # relation UUID in their filename (for example, ``Index · Projecte:
         # <uuid>``). Resolve that UUID against the already-built graph so the
@@ -630,6 +642,7 @@ class GraphService:
                 "size": edge_attrs.get("size", 1),
                 "dashed": edge_attrs.get("dashed", False),
                 "kind": edge_attrs.get("kind", "structural"),
+                "similarity": edge_attrs.get("similarity"),
                 "body_link": bool(edge_attrs.get("body_link", False)),
                 "reason": edge_attrs.get("reason", ""),
                 "scope_only": bool(edge_attrs.get("scope_only", False)),
