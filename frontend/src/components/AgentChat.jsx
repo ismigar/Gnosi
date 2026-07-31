@@ -622,6 +622,22 @@ const AgentChat = ({ storageIdentity = '' }) => {
         inputRef.current.style.height = `${inputRef.current.scrollHeight}px`;
     };
 
+    const handleChatKeyDown = (event) => {
+        if (event.defaultPrevented) return;
+        const isComposer = event.target === inputRef.current;
+        const scrollDelta = chatScrollDeltaForComposerKey({
+            key: event.key,
+            value: isComposer ? event.target.value : '',
+            altKey: event.altKey,
+            ctrlKey: event.ctrlKey,
+            metaKey: event.metaKey,
+            shiftKey: event.shiftKey,
+        });
+        if (!scrollDelta) return;
+        event.preventDefault();
+        messagesContainerRef.current?.scrollBy({ top: scrollDelta, behavior: 'smooth' });
+    };
+
     const uploadAttachmentFile = async (file) => {
         const formData = new FormData();
         formData.append('file', file);
@@ -1353,7 +1369,11 @@ const AgentChat = ({ storageIdentity = '' }) => {
     }
 
     return (
-        <div className="gnosi-floating-panel gnosi-floating-panel--chat" style={{
+        <div
+            className="gnosi-floating-panel gnosi-floating-panel--chat"
+            tabIndex={0}
+            onKeyDown={handleChatKeyDown}
+            style={{
             position: 'fixed', bottom: 'max(16px, env(safe-area-inset-bottom))', right: 'max(16px, env(safe-area-inset-right))', zIndex: 'var(--z-floating)',
             width: isMinimized ? '200px' : 'min(400px, calc(100vw - 2rem))',
             height: isMinimized ? '50px' : '600px',
@@ -1363,7 +1383,8 @@ const AgentChat = ({ storageIdentity = '' }) => {
             display: 'flex', flexDirection: 'column', overflow: 'hidden',
             border: '1px solid var(--settings-border, #e5e7eb)',
             transition: 'all 0.3s ease-in-out'
-        }}>
+            }}
+        >
             {/* Header */}
             <div style={{
                 padding: '12px 16px', 
@@ -1736,6 +1757,8 @@ const AgentChat = ({ storageIdentity = '' }) => {
                 isDestructive={pendingConfirmation?.destructive !== false}
                 confirmOnEnter={false}
                 autofocusConfirm={false}
+                requireAcknowledgement
+                acknowledgementLabel={t('chat.confirmations.acknowledgement', 'I have reviewed this action and want to continue.')}
             />
         </div>
     );

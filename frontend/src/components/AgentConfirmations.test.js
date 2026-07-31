@@ -192,6 +192,39 @@ describe('agent action confirmations', () => {
         expect(onConfirm).toHaveBeenCalledTimes(1);
     });
 
+    it('requires the acknowledgement checkbox before confirming', async () => {
+        const onConfirm = vi.fn().mockResolvedValue(undefined);
+        const container = await render(
+            React.createElement(ConfirmModal, {
+                isOpen: true,
+                onClose: vi.fn(),
+                onConfirm,
+                title: 'Review',
+                message: 'Exact action',
+                confirmText: 'Execute',
+                cancelText: 'Cancel',
+                requireAcknowledgement: true,
+                acknowledgementLabel: 'I reviewed it',
+            }),
+        );
+
+        const checkbox = container.querySelector('input[type="checkbox"]');
+        const execute = [...container.querySelectorAll('button')]
+            .find(button => button.textContent === 'Execute');
+        expect(checkbox).not.toBeNull();
+        expect(execute.disabled).toBe(true);
+
+        await act(async () => {
+            checkbox.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        });
+        expect(execute.disabled).toBe(false);
+
+        await act(async () => {
+            execute.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        });
+        expect(onConfirm).toHaveBeenCalledTimes(1);
+    });
+
     it('keeps the default export available for the production route', () => {
         expect(AgentChat).toBeTypeOf('function');
     });
