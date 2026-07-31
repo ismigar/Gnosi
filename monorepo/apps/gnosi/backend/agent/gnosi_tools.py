@@ -34,6 +34,9 @@ except Exception:  # pragma: no cover - keeps pure helpers importable in lean te
 
 MAX_LIST_ITEMS = 100
 MAX_BODY_CHARS = 12_000
+MAX_DETERMINISTIC_BULK_ITEMS = 5_000
+MAX_REFERENCE_TABLES = 10
+MAX_CONFIRMATION_SAMPLE_ITEMS = 8
 _BULK_UPDATE_LOCK = threading.RLock()
 
 
@@ -462,6 +465,67 @@ def _table_rows_snapshot(table_id: str) -> List[Dict[str, str]]:
             "revision": _file_revision(path),
         })
     return sorted(rows, key=lambda row: row["relative_path"])
+
+
+_UUID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
+
+
+def _reference_title_replacement_plan(
+    source_rows: List[Dict[str, str]],
+    references: List[Dict[str, Any]],
+) -> tuple[List[Dict[str, str]], List[Dict[str, str]]]:
+    """Build an exact index-title replacement plan from complete snapshots."""
+    matchers = []
+    for reference in references:
+        label = str(reference.get("label") or "").strip()
+        rows = list(reference.get("rows") or [])
+        title_by_id = {
+            str(row.get("id") or "").casefold(): str(row.get("title") or "")
+            for row in rows
+            if row.get("id") and row.get("title")
+        }
+        pattern = re.compile(
+            rf"^(?P<head>\s*(?:Índex|Index)\s*[-·–—]\s*"
+            rf"{re.escape(label)}\s*:\s*)(?P<reference_id>.+?)\s*$",
+            re.IGNORECASE,
+        )
+        matchers.append((label, title_by_id, pattern))
+
+    updates: List[Dict[str, str]] = []
+    unresolved: List[Dict[str, str]] = []
+    for row in source_rows:
+        old_title = str(row.get("title") or "")
+        for label, title_by_id, pattern in matchers:
+            match = pattern.fullmatch(old_title)
+            if not match:
+                continue
+            reference_id = match.group("reference_id").strip()
+            replacement = title_by_id.get(reference_id.casefold())
+            if replacement:
+                row_id = str(row.get("id") or "")
+                if not row_id:
+                    break
+                new_title = f"{match.group('head')}{replacement}"
+                if new_title != old_title:
+                    updates.append({
+                        "id": row_id,
+                        "old_title": old_title,
+                        "new_title": new_title,
+                        "relative_path": str(row.get("relative_path") or ""),
+                        "revision": str(row.get("revision") or ""),
+                    })
+            elif _UUID_RE.fullmatch(reference_id):
+                unresolved.append({
+                    "id": str(row.get("id") or ""),
+                    "title": old_title,
+                    "label": label,
+                    "reference_id": reference_id,
+                })
+            break
+    return updates, unresolved
 
 
 def _table_delete_snapshot(table: Dict[str, Any]) -> Dict[str, Any]:
@@ -1408,8 +1472,143 @@ def bulk_update_rows(updates: List[Dict[str, Any]]) -> str:
     )
 
 
+@tool
+def replace_reference_ids_in_titles(
+    source_table_id_or_name: str,
+    reference_tables: Dict[str, str],
+) -> str:
+    """Prepares a confirmed all-row replacement of reference ids in index titles.
+
+    ``reference_tables`` maps the singular label used in the title to the table
+    that owns the referenced rows, for example
+    ``{"Projecte": "Projectes", "Àrea": "Àrees"}``. Gnosi reads every row on
+    the server; the model must not enumerate candidates or updates.
+    """
+    source_table = _table(source_table_id_or_name)
+    if not source_table:
+        return _json({"error": "Source table not found."})
+    if not isinstance(reference_tables, dict) or not (
+        1 <= len(reference_tables) <= MAX_REFERENCE_TABLES
+    ):
+        return _json({
+            "error": (
+                f"Between 1 and {MAX_REFERENCE_TABLES} reference tables are required."
+            )
+        })
+
+    source_table_id = str(source_table.get("id") or "")
+    source_rows = _table_rows_snapshot(source_table_id)
+    if len(source_rows) > MAX_DETERMINISTIC_BULK_ITEMS:
+        return _json({
+            "error": (
+                "The source table exceeds the deterministic bulk-edit safety limit."
+            )
+        })
+
+    references = []
+    seen_labels = set()
+    for raw_label, table_identifier in reference_tables.items():
+        label = str(raw_label or "").strip()
+        normalized_label = label.casefold()
+        if not label or normalized_label in seen_labels:
+            return _json({"error": "Reference labels must be unique and non-empty."})
+        seen_labels.add(normalized_label)
+        table = _table(str(table_identifier or ""))
+        if not table:
+            return _json({"error": f"Reference table not found: {table_identifier}"})
+        table_id = str(table.get("id") or "")
+        rows = _table_rows_snapshot(table_id)
+        if len(rows) > MAX_DETERMINISTIC_BULK_ITEMS:
+            return _json({
+                "error": (
+                    f"Reference table {table.get('name') or table_id} exceeds "
+                    "the deterministic bulk-edit safety limit."
+                )
+            })
+        references.append({
+            "label": label,
+            "table_id": table_id,
+            "table_name": str(table.get("name") or table_id),
+            "rows": rows,
+            "rows_revision": _value_revision(rows),
+        })
+
+    references.sort(key=lambda item: item["label"].casefold())
+    updates, unresolved = _reference_title_replacement_plan(
+        source_rows,
+        references,
+    )
+    if not updates:
+        return _json({
+            "error": "No replaceable reference ids were found.",
+            "unresolved_count": len(unresolved),
+            "unresolved": [
+                {
+                    "id": item["id"],
+                    "title": item["title"][:240],
+                    "label": item["label"][:100],
+                    "reference_id": item["reference_id"][:200],
+                }
+                for item in unresolved[:MAX_CONFIRMATION_SAMPLE_ITEMS]
+            ],
+        })
+
+    compact_references = [
+        {
+            "label": item["label"],
+            "table_id": item["table_id"],
+            "rows_revision": item["rows_revision"],
+        }
+        for item in references
+    ]
+    return _confirmation(
+        "replace_reference_ids_in_titles",
+        {
+            "source_table_id": source_table_id,
+            "source_rows_revision": _value_revision(source_rows),
+            "references": compact_references,
+            "plan_revision": _value_revision(updates),
+            "planned_count": len(updates),
+        },
+        {
+            "count": len(updates),
+            "source_table": str(source_table.get("name") or source_table_id),
+            "references": [
+                {"label": item["label"], "table": item["table_name"]}
+                for item in references
+            ],
+            "updates": [
+                {
+                    "id": item["id"],
+                    "from": item["old_title"][:240],
+                    "to": item["new_title"][:240],
+                }
+                for item in updates[:MAX_CONFIRMATION_SAMPLE_ITEMS]
+            ],
+            "updates_truncated": len(updates) > MAX_CONFIRMATION_SAMPLE_ITEMS,
+            "unresolved_count": len(unresolved),
+            "unresolved": [
+                {
+                    "id": item["id"],
+                    "title": item["title"][:240],
+                    "label": item["label"][:100],
+                    "reference_id": item["reference_id"][:200],
+                }
+                for item in unresolved[:MAX_CONFIRMATION_SAMPLE_ITEMS]
+            ],
+        },
+    )
+
+
 CONFIRMED_WRITE_TOOLS.extend(
-    [delete_table, restore_page_version, empty_trash, change_schema, bulk_update_rows]
+    [
+        delete_table,
+        restore_page_version,
+        empty_trash,
+        change_schema,
+        bulk_update_rows,
+        replace_reference_ids_in_titles,
+    ]
 )
 
 
@@ -1838,6 +2037,115 @@ async def execute_confirmed_action(
             str(arguments["folder"]),
             dict(arguments.get("schema_definition") or {}),
         )
+
+    if action == "replace_reference_ids_in_titles":
+        source_table_id = str(arguments.get("source_table_id") or "")
+        source_table = _table(source_table_id)
+        if not source_table:
+            raise LookupError("Source table not found.")
+        source_rows = _table_rows_snapshot(source_table_id)
+        if _value_revision(source_rows) != str(
+            arguments.get("source_rows_revision") or ""
+        ):
+            raise ActionConflictError(
+                "The source table changed after the confirmation preview."
+            )
+
+        references = []
+        stored_references = list(arguments.get("references") or [])
+        if not (1 <= len(stored_references) <= MAX_REFERENCE_TABLES):
+            raise ValueError("The reference table set is invalid.")
+        for stored in stored_references:
+            table_id = str(stored.get("table_id") or "")
+            table = _table(table_id)
+            if not table:
+                raise LookupError(f"Reference table not found: {table_id}")
+            rows = _table_rows_snapshot(table_id)
+            if _value_revision(rows) != str(stored.get("rows_revision") or ""):
+                raise ActionConflictError(
+                    "A reference table changed after the confirmation preview."
+                )
+            references.append({
+                "label": str(stored.get("label") or ""),
+                "table_id": table_id,
+                "rows": rows,
+            })
+
+        updates, _unresolved = _reference_title_replacement_plan(
+            source_rows,
+            references,
+        )
+        if (
+            not updates
+            or len(updates) > MAX_DETERMINISTIC_BULK_ITEMS
+            or len(updates) != int(arguments.get("planned_count") or 0)
+            or _value_revision(updates)
+            != str(arguments.get("plan_revision") or "")
+        ):
+            raise ActionConflictError(
+                "The title replacement plan changed after the confirmation preview."
+            )
+
+        with _BULK_UPDATE_LOCK:
+            prepared = []
+            for update in updates:
+                row_id = str(update["id"])
+                path = _resolve_snapshotted_row_path(update["relative_path"])
+                _require_file_revision(
+                    path,
+                    str(update.get("revision") or ""),
+                    f"Row {row_id}",
+                )
+                metadata, body = _parse(path)
+                if str(metadata.get("id") or "") != row_id:
+                    raise ActionConflictError(
+                        f"Row {row_id} changed after the confirmation preview."
+                    )
+                if str(
+                    metadata.get("table_id")
+                    or metadata.get("database_table_id")
+                    or ""
+                ) != source_table_id:
+                    raise ActionConflictError(
+                        f"Row {row_id} moved after the confirmation preview."
+                    )
+                if str(metadata.get("title") or path.stem) != update["old_title"]:
+                    raise ActionConflictError(
+                        f"Row {row_id} changed after the confirmation preview."
+                    )
+                new_metadata = dict(metadata)
+                new_metadata["title"] = update["new_title"]
+                prepared.append({
+                    "id": row_id,
+                    "path": path,
+                    "original": path.read_bytes(),
+                    "metadata": new_metadata,
+                    "body": body,
+                })
+
+            attempted = []
+            try:
+                for item in prepared:
+                    attempted.append(item)
+                    _write_page(item["path"], item["metadata"], item["body"])
+            except Exception as error:
+                rollback_failed = _rollback_page_items(attempted)
+                if rollback_failed:
+                    return {
+                        "status": "partial",
+                        "updated_count": len(rollback_failed),
+                        "rollback_failed_ids": rollback_failed,
+                        "error": str(error)[:500],
+                    }
+                raise RuntimeError(
+                    "The title replacement failed and all changed rows were rolled back."
+                ) from error
+        return {
+            "status": "completed",
+            "updated_count": len(prepared),
+            "row_ids": [item["id"] for item in prepared[:MAX_LIST_ITEMS]],
+            "truncated": len(prepared) > MAX_LIST_ITEMS,
+        }
 
     if action == "bulk_update_rows":
         updates = list(arguments.get("updates") or [])

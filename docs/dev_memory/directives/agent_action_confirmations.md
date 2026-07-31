@@ -77,6 +77,9 @@ success, failure, and an unknown external outcome.
 3. Consequential dialogs focus Cancel. Enter never confirms them.
 4. Show the complete bounded preview, including recipients, subject, body,
    target IDs, fields, values, effects, and hashes where appropriate.
+   For deterministic mass edits, calculate the complete plan on the server and
+   show its total count, a bounded sample, and unresolved candidates. Never ask
+   the model to enumerate the full mutation list.
 5. Ignore confirmation responses after the user changes Vault, agent, or
    session.
 6. On a network error, query server status before displaying a result.
@@ -123,6 +126,13 @@ success, failure, and an unknown external outcome.
   as a known failure merely because it is represented by `HTTPException`.
 - Do not report a batch as complete when any item failed.
 - Do not await cloud filesystem cleanup in the confirmation HTTP response.
+- Do not implement an all-rows transformation through a bounded read tool or a
+  model-authored update array. Snapshot every source and reference row on the
+  server, store compact snapshot and plan digests, and recompute the exact plan
+  after confirmation before writing atomically.
+- Do not treat hyphen, middle-dot, en-dash, and em-dash title separators as
+  interchangeable by accident. Normalize only the explicitly supported index
+  title syntax and preserve the separator shown in the original title.
 - Do not let bounded terminal history crowd a newer pending action out of the
   resumable list; pending/executing records have retrieval priority.
 - Do not preview or execute a mail target by message ID alone. Bind the account
