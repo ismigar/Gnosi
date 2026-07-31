@@ -4414,6 +4414,7 @@
       "summary": "Vérifiez cette action avant de continuer.",
       "confirm": "Confirmer et exécuter",
       "cancel": "Annuler l'action",
+      "acknowledgement": "J’ai vérifié cette action et je veux continuer.",
       "review": "Vérifier et confirmer",
       "completed": "Action terminée après confirmation.",
       "partial": "L'action a été partiellement effectuée : {{completed}} terminées et {{failed}} échouées.",

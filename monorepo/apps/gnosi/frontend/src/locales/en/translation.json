@@ -4271,6 +4271,7 @@
       "summary": "Review this action before continuing.",
       "confirm": "Confirm and execute",
       "cancel": "Cancel action",
+      "acknowledgement": "I have reviewed this action and want to continue.",
       "review": "Review and confirm",
       "completed": "Action completed after confirmation.",
       "partial": "The action completed partially: {{completed}} completed, {{failed}} failed.",

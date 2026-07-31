@@ -12,8 +12,10 @@ keys while the empty chat composer has focus.
 3. Prevent the browser caret movement for those presses and scroll the message
    panel by a small, predictable amount.
 4. Preserve native textarea navigation whenever the composer contains text.
-5. Verify the decision logic with a unit test and verify the interaction in the
-   native browser UI.
+5. Make the chat panel itself focusable so arrows work when focus is anywhere
+   in the chat surface, not only in the composer.
+6. Verify the decision logic with a unit test and verify the interaction in
+   the native browser UI.
 
 ## Restrictions and edge cases
 
@@ -23,3 +25,5 @@ keys while the empty chat composer has focus.
   normal caret movement and text editing.
 - Do not intercept modified arrows, because browsers, assistive technology,
   and operating systems may assign them navigation semantics.
+- Do not install a global document listener: modal dialogs and other controls
+  must retain their own keyboard behavior.
