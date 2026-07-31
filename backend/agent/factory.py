@@ -1,5 +1,7 @@
 import os
 import operator
+import re
+import json
 from typing import Annotated, Any, Iterable, TypedDict, List, Sequence, Optional
 import logging
 from langchain_core.messages import BaseMessage, SystemMessage, ToolMessage
@@ -41,6 +43,15 @@ from backend.agent.vault_tools import (
     create_page,
     summarize_to_cornell,
 )
+from backend.agent.gnosi_tools import (
+    CONFIRMED_WRITE_TOOLS,
+    EXPLICIT_WRITE_TOOLS,
+    READ_TOOLS as GNOSI_READ_TOOLS,
+)
+from backend.agent.action_confirmations import (
+    confirmation_event,
+    request_governed_tool_confirmation,
+)
 from backend.agent.agent_context import build_context_tools, describe_context_refs
 from backend.agent.tools import get_mcp_tools
 from backend.config.app_config import load_params
@@ -50,6 +61,92 @@ cfg = load_params(strict_env=False)
 BASE_DIR = cfg.paths.get("PROJECT_DIR") or Path(__file__).resolve().parent.parent.parent
 INSTRUCTIONS_DIR = cfg.paths.get("AGENT_INSTRUCTIONS") or (Path(__file__).resolve().parent / "instructions")
 log = logging.getLogger(__name__)
+
+MAX_MODEL_MESSAGE_CHARS = 60_000
+MAX_MODEL_MESSAGE_COUNT = 32
+MAX_SINGLE_MESSAGE_CHARS = 16_000
+MAX_SKILL_INSTRUCTION_CHARS = 24_000
+MAX_SYSTEM_PROMPT_CHARS = 32_000
+MAX_BOUND_TOOLS = 64
+DEFAULT_CONTEXT_WINDOW_TOKENS = 8_192
+
+
+def _bounded_model_messages(
+    messages: Sequence[BaseMessage],
+    max_chars: int = MAX_MODEL_MESSAGE_CHARS,
+) -> List[BaseMessage]:
+    """Keep newest complete assistant/tool protocol groups within the budget."""
+    source = list(messages)[-MAX_MODEL_MESSAGE_COUNT:]
+    while source and isinstance(source[0], ToolMessage):
+        source.pop(0)
+    units: List[List[BaseMessage]] = []
+    index = 0
+    while index < len(source):
+        message = source[index]
+        unit = [message]
+        tool_call_ids = {
+            str(call.get("id") or "")
+            for call in (getattr(message, "tool_calls", None) or [])
+            if isinstance(call, dict)
+        }
+        if tool_call_ids:
+            cursor = index + 1
+            while cursor < len(source):
+                candidate = source[cursor]
+                if not isinstance(candidate, ToolMessage):
+                    break
+                if str(getattr(candidate, "tool_call_id", "") or "") not in tool_call_ids:
+                    break
+                unit.append(candidate)
+                cursor += 1
+            index = cursor
+        else:
+            index += 1
+        units.append(unit)
+
+    bounded_units: List[List[BaseMessage]] = []
+    remaining = max(1, int(max_chars))
+    for unit in reversed(units):
+        prepared = []
+        unit_chars = 0
+        for message in unit:
+            content = message.content
+            text = content if isinstance(content, str) else json.dumps(
+                content, ensure_ascii=False, default=str,
+            )
+            if len(text) > MAX_SINGLE_MESSAGE_CHARS:
+                text = text[:MAX_SINGLE_MESSAGE_CHARS]
+                message = message.model_copy(update={"content": text})
+            unit_chars += len(text)
+            prepared.append(message)
+        if unit_chars > remaining and bounded_units:
+            continue
+        if unit_chars > remaining:
+            available = max(0, remaining)
+            truncated = []
+            for message in prepared:
+                content = message.content
+                text = content if isinstance(content, str) else json.dumps(
+                    content, ensure_ascii=False, default=str,
+                )
+                kept = text[:available]
+                truncated.append(
+                    message
+                    if kept == text
+                    else message.model_copy(update={"content": kept})
+                )
+                available -= len(kept)
+            prepared = truncated
+            unit_chars = remaining
+        bounded_units.append(prepared)
+        remaining -= unit_chars
+        if remaining <= 0:
+            break
+    return [
+        message
+        for unit in reversed(bounded_units)
+        for message in unit
+    ]
 
 
 AUTO_SIMPLE_KEYWORDS = {
@@ -196,8 +293,104 @@ def _coder_read_only_tools(tools: Sequence[Any]) -> List[Any]:
     return [tool for tool in tools if tool.name in allowed_names]
 
 
-def _explicit_brain_write_tool_names(message: str) -> set[str]:
-    """Authorize individual Brain mutations from explicit current-turn wording."""
+def _mask_quoted_text(text: str) -> str:
+    """Mask quoted/code spans so examples and copied instructions grant nothing."""
+    patterns = (
+        r"```.*?```",
+        r"`[^`]*`",
+        r'"[^"]*"',
+        r"“[^”]*”",
+        r"«[^»]*»",
+        # Pair-delimited single quotes are examples/quotations too. The
+        # surrounding-boundary checks preserve apostrophes inside words such
+        # as Catalan ``l'esquema`` and French ``l'agent``.
+        r"(?<![\wÀ-ÿ])'[^'\n]+'(?![\wÀ-ÿ])",
+    )
+    masked = text
+    for pattern in patterns:
+        masked = re.sub(
+            pattern,
+            lambda match: " " * len(match.group(0)),
+            masked,
+            flags=re.DOTALL,
+        )
+    return masked
+
+
+def _affirmative_pattern_present(text: str, patterns: Sequence[str]) -> bool:
+    """Match an action phrase only outside negation and meta capability queries."""
+    meta_prefixes = (
+        "analitza ", "analyse ", "analyze ", "explica ", "explain ",
+        "explique ", "per què ", "por qué ", "why ", "què significa ",
+        "qué significa ", "what does ",
+    )
+    third_person_queries = (
+        "can this agent ", "can the agent ", "could this agent ",
+        "pot aquest agent ", "pot l'agent ", "puede este agente ",
+        "puede el agente ", "est-ce que cet agent ", "l'agent peut-il ",
+    )
+    masked = _mask_quoted_text(text)
+    stripped = masked.strip()
+    if stripped.startswith(meta_prefixes):
+        return False
+    if any(query in stripped for query in third_person_queries):
+        return False
+
+    negations = re.compile(
+        r"\b(?:do not|don't|never|not|no|mai|nunca|jamais|sans|sense)\b"
+        r"|\bne\b.*\bpas\b",
+        re.IGNORECASE,
+    )
+    meta_context = re.compile(
+        r"\b(?:"
+        r"explain|describe|analy[sz]e|tell me|"
+        r"how\s+(?:to|do|can|could|would|should)|"
+        r"what\s+(?:happens|would happen)|whether|"
+        r"can i|could i|may i|before\s+you|if\s+(?:you|i|we)|"
+        r"documentation|docs?|phrase|example|"
+        r"explica|analitza|com\s+(?:puc|podria|es pot|cal)|"
+        r"què\s+passaria|abans\s+(?:que|de)|si\s+(?:tu|jo|et)|"
+        r"documentació|frase|exemple|"
+        r"analiza|cómo\s+(?:puedo|podría|se puede)|qué\s+pasaría|"
+        r"puedo|podría|antes\s+de|si\s+(?:tú|yo|te)|"
+        r"documentación|ejemplo|"
+        r"explique|analyse|comment\s+(?:puis-je|peut-on|faire)|"
+        r"que\s+se\s+passerait|puis-je|avant\s+de|"
+        r"si\s+(?:tu|je|vous)|documentation|phrase|exemple"
+        r")\b",
+        re.IGNORECASE,
+    )
+    for pattern in patterns:
+        start = 0
+        while True:
+            index = masked.find(pattern, start)
+            if index < 0:
+                break
+            clause_start = max(
+                masked.rfind(separator, 0, index)
+                for separator in (".", "!", "?", ";", "\n")
+            ) + 1
+            clause_end_candidates = [
+                position
+                for separator in (".", "!", "?", ";", "\n")
+                if (position := masked.find(separator, index + len(pattern))) >= 0
+            ]
+            clause_end = min(clause_end_candidates, default=len(masked))
+            clause = masked[clause_start:clause_end]
+            prefix = masked[clause_start:index][-80:]
+            # A denial anywhere in the same clause overrides an affirmative
+            # phrase, including suffixes such as "but do not actually do it".
+            if not negations.search(clause) and not meta_context.search(prefix):
+                return True
+            start = index + len(pattern)
+    return False
+
+
+def _explicit_brain_write_tool_names(
+    message: str,
+    mentions: Optional[Sequence[Any]] = None,
+) -> set[str]:
+    """Authorize fail-closed Brain mutations from the current human wording."""
     text = " ".join((message or "").strip().lower().split())
     if not text:
         return set()
@@ -208,7 +401,10 @@ def _explicit_brain_write_tool_names(message: str) -> set[str]:
         "create", "make", "prepare", "generate", "summarize",
         "resume", "haz", "prepara", "genera", "résume", "crée", "prépare",
     )
-    if "cornell" in text and any(action in text for action in cornell_actions):
+    if (
+        "cornell" in text
+        and _affirmative_pattern_present(text, cornell_actions)
+    ):
         authorized.add("summarize_to_cornell")
 
     page_patterns = (
@@ -218,7 +414,10 @@ def _explicit_brain_write_tool_names(message: str) -> set[str]:
         "crea una página", "crear una página", "haz una página", "haz una nota",
         "crée une page", "crée une note", "créer une page", "créer une note",
     )
-    if "cornell" not in text and any(pattern in text for pattern in page_patterns):
+    if (
+        "cornell" not in text
+        and _affirmative_pattern_present(text, page_patterns)
+    ):
         authorized.add("create_page")
 
     memory_patterns = (
@@ -229,8 +428,132 @@ def _explicit_brain_write_tool_names(message: str) -> set[str]:
         "guárdalo en la memoria", "guarda esto en la memoria",
         "recuerda que ", "mémorise ", "enregistre ceci en mémoire",
     )
-    if any(pattern in text for pattern in memory_patterns):
+    if _affirmative_pattern_present(text, memory_patterns):
         authorized.add("save_memory")
+
+    intent_patterns = {
+        "create_table_row": (
+            "crea una fila", "afegeix una fila", "create a row", "add a row",
+            "crea una fila", "añade una fila", "crée une ligne",
+        ),
+        "update_page": (
+            "actualitza la pàgina", "edita la pàgina", "update the page",
+            "edit the page", "actualiza la página", "modifie la page",
+        ),
+        "append_to_page": (
+            "afegeix a la pàgina", "append to the page", "añade a la página",
+            "ajoute à la page",
+        ),
+        "update_table_row": (
+            "actualitza la fila", "edita la fila", "update the row",
+            "edit the row", "actualiza la fila", "modifie la ligne",
+        ),
+        "add_tags": (
+            "afegeix etiquetes", "afegeix l'etiqueta", "add tags", "add the tag",
+            "añade etiquetas", "ajoute des étiquettes",
+        ),
+        "add_page_comment": (
+            "afegeix un comentari", "add a comment", "añade un comentario",
+            "ajoute un commentaire",
+        ),
+        "mark_task_complete": (
+            "marca la tasca com", "completa la tasca", "mark the task complete",
+            "complete the task", "marca la tarea como", "termine la tâche",
+        ),
+        "create_calendar_event": (
+            "crea un esdeveniment", "afegeix al calendari", "create an event",
+            "add to the calendar", "crea un evento", "crée un événement",
+        ),
+        "create_contact": (
+            "crea un contacte", "afegeix un contacte", "create a contact",
+            "add a contact", "crea un contacto", "crée un contact",
+        ),
+        "save_mail_draft": (
+            "desa un esborrany", "guarda un esborrany", "save a draft",
+            "draft an email", "guarda un borrador", "enregistre un brouillon",
+        ),
+    }
+    for name, patterns in intent_patterns.items():
+        if _affirmative_pattern_present(text, patterns):
+            authorized.add(name)
+
+    delete_patterns = (
+        "elimina la pàgina", "esborra la pàgina", "delete the page",
+        "remove the page", "elimina la página", "supprime la page",
+    )
+    if _affirmative_pattern_present(text, delete_patterns):
+        authorized.add("delete_page")
+
+    confirmation_request_patterns = {
+        "delete_contact": (
+            "elimina el contacte", "esborra el contacte", "delete the contact",
+            "elimina el contacto", "supprime le contact",
+        ),
+        "send_mail": (
+            "envia el correu", "envia aquest correu", "send the email",
+            "send this email", "envía el correo", "envoie le courriel",
+        ),
+        "archive_mail": (
+            "arxiva el correu", "archive the email", "archiva el correo",
+            "archive le courriel",
+        ),
+        "move_mail": (
+            "mou el correu", "move the email", "mueve el correo",
+            "déplace le courriel",
+        ),
+        "invite_attendees": (
+            "convida els assistents", "envia les invitacions", "invite attendees",
+            "send the invitations", "invita a los asistentes", "invite les participants",
+        ),
+        "delete_table": (
+            "elimina la taula", "esborra la taula", "delete the table",
+            "elimina la tabla", "supprime la table",
+        ),
+        "restore_page_version": (
+            "restaura la versió", "restore the version", "restaura la versión",
+            "restaure la version",
+        ),
+        "empty_trash": (
+            "buida la paperera", "empty the trash", "vacía la papelera",
+            "vide la corbeille",
+        ),
+        "change_schema": (
+            "canvia l'esquema", "substitueix l'esquema", "change the schema",
+            "replace the schema", "cambia el esquema", "modifie le schéma",
+        ),
+        "bulk_update_rows": (
+            "actualitza massivament", "actualitza totes les files",
+            "bulk update", "update all rows", "actualiza masivamente",
+            "mise à jour en masse",
+        ),
+    }
+    for name, patterns in confirmation_request_patterns.items():
+        if _affirmative_pattern_present(text, patterns):
+            authorized.add(name)
+
+    mention_types = {
+        str(
+            mention.get("type", "")
+            if isinstance(mention, dict)
+            else getattr(mention, "type", "")
+        ).strip().lower()
+        for mention in (mentions or ())
+    }
+    delete_verbs = (
+        "elimina ", "esborra ", "delete ", "remove ",
+        "supprime ", "borra ",
+    )
+    update_verbs = (
+        "actualitza ", "edita ", "update ", "edit ", "modifie ",
+    )
+    if {"table", "database"}.intersection(mention_types):
+        if _affirmative_pattern_present(text, delete_verbs):
+            authorized.add("delete_table")
+    if "page" in mention_types:
+        if _affirmative_pattern_present(text, delete_verbs):
+            authorized.add("delete_page")
+        if _affirmative_pattern_present(text, update_verbs):
+            authorized.add("update_page")
 
     return authorized
 
@@ -241,6 +564,8 @@ def _authorized_brain_write_tools(names: set[str]) -> List[Any]:
         "create_page": create_page,
         "summarize_to_cornell": summarize_to_cornell,
         "save_memory": save_memory,
+        **{tool.name: tool for tool in EXPLICIT_WRITE_TOOLS},
+        **{tool.name: tool for tool in CONFIRMED_WRITE_TOOLS},
     }
     return [
         tool
@@ -295,6 +620,40 @@ def _model_supports_tools(
     # Unknown/custom models fail closed. Agent profiles can explicitly opt in
     # through `capabilities.tools: true` after compatibility is verified.
     return False
+
+
+def _model_context_window(provider_name: str, model_name: Optional[str]) -> int:
+    """Resolve the selected model context window with a fail-small fallback."""
+    try:
+        from backend.agent.model_router import load_registry
+        match = next(
+            (
+                row for row in load_registry(with_catalog_prices=False)
+                if row.get("provider") == provider_name
+                and row.get("model_id") == model_name
+            ),
+            None,
+        )
+        if match:
+            return max(2_048, int(match.get("context_window") or 0))
+    except Exception:
+        pass
+    return DEFAULT_CONTEXT_WINDOW_TOKENS
+
+
+def _tool_schema_chars(tools: Sequence[Any]) -> int:
+    """Estimate serialized tool-schema input charged by providers."""
+    total = 0
+    for item in tools:
+        schema = getattr(item, "args_schema", None)
+        try:
+            payload = schema.model_json_schema() if schema else {}
+        except Exception:
+            payload = {}
+        total += len(str(getattr(item, "name", "")))
+        total += len(str(getattr(item, "description", "")))
+        total += len(json.dumps(payload, ensure_ascii=False, default=str))
+    return total
 
 
 def _select_agent_profile(ai_cfg: dict, agent_id: str) -> Optional[dict]:
@@ -380,6 +739,19 @@ def _deduplicate_tools(tools: Iterable[Any]) -> List[Any]:
     return result
 
 
+def _latest_tool_batch_requires_confirmation(messages: Iterable[Any]) -> bool:
+    """Stops the model loop once a consequential action preview is ready."""
+    for message in reversed(list(messages)):
+        message_type = str(getattr(message, "type", "") or "")
+        if message_type == "ai":
+            break
+        if message_type == "tool" and confirmation_event(
+            getattr(message, "content", ""),
+        ):
+            return True
+    return False
+
+
 def _descriptor_value(descriptor: Any, field: str, default: Any = None) -> Any:
     if isinstance(descriptor, dict):
         return descriptor.get(field, default)
@@ -447,6 +819,12 @@ def _runtime_tool_metadata(runtime: Any) -> tuple[list[dict], set[str]]:
             "skill_ids": tool_skill_ids.get(tool_id, []),
             "minimum_role": minimum_role,
             "confirmation": confirmation or "none",
+            "prepares_confirmation": bool(
+                (
+                    _descriptor_value(descriptor, "metadata", {}) or {}
+                ).get("prepares_confirmation")
+            ),
+            "_descriptor": descriptor,
         })
     return metadata, guarded_names
 
@@ -511,6 +889,41 @@ def _tool_policy_wrapper(tool_policies: Any):
                 status="error",
             )
         confirmation = str(policy.get("confirmation") or "none")
+        if confirmation == "always":
+            if policy.get("prepares_confirmation"):
+                if tool_name not in _turn_authorized_tool_names(request.state):
+                    return ToolMessage(
+                        content=(
+                            "Tool execution denied: the current user turn did not "
+                            f"explicitly authorize `{tool_name}`."
+                        ),
+                        name=tool_name,
+                        tool_call_id=str(tool_call.get("id") or ""),
+                        status="error",
+                    )
+                return execute(request)
+            try:
+                content = request_governed_tool_confirmation(
+                    descriptor=policy.get("_descriptor"),
+                    tool_name=tool_name,
+                    tool_arguments=dict(tool_call.get("args") or {}),
+                    active_skill_ids=(
+                        state.get("active_skill_ids") or ()
+                    ),
+                )
+            except Exception as error:
+                return ToolMessage(
+                    content=f"Tool confirmation preparation failed: {error}",
+                    name=tool_name,
+                    tool_call_id=str(tool_call.get("id") or ""),
+                    status="error",
+                )
+            return ToolMessage(
+                content=content,
+                name=tool_name,
+                tool_call_id=str(tool_call.get("id") or ""),
+                status="success",
+            )
         if confirmation not in {"", "never", "none"} and (
             tool_name not in _turn_authorized_tool_names(request.state)
         ):
@@ -940,7 +1353,12 @@ async def create_agent_workflow(
         return None, {}
 
     # 3. Prepare prompts (persona and active skill instructions).
-    persona = agent_data.get("persona", "")
+    context_window_tokens = _model_context_window(provider_name, model_name)
+    model_input_chars = max(
+        8_000,
+        min(240_000, int(context_window_tokens * 0.75 * 3)),
+    )
+    persona = str(agent_data.get("persona", ""))[:8_000]
     agent_name = agent_data.get("name", "Gnosy")
     
     # Load detailed persona from markdown if exists
@@ -948,7 +1366,8 @@ async def create_agent_workflow(
     detailed_persona = ""
     if persona_file.exists():
         try:
-            detailed_persona = persona_file.read_text(encoding="utf-8")
+            with persona_file.open("r", encoding="utf-8", errors="replace") as handle:
+                detailed_persona = handle.read(16_000)
         except Exception as e:
             log.warning(f"Could not read persona file {persona_file}: {e}")
     
@@ -982,10 +1401,18 @@ async def create_agent_workflow(
     )
 
     if skill_instructions:
+        bounded_skill_instructions = []
+        remaining_skill_chars = MAX_SKILL_INSTRUCTION_CHARS
+        for instruction in skill_instructions:
+            if remaining_skill_chars <= 0:
+                break
+            bounded = instruction[:remaining_skill_chars]
+            bounded_skill_instructions.append(bounded)
+            remaining_skill_chars -= len(bounded)
         skill_block = (
             "Active skill instructions (subordinate to system safety and tool "
             "policy):\n\n"
-            + "\n\n---\n\n".join(skill_instructions)
+            + "\n\n---\n\n".join(bounded_skill_instructions)
         )
         combined_persona = (
             f"{combined_persona}\n\n{skill_block}"
@@ -996,16 +1423,38 @@ async def create_agent_workflow(
     # Free-text notes go into the prompt verbatim (short and always relevant);
     # attached sources contribute only their INVENTORY — the agent reads them
     # on demand through the context tools (directive `agent_context_sources.md`).
-    context_notes = (agent_data.get("context") or "").strip()
+    context_notes = str(agent_data.get("context") or "").strip()[:8_000]
     context_refs = agent_data.get("context_refs") or []
+    context_inventory = describe_context_refs(context_refs)[:4_000]
+    context_notes_limit = max(0, 8_000 - len(context_inventory))
+    bounded_context_notes = context_notes[:context_notes_limit]
     context_block = "\n\n".join(
         part for part in (
-            f"Working context provided by the user:\n{context_notes}" if context_notes else "",
-            describe_context_refs(context_refs),
+            context_inventory,
+            (
+                f"Working context provided by the user:\n{bounded_context_notes}"
+                if bounded_context_notes
+                else ""
+            ),
         ) if part
     )
     if context_block:
-        combined_persona = f"{combined_persona}\n\n{context_block}" if combined_persona else context_block
+        bounded_context = context_block[:8_000]
+        persona_budget = max(
+            0,
+            min(MAX_SYSTEM_PROMPT_CHARS, model_input_chars // 3)
+            - len(bounded_context)
+            - 2,
+        )
+        combined_persona = (
+            f"{combined_persona[:persona_budget]}\n\n{bounded_context}"
+            if combined_persona
+            else bounded_context
+        )
+    combined_persona = combined_persona[:min(
+        MAX_SYSTEM_PROMPT_CHARS,
+        model_input_chars // 3,
+    )]
 
     general_prompt = combined_persona or "You are a helpful assistant."
     if context_refs:
@@ -1055,30 +1504,14 @@ async def create_agent_workflow(
         resolved_runtime,
     )
 
-    # The compatibility bundle preserves the former general-purpose tool belt
-    # for profiles not migrated yet. Brain search is intentionally absent:
-    # query_wiki is now available only through plugin.llm-wiki.query.
-    legacy_write_tools = (
-        _authorized_brain_write_tools(
-            {"create_page", "summarize_to_cornell", "save_memory"},
-        )
-        if legacy_bundle_active
-        else []
-    )
+    # First-party and third-party operations now arrive through the exact
+    # assigned-skill runtime. Explicitly scoped profiles never inherit an
+    # unrelated global Gnosi tool belt.
     guarded_tool_names = set(runtime_guarded_names)
-    guarded_tool_names.update(tool.name for tool in legacy_write_tools)
     tool_policies = {
-        item["name"]: {
-            "minimum_role": item.get("minimum_role") or "viewer",
-            "confirmation": item.get("confirmation") or "none",
-        }
+        item["name"]: dict(item)
         for item in runtime_tool_metadata
     }
-    for item in legacy_write_tools:
-        tool_policies[item.name] = {
-            "minimum_role": "editor",
-            "confirmation": "explicit_request",
-        }
 
     # Coder & Brain specialists.
     coder_tools = (
@@ -1097,21 +1530,47 @@ async def create_agent_workflow(
     # Tools scoped to the sources the user attached to THIS agent. They close over
     # its refs, so an agent can never read another agent's context.
     context_tools = build_context_tools(context_refs)
-    read_only_vault_tools = [
-        item for item in VAULT_KNOWLEDGE_TOOLS
-        if item.name in {"read_page", "read_pdf", "propose_links"}
-    ] if legacy_bundle_active else []
+    legacy_vault_tools = (
+        [
+            item
+            for item in VAULT_KNOWLEDGE_TOOLS
+            if item.name in {"read_page", "read_pdf", "propose_links"}
+        ]
+        if legacy_bundle_active
+        else []
+    )
     brain_tools = (
-        (mcp_langchain_tools if legacy_bundle_active else [])
-        + memory_tools
-        + read_only_vault_tools
+        runtime_tools
         + context_tools
-        + runtime_tools
-        + legacy_write_tools
+        + legacy_vault_tools
+        + memory_tools
+        + (mcp_langchain_tools if legacy_bundle_active else [])
         if supports_tools
         else []
     )
     brain_tools = _deduplicate_tools(brain_tools)
+    brain_tools = brain_tools[:MAX_BOUND_TOOLS]
+    bound_tool_names = {
+        str(getattr(item, "name", "") or getattr(item, "__name__", ""))
+        for item in brain_tools
+    }
+    omitted_runtime_tool_ids = [
+        str(item.get("id") or "")
+        for item in runtime_tool_metadata
+        if item.get("name") not in bound_tool_names and item.get("id")
+    ]
+    schema_chars = _tool_schema_chars(brain_tools)
+    reserved_output_chars = max(2_000, int(context_window_tokens * 0.15 * 3))
+    message_budget_chars = max(
+        4_000,
+        min(
+            180_000,
+            model_input_chars
+            - len(supervisor_prompt)
+            - schema_chars
+            - reserved_output_chars,
+        ),
+    )
     brain_llm = llm.bind_tools(brain_tools) if brain_tools else llm
 
     requested_active_skill_ids = {
@@ -1122,6 +1581,7 @@ async def create_agent_workflow(
         for item in runtime_tool_metadata
         if requested_active_skill_ids.intersection(item.get("skill_ids") or ())
         and item["name"] in guarded_tool_names
+        and item["name"] in bound_tool_names
         and item.get("confirmation") == "explicit_request"
     }
 
@@ -1150,7 +1610,7 @@ async def create_agent_workflow(
         )
         if obvious:
             return {"next": obvious}
-        prompt = [SystemMessage(content=supervisor_prompt)] + messages
+        prompt = [SystemMessage(content=supervisor_prompt)] + _bounded_model_messages(messages, message_budget_chars)
         response = llm.invoke(prompt)
 
         decision = response.content.strip().replace("'", "").replace('"', "")
@@ -1177,7 +1637,7 @@ async def create_agent_workflow(
             )
         )
         response = coder_llm.invoke(
-            [SystemMessage(content=coder_system)] + messages
+            [SystemMessage(content=coder_system)] + _bounded_model_messages(messages, message_budget_chars)
         )
         return {"messages": [response], "next": "supervisor"}
 
@@ -1201,10 +1661,29 @@ async def create_agent_workflow(
                 "\nYou may use only these tools: "
                 f"{tool_names}."
             )
+            always_confirmed_names = {
+                item["name"]
+                for item in runtime_tool_metadata
+                if item.get("confirmation") == "always"
+            }
+            if always_confirmed_names:
+                brain_system += (
+                    "\nThese tools only prepare a pending review and never "
+                    "perform their consequential action inside the model loop: "
+                    + ", ".join(sorted(always_confirmed_names))
+                    + ". Never claim they completed until Gnosi reports the "
+                    "post-confirmation result."
+                )
             authorized_guarded_names = (
                 current_authorized_names.intersection(guarded_tool_names)
             )
             if authorized_guarded_names:
+                confirmation_only_names = {
+                    item["name"]
+                    for item in runtime_tool_metadata
+                    if item["name"] in authorized_guarded_names
+                    and item.get("confirmation") == "always"
+                }
                 brain_system += (
                     "\nThe current user message explicitly authorizes only these "
                     "guarded tools for this turn: "
@@ -1212,6 +1691,13 @@ async def create_agent_workflow(
                     + ". Use them only to fulfill that explicit request. All other "
                     "writes remain prohibited. Confirm the actual tool result."
                 )
+                if confirmation_only_names:
+                    brain_system += (
+                        "\nThese consequential tools only prepare a pending action: "
+                        + ", ".join(sorted(confirmation_only_names))
+                        + ". Never claim the action has happened. It executes only "
+                        "after the user confirms the exact preview in Gnosi."
+                    )
             if guarded_tool_names and not authorized_guarded_names:
                 brain_system += (
                     "\nNo guarded tool is authorized for this turn. Calls to write, "
@@ -1230,20 +1716,16 @@ async def create_agent_workflow(
                 + ", ".join(rejected_mcp_names)
                 + ". Explain this limitation if the request depends on one of them."
             )
-        if context_tools:
-            # The Brain node is the one holding the context tools, so it needs the
-            # INVENTORY too: without it the model does not know which source ids
-            # exist and starts inventing references (observed with llama-3.3-70b,
-            # which answered from memory after three fabricated BOE ids 404'd).
-            brain_system += "\n\n" + describe_context_refs(context_refs)
-        response = brain_llm.invoke([SystemMessage(content=brain_system)] + messages)
+        response = brain_llm.invoke(
+            [SystemMessage(content=brain_system)] + _bounded_model_messages(messages, message_budget_chars),
+        )
         return {"messages": [response], "next": "supervisor"}
 
     def general_node(state: AgentState):
         messages = state["messages"]
         # Use explicit persona for general conversation
         response = llm.invoke(
-            [SystemMessage(content=general_prompt)] + messages
+            [SystemMessage(content=general_prompt)] + _bounded_model_messages(messages, message_budget_chars)
         )
         return {"messages": [response], "next": "FINISH"}
 
@@ -1292,7 +1774,19 @@ async def create_agent_workflow(
         brain_router,
         {"brain_tools": "brain_tools", "END": END},
     )
-    workflow.add_edge("brain_tools", "brain")
+
+    def brain_tools_router(state):
+        return (
+            "END"
+            if _latest_tool_batch_requires_confirmation(state["messages"])
+            else "brain"
+        )
+
+    workflow.add_conditional_edges(
+        "brain_tools",
+        brain_tools_router,
+        {"brain": "brain", "END": END},
+    )
     workflow.add_edge("general", END)
 
     # 6. Return the uncompiled workflow + metadata of the chosen model
@@ -1305,12 +1799,26 @@ async def create_agent_workflow(
         "missing_skill_ids": list(
             getattr(resolved_runtime, "missing_skill_ids", ()) or ()
         ),
-        "unavailable_tool_ids": list(
-            getattr(resolved_runtime, "unavailable_tool_ids", ()) or ()
+        "unavailable_tool_ids": sorted(
+            set(
+                list(getattr(resolved_runtime, "unavailable_tool_ids", ()) or ())
+                + omitted_runtime_tool_ids
+            )
         ),
         "catalog_revision": str(
             getattr(resolved_runtime, "catalog_revision", "") or ""
         ),
-        "tools": runtime_tool_metadata,
+        "supports_tools": supports_tools,
+        "tool_count": len(bound_tool_names),
+        "context_window_tokens": context_window_tokens,
+        "message_budget_chars": message_budget_chars,
+        "tools": [
+            {
+                key: value
+                for key, value in item.items()
+                if not key.startswith("_")
+            }
+            for item in runtime_tool_metadata
+        ],
         "turn_grant_tool_names": sorted(explicitly_activated_tool_names),
     }

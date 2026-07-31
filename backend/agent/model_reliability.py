@@ -21,6 +21,7 @@ See directive `model_failure_reasons.md`.
 from __future__ import annotations
 
 import json
+import hashlib
 import logging
 import os
 import tempfile
@@ -133,7 +134,8 @@ def _save(path: Optional[Path], data: Dict[str, Any]) -> None:
 
 
 def record_failure(provider: Optional[str], model_id: Optional[str],
-                   error: Any, *, when: Optional[datetime] = None) -> Optional[str]:
+                   error: Any, *, when: Optional[datetime] = None,
+                   scope_key: Optional[str] = None) -> Optional[str]:
     """Best-effort record of one failed call. Returns the reason, or None.
 
     Never raises: bookkeeping must not take down the request that produced it.
@@ -142,7 +144,8 @@ def record_failure(provider: Optional[str], model_id: Optional[str],
         return None
     reason = classify_failure(error)
     stamp = (when or datetime.now()).strftime("%Y-%m-%d")
-    key = f"{provider}:{model_id}"
+    scope = hashlib.sha256((scope_key or "legacy").encode("utf-8")).hexdigest()[:20]
+    key = f"{scope}|{provider}:{model_id}"
     try:
         with _lock:
             # Whole load→modify→save cycle under the lock: another writer may
@@ -163,14 +166,24 @@ def _within_window(by_day: Dict[str, int], since: str) -> int:
 
 
 def reliability_report(window_days: int = WINDOW_DAYS,
-                       *, today: Optional[datetime] = None) -> List[Dict[str, Any]]:
+                       *, today: Optional[datetime] = None,
+                       scope_key: Optional[str] = None) -> List[Dict[str, Any]]:
     """Per-model evidence within the window, models with model-fault first."""
     since = ((today or datetime.now()) - timedelta(days=window_days)).strftime("%Y-%m-%d")
     with _lock:
         data = _load(_store_path())
 
     rows: List[Dict[str, Any]] = []
-    for key, reasons in (data or {}).items():
+    expected_scope = hashlib.sha256(
+        (scope_key or "legacy").encode("utf-8"),
+    ).hexdigest()[:20]
+    for stored_key, reasons in (data or {}).items():
+        if "|" in stored_key:
+            stored_scope, key = stored_key.split("|", 1)
+        else:
+            stored_scope, key = hashlib.sha256(b"legacy").hexdigest()[:20], stored_key
+        if stored_scope != expected_scope:
+            continue
         provider, _, model_id = key.partition(":")
         counts = {
             reason: _within_window(by_day, since)
@@ -196,11 +209,12 @@ def reliability_report(window_days: int = WINDOW_DAYS,
 
 
 def model_evidence(provider: str, model_id: str,
-                   window_days: int = WINDOW_DAYS) -> Optional[Dict[str, Any]]:
+                   window_days: int = WINDOW_DAYS,
+                   *, scope_key: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """The row for one model, or None when it has no recorded failures."""
     key = (provider or "", model_id or "")
     return next(
-        (r for r in reliability_report(window_days)
+        (r for r in reliability_report(window_days, scope_key=scope_key)
          if (r["provider"], r["model_id"]) == key),
         None,
     )

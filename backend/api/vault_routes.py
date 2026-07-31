@@ -42,6 +42,7 @@ except Exception:
     Image = None
 from backend.config.app_config import load_params
 from backend.config.env_config import default_host_helper_url
+from backend.services.content_revision import path_collection_revision
 from backend.services.rule_engine import RuleEngine
 log = logging.getLogger(__name__)
 
@@ -2086,6 +2087,103 @@ def _table_assets_dir(
     return get_p("ASSETS") / db_segment / table_segment
 
 
+def _table_asset_paths(
+    table: Dict[str, Any],
+    database: Optional[Dict[str, Any]],
+) -> List[Path]:
+    """Return every active asset tree removed with one table."""
+    structured_path = _table_assets_dir(table, database)
+    paths = [structured_path]
+    table_name = str((table or {}).get("name") or "").strip()
+    if table_name:
+        table_segment = _sanitize_asset_segment(table_name, "Table")
+        database_segment = _sanitize_asset_segment(
+            (database or {}).get("name")
+            or (table or {}).get("database_id")
+            or "General",
+            "General",
+        )
+        flat_path = get_p("ASSETS") / table_segment
+        if _asset_segments_collide(table_segment, database_segment):
+            # The flat folder is also the database root. Only loose entries
+            # belong to this table; nested directories may belong to siblings.
+            if flat_path.is_dir() and not flat_path.is_symlink():
+                paths.extend(
+                    entry
+                    for entry in flat_path.iterdir()
+                    if not entry.is_dir() or entry.is_symlink()
+                )
+        else:
+            paths.append(flat_path)
+    unique: List[Path] = []
+    seen = set()
+    assets_root = get_p("ASSETS").resolve()
+    for candidate in paths:
+        # Resolve parents to reject traversal through a symlink, but preserve
+        # the final component itself so a table-owned symlink is hashed and
+        # quarantined instead of following or silently ignoring its target.
+        resolved = candidate.parent.resolve() / candidate.name
+        try:
+            resolved.relative_to(assets_root)
+        except ValueError:
+            log.warning("Unsafe table asset path ignored: %s", candidate)
+            continue
+        key = str(resolved)
+        if key not in seen:
+            seen.add(key)
+            unique.append(resolved)
+    # If a flat and structured path overlap, deleting the parent already
+    # covers the child. Keeping both would hash the child twice and make the
+    # quarantine revision differ after the first atomic move.
+    minimal: List[Path] = []
+    for candidate in sorted(unique, key=lambda path: len(path.parts)):
+        if any(
+            candidate == parent or parent in candidate.parents
+            for parent in minimal
+        ):
+            continue
+        minimal.append(candidate)
+    return minimal
+
+
+def _table_asset_revision(
+    table: Dict[str, Any],
+    database: Optional[Dict[str, Any]],
+) -> str:
+    assets_root = get_p("ASSETS").resolve()
+    return path_collection_revision(
+        (
+            path.relative_to(assets_root).as_posix(),
+            path,
+        )
+        for path in _table_asset_paths(table, database)
+    )
+
+
+def _stable_value_revision(value: Any) -> str:
+    return hashlib.sha256(
+        json.dumps(
+            value,
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+            default=str,
+        ).encode("utf-8")
+    ).hexdigest()
+
+
+def _table_views_revision(registry: Dict[str, Any], table_id: str) -> str:
+    views = sorted(
+        (
+            view
+            for view in registry.get("views", [])
+            if str(view.get("table_id") or "") == str(table_id)
+        ),
+        key=lambda view: str(view.get("id") or ""),
+    )
+    return _stable_value_revision(views)
+
+
 def _delete_asset_files_for_page(
     page_metadata: dict, table: Dict[str, Any], registry: dict
 ):
@@ -2162,26 +2260,276 @@ def _delete_asset_table_dir(table: Dict[str, Any], database: Optional[Dict[str, 
     consistent with the existing rmtree behaviour. The caller (delete_table
     handler) is the only entry point and it requires admin role.
     """
-    # 1) Structured Assets/[DB]/[Table]/
-    table_dir = _table_assets_dir(table, database)
-    if table_dir.is_dir():
+    for table_dir in _table_asset_paths(table, database):
+        if not table_dir.exists() and not table_dir.is_symlink():
+            continue
         try:
-            shutil.rmtree(table_dir)
-            log.info(f"Table folder deleted: {table_dir}")
+            if table_dir.is_dir() and not table_dir.is_symlink():
+                shutil.rmtree(table_dir)
+            else:
+                table_dir.unlink()
+            log.info("Table asset entry deleted: %s", table_dir)
         except Exception as exc:
-            log.warning(f"Could not delete folder {table_dir}: {exc}")
+            log.warning("Could not delete table asset entry %s: %s", table_dir, exc)
 
-    # 2) Flat Assets/<TableName>/
-    table_name = str((table or {}).get("name") or "").strip()
-    if table_name:
+
+def _table_asset_cleanup_root(vault_root: Path) -> Path:
+    root = Path(vault_root).resolve()
+    cleanup_root = (
+        root / ".gnosi" / "pending-cleanup" / "table-assets"
+    ).resolve()
+    try:
+        cleanup_root.relative_to(root)
+    except ValueError as error:
+        raise RuntimeError(
+            "The table asset cleanup path escapes the active Vault."
+        ) from error
+    return cleanup_root
+
+
+def _quarantine_table_asset_dirs(
+    table: Dict[str, Any],
+    database: Optional[Dict[str, Any]],
+) -> tuple[Optional[Path], List[tuple[Path, Path]]]:
+    """Atomically detach active asset trees before asynchronous deletion."""
+    sources = [
+        path
+        for path in _table_asset_paths(table, database)
+        if path.exists() or path.is_symlink()
+    ]
+    if not sources:
+        return None, []
+    vault_root = get_p("VAULT").resolve()
+    quarantine = (
+        _table_asset_cleanup_root(vault_root)
+        / f"in-progress-{uuid.uuid4().hex}"
+    )
+    quarantine.mkdir(parents=True, exist_ok=False)
+    destinations = [
+        f"{index:02d}-{source.name}"
+        for index, source in enumerate(sources)
+    ]
+    moved: List[tuple[Path, Path]] = []
+    try:
+        safe_write_json(
+            quarantine / "_manifest.json",
+            {
+                "table_id": str((table or {}).get("id") or ""),
+                "entries": [
+                    {
+                        "source": source.relative_to(vault_root).as_posix(),
+                        "destination": destination,
+                    }
+                    for source, destination in zip(sources, destinations)
+                ],
+            },
+            indent=2,
+        )
+        for source, destination_name in zip(sources, destinations):
+            destination = quarantine / destination_name
+            os.replace(source, destination)
+            moved.append((source, destination))
+    except Exception:
+        for source, destination in reversed(moved):
+            source.parent.mkdir(parents=True, exist_ok=True)
+            os.replace(destination, source)
+        shutil.rmtree(quarantine, ignore_errors=True)
+        raise
+    return quarantine, moved
+
+
+def _mark_table_asset_quarantine_ready(quarantine: Path) -> Path:
+    """Make a committed quarantine eligible for asynchronous cleanup."""
+    source = Path(quarantine)
+    if not source.name.startswith("in-progress-"):
+        raise ValueError("The table asset quarantine is not in progress.")
+    destination = source.with_name(
+        f"ready-{source.name.removeprefix('in-progress-')}"
+    )
+    os.replace(source, destination)
+    return destination
+
+
+def _quarantined_table_asset_revision(
+    table: Dict[str, Any],
+    database: Optional[Dict[str, Any]],
+    moved: List[tuple[Path, Path]],
+) -> str:
+    """Hash the sealed trees using their original logical asset labels."""
+    assets_root = get_p("ASSETS").resolve()
+    destinations = {str(source): destination for source, destination in moved}
+    logical_paths = {
+        str(path): path
+        for path in (
+            [source for source, _destination in moved]
+            + _table_asset_paths(table, database)
+        )
+    }
+    return path_collection_revision(
+        (
+            source.relative_to(assets_root).as_posix(),
+            destinations.get(str(source), source),
+        )
+        for source in sorted(logical_paths.values(), key=lambda path: str(path))
+    )
+
+
+def _restore_quarantined_table_assets(
+    quarantine: Optional[Path],
+    moved: List[tuple[Path, Path]],
+) -> None:
+    for source, destination in reversed(moved):
+        if not destination.exists():
+            continue
+        source.parent.mkdir(parents=True, exist_ok=True)
+        os.replace(destination, source)
+    if quarantine:
+        shutil.rmtree(quarantine, ignore_errors=True)
+
+
+def _delete_table_asset_quarantine(
+    quarantine: Path,
+    vault_root: Path,
+) -> None:
+    """Purge one server-created quarantine after the response is sent."""
+    cleanup_root = _table_asset_cleanup_root(vault_root)
+    target = Path(quarantine).resolve()
+    try:
+        target.relative_to(cleanup_root)
+    except ValueError:
+        log.error("Refusing to purge an unsafe table cleanup path: %s", target)
+        return
+    if not target.name.startswith("ready-"):
+        log.error("Refusing to purge an uncommitted table quarantine: %s", target)
+        return
+    shutil.rmtree(target, ignore_errors=True)
+
+
+def _restore_abandoned_table_asset_quarantine(
+    quarantine: Path,
+    vault_root: Path,
+) -> bool:
+    """Restore a pre-commit quarantine from its path-contained manifest."""
+    manifest_path = quarantine / "_manifest.json"
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        log.error("Cannot recover table quarantine without a manifest: %s", quarantine)
+        return False
+
+    root = Path(vault_root).resolve()
+    planned: List[tuple[Path, Path]] = []
+    for entry in manifest.get("entries") or []:
         try:
-            flat_segment = _sanitize_asset_segment(table_name, "Table")
-            flat_dir = get_p("ASSETS") / flat_segment
-            if flat_dir.is_dir():
-                shutil.rmtree(flat_dir)
-                log.info(f"Flat assets folder deleted: {flat_dir}")
-        except Exception as exc:
-            log.warning(f"Could not delete flat assets folder for {table_name}: {exc}")
+            source = (root / str(entry["source"])).resolve()
+            source.relative_to(root)
+            destination = (quarantine / str(entry["destination"])).resolve()
+            if source == root or destination.parent != quarantine.resolve():
+                raise ValueError
+        except (KeyError, OSError, TypeError, ValueError):
+            log.error("Unsafe table quarantine manifest entry: %s", quarantine)
+            return False
+        if source.exists() and destination.exists():
+            log.error(
+                "Cannot restore table quarantine over an active path: %s",
+                source,
+            )
+            return False
+        planned.append((source, destination))
+
+    for source, destination in reversed(planned):
+        if not destination.exists():
+            continue
+        source.parent.mkdir(parents=True, exist_ok=True)
+        os.replace(destination, source)
+    shutil.rmtree(quarantine, ignore_errors=True)
+    return not quarantine.exists()
+
+
+def _cleanup_registry_table_ids(vault_root: Path) -> Optional[set[str]]:
+    """Read durable table IDs, returning ``None`` when commit state is unknown."""
+    root = Path(vault_root).resolve()
+    try:
+        registry_path = get_p("REGISTRY").resolve()
+        registry_path.relative_to(root)
+        registry = json.loads(registry_path.read_text(encoding="utf-8"))
+        tables = registry["tables"]
+        if not isinstance(tables, list):
+            raise TypeError
+    except (KeyError, OSError, TypeError, ValueError):
+        log.error(
+            "Cannot verify table deletion commit; leaving in-progress "
+            "quarantines untouched in %s",
+            root,
+        )
+        return None
+    return {
+        str(table.get("id") or "")
+        for table in tables
+        if isinstance(table, dict)
+    }
+
+
+def cleanup_pending_table_asset_quarantines(vault_root: Path) -> int:
+    """Restore uncommitted quarantines and purge committed quarantines."""
+    vault_root = Path(vault_root).resolve()
+    cleanup_root = _table_asset_cleanup_root(vault_root)
+    if not cleanup_root.exists():
+        return 0
+    handled = 0
+    from backend.services.context_vars import active_vault_path
+
+    token = active_vault_path.set(vault_root)
+    try:
+        with registry_mutation():
+            active_table_ids: Optional[set[str]] = None
+            for candidate in list(cleanup_root.iterdir()):
+                if not candidate.is_dir() or candidate.is_symlink():
+                    continue
+                if candidate.name.startswith("in-progress-"):
+                    manifest_path = candidate / "_manifest.json"
+                    try:
+                        manifest = json.loads(
+                            manifest_path.read_text(encoding="utf-8")
+                        )
+                        table_id = str(manifest.get("table_id") or "")
+                        if not table_id:
+                            raise ValueError
+                    except (OSError, ValueError, TypeError):
+                        log.error(
+                            "Leaving an unreadable table quarantine untouched: %s",
+                            candidate,
+                        )
+                        continue
+                    if active_table_ids is None:
+                        active_table_ids = _cleanup_registry_table_ids(
+                            vault_root
+                        )
+                    if active_table_ids is None:
+                        continue
+                    if table_id in active_table_ids:
+                        if _restore_abandoned_table_asset_quarantine(
+                            candidate,
+                            vault_root,
+                        ):
+                            handled += 1
+                        continue
+                    shutil.rmtree(candidate, ignore_errors=True)
+                    if not candidate.exists():
+                        handled += 1
+                    continue
+                if candidate.name.startswith("ready-"):
+                    shutil.rmtree(candidate, ignore_errors=True)
+                    if not candidate.exists():
+                        handled += 1
+                    continue
+                log.warning(
+                    "Leaving an unknown table quarantine entry untouched: %s",
+                    candidate,
+                )
+    finally:
+        active_vault_path.reset(token)
+    return handled
 
 
 def _asset_segments_collide(a: str, b: str) -> bool:
@@ -4672,6 +5020,40 @@ class PluginSettingsRequest(BaseModel):
     settings: dict = {}
 
 
+class VaultSummaryRequest(BaseModel):
+    """Payload accepted by the built-in vault summary plugin."""
+
+    content: str
+    language: str = "en"
+
+
+def _configured_summary_model() -> tuple[str, str]:
+    """Return the enabled model selected for the vault-summary plugin."""
+    state = _load_plugins_state()
+    settings = (state.get("settings") or {}).get("vault-summary") or {}
+    model_ref = str(settings.get("model") or "").strip()
+    provider, separator, model_id = model_ref.partition(":")
+    if not separator or not provider or not model_id:
+        raise HTTPException(
+            status_code=409,
+            detail="Configure an active model for the vault-summary plugin first.",
+        )
+
+    from backend.agent.model_router import load_registry
+
+    active_models = {
+        f"{row.get('provider')}:{row.get('model_id')}"
+        for row in load_registry()
+        if row.get("enabled", True)
+    }
+    if model_ref not in active_models:
+        raise HTTPException(
+            status_code=409,
+            detail="The configured vault-summary model is no longer active.",
+        )
+    return provider, model_id
+
+
 @router.get("/plugins/{plugin_id}/settings")
 async def get_plugin_settings(plugin_id: str):
     """Returns a plugin's own configuration (`settings[plugin_id]`)."""
@@ -4694,6 +5076,56 @@ async def set_plugin_settings(plugin_id: str, request: PluginSettingsRequest):
         return {"settings": settings[plugin_id]}
     async with _plugins_mutation_lock:
         return await asyncio.to_thread(_work)
+
+
+@router.post(
+    "/plugins/vault-summary/summarize",
+    dependencies=[Depends(require_role("editor"))],
+)
+async def summarize_with_vault_plugin(request: VaultSummaryRequest):
+    """Create a concise summary using the explicitly configured active model."""
+    content = request.content.strip()
+    if not content:
+        raise HTTPException(status_code=422, detail="Content is required.")
+    if len(content) > 60_000:
+        raise HTTPException(status_code=422, detail="Content exceeds the 60,000 character limit.")
+
+    provider, model_id = await asyncio.to_thread(_configured_summary_model)
+
+    def _summarize() -> dict:
+        from backend.agent.factory import get_llm
+        from backend.agent.model_router import record_llm_usage, usage_from_message
+        from backend.security.ai_credentials import resolve_provider_api_key
+
+        ai_cfg = load_params(strict_env=False).get("ai", {}) or {}
+        provider_cfg = (ai_cfg.get("providers") or {}).get(provider, {}) or {}
+        llm = get_llm(
+            provider=provider,
+            model=model_id,
+            api_key=resolve_provider_api_key(provider, provider_cfg),
+            base_url=provider_cfg.get("base_url"),
+            timeout=60,
+        )
+        if not llm:
+            raise HTTPException(status_code=503, detail="The configured summary model is unavailable.")
+        prompt = (
+            "Summarize the following vault record in the requested language. "
+            "Return a concise, factual Markdown summary with a short heading and 3–5 bullets. "
+            "Do not invent facts.\n\n"
+            f"Language: {request.language}\n\nRecord:\n{content}"
+        )
+        from langchain_core.messages import HumanMessage
+
+        response = llm.invoke([HumanMessage(content=prompt)])
+        summary = getattr(response, "content", "") or ""
+        if not isinstance(summary, str):
+            summary = str(summary)
+        usage = usage_from_message(response)
+        if usage:
+            record_llm_usage(provider, model_id, usage[0], usage[1])
+        return {"summary": summary.strip(), "model": f"{provider}:{model_id}"}
+
+    return await asyncio.to_thread(_summarize)
 
 
 @router.get("/plugins/{plugin_id}/asset/{asset_path:path}")
@@ -16037,7 +16469,13 @@ def _create_table_locked(table: dict):
 
 
 @router.delete("/tables/{table_id}", dependencies=[Depends(require_role("admin"))])
-async def delete_table(table_id: str, background_tasks: BackgroundTasks):
+async def delete_table(
+    table_id: str,
+    background_tasks: BackgroundTasks,
+    expected_table_revision: Optional[str] = None,
+    expected_views_revision: Optional[str] = None,
+    expected_asset_revision: Optional[str] = None,
+):
     """Delete a table.
 
     Why background_tasks for the rmtree:
@@ -16049,6 +16487,10 @@ async def delete_table(table_id: str, background_tasks: BackgroundTasks):
       truth) and queue the disk cleanup as a background task.
     """
     # Entire load→modify→save cycle under lock (synchronous block, no `await`).
+    vault_root = get_p("VAULT").resolve()
+    quarantine: Optional[Path] = None
+    ready_quarantine: Optional[Path] = None
+    moved_assets: List[tuple[Path, Path]] = []
     with registry_mutation():
         registry = load_registry()
         # Get table info BEFORE deleting it from registry
@@ -16063,17 +16505,83 @@ async def delete_table(table_id: str, background_tasks: BackgroundTasks):
                 ),
                 None,
             )
-        # Update registry FIRST so the response is fast and the UI updates immediately
+        if expected_table_revision is not None:
+            if not table_entry:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Table changed after confirmation preview",
+                )
+            if _stable_value_revision(table_entry) != expected_table_revision:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Table changed after confirmation preview",
+                )
+        if (
+            expected_views_revision is not None
+            and _table_views_revision(registry, table_id)
+            != expected_views_revision
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail="Table views changed after confirmation preview",
+            )
+        if table_entry:
+            quarantine, moved_assets = _quarantine_table_asset_dirs(
+                table_entry,
+                db_entry,
+            )
+            if (
+                expected_asset_revision is not None
+                and _quarantined_table_asset_revision(
+                    table_entry,
+                    db_entry,
+                    moved_assets,
+                )
+                != expected_asset_revision
+            ):
+                _restore_quarantined_table_assets(quarantine, moved_assets)
+                raise HTTPException(
+                    status_code=409,
+                    detail="Table assets changed after confirmation preview",
+                )
+        # Update the registry after active assets have been sealed.
         registry["tables"] = [t for t in registry["tables"] if t.get("id") != table_id]
         # Remove associated views.
         registry["views"] = [v for v in registry["views"] if v.get("table_id") != table_id]
-        save_registry(registry)
+        try:
+            save_registry(registry)
+        except Exception:
+            _restore_quarantined_table_assets(quarantine, moved_assets)
+            raise
+        if quarantine:
+            try:
+                ready_quarantine = _mark_table_asset_quarantine_ready(quarantine)
+            except Exception:
+                log.exception(
+                    "Table deletion committed but asset quarantine could not "
+                    "be marked ready: %s",
+                    quarantine,
+                )
 
-    # Schedule the slow filesystem cleanup off the request path
-    if table_entry:
-        background_tasks.add_task(_delete_asset_table_dir, table_entry, db_entry)
+    # The active paths have already been detached atomically. Only deletion of
+    # the durable quarantine remains asynchronous and can resume after restart.
+    if ready_quarantine:
+        background_tasks.add_task(
+            _delete_table_asset_quarantine,
+            ready_quarantine,
+            vault_root,
+        )
 
-    return {"status": "success"}
+    return {
+        "status": "success",
+        "cleanup_status": (
+            "queued"
+            if ready_quarantine
+            else "deferred"
+            if quarantine
+            else "not_required"
+        ),
+    }
 
 
 @router.put("/tables/{table_id}", dependencies=[Depends(require_role("editor"))])

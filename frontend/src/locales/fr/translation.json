@@ -2025,10 +2025,19 @@
     "see_less": "Voir moins",
     "open": "Ouvrir",
     "open_page": "Ouvrir la page",
+    "select_record": "Sélectionner l’enregistrement {{title}}",
     "show_more_tags": "Afficher {{count}} étiquettes de plus",
     "show_fewer_tags": "Afficher moins d’étiquettes",
     "read_full": "Lire en entier",
-    "empty": "Aucune publication dans le fil."
+    "empty": "Aucune publication dans le fil.",
+    "enable_date_groups": "Grouper par date",
+    "disable_date_groups": "Désactiver les groupes par date",
+    "group_today": "Aujourd’hui",
+    "group_this_week": "Cette semaine",
+    "group_this_month": "Ce mois-ci",
+    "position": "{{current}} sur {{total}}",
+    "return_to_last_record": "Revenir au dernier enregistrement",
+    "open_reading_pane": "Ouvrir le panneau de lecture", "reading_pane": "Panneau de lecture", "previous_record": "Enregistrement précédent", "next_record": "Enregistrement suivant", "no_excerpt": "Cet enregistrement n’a pas encore d’extrait.", "reading_preferences": "Préférences de lecture", "visible_tags": "Étiquettes visibles", "excerpt_length": "Longueur de l’extrait", "empty_search": "Aucun enregistrement ne correspond à cette recherche.", "empty_search_hint": "Essayez moins de mots ou effacez la recherche.", "empty_hint": "Créez le premier enregistrement ou ajustez les filtres de la vue.", "clear_search": "Effacer la recherche", "adjust_view": "Ajuster la vue", "create_record": "Créer un enregistrement", "apply_field_to_selection": "Appliquer un champ à la sélection", "batch_update": "Mettre à jour la sélection…", "resize_reading_pane": "Redimensionner le panneau de lecture", "clean_reading": "Lecture épurée", "show_details": "Afficher les détails", "reading_shortcuts": "Utilisez ← → pour naviguer · Échap pour fermer", "sync_saving": "Enregistrement des modifications…", "sync_saved": "Modifications enregistrées", "sync_error": "Les modifications nécessitent une attention", "bulk_saved": "Modifications enregistrées", "bulk_undone": "Modifications annulées", "bulk_save_error": "Certaines modifications n’ont pas pu être enregistrées", "focus_feed": "Feed concentré", "reading_progress": "{{read}} sur {{total}} lus", "confirm_bulk_update": "Confirmer la mise à jour groupée", "bulk_preview_title": "Vérifier la mise à jour groupée", "bulk_preview_hint": "{{count}} enregistrements : {{field}} → {{value}}", "apply_changes": "Appliquer les modifications", "dock_pane": "Ancrer le panneau", "undock_pane": "Détacher le panneau", "summary_model": "Modèle de résumé", "summary_model_placeholder": "Sélectionnez un modèle actif", "summary_model_saved": "Modèle de résumé enregistré", "summary_model_error": "Impossible d’enregistrer le modèle de résumé", "summarize": "Résumer", "summarizing": "Résumé en cours…", "summary": "Résumé IA", "summary_error": "Impossible de créer le résumé", "summary_error_hint": "Vérifiez que le modèle sélectionné est actif et disponible."
   },
   "files": {
     "delete_title": "Supprimer le fichier",
@@ -2067,6 +2076,13 @@
     "search": "Rechercher",
     "recent": "Récent",
     "drawings": "Dessins",
+    "add_drawing": "Ajouter un dessin",
+    "add_dashboard": "Ajouter un tableau de bord",
+    "add_database": "Ajouter une base de données",
+    "add_wiki_page": "Ajouter une page wiki",
+    "locate_active_page": "Localiser la page active",
+    "expand_children": "Développer le contenu de {{name}}",
+    "collapse_children": "Réduire le contenu de {{name}}",
     "options": "Options",
     "add_child_page": "Ajouter une page enfant",
     "rename": "Renommer",
@@ -2122,6 +2138,8 @@
     "open_quick_actions": "Ouvrir les actions rapides",
     "close_quick_actions": "Fermer les actions rapides",
     "stale_checkout": "L’aperçu local utilise le checkout fusionné {{checkout}}, en retard sur origin/main.",
+    "stale_checkout_short": "L’aperçu local n’est pas à jour.",
+    "dismiss_checkout_warning": "Ignorer l’avertissement du checkout",
     "switch_normal_view": "Passer à la vue normale",
     "switch_code_view": "Passer à la vue code",
     "view_history": "Voir l'historique",
@@ -2176,10 +2194,24 @@
     "default_badge": "Déf.",
     "new_options": "Options de création",
     "loading_view": "Chargement de la vue...",
+    "active_filters_one": "{{count}} filtre",
+    "active_filters_other": "{{count}} filtres",
+    "active_filters_many": "{{count}} filtres",
+    "clear_search": "Effacer la recherche",
+    "filtered_records_count": "{{count}} sur {{total}} enregistrements",
+    "compact_density": "Utiliser la densité compacte",
+    "comfortable_density": "Utiliser la densité confortable",
+    "save_quick_view": "Enregistrer la vue rapide",
+    "quick_views": "Vues rapides",
+    "quick_view_name": "Vue rapide {{count}}",
+    "manage_quick_views": "Gérer les vues rapides",
+    "tools_and_shortcuts": "Outils et raccourcis",
+    "shortcuts": "Raccourcis",
+    "last_load_time": "Dernier chargement : {{duration}} ms",
     "configure_view_tooltip": "Configurer la vue",
     "wip_tooltip": "En développement pour une prochaine itération",
     "soon_badge": "Bientôt",
-    "records_count_many": "{{count}} enregistrements"
+    "records_count_many": "{{count}} enregistrements", "export_quick_views": "Copier la configuration", "import_quick_views": "Importer la configuration", "import_quick_views_hint": "Collez une configuration copiée depuis une autre vue.", "quick_views_copied": "Configuration de vue copiée", "quick_views_copy_error": "Impossible de copier la configuration", "quick_views_imported": "Configuration de vue importée", "quick_views_import_error": "Cette configuration n’est pas valide"
   },
   "errors": {
     "hide_main_view": "Impossible de masquer la vue principale",
@@ -2706,6 +2738,9 @@
     "usage_count_many": "Cette vue est déjà utilisée sur {{count}} pages."
   },
   "editor": {
+    "toggle_focus_mode": "Activer ou désactiver le mode concentration",
+    "toggle_high_contrast": "Alterner le contraste renforcé",
+    "toggle_large_text": "Alterner le texte agrandi",
     "ai_ask": "Demander à l'IA…",
     "ai_ask_subtext": "Écrivez une instruction et insérez le résultat",
     "ai_continue": "Continuer à écrire",
@@ -4087,7 +4122,18 @@
       "fullscreen": "Plein écran",
       "recenter": "Recentrer",
       "zoom_in": "Zoom avant",
-      "zoom_out": "Zoom arrière"
+      "zoom_out": "Zoom arrière",
+      "legend": "Légende du graphe"
+    },
+    "legend": {
+      "nodes": "Nœuds",
+      "connections": "Connexions",
+      "connection_types": "Types de connexion",
+      "wikilink": "Liens wiki",
+      "database_wikilink": "Liens wiki de vue de base de données",
+      "unresolved": "Liens non résolus",
+      "semantic_similarity": "Connexions sémantiques",
+      "node_groups": "Groupes de nœuds"
     },
     "node_panel": {
       "close": "Fermer les détails",
@@ -4333,6 +4379,7 @@
     "error_prefix": "Erreur",
     "open_chat": "Ouvrir le chat",
     "online": "En ligne",
+    "runtime_limited": "Connecté · outils limités",
     "expand_chat": "Agrandir le chat",
     "minimize_chat": "Réduire le chat",
     "close_chat": "Fermer le chat",
@@ -4361,7 +4408,157 @@
     "model_required": "Configurez cet agent avant d'envoyer un message",
     "agent_model_unavailable": "Le modèle de l'agent sélectionné n'est pas disponible. Configurez l'agent puis réessayez.",
     "new_session": "Nouvelle session",
-    "messages_count_many": "{{count}} messages"
+    "messages_count_many": "{{count}} messages",
+    "confirmations": {
+      "title": "Confirmer l'action",
+      "summary": "Vérifiez cette action avant de continuer.",
+      "confirm": "Confirmer et exécuter",
+      "cancel": "Annuler l'action",
+      "review": "Vérifier et confirmer",
+      "completed": "Action terminée après confirmation.",
+      "partial": "L'action a été partiellement effectuée : {{completed}} terminées et {{failed}} échouées.",
+      "outcome_unknown": "La connexion a été perdue et le résultat de l'action est inconnu. Vérifiez la cible avant de réessayer.",
+      "failed": "L'action n'a pas pu être effectuée : {{message}}",
+      "status": {
+        "pending": "En attente de confirmation",
+        "executing": "En cours",
+        "completed": "Terminée",
+        "partial": "Partiellement terminée",
+        "cancelled": "Annulée",
+        "expired": "Expirée",
+        "failed": "Échec",
+        "outcome_unknown": "Résultat inconnu",
+        "unavailable": "Plus disponible"
+      },
+      "errors": {
+        "confirmation_not_found": "L'action en attente n'existe plus.",
+        "confirmation_scope_mismatch": "Cette action appartient à un autre Vault, utilisateur, agent ou fil de discussion.",
+        "confirmation_expired": "L'action en attente a expiré. Préparez-la à nouveau si elle est toujours nécessaire.",
+        "confirmation_unavailable": "L'action en attente n'est plus disponible.",
+        "confirmation_admin_required": "Une autorisation d'administration est requise pour cette action.",
+        "confirmation_action_rejected": "La cible a changé ou l'action n'est plus autorisée.",
+        "confirmation_action_failed": "L'action n'a pas pu être effectuée.",
+        "confirmation_outcome_unknown": "L'action a peut-être été effectuée, mais Gnosi n'a pas pu vérifier le résultat. Vérifiez la cible avant de réessayer."
+      },
+      "details": {
+        "account": "Compte",
+        "arguments": "Arguments exacts",
+        "asset_revision": "Révision de l’arborescence des ressources",
+        "attendees": "Participants",
+        "bcc": "Cci",
+        "body": "Corps",
+        "body_sha256": "Empreinte du corps",
+        "calendar_id": "Calendrier",
+        "cc": "Cc",
+        "company": "Entreprise",
+        "count": "Nombre d'éléments",
+        "current_revision": "Révision actuelle",
+        "date": "Date",
+        "description": "Description",
+        "effects": "Effets",
+        "email": "Courriel",
+        "end": "Fin",
+        "entries": "Éléments exacts",
+        "entries_truncated": "Liste d'éléments tronquée",
+        "event_id": "ID de l'événement",
+        "folder": "Dossier",
+        "location": "Lieu",
+        "imap_folder": "Dossier source du courrier",
+        "imap_uid": "Identifiant IMAP du message",
+        "message_id": "ID du message",
+        "message_revision": "Révision du message",
+        "message_source": "Source du message",
+        "page": "Page",
+        "page_id": "ID de la page",
+        "page_revision": "Révision de la page",
+        "phone": "Téléphone",
+        "properties": "Propriétés",
+        "property_count": "Nombre de propriétés",
+        "row_count": "Nombre de lignes",
+        "row_action": "Traitement des lignes",
+        "rows_revision": "Révision de l’ensemble des lignes",
+        "schema_sha256": "Empreinte du schéma",
+        "sender": "Expéditeur",
+        "snapshot_digest": "Empreinte de l'instantané",
+        "start": "Début",
+        "subject": "Objet",
+        "table": "Table",
+        "table_id": "ID de la table",
+        "table_revision": "Révision de la table",
+        "target_folder": "Dossier cible",
+        "timestamp": "Version",
+        "title": "Titre",
+        "to": "Destinataires",
+        "tool": "Outil",
+        "tool_id": "ID de l'outil",
+        "updates": "Modifications exactes des lignes",
+        "version_revision": "Révision de la version",
+        "views_count": "Nombre de vues",
+        "views_revision": "Révision de l’ensemble des vues"
+      },
+      "actions": {
+        "delete_page": {
+          "title": "Déplacer la page vers la corbeille",
+          "summary": "Déplacer « {{page}} » vers la corbeille du Vault ?"
+        },
+        "delete_contact": {
+          "title": "Supprimer le contact",
+          "summary": "Supprimer définitivement {{contact}} ({{email}}) ?"
+        },
+        "send_mail": {
+          "title": "Envoyer le courriel",
+          "summary": "Envoyer « {{subject}} » de {{account}} à {{to}} ?"
+        },
+        "save_mail_draft": {
+          "title": "Enregistrer le brouillon",
+          "summary": "Enregistrer « {{subject}} » comme brouillon dans {{account}} pour {{to}} ?"
+        },
+        "archive_mail": {
+          "title": "Archiver le courriel",
+          "summary": "Archiver le message {{message_id}} de {{account}} ?"
+        },
+        "move_mail": {
+          "title": "Déplacer le courriel",
+          "summary": "Déplacer le message {{message_id}} de {{account}} vers {{target_folder}} ?"
+        },
+        "invite_attendees": {
+          "title": "Envoyer les invitations",
+          "summary": "Inviter {{attendees}} à l'événement {{event_id}} depuis {{account}} ?"
+        },
+        "create_calendar_event": {
+          "title": "Créer un événement",
+          "summary": "Créer « {{title}} » dans {{calendar_id}} de {{start}} à {{end}} ?"
+        },
+        "governed_tool": {
+          "title": "Exécuter un outil gouverné",
+          "summary": "Vérifiez les arguments et les effets exacts de {{tool}} avant l'exécution."
+        },
+        "delete_table": {
+          "title": "Supprimer la table",
+          "summary": "Supprimer la table « {{table}} », ses vues et ses ressources stockées ?"
+        },
+        "restore_page_version": {
+          "title": "Restaurer la version",
+          "summary": "Remplacer « {{page}} » par sa version du {{timestamp}} ?"
+        },
+        "empty_trash": {
+          "title": "Vider définitivement la corbeille",
+          "summary_one": "Supprimer définitivement {{count}} élément de la corbeille du Vault ?",
+          "summary_other": "Supprimer définitivement {{count}} éléments de la corbeille du Vault ?",
+          "summary_many": "Supprimer définitivement {{count}} éléments de la corbeille du Vault ?"
+        },
+        "change_schema": {
+          "title": "Remplacer le schéma",
+          "summary": "Remplacer le schéma de {{folder}} par {{property_count}} propriétés ?"
+        },
+        "bulk_update_rows": {
+          "title": "Mettre les lignes à jour en masse",
+          "summary_one": "Appliquer les modifications à {{count}} ligne de table ?",
+          "summary_other": "Appliquer les modifications à {{count}} lignes de table ?",
+          "summary_many": "Appliquer les modifications à {{count}} lignes de table ?"
+        }
+      }
+    }
   },
   "bulk_actions": {
     "selected_count_one": "{{count}} sélectionné",

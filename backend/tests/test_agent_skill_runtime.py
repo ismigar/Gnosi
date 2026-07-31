@@ -117,11 +117,27 @@ def test_tool_policy_reads_authorization_from_each_current_state():
 
 
 def test_tool_policy_enforces_role_and_always_confirmation():
+    from backend.models.agent_skills import (
+        CatalogOrigin,
+        ConfirmationPolicy,
+        OriginType,
+        ToolDescriptor,
+        ToolEffect,
+    )
+
     calls = []
+    descriptor = ToolDescriptor(
+        id="plugin.example.external-write",
+        name="External write",
+        origin=CatalogOrigin(type=OriginType.PLUGIN, id="example"),
+        effects=[ToolEffect.EXTERNAL_WRITE],
+        confirmation=ConfirmationPolicy.ALWAYS,
+    )
     wrapper = factory._tool_policy_wrapper({
         "external_write": {
             "minimum_role": "admin",
             "confirmation": "always",
+            "_descriptor": descriptor,
         }
     })
 
@@ -138,18 +154,26 @@ def test_tool_policy_enforces_role_and_always_confirmation():
     )
     assert wrapper(request, execute).status == "error"
 
+    request.tool_call["args"] = {"target": "exact"}
     request.state = {
         "turn_authorized_tool_names": [],
         "current_user_role": "admin",
+        "active_skill_ids": ["plugin.example.external"],
     }
-    assert wrapper(request, execute).status == "error"
+    from backend.agent.action_confirmations import confirmation_context
 
-    request.state = {
-        "turn_authorized_tool_names": ["external_write"],
-        "current_user_role": "admin",
-    }
-    assert wrapper(request, execute) == "executed"
-    assert calls == ["executed"]
+    with confirmation_context(
+        vault_scope="vault",
+        workspace_id="personal",
+        user_id="user",
+        role="admin",
+        agent_id="agent",
+        session_id="session",
+    ):
+        prepared = wrapper(request, execute)
+    assert prepared.status == "success"
+    assert '"action":"governed_tool"' in prepared.content
+    assert calls == []
 
 
 def test_model_tool_support_falls_back_to_global_catalog(monkeypatch):
@@ -179,13 +203,20 @@ def test_model_tool_support_falls_back_to_global_catalog(monkeypatch):
     )
 
 
-def test_legacy_bundle_does_not_expose_query_wiki_globally(monkeypatch):
+def test_legacy_bundle_exposes_core_gnosi_tools_without_query_wiki(
+    monkeypatch,
+    tmp_path,
+):
+    from backend.services.agent_skill_catalog import resolve_agent_runtime
+    from backend.services.context_vars import active_vault_path
+
     llm = RecordingLlm()
     agent = _agent()
-    runtime = _runtime(
-        assigned=("core.legacy-default-v1",),
-        active=("core.legacy-default-v1",),
-    )
+    token = active_vault_path.set(tmp_path)
+    try:
+        runtime = resolve_agent_runtime(agent, vault_path=tmp_path)
+    finally:
+        active_vault_path.reset(token)
 
     workflow, _selection = _workflow(monkeypatch, agent, runtime, llm)
 
@@ -195,9 +226,15 @@ def test_legacy_bundle_does_not_expose_query_wiki_globally(monkeypatch):
         "query_wiki" not in tool_names
         for tool_names in llm.bound_tool_names
     )
+    brain_tool_names = max(llm.bound_tool_names, key=len)
+    assert {
+        "list_table_rows",
+        "create_table_row",
+        "send_mail",
+    } <= set(brain_tool_names)
 
 
-def test_assigned_skill_binds_its_exact_registered_tool(monkeypatch):
+def test_assigned_skill_does_not_inherit_unrelated_core_gnosi_tools(monkeypatch):
     @tool
     def skill_query(query: str) -> str:
         """Search the test knowledge source."""
@@ -229,7 +266,43 @@ def test_assigned_skill_binds_its_exact_registered_tool(monkeypatch):
         llm,
     )
 
-    assert llm.bound_tool_names == [["skill_query"]]
+    assert len(llm.bound_tool_names) == 1
+    bound_names = set(llm.bound_tool_names[0])
+    assert "skill_query" in bound_names
+    assert not ({
+        "list_table_rows",
+        "create_page",
+        "create_table_row",
+        "empty_trash",
+    } & bound_names)
+
+
+def test_core_domain_skill_exposes_only_its_assigned_tools(tmp_path):
+    from backend.services.agent_skill_catalog import resolve_agent_runtime
+
+    runtime = resolve_agent_runtime(
+        _agent(skill_ids=["core.gnosi-mail"]),
+        vault_path=tmp_path,
+    )
+    names = {
+        getattr(handler, "name", "")
+        for handler in runtime.tools
+    }
+
+    assert {
+        "search_mail",
+        "send_mail",
+        "save_mail_draft",
+        "archive_mail",
+        "move_mail",
+    } <= names
+    assert not ({
+        "create_page",
+        "delete_page",
+        "list_table_rows",
+        "create_calendar_event",
+        "list_contacts",
+    } & names)
 
 
 def test_tool_backed_skill_routes_directly_to_tool_enabled_specialist(monkeypatch):
@@ -304,7 +377,8 @@ def test_plain_callable_tool_handler_is_not_dropped(monkeypatch):
         llm,
     )
 
-    assert llm.bound_tool_names == [["callable_query"]]
+    assert len(llm.bound_tool_names) == 1
+    assert "callable_query" in llm.bound_tool_names[0]
 
 
 def test_configured_persona_applies_to_brain_specialist(monkeypatch):

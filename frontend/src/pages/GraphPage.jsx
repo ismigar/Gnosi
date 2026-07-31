@@ -15,6 +15,8 @@ import { Minimap } from '../components/Minimap';
 import { ConnectionList } from '../components/ConnectionList';
 import Graph from 'graphology';
 import { applyFilters, getEffectiveTableId, getSystemCategory, resolveMetaValue, toValueStrings } from '../utils/graphFilters';
+import { getConnectionTypeCounts } from '../utils/graphLegend';
+import { getVisibleSimilarityEdges } from '../utils/similarityOverlay';
 import { useConfigChanged } from '../lib/configEvents';
 
 
@@ -46,6 +48,8 @@ function GraphPage() {
     const [activeKinds] = useState(new Set());
     const [activeProjects] = useState(new Set());
     const [colorMode, setColorMode] = useState('kind');
+    const hasClusterData = useMemo(() => (graphData?.nodes || []).some((node) => node.cluster), [graphData]);
+    const hasAiClusterData = useMemo(() => (graphData?.nodes || []).some((node) => node.ai_cluster), [graphData]);
 
     // Visibility & Configuration (from config.graph)
     const [visibleDatabases, setVisibleDatabases] = useState([]);
@@ -479,11 +483,25 @@ function GraphPage() {
         return g;
     }, [graphData]);
 
-    const { filteredNodesCount, filteredEdgesCount } = useMemo(() => {
-        if (!memoizedGraph) return { filteredNodesCount: 0, filteredEdgesCount: 0 };
+    const { filteredNodesCount, filteredEdgesCount, connectionTypeCounts } = useMemo(() => {
+        if (!memoizedGraph) return { filteredNodesCount: 0, filteredEdgesCount: 0, connectionTypeCounts: {} };
         const { visibleNodes, visibleEdges } = applyFilters(memoizedGraph, filters);
-        return { filteredNodesCount: visibleNodes.size, filteredEdgesCount: visibleEdges.size };
-    }, [memoizedGraph, filters]);
+        const visibleSuggestions = getVisibleSimilarityEdges(
+            graphData?.edges,
+            visibleNodes,
+            similarity,
+        );
+        return {
+            filteredNodesCount: visibleNodes.size,
+            filteredEdgesCount: visibleEdges.size,
+            connectionTypeCounts: getConnectionTypeCounts(
+                [
+                    ...[...visibleEdges].map((edge) => memoizedGraph.getEdgeAttributes(edge)),
+                    ...visibleSuggestions,
+                ],
+            ),
+        };
+    }, [memoizedGraph, filters, graphData?.edges, similarity]);
 
     // Precomputes the available values for each configured field — O(nodes × fields) once per load
     const fieldValuesByKey = useMemo(() => {
@@ -599,6 +617,8 @@ function GraphPage() {
                     onTimelineChange={setTimelineDate}
                     colorMode={colorMode}
                     onColorModeChange={setColorMode}
+                    hasClusterData={hasClusterData}
+                    hasAiClusterData={hasAiClusterData}
                     isPathfindingMode={isPathfindingMode}
                     onPathfindingModeChange={setIsPathfindingMode}
                     pathSource={pathSource}
@@ -845,6 +865,15 @@ function GraphPage() {
                     onZoomOut={() => graphViewerRef.current?.zoomOut()}
                     onCenter={() => graphViewerRef.current?.center()}
                     onFullscreen={() => graphViewerRef.current?.fullscreen()}
+                    legend={(
+                        <Legend
+                            graphData={graphData}
+                            colorMode={colorMode}
+                            filteredNodesCount={filteredNodesCount}
+                            filteredEdgesCount={filteredEdgesCount}
+                            connectionTypeCounts={connectionTypeCounts}
+                        />
+                    )}
                 />
             }
             bottomPanel={
@@ -913,14 +942,6 @@ function GraphPage() {
                     strongGravityMode={strongGravityMode}
                     outboundAttractionDistribution={outboundAttractionDistribution}
                 />
-                <Legend 
-                    graphData={graphData} 
-                    isDarkMode={isDarkMode} 
-                    colorMode={colorMode} 
-                    filteredNodesCount={filteredNodesCount}
-                    filteredEdgesCount={filteredEdgesCount}
-                />
-
                 <Minimap
                     graph={graphInstance}
                     mainRenderer={rendererInstance}

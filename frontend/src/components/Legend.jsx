@@ -1,108 +1,57 @@
-import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-export const Legend = ({ graphData, isDarkMode, colorMode, filteredNodesCount, filteredEdgesCount }) => {
+const connectionTypeColors = {
+    wikilink: '#10b981',
+    database_wikilink: '#6366f1',
+    unresolved: '#cbd5e1',
+    semantic_similarity: '#a855f7',
+};
+
+export const Legend = ({ graphData, colorMode, filteredNodesCount, filteredEdgesCount, connectionTypeCounts }) => {
 
     const { t } = useTranslation();
-    if (!graphData || !graphData.legend) return null;
+    if (!graphData) return null;
 
-    const { edges = [], kinds = [], clusters = [], ai_clusters = [] } = graphData.legend;
+    const { clusters = [], ai_clusters = [] } = graphData.legend || {};
 
-    const legendOffset = 85;
-
-    // Determine which node items to show based on colorMode
+    // Select the active node grouping for the current color mode.
     let nodeItems = [];
     if (colorMode === 'kind') {
-        // User requested to remove content types from legend
+        // Content types are intentionally omitted from the legend.
         nodeItems = [];
     }
     else if (colorMode === 'cluster') nodeItems = clusters;
     else if (colorMode === 'ai_cluster') nodeItems = ai_clusters;
 
-    // Filter out items with 0 count
+    // Omit empty groups from the tooltip.
     const visibleNodeItems = nodeItems.filter(item => item.count > 0);
 
     return (
-        <div
-            style={{
-                position: 'absolute',
-                bottom: '20px',
-                left: `calc(50% + ${legendOffset}px)`,
-                transform: 'translateX(-50%)',
-                background: isDarkMode ? 'rgba(30, 30, 30, 0.95)' : 'rgba(255, 255, 255, 0.95)',
-                color: isDarkMode ? '#fff' : '#000',
-                padding: '12px 20px',
-                borderRadius: '8px',
-                border: `1px solid ${isDarkMode ? '#444' : '#ddd'}`,
-                fontSize: '11px',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                zIndex: 100,
-                display: 'flex',
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: '20px',
-                maxWidth: '90vw',
-                overflowX: 'auto',
-                whiteSpace: 'nowrap'
-            }}
-        >
-            {/* Counts */}
-            <div style={{ display: 'flex', flexDirection: 'column', marginRight: '20px', borderRight: `1px solid ${isDarkMode ? '#444' : '#ddd'}`, paddingRight: '20px' }}>
-                <span style={{ fontWeight: 'bold' }}>{filteredNodesCount || 0} Nodes</span>
-                <span style={{ opacity: 0.7 }}>{filteredEdgesCount || 0} Edges</span>
+        <div className="graph-legend-content">
+            <div className="graph-legend-summary">
+                <strong>{t('graph.legend.nodes', 'Nodes')}: {filteredNodesCount || 0}</strong>
+                <span>{t('graph.legend.connections', 'Connections')}: {filteredEdgesCount || 0}</span>
             </div>
-
-
-            {/* Node Legend */}
-            {visibleNodeItems.length > 0 && (
-                <>
-                    <div style={{ display: 'flex', flexWrap: 'nowrap', gap: '15px', alignItems: 'center' }}>
-                        {visibleNodeItems.map((item, idx) => (
-                            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <div
-                                    style={{
-                                        width: '12px',
-                                        height: '12px',
-                                        borderRadius: '50%',
-                                        background: item.color,
-                                        border: `1px solid ${isDarkMode ? '#555' : '#ccc'}`
-                                    }}
-                                />
-                                <span>{item.label} ({item.count})</span>
-                            </div>
-                        ))}
+            <section className="graph-legend-section" aria-label={t('graph.legend.connection_types', 'Connection types')}>
+                <strong>{t('graph.legend.connection_types', 'Connection types')}</strong>
+                {Object.entries(connectionTypeCounts || {}).filter(([, count]) => count > 0).map(([type, count]) => (
+                    <div className="graph-legend-item" key={type}>
+                        <span className="graph-legend-line" style={{ background: connectionTypeColors[type] }} />
+                        <span>{t(`graph.legend.${type}`, type)} ({count})</span>
                     </div>
-                    {/* Vertical Separator */}
-                    {edges.length > 0 && (
-                        <div style={{ width: '1px', height: '20px', background: isDarkMode ? '#444' : '#ddd' }} />
-                    )}
-                </>
-            )}
-
-            {/* Edge Legend */}
-            <div style={{ display: 'flex', flexWrap: 'nowrap', gap: '15px', alignItems: 'center' }}>
-                {edges.filter(e => e.label !== "Directed Connection").map((edge, idx) => {
-                    let labelKey = edge.label;
-                    if (edge.label === "Real Connection") labelKey = "legend_real_connection";
-                    else if (edge.label === "Directed Connection") labelKey = "legend_directed_connection";
-                    else if (edge.label === "Strong Similarity (>85%)") labelKey = "legend_strong_similarity";
-                    else if (edge.label === "Medium Similarity (>70%)") labelKey = "legend_medium_similarity";
-                    else if (edge.label === "Weak Similarity (>60%)") labelKey = "legend_weak_similarity";
-
-                    return (
-                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <div
-                                style={{
-                                    width: '20px',
-                                    height: '2px',
-                                    background: edge.color
-                                }}
-                            />
-                            <span style={{ whiteSpace: 'nowrap' }}>{t(labelKey, edge.label)}</span>
+                ))}
+            </section>
+            {visibleNodeItems.length > 0 && (
+                <section className="graph-legend-section" aria-label={t('graph.legend.node_groups', 'Node groups')}>
+                    <strong>{t('graph.legend.node_groups', 'Node groups')}</strong>
+                    {visibleNodeItems.map((item) => (
+                        <div className="graph-legend-item" key={item.label}>
+                            <span className="graph-legend-dot" style={{ background: item.color }} />
+                            <span>{item.label} ({item.count})</span>
                         </div>
-                    );
-                })}
-            </div>
+                    ))}
+                </section>
+            )}
         </div>
     );
 };

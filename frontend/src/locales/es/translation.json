@@ -376,6 +376,13 @@
     "search": "Buscar",
     "recent": "Reciente",
     "drawings": "Dibujos",
+    "add_drawing": "Añadir dibujo",
+    "add_dashboard": "Añadir tablero",
+    "add_database": "Añadir base de datos",
+    "add_wiki_page": "Añadir página wiki",
+    "locate_active_page": "Localizar la página activa",
+    "expand_children": "Expandir el contenido de {{name}}",
+    "collapse_children": "Contraer el contenido de {{name}}",
     "no_dashboard_pages": "No hay tableros",
     "dashboards": "Tableros",
     "options": "Opciones",
@@ -445,6 +452,8 @@
     "open_quick_actions": "Abrir acciones rápidas",
     "close_quick_actions": "Cerrar acciones rápidas",
     "stale_checkout": "La vista previa local sirve el checkout fusionado {{checkout}}, por detrás de origin/main.",
+    "stale_checkout_short": "La vista previa local está desactualizada.",
+    "dismiss_checkout_warning": "Descartar el aviso del checkout",
     "switch_normal_view": "Cambiar a vista normal",
     "switch_code_view": "Cambiar a vista código",
     "view_history": "Ver historial",
@@ -777,6 +786,9 @@
     "page_moved": "Página movida"
   },
   "editor": {
+    "toggle_focus_mode": "Activar o desactivar modo enfoque",
+    "toggle_high_contrast": "Alternar contraste reforzado",
+    "toggle_large_text": "Alternar texto ampliado",
     "loading_editor": "Cargando editor...",
     "select_table": "Seleccionar Tabla",
     "error_occurred": "Se ha producido un error en el editor",
@@ -1116,10 +1128,24 @@
     "new_view_name_label": "Nuevo nombre de la vista",
     "new_options": "Opciones de creación",
     "loading_view": "Cargando vista...",
+    "active_filters_one": "{{count}} filtro",
+    "active_filters_other": "{{count}} filtros",
+    "active_filters_many": "{{count}} filtros",
+    "clear_search": "Limpiar la búsqueda",
+    "filtered_records_count": "{{count}} de {{total}} registros",
+    "compact_density": "Usar densidad compacta",
+    "comfortable_density": "Usar densidad cómoda",
+    "save_quick_view": "Guardar vista rápida",
+    "quick_views": "Vistas rápidas",
+    "quick_view_name": "Vista rápida {{count}}",
+    "manage_quick_views": "Gestionar vistas rápidas",
+    "tools_and_shortcuts": "Herramientas y atajos",
+    "shortcuts": "Atajos",
+    "last_load_time": "Última carga: {{duration}} ms",
     "configure_view_tooltip": "Configurar Vista",
     "wip_tooltip": "En desarrollo para una próxima iteración",
     "soon_badge": "Pronto",
-    "records_count_many": "{{count}} registros"
+    "records_count_many": "{{count}} registros", "export_quick_views": "Copiar configuración", "import_quick_views": "Importar configuración", "import_quick_views_hint": "Pega una configuración copiada de otra vista.", "quick_views_copied": "Configuración de vista copiada", "quick_views_copy_error": "No se ha podido copiar la configuración", "quick_views_imported": "Configuración de vista importada", "quick_views_import_error": "Esta configuración no es válida"
   },
   "fs_picker": {
     "title_any": "Seleccionar archivo o carpeta",
@@ -2938,10 +2964,19 @@
     "see_less": "Ver menos",
     "open": "Abrir",
     "open_page": "Abrir la página",
+    "select_record": "Seleccionar el registro {{title}}",
     "show_more_tags": "Mostrar {{count}} etiquetas más",
     "show_fewer_tags": "Mostrar menos etiquetas",
     "read_full": "Leer completo",
-    "empty": "No hay publicaciones en el feed."
+    "empty": "No hay publicaciones en el feed.",
+    "enable_date_groups": "Agrupar por fecha",
+    "disable_date_groups": "Desactivar grupos por fecha",
+    "group_today": "Hoy",
+    "group_this_week": "Esta semana",
+    "group_this_month": "Este mes",
+    "position": "{{current}} de {{total}}",
+    "return_to_last_record": "Volver al último registro",
+    "open_reading_pane": "Abrir panel de lectura", "reading_pane": "Panel de lectura", "previous_record": "Registro anterior", "next_record": "Registro siguiente", "no_excerpt": "Este registro aún no tiene extracto.", "reading_preferences": "Preferencias de lectura", "visible_tags": "Etiquetas visibles", "excerpt_length": "Longitud del extracto", "empty_search": "No hay registros que coincidan con la búsqueda.", "empty_search_hint": "Prueba con menos palabras o borra la búsqueda.", "empty_hint": "Crea el primer registro o ajusta los filtros de la vista.", "clear_search": "Borrar búsqueda", "adjust_view": "Ajustar vista", "create_record": "Crear registro", "apply_field_to_selection": "Aplicar un campo a la selección", "batch_update": "Actualizar selección…", "resize_reading_pane": "Redimensionar panel de lectura", "clean_reading": "Lectura limpia", "show_details": "Mostrar detalles", "reading_shortcuts": "Usa ← → para navegar · Esc para cerrar", "sync_saving": "Guardando cambios…", "sync_saved": "Cambios guardados", "sync_error": "Los cambios requieren atención", "bulk_saved": "Cambios guardados", "bulk_undone": "Cambios deshechos", "bulk_save_error": "No se han podido guardar algunos cambios", "focus_feed": "Feed de enfoque", "reading_progress": "{{read}} de {{total}} leídos", "confirm_bulk_update": "Confirmar actualización por lotes", "bulk_preview_title": "Revisar actualización por lotes", "bulk_preview_hint": "{{count}} registros: {{field}} → {{value}}", "apply_changes": "Aplicar cambios", "dock_pane": "Acoplar panel", "undock_pane": "Desacoplar panel", "summary_model": "Modelo del resumen", "summary_model_placeholder": "Selecciona un modelo activo", "summary_model_saved": "Modelo de resumen guardado", "summary_model_error": "No se ha podido guardar el modelo de resumen", "summarize": "Resumir", "summarizing": "Resumiendo…", "summary": "Resumen de IA", "summary_error": "No se ha podido crear el resumen", "summary_error_hint": "Comprueba que el modelo seleccionado esté activo y disponible."
   },
   "files": {
     "delete_title": "Eliminar archivo",
@@ -4087,7 +4122,18 @@
       "fullscreen": "Pantalla Completa",
       "recenter": "Recentrar",
       "zoom_in": "Acercar",
-      "zoom_out": "Alejar"
+      "zoom_out": "Alejar",
+      "legend": "Leyenda del grafo"
+    },
+    "legend": {
+      "nodes": "Nodos",
+      "connections": "Conexiones",
+      "connection_types": "Tipos de conexión",
+      "wikilink": "Enlaces wiki",
+      "database_wikilink": "Enlaces wiki de vista de base de datos",
+      "unresolved": "Enlaces sin resolver",
+      "semantic_similarity": "Conexiones semánticas",
+      "node_groups": "Grupos de nodos"
     },
     "node_panel": {
       "close": "Cerrar detalles",
@@ -4333,6 +4379,7 @@
     "error_prefix": "Error",
     "open_chat": "Abrir chat",
     "online": "En línea",
+    "runtime_limited": "Conectado · herramientas limitadas",
     "expand_chat": "Expandir chat",
     "minimize_chat": "Minimizar chat",
     "close_chat": "Cerrar chat",
@@ -4361,7 +4408,157 @@
     "model_required": "Configura este agente antes de enviar un mensaje",
     "agent_model_unavailable": "El modelo del agente seleccionado no está disponible. Configura el agente e inténtalo de nuevo.",
     "new_session": "Nueva sesión",
-    "messages_count_many": "{{count}} mensajes"
+    "messages_count_many": "{{count}} mensajes",
+    "confirmations": {
+      "title": "Confirmar acción",
+      "summary": "Revisa esta acción antes de continuar.",
+      "confirm": "Confirmar y ejecutar",
+      "cancel": "Cancelar la acción",
+      "review": "Revisar y confirmar",
+      "completed": "Acción completada después de la confirmación.",
+      "partial": "La acción se ha completado parcialmente: {{completed}} completadas y {{failed}} fallidas.",
+      "outcome_unknown": "Se ha perdido la conexión y se desconoce el resultado de la acción. Comprueba el destino antes de volver a intentarlo.",
+      "failed": "No se ha podido completar la acción: {{message}}",
+      "status": {
+        "pending": "Pendiente de confirmación",
+        "executing": "En ejecución",
+        "completed": "Completada",
+        "partial": "Completada parcialmente",
+        "cancelled": "Cancelada",
+        "expired": "Caducada",
+        "failed": "Fallida",
+        "outcome_unknown": "Resultado desconocido",
+        "unavailable": "Ya no está disponible"
+      },
+      "errors": {
+        "confirmation_not_found": "La acción pendiente ya no existe.",
+        "confirmation_scope_mismatch": "Esta acción pertenece a otro Vault, usuario, agente o sesión.",
+        "confirmation_expired": "La acción pendiente ha caducado. Vuelve a prepararla si aún es necesaria.",
+        "confirmation_unavailable": "La acción pendiente ya no está disponible.",
+        "confirmation_admin_required": "Se necesita permiso de administración para esta acción.",
+        "confirmation_action_rejected": "El destino ha cambiado o la acción ya no está permitida.",
+        "confirmation_action_failed": "No se ha podido completar la acción.",
+        "confirmation_outcome_unknown": "Es posible que la acción se haya completado, pero Gnosi no ha podido verificarlo. Comprueba el destino antes de volver a intentarlo."
+      },
+      "details": {
+        "account": "Cuenta",
+        "arguments": "Argumentos exactos",
+        "asset_revision": "Revisión del árbol de recursos",
+        "attendees": "Asistentes",
+        "bcc": "Copia oculta",
+        "body": "Cuerpo",
+        "body_sha256": "Huella del cuerpo",
+        "calendar_id": "Calendario",
+        "cc": "Copia",
+        "company": "Empresa",
+        "count": "Número de elementos",
+        "current_revision": "Revisión actual",
+        "date": "Fecha",
+        "description": "Descripción",
+        "effects": "Efectos",
+        "email": "Correo",
+        "end": "Final",
+        "entries": "Elementos exactos",
+        "entries_truncated": "Lista de elementos truncada",
+        "event_id": "ID del evento",
+        "folder": "Carpeta",
+        "location": "Ubicación",
+        "imap_folder": "Carpeta de origen del correo",
+        "imap_uid": "Identificador IMAP del mensaje",
+        "message_id": "ID del mensaje",
+        "message_revision": "Revisión del mensaje",
+        "message_source": "Origen del mensaje",
+        "page": "Página",
+        "page_id": "ID de la página",
+        "page_revision": "Revisión de la página",
+        "phone": "Teléfono",
+        "properties": "Propiedades",
+        "property_count": "Número de propiedades",
+        "row_count": "Número de filas",
+        "row_action": "Tratamiento de las filas",
+        "rows_revision": "Revisión del conjunto de filas",
+        "schema_sha256": "Huella del esquema",
+        "sender": "Remitente",
+        "snapshot_digest": "Huella de la instantánea",
+        "start": "Inicio",
+        "subject": "Asunto",
+        "table": "Tabla",
+        "table_id": "ID de la tabla",
+        "table_revision": "Revisión de la tabla",
+        "target_folder": "Carpeta de destino",
+        "timestamp": "Versión",
+        "title": "Título",
+        "to": "Destinatarios",
+        "tool": "Herramienta",
+        "tool_id": "ID de la herramienta",
+        "updates": "Cambios exactos de las filas",
+        "version_revision": "Revisión de la versión",
+        "views_count": "Número de vistas",
+        "views_revision": "Revisión del conjunto de vistas"
+      },
+      "actions": {
+        "delete_page": {
+          "title": "Mover la página a la papelera",
+          "summary": "¿Quieres mover «{{page}}» a la papelera del Vault?"
+        },
+        "delete_contact": {
+          "title": "Eliminar el contacto",
+          "summary": "¿Quieres eliminar permanentemente a {{contact}} ({{email}})?"
+        },
+        "send_mail": {
+          "title": "Enviar el correo",
+          "summary": "¿Quieres enviar «{{subject}}» desde {{account}} a {{to}}?"
+        },
+        "save_mail_draft": {
+          "title": "Guardar borrador de correo",
+          "summary": "¿Quieres guardar «{{subject}}» como borrador en {{account}} para {{to}}?"
+        },
+        "archive_mail": {
+          "title": "Archivar el correo",
+          "summary": "¿Quieres archivar el mensaje {{message_id}} de {{account}}?"
+        },
+        "move_mail": {
+          "title": "Mover el correo",
+          "summary": "¿Quieres mover el mensaje {{message_id}} de {{account}} a {{target_folder}}?"
+        },
+        "invite_attendees": {
+          "title": "Enviar invitaciones",
+          "summary": "¿Quieres invitar a {{attendees}} al evento {{event_id}} desde {{account}}?"
+        },
+        "create_calendar_event": {
+          "title": "Crear un evento",
+          "summary": "¿Quieres crear «{{title}}» en {{calendar_id}} de {{start}} a {{end}}?"
+        },
+        "governed_tool": {
+          "title": "Ejecutar una herramienta gobernada",
+          "summary": "Revisa los argumentos y efectos exactos de {{tool}} antes de ejecutarla."
+        },
+        "delete_table": {
+          "title": "Eliminar la tabla",
+          "summary": "¿Quieres eliminar la tabla «{{table}}», sus vistas y los recursos almacenados?"
+        },
+        "restore_page_version": {
+          "title": "Restaurar la versión",
+          "summary": "¿Quieres sustituir «{{page}}» por la versión de {{timestamp}}?"
+        },
+        "empty_trash": {
+          "title": "Vaciar permanentemente la papelera",
+          "summary_one": "¿Quieres eliminar permanentemente {{count}} elemento de la papelera del Vault?",
+          "summary_other": "¿Quieres eliminar permanentemente {{count}} elementos de la papelera del Vault?",
+          "summary_many": "¿Quieres eliminar permanentemente {{count}} elementos de la papelera del Vault?"
+        },
+        "change_schema": {
+          "title": "Sustituir el esquema",
+          "summary": "¿Quieres sustituir el esquema de {{folder}} por uno de {{property_count}} propiedades?"
+        },
+        "bulk_update_rows": {
+          "title": "Actualizar filas masivamente",
+          "summary_one": "¿Quieres aplicar cambios a {{count}} fila de tabla?",
+          "summary_other": "¿Quieres aplicar cambios a {{count}} filas de tabla?",
+          "summary_many": "¿Quieres aplicar cambios a {{count}} filas de tabla?"
+        }
+      }
+    }
   },
   "bulk_actions": {
     "selected_count_one": "{{count}} seleccionado",

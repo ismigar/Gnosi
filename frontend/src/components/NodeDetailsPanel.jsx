@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
+import { VaultMarkdown } from './Vault/VaultMarkdown';
 
 export function NodeDetailsPanel({ nodeId, isOpen, onClose, initialData }) {
     const { t } = useTranslation();
@@ -134,12 +135,8 @@ export function NodeDetailsPanel({ nodeId, isOpen, onClose, initialData }) {
                     {/* Content Body */}
                     {loading && <div style={{ marginBottom: '20px', color: 'var(--text-tertiary)' }}>{t('graph.node_panel.loading_content', "Finishing loading content...")}</div>}
 
-                    <div className="markdown-body" style={{
-                        lineHeight: '1.6',
-                        fontSize: '0.95rem',
-                        whiteSpace: 'pre-wrap'
-                    }}>
-                        {data.content ? data.content : (!loading && <em style={{ color: 'var(--text-tertiary)' }}>{t('graph.node_panel.no_content', "No content...")}</em>)}
+                    <div className="markdown-body" style={{ lineHeight: '1.6', fontSize: '0.95rem' }}>
+                        {data.content ? <VaultMarkdown md={data.content} /> : (!loading && <em style={{ color: 'var(--text-tertiary)' }}>{t('graph.node_panel.no_content', "No content...")}</em>)}
                     </div>
                 </div>
             )}

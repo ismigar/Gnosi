@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Search, ChevronRight, ChevronLeft, PanelLeft, Plus, X } from 'lucide-react';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
@@ -18,11 +18,12 @@ export const VaultShell = ({
 }) => {
     const { t } = useTranslation();
     const isCompact = useMediaQuery('(max-width: 768px)');
+    const isUltraCompact = useMediaQuery('(max-width: 359px)');
     const isNarrow = useMediaQuery('(max-width: 1023px)');
     const sidebarMode = isNarrow ? 'drawer' : 'wide';
     const [sidebarOverrides, setSidebarOverrides] = useState({});
     const isSidebarOpen = sidebarOverrides[sidebarMode] ?? !isNarrow;
-    const setIsSidebarOpen = (nextValue) => {
+    const setIsSidebarOpen = useCallback((nextValue) => {
         setSidebarOverrides(currentOverrides => {
             const currentValue = currentOverrides[sidebarMode] ?? !isNarrow;
             const resolvedValue = typeof nextValue === 'function'
@@ -38,12 +39,13 @@ export const VaultShell = ({
                 [sidebarMode]: resolvedValue
             };
         });
-    };
+    }, [isNarrow, sidebarMode]);
 
     const visibleBreadcrumbs = isCompact ? [] : breadcrumbs;
     const staleCheckout = import.meta.env.DEV
         && import.meta.env.VITE_GNOSI_STALE_CHECKOUT === '1';
     const checkoutLabel = import.meta.env.VITE_GNOSI_CHECKOUT_LABEL || '';
+    const [isWarningDismissed, setIsWarningDismissed] = useState(false);
     const isMac = typeof navigator !== 'undefined'
         && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
     const newTabShortcut = isMac ? '⌘T' : 'Ctrl+T';
@@ -53,6 +55,15 @@ export const VaultShell = ({
         tabShortcut: switchTabShortcut,
         defaultValue: 'New tab or quick search ({{shortcut}}). Switch tab: {{tabShortcut}}',
     });
+
+    useEffect(() => {
+        if (!isNarrow || !isSidebarOpen) return undefined;
+        const closeOnEscape = (event) => {
+            if (event.key === 'Escape') setIsSidebarOpen(false);
+        };
+        window.addEventListener('keydown', closeOnEscape);
+        return () => window.removeEventListener('keydown', closeOnEscape);
+    }, [isNarrow, isSidebarOpen, setIsSidebarOpen]);
 
     return (
         <div className="vault-shell">
@@ -68,6 +79,17 @@ export const VaultShell = ({
                 id="vault-navigation"
                 className={`vault-shell__sidebar ${isSidebarOpen ? 'is-open' : ''}`}
             >
+                {isNarrow && isSidebarOpen && (
+                    <button
+                        type="button"
+                        className="vault-shell__drawer-close"
+                        onClick={() => setIsSidebarOpen(false)}
+                        title={t('shell.hide_sidebar', 'Hide sidebar')}
+                        aria-label={t('shell.hide_sidebar', 'Hide sidebar')}
+                    >
+                        <X size={18} />
+                    </button>
+                )}
                 <div className="vault-shell__sidebar-content">
                     {sidebarContent}
                 </div>
@@ -94,24 +116,28 @@ export const VaultShell = ({
                         <div className="flex items-center gap-1 overflow-hidden ml-2">
                             {/* Navigation buttons */}
                             <div className="flex items-center gap-0.5 mr-2">
-                                <button
-                                    onClick={onBack}
-                                    disabled={!canGoBack}
-                                    className={`vault-shell__icon-button p-1 rounded transition-colors ${canGoBack ? 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]' : 'opacity-20 cursor-not-allowed'}`}
-                                    title={t('shell.go_back')}
-                                    aria-label={t('shell.go_back')}
-                                >
-                                    <ChevronLeft size={18} />
-                                </button>
-                                <button
-                                    onClick={onForward}
-                                    disabled={!canGoForward}
-                                    className={`vault-shell__icon-button p-1 rounded transition-colors ${canGoForward ? 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]' : 'opacity-20 cursor-not-allowed'}`}
-                                    title={t('shell.go_forward')}
-                                    aria-label={t('shell.go_forward')}
-                                >
-                                    <ChevronRight size={18} />
-                                </button>
+                                {(!isUltraCompact || canGoBack) && (
+                                    <button
+                                        onClick={onBack}
+                                        disabled={!canGoBack}
+                                        className={`vault-shell__icon-button p-1 rounded transition-colors ${canGoBack ? 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]' : 'opacity-20 cursor-not-allowed'}`}
+                                        title={t('shell.go_back')}
+                                        aria-label={t('shell.go_back')}
+                                    >
+                                        <ChevronLeft size={18} />
+                                    </button>
+                                )}
+                                {(!isUltraCompact || (!canGoBack && canGoForward)) && (
+                                    <button
+                                        onClick={onForward}
+                                        disabled={!canGoForward}
+                                        className={`vault-shell__icon-button p-1 rounded transition-colors ${canGoForward ? 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]' : 'opacity-20 cursor-not-allowed'}`}
+                                        title={t('shell.go_forward')}
+                                        aria-label={t('shell.go_forward')}
+                                    >
+                                        <ChevronRight size={18} />
+                                    </button>
+                                )}
                             </div>
 
                             {visibleBreadcrumbs.map((crumb, idx) => (
@@ -166,12 +192,32 @@ export const VaultShell = ({
                     </div>
                 </header>
 
-                {staleCheckout && (
-                    <div className="vault-shell__checkout-warning" role="status">
-                        {t('shell.stale_checkout', {
+                {staleCheckout && !isWarningDismissed && (
+                    <div
+                        className="vault-shell__checkout-warning"
+                        role="status"
+                        title={t('shell.stale_checkout', {
                             checkout: checkoutLabel,
                             defaultValue: 'Local preview is serving merged checkout {{checkout}}, behind origin/main.',
                         })}
+                    >
+                        <span className="vault-shell__checkout-warning-full">
+                            {t('shell.stale_checkout', {
+                                checkout: checkoutLabel,
+                                defaultValue: 'Local preview is serving merged checkout {{checkout}}, behind origin/main.',
+                            })}
+                        </span>
+                        <span className="vault-shell__checkout-warning-short">
+                            {t('shell.stale_checkout_short', 'Local preview is outdated.')}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => setIsWarningDismissed(true)}
+                            aria-label={t('shell.dismiss_checkout_warning', 'Dismiss checkout warning')}
+                            title={t('shell.dismiss_checkout_warning', 'Dismiss checkout warning')}
+                        >
+                            <X size={14} />
+                        </button>
                     </div>
                 )}
 
