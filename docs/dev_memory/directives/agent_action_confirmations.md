@@ -130,6 +130,8 @@ success, failure, and an unknown external outcome.
   identity, and show the same resolved metadata in the modal.
 - Do not invoke repair-on-read parsers while preparing a confirmation preview;
   preview resolution is read-only.
+- Review dialogs for chat actions must include an explicit acknowledgement
+  checkbox and keep execution disabled until it is checked.
 
 ## Verification
 
