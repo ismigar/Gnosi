@@ -13,6 +13,7 @@ import {
     startConfirmationRefresh,
 } from './agentConfirmationUtils';
 import { chatScrollDeltaForComposerKey } from './agentChatKeyboardUtils';
+import { selectedMentionsInText, visibleMentionToken } from './agentChatMentionUtils';
 
 const CHAT_SESSIONS_KEY = 'agent_chat_sessions_v2';
 const CHAT_ACTIVE_SESSION_KEY = 'agent_chat_active_session_id_v2';
@@ -114,17 +115,6 @@ const deleteSessionCheckpoint = async (session) => {
     return true;
 };
 
-const parseMentions = (text) => {
-    const mentions = [];
-    const regex = /@\[([^\]]+)\]\((page|table|database):([^)]+)\)/g;
-    let match = regex.exec(text || '');
-    while (match) {
-        mentions.push({ label: match[1], type: match[2], id: match[3] });
-        match = regex.exec(text || '');
-    }
-    return mentions;
-};
-
 const AgentChat = ({ storageIdentity = '' }) => {
     const { t } = useTranslation();
     const defaultSessionTitle = t('chat.default_session_title', 'New conversation');
@@ -145,6 +135,7 @@ const AgentChat = ({ storageIdentity = '' }) => {
     const [mentionResults, setMentionResults] = useState([]);
     const [showMentionMenu, setShowMentionMenu] = useState(false);
     const [mentionAnchorIndex, setMentionAnchorIndex] = useState(-1);
+    const [selectedMentions, setSelectedMentions] = useState([]);
     const [attachments, setAttachments] = useState([]);
     const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
     const [pendingConfirmation, setPendingConfirmation] = useState(null);
@@ -347,6 +338,7 @@ const AgentChat = ({ storageIdentity = '' }) => {
         }
         setSessionId(target.id);
         setMessages(target.messages || []);
+        setSelectedMentions([]);
         setAttachments([]);
     }, [chatSessions, defaultSessionTitle, scopeReady, selectedAgentId, sessionId]);
 
@@ -550,6 +542,7 @@ const AgentChat = ({ storageIdentity = '' }) => {
         setMessages([]);
         setAgentRuntime(null);
         setInputValue('');
+        setSelectedMentions([]);
         setShowSessionsView(false);
     };
 
@@ -572,6 +565,7 @@ const AgentChat = ({ storageIdentity = '' }) => {
             setSessionId(fresh.id);
             setMessages([]);
             setInputValue('');
+            setSelectedMentions([]);
             return;
         }
 
@@ -589,13 +583,22 @@ const AgentChat = ({ storageIdentity = '' }) => {
         const caret = inputRef.current?.selectionStart ?? current.length;
         if (mentionAnchorIndex < 0 || mentionAnchorIndex > caret) return;
 
-        const token = `@[${item.label}](${item.type}:${item.id}) `;
+        const token = `${visibleMentionToken(item.label)} `;
         const before = current.slice(0, mentionAnchorIndex);
         const after = current.slice(caret);
         const nextValue = `${before}${token}${after}`;
         const nextCaret = before.length + token.length;
 
         setInputValue(nextValue);
+        setSelectedMentions((previous) => [
+            ...previous.filter((mention) => mention.token !== token.trim()),
+            {
+                type: item.type,
+                id: item.id,
+                label: item.label,
+                token: token.trim(),
+            },
+        ]);
         setShowMentionMenu(false);
         setMentionResults([]);
         setMentionAnchorIndex(-1);
@@ -1088,7 +1091,7 @@ const AgentChat = ({ storageIdentity = '' }) => {
         e.preventDefault();
         if ((!inputValue.trim() && attachments.length === 0) || isLoading || !agentHasModel) return;
 
-        const mentions = parseMentions(inputValue);
+        const mentions = selectedMentionsInText(inputValue, selectedMentions);
         const attachmentsPayload = attachments.map((item) => ({
             name: item.name,
             size: item.size,
@@ -1107,6 +1110,7 @@ const AgentChat = ({ storageIdentity = '' }) => {
         };
         setMessages(prev => [...prev, userMsg]);
         setInputValue('');
+        setSelectedMentions([]);
         setAttachments([]);
         setShowMentionMenu(false);
         setIsLoading(true);
