@@ -3982,7 +3982,18 @@
       "fullscreen": "Fullscreen",
       "recenter": "Recenter",
       "zoom_in": "Zoom in",
-      "zoom_out": "Zoom out"
+      "zoom_out": "Zoom out",
+      "legend": "Graph legend"
+    },
+    "legend": {
+      "nodes": "Nodes",
+      "connections": "Connections",
+      "connection_types": "Connection types",
+      "wikilink": "Wikilinks",
+      "database_wikilink": "Database-view wikilinks",
+      "unresolved": "Unresolved links",
+      "semantic_similarity": "Semantic connections",
+      "node_groups": "Node groups"
     },
     "node_panel": {
       "close": "Close details",
@@ -4226,6 +4237,7 @@
     "error_prefix": "Error",
     "open_chat": "Open chat",
     "online": "Online",
+    "runtime_limited": "Connected · tools limited",
     "expand_chat": "Expand chat",
     "minimize_chat": "Minimize chat",
     "close_chat": "Close chat",
@@ -4288,6 +4300,7 @@
       "details": {
         "account": "Account",
         "arguments": "Exact arguments",
+        "asset_revision": "Asset-tree revision",
         "attendees": "Attendees",
         "bcc": "Bcc",
         "body": "Body",
@@ -4307,7 +4320,11 @@
         "event_id": "Event ID",
         "folder": "Folder",
         "location": "Location",
+        "imap_folder": "Source mail folder",
+        "imap_uid": "IMAP message ID",
         "message_id": "Message ID",
+        "message_revision": "Message revision",
+        "message_source": "Message source",
         "page": "Page",
         "page_id": "Page ID",
         "page_revision": "Page revision",
@@ -4315,6 +4332,8 @@
         "properties": "Properties",
         "property_count": "Property count",
         "row_count": "Row count",
+        "row_action": "Row handling",
+        "rows_revision": "Row-set revision",
         "schema_sha256": "Schema fingerprint",
         "sender": "Sender",
         "snapshot_digest": "Snapshot fingerprint",
@@ -4322,6 +4341,7 @@
         "subject": "Subject",
         "table": "Table",
         "table_id": "Table ID",
+        "table_revision": "Table revision",
         "target_folder": "Target folder",
         "timestamp": "Version",
         "title": "Title",
@@ -4329,7 +4349,9 @@
         "tool": "Tool",
         "tool_id": "Tool ID",
         "updates": "Exact row changes",
-        "version_revision": "Version revision"
+        "version_revision": "Version revision",
+        "views_count": "View count",
+        "views_revision": "View-set revision"
       },
       "actions": {
         "delete_page": {

@@ -192,7 +192,8 @@ def _read_file_source(rel_path: str) -> str:
         from backend.agent.vault_tools import read_pdf
         return read_pdf.invoke({"path": rel_path, "max_chars": MAX_SOURCE_CHARS})
     try:
-        return target.read_text(encoding="utf-8", errors="replace")[:MAX_SOURCE_CHARS]
+        with target.open("r", encoding="utf-8", errors="replace") as handle:
+            return handle.read(MAX_SOURCE_CHARS)
     except Exception as exc:  # noqa: BLE001
         return f"Error reading file {rel_path}: {exc}"
 

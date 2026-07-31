@@ -3,12 +3,14 @@ import asyncio
 import json
 import sqlite3
 import stat
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from fastapi import BackgroundTasks, HTTPException
+from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi.testclient import TestClient
 
 from backend.agent import action_confirmations
 from backend.agent import gnosi_tools
@@ -22,9 +24,12 @@ from backend.agent.action_confirmations import (
     confirmation_event,
     finish_confirmation,
     get_confirmation_status,
+    heartbeat_confirmation,
     list_confirmations,
+    maintain_confirmation_store,
     request_confirmation,
 )
+from backend.services.workspace_service import get_workspace_context
 
 
 def _scope(**overrides):
@@ -229,6 +234,53 @@ def test_confirmation_endpoint_executes_once(monkeypatch):
     assert repeated.value.status_code == 409
 
 
+def test_confirmation_http_api_executes_and_rejects_replay(monkeypatch):
+    pending = _prepare()
+    monkeypatch.setattr(
+        agent_routes,
+        "_vault_scope",
+        lambda: (Path("/vault"), "vault-a"),
+    )
+    calls = []
+
+    async def fake_execute(
+        action,
+        arguments,
+        *,
+        workspace_id,
+        background_tasks,
+    ):
+        calls.append((action, arguments, workspace_id))
+        return {"status": "success"}
+
+    monkeypatch.setattr(agent_routes, "execute_confirmed_action", fake_execute)
+    context = agent_routes.WorkspaceContext(
+        workspace_id="personal",
+        user_id="user-a",
+        role="owner",
+        vault_path=Path("/vault"),
+    )
+    app = FastAPI()
+    app.include_router(agent_routes.router, prefix="/api")
+    app.dependency_overrides[get_workspace_context] = lambda: context
+
+    with TestClient(app) as client:
+        endpoint = (
+            f"/api/chat/confirmations/{pending['confirmation_id']}/confirm"
+        )
+        payload = {
+            "agent_id": "brain",
+            "session_id": "session-a",
+        }
+        response = client.post(endpoint, json=payload)
+        replay = client.post(endpoint, json=payload)
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "completed"
+    assert replay.status_code == 409
+    assert calls == [("empty_trash", {}, "personal")]
+
+
 def test_database_is_private_and_terminal_rows_scrub_arguments(
     isolated_confirmation_database,
 ):
@@ -352,6 +404,75 @@ def test_terminal_audit_rows_are_removed_after_retention(
     assert count == 0
 
 
+def test_retention_maintenance_runs_without_listing(
+    isolated_confirmation_database,
+    monkeypatch,
+):
+    now = 9_000.0
+    monkeypatch.setattr(action_confirmations.time, "time", lambda: now)
+    pending = _prepare()
+    claim_confirmation(pending["confirmation_id"], _scope())
+    finish_confirmation(pending["confirmation_id"], result={"status": "completed"})
+    monkeypatch.setattr(
+        action_confirmations.time,
+        "time",
+        lambda: now + action_confirmations.TERMINAL_RETENTION_SECONDS + 1,
+    )
+
+    maintain_confirmation_store()
+
+    connection = sqlite3.connect(isolated_confirmation_database)
+    try:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM pending_agent_actions"
+        ).fetchone()[0] == 0
+    finally:
+        connection.close()
+
+
+def test_heartbeat_preserves_a_live_execution_lease(monkeypatch):
+    now = 10_000.0
+    monkeypatch.setattr(action_confirmations.time, "time", lambda: now)
+    pending = _prepare()
+    claim_confirmation(pending["confirmation_id"], _scope())
+    heartbeat_at = now + action_confirmations.EXECUTION_LEASE_SECONDS - 10
+    monkeypatch.setattr(
+        action_confirmations.time,
+        "time",
+        lambda: heartbeat_at,
+    )
+    assert heartbeat_confirmation(pending["confirmation_id"])
+    monkeypatch.setattr(
+        action_confirmations.time,
+        "time",
+        lambda: now + action_confirmations.EXECUTION_LEASE_SECONDS + 10,
+    )
+
+    assert get_confirmation_status(
+        pending["confirmation_id"],
+        _scope(),
+    )["status"] == "executing"
+
+
+def test_new_pending_confirmation_is_not_crowded_out_by_terminal_history():
+    for _index in range(100):
+        terminal = _prepare()
+        claim_confirmation(terminal["confirmation_id"], _scope())
+        finish_confirmation(
+            terminal["confirmation_id"],
+            result={"status": "completed"},
+        )
+    newest = _prepare()
+
+    visible = list_confirmations(_scope())
+
+    assert len(visible) == 100
+    assert newest["confirmation_id"] in {
+        item["confirmation_id"] for item in visible
+    }
+    assert any(item["status"] == "pending" for item in visible)
+
+
 def test_concurrent_claim_and_cancel_have_one_winner():
     pending = _prepare()
 
@@ -439,6 +560,117 @@ def test_endpoint_surfaces_partial_and_unknown_outcomes(monkeypatch):
     assert response.value.detail["code"] == "confirmation_outcome_unknown"
     assert get_confirmation_status(
         unknown["confirmation_id"],
+        _scope(),
+    )["status"] == "outcome_unknown"
+
+
+def test_external_http_5xx_is_unknown_but_http_409_is_known(monkeypatch):
+    monkeypatch.setattr(
+        agent_routes,
+        "_vault_scope",
+        lambda: (Path("/vault"), "vault-a"),
+    )
+    context = agent_routes.WorkspaceContext(
+        workspace_id="personal",
+        user_id="user-a",
+        role="owner",
+        vault_path=Path("/vault"),
+    )
+    payload = agent_routes.ActionConfirmationRequest(
+        agent_id="brain",
+        session_id="session-a",
+    )
+
+    async def provider_5xx(*_args, **_kwargs):
+        raise HTTPException(status_code=500, detail="response lost")
+
+    monkeypatch.setattr(
+        agent_routes,
+        "execute_confirmed_action",
+        provider_5xx,
+    )
+    unknown = _prepare()
+    with pytest.raises(HTTPException) as unknown_response:
+        asyncio.run(agent_routes.confirm_agent_action(
+            unknown["confirmation_id"],
+            payload,
+            BackgroundTasks(),
+            context,
+        ))
+    assert unknown_response.value.detail["code"] == "confirmation_outcome_unknown"
+    assert get_confirmation_status(
+        unknown["confirmation_id"],
+        _scope(),
+    )["status"] == "outcome_unknown"
+
+    async def known_conflict(*_args, **_kwargs):
+        raise HTTPException(status_code=409, detail="stale")
+
+    monkeypatch.setattr(
+        agent_routes,
+        "execute_confirmed_action",
+        known_conflict,
+    )
+    conflict = _prepare()
+    with pytest.raises(HTTPException) as conflict_response:
+        asyncio.run(agent_routes.confirm_agent_action(
+            conflict["confirmation_id"],
+            payload,
+            BackgroundTasks(),
+            context,
+        ))
+    assert conflict_response.value.status_code == 409
+    assert get_confirmation_status(
+        conflict["confirmation_id"],
+        _scope(),
+    )["status"] == "failed"
+
+
+def test_confirmed_action_timeout_is_an_unknown_outcome(monkeypatch):
+    monkeypatch.setattr(
+        agent_routes,
+        "_vault_scope",
+        lambda: (Path("/vault"), "vault-a"),
+    )
+    monkeypatch.setattr(
+        agent_routes,
+        "CONFIRMED_ACTION_TIMEOUT_SECONDS",
+        0.01,
+    )
+
+    async def slow_execute(*_args, **_kwargs):
+        time.sleep(0.1)
+        return {"status": "success"}
+
+    monkeypatch.setattr(
+        agent_routes,
+        "execute_confirmed_action",
+        slow_execute,
+    )
+    pending = _prepare()
+    context = agent_routes.WorkspaceContext(
+        workspace_id="personal",
+        user_id="user-a",
+        role="owner",
+        vault_path=Path("/vault"),
+    )
+    payload = agent_routes.ActionConfirmationRequest(
+        agent_id="brain",
+        session_id="session-a",
+    )
+
+    with pytest.raises(HTTPException) as response:
+        asyncio.run(agent_routes.confirm_agent_action(
+            pending["confirmation_id"],
+            payload,
+            BackgroundTasks(),
+            context,
+        ))
+
+    assert response.value.status_code == 409
+    assert response.value.detail["code"] == "confirmation_outcome_unknown"
+    assert get_confirmation_status(
+        pending["confirmation_id"],
         _scope(),
     )["status"] == "outcome_unknown"
 

@@ -5,8 +5,11 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import AgentChat from './AgentChat';
 import ConfirmModal from './ConfirmModal';
 import {
+    CONFIRMATION_REFRESH_MS,
+    agentChatStorageScope,
     confirmationForStorage,
     mergeConfirmationRecords,
+    startConfirmationRefresh,
 } from './agentConfirmationUtils';
 
 vi.mock('react-i18next', () => ({
@@ -42,9 +45,35 @@ afterEach(async () => {
         await act(async () => root.unmount());
         container.remove();
     }
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
 });
 
 describe('agent action confirmations', () => {
+    it('isolates browser chat storage by vault, workspace, and user', () => {
+        const first = agentChatStorageScope({
+            vaultId: 'vault-a',
+            workspaceId: 'workspace-a',
+            userId: 'user-a',
+        });
+        expect(first).not.toBe(agentChatStorageScope({
+            vaultId: 'vault-a',
+            workspaceId: 'workspace-a',
+            userId: 'user-b',
+        }));
+        expect(first).not.toBe(agentChatStorageScope({
+            vaultId: 'vault-a',
+            workspaceId: 'workspace-b',
+            userId: 'user-a',
+        }));
+        expect(first).not.toBe(agentChatStorageScope({
+            vaultId: 'vault-b',
+            workspaceId: 'workspace-a',
+            userId: 'user-a',
+        }));
+    });
+
     it('keeps independent cards and reconciles each status by id', () => {
         const summaryFor = confirmation => confirmation.action;
         const firstPass = mergeConfirmationRecords(
@@ -102,6 +131,27 @@ describe('agent action confirmations', () => {
             summary_key: 'chat.confirmations.summary',
             details: {},
         });
+    });
+
+    it('refreshes confirmation state immediately and on the fixed interval', () => {
+        const refresh = vi.fn();
+        const clearIntervalFn = vi.fn();
+        let scheduled;
+        const stop = startConfirmationRefresh(
+            refresh,
+            (callback, delay) => {
+                scheduled = { callback, delay };
+                return 42;
+            },
+            clearIntervalFn,
+        );
+
+        expect(refresh).toHaveBeenCalledTimes(1);
+        expect(scheduled.delay).toBe(CONFIRMATION_REFRESH_MS);
+        scheduled.callback();
+        expect(refresh).toHaveBeenCalledTimes(2);
+        stop();
+        expect(clearIntervalFn).toHaveBeenCalledWith(42);
     });
 
     it('focuses cancel and disables global Enter confirmation', async () => {

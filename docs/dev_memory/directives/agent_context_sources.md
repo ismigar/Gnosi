@@ -56,6 +56,12 @@ Resolution by type:
 
 ## Restrictions and edge cases
 
+- Page and PDF readers enforce server-owned output ceilings. Model-supplied
+  limits are clamped, and nested metadata is recursively bounded before it is
+  serialized into a tool result.
+- Bounded readers stop reading once their ceiling is reached; they do not load
+  an arbitrarily large text file and slice it afterwards.
+
 - **Path containment is mandatory.** `source_id` comes from the LLM, which can
   read untrusted and prompt-injectable pages, email, and PDFs. Tools accept
   only identifiers already present in `context_refs`, never arbitrary paths.
