@@ -12,6 +12,7 @@ import {
     mergeConfirmationRecords,
     startConfirmationRefresh,
 } from './agentConfirmationUtils';
+import { chatScrollDeltaForComposerKey } from './agentChatKeyboardUtils';
 
 const CHAT_SESSIONS_KEY = 'agent_chat_sessions_v2';
 const CHAT_ACTIVE_SESSION_KEY = 'agent_chat_active_session_id_v2';
@@ -153,6 +154,7 @@ const AgentChat = ({ storageIdentity = '' }) => {
 
     // Ref to scroll to the bottom
     const messagesEndRef = useRef(null);
+    const messagesContainerRef = useRef(null);
     const inputRef = useRef(null);
     const fileInputRef = useRef(null);
     const requestAbortRef = useRef(null);
@@ -1418,7 +1420,7 @@ const AgentChat = ({ storageIdentity = '' }) => {
             {!isMinimized && (
                 <>
                     {/* Missatges */}
-                    <div style={{ flex: 1, padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div ref={messagesContainerRef} style={{ flex: 1, padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         {showSessionsView && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1593,6 +1595,22 @@ const AgentChat = ({ storageIdentity = '' }) => {
                                         requestAnimationFrame(autoResizeInput);
                                     }}
                                     onKeyDown={(e) => {
+                                        const scrollDelta = chatScrollDeltaForComposerKey({
+                                            key: e.key,
+                                            value: e.currentTarget.value,
+                                            altKey: e.altKey,
+                                            ctrlKey: e.ctrlKey,
+                                            metaKey: e.metaKey,
+                                            shiftKey: e.shiftKey,
+                                        });
+                                        if (scrollDelta) {
+                                            e.preventDefault();
+                                            messagesContainerRef.current?.scrollBy({
+                                                top: scrollDelta,
+                                                behavior: 'smooth',
+                                            });
+                                            return;
+                                        }
                                         if (e.key === 'Enter' && e.shiftKey) {
                                             // Keep newline behavior and avoid parent-level Enter handlers.
                                             e.stopPropagation();
