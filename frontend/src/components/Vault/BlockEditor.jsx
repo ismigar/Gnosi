@@ -3859,6 +3859,45 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const linksHeaderRef = useRef(null);
     const registerEditorApi = useCallback((api) => { editorApiRef.current = api; }, []);
     const [isHeaderHovered, setIsHeaderHovered] = useState(false);
+    const [isPageHeaderCompact, setIsPageHeaderCompact] = useState(false);
+    const [isCompactHeaderVisible, setIsCompactHeaderVisible] = useState(true);
+    const [isFocusMode, setIsFocusMode] = useState(false);
+    const lastScrollTopRef = useRef(0);
+    useEffect(() => {
+        const hero = headerHoverRef.current;
+        if (!hero || typeof IntersectionObserver !== 'function') return undefined;
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                const compact = !entry.isIntersecting && entry.boundingClientRect.bottom < 0;
+                setIsPageHeaderCompact(compact);
+                if (compact) setIsCompactHeaderVisible(true);
+            },
+            { threshold: 0 },
+        );
+        observer.observe(hero);
+        return () => observer.disconnect();
+    }, [noteFilename]);
+    useEffect(() => {
+        const handleScroll = (event) => {
+            const target = event.target === document ? document.scrollingElement : event.target;
+            if (!(target instanceof Element)) return;
+            const nextScrollTop = target.scrollTop;
+            const delta = nextScrollTop - lastScrollTopRef.current;
+            if (Math.abs(delta) > 6) setIsCompactHeaderVisible(delta < 0);
+            lastScrollTopRef.current = nextScrollTop;
+        };
+        document.addEventListener('scroll', handleScroll, true);
+        return () => document.removeEventListener('scroll', handleScroll, true);
+    }, []);
+    useEffect(() => {
+        const toggleFocusMode = () => setIsFocusMode((current) => !current);
+        window.addEventListener('gnosi:toggle-focus-mode', toggleFocusMode);
+        try {
+            document.documentElement.dataset.vaultContrast = localStorage.getItem('gnosi.vault.contrast') || 'normal';
+            document.documentElement.dataset.vaultText = localStorage.getItem('gnosi.vault.textSize') || 'normal';
+        } catch { /* noop */ }
+        return () => window.removeEventListener('gnosi:toggle-focus-mode', toggleFocusMode);
+    }, []);
 
     const openPageViewModalFromContext = useCallback((tableId = '', editingBlock = null) => {
         setPageViewPreselectedTable(tableId);
@@ -4571,8 +4610,17 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     }, [noteFilename, t]);
 
     return (
-        <div className="vault-page-editor w-full flex justify-center bg-[var(--bg-primary)] min-h-full transition-colors duration-300">
+        <div className={`vault-page-editor ${isFocusMode ? 'vault-page-editor--focus' : ''} w-full flex justify-center bg-[var(--bg-primary)] min-h-full transition-colors duration-300`}>
             <div ref={contentRef} className="max-w-7xl w-full flex flex-col min-h-full bg-[var(--bg-primary)] relative transition-colors duration-300">
+                {isPageHeaderCompact && (
+                    <div className={`vault-page-compact-header ${isCompactHeaderVisible ? '' : 'is-hidden'}`}>
+                        <span className="vault-page-compact-header__title">{metadata.title || t('editor.untitled')}</span>
+                        <PageActionsBar
+                            pageActions={isActivePage ? pageActions : null}
+                            containerWidth={contentWidth}
+                        />
+                    </div>
+                )}
                 <div
                     className={`vault-page-hero relative w-full group/cover ${metadata.cover ? 'vault-page-hero--covered' : 'vault-page-hero--bare'}`}
                     onMouseEnter={() => setIsHeaderHovered(true)}
@@ -4620,14 +4668,14 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                         </div>
                     </div>
 
-                    <div className="vault-page-icon absolute -bottom-10 left-12 group/icon z-10">
+                    <div className={`vault-page-icon absolute left-12 group/icon z-10 ${metadata.cover ? '-bottom-10' : '-bottom-8'}`}>
                         <div 
                             ref={iconTriggerRef}
                             onClick={() => setIsIconPickerOpen(true)}
-                            className={`relative flex items-center justify-center bg-[var(--bg-primary)] border-4 border-[var(--bg-primary)] rounded-3xl shadow-sm cursor-pointer hover:bg-[var(--bg-secondary)] transition-all group-hover/icon:scale-105 active:scale-95 ${metadata.icon ? 'w-24 h-24' : 'w-24 h-24 opacity-0 group-hover/cover:opacity-100'}`}
+                            className={`relative flex items-center justify-center bg-[var(--bg-primary)] border-4 border-[var(--bg-primary)] shadow-sm cursor-pointer hover:bg-[var(--bg-secondary)] transition-all group-hover/icon:scale-105 active:scale-95 ${metadata.cover ? 'h-24 w-24 rounded-3xl' : 'h-20 w-20 rounded-2xl'} ${metadata.icon ? '' : 'opacity-0 group-hover/cover:opacity-100 group-focus-within/cover:opacity-100'}`}
                         >
                             {metadata.icon ? (
-                                <IconRenderer icon={metadata.icon} size={64} />
+                                <IconRenderer icon={metadata.icon} size={metadata.cover ? 64 : 52} />
                             ) : (
                                 <div className="flex flex-col items-center gap-1 text-[var(--text-tertiary)]/40 hover:text-[var(--gnosi-primary)]">
                                     <Plus size={24} />
@@ -4651,7 +4699,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                     </div>
                 </div>
 
-                <div className={`vault-page-overview px-12 pb-2 ${metadata.icon ? 'vault-page-overview--with-icon' : 'vault-page-overview--without-icon'}`}>
+                <div className={`vault-page-overview px-12 pb-2 ${metadata.cover ? '' : 'vault-page-overview--bare'} ${metadata.icon ? 'vault-page-overview--with-icon' : 'vault-page-overview--without-icon'}`}>
                     <div className="mb-4 space-y-1.5">
                         <div className="flex items-center justify-between gap-4 group/title mb-6">
                             <textarea
