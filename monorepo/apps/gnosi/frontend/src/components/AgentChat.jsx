@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import * as LucideIcons from 'lucide-react';
-import { Send, X, Paperclip, Minimize2, Maximize2, Bot, Sparkles, Plus, AtSign, Archive, PanelBottomClose } from 'lucide-react';
+import { DynamicIcon, iconNames } from 'lucide-react/dynamic';
+import { Send, X, Paperclip, Minimize2, Maximize2, Bot, Brain, Sparkles, Plus, AtSign, Archive, PanelBottomClose } from 'lucide-react';
 import { useConfigChanged } from '../lib/configEvents';
 import { announceFloatingPanelOpen, useExclusiveFloatingPanel } from '../hooks/useExclusiveFloatingPanel';
 import { useFloatingActionDock } from '../hooks/useFloatingActionDock';
@@ -26,6 +26,9 @@ const CHAT_ATTACHMENT_ACCEPT = [
 const MAX_STORED_SESSIONS = 20;
 const MAX_STORED_MESSAGES = 100;
 const MAX_STORED_MESSAGE_CHARS = 20_000;
+const DYNAMIC_ICON_NAMES = new Set(iconNames);
+
+const lucideIconName = (name) => name.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
 const confirmationScope = (confirmation, browserStorageScope = '') => {
     if (confirmation?.client_scope) return confirmation.client_scope;
     if (confirmation?.agent_id && confirmation?.session_id) {
@@ -1281,10 +1284,12 @@ const AgentChat = ({ storageIdentity = '' }) => {
         if (!iconStr) return <Bot size={size} />;
         if (iconStr.startsWith('lucide:')) {
             const [_, name, colorName] = iconStr.split(':');
-            const IconComp = LucideIcons[name];
             // Support 'white', 'gray', or any color name. Fallback to white for Brain if no color.
             const color = colorName || (name === 'Brain' ? 'white' : 'currentColor');
-            return IconComp ? <IconComp size={size} color={color} /> : <Bot size={size} />;
+            const normalizedName = lucideIconName(name || '');
+            return DYNAMIC_ICON_NAMES.has(normalizedName)
+                ? <DynamicIcon name={normalizedName} size={size} color={color} />
+                : <Bot size={size} />;
         }
         return <span style={{ fontSize: `${size}px` }}>{iconStr}</span>;
     };
@@ -1460,7 +1465,7 @@ const AgentChat = ({ storageIdentity = '' }) => {
                         {!showSessionsView && messages.length === 0 && (
                             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: 'var(--text-secondary)', padding: '40px' }}>
                                 <div style={{ fontSize: '3rem', marginBottom: '16px', color: 'var(--gnosi-blue)' }}>
-                                    <LucideIcons.Brain size={64} strokeWidth={1.5} />
+                                    <Brain size={64} strokeWidth={1.5} />
                                 </div>
                                 <h4 style={{ margin: '0 0 8px 0', color: 'var(--text-primary)' }}>{t('chat.empty_title', "How can I help you today?")}</h4>
                                 <p style={{ fontSize: '0.85rem', margin: 0 }}>{t('chat.empty_subtitle', "I can analyze your Vault, manage your calendar, or write code for you.")}</p>
