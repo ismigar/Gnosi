@@ -4375,6 +4375,7 @@
     "cancel_response": "Cancelar",
     "tool_start": "🛠️ *Llamando a la herramienta: {{tool}}...*",
     "tool_end": "✅ *Herramienta {{tool}} finalizada.*",
+    "tool_pending_confirmation": "🟡 *La herramienta {{tool}} está pendiente de confirmación.*",
     "rate_limit_message": "Has superado la cuota del modelo de este agente. Prueba con otro agente o espera unos minutos.",
     "error_prefix": "Error",
     "open_chat": "Abrir chat",
