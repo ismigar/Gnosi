@@ -4095,7 +4095,17 @@
       "fullscreen": "Pantalla Completa",
       "recenter": "Recentrar",
       "zoom_in": "Ampliar",
-      "zoom_out": "Allunyar"
+      "zoom_out": "Allunyar",
+      "legend": "Llegenda del graf"
+    },
+    "legend": {
+      "nodes": "Nodes",
+      "connections": "Connexions",
+      "connection_types": "Tipus de connexió",
+      "wikilink": "Enllaços wiki",
+      "database_wikilink": "Enllaços wiki de vista de base de dades",
+      "unresolved": "Enllaços sense resoldre",
+      "node_groups": "Grups de nodes"
     },
     "node_panel": {
       "close": "Tancar detalls",
