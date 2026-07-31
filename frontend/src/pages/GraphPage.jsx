@@ -31,8 +31,10 @@ function GraphPage() {
     // the overlays (node count, legend, minimap…) light-colored in dark mode.
     const [isDarkMode, setIsDarkMode] = useState(() => document.documentElement.classList.contains('dark'));
 
-    // igraph FR layout computed on the backend. FA2 disabled by default.
-    const isPhysicsEnabled = false;
+    // Refine the cached backend layout with the active visible-subgraph forces.
+    // The filter effect runs before the simulation, so hidden vault nodes never
+    // compress the layout selected by the user.
+    const isPhysicsEnabled = true;
 
     // Filter State
     const location = useLocation();
@@ -40,9 +42,9 @@ function GraphPage() {
     const [similarity, setSimilarity] = useState(100);
     const [hideIsolated, setHideIsolated] = useState(false);
     const [onlyIsolated, setOnlyIsolated] = useState(false);
-    const [activeClusters, setActiveClusters] = useState(new Set());
-    const [activeKinds, setActiveKinds] = useState(new Set());
-    const [activeProjects, setActiveProjects] = useState(new Set());
+    const [activeClusters] = useState(new Set());
+    const [activeKinds] = useState(new Set());
+    const [activeProjects] = useState(new Set());
     const [colorMode, setColorMode] = useState('kind');
 
     // Visibility & Configuration (from config.graph)
@@ -71,13 +73,13 @@ function GraphPage() {
 
     // Physics State - UI (Instant feedback for sliders)
     const [gravityUI, setGravityUI] = useState(0.1);
-    const [repulsionUI, setRepulsionUI] = useState(2000);
-    const [frictionUI, setFrictionUI] = useState(1.0);
-    const [edgeInfluenceUI, setEdgeInfluenceUI] = useState(1.0);
+    const [repulsionUI, setRepulsionUI] = useState(1000);
+    const [frictionUI, setFrictionUI] = useState(10);
+    const [edgeInfluenceUI, setEdgeInfluenceUI] = useState(0);
 
-    const [linLogMode, setLinLogMode] = useState(true);
+    const [linLogMode, setLinLogMode] = useState(false);
     const [strongGravityMode, setStrongGravityMode] = useState(true);
-    const [outboundAttractionDistribution, setOutboundAttractionDistribution] = useState(true);
+    const [outboundAttractionDistribution, setOutboundAttractionDistribution] = useState(false);
 
     // Sync State
     const [isSyncing, setIsSyncing] = useState(false);
@@ -85,9 +87,9 @@ function GraphPage() {
     // Physics State - Real (Debounced for ForceAtlas2)
     // Initial values matching the UI's to avoid an abrupt restart at 300ms
     const [gravity, setGravity] = useState(0.1);
-    const [repulsion, setRepulsion] = useState(2000);
-    const [friction, setFriction] = useState(1.0);
-    const [edgeInfluence, setEdgeInfluence] = useState(1.0);
+    const [repulsion, setRepulsion] = useState(1000);
+    const [friction, setFriction] = useState(10);
+    const [edgeInfluence, setEdgeInfluence] = useState(0);
 
 
     // Debounce Effects
@@ -297,6 +299,37 @@ function GraphPage() {
         if (g.label_threshold) setLabelThreshold(g.label_threshold);
         if (g.node_size) setNodeSize(g.node_size);
         if (g.edge_thickness) setEdgeThickness(g.edge_thickness);
+
+        const physics = g.physics || {};
+        if (Number.isFinite(Number(physics.gravity))) {
+            const value = Number(physics.gravity);
+            setGravityUI(value);
+            setGravity(value);
+        }
+        if (Number.isFinite(Number(physics.repulsion))) {
+            const value = Number(physics.repulsion);
+            setRepulsionUI(value);
+            setRepulsion(value);
+        }
+        if (Number.isFinite(Number(physics.friction))) {
+            const value = Number(physics.friction);
+            setFrictionUI(value);
+            setFriction(value);
+        }
+        if (Number.isFinite(Number(physics.edge_influence))) {
+            const value = Number(physics.edge_influence);
+            setEdgeInfluenceUI(value);
+            setEdgeInfluence(value);
+        }
+        if (typeof physics.lin_log_mode === 'boolean') {
+            setLinLogMode(physics.lin_log_mode);
+        }
+        if (typeof physics.strong_gravity_mode === 'boolean') {
+            setStrongGravityMode(physics.strong_gravity_mode);
+        }
+        if (typeof physics.outbound_attraction_distribution === 'boolean') {
+            setOutboundAttractionDistribution(physics.outbound_attraction_distribution);
+        }
     }, [config]);
 
     // One-time source seeding: the first time (config without `sources_initialized`)
@@ -434,14 +467,14 @@ function GraphPage() {
     }), [activeClusters, activeKinds, activeProjects, similarity, hideIsolated, onlyIsolated, selectedNode, depth, searchTerm, timelineDate, pathResult, visibleDatabases, visibleTables, sourcesInitialized, activeTableFilters, fieldFilters, graphTableFiltersSettings, activeMediaTags]);
     
     // Efficiently calculate filtered counts as derived state (Clean v6)
-    // We only count "link" edges (wikilinks) to stay consistent with what's rendered.
+    // Match the body-wikilink topology rendered by GraphViewer and Obsidian.
     const memoizedGraph = useMemo(() => {
         if (!graphData?.nodes) return null;
         const g = new Graph();
         graphData.nodes.forEach(n => g.addNode(n.key, n));
         graphData.edges.forEach(e => {
-            if (e.kind !== 'link') return;
-            try { g.addEdge(e.source, e.target, e); } catch (_) {}
+            if (e.kind !== 'link' && !e.body_link) return;
+            try { g.addEdge(e.source, e.target, e); } catch { /* Duplicate edge. */ }
         });
         return g;
     }, [graphData]);
@@ -892,8 +925,9 @@ function GraphPage() {
                     graph={graphInstance}
                     mainRenderer={rendererInstance}
                     isDarkMode={isDarkMode}
-                    onPanTo={(x, y, ratio) => graphViewerRef.current?.panTo(x, y, ratio)}
+                    onPanToGraph={(x, y, ratio) => graphViewerRef.current?.panToGraphPoint(x, y, ratio)}
                     onPanToNode={(nodeId, ratio) => graphViewerRef.current?.panToNode(nodeId, ratio)}
+                    onCenter={() => graphViewerRef.current?.center()}
                 />
                 <NodeDetailsPanel
                     nodeId={selectedNode}

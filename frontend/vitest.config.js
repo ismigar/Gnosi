@@ -11,7 +11,7 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
     test: {
         environment: 'jsdom',
-        include: ['tests/**/*.test.js', 'src/**/*.test.js'],
+        include: ['tests/**/*.test.js', 'src/**/*.test.js', 'src/**/*.test.jsx'],
         restoreMocks: true,
     },
 });

@@ -1,46 +1,18 @@
 import React, { useEffect, useRef } from 'react';
+import {
+    createMinimapTransform,
+    getCameraViewportRect,
+    getVisibleCameraRatio,
+    getVisibleGraphBounds,
+} from '../utils/graphViewGeometry';
 
-export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanTo, onPanToNode }) => {
+export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanToGraph, onPanToNode, onCenter }) => {
     const canvasRef = useRef(null);
     const viewportRef = useRef(null);
     const isDragging = useRef(false);
     const containerRef = useRef(null);
-    const debugInfo = useRef({ click: null, target: null });
     const dragOffset = useRef({ x: 0, y: 0 });
     const hasDragged = useRef(false);
-
-    // Helper to calculate bounds
-    const getGraphBounds = () => {
-        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-        graph.forEachNode((_, attr) => {
-            if (attr.hidden) return; // Ignore hidden nodes
-            if (typeof attr.x === 'number') {
-                minX = Math.min(minX, attr.x);
-                maxX = Math.max(maxX, attr.x);
-            }
-            if (typeof attr.y === 'number') {
-                minY = Math.min(minY, attr.y);
-                maxY = Math.max(maxY, attr.y);
-            }
-        });
-        return { minX, maxX, minY, maxY };
-    };
-
-    // Helper to convert Graph Coords -> Camera Coords (Normalized 0-1)
-    // MUST match GraphViewer.jsx logic:
-    // normX = (x - minX) / width
-    // normY = 1 - (y - minY) / height  (Y is inverted)
-    const graphToCamera = (gx, gy) => {
-        const { minX, maxX, minY, maxY } = getGraphBounds();
-        if (minX === Infinity) return { x: 0.5, y: 0.5 }; // Fallback
-
-        const width = maxX - minX;
-        const height = maxY - minY;
-
-        const nx = (gx - minX) / width;
-        const ny = 1 - (gy - minY) / height; // Invert Y to match GraphViewer/Sigma camera
-        return { x: nx, y: ny };
-    };
 
     useEffect(() => {
         if (!graph || !mainRenderer || !canvasRef.current || !containerRef.current) return;
@@ -49,7 +21,7 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanTo, onPanToNode 
         const ctx = canvas.getContext('2d');
 
         // Store transform in ref to share between draw and click without closure staleness
-        const transformRef = { current: { cx: 0, cy: 0, scale: 1, width: 0, height: 0 } };
+        const transformRef = { current: null };
 
         const updateTransform = () => {
             if (!containerRef.current || !canvasRef.current) return null;
@@ -58,42 +30,19 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanTo, onPanToNode 
             canvas.width = width;
             canvas.height = height;
 
-            const { minX, maxX, minY, maxY } = getGraphBounds();
-            if (minX === Infinity) return null;
+            const bounds = getVisibleGraphBounds(graph);
+            if (!bounds) return null;
 
-            const graphWidth = maxX - minX;
-            const graphHeight = maxY - minY;
-            const cx = (minX + maxX) / 2;
-            const cy = (minY + maxY) / 2;
-
-            const padding = 1.1;
-            const scaleX = width / (graphWidth * padding);
-            const scaleY = height / (graphHeight * padding);
-            const scale = Math.min(scaleX, scaleY);
-
-            transformRef.current = { cx, cy, scale, width, height, bounds: { minX, maxX, minY, maxY } };
+            transformRef.current = createMinimapTransform(bounds, width, height);
             return transformRef.current;
         };
 
-        // Transform helpers using the ref
         const graphToMinimap = (gx, gy) => {
-            const { cx, cy, scale, width, height } = transformRef.current;
-            const dx = gx - cx;
-            const dy = gy - cy;
-            return {
-                x: width / 2 + dx * scale,
-                y: height / 2 + dy * scale
-            };
+            return transformRef.current.graphToMinimap(gx, gy);
         };
 
         const minimapToGraph = (mx, my) => {
-            const { cx, cy, scale, width, height } = transformRef.current;
-            const dx = (mx - width / 2) / scale;
-            const dy = (my - height / 2) / scale;
-            return {
-                x: cx + dx,
-                y: cy + dy
-            };
+            return transformRef.current.minimapToGraph(mx, my);
         };
 
         // ... (inside draw function)
@@ -129,59 +78,15 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanTo, onPanToNode 
             if (!viewportRef.current || !containerRef.current || !canvasRef.current) return;
             if (!mainRenderer || mainRenderer.killed) return;
 
-            const mainCamera = mainRenderer.getCamera();
-            const mainDims = mainRenderer.getDimensions();
-
-            // Get camera center (Normalized 0-1)
-            const { x, y, ratio } = mainRenderer.getCamera().getState();
-
-            // Debug Sync
-            // 
-
-            // Convert Camera (Normalized) -> Graph Coordinates
-            // We need bounds. If transformRef is not ready, try to update it or get bounds directly.
-            let bounds = transformRef.current?.bounds;
-            if (!bounds) {
-                // Fallback if transform not yet set
-                bounds = getGraphBounds();
-            }
-            const { minX, maxX, minY, maxY } = bounds;
-
-            if (minX === Infinity) return; // Empty graph
-
-            const graphWidth = maxX - minX;
-            const graphHeight = maxY - minY;
-
-            // Camera X = (graphX - minX) / width  => graphX = minX + width * camX
-            const graphX = minX + graphWidth * x;
-
-            // Camera Y = 1 - (graphY - minY) / height => graphY = minY + height * (1 - camY)
-            const graphY = minY + graphHeight * (1 - y);
-
-            // Convert to minimap coordinates
-            const centerMinimap = graphToMinimap(graphX, graphY);
-
-            // Fixed size 10x10 px for the blue dot
-            const FIXED_SIZE = 10;
-
-            // Center the box
-            const finalX = centerMinimap.x - FIXED_SIZE / 2;
-            const finalY = centerMinimap.y - FIXED_SIZE / 2;
+            const transform = transformRef.current || updateTransform();
+            const rect = getCameraViewportRect(mainRenderer, transform);
+            if (!rect) return;
 
             const vp = viewportRef.current;
-            vp.style.transform = `translate(${finalX}px, ${finalY}px)`;
-            vp.style.width = `${FIXED_SIZE}px`;
-            vp.style.height = `${FIXED_SIZE}px`;
-
-            // Always show
+            vp.style.transform = `translate(${rect.x}px, ${rect.y}px)`;
+            vp.style.width = `${rect.width}px`;
+            vp.style.height = `${rect.height}px`;
             vp.style.display = 'block';
-
-            // Update debug info
-            const debugEl = document.getElementById('minimap-debug');
-            if (debugEl) {
-                const { x, y, ratio } = mainRenderer.getCamera().getState();
-                debugEl.innerText = `Cam: ${Math.round(x)},${Math.round(y)} | R:${ratio.toFixed(2)}`;
-            }
         };
 
         // Initial sync
@@ -208,6 +113,7 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanTo, onPanToNode 
         // If the graph instance supports events (Graphology does)
         if (graph.on) {
             graph.on('nodeAttributesUpdated', handleGraphUpdate);
+            graph.on('eachNodeAttributesUpdated', handleGraphUpdate);
             graph.on('cleared', handleGraphUpdate);
             graph.on('nodeAdded', handleGraphUpdate);
             graph.on('nodeDropped', handleGraphUpdate);
@@ -231,15 +137,6 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanTo, onPanToNode 
 
             const graphPos = minimapToGraph(x, y);
 
-            // Get bounds again (or store them in ref)
-            const { minX, maxX, minY, maxY } = getGraphBounds();
-
-            // Clamp to bounds to prevent flying into empty space
-            const clampedX = Math.max(minX, Math.min(maxX, graphPos.x));
-            const clampedY = Math.max(minY, Math.min(maxY, graphPos.y));
-
-            
-
             // Use the live graph from renderer to ensure we have latest attributes (hidden, etc)
             const liveGraph = mainRenderer.getGraph();
 
@@ -249,8 +146,8 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanTo, onPanToNode 
 
             liveGraph.forEachNode((node, attr) => {
                 if (attr.hidden) return;
-                const dx = attr.x - clampedX;
-                const dy = attr.y - clampedY;
+                const dx = attr.x - graphPos.x;
+                const dy = attr.y - graphPos.y;
                 const dist = dx * dx + dy * dy;
                 if (dist < minDist) {
                     minDist = dist;
@@ -261,50 +158,28 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanTo, onPanToNode 
 
 
             // Re-enable Snap-to-Node
-            const targetX = closestNode ? closestNode.x : clampedX;
-            const targetY = closestNode ? closestNode.y : clampedY;
-
-            const finalX = Number(targetX);
-            const finalY = Number(targetY);
-
-            // Update debug info for persistent drawing
-            debugInfo.current.click = { x, y };
-            debugInfo.current.target = closestNode ? { x: closestNode.x, y: closestNode.y } : { x: targetX, y: targetY };
-            // Redraw immediately
-            draw();
-
-            // Minimap should zoom IN to the clicked area to see node details
-            // ratio < 1 = zoomed in, ratio > 1 = zoomed out
-            // Use 0.6 for closer view of node and its immediate neighbors
-            const targetRatio = 0.6;
+            // Keep clicks relative to the filtered graph. An absolute Sigma
+            // ratio refers to the full graph, including hidden distant nodes.
+            const visibleBounds = getVisibleGraphBounds(liveGraph);
+            const overviewRatio = getVisibleCameraRatio(mainRenderer, visibleBounds);
+            const currentRatio = mainRenderer.getCamera().getState().ratio;
+            const targetRatio = Math.max(0.02, Math.min(currentRatio, overviewRatio) * 0.8);
 
             
 
             // Use the callback which will handle coordinate transformation
             if (closestNode && onPanToNode) {
                 onPanToNode(closestNode.key, targetRatio);
-            } else if (onPanTo) {
-                // If no node found, pan to clicked coordinates
-                // MUST normalize first because GraphViewer.panTo expects camera coords
-                const camPos = graphToCamera(finalX, finalY);
-                onPanTo(camPos.x, camPos.y, targetRatio);
+            } else if (onPanToGraph) {
+                onPanToGraph(graphPos.x, graphPos.y, targetRatio);
             }
-
-            // DEBUG: Check projection again (Simplified)
-            setTimeout(() => {
-                if (mainRenderer && !mainRenderer.killed) {
-                    const camera = mainRenderer.getCamera();
-
-                }
-            }, 500);
 
             // Force update of debug text
             syncViewport();
         };
 
         const handleMinimapDoubleClick = () => {
-            const camera = mainRenderer.getCamera();
-            camera.animate({ x: 0, y: 0, ratio: 1.0 }, { duration: 500 });
+            if (onCenter) onCenter();
         };
 
         const handleMouseDown = (e) => {
@@ -313,14 +188,14 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanTo, onPanToNode 
                 isDragging.current = true;
                 hasDragged.current = false;
 
-                // Calculate offset: Camera Center - Mouse Graph Position (Normalized)
+                // Calculate offset in Sigma's normalized camera coordinates.
                 const rect = containerRef.current.getBoundingClientRect();
                 const mx = e.clientX - rect.left;
                 const my = e.clientY - rect.top;
 
                 updateTransform();
                 const mouseGraphPos = minimapToGraph(mx, my);
-                const mouseCamPos = graphToCamera(mouseGraphPos.x, mouseGraphPos.y);
+                const mouseCamPos = mainRenderer.normalizationFunction(mouseGraphPos);
 
                 const cameraState = mainRenderer.getCamera().getState();
                 dragOffset.current = {
@@ -329,12 +204,6 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanTo, onPanToNode 
                 };
 
                 e.stopPropagation();
-            }
-        };
-
-        const handleMouseEnter = () => {
-            if (mainRenderer && !mainRenderer.killed) {
-                // .getState());
             }
         };
 
@@ -347,7 +216,7 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanTo, onPanToNode 
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
             const graphPos = minimapToGraph(x, y);
-            const camPos = graphToCamera(graphPos.x, graphPos.y);
+            const camPos = mainRenderer.normalizationFunction(graphPos);
 
             // Move center to mouse with offset
             mainRenderer.getCamera().setState({
@@ -361,7 +230,6 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanTo, onPanToNode 
         };
 
         const container = containerRef.current;
-        container.addEventListener('mouseenter', handleMouseEnter);
         container.addEventListener('click', handleMinimapClick);
         container.addEventListener('dblclick', handleMinimapDoubleClick);
         container.addEventListener('mousedown', handleMouseDown);
@@ -378,25 +246,24 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanTo, onPanToNode 
             }
             if (graph.off) {
                 graph.off('nodeAttributesUpdated', handleGraphUpdate);
+                graph.off('eachNodeAttributesUpdated', handleGraphUpdate);
                 graph.off('cleared', handleGraphUpdate);
                 graph.off('nodeAdded', handleGraphUpdate);
                 graph.off('nodeDropped', handleGraphUpdate);
             }
-            container.removeEventListener('mouseenter', handleMouseEnter);
             container.removeEventListener('click', handleMinimapClick);
             container.removeEventListener('dblclick', handleMinimapDoubleClick);
             container.removeEventListener('mousedown', handleMouseDown);
             window.removeEventListener('mousemove', handleMouseMove);
             window.removeEventListener('mouseup', handleMouseUp);
-            window.removeEventListener('mouseup', handleMouseUp);
-            // clearInterval(pollInterval);
         };
 
-    }, [graph, mainRenderer, isDarkMode]); // Re-run if graph changes
+    }, [graph, mainRenderer, isDarkMode, onCenter, onPanToGraph, onPanToNode]);
 
     return (
         <div
             ref={containerRef}
+            data-testid="graph-minimap"
             style={{
                 position: 'absolute',
                 bottom: '20px',
@@ -417,14 +284,15 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanTo, onPanToNode 
             />
             <div
                 ref={viewportRef}
+                data-testid="graph-minimap-viewport"
                 style={{
                     position: 'absolute',
                     top: 0,
                     left: 0,
-                    border: '2px solid white',
-                    backgroundColor: '#ff0000',
-                    borderRadius: '50%',
-                    boxShadow: '0 0 4px rgba(0,0,0,0.5)',
+                    border: '2px solid #ef4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                    borderRadius: '3px',
+                    boxShadow: '0 0 4px rgba(0,0,0,0.25)',
                     pointerEvents: 'auto',
                     cursor: 'move',
                     boxSizing: 'border-box',

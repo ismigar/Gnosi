@@ -38,6 +38,7 @@ COLOR_PALETTE = {
     "table": "#8b5cf6",     # Violet
     "view": "#d946ef",      # Fuchsia
     "page": "#10b981",      # Emerald (Permanent)
+    "unresolved": "#cbd5e1",  # Slate (Obsidian unresolved link)
     "tag": "#f59e0b",       # Amber
     "media": "#ec4899",     # Pink (New)
     "default": "#94a3b8"    # Slate
@@ -439,13 +440,17 @@ class GraphService:
         if _HAS_IGRAPH:
             node_list = list(G.nodes())
             idx = {n: i for i, n in enumerate(node_list)}
-            # We use ONLY "link" edges (real wikilinks) for the layout, just like Obsidian.
-            # "relation" edges (inferred from tags) create an artificially dense network
-            # that collapses all nodes into a single cluster.
+            # Use body wikilinks for the layout, including links that also belong
+            # to a database-view relation. Frontmatter-only relations would create
+            # a topology that Obsidian does not render for the compared sub-vault.
             layout_edges = [
                 (idx[s], idx[t])
                 for s, t, d in G.edges(data=True)
-                if d.get('kind', 'link') == 'link'
+                if (
+                    d.get('kind', 'link') == 'link'
+                    or d.get('body_link')
+                )
+                and not d.get('scope_only')
             ]
             ig_graph = ig.Graph(n=n_nodes, edges=layout_edges)
             n_iter = max(500, min(3000, n_nodes * 5))
@@ -602,7 +607,10 @@ class GraphService:
                 "size": edge_attrs.get("size", 1),
                 "dashed": edge_attrs.get("dashed", False),
                 "kind": edge_attrs.get("kind", "structural"),
-                "reason": edge_attrs.get("reason", "")
+                "body_link": bool(edge_attrs.get("body_link", False)),
+                "reason": edge_attrs.get("reason", ""),
+                "scope_only": bool(edge_attrs.get("scope_only", False)),
+                "unresolved": bool(edge_attrs.get("unresolved", False)),
             })
             
         # Legend generation (Dynamic based on discovered kinds)
@@ -1031,8 +1039,76 @@ class GraphService:
             target_key = target_label.split('|')[0].split('#')[0].strip()
             target_lower = target_key.lower()
             if G.has_node(target_key):
-                return target_key
+                # Obsidian resolves the target path before the alias separator.
+                # A Gnosi UUID may identify a page internally, but `[[uuid|Title]]`
+                # remains unresolved when no Markdown file is actually named
+                # `uuid.md`. Resolving it through the internal ID collapses graph
+                # components that stay separate in Obsidian.
+                node_path = G.nodes[target_key].get("path", "")
+                if node_path and Path(node_path).stem.lower() == target_lower:
+                    return target_key
+                return None
             return label_to_id.get(target_lower) or stem_to_id.get(target_lower)
+
+        def add_scoped_unresolved(
+            source_id: str,
+            target_label: str,
+            resolved_target_id: Optional[str] = None,
+        ) -> str:
+            """Adds the placeholder Obsidian renders for an unavailable target.
+
+            The table scope is part of the ID because the same target can be
+            available in the root vault but unresolved inside a table opened as
+            its own Obsidian vault.
+            """
+            target_key = target_label.split('|')[0].split('#')[0].strip()
+            source_attrs = G.nodes[source_id]
+            source_table_id = (
+                source_attrs.get("table_id")
+                or source_attrs.get("metadata", {}).get("table_id")
+                or source_attrs.get("metadata", {}).get("database_table_id")
+            )
+            source_database_id = (
+                source_attrs.get("database_id")
+                or source_attrs.get("metadata", {}).get("database_id")
+            )
+            scope = str(source_table_id or "__vault__")
+            digest = hashlib.sha1(
+                f"{scope}\0{target_key.casefold()}".encode("utf-8")
+            ).hexdigest()[:20]
+            unresolved_id = f"unresolved:{digest}"
+
+            if not G.has_node(unresolved_id):
+                G.add_node(
+                    unresolved_id,
+                    label=target_key,
+                    kind="unresolved",
+                    color=COLOR_PALETTE["unresolved"],
+                    size=6,
+                    metadata={
+                        "unresolved": True,
+                        "scope_only": resolved_target_id is not None,
+                        "resolved_target_id": resolved_target_id,
+                    },
+                    table_id=source_table_id,
+                    database_id=source_database_id,
+                )
+
+            if not G.has_edge(source_id, unresolved_id):
+                G.add_edge(
+                    source_id,
+                    unresolved_id,
+                    kind="link",
+                    body_link=True,
+                    color="#cbd5e1",
+                    size=0.8,
+                    src=source_id,
+                    dst=unresolved_id,
+                    directed=True,
+                    unresolved=True,
+                    scope_only=resolved_target_id is not None,
+                )
+            return unresolved_id
 
         for page in page_nodes:
             node_id = page["id"]
@@ -1053,9 +1129,27 @@ class GraphService:
 
                 for target_label in links:
                     resolved = resolve_link(target_label)
-                    if not resolved or resolved == node_id or not G.has_node(resolved):
+                    if not resolved:
+                        add_scoped_unresolved(node_id, target_label)
                         continue
+                    if resolved == node_id or not G.has_node(resolved):
+                        continue
+
+                    target_attrs = G.nodes[resolved]
+                    target_table_id = (
+                        target_attrs.get("table_id")
+                        or target_attrs.get("metadata", {}).get("table_id")
+                        or target_attrs.get("metadata", {}).get("database_table_id")
+                    )
+                    if table_id and target_table_id != table_id:
+                        add_scoped_unresolved(
+                            node_id,
+                            target_label,
+                            resolved_target_id=str(resolved),
+                        )
+
                     if G.has_edge(node_id, resolved):
+                        G.edges[node_id, resolved]["body_link"] = True
                         # If it already exists as a simple link but is now a db_view, promote it
                         if is_db_view and G.edges[node_id, resolved].get("kind") == "link":
                             G.edges[node_id, resolved]["kind"] = "relation"
@@ -1063,10 +1157,12 @@ class GraphService:
                             G.edges[node_id, resolved]["size"] = 1.5
                         continue
                     if is_db_view:
-                        G.add_edge(node_id, resolved, kind="relation", color="#6366f1", size=1.5,
+                        G.add_edge(node_id, resolved, kind="relation", body_link=True,
+                                   color="#6366f1", size=1.5,
                                    src=node_id, dst=resolved, directed=True)
                     else:
-                        G.add_edge(node_id, resolved, kind="link", color="#10b981", size=1.2,
+                        G.add_edge(node_id, resolved, kind="link", body_link=True,
+                                   color="#10b981", size=1.2,
                                    src=node_id, dst=resolved, directed=True)
 
     
