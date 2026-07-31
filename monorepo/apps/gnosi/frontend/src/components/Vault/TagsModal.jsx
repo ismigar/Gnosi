@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef } from 'react';
 import { Hash, ChevronRight, FileText, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
+import { openVaultNote } from '../../utils/vaultQuickNavigation';
 import { IconRenderer } from './IconRenderer';
 
 /**
@@ -152,7 +153,7 @@ export default function TagsModal({ isOpen, onClose, allNotes = [], onNoteSelect
                         ) : pages.map((note) => (
                             <button
                                 key={note.id}
-                                onClick={() => { onNoteSelect(note.id, note.folder); onClose(); }}
+                                onClick={() => { openVaultNote(onNoteSelect, note); onClose(); }}
                                 className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-[var(--bg-secondary)]"
                             >
                                 {note.metadata?.icon ? <IconRenderer icon={note.metadata.icon} size={15} className="shrink-0" /> : <FileText size={15} className="shrink-0 text-[var(--text-tertiary)]" />}

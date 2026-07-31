@@ -87,7 +87,7 @@ export function ForcesSection({
                     type="range"
                     min="10"
                     max="50000"
-                    step="100"
+                    step="10"
                     value={repulsion}
                     onChange={(e) => onRepulsionChange(Number(e.target.value))}
                     style={sliderStyle}

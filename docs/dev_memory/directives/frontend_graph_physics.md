@@ -72,3 +72,83 @@ For resilience during hot reloads or older in-memory state, `GraphService`
 must normalize an invalid cache state to empty dictionaries before reading it.
 Add a regression test that starts with both cache attributes set to `None` and
 asserts graph construction still produces nodes.
+
+## Filtered layout and minimap projection
+
+The backend layout describes the complete vault, but the global graph often
+renders a filtered table. Do not reuse those coordinates or arrange filtered
+isolates in a synthetic halo. Obsidian simulates every node in the current
+sub-vault together, including disconnected components and isolates. Run one
+visible-subgraph simulation over all of them before fitting the camera so the
+overview preserves the natural component structure.
+
+When comparing a filtered table with an Obsidian sub-vault, the topology must
+also match the folder boundary. Render the body-wikilink edge set used by the
+compared sub-vault. A body wikilink remains part of this set when the same edge
+also belongs to a database-view relation, so export an explicit body-link
+provenance flag. Do not add frontmatter-only relation edges when Obsidian does
+not include them, because they collapse disconnected components into the main
+component. Represent genuinely unresolved wikilinks as scoped placeholder
+nodes, and represent outgoing links to notes outside the selected table as
+scoped placeholders. Hide a placeholder when its resolved target is visible
+through the active filters. Incoming links from outside the table must not
+leak into the filtered topology because Obsidian cannot discover them from
+inside the sub-vault.
+
+Use the compared sub-vault's `.obsidian/graph.json` as the diagnostic source
+for force values. The default mapping uses the configured center strength,
+the magnitude of the negative charge, a uniform link strength, and the stored
+link distance. Node size must be derived from degree in the visible topology,
+not degree in the complete backend graph.
+
+Do not initialize the visible-subgraph simulation from the complete-vault
+coordinates: filtered nodes inherit remote full-vault clusters and circular
+orphan artifacts. Do not leave D3 to use its symmetric phyllotaxis fallback
+either, because dense hubs settle into repeated crescents. Seed all visible
+nodes deterministically over a disk using their stable IDs, then let the
+visible links and forces refine that neutral starting distribution.
+
+Keep zero-degree nodes at their deterministic seeded positions and exclude
+them as many-body charge sources. Letting global repulsion move every isolate
+pushes them into a nearly perfect circular shell around the connected graph,
+which is a layout artifact rather than Obsidian's scattered-isolate view.
+Connected unresolved placeholders must still participate in the force field
+and use a shorter link distance so unresolved wikilinks form compact radial
+stars instead of long spokes.
+
+Resolve body wikilinks with Obsidian's file semantics, never through Gnosi's
+internal page identity. In particular, `[[uuid|Readable title]]` targets a
+file named `uuid.md`; it remains unresolved when the real page has a readable
+filename even if its frontmatter `id` equals that UUID. Resolving such links
+through the internal ID merges otherwise separate components and produces
+large artificial hub arcs. A direct ID target may resolve only when the
+Markdown filename stem actually matches the ID.
+
+Camera navigation and the minimap must use Sigma's own normalization and
+viewport conversion functions. Do not derive camera coordinates by scaling X
+and Y independently from graph bounds: Sigma normalizes both axes with the
+largest extent, and the manual projection drifts whenever the graph is not
+square. Represent the camera as its actual viewport rectangle, not as a dot
+that can be confused with a graph node. Minimap clicks must derive their zoom
+from the visible-subset extent; a fixed absolute camera ratio refers to the
+complete graph and can unexpectedly zoom far away from a filtered view.
+
+Sigma v3 uses `labelRenderedSizeThreshold`. Do not use
+`labelRenderThreshold`; the unknown setting is ignored and the default causes
+hundreds of overview labels to overlap. Keep label density bounded at overview
+zoom and let labels progressively appear when the user zooms in.
+
+## Obsidian-style visible-subgraph refinement
+
+The Forces controls must never be decorative. Load their persisted values from
+`graph.physics`, enable the refinement pass, and run it only after filters have
+set node and edge visibility. Building the physics subgraph before filters
+causes hidden vault nodes to compress or displace the current table view.
+The UI repulsion range is designed for ForceAtlas2 and must be scaled before it
+is passed to `graphology-layout-force`; treating `1000` as a near-direct force
+value explodes small visible graphs.
+
+Sigma defaults `minEdgeThickness` to 1.7 pixels. This overrides small values
+from the edge-thickness control and turns dense wikilink graphs into a solid
+mass. Set an explicit sub-pixel minimum and use a low-opacity neutral base
+color; reserve saturated edges for hover, pathfinding, and suggestions.
