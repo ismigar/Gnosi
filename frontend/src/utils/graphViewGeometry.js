@@ -119,8 +119,8 @@ export function getCameraViewportRect(renderer, transform) {
     return {
       x,
       y,
-      width: Math.max(4, right - x),
-      height: Math.max(4, bottom - y),
+      width: Math.max(4, Math.min(transform.width - x, right - x)),
+      height: Math.max(4, Math.min(transform.height - y, bottom - y)),
     };
   }
 

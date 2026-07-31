@@ -35,3 +35,25 @@ export const confirmationForStorage = confirmation => {
         summary_key: 'chat.confirmations.summary',
     };
 };
+
+export const agentChatStorageScope = ({
+    vaultId,
+    workspaceId,
+    userId,
+}) => [
+    vaultId || 'default',
+    workspaceId || 'personal',
+    userId || 'personal',
+].join(':');
+
+export const CONFIRMATION_REFRESH_MS = 15_000;
+
+export const startConfirmationRefresh = (
+    refresh,
+    setIntervalFn = globalThis.setInterval,
+    clearIntervalFn = globalThis.clearInterval,
+) => {
+    refresh();
+    const timer = setIntervalFn(refresh, CONFIRMATION_REFRESH_MS);
+    return () => clearIntervalFn(timer);
+};

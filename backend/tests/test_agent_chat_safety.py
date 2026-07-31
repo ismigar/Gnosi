@@ -1,20 +1,25 @@
 import asyncio
 import json
+import os
+import time
 from types import SimpleNamespace
 
 import pytest
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from pydantic import ValidationError
 
+from backend.agent import gnosi_tools, system_tools
 from backend.agent.factory import (
     _authorized_brain_write_tools,
+    _bounded_model_messages,
     _coder_read_only_tools,
     _explicit_brain_write_tool_names,
     _model_supports_tools,
+    _model_context_window,
     _obvious_route,
     _rejected_mcp_names,
     _safe_mcp_definitions,
 )
-from backend.agent import system_tools
 from backend.api import agent_routes
 
 
@@ -24,11 +29,38 @@ def test_identifiers_reject_path_components():
     assert getattr(exc.value, "status_code", None) == 422
 
 
-def test_checkpoint_scope_is_deterministic_and_vault_specific():
-    first = agent_routes.hashlib.sha256("vault-a:agent".encode()).hexdigest()[:32]
-    second = agent_routes.hashlib.sha256("vault-b:agent".encode()).hexdigest()[:32]
-    assert first != second
+def test_checkpoint_scope_is_deterministic_and_identity_specific():
+    common = {
+        "vault_scope": "vault-a",
+        "workspace_id": "workspace-a",
+        "agent_id": "agent",
+    }
+    first = agent_routes._checkpoint_key(user_id="user-a", **common)
+    repeated = agent_routes._checkpoint_key(user_id="user-a", **common)
+    another_user = agent_routes._checkpoint_key(user_id="user-b", **common)
+    another_workspace = agent_routes._checkpoint_key(
+        vault_scope="vault-a",
+        workspace_id="workspace-b",
+        user_id="user-a",
+        agent_id="agent",
+    )
+
+    assert first == repeated
+    assert first != another_user
+    assert first != another_workspace
     assert "/" not in first
+
+    thread = agent_routes._chat_thread_id(
+        session_id="session",
+        user_id="user-a",
+        **common,
+    )
+    other_thread = agent_routes._chat_thread_id(
+        session_id="session",
+        user_id="user-b",
+        **common,
+    )
+    assert thread != other_thread
 
 
 def test_attachment_context_rejects_files_outside_chat_directory(tmp_path):
@@ -43,13 +75,13 @@ def test_attachment_context_rejects_files_outside_chat_directory(tmp_path):
         path="secret.txt",
     )
     with pytest.raises(Exception) as exc:
-        agent_routes._attachment_context(vault, [ref])
+        agent_routes._attachment_context(vault, [ref], "scope")
     assert getattr(exc.value, "status_code", None) == 422
 
 
 def test_attachment_context_extracts_bounded_text(tmp_path):
     vault = tmp_path / "vault"
-    root = vault / ".gnosi" / "chat-attachments"
+    root = vault / ".gnosi" / "chat-attachments" / "scope"
     root.mkdir(parents=True)
     attachment = root / "safe.txt"
     attachment.write_text("verified text", encoding="utf-8")
@@ -57,9 +89,9 @@ def test_attachment_context_extracts_bounded_text(tmp_path):
         name="notes.txt",
         size=13,
         type="text/plain",
-        path=".gnosi/chat-attachments/safe.txt",
+        path=".gnosi/chat-attachments/scope/safe.txt",
     )
-    assert "verified text" in agent_routes._attachment_context(vault, [ref])
+    assert "verified text" in agent_routes._attachment_context(vault, [ref], "scope")
 
 
 def test_obvious_general_route_avoids_supervisor_call():
@@ -201,6 +233,16 @@ def test_vague_or_quoted_content_does_not_authorize_writes(message):
         "Can this agent delete the table?",
         '"send this email"',
         "`delete the table`",
+        "Could you explain how to delete the table?",
+        "The documentation says 'send the email' but do nothing.",
+        "Before you send the email, explain what will happen.",
+        "La frase 'elimina la pàgina' és perillosa.",
+        "Explica com puc buidar la paperera",
+        "Explique comment supprimer la table",
+        "Update the page, but do not actually change anything",
+        "Envia el correu, però no l’enviïs realment",
+        "Actualiza la página, pero no cambies nada",
+        "Modifie la page, mais ne la change pas",
     ],
 )
 def test_negated_meta_or_quoted_intent_never_authorizes_writes(message):
@@ -260,20 +302,21 @@ def test_structured_model_content_is_normalized():
 
 def test_attachment_delete_is_contained(tmp_path):
     vault = tmp_path / "vault"
-    root = vault / ".gnosi" / "chat-attachments"
+    root = vault / ".gnosi" / "chat-attachments" / "scope"
     root.mkdir(parents=True)
     attachment = root / "safe.txt"
     attachment.write_text("temporary", encoding="utf-8")
     agent_routes._delete_attachment(
         vault,
-        ".gnosi/chat-attachments/safe.txt",
+        ".gnosi/chat-attachments/scope/safe.txt",
+        "scope",
     )
     assert not attachment.exists()
 
 
 def test_attachment_consumer_cleans_up_when_extraction_fails(tmp_path, monkeypatch):
     vault = tmp_path / "vault"
-    root = vault / ".gnosi" / "chat-attachments"
+    root = vault / ".gnosi" / "chat-attachments" / "scope"
     root.mkdir(parents=True)
     attachment = root / "broken.pdf"
     attachment.write_bytes(b"broken")
@@ -281,15 +324,15 @@ def test_attachment_consumer_cleans_up_when_extraction_fails(tmp_path, monkeypat
         name="broken.pdf",
         size=6,
         type="application/pdf",
-        path=".gnosi/chat-attachments/broken.pdf",
+        path=".gnosi/chat-attachments/scope/broken.pdf",
     )
 
-    def fail_extraction(_vault, _refs):
+    def fail_extraction(_vault, _refs, _scope_key):
         raise RuntimeError("extraction failed")
 
     monkeypatch.setattr(agent_routes, "_attachment_context", fail_extraction)
     with pytest.raises(RuntimeError, match="extraction failed"):
-        agent_routes._consume_attachment_context(vault, [ref])
+        agent_routes._consume_attachment_context(vault, [ref], "scope")
     assert not attachment.exists()
 
 
@@ -315,9 +358,12 @@ def test_session_delete_removes_checkpoint_thread(tmp_path, monkeypatch):
         lambda: (vault, "vault-scope"),
     )
     monkeypatch.setitem(agent_routes.cfg.paths, "CHECKPOINTS", checkpoints)
-    checkpoint_key = agent_routes.hashlib.sha256(
-        "vault-scope:agent".encode("utf-8")
-    ).hexdigest()[:32]
+    checkpoint_key = agent_routes._checkpoint_key(
+        vault_scope="vault-scope",
+        workspace_id="personal",
+        user_id="user-a",
+        agent_id="agent",
+    )
     db_path = checkpoints / f"agent_{checkpoint_key}.sqlite"
     workspace_context = agent_routes.WorkspaceContext(
         workspace_id="personal",
@@ -335,3 +381,108 @@ def test_session_delete_removes_checkpoint_thread(tmp_path, monkeypatch):
         )
 
     assert asyncio.run(exercise()) == {"deleted": True}
+def test_context_compaction_preserves_tool_protocol_groups():
+    messages = [
+        HumanMessage(content="x" * 70_000),
+        AIMessage(
+            content="",
+            tool_calls=[{
+                "name": "read_page",
+                "args": {"page_id_or_title": "page"},
+                "id": "call-1",
+                "type": "tool_call",
+            }],
+        ),
+        ToolMessage(content="result", tool_call_id="call-1"),
+    ]
+
+    bounded = _bounded_model_messages(messages)
+
+    assert any(getattr(message, "tool_calls", None) for message in bounded)
+    assert any(isinstance(message, ToolMessage) for message in bounded)
+    assert sum(len(str(message.content)) for message in bounded) <= 60_000
+
+
+def test_checkpoint_history_hides_attachment_enrichment_and_tool_calls():
+    stored = [
+        HumanMessage(
+            content="Visible\n\nAttachment: secret.txt\nprivate text",
+            additional_kwargs={"gnosi_visible_content": "Visible"},
+        ),
+        AIMessage(
+            content="",
+            tool_calls=[{
+                "name": "read_page",
+                "args": {},
+                "id": "call-1",
+                "type": "tool_call",
+            }],
+        ),
+        ToolMessage(content="private result", tool_call_id="call-1"),
+        AIMessage(content="Public answer"),
+    ]
+
+    assert agent_routes._public_checkpoint_messages(stored) == [
+        {"role": "user", "content": "Visible"},
+        {"role": "assistant", "content": "Public answer"},
+    ]
+
+
+def test_legacy_checkpoint_history_strips_internal_enrichment():
+    stored = [
+        HumanMessage(
+            content=(
+                "Visible request\n\nAttachment: private.txt\nsecret"
+                "\n\nSelected mentions context:\n- page: Hidden"
+            ),
+        ),
+    ]
+
+    assert agent_routes._public_checkpoint_messages(stored) == [
+        {"role": "user", "content": "Visible request"},
+    ]
+
+
+def test_unknown_model_uses_small_context_fallback(monkeypatch):
+    monkeypatch.setattr(
+        "backend.agent.model_router.load_registry",
+        lambda **_kwargs: [],
+    )
+
+    assert _model_context_window("openrouter", "unknown/model") == 8_192
+
+
+def test_attachment_cleanup_is_scoped_and_removes_only_expired_files(tmp_path):
+    vault = tmp_path / "vault"
+    current = vault / ".gnosi" / "chat-attachments" / "current"
+    other = vault / ".gnosi" / "chat-attachments" / "other"
+    current.mkdir(parents=True)
+    other.mkdir(parents=True)
+    expired = current / "expired.txt"
+    fresh = current / "fresh.txt"
+    unrelated = other / "expired.txt"
+    for path in (expired, fresh, unrelated):
+        path.write_text("content", encoding="utf-8")
+    old_time = time.time() - agent_routes.ATTACHMENT_MAX_AGE_SECONDS - 60
+    os.utime(expired, (old_time, old_time))
+    os.utime(unrelated, (old_time, old_time))
+
+    agent_routes._cleanup_expired_attachments(vault, "current")
+
+    assert not expired.exists()
+    assert fresh.exists()
+    assert unrelated.exists()
+
+
+def test_page_locks_use_a_bounded_stripe_pool(tmp_path, monkeypatch):
+    lock_directory = tmp_path / "locks"
+    lock_directory.mkdir()
+    monkeypatch.setattr(gnosi_tools.tempfile, "gettempdir", lambda: str(lock_directory))
+    gnosi_tools._PAGE_LOCKS.clear()
+
+    for index in range(600):
+        with gnosi_tools._page_lock(tmp_path / f"page-{index}.md"):
+            pass
+
+    assert len(gnosi_tools._PAGE_LOCKS) <= 256
+    assert len(list(lock_directory.glob("gnosi-page-lock-*.lock"))) <= 256

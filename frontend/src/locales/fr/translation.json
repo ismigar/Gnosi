@@ -4095,7 +4095,18 @@
       "fullscreen": "Plein écran",
       "recenter": "Recentrer",
       "zoom_in": "Zoom avant",
-      "zoom_out": "Zoom arrière"
+      "zoom_out": "Zoom arrière",
+      "legend": "Légende du graphe"
+    },
+    "legend": {
+      "nodes": "Nœuds",
+      "connections": "Connexions",
+      "connection_types": "Types de connexion",
+      "wikilink": "Liens wiki",
+      "database_wikilink": "Liens wiki de vue de base de données",
+      "unresolved": "Liens non résolus",
+      "semantic_similarity": "Connexions sémantiques",
+      "node_groups": "Groupes de nœuds"
     },
     "node_panel": {
       "close": "Fermer les détails",
@@ -4341,6 +4352,7 @@
     "error_prefix": "Erreur",
     "open_chat": "Ouvrir le chat",
     "online": "En ligne",
+    "runtime_limited": "Connecté · outils limités",
     "expand_chat": "Agrandir le chat",
     "minimize_chat": "Réduire le chat",
     "close_chat": "Fermer le chat",
@@ -4404,6 +4416,7 @@
       "details": {
         "account": "Compte",
         "arguments": "Arguments exacts",
+        "asset_revision": "Révision de l’arborescence des ressources",
         "attendees": "Participants",
         "bcc": "Cci",
         "body": "Corps",
@@ -4423,7 +4436,11 @@
         "event_id": "ID de l'événement",
         "folder": "Dossier",
         "location": "Lieu",
+        "imap_folder": "Dossier source du courrier",
+        "imap_uid": "Identifiant IMAP du message",
         "message_id": "ID du message",
+        "message_revision": "Révision du message",
+        "message_source": "Source du message",
         "page": "Page",
         "page_id": "ID de la page",
         "page_revision": "Révision de la page",
@@ -4431,6 +4448,8 @@
         "properties": "Propriétés",
         "property_count": "Nombre de propriétés",
         "row_count": "Nombre de lignes",
+        "row_action": "Traitement des lignes",
+        "rows_revision": "Révision de l’ensemble des lignes",
         "schema_sha256": "Empreinte du schéma",
         "sender": "Expéditeur",
         "snapshot_digest": "Empreinte de l'instantané",
@@ -4438,6 +4457,7 @@
         "subject": "Objet",
         "table": "Table",
         "table_id": "ID de la table",
+        "table_revision": "Révision de la table",
         "target_folder": "Dossier cible",
         "timestamp": "Version",
         "title": "Titre",
@@ -4445,7 +4465,9 @@
         "tool": "Outil",
         "tool_id": "ID de l'outil",
         "updates": "Modifications exactes des lignes",
-        "version_revision": "Révision de la version"
+        "version_revision": "Révision de la version",
+        "views_count": "Nombre de vues",
+        "views_revision": "Révision de l’ensemble des vues"
       },
       "actions": {
         "delete_page": {
