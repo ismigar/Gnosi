@@ -73,6 +73,13 @@ must normalize an invalid cache state to empty dictionaries before reading it.
 Add a regression test that starts with both cache attributes set to `None` and
 asserts graph construction still produces nodes.
 
+Connection proposals are a separate, scored edge layer and must not influence the stable
+layout hash. Build the structural graph first, then add the pending proposal edges before
+export. The proposal writer must invalidate the response cache so an inbox dismissal or a
+new scheduled proposal is visible on the next `/api/graph` request without waiting for the
+TTL. Consume this layer only from `/api/graph`; a second frontend merge endpoint creates
+format drift and stale duplicate paths.
+
 ## Filtered layout and minimap projection
 
 The backend layout describes the complete vault, but the global graph often
