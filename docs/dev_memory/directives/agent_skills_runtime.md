@@ -235,6 +235,9 @@ during migration.
 - Do not run backend tests without `GNOSI_LOCAL_DATA` in a native shell because
   current path discovery may fall back to deployment-only `/app/data`; point it
   at a writable local test directory instead.
+- Keep `pipeline/skills/catalog.yaml` in exact one-to-one correspondence with
+  directories containing `SKILL.md`. Do not retain catalog entries after a package
+  is removed, and do not add a package without its explicit non-runtime kind.
 
 ## 11. Verification
 
