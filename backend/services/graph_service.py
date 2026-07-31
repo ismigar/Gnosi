@@ -421,9 +421,13 @@ class GraphService:
         return {"databases": [], "tables": [], "views": []}
 
     def _compute_graph_hash(self, G: "nx.Graph") -> str:
-        """Stable hash of the graph based on nodes+edges. Detects structural changes."""
+        """Stable hash of the real-link topology used to position nodes."""
         nodes = sorted(str(n) for n in G.nodes())
-        edges = sorted((str(s), str(t)) for s, t in G.edges())
+        edges = sorted(
+            (str(s), str(t))
+            for s, t, attrs in G.edges(data=True)
+            if attrs.get("kind") != "suggestion"
+        )
         payload = json.dumps({"n": nodes, "e": edges}, sort_keys=True).encode()
         return hashlib.sha256(payload).hexdigest()
 
@@ -437,6 +441,16 @@ class GraphService:
         if n_nodes == 0:
             return {}
 
+        layout_edge_pairs = [
+            (source, target)
+            for source, target, attrs in G.edges(data=True)
+            if (
+                attrs.get("kind", "link") == "link"
+                or attrs.get("body_link")
+            )
+            and not attrs.get("scope_only")
+        ]
+
         if _HAS_IGRAPH:
             node_list = list(G.nodes())
             idx = {n: i for i, n in enumerate(node_list)}
@@ -445,12 +459,7 @@ class GraphService:
             # a topology that Obsidian does not render for the compared sub-vault.
             layout_edges = [
                 (idx[s], idx[t])
-                for s, t, d in G.edges(data=True)
-                if (
-                    d.get('kind', 'link') == 'link'
-                    or d.get('body_link')
-                )
-                and not d.get('scope_only')
+                for s, t in layout_edge_pairs
             ]
             ig_graph = ig.Graph(n=n_nodes, edges=layout_edges)
             n_iter = max(500, min(3000, n_nodes * 5))
@@ -475,12 +484,19 @@ class GraphService:
             }
         else:
             log.warning("python-igraph not available; using networkx spring_layout (slower)")
-            pos_raw = nx.spring_layout(G, seed=42, iterations=300)
+            layout_graph = nx.Graph()
+            layout_graph.add_nodes_from(G.nodes())
+            layout_graph.add_edges_from(layout_edge_pairs)
+            pos_raw = nx.spring_layout(layout_graph, seed=42, iterations=300)
             pos = {n: (float(p[0]), float(p[1])) for n, p in pos_raw.items()}
 
         # We place orphan nodes (degree 0) in an outer ring around the connected component.
-        connected = [n for n in G.nodes() if G.degree(n) > 0]
-        orphans = [n for n in G.nodes() if G.degree(n) == 0]
+        topology_degree = {node: 0 for node in G.nodes()}
+        for source, target in layout_edge_pairs:
+            topology_degree[source] += 1
+            topology_degree[target] += 1
+        connected = [n for n, degree in topology_degree.items() if degree > 0]
+        orphans = [n for n, degree in topology_degree.items() if degree == 0]
         if connected and orphans:
             xs = [pos[n][0] for n in connected]
             ys = [pos[n][1] for n in connected]
@@ -543,6 +559,10 @@ class GraphService:
         GraphService._save_node_cache()
         self._add_contact_nodes(G)
         self._add_structural_edges(G, page_nodes)
+
+        # Semantic suggestions are exported for an optional client-side overlay.
+        # They intentionally remain outside layout and real-link topology.
+        self._add_suggestion_edges(G)
 
         # Remove structural registry nodes: they are never rendered as content
         registry_nodes = [n for n, d in G.nodes(data=True) if d.get("kind") in ("database", "table", "view")]
@@ -611,6 +631,7 @@ class GraphService:
                 "reason": edge_attrs.get("reason", ""),
                 "scope_only": bool(edge_attrs.get("scope_only", False)),
                 "unresolved": bool(edge_attrs.get("unresolved", False)),
+                "similarity": edge_attrs.get("similarity"),
             })
             
         # Legend generation (Dynamic based on discovered kinds)
@@ -1190,11 +1211,21 @@ class GraphService:
                         # Don't overwrite existing explicit links
                         if G.has_edge(source_id, target_id): continue
                         
-                        G.add_edge(source_id, target_id, 
-                                   kind="suggestion", 
-                                   color="#FF4081", 
-                                   size=1, 
+                        raw_score = sug.get("score")
+                        try:
+                            score = float(raw_score)
+                        except (TypeError, ValueError):
+                            continue
+                        similarity = score * 100 if score <= 1 else score
+                        if not 0 <= similarity <= 100:
+                            continue
+
+                        G.add_edge(source_id, target_id,
+                                   kind="suggestion",
+                                   color="#FF4081",
+                                   size=1,
                                    dashed=True,
+                                   similarity=similarity,
                                    reason=sug.get("reason", "AI Suggested"))
         except Exception as e:
             log.error(f"Error loading AI suggestions: {e}")
