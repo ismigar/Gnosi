@@ -1,19 +1,22 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import * as LucideIcons from 'lucide-react';
-import { Send, X, Paperclip, Minimize2, Maximize2, Bot, Sparkles, Plus, AtSign, Archive, PanelBottomClose } from 'lucide-react';
+import { DynamicIcon, iconNames } from 'lucide-react/dynamic';
+import { Send, X, Paperclip, Minimize2, Maximize2, Bot, Brain, Sparkles, Plus, AtSign, Archive, PanelBottomClose } from 'lucide-react';
 import { useConfigChanged } from '../lib/configEvents';
 import { announceFloatingPanelOpen, useExclusiveFloatingPanel } from '../hooks/useExclusiveFloatingPanel';
 import { useFloatingActionDock } from '../hooks/useFloatingActionDock';
 import ConfirmModal from './ConfirmModal';
 import {
+    agentChatStorageScope,
     confirmationForStorage,
     mergeConfirmationRecords,
+    startConfirmationRefresh,
 } from './agentConfirmationUtils';
 
 const CHAT_SESSIONS_KEY = 'agent_chat_sessions_v2';
 const CHAT_ACTIVE_SESSION_KEY = 'agent_chat_active_session_id_v2';
 const CHAT_SELECTED_AGENT_KEY = 'agent_selected_id_v2';
+const CHAT_PENDING_CHECKPOINT_DELETES_KEY = 'agent_pending_checkpoint_deletes_v1';
 const MAX_CHAT_ATTACHMENT_SIZE = 15 * 1024 * 1024;
 const MAX_CHAT_ATTACHMENTS = 8;
 const CHAT_ATTACHMENT_ACCEPT = [
@@ -23,11 +26,17 @@ const CHAT_ATTACHMENT_ACCEPT = [
 const MAX_STORED_SESSIONS = 20;
 const MAX_STORED_MESSAGES = 100;
 const MAX_STORED_MESSAGE_CHARS = 20_000;
+const DYNAMIC_ICON_NAMES = new Set(iconNames);
 
-const confirmationScope = confirmation => {
+const lucideIconName = (name) => name.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+const confirmationScope = (confirmation, browserStorageScope = '') => {
     if (confirmation?.client_scope) return confirmation.client_scope;
     if (confirmation?.agent_id && confirmation?.session_id) {
-        return `${confirmation.agent_id}:${confirmation.session_id}`;
+        return [
+            browserStorageScope,
+            confirmation.agent_id,
+            confirmation.session_id,
+        ].filter(Boolean).join(':');
     }
     return '';
 };
@@ -95,11 +104,13 @@ const deriveSessionTitle = (messages, fallback) => {
     return clean.length > 42 ? `${clean.slice(0, 42)}...` : clean;
 };
 
-const deleteSessionCheckpoint = (session) => {
-    if (!session?.agentId || !session?.id) return;
-    void fetch(`/api/chat/sessions/${encodeURIComponent(session.agentId)}/${encodeURIComponent(session.id)}`, {
+const deleteSessionCheckpoint = async (session) => {
+    if (!session?.agentId || !session?.id) return true;
+    const response = await fetch(`/api/chat/sessions/${encodeURIComponent(session.agentId)}/${encodeURIComponent(session.id)}`, {
         method: 'DELETE',
-    }).catch((error) => console.warn('Could not delete assistant checkpoint', error));
+    });
+    if (!response.ok) throw new Error(`Checkpoint deletion failed (${response.status})`);
+    return true;
 };
 
 const parseMentions = (text) => {
@@ -113,7 +124,7 @@ const parseMentions = (text) => {
     return mentions;
 };
 
-const AgentChat = () => {
+const AgentChat = ({ storageIdentity = '' }) => {
     const { t } = useTranslation();
     const defaultSessionTitle = t('chat.default_session_title', 'New conversation');
     const [isOpen, setIsOpen] = useState(false);
@@ -127,6 +138,7 @@ const AgentChat = () => {
     const [isMinimized, setIsMinimized] = useState(false);
     const [chatSessions, setChatSessions] = useState([]);
     const [sessionsHydrated, setSessionsHydrated] = useState(false);
+    const [hydratedStorageScope, setHydratedStorageScope] = useState('');
     const [showSessionsView, setShowSessionsView] = useState(false);
     const [mentionCatalog, setMentionCatalog] = useState([]);
     const [mentionResults, setMentionResults] = useState([]);
@@ -135,6 +147,7 @@ const AgentChat = () => {
     const [attachments, setAttachments] = useState([]);
     const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
     const [pendingConfirmation, setPendingConfirmation] = useState(null);
+    const [agentRuntime, setAgentRuntime] = useState(null);
     const [isDockOpen, setIsDockOpen] = useFloatingActionDock();
     useExclusiveFloatingPanel('chat', isOpen, setIsOpen);
 
@@ -143,15 +156,50 @@ const AgentChat = () => {
     const inputRef = useRef(null);
     const fileInputRef = useRef(null);
     const requestAbortRef = useRef(null);
+    const historyHydrationRef = useRef(0);
     const activeScopeRef = useRef('');
-    const vaultStorageScope = localStorage.getItem('gnosi_active_vault') || 'default';
-    const scopedStorageKey = useCallback(
-        (key) => `${key}:${vaultStorageScope}`,
-        [vaultStorageScope],
+    const activeVaultStorageScope = localStorage.getItem('gnosi_active_vault') || 'default';
+    const workspaceStorageScope = localStorage.getItem('gnosi_workspace_id') || 'personal';
+    const userStorageScope = (
+        storageIdentity
+        || localStorage.getItem('gnosi_user_id')
+        || 'personal'
     );
+    const browserStorageScope = agentChatStorageScope({
+        vaultId: activeVaultStorageScope,
+        workspaceId: workspaceStorageScope,
+        userId: userStorageScope,
+    });
+    const scopedStorageKey = useCallback(
+        (key) => `${key}:${browserStorageScope}`,
+        [browserStorageScope],
+    );
+    const scopeReady = (
+        sessionsHydrated
+        && hydratedStorageScope === browserStorageScope
+    );
+    const queueCheckpointDeletion = useCallback((session) => {
+        if (!session?.agentId || !session?.id) return;
+        const key = scopedStorageKey(CHAT_PENDING_CHECKPOINT_DELETES_KEY);
+        let pending = [];
+        try {
+            pending = JSON.parse(localStorage.getItem(key) || '[]');
+        } catch {
+            pending = [];
+        }
+        const unique = new Map(
+            [...pending, { agentId: session.agentId, id: session.id }]
+                .map((item) => [`${item.agentId}:${item.id}`, item]),
+        );
+        safeLocalStorageSet(key, JSON.stringify([...unique.values()]));
+    }, [scopedStorageKey]);
 
     // Init session ID
     useEffect(() => {
+        requestAbortRef.current?.abort();
+        setPendingConfirmation(null);
+        setSessionsHydrated(false);
+        setHydratedStorageScope('');
         const savedAgentId = localStorage.getItem(scopedStorageKey(CHAT_SELECTED_AGENT_KEY)) || 'gnosy';
         let sid = localStorage.getItem(scopedStorageKey('agent_session_id_v2'));
         const savedSessionsRaw = localStorage.getItem(scopedStorageKey(CHAT_SESSIONS_KEY));
@@ -171,7 +219,14 @@ const AgentChat = () => {
         const retainedIds = new Set(retainedSessions.map((session) => session.id));
         parsedSessions
             .filter((session) => session?.id && !retainedIds.has(session.id))
-            .forEach(deleteSessionCheckpoint);
+            .forEach((session) => {
+                void deleteSessionCheckpoint(session).catch(
+                    (error) => {
+                        queueCheckpointDeletion(session);
+                        console.warn('Could not delete evicted assistant checkpoint', error);
+                    },
+                );
+            });
         parsedSessions = retainedSessions.map((session) => ({
             ...session,
             agentId: session.agentId || savedAgentId,
@@ -213,16 +268,24 @@ const AgentChat = () => {
             safeLocalStorageSet(scopedStorageKey('agent_session_id_v2'), activeSession.id);
         }
 
+        setHydratedStorageScope(browserStorageScope);
         setSessionsHydrated(true);
-    }, [defaultSessionTitle, scopedStorageKey]);
+    }, [browserStorageScope, defaultSessionTitle, queueCheckpointDeletion, scopedStorageKey]);
 
     useEffect(() => {
-        if (!sessionsHydrated) return;
+        if (!scopeReady) return;
         const retainedSessions = boundedChatSessions(chatSessions);
         const retainedIds = new Set(retainedSessions.map((session) => session.id));
         const evictedSessions = chatSessions.filter((session) => !retainedIds.has(session.id));
         if (evictedSessions.length) {
-            evictedSessions.forEach(deleteSessionCheckpoint);
+            evictedSessions.forEach((session) => {
+                void deleteSessionCheckpoint(session).catch(
+                    (error) => {
+                        queueCheckpointDeletion(session);
+                        console.warn('Could not delete evicted assistant checkpoint', error);
+                    },
+                );
+            });
             setChatSessions(retainedSessions);
             return;
         }
@@ -230,20 +293,47 @@ const AgentChat = () => {
             scopedStorageKey(CHAT_SESSIONS_KEY),
             JSON.stringify(retainedSessions),
         );
-    }, [chatSessions, scopedStorageKey, sessionsHydrated]);
+    }, [chatSessions, queueCheckpointDeletion, scopeReady, scopedStorageKey]);
 
     useEffect(() => {
-        if (!sessionsHydrated || !sessionId) return;
+        if (!scopeReady) return;
+        const key = scopedStorageKey(CHAT_PENDING_CHECKPOINT_DELETES_KEY);
+        let pending = [];
+        try {
+            pending = JSON.parse(localStorage.getItem(key) || '[]');
+        } catch {
+            pending = [];
+        }
+        if (!Array.isArray(pending) || !pending.length) return;
+        void (async () => {
+            const failed = [];
+            for (const session of pending) {
+                try {
+                    await deleteSessionCheckpoint(session);
+                } catch {
+                    failed.push(session);
+                }
+            }
+            safeLocalStorageSet(key, JSON.stringify(failed));
+        })();
+    }, [scopeReady, scopedStorageKey]);
+
+    useEffect(() => {
+        if (!scopeReady || !sessionId) return;
         safeLocalStorageSet(scopedStorageKey(CHAT_ACTIVE_SESSION_KEY), sessionId);
         safeLocalStorageSet(scopedStorageKey('agent_session_id_v2'), sessionId);
-    }, [scopedStorageKey, sessionId, sessionsHydrated]);
+        setAgentRuntime(null);
+    }, [scopeReady, scopedStorageKey, sessionId]);
 
     useEffect(() => {
+        if (!scopeReady) return;
         safeLocalStorageSet(scopedStorageKey(CHAT_SELECTED_AGENT_KEY), selectedAgentId);
-    }, [scopedStorageKey, selectedAgentId]);
+        historyHydrationRef.current += 1;
+        setAgentRuntime(null);
+    }, [scopeReady, scopedStorageKey, selectedAgentId]);
 
     useEffect(() => {
-        if (!sessionsHydrated || !selectedAgentId) return;
+        if (!scopeReady || !selectedAgentId) return;
         const current = chatSessions.find((session) => session.id === sessionId);
         if (current?.agentId === selectedAgentId) return;
         let target = [...chatSessions]
@@ -256,21 +346,21 @@ const AgentChat = () => {
         setSessionId(target.id);
         setMessages(target.messages || []);
         setAttachments([]);
-    }, [chatSessions, defaultSessionTitle, selectedAgentId, sessionId, sessionsHydrated]);
+    }, [chatSessions, defaultSessionTitle, scopeReady, selectedAgentId, sessionId]);
 
     useEffect(() => () => requestAbortRef.current?.abort(), []);
 
     useEffect(() => {
-        const nextScope = `${selectedAgentId}:${sessionId}`;
+        const nextScope = `${browserStorageScope}:${selectedAgentId}:${sessionId}`;
         if (activeScopeRef.current && activeScopeRef.current !== nextScope) {
             requestAbortRef.current?.abort();
             setPendingConfirmation(null);
         }
         activeScopeRef.current = nextScope;
-    }, [selectedAgentId, sessionId]);
+    }, [browserStorageScope, selectedAgentId, sessionId]);
 
     useEffect(() => {
-        if (!sessionsHydrated || !sessionId) return;
+        if (!scopeReady || !sessionId) return;
         setChatSessions((prev) => prev.map((session) => {
             if (session.id !== sessionId) return session;
             return {
@@ -280,7 +370,7 @@ const AgentChat = () => {
                 title: deriveSessionTitle(messages, session.title || defaultSessionTitle),
             };
         }));
-    }, [defaultSessionTitle, messages, sessionId, sessionsHydrated]);
+    }, [defaultSessionTitle, messages, scopeReady, sessionId]);
 
     useEffect(() => {
         const current = inputValue || '';
@@ -409,14 +499,36 @@ const AgentChat = () => {
         void loadMentionCatalog();
     }, [loadConfig, loadMentionCatalog]);
 
-    const selectSession = (nextId) => {
+    const selectSession = async (nextId) => {
         if (isLoading) return;
         const target = chatSessions.find((s) => s.id === nextId);
         if (!target) return;
+        const hydrationId = historyHydrationRef.current + 1;
+        historyHydrationRef.current = hydrationId;
+        setAgentRuntime(null);
         setChatSessions((prev) => prev.map((s) => s.id === nextId ? { ...s, archived: false, updatedAt: Date.now() } : s));
         setSessionId(target.id);
         setMessages(target.messages || []);
         setShowSessionsView(false);
+        try {
+            const response = await fetch(
+                `/api/chat/sessions/${encodeURIComponent(target.agentId)}/${encodeURIComponent(target.id)}`,
+            );
+            if (response.ok) {
+                const canonical = await response.json();
+                if (historyHydrationRef.current !== hydrationId) return;
+                if (Array.isArray(canonical.messages) && canonical.messages.length) {
+                    setMessages(canonical.messages);
+                    setChatSessions((prev) => prev.map((session) => (
+                        session.id === target.id
+                            ? { ...session, messages: canonical.messages }
+                            : session
+                    )));
+                }
+            }
+        } catch (error) {
+            console.warn('Could not load canonical assistant history', error);
+        }
     };
 
     const archiveCurrentSession = () => {
@@ -426,6 +538,7 @@ const AgentChat = () => {
 
     const createNewSession = () => {
         if (isLoading) return;
+        historyHydrationRef.current += 1;
         const next = createChatSession(defaultSessionTitle, selectedAgentId);
         setChatSessions((prev) => [
             next,
@@ -433,14 +546,21 @@ const AgentChat = () => {
         ]);
         setSessionId(next.id);
         setMessages([]);
+        setAgentRuntime(null);
         setInputValue('');
         setShowSessionsView(false);
     };
 
-    const deleteSessionById = (targetId) => {
+    const deleteSessionById = async (targetId) => {
         if (!targetId || isLoading) return;
+        historyHydrationRef.current += 1;
         const target = chatSessions.find((session) => session.id === targetId);
-        deleteSessionCheckpoint(target);
+        try {
+            await deleteSessionCheckpoint(target);
+        } catch (error) {
+            console.warn('Could not delete assistant checkpoint', error);
+            return;
+        }
 
         const remaining = chatSessions.filter((s) => s.id !== targetId);
         const remainingForAgent = remaining.filter((s) => s.agentId === selectedAgentId);
@@ -500,6 +620,8 @@ const AgentChat = () => {
     const uploadAttachmentFile = async (file) => {
         const formData = new FormData();
         formData.append('file', file);
+        formData.append('agent_id', selectedAgentId);
+        formData.append('session_id', sessionId);
 
         const res = await fetch('/api/chat/attachments', {
             method: 'POST',
@@ -553,7 +675,7 @@ const AgentChat = () => {
                 void fetch('/api/chat/attachments', {
                     method: 'DELETE',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ path: item.path }),
+                    body: JSON.stringify({ path: item.path, agent_id: selectedAgentId, session_id: sessionId }),
                 }).catch(() => {});
             }
             setMessages((prev) => [...prev, { role: 'system', content: t('chat.attachment_upload_error', "Error uploading attachment: {{message}}", { message: error.message }) }]);
@@ -569,7 +691,7 @@ const AgentChat = () => {
             void fetch('/api/chat/attachments', {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ path: target.path }),
+                body: JSON.stringify({ path: target.path, agent_id: selectedAgentId, session_id: sessionId }),
             }).catch((error) => console.warn('Could not delete abandoned chat attachment', error));
         }
     };
@@ -667,49 +789,66 @@ const AgentChat = () => {
     }, []);
 
     useEffect(() => {
-        if (!sessionsHydrated || !selectedAgentId || !sessionId) return undefined;
-        const requestScope = `${selectedAgentId}:${sessionId}`;
+        if (!scopeReady || !selectedAgentId || !sessionId) return undefined;
+        const requestScope = `${browserStorageScope}:${selectedAgentId}:${sessionId}`;
         const controller = new AbortController();
+        let inFlight = false;
         const params = new URLSearchParams({
             agent_id: selectedAgentId,
             session_id: sessionId,
         });
-        void fetch(`/api/chat/confirmations?${params.toString()}`, {
-            signal: controller.signal,
-        })
-            .then(async response => {
-                if (!response.ok) return null;
-                return response.json();
+        const refreshConfirmations = () => {
+            if (inFlight || controller.signal.aborted) return;
+            inFlight = true;
+            void fetch(`/api/chat/confirmations?${params.toString()}`, {
+                signal: controller.signal,
             })
-            .then(payload => {
-                if (
-                    !payload
-                    || controller.signal.aborted
-                    || activeScopeRef.current !== requestScope
-                ) return;
-                const records = (payload.confirmations || []).map(item => ({
-                    ...item,
-                    client_scope: requestScope,
-                    agent_id: selectedAgentId,
-                    session_id: sessionId,
-                }));
-                setMessages(prev => mergeConfirmationRecords(
-                    prev,
-                    records,
-                    confirmationSummary,
-                ));
-            })
-            .catch(error => {
-                if (error.name !== 'AbortError') {
-                    console.error('Could not resume pending agent actions', error);
-                }
-            });
-        return () => controller.abort();
+                .then(async response => {
+                    if (!response.ok) return null;
+                    return response.json();
+                })
+                .then(payload => {
+                    if (
+                        !payload
+                        || controller.signal.aborted
+                        || activeScopeRef.current !== requestScope
+                    ) return;
+                    const records = (payload.confirmations || []).map(item => ({
+                        ...item,
+                        client_scope: requestScope,
+                        agent_id: selectedAgentId,
+                        session_id: sessionId,
+                    }));
+                    setMessages(prev => mergeConfirmationRecords(
+                        prev,
+                        records,
+                        confirmationSummary,
+                    ));
+                })
+                .catch(error => {
+                    if (error.name !== 'AbortError') {
+                        console.error('Could not refresh pending agent actions', error);
+                    }
+                })
+                .finally(() => {
+                    inFlight = false;
+                });
+        };
+        const stopRefreshing = startConfirmationRefresh(
+            refreshConfirmations,
+            window.setInterval.bind(window),
+            window.clearInterval.bind(window),
+        );
+        return () => {
+            stopRefreshing();
+            controller.abort();
+        };
     }, [
         confirmationSummary,
+        browserStorageScope,
+        scopeReady,
         selectedAgentId,
         sessionId,
-        sessionsHydrated,
     ]);
 
     const localizedConfirmationError = useCallback((payload, fallback) => {
@@ -740,8 +879,10 @@ const AgentChat = () => {
         if (!confirmation?.confirmation_id) return;
         const agentId = confirmation.agent_id || selectedAgentId;
         const chatSessionId = confirmation.session_id || sessionId;
-        const requestScope = confirmationScope(confirmation)
-            || `${agentId}:${chatSessionId}`;
+        const requestScope = confirmationScope(
+            confirmation,
+            browserStorageScope,
+        ) || `${browserStorageScope}:${agentId}:${chatSessionId}`;
         let response;
         try {
             response = await fetch(
@@ -862,6 +1003,7 @@ const AgentChat = () => {
                 ),
         }]);
     }, [
+        browserStorageScope,
         fetchConfirmationStatus,
         localizedConfirmationError,
         pendingConfirmation,
@@ -877,8 +1019,10 @@ const AgentChat = () => {
         if (!confirmation?.confirmation_id) return;
         const agentId = confirmation.agent_id || selectedAgentId;
         const chatSessionId = confirmation.session_id || sessionId;
-        const requestScope = confirmationScope(confirmation)
-            || `${agentId}:${chatSessionId}`;
+        const requestScope = confirmationScope(
+            confirmation,
+            browserStorageScope,
+        ) || `${browserStorageScope}:${agentId}:${chatSessionId}`;
         try {
             const response = await fetch(
                 `/api/chat/confirmations/${encodeURIComponent(confirmation.confirmation_id)}/cancel`,
@@ -930,6 +1074,7 @@ const AgentChat = () => {
             updateConfirmationStatus(confirmation.confirmation_id, status);
         }
     }, [
+        browserStorageScope,
         fetchConfirmationStatus,
         pendingConfirmation,
         selectedAgentId,
@@ -963,7 +1108,7 @@ const AgentChat = () => {
         setAttachments([]);
         setShowMentionMenu(false);
         setIsLoading(true);
-        const requestScope = `${selectedAgentId}:${sessionId}`;
+        const requestScope = `${browserStorageScope}:${selectedAgentId}:${sessionId}`;
 
         try {
             requestAbortRef.current?.abort();
@@ -1033,6 +1178,10 @@ const AgentChat = () => {
                                 provider: data.provider,
                                 model: data.model,
                             };
+                            continue;
+                        }
+                        if (data.type === 'agent_runtime') {
+                            setAgentRuntime(data);
                             continue;
                         }
                         if (data.type === 'done') {
@@ -1135,10 +1284,12 @@ const AgentChat = () => {
         if (!iconStr) return <Bot size={size} />;
         if (iconStr.startsWith('lucide:')) {
             const [_, name, colorName] = iconStr.split(':');
-            const IconComp = LucideIcons[name];
             // Support 'white', 'gray', or any color name. Fallback to white for Brain if no color.
             const color = colorName || (name === 'Brain' ? 'white' : 'currentColor');
-            return IconComp ? <IconComp size={size} color={color} /> : <Bot size={size} />;
+            const normalizedName = lucideIconName(name || '');
+            return DYNAMIC_ICON_NAMES.has(normalizedName)
+                ? <DynamicIcon name={normalizedName} size={size} color={color} />
+                : <Bot size={size} />;
         }
         return <span style={{ fontSize: `${size}px` }}>{iconStr}</span>;
     };
@@ -1149,6 +1300,11 @@ const AgentChat = () => {
     const agentModel = agentHasModel
         ? `${agentConfig.provider} · ${agentConfig.model}`
         : t('chat.model_not_configured', 'Model not configured');
+    const runtimeLimited = Boolean(agentRuntime && (
+        (agentRuntime.active_skill_ids?.length && !agentRuntime.supports_tools)
+        || agentRuntime.missing_skill_ids?.length
+        || agentRuntime.unavailable_tool_ids?.length
+    ));
     const sortedSessions = chatSessions
         .filter((session) => session.agentId === selectedAgentId)
         .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
@@ -1242,9 +1398,9 @@ const AgentChat = () => {
                                 <option key={a.id} value={a.id}>{a.name || a.id}</option>
                             ))}
                         </select>
-                        {!isMinimized && <div style={{ fontSize: '0.7rem', color: agentHasModel ? '#10b981' : '#ef4444', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: agentHasModel ? '#10b981' : '#ef4444' }}></span>
-                            {agentHasModel ? t('chat.online', "Online") : t('chat.model_not_configured', 'Model not configured')}
+                        {!isMinimized && <div style={{ fontSize: '0.7rem', color: runtimeLimited ? '#f59e0b' : (agentHasModel ? '#10b981' : '#ef4444'), display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: runtimeLimited ? '#f59e0b' : (agentHasModel ? '#10b981' : '#ef4444') }}></span>
+                            {runtimeLimited ? t('chat.runtime_limited', 'Connected · tools limited') : (agentHasModel ? t('chat.online', "Online") : t('chat.model_not_configured', 'Model not configured'))}
                             {agentHasModel && <span style={{ color: 'var(--text-secondary)' }}>· {t('chat.agent_model', 'Model: {{model}}', { model: agentModel })}</span>}
                         </div>}
                     </div>
@@ -1309,7 +1465,7 @@ const AgentChat = () => {
                         {!showSessionsView && messages.length === 0 && (
                             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: 'var(--text-secondary)', padding: '40px' }}>
                                 <div style={{ fontSize: '3rem', marginBottom: '16px', color: 'var(--gnosi-blue)' }}>
-                                    <LucideIcons.Brain size={64} strokeWidth={1.5} />
+                                    <Brain size={64} strokeWidth={1.5} />
                                 </div>
                                 <h4 style={{ margin: '0 0 8px 0', color: 'var(--text-primary)' }}>{t('chat.empty_title', "How can I help you today?")}</h4>
                                 <p style={{ fontSize: '0.85rem', margin: 0 }}>{t('chat.empty_subtitle', "I can analyze your Vault, manage your calendar, or write code for you.")}</p>

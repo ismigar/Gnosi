@@ -187,6 +187,15 @@ during migration.
 
 ## 10. Restrictions and edge cases
 
+- Apply per-skill and aggregate instruction budgets. Tool schemas and reserved
+  model output count toward the same context budget.
+- Runtime metadata sent to clients states whether the model supports tool calls
+  and whether assigned skills are missing or unavailable.
+- Reset capability state whenever the selected agent or session changes;
+  evidence from one agent must never be displayed for another.
+- Tool binding limits are explicit runtime availability constraints. Report
+  every omitted assigned tool as unavailable and never grant an omitted tool.
+
 - Do not allow skill instructions to weaken core safety or tool policy.
 - Do not import third-party Python into the FastAPI process.
 - Do not let plugin activation grant permissions.
@@ -226,6 +235,9 @@ during migration.
 - Do not run backend tests without `GNOSI_LOCAL_DATA` in a native shell because
   current path discovery may fall back to deployment-only `/app/data`; point it
   at a writable local test directory instead.
+- Keep `pipeline/skills/catalog.yaml` in exact one-to-one correspondence with
+  directories containing `SKILL.md`. Do not retain catalog entries after a package
+  is removed, and do not add a package without its explicit non-runtime kind.
 
 ## 11. Verification
 
