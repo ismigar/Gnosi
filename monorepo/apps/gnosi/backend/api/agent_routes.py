@@ -45,9 +45,8 @@ from backend.agent.action_confirmations import (
 )
 from backend.agent.gnosi_tools import (
     ActionConflictError,
-    bulk_update_rows,
     execute_confirmed_action,
-    list_table_rows,
+    replace_reference_ids_in_titles,
 )
 from backend.agent.model_router import record_llm_usage, usage_from_message
 from backend.agent.model_reliability import (
@@ -392,33 +391,31 @@ def _prepare_index_title_replacements(message: str) -> Optional[Dict[str, Any]]:
     """Prepare the deterministic confirmation for index title replacements."""
     normalized = message.casefold()
     if (
-        "substitueix els ids" not in normalized
+        "replace_reference_ids_in_titles"
+        not in _explicit_brain_write_tool_names(message)
         or "projectes" not in normalized
         or ("àrees" not in normalized and "areas" not in normalized)
     ):
         return None
-    source_titles = {}
-    for table_name, prefix in (("Projectes", "Projecte"), ("Àrees", "Àrea")):
-        payload = json.loads(list_table_rows.invoke({"table_id_or_name": table_name}))
-        for row in payload.get("rows", []):
-            if row.get("id") and row.get("title"):
-                source_titles[(prefix, str(row["id"]))] = str(row["title"])
-    targets = json.loads(list_table_rows.invoke({"table_id_or_name": "Cervell digital"}))
-    updates = []
-    pattern = re.compile(r"^Índex - (Projecte|Àrea): ([0-9a-f-]{36})$")
-    for row in targets.get("rows", []):
-        match = pattern.match(str(row.get("title") or ""))
-        if not match:
-            continue
-        replacement = source_titles.get((match.group(1), match.group(2)))
-        if replacement:
-            updates.append({
-                "id": str(row["id"]),
-                "properties": {"title": f"Índex - {match.group(1)}: {replacement}"},
-            })
-    if not updates:
-        return None
-    return confirmation_event(bulk_update_rows.invoke({"updates": updates}))
+    result = replace_reference_ids_in_titles.invoke({
+        "source_table_id_or_name": "Cervell digital",
+        "reference_tables": {
+            "Projecte": "Projectes",
+            "Àrea": "Àrees",
+        },
+    })
+    event = confirmation_event(result)
+    if event:
+        return event
+    try:
+        payload = json.loads(result)
+    except (TypeError, ValueError):
+        payload = {}
+    detail = str(payload.get("error") or "").strip()
+    return {
+        "type": "error",
+        "content": detail or "The bulk title update could not be prepared.",
+    }
 
 
 def _public_checkpoint_messages(stored_messages: List[Any]) -> List[Dict[str, str]]:
@@ -1297,7 +1294,8 @@ async def chat_endpoint(
                 session_id=session_id,
             )
             try:
-                deterministic_confirmation = _prepare_index_title_replacements(
+                deterministic_confirmation = await asyncio.to_thread(
+                    _prepare_index_title_replacements,
                     chat_req.message,
                 )
                 if deterministic_confirmation:
@@ -1432,7 +1430,11 @@ async def chat_endpoint(
 
             except Exception as e:
                 error_str = str(e)
-                log.error(f"Error in event_generator: {error_str}")
+                log.exception(
+                    "Agent event generator failed (%s): %s",
+                    type(e).__name__,
+                    error_str or "no exception message",
+                )
 
                 # Record the failure against the model that was actually used, and
                 # classify it: the REASON decides whether this is evidence about
@@ -1476,6 +1478,10 @@ async def chat_endpoint(
                     friendly_error = "An unexpected agent error occurred."
                 else:
                     friendly_error = safe_error_detail(e, context="POST /api/agent/chat event_generator")
+
+                friendly_error = str(friendly_error or "").strip()
+                if not friendly_error:
+                    friendly_error = "An unexpected agent error occurred."
 
                 yield json.dumps({"type": "error", "content": friendly_error}) + "\n"
                 yield json.dumps({

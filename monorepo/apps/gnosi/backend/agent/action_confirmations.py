@@ -50,6 +50,7 @@ ALLOWED_CONFIRMATION_ACTIONS = frozenset({
     "governed_tool",
     "invite_attendees",
     "move_mail",
+    "replace_reference_ids_in_titles",
     "restore_page_version",
     "save_mail_draft",
     "send_mail",

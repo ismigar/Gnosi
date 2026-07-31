@@ -544,10 +544,13 @@ def _explicit_brain_write_tool_names(
         "bulk_update_rows": (
             "actualitza massivament", "actualitza totes les files",
             "bulk update", "update all rows", "actualiza masivamente",
-            "mise à jour en masse", "substitueix els ids",
-            "substitueix els identificadors", "replace the ids",
+            "mise à jour en masse",
+        ),
+        "replace_reference_ids_in_titles": (
+            "substitueix els ids", "substitueix els identificadors",
+            "replace the ids",
             "replace the identifiers", "reemplaza los ids",
-            "reemplaza los identificadores",
+            "reemplaza los identificadores", "remplace les identifiants",
         ),
     }
     for name, patterns in confirmation_request_patterns.items():
@@ -1686,14 +1689,14 @@ async def create_agent_workflow(
             )
             brain_system += (
                 "\nFor requests to inspect or replace table-row titles or "
-                "properties, first read the relevant rows with the table tools. "
-                "Resolve every requested id against the source rows, inspect the "
-                "complete bounded target table, count every matching target row, "
-                "and prepare one bulk update containing all of them. Never submit "
-                "a partial two-row sample when more matches exist. Do not claim "
+                "properties that contain reference ids, use "
+                "replace_reference_ids_in_titles with the source table and a "
+                "label-to-reference-table mapping. Gnosi scans every row and "
+                "calculates the complete plan on the server. Never enumerate or "
+                "submit a partial model-authored sample. Do not claim "
                 "that the Vault is inaccessible when these tools are available. "
                 "When the current turn authorizes a bulk replacement, you MUST "
-                "call bulk_update_rows after the reads. Do not merely describe a "
+                "call replace_reference_ids_in_titles. Do not merely describe a "
                 "planned update, say that you are awaiting confirmation, or send "
                 "a final text response instead: only the tool call creates the "
                 "required Gnosi review card."

@@ -88,6 +88,7 @@ def test_catalog_has_unique_names_and_expected_risk_classes():
         "empty_trash",
         "change_schema",
         "bulk_update_rows",
+        "replace_reference_ids_in_titles",
     } <= confirmed
 
 
@@ -228,6 +229,232 @@ def test_bulk_update_rolls_back_every_written_row(tmp_path, monkeypatch):
     assert calls == [first, second]
     assert first.read_text(encoding="utf-8") == "first-original"
     assert second.read_text(encoding="utf-8") == "second-original"
+
+
+def test_reference_title_replacement_prepares_every_match_server_side(monkeypatch):
+    source_rows = [
+        {
+            "id": f"source-{index}",
+            "title": (
+                f"Índex {'·' if index % 2 else '-'} Projecte: reference-{index}"
+            ),
+            "relative_path": f"Source/{index}.md",
+            "revision": f"source-revision-{index}",
+        }
+        for index in range(346)
+    ]
+    reference_rows = [
+        {
+            "id": f"reference-{index}",
+            "title": f"Project {index}",
+            "relative_path": f"Projects/{index}.md",
+            "revision": f"reference-revision-{index}",
+        }
+        for index in range(346)
+    ]
+    tables = {
+        "Cervell digital": {"id": "brain", "name": "Cervell digital"},
+        "brain": {"id": "brain", "name": "Cervell digital"},
+        "Projectes": {"id": "projects", "name": "Projectes"},
+        "projects": {"id": "projects", "name": "Projectes"},
+    }
+    snapshots = {"brain": source_rows, "projects": reference_rows}
+    captured = {}
+
+    monkeypatch.setattr(gnosi_tools, "_table", lambda identifier: tables.get(identifier))
+    monkeypatch.setattr(
+        gnosi_tools,
+        "_table_rows_snapshot",
+        lambda table_id: snapshots[table_id],
+    )
+
+    def capture_confirmation(action, arguments, details, **_kwargs):
+        captured.update({
+            "action": action,
+            "arguments": arguments,
+            "details": details,
+        })
+        return json.dumps({"status": "captured"})
+
+    monkeypatch.setattr(gnosi_tools, "_confirmation", capture_confirmation)
+
+    gnosi_tools.replace_reference_ids_in_titles.invoke({
+        "source_table_id_or_name": "Cervell digital",
+        "reference_tables": {"Projecte": "Projectes"},
+    })
+
+    assert captured["action"] == "replace_reference_ids_in_titles"
+    assert captured["arguments"]["planned_count"] == 346
+    assert "updates" not in captured["arguments"]
+    assert len(json.dumps(captured["arguments"]).encode("utf-8")) < 64 * 1024
+    assert captured["details"]["count"] == 346
+    assert len(captured["details"]["updates"]) == 8
+    assert captured["details"]["updates_truncated"] is True
+    assert len(json.dumps(captured["details"]).encode("utf-8")) < 16 * 1024
+    assert captured["details"]["updates"][1]["to"] == (
+        "Índex · Projecte: Project 1"
+    )
+
+
+def test_reference_title_replacement_reports_unresolved_uuid(monkeypatch):
+    missing_id = "11111111-2222-3333-4444-555555555555"
+    tables = {
+        "brain": {"id": "brain", "name": "Brain"},
+        "projects": {"id": "projects", "name": "Projects"},
+    }
+    snapshots = {
+        "brain": [{
+            "id": "source-1",
+            "title": f"Índex · Projecte: {missing_id}",
+            "relative_path": "Source.md",
+            "revision": "source-revision",
+        }],
+        "projects": [],
+    }
+    monkeypatch.setattr(gnosi_tools, "_table", lambda identifier: tables.get(identifier))
+    monkeypatch.setattr(
+        gnosi_tools,
+        "_table_rows_snapshot",
+        lambda table_id: snapshots[table_id],
+    )
+
+    result = json.loads(gnosi_tools.replace_reference_ids_in_titles.invoke({
+        "source_table_id_or_name": "brain",
+        "reference_tables": {"Projecte": "projects"},
+    }))
+
+    assert result["error"] == "No replaceable reference ids were found."
+    assert result["unresolved_count"] == 1
+    assert result["unresolved"][0]["reference_id"] == missing_id
+
+
+def test_confirmed_reference_title_replacement_executes_more_than_100_rows(
+    tmp_path,
+    monkeypatch,
+):
+    metadata_by_path = {}
+    source_rows = []
+    reference_rows = []
+    for index in range(120):
+        path = tmp_path / f"source-{index}.md"
+        path.write_text(f"source {index}", encoding="utf-8")
+        title = f"Índex · Projecte: reference-{index}"
+        metadata_by_path[path] = {
+            "id": f"source-{index}",
+            "title": title,
+            "table_id": "brain",
+        }
+        source_rows.append({
+            "id": f"source-{index}",
+            "title": title,
+            "relative_path": path.name,
+            "revision": gnosi_tools._file_revision(path),
+        })
+        reference_rows.append({
+            "id": f"reference-{index}",
+            "title": f"Project {index}",
+            "relative_path": f"Projects/{index}.md",
+            "revision": f"reference-revision-{index}",
+        })
+
+    tables = {
+        "brain": {"id": "brain", "name": "Brain"},
+        "projects": {"id": "projects", "name": "Projects"},
+    }
+    snapshots = {"brain": source_rows, "projects": reference_rows}
+    captured = {}
+    monkeypatch.setattr(gnosi_tools, "_table", lambda identifier: tables.get(identifier))
+    monkeypatch.setattr(
+        gnosi_tools,
+        "_table_rows_snapshot",
+        lambda table_id: snapshots[table_id],
+    )
+
+    def capture_confirmation(_action, arguments, _details, **_kwargs):
+        captured["arguments"] = arguments
+        return "{}"
+
+    monkeypatch.setattr(gnosi_tools, "_confirmation", capture_confirmation)
+    gnosi_tools.replace_reference_ids_in_titles.invoke({
+        "source_table_id_or_name": "brain",
+        "reference_tables": {"Projecte": "projects"},
+    })
+
+    monkeypatch.setattr(
+        gnosi_tools,
+        "_parse",
+        lambda path: (dict(metadata_by_path[path]), "body"),
+    )
+    written = []
+
+    def write_page(path, metadata, _body):
+        written.append(path)
+        metadata_by_path[path] = dict(metadata)
+        path.write_text(metadata["title"], encoding="utf-8")
+
+    monkeypatch.setattr(gnosi_tools, "_write_page", write_page)
+    token = active_vault_path.set(tmp_path)
+    try:
+        result = asyncio.run(gnosi_tools.execute_confirmed_action(
+            "replace_reference_ids_in_titles",
+            captured["arguments"],
+            workspace_id="personal",
+        ))
+    finally:
+        active_vault_path.reset(token)
+
+    assert result["status"] == "completed"
+    assert result["updated_count"] == 120
+    assert result["truncated"] is True
+    assert len(written) == 120
+    assert metadata_by_path[tmp_path / "source-119.md"]["title"] == (
+        "Índex · Projecte: Project 119"
+    )
+
+
+def test_confirmed_reference_title_replacement_rejects_stale_snapshot(monkeypatch):
+    source_rows = [{
+        "id": "source-1",
+        "title": "Índex - Projecte: reference-1",
+        "relative_path": "Source.md",
+        "revision": "source-revision",
+    }]
+    reference_rows = [{
+        "id": "reference-1",
+        "title": "Project One",
+        "relative_path": "Project.md",
+        "revision": "reference-revision",
+    }]
+    tables = {
+        "brain": {"id": "brain", "name": "Brain"},
+        "projects": {"id": "projects", "name": "Projects"},
+    }
+    snapshots = {"brain": source_rows, "projects": reference_rows}
+    captured = {}
+    monkeypatch.setattr(gnosi_tools, "_table", lambda identifier: tables.get(identifier))
+    monkeypatch.setattr(
+        gnosi_tools,
+        "_table_rows_snapshot",
+        lambda table_id: snapshots[table_id],
+    )
+
+    def capture_confirmation(_action, arguments, _details, **_kwargs):
+        captured["arguments"] = arguments
+        return "{}"
+
+    monkeypatch.setattr(gnosi_tools, "_confirmation", capture_confirmation)
+    gnosi_tools.replace_reference_ids_in_titles.invoke({
+        "source_table_id_or_name": "brain",
+        "reference_tables": {"Projecte": "projects"},
+    })
+    source_rows[0]["title"] = "Changed concurrently"
+
+    with pytest.raises(gnosi_tools.ActionConflictError, match="source table changed"):
+        asyncio.run(gnosi_tools.execute_confirmed_action(
+            "replace_reference_ids_in_titles",
+            captured["arguments"],
+            workspace_id="personal",
+        ))
 
 
 def test_empty_trash_purges_only_the_confirmed_snapshot(tmp_path, monkeypatch):
