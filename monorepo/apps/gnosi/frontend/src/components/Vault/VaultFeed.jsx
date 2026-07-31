@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FileText, Calendar, Clock, Link as LinkIcon, CheckSquare, Loader2, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
+import axios from 'axios';
+import { FileText, Calendar, Clock, Link as LinkIcon, CheckSquare, Loader2, ExternalLink, ChevronDown, ChevronUp, PanelRight, X, ArrowLeft, ArrowRight, SlidersHorizontal } from 'lucide-react';
 import { getFieldConfig, getFieldType, getSchemaFieldNames, resolveViewSorts, resolveViewFilters } from './schemaUtils';
 import { normalizeOptions, optionChipStyle, autoColorFor } from './optionCatalogUtils';
 import { FileFieldValue } from './FileFieldValue';
@@ -15,7 +16,10 @@ import { useVaultViewData } from '../../hooks/useVaultViewData';
 import { useLocaleSettings } from '../../hooks/useLocaleSettings';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
+import { useTitlePreview } from './useTitlePreview';
+import { toast } from '../../lib/toast';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { RelationItem } from './RelationItem';
 import {
     normalizeRelationValues,
@@ -26,6 +30,7 @@ import {
 // that the sentinel enters the view. Keeping it low saves initial DOM.
 const FEED_BATCH = 12;
 const PILL_PREVIEW_LIMIT = 5;
+const MOBILE_PILL_PREVIEW_LIMIT = 3;
 
 // The `metadata.description` (body excerpt) is capped at this limit by the
 // backend: if it gets close to it, the real body continues and it makes sense to offer "See more".
@@ -46,6 +51,16 @@ function prepareBodyMd(raw) {
     return s.trim();
 }
 
+function highlightSearchMatch(value, searchTerm) {
+    const text = String(value || '');
+    const terms = String(searchTerm || '').trim().split(/\s+/).filter((term) => term.length > 1);
+    if (!terms.length) return text;
+    const pattern = new RegExp(`(${terms.map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'ig');
+    return text.split(pattern).map((part, index) => terms.some((term) => part.toLocaleLowerCase() === term.toLocaleLowerCase())
+        ? <mark key={index} className="vault-feed-search-match">{part}</mark>
+        : part);
+}
+
 /**
  * Feed card (Notion style): icon+title inline, ALL properties
  * inline as pills, generous formatted preview of the content, and
@@ -54,12 +69,14 @@ function prepareBodyMd(raw) {
  * interact with the body); opening the page is done with the "Open" button or
  * by clicking the title.
  */
-function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, onOpen }) {
+function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, onOpen, onPreview, titlePreviewProps, searchTerm, isRead, density, index, onVisible, pillLimit = PILL_PREVIEW_LIMIT, excerptLines = 6 }) {
     const { t, i18n } = useTranslation();
+    const isCompact = useMediaQuery('(max-width: 768px)');
     const [expanded, setExpanded] = useState(false);
     const [showAllPills, setShowAllPills] = useState(false);
     const [previewOverflows, setPreviewOverflows] = useState(false);
     const previewRef = useRef(null);
+    const cardRef = useRef(null);
     // The cover is resolved the same way as in the other views (VaultGallery): `Assets/x`
     // → `/api/vault/assets/x` with the active vault in the query. A `background-image`
     // (like a native `<img>`) does NOT send the X-Vault-Id header, so without
@@ -71,7 +88,8 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
     const hasCover = !!coverUrl;
 
     const previewMd = useMemo(() => prepareBodyMd(note.metadata?.description || ''), [note]);
-    const visiblePills = showAllPills ? pills : pills.slice(0, PILL_PREVIEW_LIMIT);
+    const pillPreviewLimit = Math.min(pillLimit, isCompact ? MOBILE_PILL_PREVIEW_LIMIT : PILL_PREVIEW_LIMIT);
+    const visiblePills = showAllPills ? pills : pills.slice(0, pillPreviewLimit);
     const hiddenPillCount = Math.max(0, pills.length - visiblePills.length);
     // The excerpt is approaching the limit → the actual body continues further.
     const looksTruncated = (note.metadata?.description || '').length >= EXCERPT_CAP;
@@ -94,6 +112,15 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
             observer?.disconnect();
         };
     }, [expanded, previewMd]);
+    useEffect(() => {
+        const card = cardRef.current;
+        if (!card || typeof IntersectionObserver !== 'function') return undefined;
+        const observer = new IntersectionObserver(([entry]) => {
+            if (entry.isIntersecting && entry.intersectionRatio >= 0.45) onVisible?.(index);
+        }, { threshold: [0.45] });
+        observer.observe(card);
+        return () => observer.disconnect();
+    }, [index, onVisible]);
 
     const handleToggleExpand = useCallback((e) => {
         e.stopPropagation();
@@ -102,36 +129,14 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
     }, [expanded]);
 
     const openNote = useCallback((e) => { e?.stopPropagation?.(); onOpen(note.id); }, [onOpen, note.id]);
+    const previewNote = useCallback((e) => { e?.stopPropagation?.(); onPreview(note.id); }, [onPreview, note.id]);
     const openLabel = `${t('feed.open_page', "Open page")}: ${note.title || t('common.untitled', "Untitled")}`;
 
-    const handleCardClick = useCallback((event) => {
-        if (selectionActive) {
-            onToggleSelect(note.id, event);
-            return;
-        }
-        if (event.target instanceof Element && event.target.closest('a, button, input, select, textarea, [role="button"]')) {
-            return;
-        }
-        if (window.getSelection?.()?.toString().trim()) return;
-        openNote(event);
-    }, [note.id, onToggleSelect, openNote, selectionActive]);
-
-    const handleCardKeyDown = useCallback((event) => {
-        if (selectionActive || event.target !== event.currentTarget) return;
-        if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            openNote(event);
-        }
-    }, [openNote, selectionActive]);
-
     return (
-        <div
-            role={selectionActive ? undefined : 'link'}
-            tabIndex={selectionActive ? undefined : 0}
-            aria-label={selectionActive ? undefined : openLabel}
-            onClick={handleCardClick}
-            onKeyDown={handleCardKeyDown}
-            className={`vault-feed-card relative bg-[var(--bg-primary)] rounded-2xl shadow-sm border overflow-hidden hover:shadow-md transition-all group flex flex-col cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gnosi-primary)] ${isSelected ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/40'}`}
+        <article
+            ref={cardRef}
+            data-feed-note-id={note.id}
+            className={`vault-feed-card ${density === 'compact' ? 'vault-feed-card--compact' : ''} ${density === 'adaptive' ? 'vault-feed-card--adaptive' : ''} ${isRead ? 'is-read' : ''} relative bg-[var(--bg-primary)] rounded-2xl shadow-sm border overflow-hidden hover:shadow-md transition-all group flex flex-col ${isSelected ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/40'}`}
         >
             {/* The label only stops propagation (not opening the card): the
                 toggle is handled by the input's onChange. If the label also called
@@ -146,6 +151,9 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
                     type="checkbox"
                     checked={isSelected}
                     onChange={(e) => onToggleSelect(note.id, e)}
+                    aria-label={t('feed.select_record', {
+                        title: note.title || t('common.untitled', 'Untitled'),
+                    })}
                     className="w-4 h-4 rounded border-[var(--border-primary)] text-[var(--gnosi-primary)] focus:ring-[var(--gnosi-primary)] cursor-pointer bg-[var(--bg-secondary)]/90 shadow-sm"
                 />
             </label>
@@ -161,7 +169,10 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
             )}
 
             <div className="vault-feed-card__body p-6 flex flex-col gap-3">
-                {/* Header: small date + (icon+title inline) + Open button */}
+                {/* Header: small date + icon and title. The title is the sole
+                    primary navigation target; the card remains a semantic
+                    article so its checkbox and disclosure buttons are never
+                    nested inside a link. */}
                 <div className="vault-feed-card__header flex items-start justify-between gap-3">
                     <div className="vault-feed-card__identity min-w-0">
                         <div className="vault-feed-card__date flex items-center gap-1.5 text-xs font-medium text-[var(--text-tertiary)] mb-1.5">
@@ -182,26 +193,24 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
                                 })}
                             </span>
                         </div>
-                        <h2
-                            onClick={selectionActive ? undefined : openNote}
-                            className={`vault-feed-card__title text-xl font-bold text-[var(--text-primary)] leading-tight flex items-center gap-2 min-w-0 ${selectionActive ? '' : 'cursor-pointer hover:text-[var(--gnosi-primary)]'} transition-colors`}
-                            title={note.title || ''}
-                        >
-                            {note.metadata?.icon && (
-                                <span className="shrink-0 inline-flex"><IconRenderer icon={note.metadata.icon} size={24} /></span>
-                            )}
-                            <span className="min-w-0">{note.title || t('common.untitled', "Untitled")}</span>
+                        <h2 className="min-w-0">
+                            <button
+                                type="button"
+                                onClick={selectionActive ? undefined : openNote}
+                                disabled={selectionActive}
+                                aria-label={openLabel}
+                                {...titlePreviewProps}
+                                className={`vault-feed-card__title text-xl font-bold text-[var(--text-primary)] leading-tight flex items-center gap-2 min-w-0 text-left ${selectionActive ? 'cursor-default' : 'cursor-pointer hover:text-[var(--gnosi-primary)]'} transition-colors`}
+                                title={note.title || ''}
+                            >
+                                {note.metadata?.icon && (
+                                    <span className="shrink-0 inline-flex"><IconRenderer icon={note.metadata.icon} size={24} /></span>
+                                )}
+                                <span className="min-w-0">{highlightSearchMatch(note.title || t('common.untitled', "Untitled"), searchTerm)}</span>
+                            </button>
                         </h2>
                     </div>
-                    <button
-                        type="button"
-                        onClick={openNote}
-                        className="vault-feed-card__open shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)] text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--gnosi-primary)] hover:border-[var(--gnosi-primary)]/50 transition-colors"
-                        title={t('feed.open_page', "Open page")}
-                    >
-                        <ExternalLink size={13} />
-                        {t('feed.open', "Open")}
-                    </button>
+                    {!selectionActive && <button type="button" onClick={previewNote} className="p-1.5 rounded-md text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)] hover:bg-[var(--bg-tertiary)]" title={t('feed.open_reading_pane', 'Open reading pane')} aria-label={t('feed.open_reading_pane', 'Open reading pane')}><PanelRight size={16} /></button>}
                 </div>
 
                 {/* ALL properties inline (Notion style): value only. */}
@@ -221,7 +230,7 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
                                 +{hiddenPillCount}
                             </button>
                         )}
-                        {showAllPills && pills.length > PILL_PREVIEW_LIMIT && (
+                        {showAllPills && pills.length > pillPreviewLimit && (
                             <button
                                 type="button"
                                 onClick={(event) => { event.stopPropagation(); setShowAllPills(false); }}
@@ -240,6 +249,7 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
                 {previewMd && (
                     <div
                         ref={previewRef}
+                        style={expanded ? undefined : { '--feed-excerpt-lines': excerptLines }}
                         className={`vault-feed-card__preview text-sm text-[var(--text-secondary)] leading-relaxed ${expanded ? 'is-expanded' : ''}`}
                     >
                         <VaultMarkdown
@@ -275,7 +285,7 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
                     </div>
                 )}
             </div>
-        </div>
+        </article>
     );
 }
 
@@ -285,9 +295,11 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
  * dedicated component so the parent can remount it (via `key`) and reset the
  * count when the set changes, without `setState` inside an effect or mutating refs during render.
  */
-function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSelect, onOpen }) {
+function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSelect, onOpen, onPreview, getTitleProps, searchTerm, readIds, density, groupMode, pillLimit, excerptLines }) {
+    const { t, i18n } = useTranslation();
     const sentinelRef = useRef(null);
     const [visibleCount, setVisibleCount] = useState(FEED_BATCH);
+    const [visibleIndex, setVisibleIndex] = useState(0);
     const hasMore = visibleCount < notes.length;
 
     useEffect(() => {
@@ -312,20 +324,53 @@ function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSele
     }, [hasMore, notes.length]);
 
     const visibleNotes = useMemo(() => notes.slice(0, visibleCount), [notes, visibleCount]);
+    const handleVisible = useCallback((index) => setVisibleIndex(index), []);
+    const dateGroup = useCallback((value) => {
+        const date = new Date(value);
+        const now = new Date();
+        const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const startWeek = new Date(startToday);
+        startWeek.setDate(startToday.getDate() - ((startToday.getDay() + 6) % 7));
+        const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        if (date >= startToday) return t('feed.group_today');
+        if (date >= startWeek) return t('feed.group_this_week');
+        if (date >= startMonth) return t('feed.group_this_month');
+        return date.toLocaleDateString(i18n.language, { month: 'long', year: 'numeric' });
+    }, [i18n.language, t]);
 
     return (
-        <div className="w-full max-w-3xl flex flex-col gap-8 pb-16">
-            {visibleNotes.map(note => (
-                <FeedCard
-                    key={note.id}
-                    note={note}
-                    pills={buildPills(note)}
-                    isSelected={isSelected(note.id)}
-                    selectionActive={selectionActive}
-                    onToggleSelect={onToggleSelect}
-                    onOpen={onOpen}
-                />
-            ))}
+        <div className="w-full max-w-3xl flex flex-col gap-8 pb-16 relative">
+            <div className="vault-feed-position" role="status">
+                {t('feed.position', { current: Math.min(visibleIndex + 1, notes.length), total: notes.length })}
+            </div>
+            {visibleNotes.map((note, index) => {
+                const group = groupMode === 'date' ? dateGroup(note.last_modified) : '';
+                const previousGroup = index > 0 && groupMode === 'date'
+                    ? dateGroup(visibleNotes[index - 1].last_modified)
+                    : '';
+                return (
+                    <React.Fragment key={note.id}>
+                        {group && group !== previousGroup && <h3 className="vault-feed-date-group">{group}</h3>}
+                        <FeedCard
+                            note={note}
+                            pills={buildPills(note)}
+                            isSelected={isSelected(note.id)}
+                            selectionActive={selectionActive}
+                            onToggleSelect={onToggleSelect}
+                            onOpen={onOpen}
+                            onPreview={onPreview}
+                            titlePreviewProps={getTitleProps(note.id)}
+                            searchTerm={searchTerm}
+                            isRead={readIds.has(note.id)}
+                            density={density}
+                            index={index}
+                            onVisible={handleVisible}
+                            pillLimit={pillLimit}
+                            excerptLines={excerptLines}
+                        />
+                    </React.Fragment>
+                );
+            })}
 
             {/* Infinite-scroll sentinel + loading indicator */}
             {hasMore && (
@@ -337,9 +382,90 @@ function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSele
     );
 }
 
-export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onDeleteSelected, onDeletePage, onUpdateNote, searchTerm = '' }) {
-    const { t } = useTranslation();
+export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onDeleteSelected, onDeletePage, onUpdateNote, onCreateRecord, onOpenConfig, onClearSearch, onSearchChange, searchTerm = '', density = 'comfortable', groupMode = 'none' }) {
+    const { t, i18n } = useTranslation();
     const localeSettings = useLocaleSettings();
+    const preferenceKey = `gnosi.feed.preferences.${activeView?.id || 'default'}`;
+    const [feedPreferences, setFeedPreferences] = useState(() => {
+        try { return JSON.parse(localStorage.getItem(preferenceKey) || '{"pillLimit":5,"excerptLines":6}'); } catch { return { pillLimit: 5, excerptLines: 6 }; }
+    });
+    const [showPreferences, setShowPreferences] = useState(false);
+    const [previewId, setPreviewId] = useState('');
+    const [paneWidth, setPaneWidth] = useState(() => {
+        try { return Number(localStorage.getItem('gnosi.feed.readingPaneWidth')) || 480; } catch { return 480; }
+    });
+    const [cleanReading, setCleanReading] = useState(false);
+    const [dockReadingPane, setDockReadingPane] = useState(() => {
+        try { return localStorage.getItem('gnosi.feed.dockReadingPane') === 'true'; } catch { return false; }
+    });
+    const [feedFocus, setFeedFocus] = useState(false);
+    const [summaryModels, setSummaryModels] = useState([]);
+    const [summaryModel, setSummaryModel] = useState('');
+    const [summaryText, setSummaryText] = useState('');
+    const [summaryState, setSummaryState] = useState('idle');
+    const [summaryForId, setSummaryForId] = useState('');
+    const readStorageKey = `gnosi.feed.read.${activeView?.id || 'default'}`;
+    const [readIds, setReadIds] = useState(() => {
+        try { return new Set(JSON.parse(localStorage.getItem(readStorageKey) || '[]')); } catch { return new Set(); }
+    });
+    const [bulkProposal, setBulkProposal] = useState(null);
+    const [isCommandOpen, setIsCommandOpen] = useState(false);
+    const [bulkSaveState, setBulkSaveState] = useState('idle');
+    const [pendingBulkUndo, setPendingBulkUndo] = useState(null);
+    const titlePreview = useTitlePreview({ onOpenPage: onNoteSelect });
+    useEffect(() => {
+        const onKeyDown = (event) => {
+            if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); setIsCommandOpen(true); }
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, []);
+    const markRead = useCallback((id) => {
+        setReadIds((current) => {
+            if (current.has(id)) return current;
+            const next = new Set(current).add(id);
+            try { localStorage.setItem(readStorageKey, JSON.stringify([...next].slice(-500))); } catch { /* noop */ }
+            return next;
+        });
+    }, [readStorageKey]);
+    const updateFeedPreferences = useCallback((patch) => {
+        setFeedPreferences((current) => {
+            const next = { ...current, ...patch };
+            try { localStorage.setItem(preferenceKey, JSON.stringify(next)); } catch { /* noop */ }
+            return next;
+        });
+    }, [preferenceKey]);
+
+    useEffect(() => {
+        let cancelled = false;
+        const loadSummaryPlugin = async () => {
+            try {
+                const [modelsResponse, settingsResponse] = await Promise.all([
+                    axios.get('/api/ai/models'),
+                    axios.get('/api/vault/plugins/vault-summary/settings'),
+                ]);
+                if (cancelled) return;
+                const models = (modelsResponse.data?.models || []).filter((model) => model?.enabled !== false && model?.provider && model?.model_id);
+                setSummaryModels(models);
+                const configured = settingsResponse.data?.settings?.model || '';
+                setSummaryModel(configured || (models[0] ? `${models[0].provider}:${models[0].model_id}` : ''));
+            } catch {
+                if (!cancelled) setSummaryModels([]);
+            }
+        };
+        loadSummaryPlugin();
+        return () => { cancelled = true; };
+    }, []);
+
+    const saveSummaryModel = useCallback(async (model) => {
+        setSummaryModel(model);
+        try {
+            await axios.put('/api/vault/plugins/vault-summary/settings', { settings: { model } });
+            toast.success(t('feed.summary_model_saved', 'Summary model saved'));
+        } catch {
+            toast.error(t('feed.summary_model_error', 'Could not save the summary model'));
+        }
+    }, [t]);
 
     // The feed shows ALL properties of the record (like Notion's feed),
     // regardless of the view's `visibleProperties`: the card is the
@@ -535,6 +661,56 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
     const { sortedPages: sortedNotes } = useVaultViewData({ pages: notes, schema, view: viewConfig, searchTerm });
 
     const { selectedIds, isSelected, toggleSelect, selectAll, clearSelection } = useVaultSelection(sortedNotes);
+    const lastRecordStorageKey = `gnosi.feed.lastRecord.${activeView?.id || 'default'}`;
+    const [lastRecordId, setLastRecordId] = useState(() => {
+        try { return localStorage.getItem(lastRecordStorageKey) || ''; } catch { return ''; }
+    });
+    const openFeedRecord = useCallback((id) => {
+        markRead(id);
+        setLastRecordId(id);
+        try { localStorage.setItem(lastRecordStorageKey, id); } catch { /* noop */ }
+        onNoteSelect?.(id);
+    }, [lastRecordStorageKey, markRead, onNoteSelect]);
+    const previewIndex = sortedNotes.findIndex((note) => note.id === previewId);
+    const previewNote = previewIndex >= 0 ? sortedNotes[previewIndex] : null;
+    const summarizePreview = async () => {
+        if (!previewNote || !summaryModel) return;
+        setSummaryState('loading');
+        setSummaryText('');
+        setSummaryForId(previewNote.id);
+        try {
+            await axios.put('/api/vault/plugins/vault-summary/settings', { settings: { model: summaryModel } });
+            const response = await axios.post('/api/vault/plugins/vault-summary/summarize', {
+                content: `${previewNote.title || ''}\n\n${prepareBodyMd(previewNote.metadata?.description || '')}`,
+                language: i18n.resolvedLanguage || i18n.language || 'en',
+            });
+            setSummaryText(response.data?.summary || '');
+            setSummaryState('success');
+        } catch (error) {
+            setSummaryState('error');
+            toast.error(error?.response?.data?.detail || t('feed.summary_error', 'Could not create the summary'));
+        }
+    };
+    const movePreview = useCallback((offset) => {
+        const next = sortedNotes[previewIndex + offset];
+        if (next) setPreviewId(next.id);
+    }, [previewIndex, setPreviewId, sortedNotes]);
+    useEffect(() => {
+        if (!previewNote) return undefined;
+        const onKeyDown = (event) => {
+            if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
+            if (event.key === 'ArrowLeft') { event.preventDefault(); movePreview(-1); }
+            if (event.key === 'ArrowRight') { event.preventDefault(); movePreview(1); }
+            if (event.key === 'Escape') setPreviewId('');
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [movePreview, previewNote]);
+    const returnToLastRecord = useCallback(() => {
+        [...document.querySelectorAll('[data-feed-note-id]')]
+            .find((element) => element.dataset.feedNoteId === lastRecordId)
+            ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, [lastRecordId]);
 
     // Key for the visible set: when it changes (search, view change, filters, or
     // order) `FeedList` remounts and its infinite-scroll count is
@@ -559,6 +735,62 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
             clearSelection();
         }
     }, [selectedIds, onDeleteSelected, onDeletePage, notes, clearSelection]);
+    const bulkSelectFields = dynamicColumns.filter(([, type]) => type === 'status' || type === 'select' || type === 'multi_select');
+    const applyBulkField = useCallback(async (field, value, append = false) => {
+        if (!field || !value || !onUpdateNote) return;
+        const type = getFieldType(schema, field);
+        const changes = [...selectedIds].map((id) => {
+            const note = notes.find((item) => item.id === id);
+            const current = note?.metadata?.[field];
+            const nextValue = append || type === 'multi_select'
+                ? [...new Set([...(Array.isArray(current) ? current : current ? [current] : []), value])]
+                : value;
+            return { id, field, previous: current, next: nextValue };
+        });
+        setBulkProposal({ field, value, changes });
+    }, [notes, onUpdateNote, schema, selectedIds, setBulkProposal]);
+    const confirmBulkField = useCallback(async () => {
+        const changes = bulkProposal?.changes || [];
+        if (!changes.length || !onUpdateNote) return;
+        setBulkSaveState('saving');
+        try {
+            await Promise.all(changes.map((change) => onUpdateNote(change.id, { metadata: { [change.field]: change.next } })));
+            setPendingBulkUndo(changes);
+            setBulkSaveState('saved');
+            toast.success(t('feed.bulk_saved', 'Changes saved'));
+        } catch {
+            setBulkSaveState('error');
+            toast.error(t('feed.bulk_save_error', 'Some changes could not be saved'));
+        }
+        clearSelection();
+        setBulkProposal(null);
+    }, [bulkProposal, clearSelection, onUpdateNote, setBulkProposal, setBulkSaveState, setPendingBulkUndo, t]);
+    const undoBulkField = useCallback(async () => {
+        if (!pendingBulkUndo || !onUpdateNote) return;
+        setBulkSaveState('saving');
+        try {
+            await Promise.all(pendingBulkUndo.map((change) => onUpdateNote(change.id, { metadata: { [change.field]: change.previous } })));
+            setPendingBulkUndo(null);
+            setBulkSaveState('saved');
+            toast.success(t('feed.bulk_undone', 'Changes undone'));
+        } catch {
+            setBulkSaveState('error');
+            toast.error(t('feed.bulk_save_error', 'Some changes could not be saved'));
+        }
+    }, [onUpdateNote, pendingBulkUndo, setBulkSaveState, setPendingBulkUndo, t]);
+    const startPaneResize = useCallback((event) => {
+        event.preventDefault();
+        const startX = event.clientX;
+        const startWidth = paneWidth;
+        const onMove = (moveEvent) => setPaneWidth(Math.max(320, Math.min(760, startWidth + startX - moveEvent.clientX)));
+        const onUp = () => {
+            try { localStorage.setItem('gnosi.feed.readingPaneWidth', String(paneWidth)); } catch { /* noop */ }
+            window.removeEventListener('pointermove', onMove);
+            window.removeEventListener('pointerup', onUp);
+        };
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp, { once: true });
+    }, [paneWidth, setPaneWidth]);
 
     useVaultSelectionShortcuts({
         selectedCount: selectedIds.size,
@@ -570,13 +802,29 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
         return (
             <div className="w-full h-full flex flex-col items-center justify-center text-[var(--text-tertiary)] p-10 bg-[var(--bg-primary)]">
                 <FileText size={48} className="mb-4 text-[var(--bg-tertiary)]" strokeWidth={1} />
-                <p>{t('feed.empty', "No posts in the feed.")}</p>
+                <p className="font-medium">{searchTerm ? t('feed.empty_search', 'No records match this search.') : t('feed.empty', 'No posts in the feed.')}</p>
+                <p className="mt-1 text-sm text-center">{searchTerm ? t('feed.empty_search_hint', 'Try fewer words or clear the search.') : t('feed.empty_hint', 'Create the first record or adjust the view filters.')}</p>
+                <div className="mt-5 flex flex-wrap justify-center gap-2">
+                    {searchTerm && <button type="button" onClick={onClearSearch} className="btn-gnosi btn-gnosi-secondary !text-xs">{t('feed.clear_search', 'Clear search')}</button>}
+                    {onOpenConfig && <button type="button" onClick={onOpenConfig} className="btn-gnosi btn-gnosi-secondary !text-xs">{t('feed.adjust_view', 'Adjust view')}</button>}
+                    {onCreateRecord && <button type="button" onClick={() => onCreateRecord()} className="btn-gnosi btn-gnosi-primary !text-xs">{t('feed.create_record', 'Create record')}</button>}
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="vault-feed w-full h-full pt-vault-header-top px-4 md:px-6 pb-4 md:pb-6 overflow-y-auto custom-scrollbar bg-[var(--bg-primary)] flex flex-col items-center">
+        <div className={`vault-feed w-full h-full pt-vault-header-top px-4 md:px-6 pb-4 md:pb-6 overflow-y-auto custom-scrollbar bg-[var(--bg-primary)] flex flex-col items-center ${feedFocus ? 'is-focus' : ''} ${previewNote && dockReadingPane ? 'has-docked-pane' : ''}`} style={previewNote && dockReadingPane ? { paddingRight: `calc(${paneWidth}px + 1.5rem)` } : undefined}>
+            <div className="relative self-end w-full max-w-3xl flex justify-end mb-2">
+                <button type="button" onClick={() => setShowPreferences((open) => !open)} className="vault-feed-preferences-trigger" aria-expanded={showPreferences} title={t('feed.reading_preferences', 'Reading preferences')}><SlidersHorizontal size={14} /> {t('feed.reading_preferences', 'Reading preferences')}</button>
+                {showPreferences && <div className="vault-feed-preferences">
+                    <label>{t('feed.visible_tags', 'Visible tags')}<select value={feedPreferences.pillLimit} onChange={(event) => updateFeedPreferences({ pillLimit: Number(event.target.value) })}><option value="3">3</option><option value="5">5</option><option value="8">8</option></select></label>
+                    <label>{t('feed.excerpt_length', 'Excerpt length')}<select value={feedPreferences.excerptLines} onChange={(event) => updateFeedPreferences({ excerptLines: Number(event.target.value) })}><option value="3">3</option><option value="6">6</option><option value="9">9</option></select></label>
+                    <label className="vault-feed-preferences__toggle"><input type="checkbox" checked={feedFocus} onChange={(event) => setFeedFocus(event.target.checked)} />{t('feed.focus_feed', 'Focus feed')}</label>
+                    <label>{t('feed.summary_model', 'Summary model')}<select value={summaryModel} onChange={(event) => saveSummaryModel(event.target.value)} disabled={!summaryModels.length}><option value="">{t('feed.summary_model_placeholder', 'Select an active model')}</option>{summaryModels.map((model) => <option key={`${model.provider}:${model.model_id}`} value={`${model.provider}:${model.model_id}`}>{model.provider}: {model.model_id}</option>)}</select></label>
+                </div>}
+            </div>
+            <div className="vault-feed-progress" role="status">{t('feed.reading_progress', { read: sortedNotes.filter((note) => readIds.has(note.id)).length, total: sortedNotes.length, defaultValue: '{{read}} of {{total}} read' })}</div>
             {selectedIds.size > 0 && (
                 <VaultBulkActionsBar
                         selectedIds={selectedIds}
@@ -584,8 +832,24 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
                     onSelectAll={() => selectAll(sortedNotes.map(n => n.id))}
                     onClearSelection={clearSelection}
                     onDeleteSelected={(onDeleteSelected || onDeletePage) ? handleBulkDelete : null}
-                    className="w-full max-w-3xl mb-4 shrink-0 bg-[var(--gnosi-primary)]/10 border border-[var(--gnosi-primary)]/20 rounded-lg px-4 py-2 flex items-center gap-3 text-sm z-30"
+                    extraActions={bulkSelectFields.length > 0 && <select className="min-h-8 rounded-md border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-2 text-xs text-[var(--text-secondary)]" defaultValue="" onChange={(event) => { const [field, value] = event.target.value.split('::'); if (field && value) applyBulkField(field, value, getFieldType(schema, field) === 'multi_select'); event.target.value = ''; }} aria-label={t('feed.apply_field_to_selection', 'Apply a field to the selection')}><option value="">{t('feed.batch_update', 'Update selected…')}</option>{bulkSelectFields.flatMap(([field]) => normalizeOptions(getFieldConfig(schema, field)?.options).map((option) => <option key={`${field}-${option.name}`} value={`${field}::${option.name}`}>{field}: {option.name}</option>))}</select>}
+                    className="vault-feed-selection-bar sticky top-2 w-full max-w-3xl mb-4 shrink-0 bg-[var(--gnosi-primary)]/10 border border-[var(--gnosi-primary)]/20 rounded-lg px-4 py-2 flex items-center gap-3 text-sm z-30"
                 />
+            )}
+            {(bulkSaveState !== 'idle' || pendingBulkUndo) && <div className={`vault-feed-sync-state vault-feed-sync-state--${bulkSaveState}`} role="status">
+                <span>{bulkSaveState === 'saving' ? t('feed.sync_saving', 'Saving changes…') : bulkSaveState === 'error' ? t('feed.sync_error', 'Changes need attention') : t('feed.sync_saved', 'Changes saved')}</span>
+                {pendingBulkUndo && <button type="button" onClick={undoBulkField}>{t('common.undo', 'Undo')}</button>}
+            </div>}
+            {bulkProposal && <div className="vault-feed-bulk-proposal" role="dialog" aria-label={t('feed.confirm_bulk_update', 'Confirm batch update')}>
+                <strong>{t('feed.bulk_preview_title', 'Review batch update')}</strong>
+                <span>{t('feed.bulk_preview_hint', { count: bulkProposal.changes.length, field: bulkProposal.field, value: bulkProposal.value, defaultValue: '{{count}} records: {{field}} → {{value}}' })}</span>
+                <div><button type="button" onClick={() => setBulkProposal(null)}>{t('common.cancel', 'Cancel')}</button><button type="button" className="btn-gnosi btn-gnosi-primary !text-xs" onClick={confirmBulkField}>{t('feed.apply_changes', 'Apply changes')}</button></div>
+            </div>}
+            {isCommandOpen && <div className="vault-feed-command" role="dialog" aria-label={t('feed.command_title', 'Feed command')}><button type="button" className="vault-feed-command__close" onClick={() => setIsCommandOpen(false)} aria-label={t('common.close')}><X size={16} /></button><strong>{t('feed.command_title', 'Feed command')}</strong><input autoFocus value={searchTerm} onChange={(event) => onSearchChange?.(event.target.value)} placeholder={t('feed.command_search', 'Filter records…')} /><div><button type="button" onClick={() => { onCreateRecord?.(); setIsCommandOpen(false); }}>{t('feed.create_record', 'Create record')}</button><button type="button" onClick={() => { if (sortedNotes[0]) setPreviewId(sortedNotes[0].id); setIsCommandOpen(false); }}>{t('feed.command_open_first', 'Open first result')}</button></div></div>}
+            {lastRecordId && sortedNotes.some((note) => note.id === lastRecordId) && (
+                <button type="button" className="vault-feed-return" onClick={returnToLastRecord}>
+                    {t('feed.return_to_last_record')}
+                </button>
             )}
             <FeedList
                 key={resetKey}
@@ -594,8 +858,23 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
                 isSelected={isSelected}
                 selectionActive={selectedIds.size > 0}
                 onToggleSelect={toggleSelect}
-                onOpen={onNoteSelect}
+                onOpen={openFeedRecord}
+                onPreview={setPreviewId}
+                getTitleProps={titlePreview.getTitleProps}
+                searchTerm={searchTerm}
+                readIds={readIds}
+                density={density}
+                groupMode={groupMode}
+                pillLimit={feedPreferences.pillLimit}
+                excerptLines={feedPreferences.excerptLines}
             />
+            {titlePreview.preview}
+            {previewNote && <aside className={`vault-feed-reading-pane ${cleanReading ? 'is-clean' : ''} ${dockReadingPane ? 'is-docked' : ''}`} style={{ width: `min(${paneWidth}px, 92vw)` }} aria-label={t('feed.reading_pane', 'Reading pane')}>
+                <div className="vault-feed-reading-pane__resize" onPointerDown={startPaneResize} role="separator" aria-orientation="vertical" aria-label={t('feed.resize_reading_pane', 'Resize reading pane')} />
+                <div className="vault-feed-reading-pane__header"><span>{t('feed.reading_pane', 'Reading pane')}</span><button type="button" onClick={() => setDockReadingPane((current) => { const next = !current; try { localStorage.setItem('gnosi.feed.dockReadingPane', String(next)); } catch { /* noop */ } return next; })} aria-pressed={dockReadingPane}>{dockReadingPane ? t('feed.undock_pane', 'Float pane') : t('feed.dock_pane', 'Dock pane')}</button><button type="button" onClick={() => setCleanReading((current) => !current)} aria-pressed={cleanReading}>{cleanReading ? t('feed.show_details', 'Show details') : t('feed.clean_reading', 'Clean reading')}</button><button type="button" onClick={() => setPreviewId('')} aria-label={t('common.close')}><X size={18} /></button></div>
+                <div className="vault-feed-reading-pane__content"><div className="flex items-start justify-between gap-3"><h2>{previewNote.title || t('common.untitled', 'Untitled')}</h2><button type="button" className="btn-gnosi btn-gnosi-secondary !text-xs" onClick={summarizePreview} disabled={!summaryModel || summaryState === 'loading'}>{summaryState === 'loading' ? t('feed.summarizing', 'Summarizing…') : t('feed.summarize', 'Summarize')}</button></div>{summaryText && summaryForId === previewNote.id && <section className="vault-feed-summary" aria-label={t('feed.summary', 'AI summary')}><strong>{t('feed.summary', 'AI summary')}</strong><VaultMarkdown md={summaryText} onActivate={() => openFeedRecord(previewNote.id)} imageTitle={previewNote.title || ''} /></section>}{summaryState === 'error' && summaryForId === previewNote.id && <p className="vault-feed-reading-pane__meta">{t('feed.summary_error_hint', 'Check that the selected model is active and available.')}</p>}{!cleanReading && <p className="vault-feed-reading-pane__meta">{t('feed.reading_shortcuts', 'Use ← → to navigate · Esc to close')}</p>}{previewNote.metadata?.description ? <VaultMarkdown md={prepareBodyMd(previewNote.metadata.description)} onActivate={() => openFeedRecord(previewNote.id)} imageTitle={previewNote.title || ''} /> : <p>{t('feed.no_excerpt', 'This record has no excerpt yet.')}</p>}</div>
+                <div className="vault-feed-reading-pane__footer"><button type="button" onClick={() => movePreview(-1)} disabled={previewIndex <= 0} aria-label={t('feed.previous_record', 'Previous record')}><ArrowLeft size={16} /></button><span>{previewIndex + 1} / {sortedNotes.length}</span><button type="button" onClick={() => movePreview(1)} disabled={previewIndex >= sortedNotes.length - 1} aria-label={t('feed.next_record', 'Next record')}><ArrowRight size={16} /></button><button type="button" className="btn-gnosi btn-gnosi-primary !text-xs" onClick={() => openFeedRecord(previewNote.id)}>{t('feed.open_page', 'Open page')}</button></div>
+            </aside>}
         </div>
     );
 }

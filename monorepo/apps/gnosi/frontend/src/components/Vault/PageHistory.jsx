@@ -17,6 +17,27 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
   const [isRestoreOpen, setIsRestoreOpen] = useState(false);
   const [isPurgeOpen, setIsPurgeOpen] = useState(false);
   const [restoreTarget, setRestoreTarget] = useState(null);
+  const [comparisonContent, setComparisonContent] = useState(null);
+  const [comparisonVersion, setComparisonVersion] = useState(null);
+
+  const diffSummary = (left, right) => {
+    const before = new Set(String(left || '').split('\n').filter(Boolean));
+    const after = new Set(String(right || '').split('\n').filter(Boolean));
+    return {
+      added: [...after].filter((line) => !before.has(line)).length,
+      removed: [...before].filter((line) => !after.has(line)).length,
+    };
+  };
+  const diffLines = (left, right) => {
+    const before = String(left || '').split('\n');
+    const after = String(right || '').split('\n');
+    const beforeSet = new Set(before);
+    const afterSet = new Set(after);
+    return [
+      ...before.filter((line) => line && !afterSet.has(line)).map((line) => ({ line, kind: 'removed' })),
+      ...after.map((line) => ({ line, kind: line && !beforeSet.has(line) ? 'added' : 'unchanged' })),
+    ];
+  };
 
   useEffect(() => {
     if (open && pageId) {
@@ -54,8 +75,27 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
     try {
       const response = await axios.get(`/api/vault/pages/${pageId}/history/${version.id}`);
       setPreviewContent(response.data.content);
+      const fallback = history[history.findIndex((item) => item.id === version.id) + 1];
+      if (comparisonVersion || fallback) {
+        const target = comparisonVersion || fallback;
+        const olderResponse = await axios.get(`/api/vault/pages/${pageId}/history/${target.id}`);
+        setComparisonContent(olderResponse.data.content);
+      } else {
+        setComparisonContent(null);
+      }
     } catch (error) {
       console.error('Error fetching version content:', error);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+  const selectComparison = async (version) => {
+    setComparisonVersion(version);
+    if (!previewVersion) return;
+    setPreviewLoading(true);
+    try {
+      const response = await axios.get(`/api/vault/pages/${pageId}/history/${version.id}`);
+      setComparisonContent(response.data.content);
     } finally {
       setPreviewLoading(false);
     }
@@ -184,6 +224,7 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
                       >
                         <RotateCcw size={14} />
                       </button>
+                      <button onClick={(e) => { e.stopPropagation(); selectComparison(version); }} className="p-1.5 text-xs text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]" title={t('vault.history.compare_version', 'Compare with this version')}>⇄</button>
                     </div>
                   ))}
                 </div>
@@ -213,10 +254,14 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
                     {t('vault.history.restore_now')}
                   </button>
                 </div>
+                {comparisonContent !== null && (() => {
+                  const diff = diffSummary(comparisonContent, previewContent);
+                  return <div className="px-6 py-2 border-b border-[var(--border-primary)] text-xs text-[var(--text-secondary)] bg-[var(--gnosi-primary)]/5">{t('vault.history.visual_diff', { added: diff.added, removed: diff.removed, defaultValue: '{{added}} lines added · {{removed}} lines removed versus the previous version' })}</div>;
+                })()}
                 <div className="flex-1 p-8 overflow-y-auto custom-scrollbar bg-[var(--bg-primary)]">
                   <div className="max-w-3xl mx-auto">
                     <pre className="text-sm font-mono text-[var(--text-primary)] whitespace-pre-wrap break-words leading-relaxed selection:bg-[var(--gnosi-primary)]/20">
-                      {previewContent}
+                      {comparisonContent === null ? previewContent : diffLines(comparisonContent, previewContent).map(({ line, kind }, index) => <span key={`${kind}-${index}`} className={`vault-history-diff-line vault-history-diff-line--${kind}`}>{kind === 'added' ? '+ ' : kind === 'removed' ? '− ' : '  '}{line}{'\n'}</span>)}
                     </pre>
                   </div>
                 </div>

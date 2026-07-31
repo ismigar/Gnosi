@@ -3,7 +3,6 @@ purpose: development-and-automation-classification
 agent_assignable_default: false
 packages:
   augment_clusters: {kind: developer}
-  auto_improver: {kind: automation}
   autonomous_loop: {kind: developer}
   backup_projectes: {kind: automation}
   calendar_sync: {kind: automation}
@@ -15,6 +14,7 @@ packages:
   notification_service: {kind: infrastructure}
   notion_clone: {kind: action}
   playwright_e2e: {kind: developer}
+  proves_dataset: {kind: developer}
   publisher: {kind: automation}
   rss_to_audio: {kind: automation}
   scheduler: {kind: infrastructure}

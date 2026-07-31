@@ -9,8 +9,12 @@ import backend.services.context_vars as cv
 from backend.agent.vault_tools import read_pdf
 
 
-def _call(path):
-    return read_pdf.func(path) if hasattr(read_pdf, "func") else read_pdf(path)
+def _call(path, max_chars=12000):
+    return (
+        read_pdf.func(path, max_chars)
+        if hasattr(read_pdf, "func")
+        else read_pdf(path, max_chars)
+    )
 
 
 def _make_pdf(path):
@@ -59,3 +63,15 @@ def test_no_active_vault(monkeypatch):
     monkeypatch.setattr(cv, "get_active_vault_path", lambda: None)
     out = _call("Assets/x.pdf")
     assert "active vault" in out
+
+
+def test_pdf_model_limit_is_clamped(monkeypatch, tmp_path):
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    monkeypatch.setattr(cv, "get_active_vault_path", lambda: vault)
+    target = vault / "doc.pdf"
+    _make_pdf(target)
+
+    out = _call("doc.pdf", 10**9)
+
+    assert len(out) <= 20_000

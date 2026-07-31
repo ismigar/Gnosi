@@ -376,6 +376,13 @@
     "search": "Cerca",
     "recent": "Recent",
     "drawings": "Dibuixos",
+    "add_drawing": "Afegir dibuix",
+    "add_dashboard": "Afegir tauler",
+    "add_database": "Afegir base de dades",
+    "add_wiki_page": "Afegir pàgina wiki",
+    "locate_active_page": "Localitza la pàgina activa",
+    "expand_children": "Expandir el contingut de {{name}}",
+    "collapse_children": "Contraure el contingut de {{name}}",
     "no_dashboard_pages": "No hi ha taulells",
     "options": "Opcions",
     "add_child_page": "Afegeix pàgina filla",
@@ -445,6 +452,8 @@
     "open_quick_actions": "Obrir accions ràpides",
     "close_quick_actions": "Tancar accions ràpides",
     "stale_checkout": "La previsualització local serveix el checkout fusionat {{checkout}}, endarrerit respecte d’origin/main.",
+    "stale_checkout_short": "La previsualització local està desactualitzada.",
+    "dismiss_checkout_warning": "Descartar l’avís del checkout",
     "switch_normal_view": "Canviar a vista normal",
     "switch_code_view": "Canviar a vista codi",
     "view_history": "Veure històric",
@@ -777,6 +786,9 @@
     "page_duplicated": "Pàgina duplicada"
   },
   "editor": {
+    "toggle_focus_mode": "Activa o desactiva el mode focus",
+    "toggle_high_contrast": "Alterna el contrast reforçat",
+    "toggle_large_text": "Alterna el text ampliat",
     "loading_editor": "Carregant editor...",
     "select_table": "Selecciona Taula",
     "error_occurred": "S'ha produït un error a l'editor",
@@ -1116,10 +1128,24 @@
     "new_view_name_label": "Nou nom de la vista",
     "new_options": "Opcions de creació",
     "loading_view": "Carregant vista...",
+    "active_filters_one": "{{count}} filtre",
+    "active_filters_other": "{{count}} filtres",
+    "active_filters_many": "{{count}} filtres",
+    "clear_search": "Neteja la cerca",
+    "filtered_records_count": "{{count}} de {{total}} registres",
+    "compact_density": "Utilitza la densitat compacta",
+    "comfortable_density": "Utilitza la densitat còmoda",
+    "save_quick_view": "Desa la vista ràpida",
+    "quick_views": "Vistes ràpides",
+    "quick_view_name": "Vista ràpida {{count}}",
+    "manage_quick_views": "Gestiona les vistes ràpides",
+    "tools_and_shortcuts": "Eines i dreceres",
+    "shortcuts": "Dreceres",
+    "last_load_time": "Última càrrega: {{duration}} ms",
     "configure_view_tooltip": "Configurar Vista",
     "wip_tooltip": "En desenvolupament per propera iteració",
     "soon_badge": "Aviat",
-    "records_count_many": "{{count}} registres"
+    "records_count_many": "{{count}} registres", "export_quick_views": "Copia la configuració", "import_quick_views": "Importa la configuració", "import_quick_views_hint": "Enganxa una configuració copiada d’una altra vista.", "quick_views_copied": "Configuració de vista copiada", "quick_views_copy_error": "No s’ha pogut copiar la configuració", "quick_views_imported": "Configuració de vista importada", "quick_views_import_error": "Aquesta configuració no és vàlida"
   },
   "icon_picker": {
     "tabs": {
@@ -2992,10 +3018,19 @@
     "see_less": "Veure menys",
     "open": "Obrir",
     "open_page": "Obrir la pàgina",
+    "select_record": "Seleccionar el registre {{title}}",
     "show_more_tags": "Mostrar {{count}} etiquetes més",
     "show_fewer_tags": "Mostrar menys etiquetes",
     "read_full": "Llegir sencer",
-    "empty": "No hi ha publicacions al feed."
+    "empty": "No hi ha publicacions al feed.",
+    "enable_date_groups": "Agrupa per data",
+    "disable_date_groups": "Desactiva els grups per data",
+    "group_today": "Avui",
+    "group_this_week": "Aquesta setmana",
+    "group_this_month": "Aquest mes",
+    "position": "{{current}} de {{total}}",
+    "return_to_last_record": "Torna a l’últim registre",
+    "open_reading_pane": "Obre el panell de lectura", "reading_pane": "Panell de lectura", "previous_record": "Registre anterior", "next_record": "Registre següent", "no_excerpt": "Aquest registre encara no té extracte.", "reading_preferences": "Preferències de lectura", "visible_tags": "Etiquetes visibles", "excerpt_length": "Longitud de l’extracte", "empty_search": "Cap registre no coincideix amb la cerca.", "empty_search_hint": "Prova amb menys paraules o neteja la cerca.", "empty_hint": "Crea el primer registre o ajusta els filtres de la vista.", "clear_search": "Neteja la cerca", "adjust_view": "Ajusta la vista", "create_record": "Crea un registre", "apply_field_to_selection": "Aplica un camp a la selecció", "batch_update": "Actualitza la selecció…", "resize_reading_pane": "Redimensiona el panell de lectura", "clean_reading": "Lectura neta", "show_details": "Mostra els detalls", "reading_shortcuts": "Fes servir ← → per navegar · Esc per tancar", "sync_saving": "Desant els canvis…", "sync_saved": "Canvis desats", "sync_error": "Els canvis necessiten atenció", "bulk_saved": "Canvis desats", "bulk_undone": "Canvis desfets", "bulk_save_error": "No s’han pogut desar alguns canvis", "focus_feed": "Feed de focus", "reading_progress": "{{read}} de {{total}} llegits", "confirm_bulk_update": "Confirma l’actualització en lot", "bulk_preview_title": "Revisa l’actualització en lot", "bulk_preview_hint": "{{count}} registres: {{field}} → {{value}}", "apply_changes": "Aplica els canvis", "dock_pane": "Acobla el panell", "undock_pane": "Desacobla el panell", "summary_model": "Model del resum", "summary_model_placeholder": "Selecciona un model actiu", "summary_model_saved": "Model de resum desat", "summary_model_error": "No s’ha pogut desar el model de resum", "summarize": "Resumeix", "summarizing": "Resumint…", "summary": "Resum d’IA", "summary_error": "No s’ha pogut crear el resum", "summary_error_hint": "Comprova que el model seleccionat estigui actiu i disponible."
   },
   "files": {
     "delete_title": "Eliminar fitxer",
@@ -4087,7 +4122,18 @@
       "fullscreen": "Pantalla Completa",
       "recenter": "Recentrar",
       "zoom_in": "Ampliar",
-      "zoom_out": "Allunyar"
+      "zoom_out": "Allunyar",
+      "legend": "Llegenda del graf"
+    },
+    "legend": {
+      "nodes": "Nodes",
+      "connections": "Connexions",
+      "connection_types": "Tipus de connexió",
+      "wikilink": "Enllaços wiki",
+      "database_wikilink": "Enllaços wiki de vista de base de dades",
+      "unresolved": "Enllaços sense resoldre",
+      "semantic_similarity": "Connexions semàntiques",
+      "node_groups": "Grups de nodes"
     },
     "node_panel": {
       "close": "Tancar detalls",
@@ -4333,6 +4379,7 @@
     "error_prefix": "Error",
     "open_chat": "Obrir xat",
     "online": "En línia",
+    "runtime_limited": "Connectat · eines limitades",
     "expand_chat": "Amplia el xat",
     "minimize_chat": "Minimitza el xat",
     "close_chat": "Tancar xat",
@@ -4361,7 +4408,157 @@
     "model_required": "Configura aquest agent abans d'enviar un missatge",
     "agent_model_unavailable": "El model de l'agent seleccionat no està disponible. Configura l'agent i torna-ho a provar.",
     "new_session": "Nova sessio",
-    "messages_count_many": "{{count}} missatges"
+    "messages_count_many": "{{count}} missatges",
+    "confirmations": {
+      "title": "Confirmar acció",
+      "summary": "Revisa aquesta acció abans de continuar.",
+      "confirm": "Confirmar i executar",
+      "cancel": "Cancel·lar l'acció",
+      "review": "Revisar i confirmar",
+      "completed": "Acció completada després de la confirmació.",
+      "partial": "L'acció s'ha completat parcialment: {{completed}} completades i {{failed}} fallides.",
+      "outcome_unknown": "S'ha perdut la connexió i no es coneix el resultat de l'acció. Comprova la destinació abans de tornar-ho a provar.",
+      "failed": "No s'ha pogut completar l'acció: {{message}}",
+      "status": {
+        "pending": "Pendent de confirmació",
+        "executing": "En execució",
+        "completed": "Completada",
+        "partial": "Completada parcialment",
+        "cancelled": "Cancel·lada",
+        "expired": "Caducada",
+        "failed": "Ha fallat",
+        "outcome_unknown": "Resultat desconegut",
+        "unavailable": "Ja no està disponible"
+      },
+      "errors": {
+        "confirmation_not_found": "L'acció pendent ja no existeix.",
+        "confirmation_scope_mismatch": "Aquesta acció pertany a un altre Vault, usuari, agent o sessió.",
+        "confirmation_expired": "L'acció pendent ha caducat. Torna-la a preparar si encara cal.",
+        "confirmation_unavailable": "L'acció pendent ja no està disponible.",
+        "confirmation_admin_required": "Cal permís d'administració per a aquesta acció.",
+        "confirmation_action_rejected": "La destinació ha canviat o l'acció ja no està permesa.",
+        "confirmation_action_failed": "No s'ha pogut completar l'acció.",
+        "confirmation_outcome_unknown": "És possible que l'acció s'hagi completat, però Gnosi no ho ha pogut verificar. Comprova la destinació abans de tornar-ho a provar."
+      },
+      "details": {
+        "account": "Compte",
+        "arguments": "Arguments exactes",
+        "asset_revision": "Revisió de l’arbre de recursos",
+        "attendees": "Assistents",
+        "bcc": "Còpia oculta",
+        "body": "Cos",
+        "body_sha256": "Empremta del cos",
+        "calendar_id": "Calendari",
+        "cc": "Còpia",
+        "company": "Empresa",
+        "count": "Nombre d'elements",
+        "current_revision": "Revisió actual",
+        "date": "Data",
+        "description": "Descripció",
+        "effects": "Efectes",
+        "email": "Correu",
+        "end": "Final",
+        "entries": "Elements exactes",
+        "entries_truncated": "Llista d'elements truncada",
+        "event_id": "ID de l'esdeveniment",
+        "folder": "Carpeta",
+        "location": "Ubicació",
+        "imap_folder": "Carpeta d’origen del correu",
+        "imap_uid": "Identificador IMAP del missatge",
+        "message_id": "ID del missatge",
+        "message_revision": "Revisió del missatge",
+        "message_source": "Origen del missatge",
+        "page": "Pàgina",
+        "page_id": "ID de la pàgina",
+        "page_revision": "Revisió de la pàgina",
+        "phone": "Telèfon",
+        "properties": "Propietats",
+        "property_count": "Nombre de propietats",
+        "row_count": "Nombre de files",
+        "row_action": "Tractament de les files",
+        "rows_revision": "Revisió del conjunt de files",
+        "schema_sha256": "Empremta de l'esquema",
+        "sender": "Remitent",
+        "snapshot_digest": "Empremta de la instantània",
+        "start": "Inici",
+        "subject": "Assumpte",
+        "table": "Taula",
+        "table_id": "ID de la taula",
+        "table_revision": "Revisió de la taula",
+        "target_folder": "Carpeta de destinació",
+        "timestamp": "Versió",
+        "title": "Títol",
+        "to": "Destinataris",
+        "tool": "Eina",
+        "tool_id": "ID de l'eina",
+        "updates": "Canvis exactes de les files",
+        "version_revision": "Revisió de la versió",
+        "views_count": "Nombre de vistes",
+        "views_revision": "Revisió del conjunt de vistes"
+      },
+      "actions": {
+        "delete_page": {
+          "title": "Moure la pàgina a la paperera",
+          "summary": "Vols moure «{{page}}» a la paperera del Vault?"
+        },
+        "delete_contact": {
+          "title": "Eliminar el contacte",
+          "summary": "Vols eliminar permanentment {{contact}} ({{email}})?"
+        },
+        "send_mail": {
+          "title": "Enviar el correu",
+          "summary": "Vols enviar «{{subject}}» des de {{account}} a {{to}}?"
+        },
+        "save_mail_draft": {
+          "title": "Desar l'esborrany de correu",
+          "summary": "Vols desar «{{subject}}» com a esborrany a {{account}} per a {{to}}?"
+        },
+        "archive_mail": {
+          "title": "Arxivar el correu",
+          "summary": "Vols arxivar el missatge {{message_id}} de {{account}}?"
+        },
+        "move_mail": {
+          "title": "Moure el correu",
+          "summary": "Vols moure el missatge {{message_id}} de {{account}} a {{target_folder}}?"
+        },
+        "invite_attendees": {
+          "title": "Enviar invitacions",
+          "summary": "Vols convidar {{attendees}} a l'esdeveniment {{event_id}} des de {{account}}?"
+        },
+        "create_calendar_event": {
+          "title": "Crear un esdeveniment",
+          "summary": "Vols crear «{{title}}» a {{calendar_id}} de {{start}} a {{end}}?"
+        },
+        "governed_tool": {
+          "title": "Executar una eina governada",
+          "summary": "Revisa els arguments i els efectes exactes de {{tool}} abans d'executar-la."
+        },
+        "delete_table": {
+          "title": "Eliminar la taula",
+          "summary": "Vols eliminar la taula «{{table}}», les seves vistes i els recursos emmagatzemats?"
+        },
+        "restore_page_version": {
+          "title": "Restaurar la versió",
+          "summary": "Vols substituir «{{page}}» per la versió de {{timestamp}}?"
+        },
+        "empty_trash": {
+          "title": "Buidar permanentment la paperera",
+          "summary_one": "Vols eliminar permanentment {{count}} element de la paperera del Vault?",
+          "summary_other": "Vols eliminar permanentment {{count}} elements de la paperera del Vault?",
+          "summary_many": "Vols eliminar permanentment {{count}} elements de la paperera del Vault?"
+        },
+        "change_schema": {
+          "title": "Substituir l'esquema",
+          "summary": "Vols substituir l'esquema de {{folder}} per un de {{property_count}} propietats?"
+        },
+        "bulk_update_rows": {
+          "title": "Actualitzar files massivament",
+          "summary_one": "Vols aplicar canvis a {{count}} fila de taula?",
+          "summary_other": "Vols aplicar canvis a {{count}} files de taula?",
+          "summary_many": "Vols aplicar canvis a {{count}} files de taula?"
+        }
+      }
+    }
   },
   "bulk_actions": {
     "selected_count_one": "{{count}} seleccionat",

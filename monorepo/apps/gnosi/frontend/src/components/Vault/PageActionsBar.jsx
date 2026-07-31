@@ -136,10 +136,21 @@ export function PageActionsBar({ pageActions, containerWidth, compactOverflowIte
                 overflow: [...compactOverflowItems, ...secondaryItems],
             };
         }
-        if (items.length <= budget) return { inline: items, overflow: [] };
-        // Finite budget exceeded → reserve the last slot for the "…" trigger.
-        const inlineCount = Math.max(0, budget - 1);
-        return { inline: items.slice(0, inlineCount), overflow: items.slice(inlineCount) };
+        // Desktop keeps only the stable primary actions visible. Active mode
+        // toggles may join them temporarily, while destructive and secondary
+        // operations remain under progressive disclosure.
+        const primaryKeys = ['favorite', 'comments'];
+        const preferred = [
+            ...primaryKeys.map(key => items.find(item => item.key === key)).filter(Boolean),
+            ...items.filter(item => item.active && !primaryKeys.includes(item.key)),
+        ];
+        const inlineLimit = Math.min(3, budget === Infinity ? 3 : Math.max(1, budget - 1));
+        const inlineItems = preferred.slice(0, inlineLimit);
+        const inlineKeys = new Set(inlineItems.map(item => item.key));
+        return {
+            inline: inlineItems,
+            overflow: items.filter(item => !inlineKeys.has(item.key)),
+        };
     }, [budget, compactOverflowItems, isCompact, items]);
 
     // Close the overflow menu on outside click.

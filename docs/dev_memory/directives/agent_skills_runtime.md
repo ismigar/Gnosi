@@ -187,6 +187,15 @@ during migration.
 
 ## 10. Restrictions and edge cases
 
+- Apply per-skill and aggregate instruction budgets. Tool schemas and reserved
+  model output count toward the same context budget.
+- Runtime metadata sent to clients states whether the model supports tool calls
+  and whether assigned skills are missing or unavailable.
+- Reset capability state whenever the selected agent or session changes;
+  evidence from one agent must never be displayed for another.
+- Tool binding limits are explicit runtime availability constraints. Report
+  every omitted assigned tool as unavailable and never grant an omitted tool.
+
 - Do not allow skill instructions to weaken core safety or tool policy.
 - Do not import third-party Python into the FastAPI process.
 - Do not let plugin activation grant permissions.
@@ -194,6 +203,10 @@ during migration.
 - Do not make all pipeline `SKILL.md` files agent-assignable.
 - Do not cache per-turn authorization in an agent graph.
 - Do not expose a tool to an agent unless an assigned active skill references it.
+- During the compatibility release, core Gnosi read and explicitly authorized
+  write tools may remain in `core.legacy-default-v1`, but only while that bundle
+  is active. Never leak them into an explicitly skill-scoped profile, and never
+  reintroduce `query_wiki` there because it belongs to the Brain query skill.
 - Do not let the supervisor route a profile with active governed tools to a
   tool-less worker. A non-legacy tool-backed runtime enters the tool-enabled
   specialist directly; the model still decides whether it needs to invoke an
@@ -205,6 +218,12 @@ during migration.
   explicit profile override, matching editable registry row, global catalog;
   unknown models still fail closed.
 - Do not store credentials in skill files or synchronized manifests.
+- Do not treat a client-provided tool ID as approval. `confirmation=always`
+  tools are intercepted with their exact arguments and resumed only through the
+  server-owned pending-action endpoint.
+- Core Gnosi tools are registered and grouped into domain skills. The legacy
+  compatibility skill composes the complete set; an explicit skill profile does
+  not inherit unrelated Vault, mail, calendar, contact, or memory tools.
 - Do not reuse the existing developer Dashboard skill-directory deletion API for
   Settings → AI personal skills.
 - Do not mark a tool-backed skill available from metadata alone: the effective tool
@@ -216,6 +235,9 @@ during migration.
 - Do not run backend tests without `GNOSI_LOCAL_DATA` in a native shell because
   current path discovery may fall back to deployment-only `/app/data`; point it
   at a writable local test directory instead.
+- Keep `pipeline/skills/catalog.yaml` in exact one-to-one correspondence with
+  directories containing `SKILL.md`. Do not retain catalog entries after a package
+  is removed, and do not add a package without its explicit non-runtime kind.
 
 ## 11. Verification
 
@@ -224,6 +246,8 @@ Completion requires:
 - unit tests for descriptor validation, namespacing, duplicate IDs, unavailable tools,
   CRUD, assignment conflicts, and idempotent migration;
 - policy tests for every effect class and proof that authorization cannot survive a turn;
+- interception tests proving every `confirmation=always` runtime tool prepares
+  an immutable action instead of invoking its handler;
 - exact tool binding tests showing unassigned tools are unavailable;
 - plugin enable, update, disable, uninstall, re-enable, and override-preservation tests;
 - Brain query, ingest start/status, maintenance, and permission tests;
