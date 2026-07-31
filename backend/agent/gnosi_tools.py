@@ -528,8 +528,13 @@ def _table_folder(table: Dict[str, Any]) -> str:
 
 
 @tool
-def list_table_rows(table_id_or_name: str, limit: int = 50) -> str:
-    """Lists bounded rows from a Gnosi table, including row ids and properties."""
+def list_table_rows(table_id_or_name: str, limit: int = 100) -> str:
+    """Lists up to 100 rows from a Gnosi table, including row ids and properties.
+
+    Batch edits must inspect the complete bounded result before selecting rows;
+    callers must not lower the limit when resolving an "all matching rows"
+    request.
+    """
     table = _table(table_id_or_name)
     if not table:
         return _json({"error": "Table not found."})
