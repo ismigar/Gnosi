@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { RefreshCw, Menu, Network } from 'lucide-react';
+import { RefreshCw, PanelRight, Network } from 'lucide-react';
 import { AppHeader } from './AppHeader';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 
@@ -19,17 +19,6 @@ export function Layout({ children, sidebar, controls, bottomPanel, containerStyl
   return (
     <div id="app" className={!isPanelOpen ? 'panel-hidden' : ''}>
       <AppHeader icon={Network} title={t('graph.page_title', 'Knowledge graph')}>
-          {onSync && (
-            <button
-              onClick={onSync}
-              title={t('graph.sync_tooltip', "Sync")}
-              aria-label={t('graph.sync_tooltip', "Sync")}
-              className="gnosi-icon-button"
-            >
-              <RefreshCw size={20} className={isSyncing ? 'spin-anim' : ''} />
-            </button>
-          )}
-
           <button
             id="btn-toggle-panel"
             title={t('graph.toggle_panel_tooltip', "Show / hide panel")}
@@ -38,8 +27,13 @@ export function Layout({ children, sidebar, controls, bottomPanel, containerStyl
             aria-expanded={isPanelOpen}
             className="gnosi-icon-button"
           >
-            <Menu size={20} />
+            <PanelRight size={20} />
           </button>
+          {onSync && (
+            <button onClick={onSync} title={t('graph.sync_tooltip', "Sync")} aria-label={t('graph.sync_tooltip', "Sync")} className="gnosi-icon-button">
+              <RefreshCw size={20} className={isSyncing ? 'spin-anim' : ''} />
+            </button>
+          )}
         <style>{`
             .spin-anim { animation: spin 1s linear infinite; }
             @keyframes spin { 100% { transform: rotate(360deg); } }
