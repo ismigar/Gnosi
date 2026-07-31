@@ -116,6 +116,17 @@ def test_tool_policy_reads_authorization_from_each_current_state():
     assert calls == ["write_tool"]
 
 
+def test_table_title_replacement_request_routes_to_brain():
+    request = (
+        'A la taula "Cervell digital" hi ha notes amb títol '
+        '"Índex - Projecte: "+id i "Índex - Àrea: "+id. '
+        "Busca els titols corresponent a les taules Àrees i Projectes i "
+        "substitueix els ids."
+    )
+
+    assert factory._obvious_route(request) == "Brain"
+
+
 def test_tool_policy_enforces_role_and_always_confirmation():
     from backend.models.agent_skills import (
         CatalogOrigin,

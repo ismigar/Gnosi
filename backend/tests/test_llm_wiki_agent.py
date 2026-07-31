@@ -9,6 +9,7 @@ from backend.services.llm_wiki_agent import (
     LLM_WIKI_AGENT_MARKER,
     LLM_WIKI_REQUIRED_SKILL_IDS,
     LLM_WIKI_SKILL_IDS,
+    LEGACY_LLM_WIKI_SKILL_IDS,
     LlmWikiAgentError,
     ensure_agent,
     remove_agent,
@@ -108,6 +109,22 @@ def test_ensure_agent_replaces_only_the_synthetic_legacy_skill_bundle():
     assert migrated_custom["agents"][0]["required_skill_ids"] == (
         LLM_WIKI_REQUIRED_SKILL_IDS
     )
+
+
+def test_ensure_agent_adds_vault_tools_to_the_previous_wiki_default():
+    previous_default = {
+        "agents": [{
+            **_configured_agent(LLM_WIKI_AGENT_ID),
+            "managed_by": LLM_WIKI_AGENT_MARKER,
+            "skill_ids": LEGACY_LLM_WIKI_SKILL_IDS,
+        }],
+    }
+
+    migrated, changed = ensure_agent(previous_default)
+
+    assert changed is True
+    assert migrated["agents"][0]["skill_ids"] == LLM_WIKI_SKILL_IDS
+    assert "core.gnosi-vault" in migrated["agents"][0]["skill_ids"]
 
 
 def test_ensure_agent_without_model_stays_disabled():
