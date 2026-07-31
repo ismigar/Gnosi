@@ -4483,6 +4483,8 @@
         "schema_sha256": "Empremta de l'esquema",
         "sender": "Remitent",
         "snapshot_digest": "Empremta de la instantània",
+        "references": "Taules de referència",
+        "source_table": "Taula d'origen",
         "start": "Inici",
         "subject": "Assumpte",
         "table": "Taula",
@@ -4495,6 +4497,9 @@
         "tool": "Eina",
         "tool_id": "ID de l'eina",
         "updates": "Canvis exactes de les files",
+        "updates_truncated": "La mostra està truncada",
+        "unresolved": "Referències no resoltes",
+        "unresolved_count": "Nombre de referències no resoltes",
         "version_revision": "Revisió de la versió",
         "views_count": "Nombre de vistes",
         "views_revision": "Revisió del conjunt de vistes"
@@ -4559,6 +4564,12 @@
           "summary_one": "Vols aplicar canvis a {{count}} fila de taula?",
           "summary_other": "Vols aplicar canvis a {{count}} files de taula?",
           "summary_many": "Vols aplicar canvis a {{count}} files de taula?"
+        },
+        "replace_reference_ids_in_titles": {
+          "title": "Substituir identificadors dels títols",
+          "summary_one": "Vols substituir l'identificador d'{{count}} títol amb el nom corresponent?",
+          "summary_other": "Vols substituir els identificadors de {{count}} títols amb els noms corresponents?",
+          "summary_many": "Vols substituir els identificadors de {{count}} títols amb els noms corresponents?"
         }
       }
     }

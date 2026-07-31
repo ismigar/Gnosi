@@ -202,7 +202,7 @@ def test_coder_tools_exclude_personal_data_sources():
         ("Elimina la taula Projectes", {"delete_table"}),
         (
             "Substitueix els ids dels títols de la taula Cervell digital",
-            {"bulk_update_rows"},
+            {"replace_reference_ids_in_titles"},
         ),
     ],
 )
@@ -361,6 +361,40 @@ def test_tool_stream_events_do_not_expose_arguments_or_output():
         )
     )
     assert pending["awaiting_confirmation"] is True
+
+
+def test_deterministic_bulk_prepare_never_returns_a_blank_error(monkeypatch):
+    monkeypatch.setattr(
+        agent_routes,
+        "replace_reference_ids_in_titles",
+        SimpleNamespace(invoke=lambda _arguments: '{"error": "   "}'),
+    )
+
+    event = agent_routes._prepare_index_title_replacements(
+        'La taula "Cervell digital" té índexs de Projectes i Àrees; '
+        "substitueix els ids."
+    )
+
+    assert event == {
+        "type": "error",
+        "content": "The bulk title update could not be prepared.",
+    }
+
+
+def test_deterministic_bulk_prepare_respects_negation(monkeypatch):
+    invoked = []
+    monkeypatch.setattr(
+        agent_routes,
+        "replace_reference_ids_in_titles",
+        SimpleNamespace(invoke=lambda arguments: invoked.append(arguments)),
+    )
+
+    event = agent_routes._prepare_index_title_replacements(
+        "No substitueixis els ids dels índexs de Projectes i Àrees."
+    )
+
+    assert event is None
+    assert invoked == []
 
 
 def test_session_delete_removes_checkpoint_thread(tmp_path, monkeypatch):

@@ -4483,6 +4483,8 @@
         "schema_sha256": "Empreinte du schéma",
         "sender": "Expéditeur",
         "snapshot_digest": "Empreinte de l'instantané",
+        "references": "Tables de référence",
+        "source_table": "Table source",
         "start": "Début",
         "subject": "Objet",
         "table": "Table",
@@ -4495,6 +4497,9 @@
         "tool": "Outil",
         "tool_id": "ID de l'outil",
         "updates": "Modifications exactes des lignes",
+        "updates_truncated": "L'échantillon est tronqué",
+        "unresolved": "Références non résolues",
+        "unresolved_count": "Nombre de références non résolues",
         "version_revision": "Révision de la version",
         "views_count": "Nombre de vues",
         "views_revision": "Révision de l’ensemble des vues"
@@ -4559,6 +4564,12 @@
           "summary_one": "Appliquer les modifications à {{count}} ligne de table ?",
           "summary_other": "Appliquer les modifications à {{count}} lignes de table ?",
           "summary_many": "Appliquer les modifications à {{count}} lignes de table ?"
+        },
+        "replace_reference_ids_in_titles": {
+          "title": "Remplacer les identifiants des titres",
+          "summary_one": "Remplacer l'identifiant de {{count}} titre par le nom correspondant ?",
+          "summary_other": "Remplacer les identifiants de {{count}} titres par les noms correspondants ?",
+          "summary_many": "Remplacer les identifiants de {{count}} titres par les noms correspondants ?"
         }
       }
     }
