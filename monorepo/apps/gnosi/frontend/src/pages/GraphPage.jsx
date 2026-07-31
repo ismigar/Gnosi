@@ -15,6 +15,7 @@ import { Minimap } from '../components/Minimap';
 import { ConnectionList } from '../components/ConnectionList';
 import Graph from 'graphology';
 import { applyFilters, getEffectiveTableId, getSystemCategory, resolveMetaValue, toValueStrings } from '../utils/graphFilters';
+import { getConnectionTypeCounts } from '../utils/graphLegend';
 import { useConfigChanged } from '../lib/configEvents';
 
 
@@ -479,10 +480,16 @@ function GraphPage() {
         return g;
     }, [graphData]);
 
-    const { filteredNodesCount, filteredEdgesCount } = useMemo(() => {
-        if (!memoizedGraph) return { filteredNodesCount: 0, filteredEdgesCount: 0 };
+    const { filteredNodesCount, filteredEdgesCount, connectionTypeCounts } = useMemo(() => {
+        if (!memoizedGraph) return { filteredNodesCount: 0, filteredEdgesCount: 0, connectionTypeCounts: {} };
         const { visibleNodes, visibleEdges } = applyFilters(memoizedGraph, filters);
-        return { filteredNodesCount: visibleNodes.size, filteredEdgesCount: visibleEdges.size };
+        return {
+            filteredNodesCount: visibleNodes.size,
+            filteredEdgesCount: visibleEdges.size,
+            connectionTypeCounts: getConnectionTypeCounts(
+                [...visibleEdges].map((edge) => memoizedGraph.getEdgeAttributes(edge)),
+            ),
+        };
     }, [memoizedGraph, filters]);
 
     // Precomputes the available values for each configured field — O(nodes × fields) once per load
@@ -845,6 +852,15 @@ function GraphPage() {
                     onZoomOut={() => graphViewerRef.current?.zoomOut()}
                     onCenter={() => graphViewerRef.current?.center()}
                     onFullscreen={() => graphViewerRef.current?.fullscreen()}
+                    legend={(
+                        <Legend
+                            graphData={graphData}
+                            colorMode={colorMode}
+                            filteredNodesCount={filteredNodesCount}
+                            filteredEdgesCount={filteredEdgesCount}
+                            connectionTypeCounts={connectionTypeCounts}
+                        />
+                    )}
                 />
             }
             bottomPanel={
@@ -913,14 +929,6 @@ function GraphPage() {
                     strongGravityMode={strongGravityMode}
                     outboundAttractionDistribution={outboundAttractionDistribution}
                 />
-                <Legend 
-                    graphData={graphData} 
-                    isDarkMode={isDarkMode} 
-                    colorMode={colorMode} 
-                    filteredNodesCount={filteredNodesCount}
-                    filteredEdgesCount={filteredEdgesCount}
-                />
-
                 <Minimap
                     graph={graphInstance}
                     mainRenderer={rendererInstance}

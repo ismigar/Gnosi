@@ -142,6 +142,14 @@ modified browser or operating-system shortcuts. Prevent the default browser
 action only after a graph shortcut has been accepted, and always remove the
 global listener when the graph viewer unmounts.
 
+Keep the graph legend out of the canvas at overview scale. It belongs in an
+on-demand, keyboard-accessible tooltip anchored above the camera controls, so
+it cannot obscure nodes or compete with the minimap. Its counts must be
+derived from the current filtered body-wikilink subgraph, not from the complete
+backend response. Separate normal Markdown wikilinks, body links originating
+from database views, and unresolved targets; a relation edge without body-link
+provenance is not part of the Obsidian-parity topology and must not be counted.
+
 Sigma v3 uses `labelRenderedSizeThreshold`. Do not use
 `labelRenderThreshold`; the unknown setting is ignored and the default causes
 hundreds of overview labels to overlap. Keep label density bounded at overview
