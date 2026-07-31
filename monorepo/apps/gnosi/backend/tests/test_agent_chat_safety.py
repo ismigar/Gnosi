@@ -352,6 +352,16 @@ def test_tool_stream_events_do_not_expose_arguments_or_output():
         "node": "Brain",
     }
 
+    pending = json.loads(
+        agent_routes._tool_stream_event(
+            "tool_end",
+            "bulk_update_rows",
+            "Brain",
+            {"awaiting_confirmation": True},
+        )
+    )
+    assert pending["awaiting_confirmation"] is True
+
 
 def test_session_delete_removes_checkpoint_thread(tmp_path, monkeypatch):
     vault = tmp_path / "vault"

@@ -352,6 +352,10 @@ def _tool_stream_event(
             "skill_ids": list(metadata.get("skill_ids") or []),
             "effects": list(metadata.get("effects") or []),
         })
+        if "awaiting_confirmation" in metadata:
+            payload["awaiting_confirmation"] = bool(
+                metadata["awaiting_confirmation"]
+            )
     return json.dumps(payload) + "\n"
 
 
@@ -1327,6 +1331,9 @@ async def chat_endpoint(
 
                                         content = _message_text(getattr(msg, "content", ""))
                                         if msg.type == "tool":
+                                            pending_confirmation = confirmation_event(
+                                                content,
+                                            )
                                             yield _tool_stream_event(
                                                 "tool_end",
                                                 msg.name,
@@ -1334,9 +1341,7 @@ async def chat_endpoint(
                                                 tool_metadata_by_name.get(
                                                     msg.name,
                                                 ),
-                                            )
-                                            pending_confirmation = confirmation_event(
-                                                content,
+                                                {"awaiting_confirmation": bool(pending_confirmation)},
                                             )
                                             if pending_confirmation:
                                                 answer_count += 1

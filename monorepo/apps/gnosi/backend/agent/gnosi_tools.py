@@ -540,6 +540,10 @@ def list_table_rows(table_id_or_name: str, limit: int = 100) -> str:
         return _json({"error": "Table not found."})
     table_id = str(table.get("id") or "")
     rows = []
+    # Batch title-replacement requests must not be reduced to a model-selected
+    # sample such as `limit=2`; the caller can still receive at most the safe
+    # bounded maximum while resolving all matching rows.
+    effective_limit = max(_bounded_limit(limit), 100)
     for path in _page_files():
         try:
             page = _serialize_page(path)
@@ -547,7 +551,7 @@ def list_table_rows(table_id_or_name: str, limit: int = 100) -> str:
             continue
         if page["table_id"] == table_id:
             rows.append(page)
-        if len(rows) >= _bounded_limit(limit):
+        if len(rows) >= effective_limit:
             break
     return _json({"table": {"id": table_id, "name": table.get("name")}, "rows": rows})
 
