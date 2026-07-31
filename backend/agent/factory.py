@@ -77,12 +77,16 @@ def _bounded_model_messages(
 ) -> List[BaseMessage]:
     """Keep newest complete assistant/tool protocol groups within the budget."""
     source = list(messages)[-MAX_MODEL_MESSAGE_COUNT:]
-    while source and isinstance(source[0], ToolMessage):
-        source.pop(0)
     units: List[List[BaseMessage]] = []
     index = 0
     while index < len(source):
         message = source[index]
+        # A provider only accepts a tool result immediately after the assistant
+        # message which created that exact tool call. Drop orphan results rather
+        # than passing an invalid checkpoint through to the next invocation.
+        if isinstance(message, ToolMessage):
+            index += 1
+            continue
         unit = [message]
         tool_call_ids = {
             str(call.get("id") or "")
@@ -91,15 +95,23 @@ def _bounded_model_messages(
         }
         if tool_call_ids:
             cursor = index + 1
+            completed_call_ids = set()
             while cursor < len(source):
                 candidate = source[cursor]
                 if not isinstance(candidate, ToolMessage):
                     break
-                if str(getattr(candidate, "tool_call_id", "") or "") not in tool_call_ids:
+                tool_call_id = str(getattr(candidate, "tool_call_id", "") or "")
+                if tool_call_id not in tool_call_ids:
                     break
                 unit.append(candidate)
+                completed_call_ids.add(tool_call_id)
                 cursor += 1
             index = cursor
+            # A cancelled or disconnected tool turn can persist the assistant
+            # call without every corresponding ToolMessage. Strict providers
+            # reject that history, so omit the incomplete protocol group.
+            if completed_call_ids != tool_call_ids:
+                continue
         else:
             index += 1
         units.append(unit)
