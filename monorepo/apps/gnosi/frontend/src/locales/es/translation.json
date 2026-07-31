@@ -4415,6 +4415,7 @@
       "confirm": "Confirmar y ejecutar",
       "cancel": "Cancelar la acción",
       "acknowledgement": "He revisado esta acción y quiero continuar.",
+      "row_fallback": "Fila {{count}}",
       "review": "Revisar y confirmar",
       "completed": "Acción completada después de la confirmación.",
       "partial": "La acción se ha completado parcialmente: {{completed}} completadas y {{failed}} fallidas.",

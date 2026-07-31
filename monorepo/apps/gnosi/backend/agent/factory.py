@@ -1675,8 +1675,10 @@ async def create_agent_workflow(
             brain_system += (
                 "\nFor requests to inspect or replace table-row titles or "
                 "properties, first read the relevant rows with the table tools. "
-                "Resolve requested ids against the source rows, then prepare a "
-                "single bulk update for the matching target rows. Do not claim "
+                "Resolve every requested id against the source rows, inspect the "
+                "complete bounded target table, count every matching target row, "
+                "and prepare one bulk update containing all of them. Never submit "
+                "a partial two-row sample when more matches exist. Do not claim "
                 "that the Vault is inaccessible when these tools are available."
             )
             always_confirmed_names = {

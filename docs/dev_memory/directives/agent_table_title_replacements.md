@@ -22,6 +22,10 @@ of replying as if it cannot access the Vault.
 - Do not route ordinary prose containing a generic project or area reference
   solely because it contains a table-related word; require a table/data action
   term or an explicit Vault-table reference.
+- For an "all matching rows" request, inspect the complete bounded table result,
+  count every match, and never prepare a partial sample.
+- Confirmation previews must render the affected row titles and properties as
+  readable entries; do not expose the raw JSON update array as the only review.
 - Do not write rows immediately. Bulk table updates must remain pending until
   the user confirms the generated preview.
 - Do not treat short chat acknowledgements such as "sí", "ok", or "fes-la"

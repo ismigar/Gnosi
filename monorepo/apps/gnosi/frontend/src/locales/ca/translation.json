@@ -4415,6 +4415,7 @@
       "confirm": "Confirmar i executar",
       "cancel": "Cancel·lar l'acció",
       "acknowledgement": "He revisat aquesta acció i vull continuar.",
+      "row_fallback": "Fila {{count}}",
       "review": "Revisar i confirmar",
       "completed": "Acció completada després de la confirmació.",
       "partial": "L'acció s'ha completat parcialment: {{completed}} completades i {{failed}} fallides.",
