@@ -16,6 +16,7 @@ import { ConnectionList } from '../components/ConnectionList';
 import Graph from 'graphology';
 import { applyFilters, getEffectiveTableId, getSystemCategory, resolveMetaValue, toValueStrings } from '../utils/graphFilters';
 import { getConnectionTypeCounts } from '../utils/graphLegend';
+import { getVisibleSimilarityEdges } from '../utils/similarityOverlay';
 import { useConfigChanged } from '../lib/configEvents';
 
 
@@ -483,14 +484,22 @@ function GraphPage() {
     const { filteredNodesCount, filteredEdgesCount, connectionTypeCounts } = useMemo(() => {
         if (!memoizedGraph) return { filteredNodesCount: 0, filteredEdgesCount: 0, connectionTypeCounts: {} };
         const { visibleNodes, visibleEdges } = applyFilters(memoizedGraph, filters);
+        const visibleSuggestions = getVisibleSimilarityEdges(
+            graphData?.edges,
+            visibleNodes,
+            similarity,
+        );
         return {
             filteredNodesCount: visibleNodes.size,
             filteredEdgesCount: visibleEdges.size,
             connectionTypeCounts: getConnectionTypeCounts(
-                [...visibleEdges].map((edge) => memoizedGraph.getEdgeAttributes(edge)),
+                [
+                    ...[...visibleEdges].map((edge) => memoizedGraph.getEdgeAttributes(edge)),
+                    ...visibleSuggestions,
+                ],
             ),
         };
-    }, [memoizedGraph, filters]);
+    }, [memoizedGraph, filters, graphData?.edges, similarity]);
 
     // Precomputes the available values for each configured field — O(nodes × fields) once per load
     const fieldValuesByKey = useMemo(() => {

@@ -3967,6 +3967,7 @@
       "wikilink": "Wikilinks",
       "database_wikilink": "Database-view wikilinks",
       "unresolved": "Unresolved links",
+      "semantic_similarity": "Semantic connections",
       "node_groups": "Node groups"
     },
     "node_panel": {
