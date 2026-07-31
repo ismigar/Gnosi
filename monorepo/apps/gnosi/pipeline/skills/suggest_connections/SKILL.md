@@ -1,51 +1,49 @@
-# SKILL: Graph Management
+# SKILL: Brain Connection Proposals
 
-This skill manages the Digital Brain knowledge graph, including the generation of connections, their acceptance, and the hybrid AI system.
+This skill generates evidence-backed, read-only connection proposals for the
+configured Brain and exposes the same queue to the inbox and global graph.
 
 > ID: GRAPH-MGMT-20260408
 > Status: ACTIVE
 
 ---
 
-## 1. Module A: Generation (Suggest Connections)
-Analyzes Vault notes and suggests relationships based on tags and semantic content.
+## 1. Canonical generation
 
-- **Config**: `config/params.yaml` (Thresholds, graph colors).
-- **Outputs**: `out/suggestions.json`, `out/sigma_graph.json`, AI caches.
-- **CLI**: `python3 -c "from pipeline.skills.suggest_connections.scripts.suggest_connections_digital_brain import process; process()"`
+Analyze Brain reading and manual permanent notes for connections, support,
+contradictions, and gaps.
 
----
-
-## 2. Module B: Persistence (Acceptance Protocol)
-Protocol for writing accepted connections back to `.md` files.
-
-### Writing Requirements
-- **Frontmatter Field**: `📀 Connections` (or as per language in `params.yaml`).
-- **Data Integrity**: Use `yaml.safe_dump` to avoid corruption.
-- **Atomicity**: Write to a temporary file + rename to prevent data loss if the process fails.
-
-### Validation
-- No duplicates allowed.
-- No connections allowed to non-existent nodes (verify against the registry).
+- **Config**: `<vault>/.gnosi/llm_wiki.json` and the managed Brain agent.
+- **Source of truth**: `<vault>/.gnosi/llm_wiki_suggestions.json`.
+- **Portable graph mirror**: `<vault>/suggestions.json`.
+- **CLI**: `python3 -c "from backend.services.llm_wiki_actions import run_maintenance; print(run_maintenance(semantic=True))"`
+- **Runtime**: the `suggest_connections` scheduler invokes the same service.
 
 ---
 
-## 3. Hybrid AI System (Ollama + Groq)
-Infrastructure management for artificial intelligence.
+## 2. Review contract
 
-- **Preference**: Ollama (local) → Groq (Cloud) → OpenAI.
-- **Fallback**: If Ollama times out (60s) or the note is too long, automatically switch to Groq.
-- **Rate Limits**: Groq has a limit of 100k tokens/day (Free Tier). If error 429 is received, wait 24h.
+- Proposals may be inspected, opened, or dismissed.
+- The automation never creates or edits a permanent note.
+- Dismissal updates the canonical queue and graph mirror atomically.
+- Only existing Brain page IDs may become proposal members.
+
+---
+
+## 3. Model and scheduling
+
+- Model selection follows the managed Brain agent and Gnosi's provider factory.
+- Manual semantic maintenance and the explicitly enabled
+  `suggest_connections` scheduler may invoke the model.
+- Daily LLM Wiki maintenance and `update_memories` are deterministic and must
+  never invoke semantic generation.
 
 ---
 
-## 4. History and Learning (Learning Cycle)
+## 4. Restrictions and learned safeguards
 
-| Date | Error / Learning | Root Cause | Solution / Refinement |
-| --- | --- | --- | --- |
-| 2026-03-08 | YAML Corruption | Manual writing | Mandatory use of YAML parsing libraries. |
-| 2026-04-07 | Groq 429 Error | Token excess | Implementation of analyzed notes cache to avoid repetitions. |
-| 2026-04-08 | Fragmentation | Divided memory | Union of Generation, Persistence, and AI into `SKILL.md`. |
-
----
-*Maintenance: If new models are added to Ollama, update `params.yaml` to reflect the correct `model_name`.*
+- Do not write a second generated graph under `BD/`; it diverges from the inbox.
+- Do not call the removed `suggest_connections_digital_brain` module.
+- Do not report a structured generator error as scheduler success.
+- Add proposal edges only after structural layout calculation, and invalidate
+  the graph response cache whenever the mirror changes.

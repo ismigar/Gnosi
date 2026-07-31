@@ -904,6 +904,43 @@ def test_permanent_note_acceptance_is_disabled():
         llm_wiki_suggestions.accept_suggestion("proposal-1", "brain-1")
 
 
+def test_connection_queue_is_the_canonical_graph_overlay(monkeypatch, tmp_path: Path):
+    from backend.api import vault_routes
+    from backend.services.graph_service import GraphService
+
+    vault = tmp_path / "vault"
+    config_root = vault / ".gnosi"
+    config_root.mkdir(parents=True)
+    monkeypatch.setattr(
+        vault_routes,
+        "get_p",
+        lambda key: {"VAULT": vault, "GNOSI_CONFIG": config_root}[key],
+    )
+    (config_root / "llm_wiki_suggestions.json").write_text(
+        '{"suggestions":[{"id":"proposal-1","member_ids":["a","b"],'
+        '"title":"Shared concern"}]}',
+        encoding="utf-8",
+    )
+    GraphService._graph_cache = {"stale": {"nodes": [], "edges": []}}
+    GraphService._last_graph_time = {"stale": 1.0}
+
+    assert llm_wiki_suggestions.sync_graph_mirror() == 1
+
+    assert llm_wiki_suggestions.list_graph_edges() == [{
+        "source": "a",
+        "target": "b",
+        "kind": "suggestion",
+        "similarity": 90,
+        "reason": "Shared concern",
+        "suggestion_id": "proposal-1",
+    }]
+    assert GraphService._graph_cache == {}
+    assert GraphService._last_graph_time == {}
+    assert '"llm_wiki": "proposal-1"' in (vault / "suggestions.json").read_text(
+        encoding="utf-8",
+    )
+
+
 def test_matching_checkpoint_resumes_writing_without_another_llm_call(monkeypatch, tmp_path: Path):
     origin = _origin("A grounded idea that was already planned.")
     segment_id = origin["segments"][0]["id"]

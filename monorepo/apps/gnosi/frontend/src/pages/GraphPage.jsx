@@ -156,36 +156,7 @@ function GraphPage() {
             if (!res.ok) throw new Error(`Graph API error: ${res.status}`);
             return res.json();
         }).then(graph => {
-            // Fetch suggestions separately
-            return fetch('/api/system/suggestions')
-                .then(res => res.ok ? res.json() : [])
-                .catch(() => [])
-                .then(suggestions => ({ graph, suggestions }));
-        }).then(({ graph, suggestions }) => {
-            // Merge suggestions into graph edges
-            if (Array.isArray(suggestions)) {
-                const existingEdges = new Set((graph.edges || []).map(e => `${e.source}-${e.target}`));
-
-                suggestions.forEach(s => {
-                    const edgeId = `${s.source}-${s.target}`;
-                    if (!existingEdges.has(edgeId)) {
-                        if (!graph.edges) graph.edges = [];
-                        graph.edges.push({
-                            ...s,
-                            id: `suggestion-${edgeId}`,
-                            kind: 'suggestion',
-                            color: '#FF4081',
-                            size: 1,
-                            dashed: true
-                        });
-                        existingEdges.add(edgeId);
-                    }
-                });
-
-                if (graph.legend && graph.legend.kinds && !graph.legend.kinds.find(k => k.label === 'Suggestion')) {
-                    graph.legend.kinds.push({ label: 'Suggestion', color: '#FF4081', count: suggestions.length });
-                }
-            }
+            // /api/graph is the single source for structural and proposal edges.
             setGraphData(graph);
         })
             .catch(err => {

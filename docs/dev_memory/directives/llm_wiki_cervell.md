@@ -102,7 +102,9 @@ and manual body content is never rewritten except through the normal page serial
 
 The inbox exposes evidence-backed connections, support, contradictions, and gaps. It can
 open notes or dismiss a proposal; it cannot create permanent notes. Semantic proposals run
-only through explicit manual maintenance to avoid unexpected model costs.
+only through explicit manual maintenance or the dedicated, user-enabled
+`suggest_connections` scheduler. Daily deterministic maintenance and the general memory
+refresh never invoke a model, so enabling those tasks cannot create unexpected model costs.
 
 ## 5. Ingestion and provenance
 
@@ -244,6 +246,18 @@ overwrite user-edited instructions.
 - Do not resume a plan when any origin hash changes; citations could point to another
   source version.
 - Do not run semantic proposals on every ingest or scheduled maintenance.
+- Treat `.gnosi/llm_wiki_suggestions.json` as the canonical proposal queue. The
+  `suggest_connections` scheduler, Brain inbox, and global graph must all use this queue;
+  do not revive a parallel generated graph under `BD/` as a second suggestion source.
+- Mirror the canonical queue to `<vault>/suggestions.json` for graph portability, add that
+  layer during `/api/graph` construction, and invalidate the graph response cache whenever
+  the mirror changes. The frontend must not merge a second no-op suggestions endpoint.
+- A dedicated `suggest_connections` scheduler is an explicit opt-in to model use. Keep it
+  disabled by default, make failures fail the scheduler execution, and never let
+  `update_memories` call it implicitly.
+- Scheduler task functions may return structured failures. Do not mark a task successful
+  merely because it returned normally; propagate `success: false` or an `error` value to
+  task state, history, and notifications.
 - Do not treat the `(llm, provider, model)` result of `_get_hybrid_llm()` as a model.
   Unpack it before calling model methods.
 - Docker CI must provide a unique job-only `GNOSI_JWT_SECRET` to both Compose validation
