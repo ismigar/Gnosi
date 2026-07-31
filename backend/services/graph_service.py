@@ -571,14 +571,33 @@ class GraphService:
                 # start once OneDrive recovers. In-memory reuse is still fine.
                 GraphService._save_layout_cache()
 
+        # Index pages generated for relation fields sometimes inherit the raw
+        # relation UUID in their filename (for example, ``Index · Projecte:
+        # <uuid>``). Resolve that UUID against the already-built graph so the
+        # UI displays the related area's/project's human title.
+        graph_labels = {
+            str(node_id): str(attrs.get("label") or node_id)
+            for node_id, attrs in G.nodes(data=True)
+        }
+        relation_index_re = re.compile(
+            r"^(?P<prefix>(?:Index|Índex)\s*[·:]\s*(?:Projecte|Project|Àrea|Area)\s*:\s*)(?P<id>[0-9a-f]{8}-[0-9a-f-]{27,})$",
+            re.IGNORECASE,
+        )
+
         nodes = []
         for node_id in G.nodes():
             attrs = G.nodes[node_id]
             meta = attrs.get("metadata", {}) or {}
+            label = str(attrs.get("label", node_id))
+            match = relation_index_re.match(label.strip())
+            if match:
+                related_label = graph_labels.get(match.group("id"))
+                if related_label and related_label != match.group("id"):
+                    label = f"{match.group('prefix')}{related_label}"
             nodes.append({
                 "id": node_id,
                 "key": node_id,
-                "label": attrs.get("label", node_id),
+                "label": label,
                 "x": float(pos[node_id][0]),
                 "y": float(pos[node_id][1]),
                 "size": attrs.get("size", 10),
