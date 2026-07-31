@@ -423,7 +423,11 @@ class GraphService:
     def _compute_graph_hash(self, G: "nx.Graph") -> str:
         """Stable hash of the graph based on nodes+edges. Detects structural changes."""
         nodes = sorted(str(n) for n in G.nodes())
-        edges = sorted((str(s), str(t)) for s, t in G.edges())
+        edges = sorted(
+            (str(s), str(t))
+            for s, t, data in G.edges(data=True)
+            if data.get("kind") != "suggestion"
+        )
         payload = json.dumps({"n": nodes, "e": edges}, sort_keys=True).encode()
         return hashlib.sha256(payload).hexdigest()
 
@@ -1195,6 +1199,7 @@ class GraphService:
                                    color="#FF4081", 
                                    size=1, 
                                    dashed=True,
+                                   similarity=float(sug.get("score", 0.0)) * 100,
                                    reason=sug.get("reason", "AI Suggested"))
         except Exception as e:
             log.error(f"Error loading AI suggestions: {e}")
