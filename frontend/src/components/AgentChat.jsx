@@ -739,6 +739,21 @@ const AgentChat = ({ storageIdentity = '' }) => {
 
     const confirmationReview = useCallback(confirmation => {
         const details = Object.entries(confirmation?.details || {});
+        const renderDetailValue = (key, value) => {
+            if (key === 'updates' && Array.isArray(value)) {
+                return (
+                    <div style={{ display: 'grid', gap: '6px' }}>
+                        {value.map((update, index) => (
+                            <div key={`${update?.id || 'row'}-${index}`} style={{ padding: '6px 8px', borderRadius: '6px', background: 'var(--bg-secondary)' }}>
+                                <strong>{update?.title || t('chat.confirmations.row_fallback', 'Row {{count}}', { count: index + 1 })}</strong>
+                                {update?.properties && <div style={{ marginTop: '2px', fontSize: '0.75rem' }}>{formatConfirmationValue(update.properties)}</div>}
+                            </div>
+                        ))}
+                    </div>
+                );
+            }
+            return formatConfirmationValue(value);
+        };
         return (
             <div>
                 <p style={{ margin: '0 0 12px' }}>
@@ -772,7 +787,7 @@ const AgentChat = ({ storageIdentity = '' }) => {
                                         ? 'monospace'
                                         : 'inherit',
                                 }}>
-                                    {formatConfirmationValue(value)}
+                                    {renderDetailValue(key, value)}
                                 </dd>
                             </div>
                         ))}
