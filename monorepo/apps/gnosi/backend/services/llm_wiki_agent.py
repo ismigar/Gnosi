@@ -12,12 +12,16 @@ from backend.utils.safe_io import safe_write_text
 
 LLM_WIKI_AGENT_ID = "llm-wiki"
 LLM_WIKI_AGENT_MARKER = "llm-wiki"
-LLM_WIKI_SKILL_IDS = [
+LEGACY_LLM_WIKI_SKILL_IDS = [
     "plugin.llm-wiki.query",
     "plugin.llm-wiki.process-source",
     "plugin.llm-wiki.process-status",
     "plugin.llm-wiki.maintain",
     "plugin.llm-wiki.propose-connections",
+]
+LLM_WIKI_SKILL_IDS = [
+    *LEGACY_LLM_WIKI_SKILL_IDS,
+    "core.gnosi-vault",
 ]
 LLM_WIKI_REQUIRED_SKILL_IDS = ["plugin.llm-wiki.query"]
 LEGACY_DEFAULT_SKILL_IDS = ["core.legacy-default-v1"]
@@ -71,6 +75,7 @@ def ensure_agent(ai_config: dict[str, Any]) -> tuple[dict[str, Any], bool]:
         if (
             "skill_ids" not in existing
             or existing.get("skill_ids") == LEGACY_DEFAULT_SKILL_IDS
+            or existing.get("skill_ids") == LEGACY_LLM_WIKI_SKILL_IDS
         ):
             existing["skill_ids"] = list(LLM_WIKI_SKILL_IDS)
             changed = True

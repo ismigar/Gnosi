@@ -224,12 +224,20 @@ def _obvious_route(message: str, has_context: bool = False) -> Optional[str]:
     if not text:
         return "General"
     has_mention = "@[" in text or "selected mentions context:" in text
+    table_action = any(word in text for word in (
+        "table", "tables", "taula", "taules", "tabla", "tablas",
+    )) and any(word in text for word in (
+        "replace", "replaces", "reemplaza", "reemplazar", "substitueix",
+        "substituir", "actualitza", "actualizar", "update", "actualitza",
+        "títol", "títols", "titulo", "títulos", "title", "titles",
+        "fila", "files", "row", "rows", "registre", "registres",
+    ))
     tool_intent = any(word in text for word in (
         "calendar", "calendari", "calendario", "meeting", "reunió", "reunion",
         "reuniones", "mail", "email", "correu", "correo", "notion", "zotero",
         "weather", "temps", "tiempo", "search", "cerca", "busca", "find",
     ))
-    if has_mention or tool_intent or (has_context and any(word in text for word in (
+    if has_mention or table_action or tool_intent or (has_context and any(word in text for word in (
         "document", "documento", "documentació", "nota", "pdf", "vault",
         "font", "source", "dades", "datos",
     ))):
@@ -1660,6 +1668,13 @@ async def create_agent_workflow(
             brain_system += (
                 "\nYou may use only these tools: "
                 f"{tool_names}."
+            )
+            brain_system += (
+                "\nFor requests to inspect or replace table-row titles or "
+                "properties, first read the relevant rows with the table tools. "
+                "Resolve requested ids against the source rows, then prepare a "
+                "single bulk update for the matching target rows. Do not claim "
+                "that the Vault is inaccessible when these tools are available."
             )
             always_confirmed_names = {
                 item["name"]
