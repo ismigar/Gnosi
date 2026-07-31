@@ -751,7 +751,9 @@
     "managed_in_vault": "Managed in the Vault",
     "view_graph": "View Graph",
     "error_prefix": "Error",
-    "control_center": "Control Center"
+    "control_center": "Control Center",
+    "pagination_range": "Showing {{start}} to {{end}} of {{total}}",
+    "pagination_page": "Page {{page}}"
   },
   "errors": {
     "load_pages": "Error loading pages",
