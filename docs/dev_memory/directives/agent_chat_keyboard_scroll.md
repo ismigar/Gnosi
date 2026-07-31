@@ -27,3 +27,14 @@ keys while the empty chat composer has focus.
   and operating systems may assign them navigation semantics.
 - Do not install a global document listener: modal dialogs and other controls
   must retain their own keyboard behavior.
+
+## Message actions
+
+Every chat message exposes safe local actions below its bubble: copy, quote
+into the composer, inspect bounded metadata, and (for user messages) edit the
+next prompt. Assistant messages additionally allow the preceding user prompt
+to be prepared again, local feedback, and a local saved marker. These actions
+must not expose tool arguments or tool results. A visible undo control is
+allowed only for the final message of an operation that supplies an explicit,
+server-backed reversal; it must not claim to undo model text, a completed
+confirmation, or an external side effect.
