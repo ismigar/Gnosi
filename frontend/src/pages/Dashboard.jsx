@@ -942,6 +942,7 @@ function Dashboard() {
                                                     <option value={90}>{t('dashboard.time_1_5_hours')}</option>
                                                     <option value={120}>{t('dashboard.time_2_hours')}</option>
                                                     <option value={180}>{t('dashboard.time_3_hours')}</option>
+                                                    <option value={300}>{t('dashboard.time_5_hours')}</option>
                                                     <option value={360}>{t('dashboard.time_6_hours')}</option>
                                                     <option value={720}>{t('dashboard.time_12_hours')}</option>
                                                     <option value={1440}>{t('dashboard.time_1_day')}</option>

@@ -112,8 +112,8 @@ def _graph_suggestions_path():
 
 def _mirror_to_graph() -> None:
     """Rewrites OUR entries in the graph's suggestions.json (tagged `llm_wiki`)
-    to match the current queue. Entries from other writers (e.g. the
-    suggest_connections skill) are preserved untouched."""
+    to match the current queue. Entries from external writers are preserved
+    untouched for backwards-compatible vault portability."""
     try:
         from backend.utils.safe_io import safe_write_json
 
@@ -148,8 +148,39 @@ def _mirror_to_graph() -> None:
                     "llm_wiki": s["id"],
                 })
         safe_write_json(path, data, indent=2, ensure_ascii=False)
+        from backend.services.graph_service import GraphService
+
+        GraphService.invalidate_response_cache()
     except Exception as exc:  # noqa: BLE001
         logger.warning("llm_wiki: graph mirror failed: %s", exc)
+
+
+def sync_graph_mirror() -> int:
+    """Synchronize the portable graph overlay and return the pending count."""
+
+    _mirror_to_graph()
+    return len(load_queue())
+
+
+def list_graph_edges() -> List[Dict[str, Any]]:
+    """Return canonical pending proposals as graph-compatible edge objects."""
+
+    edges: List[Dict[str, Any]] = []
+    for suggestion in load_queue():
+        members = [str(member) for member in suggestion.get("member_ids") or [] if member]
+        if len(members) < 2:
+            continue
+        source = members[0]
+        for target in members[1:]:
+            edges.append({
+                "source": source,
+                "target": target,
+                "kind": "suggestion",
+                "similarity": 90,
+                "reason": str(suggestion.get("question") or suggestion.get("title") or ""),
+                "suggestion_id": str(suggestion.get("id") or ""),
+            })
+    return edges
 
 
 # ---------------------------------------------------------------------------
