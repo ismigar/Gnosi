@@ -1334,14 +1334,17 @@ async def chat_endpoint(
                                             pending_confirmation = confirmation_event(
                                                 content,
                                             )
+                                            tool_metadata = dict(
+                                                tool_metadata_by_name.get(msg.name) or {}
+                                            )
+                                            tool_metadata["awaiting_confirmation"] = bool(
+                                                pending_confirmation
+                                            )
                                             yield _tool_stream_event(
                                                 "tool_end",
                                                 msg.name,
                                                 node_name,
-                                                tool_metadata_by_name.get(
-                                                    msg.name,
-                                                ),
-                                                {"awaiting_confirmation": bool(pending_confirmation)},
+                                                tool_metadata,
                                             )
                                             if pending_confirmation:
                                                 answer_count += 1
