@@ -4415,6 +4415,7 @@
       "confirm": "Confirmer et exécuter",
       "cancel": "Annuler l'action",
       "acknowledgement": "J’ai vérifié cette action et je veux continuer.",
+      "row_fallback": "Ligne {{count}}",
       "review": "Vérifier et confirmer",
       "completed": "Action terminée après confirmation.",
       "partial": "L'action a été partiellement effectuée : {{completed}} terminées et {{failed}} échouées.",
