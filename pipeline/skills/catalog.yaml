@@ -4,6 +4,7 @@ agent_assignable_default: false
 packages:
   augment_clusters: {kind: developer}
   autonomous_loop: {kind: developer}
+  auto_improver: {kind: developer}
   backup_projectes: {kind: automation}
   calendar_sync: {kind: automation}
   filter_graph: {kind: developer}
