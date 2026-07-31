@@ -4483,6 +4483,8 @@
         "schema_sha256": "Huella del esquema",
         "sender": "Remitente",
         "snapshot_digest": "Huella de la instantánea",
+        "references": "Tablas de referencia",
+        "source_table": "Tabla de origen",
         "start": "Inicio",
         "subject": "Asunto",
         "table": "Tabla",
@@ -4495,6 +4497,9 @@
         "tool": "Herramienta",
         "tool_id": "ID de la herramienta",
         "updates": "Cambios exactos de las filas",
+        "updates_truncated": "La muestra está truncada",
+        "unresolved": "Referencias no resueltas",
+        "unresolved_count": "Número de referencias no resueltas",
         "version_revision": "Revisión de la versión",
         "views_count": "Número de vistas",
         "views_revision": "Revisión del conjunto de vistas"
@@ -4559,6 +4564,12 @@
           "summary_one": "¿Quieres aplicar cambios a {{count}} fila de tabla?",
           "summary_other": "¿Quieres aplicar cambios a {{count}} filas de tabla?",
           "summary_many": "¿Quieres aplicar cambios a {{count}} filas de tabla?"
+        },
+        "replace_reference_ids_in_titles": {
+          "title": "Sustituir identificadores de los títulos",
+          "summary_one": "¿Quieres sustituir el identificador de {{count}} título por el nombre correspondiente?",
+          "summary_other": "¿Quieres sustituir los identificadores de {{count}} títulos por los nombres correspondientes?",
+          "summary_many": "¿Quieres sustituir los identificadores de {{count}} títulos por los nombres correspondientes?"
         }
       }
     }

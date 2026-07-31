@@ -745,8 +745,13 @@ const AgentChat = ({ storageIdentity = '' }) => {
                     <div style={{ display: 'grid', gap: '6px' }}>
                         {value.map((update, index) => (
                             <div key={`${update?.id || 'row'}-${index}`} style={{ padding: '6px 8px', borderRadius: '6px', background: 'var(--bg-secondary)' }}>
-                                <strong>{update?.title || t('chat.confirmations.row_fallback', 'Row {{count}}', { count: index + 1 })}</strong>
+                                <strong>{update?.title || update?.id || t('chat.confirmations.row_fallback', 'Row {{count}}', { count: index + 1 })}</strong>
                                 {update?.properties && <div style={{ marginTop: '2px', fontSize: '0.75rem' }}>{formatConfirmationValue(update.properties)}</div>}
+                                {update?.from && update?.to && (
+                                    <div style={{ marginTop: '2px', fontSize: '0.75rem' }}>
+                                        {update.from} → {update.to}
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -1280,7 +1285,11 @@ const AgentChat = ({ storageIdentity = '' }) => {
                                 if (data.content) lastMsg.content = data.content;
                             } else if (data.type === 'error') {
                                 // Translation and improvement of common messages
-                                let errorContent = data.content || t('errors.unknown');
+                                const streamedError = typeof data.content === 'string'
+                                    ? data.content.trim()
+                                    : '';
+                                let errorContent = streamedError
+                                    || t('errors.unknown', 'Unknown error');
                                 if (data.code === 'agent_model_unavailable') {
                                     errorContent = t('chat.agent_model_unavailable', 'The selected agent model is unavailable. Configure the agent and try again.');
                                 }
@@ -1308,7 +1317,13 @@ const AgentChat = ({ storageIdentity = '' }) => {
             }
         } catch (error) {
             if (error.name !== 'AbortError' && activeScopeRef.current === requestScope) {
-                setMessages(prev => [...prev, { role: 'system', content: `${t('chat.error_prefix', 'Error')}: ${error.message}` }]);
+                const errorMessage = typeof error.message === 'string'
+                    ? error.message.trim()
+                    : '';
+                setMessages(prev => [...prev, {
+                    role: 'system',
+                    content: `${t('chat.error_prefix', 'Error')}: ${errorMessage || t('errors.unknown', 'Unknown error')}`,
+                }]);
             }
         } finally {
             requestAbortRef.current = null;

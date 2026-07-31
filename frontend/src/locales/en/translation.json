@@ -4340,6 +4340,8 @@
         "schema_sha256": "Schema fingerprint",
         "sender": "Sender",
         "snapshot_digest": "Snapshot fingerprint",
+        "references": "Reference tables",
+        "source_table": "Source table",
         "start": "Start",
         "subject": "Subject",
         "table": "Table",
@@ -4352,6 +4354,9 @@
         "tool": "Tool",
         "tool_id": "Tool ID",
         "updates": "Exact row changes",
+        "updates_truncated": "Sample is truncated",
+        "unresolved": "Unresolved references",
+        "unresolved_count": "Unresolved reference count",
         "version_revision": "Version revision",
         "views_count": "View count",
         "views_revision": "View-set revision"
@@ -4414,6 +4419,11 @@
           "title": "Update rows in bulk",
           "summary_one": "Apply changes to {{count}} table row?",
           "summary_other": "Apply changes to {{count}} table rows?"
+        },
+        "replace_reference_ids_in_titles": {
+          "title": "Replace title reference IDs",
+          "summary_one": "Replace the ID in {{count}} title with its matching name?",
+          "summary_other": "Replace the IDs in {{count}} titles with their matching names?"
         }
       }
     }
