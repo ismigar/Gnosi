@@ -139,6 +139,11 @@ square. Represent the camera as its actual viewport rectangle, not as a dot
 that can be confused with a graph node. Minimap clicks must derive their zoom
 from the visible-subset extent; a fixed absolute camera ratio refers to the
 complete graph and can unexpectedly zoom far away from a filtered view.
+Do not clip the camera rectangle to the visible-node bounds: when the main
+viewport includes empty space, clipping removes one or more borders and makes
+the frame look broken. Build the minimap transform from the union of the
+visible-node bounds and Sigma's four viewport corners, then redraw both the
+nodes and the complete camera rectangle when the camera changes.
 
 Sigma v3 uses `labelRenderedSizeThreshold`. Do not use
 `labelRenderThreshold`; the unknown setting is ignored and the default causes
