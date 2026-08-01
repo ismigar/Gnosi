@@ -468,7 +468,7 @@ class GraphService:
         edges = []
         for u, v in G.edges():
             edge_attrs = G.edges[u, v]
-            edges.append({
+            edge = {
                 "id": f"e_{u}_{v}",
                 "source": u,
                 "target": v,
@@ -481,12 +481,13 @@ class GraphService:
                 "size": edge_attrs.get("size", 1),
                 "dashed": edge_attrs.get("dashed", False),
                 "kind": edge_attrs.get("kind", "structural"),
-                "similarity": edge_attrs.get("similarity"),
                 "body_link": bool(edge_attrs.get("body_link", False)),
-                "reason": edge_attrs.get("reason", ""),
                 "unresolved": bool(edge_attrs.get("unresolved", False)),
-                "suggestion_id": edge_attrs.get("suggestion_id"),
-            })
+            }
+            if edge["kind"] == "suggestion":
+                edge["reason"] = edge_attrs.get("reason", "")
+                edge["suggestion_id"] = edge_attrs.get("suggestion_id", "")
+            edges.append(edge)
             
         # Legend generation (dynamic based on the fields exported to the client).
         legend_kinds = []
@@ -922,10 +923,9 @@ class GraphService:
                     source_id,
                     target_id,
                     kind="suggestion",
-                    color="#FF4081",
+                    color="#a855f7",
                     size=1,
                     dashed=True,
-                    similarity=float(suggestion.get("similarity") or 0),
                     reason=str(suggestion.get("reason") or ""),
                     suggestion_id=str(suggestion.get("suggestion_id") or ""),
                     src=source_id,

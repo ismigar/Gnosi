@@ -201,9 +201,11 @@ Semantic proposals are a viewport-synchronized canvas overlay over Sigma, not
 Graphology edges. Drawing them inside the structural graph makes similarity
 filters contaminate isolation, hover, pathfinding, degree, and physics. Derive
 the overlay from the currently visible structural nodes, redraw it after each
-Sigma render, and expose the similarity control only when the transport
-contains proposal edges. Use a visually distinct dashed purple stroke and keep
-the connection legend count aligned with the same thresholded proposal set.
+Sigma render, and expose a boolean visibility control only when the transport
+contains proposal edges. The canonical Brain queue has no measured similarity
+score, so do not display or filter by a fabricated percentage. Use a visually
+distinct dashed purple stroke and keep the connection list and legend count
+aligned with the same visible proposal set.
 
 ## Visible topology consistency
 

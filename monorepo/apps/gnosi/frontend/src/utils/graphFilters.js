@@ -97,7 +97,7 @@ export function getVisibleHoverNeighborhood(graph, node) {
     const edges = new Set();
 
     graph.forEachEdge((edge, attrs, source, target) => {
-        if (attrs.kind === 'suggestion' || attrs.kind === 'semantic_similarity') return;
+        if (attrs.kind === 'suggestion') return;
         if (attrs.hidden || (source !== node && target !== node)) return;
         const neighbor = source === node ? target : source;
         if (graph.getNodeAttribute(neighbor, 'hidden')) return;
@@ -158,7 +158,7 @@ export function applyFilters(graph, filters) {
         }
 
         graph.forEachEdge((edge, attrs, source, target) => {
-            const isSemantic = attrs.kind === 'suggestion' || attrs.kind === 'semantic_similarity';
+            const isSemantic = attrs.kind === 'suggestion';
             if (!isSemantic && visibleNodes.has(source) && visibleNodes.has(target)) visibleEdges.add(edge);
         });
 
@@ -294,7 +294,7 @@ export function applyFilters(graph, filters) {
             // Semantic proposals are drawn by a separate canvas overlay. They
             // never belong to structural topology, even if a caller supplied
             // them in the backing graph.
-            if (attrs.kind === 'suggestion' || attrs.kind === 'semantic_similarity') return;
+            if (attrs.kind === 'suggestion') return;
 
             // 'link' = wikilinks [[...]], 'relation' = frontmatter relations (by schema)
             const isReal = attrs.kind === 'explicit' || attrs.kind === 'structural'
@@ -303,7 +303,7 @@ export function applyFilters(graph, filters) {
         });
 
         // Isolation is a property of the rendered topology, not the backing
-        // graph. An edge excluded by source, table, or similarity filters must
+        // graph. An edge excluded by source, table, or visibility filters must
         // not make either endpoint count as connected.
         // “Show only” wins defensively if stale state supplies both mutually
         // exclusive modes at once.

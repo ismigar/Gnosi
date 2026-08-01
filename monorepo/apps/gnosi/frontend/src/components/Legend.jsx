@@ -1,12 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { SEMANTIC_SUGGESTION_COLOR } from '../utils/similarityOverlay';
-
-const connectionTypeColors = {
-    wikilink: '#10b981',
-    database_wikilink: '#6366f1',
-    unresolved: '#cbd5e1',
-    semantic_similarity: SEMANTIC_SUGGESTION_COLOR,
-};
+import { CONNECTION_TYPE_COLORS } from '../utils/graphLegend';
 
 export const Legend = ({ graphData, colorMode, filteredNodesCount, filteredEdgesCount, connectionTypeCounts }) => {
 
@@ -40,7 +33,7 @@ export const Legend = ({ graphData, colorMode, filteredNodesCount, filteredEdges
                 <strong>{t('graph.legend.connection_types', 'Connection types')}</strong>
                 {Object.entries(connectionTypeCounts || {}).filter(([, count]) => count > 0).map(([type, count]) => (
                     <div className="graph-legend-item" key={type}>
-                        <span className="graph-legend-line" style={{ background: connectionTypeColors[type] }} />
+                        <span className="graph-legend-line" style={{ background: CONNECTION_TYPE_COLORS[type] }} />
                         <span>{t(`graph.legend.${type}`, type)} ({count})</span>
                     </div>
                 ))}

@@ -14,11 +14,10 @@ def test_add_suggestion_edges_reads_the_canonical_queue(monkeypatch):
             {
                 "source": "source",
                 "target": "target",
-                "similarity": 83,
                 "reason": "Shared topic",
                 "suggestion_id": "proposal-1",
             },
-            {"source": "source", "target": "missing", "similarity": 91},
+            {"source": "source", "target": "missing"},
         ],
     )
 
@@ -29,7 +28,7 @@ def test_add_suggestion_edges_reads_the_canonical_queue(monkeypatch):
 
     edge = graph.edges["source", "target"]
     assert edge["kind"] == "suggestion"
-    assert edge["similarity"] == 83
+    assert "similarity" not in edge
     assert edge["reason"] == "Shared topic"
     assert edge["suggestion_id"] == "proposal-1"
     assert not graph.has_node("missing")
@@ -39,7 +38,7 @@ def test_explicit_relationship_supersedes_a_suggestion(monkeypatch):
     monkeypatch.setattr(
         llm_wiki_suggestions,
         "list_graph_edges",
-        lambda: [{"source": "source", "target": "target", "similarity": 90}],
+        lambda: [{"source": "source", "target": "target"}],
     )
     graph = nx.DiGraph()
     graph.add_nodes_from(["source", "target"])

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { PanelRight, Network } from 'lucide-react';
 import { AppHeader } from './AppHeader';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { getPanelScrollTarget } from '../utils/panelKeyboardNavigation';
 
 export function Layout({ children, sidebar, controls, bottomPanel, containerStyle = {} }) {
   const { t } = useTranslation();
@@ -13,6 +14,21 @@ export function Layout({ children, sidebar, controls, bottomPanel, containerStyl
   const [isBottomPanelOpen, setIsBottomPanelOpen] = React.useState(false);
   const graphContainerRef = React.useRef(null);
   const sidebarRef = React.useRef(null);
+  const bottomPanelRef = React.useRef(null);
+
+  const handleBottomPanelKeyDown = (event) => {
+    const panel = bottomPanelRef.current;
+    if (!panel) return;
+    const target = getPanelScrollTarget(
+      event.key,
+      panel.scrollTop,
+      panel.clientHeight,
+      panel.scrollHeight,
+    );
+    if (target === null) return;
+    event.preventDefault();
+    panel.scrollTo({ top: target, behavior: event.repeat ? 'auto' : 'smooth' });
+  };
 
   React.useEffect(() => {
     setIsPanelOpen(!isCompact);
@@ -89,6 +105,8 @@ export function Layout({ children, sidebar, controls, bottomPanel, containerStyl
       }}>
         <button
           onClick={() => setIsBottomPanelOpen(!isBottomPanelOpen)}
+          aria-expanded={isBottomPanelOpen}
+          aria-controls="graph-connections-panel"
           style={{
             width: '100%',
             padding: '8px',
@@ -108,7 +126,18 @@ export function Layout({ children, sidebar, controls, bottomPanel, containerStyl
           {isBottomPanelOpen ? `▼ ${t('graph.hide_connections', "Hide Connections")}` : `▲ ${t('graph.show_connections', "Show Connections")}`}
         </button>
         {isBottomPanelOpen && (
-          <div style={{ maxHeight: '35vh', overflowY: 'auto' }}>
+          <div
+            id="graph-connections-panel"
+            ref={bottomPanelRef}
+            tabIndex={0}
+            role="region"
+            aria-label={t(
+              'graph.connections_panel.scroll_label',
+              'Visible connections. Use the up and down arrow keys to scroll.',
+            )}
+            onKeyDown={handleBottomPanelKeyDown}
+            style={{ maxHeight: '35vh', overflowY: 'auto', overscrollBehavior: 'contain' }}
+          >
             {bottomPanel}
           </div>
         )}
