@@ -13,7 +13,9 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ELECTRON_DIR="$SCRIPT_DIR"
-MONOREPO_DIR="$(dirname "$(dirname "$ELECTRON_DIR")")"
+MONOREPO_DIR="$(dirname "$(dirname "$(dirname "$ELECTRON_DIR")")")"
+FRONTEND_DIR="$ELECTRON_DIR/../frontend"
+MONOREPO_LOCK="$MONOREPO_DIR/package-lock.json"
 
 echo "Release version: $VERSION"
 echo "Electron dir: $ELECTRON_DIR"
@@ -35,16 +37,36 @@ if [ -n "$(git status --porcelain)" ]; then
 fi
 
 echo ""
-echo "2. Updating version in package.json..."
+echo "2. Updating synchronized package versions..."
 cd "$ELECTRON_DIR"
 npm pkg set version="$VERSION"
+cd "$FRONTEND_DIR"
+npm pkg set version="$VERSION"
+cd "$MONOREPO_DIR"
+npm install --package-lock-only --ignore-scripts
+
+ELECTRON_VERSION=$(node -p "require('$ELECTRON_DIR/package.json').version")
+FRONTEND_VERSION=$(node -p "require('$FRONTEND_DIR/package.json').version")
+LOCK_VERSION=$(node -p "require('$MONOREPO_LOCK').packages['apps/gnosi/frontend'].version")
+
+if [ "$ELECTRON_VERSION" != "$VERSION" ] || \
+   [ "$FRONTEND_VERSION" != "$VERSION" ] || \
+   [ "$LOCK_VERSION" != "$VERSION" ]; then
+    echo "ERROR: Version synchronization failed."
+    echo "Electron: $ELECTRON_VERSION"
+    echo "Frontend: $FRONTEND_VERSION"
+    echo "Lockfile: $LOCK_VERSION"
+    exit 1
+fi
+
+echo "   Electron: $ELECTRON_VERSION"
+echo "   Frontend: $FRONTEND_VERSION"
+echo "   Lockfile: $LOCK_VERSION"
 
 echo ""
 echo "3. Building frontend..."
-cd "$ELECTRON_DIR/../frontend"
-if [ ! -d "dist" ]; then
-    npm run build
-fi
+cd "$FRONTEND_DIR"
+npm run build
 
 echo ""
 echo "4. Building Python bundle..."
@@ -80,11 +102,8 @@ echo "=== Release artifacts ready ==="
 echo ""
 echo "Artifacts location: $ELECTRON_DIR/dist/"
 echo ""
-echo "To create a GitHub release:"
-echo "  1. Go to https://github.com/ismigar/projectes/releases/new"
-echo "  2. Create tag: v$VERSION"
-echo "  3. Upload files from dist/"
-echo "  4. Publish release"
-echo ""
-echo "Or use GitHub CLI:"
-echo "  gh release create v$VERSION --draft --title 'Cervell Digital $VERSION' $ELECTRON_DIR/dist/*"
+echo "Next steps after this preparation is reviewed and merged:"
+echo "  1. Update local main from origin/main."
+echo "  2. Create the annotated tag v$VERSION on main."
+echo "  3. Push the tag through the SSH origin remote."
+echo "  4. Inspect the draft created in the public Gnosi repository."
