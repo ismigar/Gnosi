@@ -1576,6 +1576,9 @@
       "advanced": "Avançat"
     },
     "reader": {
+      "sections_label": "Apartats del lector",
+      "podcast_tab": "Podcast diari",
+      "subscriptions_tab": "Subscripcions",
       "podcast_title": "Podcast diari",
       "podcast_description": "Configura el model d’intel·ligència artificial que redacta el guió del podcast diari a partir de les notícies pendents.",
       "model_label": "Model d’IA per al guió",

@@ -1522,6 +1522,9 @@
       "advanced": "Avanzado"
     },
     "reader": {
+      "sections_label": "Apartados del lector",
+      "podcast_tab": "Podcast diario",
+      "subscriptions_tab": "Suscripciones",
       "podcast_title": "Podcast diario",
       "podcast_description": "Configura el modelo de inteligencia artificial que redacta el guion del podcast diario a partir de las noticias pendientes.",
       "model_label": "Modelo de IA para el guion",
