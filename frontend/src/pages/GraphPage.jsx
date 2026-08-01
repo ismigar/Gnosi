@@ -15,7 +15,10 @@ import { ConnectionList } from '../components/ConnectionList';
 import Graph from 'graphology';
 import { applyFilters, getEffectiveTableId, getSystemCategory, resolveMetaValue, toValueStrings } from '../utils/graphFilters';
 import { getConnectionTypeCounts } from '../utils/graphLegend';
-import { getVisibleSimilarityEdges } from '../utils/similarityOverlay';
+import {
+    getVisibleSimilarityEdges,
+    hasSemanticSuggestions,
+} from '../utils/similarityOverlay';
 import { useConfigChanged } from '../lib/configEvents';
 
 
@@ -470,6 +473,11 @@ function GraphPage() {
         return g;
     }, [graphData]);
 
+    const hasSimilarityData = useMemo(
+        () => hasSemanticSuggestions(graphData?.edges),
+        [graphData?.edges],
+    );
+
     const { filteredNodesCount, filteredEdgesCount, connectionTypeCounts } = useMemo(() => {
         if (!memoizedGraph) return { filteredNodesCount: 0, filteredEdgesCount: 0, connectionTypeCounts: {} };
         const { visibleNodes, visibleEdges } = applyFilters(memoizedGraph, filters);
@@ -571,6 +579,7 @@ function GraphPage() {
                     onSearchChange={setSearchTerm}
                     similarity={similarity}
                     onSimilarityChange={setSimilarity}
+                    hasSimilarityData={hasSimilarityData}
                     hideIsolated={hideIsolated}
                     onHideIsolatedChange={(checked) => {
                         setHideIsolated(checked);

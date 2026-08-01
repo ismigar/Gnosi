@@ -1,10 +1,11 @@
 import { useTranslation } from 'react-i18next';
+import { SEMANTIC_SUGGESTION_COLOR } from '../utils/similarityOverlay';
 
 const connectionTypeColors = {
     wikilink: '#10b981',
     database_wikilink: '#6366f1',
     unresolved: '#cbd5e1',
-    semantic_similarity: '#a855f7',
+    semantic_similarity: SEMANTIC_SUGGESTION_COLOR,
 };
 
 export const Legend = ({ graphData, colorMode, filteredNodesCount, filteredEdgesCount, connectionTypeCounts }) => {
