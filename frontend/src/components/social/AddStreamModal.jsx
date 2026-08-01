@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X, Check, Rss, Bell, Globe, Search, Hash } from 'lucide-react';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
+import { SocialNetworkIcon } from './SocialNetworkIcon';
 
 const NETWORKS = [
     { id: 'mastodon', name: 'Mastodon', icon: '🐘', color: 'bg-purple-500/20 text-purple-200' },
@@ -96,7 +97,7 @@ const AddStreamModal = ({ isOpen, onClose, onAdd }) => {
                                             : 'bg-white/5 border-transparent text-zinc-400 hover:bg-white/10 hover:text-zinc-200'}
                                     `}
                                 >
-                                    <span className="text-xl">{net.icon}</span>
+                                    <SocialNetworkIcon network={net.id} size={22} />
                                     <span className="font-medium">{net.name}</span>
                                     {selectedNetwork.id === net.id && <Check size={16} className="ml-auto text-primary" />}
                                 </button>

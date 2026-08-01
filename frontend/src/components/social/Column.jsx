@@ -2,14 +2,18 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { MoreHorizontal } from 'lucide-react';
 import PostCard from './PostCard';
+import { SocialNetworkIcon, isKnownSocialNetwork } from './SocialNetworkIcon';
 
-const Column = ({ title, icon, posts = [], onDelete, onRefresh }) => {
+const Column = ({ title, icon, network, posts = [], onDelete, onRefresh }) => {
     const { t } = useTranslation();
+    const streamIcon = isKnownSocialNetwork(network)
+        ? <SocialNetworkIcon network={network} size={22} />
+        : <span className="text-xl">{icon}</span>;
     return (
         <div className="glass-card flex h-full min-w-[calc(100vw-3rem)] max-w-[400px] shrink-0 flex-col overflow-hidden rounded-xl shadow-lg sm:min-w-[360px]">
             <div className="p-4 border-b border-[var(--border-primary)] font-semibold text-[var(--text-primary)] flex justify-between items-center bg-[var(--bg-secondary)]/50 backdrop-blur-md relative z-10">
                 <div className="flex items-center gap-3">
-                    <span className="text-xl">{icon}</span>
+                    {streamIcon}
                     <span className="tracking-wide">{title}</span>
                     <span className="bg-[var(--bg-tertiary)] text-xs px-2 py-0.5 rounded-full text-[var(--text-secondary)]">{posts.length}</span>
                 </div>
@@ -49,7 +53,9 @@ const Column = ({ title, icon, posts = [], onDelete, onRefresh }) => {
                 ) : (
                     <div className="flex flex-col items-center justify-center text-[var(--text-secondary)] mt-20 gap-2">
                         <div className="w-12 h-12 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center mb-2">
-                            <span className="text-2xl opacity-50">{icon}</span>
+                            {isKnownSocialNetwork(network)
+                                ? <SocialNetworkIcon network={network} size={26} />
+                                : <span className="text-2xl opacity-50">{icon}</span>}
                         </div>
                         <p>{t('social.column_empty', "No recent posts")}</p>
                     </div>
