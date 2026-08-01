@@ -4080,10 +4080,10 @@
       "edge_thickness": "Gruix de l'enllaç"
     },
     "sidebar": {
-      "color_by": "Pintar per",
+      "color_by": "Colora per",
       "color_kind": "Tipus",
       "color_cluster": "Clúster",
-      "color_ai_cluster": "IA Cluster",
+      "color_ai_cluster": "Clústers d’IA",
       "pathfinding_title": "Cerca de camins",
       "pathfinding_stop": "Atura la cerca",
       "pathfinding_start": "Comença la cerca",
@@ -4136,7 +4136,9 @@
       "database_wikilink": "Enllaços wiki de vista de base de dades",
       "unresolved": "Enllaços sense resoldre",
       "semantic_similarity": "Connexions semàntiques",
-      "node_groups": "Grups de nodes"
+      "node_groups": "Grups de nodes",
+      "clusters": "Clústers",
+      "ai_clusters": "Clústers d’IA"
     },
     "node_panel": {
       "close": "Tancar detalls",
