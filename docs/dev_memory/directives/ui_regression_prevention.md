@@ -33,6 +33,7 @@ Maintain the stability of key user interface (UI) components of the Gnosi projec
 ## Lessons Learned & Regressions
 1. **Recursion Prompt**: Using `window.prompt` for recurrent event deletion was a failure. Specialized modals with explicit choice buttons are required.
 2. **Brace Mismatch (Syntax Integrity)**: When editing large components like `GlobalSettingsModal.jsx` (>800 lines), always verify that the `multi_replace_file_content` chunks maintain the correct closing brace balance (`}`). A previous error left an unclosed fragment that broke the build.
+3. **Control Center Focus**: Keep the initial dashboard viewport focused on actionable controls such as schedulers, history, and administration. Do not restore passive system-health or analytics summary cards above these controls; they duplicate detail views, consume the first screen, and trigger unnecessary polling.
 
 ---
 *Note: This directive was updated after a recurring failure where `window.confirm` was used in the Contacts module, and `window.prompt` was erroneously introduced in the Calendar module.*

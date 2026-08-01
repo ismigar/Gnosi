@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Clock3, History, Play, RefreshCw, Users, Shield, Save, Gauge, X, Bug, FileText, AlertTriangle, Activity, Cpu, Layers, Database, ShieldCheck, Clock, Book, ExternalLink, ShieldAlert, Check, Search, Loader2, Eye, Edit2, Trash2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Clock3, History, Play, RefreshCw, Users, Shield, Save, Gauge, X, Bug, FileText, AlertTriangle, Activity, Cpu, Layers, Database, ShieldCheck, Clock, Book, ShieldAlert, Check, Loader2, Eye, Edit2, Trash2 } from 'lucide-react';
 import toast from '../lib/toast';
 import { AppHeader } from '../components/AppHeader';
 import { useApi } from '../hooks/use-api';
@@ -19,14 +18,12 @@ const ROLE_CAPABILITIES = {
 };
 
 function Dashboard() {
-    const navigate = useNavigate();
     const { role: initialRole, apiFetch } = useApi();
     const { t } = useTranslation();
     const { isDark } = useTheme();
     const [userRole, setUserRole] = useState(initialRole);
     const isAdmin = userRole === 'admin' || userRole === 'owner';
     
-    const [stats, setStats] = useState({ cpu: 0, ram_percent: 0, memory_items: 0, status: 'offline' });
     const [approvedTools, setApprovedTools] = useState([]);
     const [pendingTools, setPendingTools] = useState([]);
     
@@ -75,7 +72,6 @@ function Dashboard() {
     
     // Traps drilldown state
     const [isTrapsModalOpen, setIsTrapsModalOpen] = useState(false);
-    const [memorySearchTerm, setMemorySearchTerm] = useState("");
     const [isTrapsLoading, setIsTrapsLoading] = useState(false);
     const [isDirectivesModalOpen, setIsDirectivesModalOpen] = useState(false);
     const [isDirectivesLoading, setIsDirectivesLoading] = useState(false);
@@ -90,22 +86,10 @@ function Dashboard() {
     
     // New states for drill-down modals
     const [isToolsModalOpen, setIsToolsModalOpen] = useState(false);
-    const [isMemoryModalOpen, setIsMemoryModalOpen] = useState(false);
-    const [graphNodes, setGraphNodes] = useState([]);
-    const [isGraphLoading, setIsGraphLoading] = useState(false);
     
     const activeWorkspaceId = localStorage.getItem('gnosi_workspace_id') || 'personal';
 
     const [gnosiMode, setGnosiMode] = useState('personal');
-    const fetchStats = useCallback(async () => {
-        try {
-            const data = await apiFetch('/api/system/stats');
-            setStats(data);
-        } catch (e) {
-            console.error("Error fetching stats", e);
-        }
-    }, [apiFetch]);
-
     const fetchConfig = useCallback(async () => {
         try {
             const config = await apiFetch('/api/config');
@@ -235,24 +219,8 @@ function Dashboard() {
         }
     };
 
-    const fetchGraphNodes = async () => {
-        setIsGraphLoading(true);
-        setIsMemoryModalOpen(true);
-        try {
-            const data = await apiFetch('/api/graph');
-            if (data && data.nodes) {
-                setGraphNodes(data.nodes);
-            }
-        } catch (e) {
-            console.error("Error fetching graph nodes", e);
-        } finally {
-            setIsGraphLoading(false);
-        }
-    };
-
     const handleGlobalRefresh = async () => {
         await Promise.all([
-            fetchStats(),
             fetchAnalytics(),
             fetchSchedulers(false),
             fetchApprovedTools(),
@@ -355,7 +323,6 @@ function Dashboard() {
         };
 
         const fetchSystemStatus = () => {
-            fetchStats();
             fetchConfig();
             fetchPendingTools();
             fetchAnalytics();
@@ -370,12 +337,10 @@ function Dashboard() {
         fetchNotifications(0);
         fetchTaskHistory(0);
 
-        const interval = setInterval(fetchStats, 5000);
         const toolsInterval = setInterval(fetchPendingTools, 15000);
         const schedulersInterval = setInterval(() => fetchSchedulers(true), 30000);
         
         return () => {
-            clearInterval(interval);
             clearInterval(toolsInterval);
             clearInterval(schedulersInterval);
         };
@@ -557,7 +522,7 @@ function Dashboard() {
 
     // Unified keyboard handler for all Dashboard modals
     useEffect(() => {
-        const anyModalOpen = isAddMemberModalOpen || isPermissionsModalOpen || isTrapsModalOpen || isDirectivesModalOpen || isToolsModalOpen || isMemoryModalOpen || editingDirective;
+        const anyModalOpen = isAddMemberModalOpen || isPermissionsModalOpen || isTrapsModalOpen || isDirectivesModalOpen || isToolsModalOpen || editingDirective;
         if (!anyModalOpen) return;
 
         const handleKeyDown = (e) => {
@@ -567,7 +532,6 @@ function Dashboard() {
                 setIsTrapsModalOpen(false);
                 setIsDirectivesModalOpen(false);
                 setIsToolsModalOpen(false);
-                setIsMemoryModalOpen(false);
                 setEditingDirective(null);
             } else if (e.key === 'Enter') {
                 if (document.activeElement.tagName === 'TEXTAREA') return;
@@ -582,7 +546,7 @@ function Dashboard() {
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isAddMemberModalOpen, isPermissionsModalOpen, isTrapsModalOpen, isDirectivesModalOpen, isToolsModalOpen, isMemoryModalOpen, editingDirective, selectedMember, handleAddMember, handleSaveDirective, handleUpdatePermissions]);
+    }, [isAddMemberModalOpen, isPermissionsModalOpen, isTrapsModalOpen, isDirectivesModalOpen, isToolsModalOpen, editingDirective, selectedMember, handleAddMember, handleSaveDirective, handleUpdatePermissions]);
 
     const formatFrequency = (task) => {
         if (typeof task.interval_minutes === 'number' && task.interval_minutes > 0) {
@@ -621,145 +585,8 @@ function Dashboard() {
                     <div className={`home-page__glow home-page__glow--2 ${isDark ? 'opacity-20' : 'opacity-10 opacity-60 grayscale'}`}></div>
 
                     <div className="w-full">
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
-                {/* Status Card */}
-                <div className="glass-panel p-6 rounded-2xl shadow-xl transition-all hover:bg-white/[0.02]">
-                    <h3 className="text-[var(--text-secondary)] text-[10px] uppercase font-bold tracking-widest mb-4">
-                        {t('dashboard.status_title')}
-                    </h3>
-                    <div className="flex items-center">
-                        <div className={`w-2.5 h-2.5 rounded-full mr-3 ${stats.status === 'online' ? 'bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.4)]' : 'bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.4)]'}`}></div>
-                        <span className="text-2xl font-bold capitalize tracking-tight text-[var(--text-primary)]">{stats.status}</span>
-                    </div>
-                </div>
-
-                {/* Memory Card */}
-                <div 
-                    onClick={fetchGraphNodes}
-                    className="glass-panel p-6 rounded-2xl hover:border-cyan-500/30 transition-all group cursor-pointer hover:bg-cyan-500/[0.02] shadow-xl"
-                >
-                    <h3 className="text-[var(--text-secondary)] text-[10px] uppercase font-bold tracking-widest mb-4 flex justify-between">
-                        {t('dashboard.memory_title')}
-                        <span className="text-[10px] text-cyan-500 group-hover:underline">{t('dashboard.details_link')}</span>
-                    </h3>
-                    <div className="flex items-baseline gap-2">
-                        <span className="text-4xl font-black text-cyan-400 tracking-tighter group-hover:scale-110 transition-transform origin-left duration-300">{stats.memory_items}</span>
-                        <span className="text-[var(--text-secondary)] text-sm font-medium">{t('dashboard.memories_stored')}</span>
-                    </div>
-                </div>
-
-                {/* CPU Card */}
-                <div className="glass-panel p-6 rounded-2xl shadow-xl transition-all hover:bg-white/[0.02]">
-                    <h3 className="text-[var(--text-secondary)] text-[10px] uppercase font-bold tracking-widest mb-4">
-                        {t('dashboard.cpu_usage')}
-                    </h3>
-                    <div className="mt-2 text-4xl font-black text-purple-400 tracking-tighter">{stats.cpu}%</div>
-                    <div className="w-full bg-[var(--bg-tertiary)] h-1.5 mt-4 rounded-full overflow-hidden">
-                        <div className="bg-gradient-to-r from-purple-600 to-purple-400 h-full transition-all duration-1000" style={{ width: `${stats.cpu}%` }}></div>
-                    </div>
-                </div>
-
-                {/* RAM Card */}
-                <div className="glass-panel p-6 rounded-2xl shadow-xl transition-all hover:bg-white/[0.02]">
-                    <h3 className="text-[var(--text-secondary)] text-[10px] uppercase font-bold tracking-widest mb-4">
-                        {t('dashboard.ram_usage')}
-                    </h3>
-                    <div className="mt-2 text-4xl font-black text-pink-400 tracking-tighter">{stats.ram_percent}%</div>
-                    <div className="w-full bg-[var(--bg-tertiary)] h-1.5 mt-4 rounded-full overflow-hidden">
-                        <div className="bg-gradient-to-r from-pink-600 to-pink-400 h-full transition-all duration-1000" style={{ width: `${stats.ram_percent}%` }}></div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Analytics Section - Always visible to prevent layout shift */}
-            <div className="mt-12 relative z-10 w-full">
-                <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-                    <span className="w-1 h-6 bg-blue-500 rounded-full"></span>
-                    {t('dashboard.analytics_overview', 'Analytics Overview')}
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    {/* Directives (Now first) */}
-                    <div 
-                        onClick={fetchDirectives}
-                        className="glass-panel p-6 rounded-2xl hover:border-cyan-500/30 hover:bg-cyan-500/[0.02] shadow-xl transition-all group cursor-pointer"
-                    >
-                        <h3 className="text-[var(--text-secondary)] text-[10px] uppercase font-bold tracking-widest mb-4 flex justify-between items-center">
-                            {t('dashboard.directives')}
-                            <span className="text-[10px] text-cyan-500 group-hover:underline">{t('dashboard.details_link')}</span>
-                        </h3>
-                        <div className="text-4xl font-black text-cyan-400 tracking-tighter group-hover:scale-105 transition-transform origin-left">{analytics?.directives?.total || 0}</div>
-                        <div className="mt-4 text-[10px] font-bold text-cyan-500/60 uppercase tracking-widest font-bold">{t('dashboard.managed_in_vault')}</div>
-                    </div>
-
-                    {/* Tools Created (Intelligence) */}
-                    <div 
-                        onClick={() => {
-                            fetchApprovedTools();
-                            fetchPendingTools();
-                            fetchAnalytics();
-                            setIsToolsModalOpen(true);
-                        }}
-                        className="glass-panel p-6 rounded-2xl hover:border-green-500/30 hover:bg-green-500/[0.02] shadow-xl transition-all group cursor-pointer"
-                    >
-                        <h3 className="text-[var(--text-secondary)] text-[10px] uppercase font-bold tracking-widest mb-4 flex justify-between items-center">
-                            {t('dashboard.tools_title')}
-                            <span className="text-[10px] text-green-500 group-hover:underline">{t('dashboard.details_link')}</span>
-                        </h3>
-                        <div className="text-4xl font-black text-green-400 tracking-tighter group-hover:scale-105 transition-transform origin-left">
-                            {Math.max(analytics?.tools?.total_tools || 0, approvedTools.length + pendingTools.length)}
-                        </div>
-                        <div className="mt-4 flex gap-3 text-[10px] items-center">
-                            <span className="bg-green-500/10 text-green-500 px-2 py-0.5 rounded-full font-bold uppercase tracking-widest">
-                                {Math.max(analytics?.tools?.approved || 0, approvedTools.length)} {t('dashboard.approved')}
-                            </span>
-                            <span className="bg-yellow-500/10 text-yellow-500 px-2 py-0.5 rounded-full font-bold uppercase tracking-widest">
-                                {Math.max(analytics?.tools?.pending || 0, pendingTools.length)} {t('dashboard.pending')}
-                            </span>
-                        </div>
-                    </div>
-
-                    {/* Errors Prevented */}
-                    <div 
-                        onClick={fetchTraps}
-                        className="glass-panel p-6 rounded-2xl hover:border-red-500/30 hover:bg-red-500/[0.02] shadow-xl transition-all group cursor-pointer"
-                    >
-                        <h3 className="text-[var(--text-secondary)] text-[10px] uppercase font-bold tracking-widest mb-4 flex justify-between items-center">
-                            {t('dashboard.errors_prevented_title')}
-                            <span className="text-[10px] text-red-500 group-hover:underline">{t('dashboard.summary_link')}</span>
-                        </h3>
-                        <div className="text-4xl font-black text-red-400 tracking-tighter group-hover:scale-105 transition-transform origin-left">{analytics?.errors_prevented || 0}</div>
-                        <div className="mt-4 text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest">{t('dashboard.documented_pitfalls')}</div>
-                    </div>
-
-                    {/* Recent Activity */}
-                    <div 
-                        onClick={() => {
-                            fetchApprovedTools();
-                            fetchPendingTools();
-                            fetchAnalytics();
-                            setIsToolsModalOpen(true);
-                        }}
-                        className="glass-panel p-6 rounded-2xl hover:border-orange-500/30 hover:bg-orange-500/[0.02] shadow-xl transition-all group cursor-pointer"
-                    >
-                        <h3 className="text-[var(--text-secondary)] text-[10px] uppercase font-bold tracking-widest mb-4 flex justify-between items-center">
-                            {t('dashboard.last_7_days')}
-                            <span className="text-[10px] text-orange-500 group-hover:underline">{t('dashboard.history_link')}</span>
-                        </h3>
-                        <div className="text-4xl font-black text-orange-400 tracking-tighter group-hover:scale-105 transition-transform origin-left">
-                            {Math.max(analytics?.tools?.created_last_7_days || 0, approvedTools.filter(t => {
-                                const d = new Date(t.approved_at || t.created_at);
-                                const weekAgo = new Date();
-                                weekAgo.setDate(weekAgo.getDate() - 7);
-                                return d >= weekAgo;
-                            }).length)}
-                        </div>
-                        <div className="mt-4 text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest">{t('dashboard.new_tools')}</div>
-                    </div>
-                </div>
-            </div>
-
             {/* Control Center Tabs */}
-            <div className="mt-16">
+            <div>
                 <div className="flex items-center gap-3 mb-6">
                     <button
                         onClick={() => setSelectedControlTab('schedulers')}
@@ -1136,121 +963,6 @@ function Dashboard() {
     </div>
 
             {/* Modals moved outside animated container for better positioning */}
-            {/* Memory Detail Modal */}
-            {isMemoryModalOpen && (
-                <div className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-                    <div className="bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-3xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl">
-                        <div className="p-6 border-b border-[var(--border-primary)] flex items-center justify-between bg-[var(--bg-primary)]/50">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-2xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center">
-                                    <Database size={20} />
-                                </div>
-                                <div>
-                                    <h3 className="text-xl font-bold text-[var(--text-primary)] font-gnosi">{t('dashboard.memory_details', "Memory Details")}</h3>
-                                    <p className="text-xs text-[var(--text-secondary)]">{t('dashboard.memories_stored_desc', "List of memories stored in the Knowledge Graph.")}</p>
-                                </div>
-                            </div>
-                            <button 
-                                onClick={() => setIsMemoryModalOpen(false)}
-                                className="p-2 hover:bg-[var(--bg-tertiary)] rounded-xl transition-colors text-[var(--text-secondary)]"
-                            >
-                                <X size={20} />
-                            </button>
-                        </div>
-                        
-                        <div className="flex-1 overflow-y-auto p-6">
-                            {isGraphLoading ? (
-                                <div className="flex flex-col items-center justify-center py-20 gap-4">
-                                    <RefreshCw className="animate-spin text-cyan-500" size={32} />
-                                    <p className="text-[var(--text-secondary)] font-medium">{t('dashboard.loading_memories')}</p>
-                                </div>
-                            ) : graphNodes.length === 0 ? (
-                                <div className="text-center py-20 text-[var(--text-secondary)]">
-                                    <Database className="mx-auto mb-4 opacity-20" size={48} />
-                                    <p>{t('dashboard.no_graph_records')}</p>
-                                </div>
-                            ) : (
-                                <div className="space-y-4">
-                                    <div className="flex items-center justify-between gap-4">
-                                        <div className="text-[10px] uppercase font-bold text-[var(--text-secondary)] tracking-widest">{t('dashboard.records_found', { count: graphNodes.length })}</div>
-                                        <div className="relative flex-1 max-w-xs">
-                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" size={14} />
-                                            <input 
-                                                type="text"
-                                                placeholder={t('dashboard.search_memory_placeholder')}
-                                                className="w-full bg-[var(--bg-tertiary)] border border-[var(--border-primary)] rounded-xl py-1.5 pl-9 pr-4 text-xs text-[var(--text-primary)] focus:outline-none focus:border-cyan-500/50 transition-all font-gnosi"
-                                                value={memorySearchTerm}
-                                                onChange={(e) => setMemorySearchTerm(e.target.value)}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 gap-2">
-                                        {graphNodes
-                                            .filter(node => 
-                                                node.label.toLowerCase().includes(memorySearchTerm.toLowerCase()) || 
-                                                node.kind?.toLowerCase().includes(memorySearchTerm.toLowerCase()) ||
-                                                node.id.toLowerCase().includes(memorySearchTerm.toLowerCase())
-                                            )
-                                            .slice(0, 100) 
-                                            .map((node) => {
-                                            const getIcon = (kind) => {
-                                                switch(kind?.toLowerCase()) {
-                                                    case 'contact': return <Users size={14} className="text-blue-400" />;
-                                                    case 'event': return <Clock size={14} className="text-orange-400" />;
-                                                    case 'page': return <FileText size={14} className="text-yellow-400" />;
-                                                    case 'media': return <Layers size={14} className="text-pink-400" />;
-                                                    case 'wiki': return <Book size={14} className="text-purple-400" />;
-                                                    case 'database': return <Database size={14} className="text-emerald-400" />;
-                                                    case 'table': return <Database size={14} className="text-blue-500" />;
-                                                    case 'view': return <Database size={14} className="text-indigo-400" />;
-                                                    default: return <Database size={14} className="text-[var(--text-secondary)]" />;
-                                                }
-                                            };
-
-                                            return (
-                                                <div 
-                                                    key={node.id} 
-                                                    onClick={() => navigate(`/graph?node=${node.id}`)}
-                                                    className="p-3 rounded-xl border border-[var(--border-primary)] bg-[var(--bg-tertiary)]/30 hover:bg-[var(--bg-tertiary)] hover:border-cyan-500/30 transition-all flex items-center justify-between group cursor-pointer"
-                                                >
-                                                    <div className="flex items-center gap-3 overflow-hidden">
-                                                        <div className="p-2 rounded-lg bg-[var(--bg-primary)]/50 group-hover:bg-cyan-500/10 transition-colors">
-                                                            {getIcon(node.kind || node.type)}
-                                                        </div>
-                                                        <div className="overflow-hidden">
-                                                            <div className="text-sm font-bold text-[var(--text-primary)] truncate group-hover:text-cyan-400 transition-colors">{node.label}</div>
-                                                            <div className="text-[10px] text-[var(--text-secondary)] capitalize tracking-wider flex items-center gap-2">
-                                                                {node.kind || node.type || 'node'}
-                                                                {node.id && <span className="text-[8px] font-mono opacity-50">ID: {node.id.substring(0, 8)}</span>}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <span className="text-[10px] font-bold text-cyan-500 uppercase tracking-tighter">{t('dashboard.view_graph', "View Graph")}</span>
-                                                        <ExternalLink size={14} className="text-cyan-500" />
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                        
-                        <div className="p-4 border-t border-[var(--border-primary)] bg-[var(--bg-primary)]/50 flex items-center justify-between">
-                            <button 
-                                onClick={() => navigate('/graph')}
-                                className="flex items-center gap-2 px-4 py-2 text-cyan-500 hover:text-cyan-300 text-xs font-bold transition-all"
-                            >
-                                <Activity size={16} />
-                                VEURE GRAF COMPLET
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {/* Traps Detail Modal */}
             {isTrapsModalOpen && (
                 <div className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
