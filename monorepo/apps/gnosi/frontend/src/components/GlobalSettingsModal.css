@@ -203,6 +203,53 @@
     gap: var(--settings-configurable-gap, 12px);
 }
 
+.social-network-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.social-network-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    min-height: 50px;
+    padding: 10px 14px;
+    border: 1px solid var(--settings-border);
+    border-radius: 14px 14px 6px 6px;
+    background: var(--settings-sidebar-bg);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font: inherit;
+    font-weight: 700;
+    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s, color 0.2s;
+}
+
+.social-network-tab:hover,
+.social-network-tab:focus-visible {
+    border-color: var(--gnosi-blue);
+    color: var(--text-primary);
+    outline: none;
+}
+
+.social-network-tab:focus-visible {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+.social-network-tab.is-enabled {
+    background: color-mix(in srgb, var(--gnosi-blue) 12%, var(--settings-sidebar-bg));
+    border-color: var(--gnosi-blue);
+    color: var(--text-primary);
+}
+
+.social-network-tab .gnosi-toggle {
+    margin-left: 3px;
+}
+
+.social-network-tab__fallback {
+    font-size: 1.4rem;
+}
+
 .settings-configurable-item {
     border-radius: 24px;
     background: var(--settings-sidebar-bg) !important;
