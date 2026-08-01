@@ -16,9 +16,9 @@ import Graph from 'graphology';
 import { applyFilters, getEffectiveTableId, getSystemCategory, resolveMetaValue, toValueStrings } from '../utils/graphFilters';
 import { getConnectionTypeCounts } from '../utils/graphLegend';
 import {
-    getVisibleSimilarityEdges,
+    getVisibleSemanticEdges,
     hasSemanticSuggestions,
-} from '../utils/similarityOverlay';
+} from '../utils/semanticOverlay';
 import { useConfigChanged } from '../lib/configEvents';
 
 
@@ -43,7 +43,7 @@ function GraphPage() {
     // Filter State
     const location = useLocation();
     const [searchTerm, setSearchTerm] = useState("");
-    const [similarity, setSimilarity] = useState(100);
+    const [showSemanticSuggestions, setShowSemanticSuggestions] = useState(true);
     const [hideIsolated, setHideIsolated] = useState(false);
     const [onlyIsolated, setOnlyIsolated] = useState(false);
     const [activeClusters] = useState(new Set());
@@ -443,7 +443,7 @@ function GraphPage() {
         activeClusters,
         activeKinds,
         activeProjects,
-        similarity,
+        showSemanticSuggestions,
         hideIsolated,
         onlyIsolated,
         selectedNode,
@@ -458,7 +458,7 @@ function GraphPage() {
         fieldFilters,
         graphTableFiltersSettings,
         activeMediaTags
-    }), [activeClusters, activeKinds, activeProjects, similarity, hideIsolated, onlyIsolated, selectedNode, depth, searchTerm, timelineDate, pathResult, visibleDatabases, visibleTables, sourcesInitialized, activeTableFilters, fieldFilters, graphTableFiltersSettings, activeMediaTags]);
+    }), [activeClusters, activeKinds, activeProjects, showSemanticSuggestions, hideIsolated, onlyIsolated, selectedNode, depth, searchTerm, timelineDate, pathResult, visibleDatabases, visibleTables, sourcesInitialized, activeTableFilters, fieldFilters, graphTableFiltersSettings, activeMediaTags]);
     
     // Efficiently calculate filtered counts as derived state (Clean v6)
     // Match the body-wikilink topology rendered by GraphViewer and Obsidian.
@@ -473,7 +473,7 @@ function GraphPage() {
         return g;
     }, [graphData]);
 
-    const hasSimilarityData = useMemo(
+    const hasSemanticData = useMemo(
         () => hasSemanticSuggestions(graphData?.edges),
         [graphData?.edges],
     );
@@ -481,10 +481,10 @@ function GraphPage() {
     const { filteredNodesCount, filteredEdgesCount, connectionTypeCounts } = useMemo(() => {
         if (!memoizedGraph) return { filteredNodesCount: 0, filteredEdgesCount: 0, connectionTypeCounts: {} };
         const { visibleNodes, visibleEdges } = applyFilters(memoizedGraph, filters);
-        const visibleSuggestions = getVisibleSimilarityEdges(
+        const visibleSuggestions = getVisibleSemanticEdges(
             graphData?.edges,
             visibleNodes,
-            similarity,
+            showSemanticSuggestions,
         );
         return {
             filteredNodesCount: visibleNodes.size,
@@ -496,7 +496,7 @@ function GraphPage() {
                 ],
             ),
         };
-    }, [memoizedGraph, filters, graphData?.edges, similarity]);
+    }, [memoizedGraph, filters, graphData?.edges, showSemanticSuggestions]);
 
     // Precomputes the available values for each configured field — O(nodes × fields) once per load
     const fieldValuesByKey = useMemo(() => {
@@ -577,9 +577,9 @@ function GraphPage() {
                 <Sidebar
                     searchTerm={searchTerm}
                     onSearchChange={setSearchTerm}
-                    similarity={similarity}
-                    onSimilarityChange={setSimilarity}
-                    hasSimilarityData={hasSimilarityData}
+                    showSemanticSuggestions={showSemanticSuggestions}
+                    onShowSemanticSuggestionsChange={setShowSemanticSuggestions}
+                    hasSemanticData={hasSemanticData}
                     hideIsolated={hideIsolated}
                     onHideIsolatedChange={(checked) => {
                         setHideIsolated(checked);
@@ -857,7 +857,7 @@ function GraphPage() {
             }
             bottomPanel={
                 <div style={{ padding: '20px', background: isDarkMode ? '#111' : '#f7f7f7' }}>
-                    <ConnectionList graphInstance={graphInstance} filters={filters} isDarkMode={isDarkMode} />
+                    <ConnectionList graphInstance={graphInstance} graphData={graphData} filters={filters} />
                 </div>
             }
             containerStyle={{ display: 'block' }}

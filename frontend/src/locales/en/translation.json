@@ -12,9 +12,6 @@
   "filter_by_project": "Filter by Project",
   "legend_real_connection": "Real Connection",
   "legend_directed_connection": "Directed Connection",
-  "legend_strong_similarity": "Strong Similarity (>85%)",
-  "legend_medium_similarity": "Medium Similarity (>70%)",
-  "legend_weak_similarity": "Weak Similarity (>60%)",
   "reset_filters": "Reset Filters",
   "depth_filter": "Depth Filter",
   "depth_1": "1 (Direct)",
@@ -23,7 +20,6 @@
   "legend_title": "Legend",
   "connections_title": "Connections",
   "no_connections": "No connections found.",
-  "similarity_score": "Similarity",
   "reason": "Reason",
   "language": "Language",
   "vault_add_local_property": "Add local property",
@@ -3981,6 +3977,15 @@
     "toggle_panel_tooltip": "Show / hide panel",
     "hide_connections": "Hide Connections",
     "show_connections": "Show Connections",
+    "connections_panel": {
+      "title": "Visible connections",
+      "description": "Each group is a visible source note and each row is one outgoing connection. Types and colors match the legend.",
+      "semantic_note": "Semantic connections are pending Brain proposals; they do not modify notes.",
+      "empty": "There are no visible connections with the current filters.",
+      "scroll_label": "Visible connections. Use the up and down arrow keys to scroll.",
+      "show_semantic": "Show semantic connections",
+      "show_semantic_hint": "Pending Brain proposals; they do not modify notes."
+    },
     "controls": {
       "fullscreen": "Fullscreen",
       "recenter": "Recenter",

@@ -12,9 +12,6 @@
   "filter_by_project": "Filtrar por proyecto",
   "legend_real_connection": "Conexión Real",
   "legend_directed_connection": "Conexión Dirigida",
-  "legend_strong_similarity": "Similitud Fuerte (>85%)",
-  "legend_medium_similarity": "Similitud Media (>70%)",
-  "legend_weak_similarity": "Similitud Débil (>60%)",
   "reset_filters": "Restablecer Filtros",
   "depth_filter": "Filtro de Profundidad",
   "depth_1": "1 (Directo)",
@@ -23,7 +20,6 @@
   "legend_title": "Leyenda",
   "connections_title": "Conexiones",
   "no_connections": "No se encontraron conexiones.",
-  "similarity_score": "Similitud",
   "reason": "Razón",
   "language": "Idioma",
   "vault_add_local_property": "Añadir propiedad local",
@@ -4121,6 +4117,15 @@
     "toggle_panel_tooltip": "Mostrar / ocultar panel",
     "hide_connections": "Ocultar Conexiones",
     "show_connections": "Mostrar Conexiones",
+    "connections_panel": {
+      "title": "Conexiones visibles",
+      "description": "Cada bloque es una nota de origen visible y cada fila es una conexión saliente. Los tipos y colores coinciden con la leyenda.",
+      "semantic_note": "Las conexiones semánticas son propuestas pendientes del Cerebro; no modifican ninguna nota.",
+      "empty": "No hay conexiones visibles con los filtros actuales.",
+      "scroll_label": "Conexiones visibles. Usa las flechas arriba y abajo para desplazarte.",
+      "show_semantic": "Mostrar conexiones semánticas",
+      "show_semantic_hint": "Propuestas pendientes del Cerebro; no modifican las notas."
+    },
     "controls": {
       "fullscreen": "Pantalla Completa",
       "recenter": "Recentrar",
