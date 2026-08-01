@@ -32,8 +32,7 @@ import {
     getVisibleSemanticEdges,
     SEMANTIC_SUGGESTION_COLOR,
 } from '../utils/semanticOverlay';
-
-const BASE_EDGE_THICKNESS = 0.48;
+import { getHoverEdgeStyle, getRenderedEdgeThickness } from '../utils/graphEdgeStyles';
 
 
 function stringToColor(str) {
@@ -461,10 +460,8 @@ export const GraphViewer = forwardRef(({
             const baseColor = isDark
                 ? '#475569'
                 : '#d9dde3';
-            const activeColor = isDark
-                ? 'rgba(226, 232, 240, 0.72)'
-                : 'rgba(71, 85, 105, 0.58)';
             const color = baseColor;
+            const thickness = edgeThicknessRef.current || 1.0;
 
             const pathResult = pathResultRef.current;
             if (pathResult && pathResult.edges) {
@@ -473,10 +470,14 @@ export const GraphViewer = forwardRef(({
             }
 
             if (hoveredNode) {
-                if (hoveredEdges.has(edge)) {
-                    return { ...data, color: activeColor, size: 0.65, zIndex: 10 };
-                }
-                else return { ...data, color: isDarkModeRef.current ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.05)", zIndex: 0 };
+                return {
+                    ...data,
+                    ...getHoverEdgeStyle({
+                        isHovered: hoveredEdges.has(edge),
+                        isDark,
+                        multiplier: thickness,
+                    }),
+                };
             }
 
             // Apply edge thickness multiplier and arrow toggle from visualization controls
@@ -486,8 +487,7 @@ export const GraphViewer = forwardRef(({
                 type: showArrowsRef.current ? 'arrow' : 'line',
                 zIndex: 1
             };
-            const thickness = edgeThicknessRef.current || 1.0;
-            result.size = Math.max(0.2, BASE_EDGE_THICKNESS * thickness);
+            result.size = getRenderedEdgeThickness(thickness);
             
             return result;
 
