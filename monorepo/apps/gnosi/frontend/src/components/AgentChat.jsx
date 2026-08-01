@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DynamicIcon, iconNames } from 'lucide-react/dynamic';
-import { Send, X, Paperclip, Minimize2, Maximize2, Bot, Brain, Sparkles, Plus, AtSign, Archive, PanelBottomClose } from 'lucide-react';
+import { Send, X, Paperclip, Minimize2, Maximize2, Bot, Brain, Sparkles, Plus, AtSign, Archive, PanelBottomClose, Copy, Reply, RotateCcw, Pencil, ThumbsUp, ThumbsDown, Info, Bookmark, Undo2 } from 'lucide-react';
 import { useConfigChanged } from '../lib/configEvents';
 import { announceFloatingPanelOpen, useExclusiveFloatingPanel } from '../hooks/useExclusiveFloatingPanel';
 import { useFloatingActionDock } from '../hooks/useFloatingActionDock';
@@ -140,6 +140,7 @@ const AgentChat = ({ storageIdentity = '' }) => {
     const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
     const [pendingConfirmation, setPendingConfirmation] = useState(null);
     const [agentRuntime, setAgentRuntime] = useState(null);
+    const [detailsMessageIndex, setDetailsMessageIndex] = useState(null);
     const [isDockOpen, setIsDockOpen] = useFloatingActionDock();
     useExclusiveFloatingPanel('chat', isOpen, setIsOpen);
 
@@ -1123,6 +1124,44 @@ const AgentChat = ({ storageIdentity = '' }) => {
         updateConfirmationStatus,
     ]);
 
+    const focusComposerWith = useCallback((value) => {
+        setInputValue(value);
+        setShowMentionMenu(false);
+        requestAnimationFrame(() => inputRef.current?.focus());
+    }, []);
+
+    const copyMessage = useCallback(async (content) => {
+        try {
+            await navigator.clipboard.writeText(String(content || ''));
+            toast.success(t('chat.message_copied', 'Message copied'));
+        } catch (error) {
+            console.error('Could not copy assistant message', error);
+            toast.error(t('chat.copy_failed', 'Could not copy the message'));
+        }
+    }, [t]);
+
+    const quoteMessage = useCallback((message) => {
+        const prefix = message?.role === 'user'
+            ? t('chat.you', 'You')
+            : agentConfig?.name || 'Gnosi Copilot';
+        focusComposerWith(`> ${prefix}: ${String(message?.content || '').replace(/\n/g, '\n> ')}\n\n`);
+    }, [agentConfig?.name, focusComposerWith, t]);
+
+    const markMessage = useCallback((index, field, value) => {
+        setMessages((previous) => previous.map((message, messageIndex) => (
+            messageIndex === index ? { ...message, [field]: value } : message
+        )));
+    }, []);
+
+    const previousUserPrompt = useCallback((index) => {
+        for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
+            if (messages[cursor]?.role === 'user' && messages[cursor]?.content) {
+                return messages[cursor].content;
+            }
+        }
+        return '';
+    }, [messages]);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         if ((!inputValue.trim() && attachments.length === 0) || isLoading || !agentHasModel) return;
@@ -1603,6 +1642,34 @@ const AgentChat = ({ storageIdentity = '' }) => {
                                         </div>
                                     )}
                                 </div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '2px', padding: '0 2px', alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                                    <button type="button" onClick={() => copyMessage(msg.content)} aria-label={t('chat.copy_message', 'Copy message')} title={t('chat.copy_message', 'Copy message')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Copy size={13} /></button>
+                                    <button type="button" onClick={() => quoteMessage(msg)} aria-label={t('chat.reply_to_message', 'Reply to message')} title={t('chat.reply_to_message', 'Reply to message')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Reply size={13} /></button>
+                                    {msg.role === 'user' && (
+                                        <button type="button" onClick={() => focusComposerWith(msg.content || '')} aria-label={t('chat.edit_message', 'Edit and resend')} title={t('chat.edit_message', 'Edit and resend')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Pencil size={13} /></button>
+                                    )}
+                                    {msg.role === 'assistant' && previousUserPrompt(idx) && (
+                                        <button type="button" onClick={() => focusComposerWith(previousUserPrompt(idx))} aria-label={t('chat.regenerate_message', 'Regenerate response')} title={t('chat.regenerate_message', 'Regenerate response')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><RotateCcw size={13} /></button>
+                                    )}
+                                    {msg.role === 'assistant' && (
+                                        <>
+                                            <button type="button" onClick={() => markMessage(idx, 'feedback', msg.feedback === 'up' ? null : 'up')} aria-label={t('chat.helpful_response', 'Helpful response')} title={t('chat.helpful_response', 'Helpful response')} aria-pressed={msg.feedback === 'up'} style={{ background: 'none', border: 'none', color: msg.feedback === 'up' ? 'var(--gnosi-blue, #2563eb)' : 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><ThumbsUp size={13} /></button>
+                                            <button type="button" onClick={() => markMessage(idx, 'feedback', msg.feedback === 'down' ? null : 'down')} aria-label={t('chat.unhelpful_response', 'Unhelpful response')} title={t('chat.unhelpful_response', 'Unhelpful response')} aria-pressed={msg.feedback === 'down'} style={{ background: 'none', border: 'none', color: msg.feedback === 'down' ? 'var(--status-error, #dc2626)' : 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><ThumbsDown size={13} /></button>
+                                            <button type="button" onClick={() => markMessage(idx, 'saved', !msg.saved)} aria-label={t('chat.save_message', 'Save message')} title={t('chat.save_message', 'Save message')} aria-pressed={Boolean(msg.saved)} style={{ background: 'none', border: 'none', color: msg.saved ? 'var(--gnosi-blue, #2563eb)' : 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Bookmark size={13} fill={msg.saved ? 'currentColor' : 'none'} /></button>
+                                        </>
+                                    )}
+                                    {msg.undo?.available && idx === messages.length - 1 && (
+                                        <button type="button" onClick={msg.undo.run} aria-label={t('chat.undo_last_action', 'Undo last action')} title={t('chat.undo_last_action', 'Undo last action')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Undo2 size={13} /></button>
+                                    )}
+                                    <button type="button" onClick={() => setDetailsMessageIndex(detailsMessageIndex === idx ? null : idx)} aria-label={t('chat.message_details', 'Message details')} title={t('chat.message_details', 'Message details')} aria-expanded={detailsMessageIndex === idx} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Info size={13} /></button>
+                                </div>
+                                {detailsMessageIndex === idx && (
+                                    <div style={{ alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', margin: '0 4px', padding: '6px 8px', borderRadius: '8px', background: 'var(--settings-sidebar-bg, #f3f4f6)', color: 'var(--text-secondary)', fontSize: '0.68rem' }}>
+                                        {msg.llm?.model && <div>{t('chat.agent_model', 'Model: {{model}}', { model: msg.llm.model })}</div>}
+                                        {msg.confirmation && <div>{t('chat.message_has_confirmation', 'This message includes a governed action confirmation.')}</div>}
+                                        {Array.isArray(msg.attachments) && msg.attachments.length > 0 && <div>{t('chat.message_attachments_count', '{{count}} attachment(s)', { count: msg.attachments.length })}</div>}
+                                    </div>
+                                )}
                                 <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', padding: '0 4px' }}>
                                     {msg.role === 'user'
                                         ? t('chat.you', "You")
