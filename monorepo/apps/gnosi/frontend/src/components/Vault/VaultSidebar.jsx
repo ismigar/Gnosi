@@ -203,7 +203,7 @@ const SectionHeader = ({ label, isExpanded, onToggle, onAdd, addLabel }) => (
         <button
             onClick={onToggle}
             aria-expanded={isExpanded}
-            className="flex-1 min-w-0 flex items-center gap-1 text-[11px] font-bold text-[var(--text-secondary)]/60 uppercase tracking-wider hover:text-[var(--text-primary)] transition-colors text-left"
+            className="gnosi-sidebar-section-title flex-1 min-w-0 flex items-center gap-1 transition-colors text-left"
         >
             {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
             {label}
@@ -1154,7 +1154,7 @@ export const VaultSidebar = ({
                         <button
                             onClick={() => setIsFavoritesExpanded(!isFavoritesExpanded)}
                             aria-expanded={isFavoritesExpanded}
-                            className="flex-1 min-w-0 flex items-center gap-1 text-[11px] font-bold text-[var(--text-secondary)]/60 uppercase tracking-wider hover:text-[var(--text-primary)] transition-colors text-left"
+                            className="gnosi-sidebar-section-title flex-1 min-w-0 flex items-center gap-1 transition-colors text-left"
                         >
                             {isFavoritesExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                             {t('sidebar.favorites', 'Favorites')}
@@ -1495,7 +1495,7 @@ export const VaultSidebar = ({
                         setExpandedWikiNodes({});
                     }}
                     aria-expanded={isWorkspaceExpanded}
-                    className="flex-1 min-w-0 flex items-center gap-1 text-[11px] font-bold text-[var(--text-secondary)]/60 uppercase tracking-wider hover:text-[var(--text-primary)] transition-colors text-left"
+                    className="gnosi-sidebar-section-title flex-1 min-w-0 flex items-center gap-1 transition-colors text-left"
                 >
                     {isWorkspaceExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                     {t('sidebar.wiki', 'Wiki')}

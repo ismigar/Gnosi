@@ -20,7 +20,7 @@ export function CollapsibleSection({ title, children, defaultOpen = false, badge
                     userSelect: 'none'
                 }}
             >
-                <h2 className="filter-title" style={{ margin: 0 }}>
+                <h2 className="filter-title gnosi-sidebar-section-title" style={{ margin: 0 }}>
                     {title}
                     {badge !== undefined && badge > 0 && (
                         <span style={{

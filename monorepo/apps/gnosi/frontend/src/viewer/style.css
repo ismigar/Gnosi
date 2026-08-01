@@ -192,9 +192,6 @@ body {
 
 .filter-title {
   margin: 2px 0 6px 4px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--color-text);
 }
 
 .filter-controls {
