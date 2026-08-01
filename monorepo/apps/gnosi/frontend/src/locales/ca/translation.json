@@ -4044,8 +4044,7 @@
   "graph": {
     "page_title": "Graf de coneixement",
     "loading": {
-      "title": "Carregant el Cervell Digital...",
-      "subtitle": "Connectant neurones...",
+      "title": "Carregant...",
       "progress": "Progrés de càrrega del graf"
     },
     "sync": {

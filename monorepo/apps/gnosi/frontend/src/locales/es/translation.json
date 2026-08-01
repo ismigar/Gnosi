@@ -4044,8 +4044,7 @@
   "graph": {
     "page_title": "Grafo de conocimiento",
     "loading": {
-      "title": "Cargando el Cerebro Digital...",
-      "subtitle": "Conectando neuronas...",
+      "title": "Cargando...",
       "progress": "Progreso de carga del grafo"
     },
     "sync": {
