@@ -1177,7 +1177,7 @@ export default function MediaCenter() {
           {/* Root tabs: Images, Assets, Library, Vault */}
           {roots.length > 1 && (
             <>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)] px-2 mb-1">{t('media.origin')}</p>
+              <p className="gnosi-sidebar-section-title px-2 mb-1">{t('media.origin')}</p>
               <div className="grid grid-cols-2 gap-1.5 mb-2">
                 {roots.map((r) => {
                   const meta = ROOT_META[r.key] || { Icon: Folder };
@@ -1210,7 +1210,7 @@ export default function MediaCenter() {
               a view changes root, album, filters, and sorting all at once. */}
           {views.length > 0 && (
             <>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)] px-2 mb-1 mt-1">{t('media.views')}</p>
+              <p className="gnosi-sidebar-section-title px-2 mb-1 mt-1">{t('media.views')}</p>
               <div className="flex flex-col gap-1 mb-2">
                 {views.map((v) => {
                   const isActive = activeViewId === v.id;
@@ -1248,7 +1248,7 @@ export default function MediaCenter() {
             </>
           )}
 
-          <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)] px-2 mb-2 mt-1">{t('media.folders')}</p>
+          <p className="gnosi-sidebar-section-title px-2 mb-2 mt-1">{t('media.folders')}</p>
 
           <button
             onClick={() => setActiveAlbum('')}

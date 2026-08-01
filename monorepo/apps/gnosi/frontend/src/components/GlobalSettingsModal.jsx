@@ -525,7 +525,7 @@ const SidebarItem = ({ id, icon: Icon, label, active, onClick }) => (
 
 const SettingsNavGroup = ({ label, children }) => (
     <section className="settings-sidebar-group" aria-label={label}>
-        <h3 className="settings-sidebar-group__title">{label}</h3>
+        <h3 className="settings-sidebar-group__title gnosi-sidebar-section-title">{label}</h3>
         {children}
     </section>
 );
@@ -2229,7 +2229,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             <section className="settings-sidebar-group settings-sidebar-group--advanced">
                                 <button
                                     type="button"
-                                    className="settings-sidebar-group__toggle"
+                                    className="settings-sidebar-group__toggle gnosi-sidebar-section-title"
                                     aria-expanded={isAdvancedOpen}
                                     onClick={() => setIsAdvancedOpen(isOpen => !isOpen)}
                                 >

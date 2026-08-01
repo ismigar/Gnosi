@@ -113,16 +113,6 @@
     gap: 4px;
 }
 
-.settings-sidebar-group__title,
-.settings-sidebar-group__toggle {
-    color: var(--text-tertiary);
-    font-size: 0.68rem;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    line-height: 1.2;
-    text-transform: uppercase;
-}
-
 .settings-sidebar-group__title {
     margin: 0 10px 5px;
 }

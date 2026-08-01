@@ -59,7 +59,7 @@ export function Sidebar({
 
             {/* --- COLOR SELECTOR --- */}
             {hasClusterData && <div className="section">
-                <h2 className="filter-title">{t('graph.sidebar.color_by', "Color by")}</h2>
+                <h2 className="filter-title gnosi-sidebar-section-title">{t('graph.sidebar.color_by', "Color by")}</h2>
                 <div style={{ display: 'flex', gap: '10px' }}>
                     {hasClusterData && <label style={{ cursor: 'pointer' }}>
                         <input
@@ -75,7 +75,7 @@ export function Sidebar({
 
             {/* --- PATHFINDING SECTION --- */}
             <div className="section" style={{ border: isPathfindingMode ? '2px solid var(--gnosi-blue)' : 'none', borderRadius: '8px', padding: isPathfindingMode ? '10px' : '0' }}>
-                <h2 className="filter-title" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <h2 className="filter-title gnosi-sidebar-section-title" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                     {t('graph.sidebar.pathfinding_title', "Path search")}
                 </h2>
                 <div style={{ marginBottom: '10px' }}>
@@ -177,7 +177,7 @@ export function Sidebar({
 
             {/* --- TIMELINE SECTION --- */}
             <div className="section">
-                <h2 className="filter-title">{t('graph.sidebar.timeline_title', "Timeline")}</h2>
+                <h2 className="filter-title gnosi-sidebar-section-title">{t('graph.sidebar.timeline_title', "Timeline")}</h2>
                 <div>
                     {/* Only show slider if we have valid dates */}
                     {minDate && maxDate ? (
@@ -203,7 +203,7 @@ export function Sidebar({
             </div>
 
             {hasSemanticData && <div className="section">
-                <h2 className="filter-title">{t('graph.legend.semantic_similarity', 'Semantic connections')}</h2>
+                <h2 className="filter-title gnosi-sidebar-section-title">{t('graph.legend.semantic_similarity', 'Semantic connections')}</h2>
                 <div className="filter-item">
                     <input
                         type="checkbox"
