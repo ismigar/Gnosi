@@ -904,6 +904,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     ];
     const [socialNetworks, setSocialNetworks] = useState(SOCIAL_NETWORK_DEFAULTS);
     const [socialStreams, setSocialStreams] = useState([]);
+    const [socialSection, setSocialSection] = useState('networks');
     const [newStreamForm, setNewStreamForm] = useState({ id: '', title: '', icon: '📡', network: 'mastodon' });
     const [showAddStream, setShowAddStream] = useState(false);
 
@@ -3362,30 +3363,46 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             {/* SOCIAL */}
                             {activeTab === 'social' && (
                                 <>
+                                    <SettingsSectionTabs
+                                        ariaLabel={t('settings.tabs.social')}
+                                        activeId={socialSection}
+                                        onChange={setSocialSection}
+                                        items={[
+                                            { id: 'networks', icon: Share2, label: tn('social.networks_title') },
+                                            { id: 'streams', icon: Rss, label: tn('social.streams_title') },
+                                        ]}
+                                    />
+
+                                    {socialSection === 'networks' && (
                                     <Section title={tn('social.networks_title')} icon={Share2}>
-                                        <div className="social-network-tabs" aria-label={tn('social.networks_title')}>
+                                        <div className="settings-configurable-list" style={{ '--settings-configurable-gap': '10px' }}>
                                             {socialNetworks.map(net => (
-                                                <button
+                                                <div
                                                     key={net.id}
-                                                    type="button"
-                                                    className={`social-network-tab ${net.enabled ? 'is-enabled' : ''}`}
-                                                    aria-pressed={net.enabled}
-                                                    aria-label={tn('social.enable_network', { name: net.name })}
-                                                    onClick={() => {
-                                                        const updated = socialNetworks.map(n => n.id === net.id ? { ...n, enabled: !n.enabled } : n);
-                                                        saveSocialNetworks(updated);
-                                                    }}
+                                                    className="settings-configurable-item"
+                                                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: 'var(--settings-sidebar-bg)', borderRadius: '14px', border: '1px solid var(--settings-border)' }}
                                                 >
-                                                    {isKnownSocialNetwork(net.id)
-                                                        ? <SocialNetworkIcon network={net.id} size={26} />
-                                                        : <span aria-hidden="true" className="social-network-tab__fallback">{net.icon}</span>}
-                                                    <span>{net.name}</span>
-                                                    <GnosiToggle active={net.enabled} display scale={0.78} />
-                                                </button>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                        {isKnownSocialNetwork(net.id)
+                                                            ? <SocialNetworkIcon network={net.id} size={26} />
+                                                            : <span aria-hidden="true" style={{ fontSize: '1.4rem' }}>{net.icon}</span>}
+                                                        <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{net.name}</span>
+                                                    </div>
+                                                    <GnosiToggle
+                                                        active={net.enabled}
+                                                        label={tn('social.enable_network', { name: net.name })}
+                                                        onChange={() => {
+                                                            const updated = socialNetworks.map(n => n.id === net.id ? { ...n, enabled: !n.enabled } : n);
+                                                            saveSocialNetworks(updated);
+                                                        }}
+                                                    />
+                                                </div>
                                             ))}
                                         </div>
                                     </Section>
+                                    )}
 
+                                    {socialSection === 'streams' && (
                                     <Section title={tn('social.streams_title')} icon={Rss} extra={
                                         <button onClick={() => setShowAddStream(v => !v)} className="btn-gnosi-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', fontSize: '0.85rem', borderRadius: '10px' }}>
                                             {showAddStream ? <X size={15} /> : <Plus size={15} />}
@@ -3452,6 +3469,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             ))}
                                         </div>
                                     </Section>
+                                    )}
                                 </>
                             )}
 
