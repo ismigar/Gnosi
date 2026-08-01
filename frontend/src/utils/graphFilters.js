@@ -171,9 +171,8 @@ export function applyFilters(graph, filters) {
 
             // Registry structure nodes are never content
             if (nodeKind === 'table' || nodeKind === 'database' || nodeKind === 'view') return;
-            // Unresolved placeholders are evaluated after their source notes.
-            // They are visible only when at least one visible note references
-            // them and the real cross-scope target is not already visible.
+            // Genuinely unresolved targets are evaluated after their source
+            // notes and shown only when a visible note references them.
             if (nodeKind === 'unresolved') return;
 
             const nodeDb = attrs.database_id || attrs.metadata?.database_id;
@@ -283,9 +282,6 @@ export function applyFilters(graph, filters) {
 
         graph.forEachNode((node, attrs) => {
             if ((attrs.kind || "").toLowerCase() !== 'unresolved') return;
-            const resolvedTargetId = attrs.metadata?.resolved_target_id;
-            if (resolvedTargetId && visibleNodes.has(String(resolvedTargetId))) return;
-
             const hasVisibleSource = graph.neighbors(node)
                 .some(neighbor => visibleNodes.has(neighbor));
             if (hasVisibleSource) visibleNodes.add(node);

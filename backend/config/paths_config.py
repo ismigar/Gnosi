@@ -119,9 +119,6 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
     wiki_path = safe_base / "Wiki"
     dashboard_path = safe_base / ".Dashboards"
 
-    # Files and specific sub-dirs
-    out_json = db_path / "vault_pages.json"
-    out_graph = db_path / "vault_graph.json"
     registry = db_path / "vault_db_registry.json"
 
     # ── Persistent App Data (Vault-first) ──
@@ -158,8 +155,6 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
         "DASHBOARDS": dashboard_path,
         # `.gnosi/` canonical base for synced config.
         "GNOSI_CONFIG": persistent_base,
-        "OUT_JSON": out_json,
-        "OUT_GRAPH": out_graph,
         "REGISTRY": registry,
         # Operational logs — per-instance (go to local_data inside the container).
         "LOGS": local_data / "logs",

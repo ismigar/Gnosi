@@ -12,7 +12,7 @@ export const Legend = ({ graphData, colorMode, filteredNodesCount, filteredEdges
     const { t } = useTranslation();
     if (!graphData) return null;
 
-    const { clusters = [], ai_clusters = [] } = graphData.legend || {};
+    const { clusters = [] } = graphData.legend || {};
 
     // Select the active node grouping for the current color mode.
     let nodeItems = [];
@@ -24,9 +24,6 @@ export const Legend = ({ graphData, colorMode, filteredNodesCount, filteredEdges
     else if (colorMode === 'cluster') {
         nodeItems = clusters;
         nodeGroupsLabel = t('graph.legend.clusters', 'Clusters');
-    } else if (colorMode === 'ai_cluster') {
-        nodeItems = ai_clusters;
-        nodeGroupsLabel = t('graph.legend.ai_clusters', 'AI clusters');
     }
 
     // Omit empty groups from the tooltip.

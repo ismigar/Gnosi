@@ -897,7 +897,7 @@ class SchedulerManager:
         return {"stats": stats}
 
     def _task_update_memories(self) -> Dict[str, Any]:
-        """Refresh graph, proposal overlay, and analytics without invoking an LLM."""
+        """Refresh the graph response and analytics without invoking an LLM."""
         from backend.services.graph_service import GraphService
         from backend.services import llm_wiki_suggestions
         from backend.config.logger_config import get_logger
@@ -906,16 +906,15 @@ class SchedulerManager:
         results = {"success": True, "steps": []}
         
         try:
-            # 1. Clear Graph Cache and Force Rebuild
+            # 1. Clear the response cache and warm the current graph snapshot.
             log.info("⏰ Scheduler: Force rebuilding Unified Graph...")
-            # Keep the cache contract stable: GraphService always expects a
-            # per-vault dictionary, including immediately after invalidation.
-            pending = llm_wiki_suggestions.sync_graph_mirror()
             GraphService.invalidate_response_cache()
             service = GraphService()
             graph = service.build_unified_graph()
             results["steps"].append(f"Graph rebuilt with {len(graph.get('nodes', []))} nodes")
-            results["steps"].append({"connections_synced": pending})
+            results["steps"].append({
+                "connections_pending": len(llm_wiki_suggestions.load_queue()),
+            })
             
             # 2. Update analytics to reflect the rebuilt graph.
             self._task_update_analytics()
