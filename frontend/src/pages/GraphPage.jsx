@@ -560,10 +560,8 @@ function GraphPage() {
 
     if (loading) {
         return (
-            <div className="flex h-full flex-col items-center justify-center gap-4 bg-[var(--bg-secondary)] text-[var(--text-primary)]" role="status" aria-live="polite">
-                <div className="text-4xl animate-bounce">🧠</div>
-                <div className="animate-pulse text-xl font-medium text-[var(--text-secondary)]">{t('graph.loading.title', "Loading the Digital Brain...")}</div>
-                <div className="text-sm text-[var(--text-tertiary)]">{t('graph.loading.subtitle', "Connecting neurons...")}</div>
+            <div className="flex h-full flex-col items-center justify-center gap-3 bg-[var(--bg-secondary)] text-[var(--text-primary)]" role="status" aria-live="polite">
+                <div className="text-sm font-medium text-[var(--text-secondary)]">{t('graph.loading.title', 'Loading...')}</div>
                 <div className="w-64 h-2 overflow-hidden rounded-full bg-[var(--color-border)]" aria-label={t('graph.loading.progress', 'Graph loading progress')}>
                     <div className="h-full rounded-full bg-[var(--gnosi-blue)] transition-all duration-300" style={{ width: `${loadingProgress}%` }} />
                 </div>
@@ -638,7 +636,7 @@ function GraphPage() {
                     }
                 >
                     {/* Table Filters */}
-                    <CollapsibleSection title={t('graph.filters.tables_title', "Table Filter")} badge={activeTableFilters.size} defaultOpen={true}>
+                    <CollapsibleSection title={t('graph.filters.tables_title', "Table Filter")} badge={activeTableFilters.size}>
                         <div className="filter-list">
                             {/* Wiki: only if visible_databases is empty or includes 'wiki' */}
                             {(visibleDatabases.length === 0 || visibleDatabases.includes('wiki')) && <div className="filter-item-advanced">

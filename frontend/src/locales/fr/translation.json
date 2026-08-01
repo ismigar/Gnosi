@@ -4041,8 +4041,7 @@
   "graph": {
     "page_title": "Graphe de connaissances",
     "loading": {
-      "title": "Chargement du Cerveau Digital...",
-      "subtitle": "Connexion des neurones...",
+      "title": "Chargement...",
       "progress": "Progression du chargement du graphe"
     },
     "sync": {
