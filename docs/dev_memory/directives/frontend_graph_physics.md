@@ -158,6 +158,11 @@ from the edge-thickness control and turns dense wikilink graphs into a solid
 mass. Set an explicit sub-pixel minimum and use a low-opacity neutral base
 color; reserve saturated edges for hover, pathfinding, and suggestions.
 
+Normalize the edge-thickness control around `1.0x`: its base rendered width is
+`0.48`, which is 1.6 times the original `0.3` width. Keep persisted settings and
+the displayed default at `1.0`; the multiplier expresses variation around the
+new visual baseline rather than exposing an implementation migration to users.
+
 ## Filter panel defaults
 
 The dynamic field-value filter can contain many values and must start

@@ -33,6 +33,8 @@ import {
     SEMANTIC_SUGGESTION_COLOR,
 } from '../utils/semanticOverlay';
 
+const BASE_EDGE_THICKNESS = 0.48;
+
 
 function stringToColor(str) {
     let hash = 0;
@@ -485,7 +487,7 @@ export const GraphViewer = forwardRef(({
                 zIndex: 1
             };
             const thickness = edgeThicknessRef.current || 1.0;
-            result.size = Math.max(0.2, 0.3 * thickness);
+            result.size = Math.max(0.2, BASE_EDGE_THICKNESS * thickness);
             
             return result;
 
