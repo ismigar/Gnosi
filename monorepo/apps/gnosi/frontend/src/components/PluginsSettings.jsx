@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { useTranslation, Trans } from 'react-i18next';
-import { CalendarDays, CalendarRange, Hash, MessageSquare, Share2, LayoutDashboard, BrainCircuit, Puzzle, Settings, Trash2, Upload, Download, ShieldCheck, Globe, KeyRound, Scissors } from 'lucide-react';
+import { CalendarDays, CalendarRange, Hash, MessageSquare, Share2, LayoutDashboard, BrainCircuit, Puzzle, Settings, Trash2, Upload, Download, ShieldCheck, Globe, KeyRound, Scissors, PackageCheck, Store, RefreshCw, Search } from 'lucide-react';
 import { BUILTIN_PLUGINS } from '../plugins/registry';
 import { usePlugins } from '../plugins/usePlugins';
 import { reloadPlugins } from '../plugins/usePluginHost';
 import ConfirmModal from './ConfirmModal';
 import { sortFieldItems } from '../utils/fieldOrdering';
+import { SettingsSectionTabs } from './SettingsSectionTabs';
 
 const ICONS = { CalendarDays, CalendarRange, Hash, MessageSquare, Share2, LayoutDashboard, BrainCircuit, Scissors };
 
@@ -33,6 +34,23 @@ const SELECT_STYLE = {
 };
 
 const LLM_WIKI_AUTOSAVE_DELAY_MS = 600;
+
+const isNewerVersion = (candidate, current) => {
+    const parse = (value) => String(value || '')
+        .replace(/^v/i, '')
+        .split(/[.-]/)
+        .slice(0, 3)
+        .map((part) => Number.parseInt(part, 10));
+    const next = parse(candidate);
+    const installed = parse(current);
+    if (next.some(Number.isNaN) || installed.some(Number.isNaN)) return false;
+    for (let index = 0; index < Math.max(next.length, installed.length); index += 1) {
+        const nextPart = next[index] || 0;
+        const installedPart = installed[index] || 0;
+        if (nextPart !== installedPart) return nextPart > installedPart;
+    }
+    return false;
+};
 
 /**
  * Configuration for the daily-notes plugin: allows using a database (table)
@@ -1462,7 +1480,7 @@ function LlmWikiConfig() {
  * permissions they declare, and they run code in a sandbox (UI iframe / data Node). See
  * the `plugin_system.md` directive.
  */
-function ThirdPartyPlugins() {
+function ThirdPartyPlugins({ section, installedFilter }) {
     const { t } = useTranslation();
     const tp = (k, opts) => t('settings.plugins.' + k, opts);
     const { isEnabled, setPluginEnabled } = usePlugins();
@@ -1475,6 +1493,8 @@ function ThirdPartyPlugins() {
     const [trustKeys, setTrustKeys] = useState([]);
     const [registryUrl, setRegistryUrl] = useState('');
     const [newKey, setNewKey] = useState({ name: '', public_key: '' });
+    const [catalogSearch, setCatalogSearch] = useState('');
+    const [catalogSource, setCatalogSource] = useState('all');
     const fileRef = React.useRef(null);
 
     // Doesn't do synchronous setState: `loading` already starts as true and is set to false at the end
@@ -1572,8 +1592,31 @@ function ThirdPartyPlugins() {
         } finally { setBusy(''); }
     };
 
+    const visibleInstalled = installed.filter((plugin) => {
+        const pluginId = plugin.manifest?.id || plugin.id;
+        if (installedFilter === 'enabled') return isEnabled(pluginId);
+        if (installedFilter === 'disabled') return !isEnabled(pluginId);
+        return true;
+    });
+    const normalizedSearch = catalogSearch.trim().toLocaleLowerCase();
+    const visibleGallery = gallery.filter((entry) => {
+        const matchesSource = catalogSource === 'all'
+            || (catalogSource === 'official' ? entry.source === 'bundled' : entry.source === 'url');
+        const haystack = `${entry.name || ''} ${entry.description || ''} ${entry.author || ''}`.toLocaleLowerCase();
+        return matchesSource && (!normalizedSearch || haystack.includes(normalizedSearch));
+    });
+    const installedVersions = new Map(installed
+        .filter((plugin) => plugin.manifest?.id)
+        .map((plugin) => [plugin.manifest.id, plugin.manifest.version]));
+    const updates = gallery.filter((entry) => (
+        installedVersions.has(entry.id)
+        && isNewerVersion(entry.version, installedVersions.get(entry.id))
+    ));
+
     return (
-        <div style={{ marginTop: 28 }}>
+        <div style={{ marginTop: section === 'installed' ? 28 : 0 }}>
+            {section === 'installed' && (
+            <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                 <Puzzle size={18} />
                 <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>{tp('third_party_title')}</h3>
@@ -1582,21 +1625,6 @@ function ThirdPartyPlugins() {
                 <Trans i18nKey="settings.plugins.third_party_desc" components={{ code: <code /> }} />
             </p>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                <input ref={fileRef} type="file" accept=".zip" style={{ display: 'none' }} onChange={onInstallZip} />
-                <button
-                    type="button"
-                    onClick={() => fileRef.current?.click()}
-                    disabled={busy === 'zip'}
-                    style={{
-                        display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8,
-                        border: '1px solid var(--border-primary, #e2e8f0)', cursor: busy === 'zip' ? 'wait' : 'pointer',
-                        background: 'var(--bg-primary, #fff)', color: 'var(--text-primary, #0f172a)', fontSize: 13, fontWeight: 600,
-                    }}
-                >
-                    <Upload size={15} /> {busy === 'zip' ? tp('installing') : tp('install_zip')}
-                </button>
-            </div>
             {error && (
                 <div style={{ fontSize: 12, color: '#dc2626', marginBottom: 10, padding: '8px 10px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca' }}>
                     {error}
@@ -1604,17 +1632,17 @@ function ThirdPartyPlugins() {
             )}
 
             {loading && <div style={{ fontSize: 13, color: 'var(--text-tertiary, #94a3b8)' }}>{tp('loading')}</div>}
-            {!loading && installed.length === 0 && (
+            {!loading && visibleInstalled.length === 0 && (
                 <div style={{
                     fontSize: 13, color: 'var(--text-tertiary, #94a3b8)', padding: '12px 14px',
                     borderRadius: 10, border: '1px dashed var(--border-primary, #e2e8f0)',
                 }}>
-                    <Trans i18nKey="settings.plugins.empty_state" components={{ code: <code /> }} />
+                    {tp('installed_filter_empty')}
                 </div>
             )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {installed.map((p) => {
+                {visibleInstalled.map((p) => {
                     if (!p.manifest) {
                         return (
                             <div key={p.id} style={{
@@ -1699,15 +1727,57 @@ function ThirdPartyPlugins() {
                     );
                 })}
             </div>
+            </>
+            )}
 
-            {gallery.length > 0 && (
+            {section === 'catalog' && (
+            <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                <input ref={fileRef} type="file" accept=".zip" style={{ display: 'none' }} onChange={onInstallZip} />
+                <button
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                    disabled={busy === 'zip'}
+                    style={{
+                        display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8,
+                        border: '1px solid var(--border-primary, #e2e8f0)', cursor: busy === 'zip' ? 'wait' : 'pointer',
+                        background: 'var(--bg-primary, #fff)', color: 'var(--text-primary, #0f172a)', fontSize: 13, fontWeight: 600,
+                    }}
+                >
+                    <Upload size={15} /> {busy === 'zip' ? tp('installing') : tp('install_zip')}
+                </button>
+            </div>
+            {error && (
+                <div style={{ fontSize: 12, color: '#dc2626', marginBottom: 10, padding: '8px 10px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca' }}>
+                    {error}
+                </div>
+            )}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+                <label style={{ position: 'relative', flex: '1 1 240px' }}>
+                    <Search size={15} style={{ position: 'absolute', left: 10, top: 10, color: 'var(--text-tertiary)' }} />
+                    <input
+                        type="search"
+                        value={catalogSearch}
+                        onChange={(event) => setCatalogSearch(event.target.value)}
+                        placeholder={tp('catalog_search_placeholder')}
+                        style={{ ...SELECT_STYLE, paddingLeft: 32 }}
+                    />
+                </label>
+                <select value={catalogSource} onChange={(event) => setCatalogSource(event.target.value)} style={{ ...SELECT_STYLE, width: 170 }}>
+                    <option value="all">{tp('catalog_source_all')}</option>
+                    <option value="official">{tp('catalog_source_official')}</option>
+                    <option value="community">{tp('catalog_source_community')}</option>
+                </select>
+            </div>
+
+            {visibleGallery.length > 0 && (
                 <div style={{ marginTop: 22 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                         <Download size={16} />
                         <h4 style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>{tp('gallery')}</h4>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        {gallery.map((g) => (
+                        {visibleGallery.map((g) => (
                             <div key={g.id} style={{
                                 display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10,
                                 border: '1px solid var(--border-primary, #e2e8f0)', background: 'var(--bg-primary, #fff)',
@@ -1746,6 +1816,11 @@ function ThirdPartyPlugins() {
                             </div>
                         ))}
                     </div>
+                </div>
+            )}
+            {!loading && visibleGallery.length === 0 && (
+                <div style={{ fontSize: 13, color: 'var(--text-tertiary)', padding: '18px', textAlign: 'center' }}>
+                    {tp('catalog_empty')}
                 </div>
             )}
 
@@ -1823,6 +1898,37 @@ function ThirdPartyPlugins() {
                     >{tp('add')}</button>
                 </div>
             </div>
+            </>
+            )}
+
+            {section === 'updates' && (
+                <div>
+                    {loading && <div style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>{tp('loading')}</div>}
+                    {!loading && updates.length === 0 && (
+                        <div style={{ padding: '26px 18px', textAlign: 'center', border: '1px dashed var(--border-primary)', borderRadius: 12 }}>
+                            <RefreshCw size={24} style={{ color: '#16a34a', marginBottom: 8 }} />
+                            <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{tp('updates_empty_title')}</div>
+                            <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 4 }}>{tp('updates_empty_desc')}</div>
+                        </div>
+                    )}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {updates.map((entry) => (
+                            <div key={entry.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', border: '1px solid var(--border-primary)', borderRadius: 10 }}>
+                                <RefreshCw size={17} style={{ color: '#6366f1' }} />
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ fontSize: 14, fontWeight: 700 }}>{entry.name}</div>
+                                    <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
+                                        v{installedVersions.get(entry.id)} → v{entry.version}
+                                    </div>
+                                </div>
+                                <button type="button" className="btn-gnosi-secondary" onClick={() => onInstallFromCatalog(entry.id)} disabled={busy === `cat:${entry.id}`}>
+                                    <RefreshCw size={14} /> {busy === `cat:${entry.id}` ? tp('installing') : tp('update')}
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -1843,6 +1949,8 @@ export function PluginsSettings() {
     const tp = (k, opts) => t('settings.plugins.' + k, opts);
     const { isEnabled, loaded, setPluginEnabled } = usePlugins();
     const [openConfig, setOpenConfig] = useState(null);
+    const [section, setSection] = useState('installed');
+    const [installedFilter, setInstalledFilter] = useState('all');
     const [confirmLlmWikiDisable, setConfirmLlmWikiDisable] = useState(false);
     const llmWikiAgentEnsured = useRef(false);
 
@@ -1886,8 +1994,37 @@ export function PluginsSettings() {
                 {tp('desc')}
             </p>
 
+            <SettingsSectionTabs
+                ariaLabel={tp('sections_label')}
+                activeId={section}
+                onChange={setSection}
+                items={[
+                    { id: 'installed', icon: PackageCheck, label: tp('installed_tab') },
+                    { id: 'catalog', icon: Store, label: tp('catalog_tab') },
+                    { id: 'updates', icon: RefreshCw, label: tp('updates_tab') },
+                ]}
+            />
+
+            {section === 'installed' && (
+            <>
+            <div className="settings-filter-tabs" role="group" aria-label={tp('installed_filters_label')}>
+                {['all', 'enabled', 'disabled'].map((filter) => (
+                    <button
+                        key={filter}
+                        type="button"
+                        className={installedFilter === filter ? 'is-active' : ''}
+                        aria-pressed={installedFilter === filter}
+                        onClick={() => setInstalledFilter(filter)}
+                    >
+                        {tp(`filter_${filter}`)}
+                    </button>
+                ))}
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {BUILTIN_PLUGINS.map((plugin) => {
+                {BUILTIN_PLUGINS.filter((plugin) => (
+                    installedFilter === 'all'
+                    || (installedFilter === 'enabled' ? isEnabled(plugin.id) : !isEnabled(plugin.id))
+                )).map((plugin) => {
                     const Icon = ICONS[plugin.icon] || Puzzle;
                     const enabled = isEnabled(plugin.id);
                     const ConfigPanel = CONFIGURABLE[plugin.id];
@@ -1957,6 +2094,8 @@ export function PluginsSettings() {
                     );
                 })}
             </div>
+            </>
+            )}
 
             <ConfirmModal
                 isOpen={confirmLlmWikiDisable}
@@ -1968,7 +2107,7 @@ export function PluginsSettings() {
                 isDestructive
             />
 
-            <ThirdPartyPlugins />
+            <ThirdPartyPlugins section={section} installedFilter={installedFilter} />
         </div>
     );
 }

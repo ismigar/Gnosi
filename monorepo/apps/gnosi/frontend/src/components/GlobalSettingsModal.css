@@ -203,6 +203,30 @@
     gap: var(--settings-configurable-gap, 12px);
 }
 
+.settings-filter-tabs {
+    display: flex;
+    gap: 6px;
+    margin: -6px 0 14px;
+}
+
+.settings-filter-tabs button {
+    padding: 6px 11px;
+    border: 1px solid var(--settings-border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.settings-filter-tabs button.is-active {
+    border-color: var(--gnosi-blue);
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--gnosi-blue);
+}
+
 .social-network-tabs {
     display: flex;
     flex-wrap: wrap;
