@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import Graph from 'graphology';
-import { applyFilters } from './graphFilters';
+import { applyFilters, getVisibleHoverNeighborhood } from './graphFilters';
 
 function buildScopedGraph() {
     const graph = new Graph();
@@ -54,5 +54,63 @@ describe('graph unresolved scope filtering', () => {
         expect(visibleEdges.size).toBe(1);
         const edge = [...visibleEdges][0];
         expect(graph.hasExtremity(edge, 'target')).toBe(true);
+    });
+});
+
+describe('visible graph topology', () => {
+    function buildSimilarityGraph() {
+        const graph = new Graph();
+        graph.addNode('a', { kind: 'page' });
+        graph.addNode('b', { kind: 'page' });
+        graph.addNode('c', { kind: 'page' });
+        graph.addNode('d', { kind: 'page' });
+        graph.addEdge('a', 'b', { kind: 'semantic_similarity', similarity: 80 });
+        graph.addEdge('c', 'd', { kind: 'link' });
+        return graph;
+    }
+
+    it('treats nodes with only filtered-out edges as visibly isolated', () => {
+        const graph = buildSimilarityGraph();
+        const { visibleNodes, visibleEdges } = applyFilters(graph, {
+            similarity: 100,
+            onlyIsolated: true,
+        });
+
+        expect([...visibleNodes].sort()).toEqual(['a', 'b']);
+        expect(visibleEdges.size).toBe(0);
+    });
+
+    it('hides nodes with only filtered-out edges when hiding isolates', () => {
+        const graph = buildSimilarityGraph();
+        const { visibleNodes, visibleEdges } = applyFilters(graph, {
+            similarity: 100,
+            hideIsolated: true,
+        });
+
+        expect([...visibleNodes].sort()).toEqual(['c', 'd']);
+        expect(visibleEdges.size).toBe(1);
+    });
+
+    it('prefers only-isolated mode if both isolation flags are supplied', () => {
+        const graph = buildSimilarityGraph();
+        const { visibleNodes, visibleEdges } = applyFilters(graph, {
+            similarity: 100,
+            hideIsolated: true,
+            onlyIsolated: true,
+        });
+
+        expect([...visibleNodes].sort()).toEqual(['a', 'b']);
+        expect(visibleEdges.size).toBe(0);
+    });
+
+    it('excludes hidden edges and nodes from the hover neighborhood', () => {
+        const graph = buildSimilarityGraph();
+        graph.setEdgeAttribute(graph.edge('a', 'b'), 'hidden', true);
+        graph.setNodeAttribute('b', 'hidden', true);
+
+        const neighborhood = getVisibleHoverNeighborhood(graph, 'a');
+
+        expect([...neighborhood.nodes]).toEqual(['a']);
+        expect(neighborhood.edges.size).toBe(0);
     });
 });

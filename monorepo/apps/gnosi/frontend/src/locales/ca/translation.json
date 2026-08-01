@@ -4035,7 +4035,8 @@
     "page_title": "Graf de coneixement",
     "loading": {
       "title": "Carregant el Cervell Digital...",
-      "subtitle": "Connectant neurones..."
+      "subtitle": "Connectant neurones...",
+      "progress": "Progrés de càrrega del graf"
     },
     "sync": {
       "updating": "Actualitzant el graf...",
@@ -4127,6 +4128,10 @@
       "zoom_in": "Ampliar",
       "zoom_out": "Allunyar",
       "legend": "Llegenda del graf"
+    },
+    "keyboard": {
+      "sidebar_focus": "Filtres del graf",
+      "graph_focus": "Àrea del graf"
     },
     "legend": {
       "nodes": "Nodes",

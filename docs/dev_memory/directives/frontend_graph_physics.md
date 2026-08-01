@@ -139,6 +139,11 @@ square. Represent the camera as its actual viewport rectangle, not as a dot
 that can be confused with a graph node. Minimap clicks must derive their zoom
 from the visible-subset extent; a fixed absolute camera ratio refers to the
 complete graph and can unexpectedly zoom far away from a filtered view.
+Do not clip the camera rectangle to the visible-node bounds: when the main
+viewport includes empty space, clipping removes one or more borders and makes
+the frame look broken. Build the minimap transform from the union of the
+visible-node bounds and Sigma's four viewport corners, then redraw both the
+nodes and the complete camera rectangle when the camera changes.
 
 Sigma v3 uses `labelRenderedSizeThreshold`. Do not use
 `labelRenderThreshold`; the unknown setting is ignored and the default causes
@@ -173,3 +178,44 @@ Run frontend checks from `frontend/`, but execute backend graph tests from
 test path from the frontend directory, because pytest cannot discover the file
 and reports a false validation failure; use the backend working directory
 instead.
+Likewise, use paths relative to the selected working directory for frontend
+inspection commands; prefixing them again with `monorepo/apps/gnosi/frontend/`
+points to a nonexistent nested directory.
+
+## Interaction controls
+
+Only display a color grouping control when the current graph response contains
+that grouping. Do not leave a selectable AI-cluster control with no
+`ai_cluster` values, because it produces no visible effect and looks broken.
+Color group controls must be reversible: toggling the active group restores
+the normal node colors.
+When conditionally rendering a color control with JSX `&&`, close both the
+element and the expression. A missing closing brace turns the following panel
+markup into an unterminated expression and prevents Vite from building.
+
+The graph canvas and filter sidebar both consume wheel input. Stop wheel event
+propagation at the sidebar and contain its overscroll so a user interacting
+with its filters scrolls the sidebar, never Sigma's camera. Provide focus
+shortcuts with Cmd/Ctrl+Shift+P for the panel and Cmd/Ctrl+Shift+G for the
+graph; Cmd/Ctrl+Shift+C cycles the available color modes.
+
+Graph responses can be served from cache too quickly for a loading state to be
+perceived. Keep the loading overlay visible briefly and expose real progress
+stages with a determinate bar; do not retain a global refresh button that only
+duplicates GET `/api/graph` and reloads the complete page.
+
+## Visible topology consistency
+
+Isolation, hover neighbors, node sizing, and highlighted edges must all use
+the same filtered topology shown by Sigma. Do not use `graph.degree()` or
+`graph.neighbors()` directly for these interactions: those APIs include hidden
+edges and nodes from the backing graph. First resolve visible candidate nodes
+and renderable edges, then classify isolation from the endpoints of those
+edges. Hover must traverse only edges whose `hidden` attribute is false and
+must ignore hidden neighbors.
+
+“Hide isolated nodes” and “Show only isolated nodes” are mutually exclusive
+modes. Keep both controls visible so switching modes is explicit, and have each
+activation clear the other state. The filter utility must still handle stale
+state defensively by giving “show only” precedence; applying both predicates
+independently removes every node and produces an unexplained empty graph.

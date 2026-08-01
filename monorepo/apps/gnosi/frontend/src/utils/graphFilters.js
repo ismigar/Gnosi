@@ -87,6 +87,26 @@ export function toValueStrings(raw) {
     return arr.filter(v => v !== undefined && v !== null && v !== "").map(String);
 }
 
+/**
+ * Returns only the visible one-hop neighborhood used by Sigma hover styling.
+ * Hidden nodes and edges belong to the backing graph, but not to the topology
+ * currently shown to the user.
+ */
+export function getVisibleHoverNeighborhood(graph, node) {
+    const nodes = new Set([node]);
+    const edges = new Set();
+
+    graph.forEachEdge((edge, attrs, source, target) => {
+        if (attrs.hidden || (source !== node && target !== node)) return;
+        const neighbor = source === node ? target : source;
+        if (graph.getNodeAttribute(neighbor, 'hidden')) return;
+        edges.add(edge);
+        nodes.add(neighbor);
+    });
+
+    return { nodes, edges };
+}
+
 export function applyFilters(graph, filters) {
     const {
         activeClusters = new Set(),
@@ -252,18 +272,11 @@ export function applyFilters(graph, filters) {
                 matchMediaTags = nodeTags.some(tag => activeMediaTags.has(tag));
             }
 
-            const isIsolated = graph.degree(node) === 0;
-            let isNodeVisible;
-
-            if (onlyIsolated) {
-                isNodeVisible = isIsolated && matchCluster && matchKind && matchProject;
-            } else {
-                const matchIsolated = !hideIsolated || !isIsolated;
-                const matchSearch = !searchTerm?.trim() || foldAccents(attrs.label).includes(foldAccents(searchTerm).trim());
-                const matchTimeline = !timelineDate || !attrs.created_time
-                    || new Date(attrs.created_time).getTime() <= timelineDate;
-                isNodeVisible = matchCluster && matchKind && matchProject && matchIsolated && matchSearch && matchTimeline && matchMediaTags;
-            }
+            const matchSearch = !searchTerm?.trim() || foldAccents(attrs.label).includes(foldAccents(searchTerm).trim());
+            const matchTimeline = !timelineDate || !attrs.created_time
+                || new Date(attrs.created_time).getTime() <= timelineDate;
+            const isNodeVisible = matchCluster && matchKind && matchProject
+                && matchSearch && matchTimeline && matchMediaTags;
 
             if (isNodeVisible) visibleNodes.add(node);
         });
@@ -290,6 +303,31 @@ export function applyFilters(graph, filters) {
             const visible = isReal || (filterSim < 100 && sim >= filterSim);
             if (visible) visibleEdges.add(edge);
         });
+
+        // Isolation is a property of the rendered topology, not the backing
+        // graph. An edge excluded by source, table, or similarity filters must
+        // not make either endpoint count as connected.
+        // “Show only” wins defensively if stale state supplies both mutually
+        // exclusive modes at once.
+        const effectiveHideIsolated = hideIsolated && !onlyIsolated;
+        if (effectiveHideIsolated || onlyIsolated) {
+            const connectedNodes = new Set();
+            visibleEdges.forEach((edge) => {
+                connectedNodes.add(graph.source(edge));
+                connectedNodes.add(graph.target(edge));
+            });
+            visibleNodes.forEach((node) => {
+                const isVisiblyIsolated = !connectedNodes.has(node);
+                if ((effectiveHideIsolated && isVisiblyIsolated) || (onlyIsolated && !isVisiblyIsolated)) {
+                    visibleNodes.delete(node);
+                }
+            });
+            visibleEdges.forEach((edge) => {
+                if (!visibleNodes.has(graph.source(edge)) || !visibleNodes.has(graph.target(edge))) {
+                    visibleEdges.delete(edge);
+                }
+            });
+        }
     }
 
     return { visibleNodes, visibleEdges };

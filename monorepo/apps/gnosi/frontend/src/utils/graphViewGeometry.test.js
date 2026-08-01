@@ -3,8 +3,10 @@ import Graph from 'graphology';
 
 import {
   createMinimapTransform,
+  getCameraGraphBounds,
   getCameraViewportRect,
   getVisibleCameraRatio,
+  mergeGraphBounds,
 } from './graphViewGeometry';
 
 describe('graph view geometry', () => {
@@ -45,23 +47,33 @@ describe('graph view geometry', () => {
     });
   });
 
-  it('clips an overview viewport to the minimap frame', () => {
-    const transform = {
-      width: 20,
-      height: 10,
-      graphToMinimap: (x, y) => ({ x, y }),
-    };
+  it('keeps the complete camera frame inside the minimap transform', () => {
     const renderer = {
       getDimensions: () => ({ width: 100, height: 50 }),
       viewportToGraph: ({ x, y }) => ({ x: x / 2 - 10, y: y / 2 - 5 }),
     };
-
-    expect(getCameraViewportRect(renderer, transform)).toEqual({
-      x: 0,
-      y: 0,
+    const graphBounds = {
+      minX: 0,
+      maxX: 20,
+      minY: 0,
+      maxY: 10,
       width: 20,
       height: 10,
-    });
+      centerX: 10,
+      centerY: 5,
+      count: 2,
+    };
+    const cameraBounds = getCameraGraphBounds(renderer);
+    const combinedBounds = mergeGraphBounds(graphBounds, cameraBounds);
+    const transform = createMinimapTransform(combinedBounds, 200, 100);
+    const rect = getCameraViewportRect(renderer, transform);
+
+    expect(rect.x).toBeGreaterThan(0);
+    expect(rect.y).toBeGreaterThan(0);
+    expect(rect.x + rect.width).toBeLessThan(200);
+    expect(rect.y + rect.height).toBeLessThan(100);
+    expect(rect.width).toBeGreaterThan(0);
+    expect(rect.height).toBeGreaterThan(0);
   });
 
   it('scales camera ratios to the visible subset instead of the full graph', () => {
