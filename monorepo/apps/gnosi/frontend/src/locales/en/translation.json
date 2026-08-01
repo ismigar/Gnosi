@@ -1561,6 +1561,9 @@
       "advanced": "Advanced"
     },
     "reader": {
+      "sections_label": "Reader sections",
+      "podcast_tab": "Daily podcast",
+      "subscriptions_tab": "Subscriptions",
       "podcast_title": "Daily podcast",
       "podcast_description": "Choose the artificial intelligence model that writes the daily podcast script from unread news.",
       "model_label": "AI model for the script",
