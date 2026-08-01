@@ -198,3 +198,13 @@ Graph responses can be served from cache too quickly for a loading state to be
 perceived. Keep the loading overlay visible briefly and expose real progress
 stages with a determinate bar; do not retain a global refresh button that only
 duplicates GET `/api/graph` and reloads the complete page.
+
+## Visible topology consistency
+
+Isolation, hover neighbors, node sizing, and highlighted edges must all use
+the same filtered topology shown by Sigma. Do not use `graph.degree()` or
+`graph.neighbors()` directly for these interactions: those APIs include hidden
+edges and nodes from the backing graph. First resolve visible candidate nodes
+and renderable edges, then classify isolation from the endpoints of those
+edges. Hover must traverse only edges whose `hidden` attribute is false and
+must ignore hidden neighbors.
