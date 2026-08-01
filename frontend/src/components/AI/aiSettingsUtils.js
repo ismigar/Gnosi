@@ -10,6 +10,46 @@ export const catalogRows = (payload, key) => {
     return asArray(payload?.[key] ?? payload?.items ?? payload?.data);
 };
 
+export const modelRouteKey = (provider, model) => (
+    provider && model ? `${provider}||${model}` : ''
+);
+
+export const parseModelRouteKey = (value) => {
+    const separator = String(value || '').indexOf('||');
+    if (separator < 0) return { provider: '', model: '' };
+    return {
+        provider: value.slice(0, separator),
+        model: value.slice(separator + 2),
+    };
+};
+
+export const groupEnabledModelRoutes = (registry, selected = {}) => {
+    const groups = new Map();
+    asArray(registry).forEach(row => {
+        const provider = String(row?.provider || '').trim();
+        const model = String(row?.model_id || '').trim();
+        if (row?.enabled !== true || !provider || !model) return;
+        if (!groups.has(provider)) groups.set(provider, []);
+        if (!groups.get(provider).includes(model)) groups.get(provider).push(model);
+    });
+
+    const selectedKey = modelRouteKey(selected.provider, selected.model);
+    const selectedAvailable = !selectedKey || [...groups.entries()].some(
+        ([provider, models]) => (
+            provider === selected.provider && models.includes(selected.model)
+        ),
+    );
+    return {
+        groups: [...groups.entries()],
+        selectedKey,
+        unavailableSelection: selectedAvailable ? null : {
+            provider: selected.provider,
+            model: selected.model,
+            key: selectedKey,
+        },
+    };
+};
+
 const normalizeOrigin = (origin, fallbackId = '') => {
     if (origin && typeof origin === 'object') {
         const type = origin.type || origin.kind || 'unknown';

@@ -1,25 +1,17 @@
+import io
 import os
 import re
-import io
-import time
-import logging
 import threading
 from datetime import datetime, timedelta, timezone
-from groq import Groq
+
 from gtts import gTTS
+from langchain_core.messages import HumanMessage, SystemMessage
 from sqlalchemy.orm import Session
 
-from backend.data.db import get_db
-from backend.models.reader import FeedSource, Article
+from backend.config.logger_config import get_logger
+from backend.models.reader import Article
 
-log = logging.getLogger(__name__)
-
-from backend.config.app_config import load_params
-
-cfg = load_params(strict_env=False)
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-AUDIO_OUTPUT_DIR = str(cfg.paths["AUDIO"])
-os.makedirs(AUDIO_OUTPUT_DIR, exist_ok=True)
+log = get_logger(__name__)
 
 # --- Global generation status ---
 generation_status = {
@@ -35,11 +27,10 @@ generation_status = {
 # had time to mark it.
 _generation_lock = threading.Lock()
 
-# --- Batch configuration for Groq free tier ---
+# --- Batch configuration ---
 MAX_SNIPPET_CHARS = 500  # Content chars per article
 MAX_BATCH_CHARS = 20000  # ~5k input tokens per batch
 MAX_BATCHES = 5  # Max batches (avoid >5 min wait)
-RATE_LIMIT_WAIT_SECS = 65  # Wait between Groq calls (60s + margin)
 
 SYSTEM_PROMPT = (
     "You are an intelligent podcast assistant. "
@@ -77,8 +68,82 @@ def _build_batches(articles):
     return batches[:MAX_BATCHES]
 
 
-def _summarize_batch(client, batch_texts, batch_num, total_batches):
-    """Sends a batch of articles to Groq and returns the summary text."""
+class PodcastModelError(RuntimeError):
+    """Raised when the configured podcast model cannot be executed."""
+
+
+def _podcast_model_selection(settings):
+    """Return the normalized provider/model pair from application settings."""
+    reader_settings = settings.get("reader") if isinstance(settings, dict) else {}
+    reader_settings = reader_settings if isinstance(reader_settings, dict) else {}
+    podcast_settings = reader_settings.get("podcast") or {}
+    podcast_settings = podcast_settings if isinstance(podcast_settings, dict) else {}
+    provider = str(podcast_settings.get("provider") or "").strip().lower()
+    model = str(podcast_settings.get("model") or "").strip()
+    if bool(provider) != bool(model):
+        raise PodcastModelError(
+            "The daily podcast AI model configuration is incomplete. "
+            "Choose the model again in Settings → Reader."
+        )
+    return provider, model
+
+
+def _resolve_podcast_llm():
+    """Resolve the current podcast LLM and return it with provider metadata."""
+    from backend.agent.factory import get_default_llm_with_meta, get_llm
+    from backend.agent.model_router import strip_legacy_registry_rows
+    from backend.config.app_config import load_params
+    from backend.security.ai_credentials import resolve_provider_api_key
+
+    cfg = load_params(strict_env=False)
+    provider, model = _podcast_model_selection(cfg.settings)
+    if not provider:
+        llm, provider, model = get_default_llm_with_meta(
+            user_message="Generate the daily news podcast script."
+        )
+        if not llm:
+            raise PodcastModelError(
+                "No default AI model is available. Configure one in Settings → AI."
+            )
+        return llm, provider, model
+
+    registry = strip_legacy_registry_rows((cfg.ai or {}).get("models"))
+    route_enabled = any(
+        row.get("enabled") is True
+        and str(row.get("provider") or "").strip().lower() == provider
+        and str(row.get("model_id") or "").strip() == model
+        for row in registry
+    )
+    if not route_enabled:
+        raise PodcastModelError(
+            f"The selected daily podcast model ({provider}/{model}) is not active. "
+            "Choose an active model in Settings → Reader."
+        )
+
+    providers = (cfg.ai or {}).get("providers") or {}
+    provider_config = providers.get(provider) or {}
+    if provider_config.get("enabled") is False:
+        raise PodcastModelError(
+            f"The selected daily podcast provider ({provider}) is disabled. "
+            "Enable it in Settings → AI."
+        )
+    api_key = resolve_provider_api_key(provider, provider_config)
+    llm = get_llm(
+        provider=provider,
+        model=model,
+        api_key=api_key,
+        base_url=provider_config.get("base_url"),
+    )
+    if not llm:
+        raise PodcastModelError(
+            f"The selected daily podcast model ({provider}/{model}) is unavailable. "
+            "Check its provider in Settings → AI."
+        )
+    return llm, provider, model
+
+
+def _summarize_batch(llm, batch_texts, batch_num, total_batches, provider, model):
+    """Send one article batch to the configured LLM and return its script."""
     joined = "\n".join(batch_texts)
     num_articles = len(batch_texts)
 
@@ -98,16 +163,20 @@ def _summarize_batch(client, batch_texts, batch_num, total_batches):
             f"ARTICLES:\n{joined}"
         )
 
-    response = client.chat.completions.create(
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt},
-        ],
-        model="llama-3.3-70b-versatile",
-        temperature=0.7,
-        max_tokens=3000,
-    )
-    return response.choices[0].message.content
+    response = llm.invoke([
+        SystemMessage(content=SYSTEM_PROMPT),
+        HumanMessage(content=user_prompt),
+    ])
+    content = getattr(response, "content", "") or ""
+    if not isinstance(content, str):
+        content = str(content)
+
+    from backend.agent.model_router import record_llm_usage, usage_from_message
+
+    usage = usage_from_message(response)
+    if usage:
+        record_llm_usage(provider, model, usage[0], usage[1])
+    return content
 
 
 def _split_into_sentences(text):
@@ -156,8 +225,8 @@ def _generate_tts_by_sentences(text, output_path):
 
 def generate_daily_podcast():
     """
-        Collects the «unread» articles from the last 24h, generates a batched summary
-    via Groq (respecting the free tier's rate limit), and converts them to MP3 audio.
+    Collect unread articles from the last 24 hours, generate a batched script
+    through the configured AI model, and convert it to MP3 audio.
     
     """
     global generation_status
@@ -196,40 +265,39 @@ def generate_daily_podcast():
             f"Processing {total_articles} articles in {total_batches} batches..."
         )
 
-        # 3. Validar API key
-        if not GROQ_API_KEY:
-            log.error("GROQ_API_KEY is missing!")
-            generation_status["error"] = "Groq API key missing."
-            return None
-
-        client = Groq(api_key=GROQ_API_KEY)
+        # 3. Resolve the model from the latest Settings state.
+        llm, provider, model = _resolve_podcast_llm()
+        model_label = f"{provider}/{model}"
         all_summaries = []
 
         for i, batch in enumerate(batches):
             batch_num = i + 1
             generation_status["progress"] = (
-                f"Batch {batch_num}/{total_batches}: calling Groq..."
+                f"Batch {batch_num}/{total_batches}: calling {model_label}..."
             )
             log.info(
-                f"Batch {batch_num}/{total_batches}: {len(batch)} articles, calling Groq..."
+                "Batch %s/%s: %s articles, calling %s.",
+                batch_num,
+                total_batches,
+                len(batch),
+                model_label,
             )
 
             try:
-                summary = _summarize_batch(client, batch, batch_num, total_batches)
+                summary = _summarize_batch(
+                    llm,
+                    batch,
+                    batch_num,
+                    total_batches,
+                    provider,
+                    model,
+                )
                 all_summaries.append(summary)
                 log.info(f"Batch {batch_num} completed ({len(summary)} chars).")
             except Exception as e:
                 log.error(f"Error in batch {batch_num}: {e}")
                 generation_status["progress"] = f"Error in batch {batch_num}: {e}"
                 # Continue with the remaining batches if there are any
-
-            # Wait between batches to respect the rate limit
-            if batch_num < total_batches:
-                generation_status["progress"] = (
-                    f"Batch {batch_num}/{total_batches} completed. Waiting {RATE_LIMIT_WAIT_SECS}s for rate limit..."
-                )
-                log.info(f"Waiting {RATE_LIMIT_WAIT_SECS}s for Groq rate limit...")
-                time.sleep(RATE_LIMIT_WAIT_SECS)
 
         if not all_summaries:
             log.error("No summaries generated. All calls failed.")
@@ -246,12 +314,16 @@ def generate_daily_podcast():
         # 5. Generate audio
         today_str = datetime.now().strftime("%Y_%m_%d")
         audio_filename = f"daily_podcast_{today_str}.mp3"
-        audio_path = os.path.join(AUDIO_OUTPUT_DIR, audio_filename)
+        from backend.config.app_config import load_params
+
+        audio_output_dir = str(load_params(strict_env=False).paths["AUDIO"])
+        os.makedirs(audio_output_dir, exist_ok=True)
+        audio_path = os.path.join(audio_output_dir, audio_filename)
 
         log.info(f"Generating TTS audio at {audio_path}...")
         try:
             _generate_tts_by_sentences(full_script, audio_path)
-            log.info(f"✅ Podcast generated successfully: {audio_filename}")
+            log.info(f"Podcast generated successfully: {audio_filename}")
             generation_status["result_filename"] = audio_filename
             generation_status["progress"] = "Completed!"
             return audio_filename

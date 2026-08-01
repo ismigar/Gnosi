@@ -1562,6 +1562,7 @@
       "appearance": "Aparença",
       "calendar": "Calendaris",
       "graph": "Configuració del Graf",
+      "reader": "Lector",
       "newsletters": "Subscripcions",
       "mail_accounts": "Comptes de Correu",
       "contacts": "Contactes",
@@ -1577,6 +1578,16 @@
       "connections": "Connexions",
       "knowledge": "Coneixement i IA",
       "advanced": "Avançat"
+    },
+    "reader": {
+      "podcast_title": "Podcast diari",
+      "podcast_description": "Configura el model d’intel·ligència artificial que redacta el guió del podcast diari a partir de les notícies pendents.",
+      "model_label": "Model d’IA per al guió",
+      "model_description": "Només es mostren els models activats a Intel·ligència Artificial. La síntesi de veu es configura per separat.",
+      "default_model": "Model d’IA predeterminat (agent actiu)",
+      "unavailable_group": "Selecció no disponible",
+      "unavailable_model": "{{provider}} / {{model}} — no disponible",
+      "no_active_models": "No hi ha models explícits activats. Pots usar el model predeterminat o activar-ne un a Intel·ligència Artificial."
     },
     "general": {
       "system_title": "Configuració del Sistema",

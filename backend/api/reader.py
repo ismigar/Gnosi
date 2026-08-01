@@ -9,7 +9,6 @@ import logging
 import os
 import xml.etree.ElementTree as ET
 from fastapi.responses import FileResponse
-from backend.services.audio_summarizer import AUDIO_OUTPUT_DIR, generate_daily_podcast
 from backend.services.workspace_service import get_workspace_context, require_role
 
 log = logging.getLogger(__name__)
