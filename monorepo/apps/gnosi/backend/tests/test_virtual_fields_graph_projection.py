@@ -34,4 +34,5 @@ def test_virtual_metrics_ignore_proposals_and_unresolved_targets():
         "c": {"in": 0, "out": 0, "total": 0},
     }
     assert set(nx_graph.nodes) == {"a", "b", "c"}
-    assert set(nx_graph.edges) == {("a", "b")}
+    assert nx_graph.number_of_edges() == 1
+    assert nx_graph.has_edge("a", "b")
