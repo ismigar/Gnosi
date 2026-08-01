@@ -107,6 +107,7 @@ export const GraphViewer = forwardRef(({
     const onNodeClickRef = useRef(onNodeClick);
     const onNodeHoverRef = useRef(onNodeHover);
     const pathResultRef = useRef(filters?.pathResult);
+    const onlyIsolatedRef = useRef(Boolean(filters?.onlyIsolated));
 
     // Visualization refs
     const showArrowsRef = useRef(showArrows);
@@ -144,6 +145,10 @@ export const GraphViewer = forwardRef(({
         pathResultRef.current = filters?.pathResult;
         if (rendererRef.current && containerRef.current?.offsetWidth > 0) rendererRef.current.refresh();
     }, [filters?.pathResult]);
+    useEffect(() => {
+        onlyIsolatedRef.current = Boolean(filters?.onlyIsolated);
+        if (rendererRef.current && containerRef.current?.offsetWidth > 0) rendererRef.current.refresh();
+    }, [filters?.onlyIsolated]);
     useEffect(() => {
         isDarkModeRef.current = isDarkMode;
         if (rendererRef.current && containerRef.current?.offsetWidth > 0) rendererRef.current.refresh();
@@ -425,6 +430,19 @@ export const GraphViewer = forwardRef(({
                 }
             }
 
+            // Degree-zero nodes need an explicit visual treatment: their
+            // topology-derived size is otherwise sub-pixel and they disappear
+            // against the canvas, especially in dark mode. Keep them distinct
+            // in the complete graph and force labels in isolate-only mode.
+            if (data.isolated) {
+                res.color = isDarkModeRef.current ? '#60a5fa' : '#2563eb';
+                res.borderColor = isDarkModeRef.current ? '#bfdbfe' : '#1e3a8a';
+                res.fontColor = isDarkModeRef.current ? '#ffffff' : '#0f172a';
+                res.opacity = 1;
+                res.zIndex = onlyIsolatedRef.current ? 12 : 4;
+                res.forceLabel = onlyIsolatedRef.current;
+            }
+
             const isDark = isDarkModeRef.current;
             res.labelColor = isDark ? "#ffffff" : "#000000";
             res.label = String(data.label || "");
@@ -525,7 +543,7 @@ export const GraphViewer = forwardRef(({
                     const labelText = String(data.label || "");
                     const width = ctx.measureText(labelText).width;
                     ctx.fillStyle = bgColor;
-                    ctx.fillRect(x - 2, y - fontSize, width + 4, fontSize + 4);
+                    ctx.fillRect(x - 6, y - fontSize - 3, width + 12, fontSize + 9);
                     ctx.fillStyle = textColor;
                     ctx.fillText(labelText, x, y);
                 } else {
@@ -557,7 +575,12 @@ export const GraphViewer = forwardRef(({
                     const labelText = String(data.label);
                     const width = context.measureText(labelText).width;
                     context.fillStyle = labelBgColor;
-                    context.fillRect(data.x + data.size + 3, data.y - size + 4, width, size);
+                    context.fillRect(
+                        data.x + data.size - 3,
+                        data.y - size - 3,
+                        width + 12,
+                        size + 9
+                    );
                     context.fillStyle = textColor;
                     context.fillText(labelText, data.x + data.size + 3, data.y + size / 3);
                 }
@@ -755,11 +778,14 @@ export const GraphViewer = forwardRef(({
         graph.updateEachNodeAttributes((node, attrs) => {
             const hidden = !visibleNodes.has(node);
             const degree = visibleDegree.get(node) || 0;
+            const isolated = degree === 0 && attrs.kind !== 'unresolved';
             const size = attrs.kind === 'unresolved'
                 ? 0.5
-                : Math.min(3.2, 0.7 + Math.sqrt(degree) * 0.27);
-            return { ...attrs, hidden, size };
-        }, { attributes: ['hidden', 'size'] });
+                : isolated
+                    ? (filters?.onlyIsolated ? 3 : 2.1)
+                    : Math.min(3.2, 0.7 + Math.sqrt(degree) * 0.27);
+            return { ...attrs, hidden, isolated, size };
+        }, { attributes: ['hidden', 'isolated', 'size'] });
 
         graph.updateEachEdgeAttributes((edge, attrs) => {
             return { ...attrs, hidden: !visibleEdges.has(edge) };

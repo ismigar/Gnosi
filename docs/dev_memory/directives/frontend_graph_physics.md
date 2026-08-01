@@ -115,6 +115,13 @@ Keep zero-degree nodes at their deterministic seeded positions and exclude
 them as many-body charge sources. Letting global repulsion move every isolate
 pushes them into a nearly perfect circular shell around the connected graph,
 which is a layout artifact rather than Obsidian's scattered-isolate view.
+Zero-degree nodes must also retain a clearly visible minimum size and a
+high-contrast color in the complete graph. In isolate-only mode, increase that
+minimum further and force labels independently of the global label threshold;
+otherwise valid isolates look like missing data at overview zoom.
+Highlighted and hovered note-title backgrounds must include horizontal and
+bottom padding; a rectangle fitted directly to the text metrics makes the
+title look clipped even when the glyphs technically fit.
 Connected unresolved placeholders must still participate in the force field
 and use a shorter link distance so unresolved wikilinks form compact radial
 stars instead of long spokes.
