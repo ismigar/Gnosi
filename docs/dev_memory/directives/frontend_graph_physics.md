@@ -233,6 +233,13 @@ and renderable edges, then classify isolation from the endpoints of those
 edges. Hover must traverse only edges whose `hidden` attribute is false and
 must ignore hidden neighbors.
 
+Hover edge styling must override the raw transport `size` for every edge. A
+non-neighbor edge that inherits the backend size (`1` or `1.5`) becomes thicker
+than the normalized visual baseline and makes the whole graph look selected.
+Use the same normalized thickness helper for normal and dimmed edges; reserve
+the stronger color, size, opacity, and z-index exclusively for direct one-hop
+edges.
+
 “Hide isolated nodes” and “Show only isolated nodes” are mutually exclusive
 modes. Keep both controls visible so switching modes is explicit, and have each
 activation clear the other state. The filter utility must still handle stale

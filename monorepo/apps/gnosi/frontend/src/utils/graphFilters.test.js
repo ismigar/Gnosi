@@ -126,4 +126,18 @@ describe('visible graph topology', () => {
         expect([...neighborhood.nodes]).toEqual(['a']);
         expect(neighborhood.edges.size).toBe(0);
     });
+
+    it('stops the hover neighborhood after the first structural hop', () => {
+        const graph = new Graph();
+        graph.addNode('a', { kind: 'page' });
+        graph.addNode('b', { kind: 'page' });
+        graph.addNode('c', { kind: 'page' });
+        const firstEdge = graph.addEdge('a', 'b', { kind: 'link' });
+        graph.addEdge('b', 'c', { kind: 'link' });
+
+        const neighborhood = getVisibleHoverNeighborhood(graph, 'a');
+
+        expect([...neighborhood.nodes].sort()).toEqual(['a', 'b']);
+        expect([...neighborhood.edges]).toEqual([firstEdge]);
+    });
 });
