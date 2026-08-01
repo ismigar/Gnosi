@@ -91,6 +91,18 @@ describe('visible graph topology', () => {
         expect(visibleEdges.size).toBe(1);
     });
 
+    it('prefers only-isolated mode if both isolation flags are supplied', () => {
+        const graph = buildSimilarityGraph();
+        const { visibleNodes, visibleEdges } = applyFilters(graph, {
+            similarity: 100,
+            hideIsolated: true,
+            onlyIsolated: true,
+        });
+
+        expect([...visibleNodes].sort()).toEqual(['a', 'b']);
+        expect(visibleEdges.size).toBe(0);
+    });
+
     it('excludes hidden edges and nodes from the hover neighborhood', () => {
         const graph = buildSimilarityGraph();
         graph.setEdgeAttribute(graph.edge('a', 'b'), 'hidden', true);

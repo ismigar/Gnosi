@@ -307,7 +307,10 @@ export function applyFilters(graph, filters) {
         // Isolation is a property of the rendered topology, not the backing
         // graph. An edge excluded by source, table, or similarity filters must
         // not make either endpoint count as connected.
-        if (hideIsolated || onlyIsolated) {
+        // “Show only” wins defensively if stale state supplies both mutually
+        // exclusive modes at once.
+        const effectiveHideIsolated = hideIsolated && !onlyIsolated;
+        if (effectiveHideIsolated || onlyIsolated) {
             const connectedNodes = new Set();
             visibleEdges.forEach((edge) => {
                 connectedNodes.add(graph.source(edge));
@@ -315,7 +318,7 @@ export function applyFilters(graph, filters) {
             });
             visibleNodes.forEach((node) => {
                 const isVisiblyIsolated = !connectedNodes.has(node);
-                if ((hideIsolated && isVisiblyIsolated) || (onlyIsolated && !isVisiblyIsolated)) {
+                if ((effectiveHideIsolated && isVisiblyIsolated) || (onlyIsolated && !isVisiblyIsolated)) {
                     visibleNodes.delete(node);
                 }
             });

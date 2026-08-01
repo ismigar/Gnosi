@@ -238,17 +238,15 @@ export function Sidebar({
                     <label htmlFor="isolated-nodes-filter">{t('graph.sidebar.hide_isolated_nodes', "Hide isolated nodes")}</label>
                 </div>
 
-                {!hideIsolated && (
-                    <div className="filter-item">
-                        <input
-                            type="checkbox"
-                            id="only-isolated-filter"
-                            checked={onlyIsolated}
-                            onChange={(e) => onOnlyIsolatedChange(e.target.checked)}
-                        />
-                        <label htmlFor="only-isolated-filter">{t('graph.sidebar.show_only_isolated_nodes', "Show only isolated nodes")}</label>
-                    </div>
-                )}
+                <div className="filter-item">
+                    <input
+                        type="checkbox"
+                        id="only-isolated-filter"
+                        checked={onlyIsolated}
+                        onChange={(e) => onOnlyIsolatedChange(e.target.checked)}
+                    />
+                    <label htmlFor="only-isolated-filter">{t('graph.sidebar.show_only_isolated_nodes', "Show only isolated nodes")}</label>
+                </div>
             </div>
             {afterWidgets}
         </>

@@ -574,9 +574,15 @@ function GraphPage() {
                     similarity={similarity}
                     onSimilarityChange={setSimilarity}
                     hideIsolated={hideIsolated}
-                    onHideIsolatedChange={setHideIsolated}
+                    onHideIsolatedChange={(checked) => {
+                        setHideIsolated(checked);
+                        if (checked) setOnlyIsolated(false);
+                    }}
                     onlyIsolated={onlyIsolated}
-                    onOnlyIsolatedChange={setOnlyIsolated}
+                    onOnlyIsolatedChange={(checked) => {
+                        setOnlyIsolated(checked);
+                        if (checked) setHideIsolated(false);
+                    }}
                     onSearchSubmit={handleSearchSubmit}
                     minDate={minDate}
                     maxDate={maxDate}
