@@ -208,8 +208,14 @@ def test_complete_graph_exports_pending_suggestions_as_overlay(vault, monkeypatc
         if item["kind"] == "suggestion"
     )
     assert {edge["source"], edge["target"]} == {"beta", "gamma"}
-    assert edge["similarity"] == 90
+    assert "similarity" not in edge
     assert edge["reason"] == "Shared concern"
+    for structural_edge in (
+        item for item in result["edges"] if item["kind"] != "suggestion"
+    ):
+        assert "similarity" not in structural_edge
+        assert "reason" not in structural_edge
+        assert "suggestion_id" not in structural_edge
 
 
 def test_node_count_keeps_previous_value_on_partial_scan(vault, monkeypatch):

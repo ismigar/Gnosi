@@ -120,7 +120,6 @@ def list_graph_edges() -> List[Dict[str, Any]]:
                 "source": source,
                 "target": target,
                 "kind": "suggestion",
-                "similarity": 90,
                 "reason": str(suggestion.get("question") or suggestion.get("title") or ""),
                 "suggestion_id": str(suggestion.get("id") or ""),
             })

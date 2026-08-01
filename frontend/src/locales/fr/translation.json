@@ -171,9 +171,6 @@
   "filter_by_project": "Filtrer par Projet",
   "legend_real_connection": "Connexion Réelle",
   "legend_directed_connection": "Connexion Dirigée",
-  "legend_strong_similarity": "Forte Similitude (>85%)",
-  "legend_medium_similarity": "Similitude Moyenne (>70%)",
-  "legend_weak_similarity": "Faible Similitude (>60%)",
   "reset_filters": "Réinitialiser les Filtres",
   "depth_filter": "Filtre de Profondeur",
   "depth_1": "1 (Direct)",
@@ -182,7 +179,6 @@
   "legend_title": "Légende",
   "connections_title": "Connexions",
   "no_connections": "Aucune connexion trouvée.",
-  "similarity_score": "Similarité",
   "reason": "Raison",
   "language": "Langue",
   "vault_add_local_property": "Ajouter une propriété locale",
@@ -4121,6 +4117,15 @@
     "toggle_panel_tooltip": "Afficher / masquer le panneau",
     "hide_connections": "Masquer les connexions",
     "show_connections": "Afficher les connexions",
+    "connections_panel": {
+      "title": "Connexions visibles",
+      "description": "Chaque groupe est une note source visible et chaque ligne est une connexion sortante. Les types et les couleurs correspondent à la légende.",
+      "semantic_note": "Les connexions sémantiques sont des propositions en attente du Cerveau ; elles ne modifient aucune note.",
+      "empty": "Il n’y a aucune connexion visible avec les filtres actuels.",
+      "scroll_label": "Connexions visibles. Utilisez les flèches haut et bas pour vous déplacer.",
+      "show_semantic": "Afficher les connexions sémantiques",
+      "show_semantic_hint": "Propositions en attente du Cerveau ; elles ne modifient pas les notes."
+    },
     "controls": {
       "fullscreen": "Plein écran",
       "recenter": "Recentrer",

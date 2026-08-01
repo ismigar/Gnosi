@@ -1,9 +1,3 @@
-const toPercentage = (value) => {
-    const score = Number(value);
-    if (!Number.isFinite(score)) return null;
-    return score <= 1 ? score * 100 : score;
-};
-
 export const SEMANTIC_SUGGESTION_COLOR = '#a855f7';
 
 export function hasSemanticSuggestions(edges) {
@@ -11,20 +5,18 @@ export function hasSemanticSuggestions(edges) {
 }
 
 /**
- * Returns semantic suggestion edges that may be painted over the real-link
- * topology. The caller owns the topology graph, so these edges never enter
- * layout, degree, camera, or minimap calculations.
+ * Returns pending Brain proposals whose endpoints belong to the current
+ * structural view. Proposal visibility is boolean because the canonical queue
+ * does not contain a measured similarity score.
  */
-export function getVisibleSimilarityEdges(edges, visibleNodes, threshold) {
-    const minimum = Number(threshold);
-    if (!Number.isFinite(minimum) || minimum >= 100) return [];
+export function getVisibleSemanticEdges(edges, visibleNodes, enabled) {
+    if (!enabled) return [];
 
-    return (edges || []).filter((edge) => {
-        if (edge.kind !== 'suggestion') return false;
-        const score = toPercentage(edge.similarity);
-        if (score === null || score < minimum) return false;
-        return visibleNodes.has(String(edge.source)) && visibleNodes.has(String(edge.target));
-    });
+    return (edges || []).filter((edge) => (
+        edge.kind === 'suggestion'
+        && visibleNodes.has(String(edge.source))
+        && visibleNodes.has(String(edge.target))
+    ));
 }
 
 /**
@@ -56,8 +48,4 @@ export function getSemanticOverlaySegments(edges, graph, graphToViewport) {
             target: graphToViewport({ x: targetX, y: targetY }),
         }];
     });
-}
-
-export function getSimilarityPercentage(edge) {
-    return toPercentage(edge.similarity);
 }

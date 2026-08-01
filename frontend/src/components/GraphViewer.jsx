@@ -29,10 +29,9 @@ import {
 } from '../utils/graphViewGeometry';
 import {
     getSemanticOverlaySegments,
-    getSimilarityPercentage,
-    getVisibleSimilarityEdges,
+    getVisibleSemanticEdges,
     SEMANTIC_SUGGESTION_COLOR,
-} from '../utils/similarityOverlay';
+} from '../utils/semanticOverlay';
 
 
 function stringToColor(str) {
@@ -601,9 +600,8 @@ export const GraphViewer = forwardRef(({
             semanticContext.lineCap = 'round';
             semanticContext.lineWidth = Math.max(1, 1.35 * edgeThicknessRef.current);
             semanticContext.setLineDash([6, 5]);
-            segments.forEach(({ edge, source, target }) => {
-                const score = getSimilarityPercentage(edge);
-                semanticContext.globalAlpha = 0.45 + Math.min(1, Math.max(0, score || 0) / 100) * 0.4;
+            semanticContext.globalAlpha = 0.78;
+            segments.forEach(({ source, target }) => {
                 semanticContext.beginPath();
                 semanticContext.moveTo(source.x, source.y);
                 semanticContext.lineTo(target.x, target.y);
@@ -695,7 +693,7 @@ export const GraphViewer = forwardRef(({
         graphData.edges.forEach(e => {
             // Render every body wikilink, including one that also belongs to a
             // database-view relation. Frontmatter-only relations, structural
-            // hierarchy, and inferred similarity edges remain excluded.
+            // hierarchy, and semantic proposal edges remain excluded.
             if (e.kind !== 'link' && !e.body_link) return;
             const source = String(e.source);
             const target = String(e.target);
@@ -735,10 +733,10 @@ export const GraphViewer = forwardRef(({
         clearHoverRef.current?.(false);
 
         const { visibleNodes, visibleEdges } = applyFilters(graph, filters);
-        semanticEdgesRef.current = getVisibleSimilarityEdges(
+        semanticEdgesRef.current = getVisibleSemanticEdges(
             graphData?.edges,
             visibleNodes,
-            filters?.similarity,
+            filters?.showSemanticSuggestions,
         );
 
         const visibleDegree = new Map();

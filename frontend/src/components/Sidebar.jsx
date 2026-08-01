@@ -4,9 +4,9 @@ import { useTranslation } from 'react-i18next';
 export function Sidebar({
     searchTerm,
     onSearchChange,
-    similarity,
-    onSimilarityChange,
-    hasSimilarityData = false,
+    showSemanticSuggestions,
+    onShowSemanticSuggestionsChange,
+    hasSemanticData = false,
     hideIsolated,
     onHideIsolatedChange,
     onlyIsolated,
@@ -178,7 +178,7 @@ export function Sidebar({
             {/* --- TIMELINE SECTION --- */}
             <div className="section">
                 <h2 className="filter-title">{t('graph.sidebar.timeline_title', "Timeline")}</h2>
-                <div className="similarity-filter">
+                <div>
                     {/* Only show slider if we have valid dates */}
                     {minDate && maxDate ? (
                         <>
@@ -202,20 +202,22 @@ export function Sidebar({
                 </div>
             </div>
 
-            {hasSimilarityData && <div className="section">
-                <h2 className="filter-title">{t('similarity_score')}</h2>
-                <div className="similarity-filter">
+            {hasSemanticData && <div className="section">
+                <h2 className="filter-title">{t('graph.legend.semantic_similarity', 'Semantic connections')}</h2>
+                <div className="filter-item">
                     <input
-                        type="range"
-                        id="similarity-slider"
-                        min="0"
-                        max="100"
-                        value={similarity}
-                        step="1"
-                        onChange={(e) => onSimilarityChange(parseInt(e.target.value))}
+                        type="checkbox"
+                        id="semantic-suggestions-toggle"
+                        checked={showSemanticSuggestions}
+                        onChange={(event) => onShowSemanticSuggestionsChange(event.target.checked)}
                     />
-                    <label htmlFor="similarity-slider" id="similarity-label">{t('similarity_score')}: {similarity}%</label>
+                    <label htmlFor="semantic-suggestions-toggle">
+                        {t('graph.connections_panel.show_semantic', 'Show semantic connections')}
+                    </label>
                 </div>
+                <p style={{ margin: '6px 0 0 24px', color: 'var(--text-tertiary)', fontSize: '0.78rem' }}>
+                    {t('graph.connections_panel.show_semantic_hint', 'Pending Brain proposals; they do not modify notes.')}
+                </p>
             </div>}
 
             <div className="section">

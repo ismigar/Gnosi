@@ -45,21 +45,20 @@ describe('cross-table graph filtering', () => {
 });
 
 describe('visible graph topology', () => {
-    function buildSimilarityGraph() {
+    function buildProposalGraph() {
         const graph = new Graph();
         graph.addNode('a', { kind: 'page' });
         graph.addNode('b', { kind: 'page' });
         graph.addNode('c', { kind: 'page' });
         graph.addNode('d', { kind: 'page' });
-        graph.addEdge('a', 'b', { kind: 'semantic_similarity', similarity: 80 });
+        graph.addEdge('a', 'b', { kind: 'suggestion' });
         graph.addEdge('c', 'd', { kind: 'link' });
         return graph;
     }
 
-    it('treats nodes with only filtered-out edges as visibly isolated', () => {
-        const graph = buildSimilarityGraph();
+    it('treats nodes with only proposal edges as visibly isolated', () => {
+        const graph = buildProposalGraph();
         const { visibleNodes, visibleEdges } = applyFilters(graph, {
-            similarity: 100,
             onlyIsolated: true,
         });
 
@@ -67,10 +66,9 @@ describe('visible graph topology', () => {
         expect(visibleEdges.size).toBe(0);
     });
 
-    it('hides nodes with only filtered-out edges when hiding isolates', () => {
-        const graph = buildSimilarityGraph();
+    it('hides nodes with only proposal edges when hiding isolates', () => {
+        const graph = buildProposalGraph();
         const { visibleNodes, visibleEdges } = applyFilters(graph, {
-            similarity: 100,
             hideIsolated: true,
         });
 
@@ -79,9 +77,8 @@ describe('visible graph topology', () => {
     });
 
     it('never promotes semantic proposals into the structural topology', () => {
-        const graph = buildSimilarityGraph();
+        const graph = buildProposalGraph();
         const { visibleNodes, visibleEdges } = applyFilters(graph, {
-            similarity: 0,
             onlyIsolated: true,
         });
 
@@ -90,9 +87,8 @@ describe('visible graph topology', () => {
     });
 
     it('prefers only-isolated mode if both isolation flags are supplied', () => {
-        const graph = buildSimilarityGraph();
+        const graph = buildProposalGraph();
         const { visibleNodes, visibleEdges } = applyFilters(graph, {
-            similarity: 100,
             hideIsolated: true,
             onlyIsolated: true,
         });
@@ -102,7 +98,7 @@ describe('visible graph topology', () => {
     });
 
     it('excludes hidden edges and nodes from the hover neighborhood', () => {
-        const graph = buildSimilarityGraph();
+        const graph = buildProposalGraph();
         graph.setEdgeAttribute(graph.edge('a', 'b'), 'hidden', true);
         graph.setNodeAttribute('b', 'hidden', true);
 
@@ -113,7 +109,7 @@ describe('visible graph topology', () => {
     });
 
     it('does not highlight any edge when hovering an isolated node', () => {
-        const graph = buildSimilarityGraph();
+        const graph = buildProposalGraph();
         graph.addNode('isolated', { kind: 'page' });
 
         const neighborhood = getVisibleHoverNeighborhood(graph, 'isolated');
@@ -123,7 +119,7 @@ describe('visible graph topology', () => {
     });
 
     it('does not treat a semantic proposal as a hover connection', () => {
-        const graph = buildSimilarityGraph();
+        const graph = buildProposalGraph();
 
         const neighborhood = getVisibleHoverNeighborhood(graph, 'a');
 

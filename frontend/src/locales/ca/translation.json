@@ -12,9 +12,6 @@
   "filter_by_project": "Filtrar per projecte",
   "legend_real_connection": "Connexió Real",
   "legend_directed_connection": "Connexió Dirigida",
-  "legend_strong_similarity": "Similitud Forta (>85%)",
-  "legend_medium_similarity": "Similitud Mitjana (>70%)",
-  "legend_weak_similarity": "Similitud Febla (>60%)",
   "reset_filters": "Restablir Filtres",
   "depth_filter": "Filtre de Profunditat",
   "depth_1": "1 (Directe)",
@@ -23,7 +20,6 @@
   "legend_title": "Llegenda",
   "connections_title": "Connexions",
   "no_connections": "No s'han trobat connexions.",
-  "similarity_score": "Similitud",
   "reason": "Raó",
   "language": "Idioma",
   "vault_add_local_property": "Afegir propietat local",
@@ -4121,6 +4117,15 @@
     "toggle_panel_tooltip": "Mostra / amaga panell",
     "hide_connections": "Amaga Connexions",
     "show_connections": "Mostra Connexions",
+    "connections_panel": {
+      "title": "Connexions visibles",
+      "description": "Cada bloc és una nota d’origen visible i cada fila és una connexió sortint. Els tipus i els colors coincideixen amb la llegenda.",
+      "semantic_note": "Les connexions semàntiques són propostes pendents del Cervell; no modifiquen cap nota.",
+      "empty": "No hi ha connexions visibles amb els filtres actuals.",
+      "scroll_label": "Connexions visibles. Usa les fletxes amunt i avall per desplaçar-te.",
+      "show_semantic": "Mostra connexions semàntiques",
+      "show_semantic_hint": "Propostes pendents del Cervell; no modifiquen les notes."
+    },
     "controls": {
       "fullscreen": "Pantalla Completa",
       "recenter": "Recentrar",
