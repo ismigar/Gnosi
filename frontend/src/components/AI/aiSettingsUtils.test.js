@@ -4,10 +4,12 @@ import {
     agentSkillWarnings,
     catalogRows,
     cloneSkillPayload,
+    groupEnabledModelRoutes,
     modelToolCompatibility,
     normalizeSkill,
     normalizeTool,
     requiredSkillIdsForAgent,
+    parseModelRouteKey,
     skillEffects,
     skillPayload,
 } from './aiSettingsUtils';
@@ -18,6 +20,28 @@ describe('AI settings catalog normalization', () => {
         expect(catalogRows(rows, 'skills')).toEqual(rows);
         expect(catalogRows({ skills: rows }, 'skills')).toEqual(rows);
         expect(catalogRows({ items: rows }, 'skills')).toEqual(rows);
+    });
+
+    it('groups only enabled model routes and preserves an unavailable selection', () => {
+        const result = groupEnabledModelRoutes([
+            { provider: 'groq', model_id: 'fast', enabled: true },
+            { provider: 'groq', model_id: 'disabled', enabled: false },
+            { provider: 'ollama', model_id: 'local', enabled: true },
+        ], { provider: 'groq', model: 'old' });
+
+        expect(result.groups).toEqual([
+            ['groq', ['fast']],
+            ['ollama', ['local']],
+        ]);
+        expect(result.unavailableSelection).toEqual({
+            provider: 'groq',
+            model: 'old',
+            key: 'groq||old',
+        });
+        expect(parseModelRouteKey('ollama||llama3.2:latest')).toEqual({
+            provider: 'ollama',
+            model: 'llama3.2:latest',
+        });
     });
 
     it('normalizes managed skills without making them editable', () => {
