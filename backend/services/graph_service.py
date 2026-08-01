@@ -19,28 +19,12 @@ from backend.services.relation_links import (
     strip_relation_wikilinks,
 )
 
-try:
-    import igraph as ig  # type: ignore
-    _HAS_IGRAPH = True
-except ImportError:
-    ig = None
-    _HAS_IGRAPH = False
-
-# Import suggestion handler (Phase 1 MVP) - DISABLED: No module named 'pipeline.skills.graph_suggestions'
-# from pipeline.skills.graph_suggestions.scripts.graph_suggestion_handler import SuggestionHandler
-SuggestionHandler = None
-
 log = logging.getLogger(__name__)
 
 # Colors for Sigma.js (Sync with frontend config if possible)
 COLOR_PALETTE = {
-    "database": "#6366f1",  # Indigo
-    "table": "#8b5cf6",     # Violet
-    "view": "#d946ef",      # Fuchsia
     "page": "#10b981",      # Emerald (Permanent)
     "unresolved": "#cbd5e1",  # Slate (Obsidian unresolved link)
-    "tag": "#f59e0b",       # Amber
-    "media": "#ec4899",     # Pink (New)
     "default": "#94a3b8"    # Slate
 }
 
@@ -81,7 +65,7 @@ IGNORED_DIRS = {
     "target", ".cache", "__pycache__", "Plantilles", "Library", ".gemini",
     # System folders managed by dedicated services (not wiki pages)
     # Contacts and Images are cloud-only on OneDrive: rglob/scandir takes ~18s via FUSE.
-    # Added to the graph via _add_contact_nodes (SQLite) and _add_media_nodes (disabled).
+    # Contacts are added from SQLite by _add_contact_nodes.
     "Mail", "Calendar", "Contacts", "Contactes", "Images",
     "system", "custom_icons", "data",
 }
@@ -298,11 +282,10 @@ def _resolve_active_vault_path(cfg):
 
 
 class GraphService:
-    # Class-level cache for node count to avoid heavy scanning on every 2s poll.
-    # Keyed per vault so multi-vault counts don't bleed across vaults.
+    # Last complete count per vault. It is derived from the canonical graph,
+    # never from a second filesystem scan, and protects stats from partial
+    # OneDrive snapshots.
     _node_count_cache: dict = {}
-    _last_count_time: dict = {}
-    _CACHE_TTL = 60 # seconds
 
     # Cache for the full graph, keyed per vault (str path).
     _graph_cache: dict = {}
@@ -311,7 +294,7 @@ class GraphService:
 
     @classmethod
     def invalidate_response_cache(cls) -> None:
-        """Invalidate all per-vault graph responses without touching layout caches."""
+        """Invalidate all per-vault graph responses."""
 
         cls._graph_cache = {}
         cls._last_graph_time = {}
@@ -319,14 +302,6 @@ class GraphService:
     # Class-level Persistent Node Data Cache (metadata, links, etc.)
     # Format: { path_str: { mtime: float, metadata: dict, size: int, links: list, kind: str, color: str, title: str } }
     _NODE_DATA_CACHE = {}
-
-    # Global ID to Path index for fast lookups
-    # Format: { node_id: path_str_relative_to_vault }
-    _ID_TO_PATH_CACHE = {}
-    
-    # Class-level Layout Cache to avoid recalcing layout if not needed
-    _LAYOUT_CACHE = {}
-    _LAYOUT_HASH: Optional[str] = None
 
     # Persistence of _NODE_DATA_CACHE to disk: avoids re-reading thousands of files
     # from the vault on the first build after restarting the backend (cold start
@@ -379,56 +354,6 @@ class GraphService:
         except Exception as e:
             log.warning(f"Could not save the graph node cache: {e}")
 
-    _LAYOUT_CACHE_LOADED = False
-
-    @classmethod
-    def _load_layout_cache(cls):
-        """Loads the layout (positions) from disk once. The layout (igraph) is
-        the slowest part of the cold start; persisting it avoids recalculating it if
-        the graph structure hasn't changed (same hash). Best-effort."""
-        if cls._LAYOUT_CACHE_LOADED:
-            return
-        cls._LAYOUT_CACHE_LOADED = True
-        if cls._LAYOUT_CACHE:
-            return
-        try:
-            base = load_params(strict_env=False).paths.get("LOCAL_CACHE")
-            p = (base / "graph_layout_cache.json") if base else None
-            if not p or not p.exists():
-                return
-            import json
-            with open(p, encoding="utf-8") as f:
-                data = json.load(f)
-            cls._LAYOUT_HASH = data.get("hash")
-            cls._LAYOUT_CACHE = {k: tuple(v) for k, v in (data.get("pos") or {}).items()}
-            if cls._LAYOUT_CACHE:
-                log.info(f"📥 Graph layout cache: loaded {len(cls._LAYOUT_CACHE)} positions from disk")
-        except Exception as e:
-            log.warning(f"Could not load the graph layout cache: {e}")
-
-    @classmethod
-    def _save_layout_cache(cls):
-        """Persists the layout to disk (atomic write). Best-effort."""
-        if not cls._LAYOUT_CACHE or not cls._LAYOUT_HASH:
-            return
-        try:
-            base = load_params(strict_env=False).paths.get("LOCAL_CACHE")
-            p = (base / "graph_layout_cache.json") if base else None
-            if not p:
-                return
-            import json
-            p.parent.mkdir(parents=True, exist_ok=True)
-            tmp = p.with_suffix(".json.tmp")
-            with open(tmp, "w", encoding="utf-8") as f:
-                json.dump(
-                    {"hash": cls._LAYOUT_HASH,
-                     "pos": {k: [float(v[0]), float(v[1])] for k, v in cls._LAYOUT_CACHE.items()}},
-                    f,
-                )
-            tmp.replace(p)
-        except Exception as e:
-            log.warning(f"Could not save the graph layout cache: {e}")
-
     def __init__(self):
         self.registry = self._load_registry()
         
@@ -458,93 +383,11 @@ class GraphService:
         
         return {"databases": [], "tables": [], "views": []}
 
-    def _compute_graph_hash(self, G: "nx.Graph") -> str:
-        """Stable hash of the graph based on nodes+edges. Detects structural changes."""
-        nodes = sorted(str(n) for n in G.nodes())
-        edges = sorted(
-            (str(s), str(t))
-            for s, t, data in G.edges(data=True)
-            if data.get("kind") != "suggestion"
-        )
-        payload = json.dumps({"n": nodes, "e": edges}, sort_keys=True).encode()
-        return hashlib.sha256(payload).hexdigest()
-
-    def _compute_layout(self, G: "nx.Graph") -> Dict[str, Tuple[float, float]]:
-        """Computes positions with igraph Fruchterman-Reingold (fast, high quality).
-        Falls back to networkx spring_layout if igraph is not available.
-        Returns dict {node_id: (x, y)} in the original space (pre-scaling for render).
-        
-        """
-        n_nodes = G.number_of_nodes()
-        if n_nodes == 0:
-            return {}
-
-        if _HAS_IGRAPH:
-            node_list = list(G.nodes())
-            idx = {n: i for i, n in enumerate(node_list)}
-            # Use body wikilinks for the layout, including links that also belong
-            # to a database-view relation. Frontmatter-only relations would create
-            # a topology that Obsidian does not render for the compared sub-vault.
-            layout_edges = [
-                (idx[s], idx[t])
-                for s, t, d in G.edges(data=True)
-                if (
-                    d.get('kind', 'link') == 'link'
-                    or d.get('body_link')
-                )
-                and not d.get('scope_only')
-            ]
-            ig_graph = ig.Graph(n=n_nodes, edges=layout_edges)
-            n_iter = max(500, min(3000, n_nodes * 5))
-            import random as _rnd
-            _rnd.seed(42)
-            layout = ig_graph.layout_fruchterman_reingold(niter=n_iter)
-            coords = layout.coords
-            # We normalize to a fixed 10000 × 10000 space centered at the origin
-            raw_xs = [float(coords[i][0]) for i in range(n_nodes)]
-            raw_ys = [float(coords[i][1]) for i in range(n_nodes)]
-            xmin, xmax = min(raw_xs), max(raw_xs)
-            ymin, ymax = min(raw_ys), max(raw_ys)
-            xrange = (xmax - xmin) or 1.0
-            yrange = (ymax - ymin) or 1.0
-            CANVAS = 10000.0
-            pos = {
-                node_list[i]: (
-                    (raw_xs[i] - xmin) / xrange * CANVAS - CANVAS / 2,
-                    (raw_ys[i] - ymin) / yrange * CANVAS - CANVAS / 2,
-                )
-                for i in range(n_nodes)
-            }
-        else:
-            log.warning("python-igraph not available; using networkx spring_layout (slower)")
-            pos_raw = nx.spring_layout(G, seed=42, iterations=300)
-            pos = {n: (float(p[0]), float(p[1])) for n, p in pos_raw.items()}
-
-        # We place orphan nodes (degree 0) in an outer ring around the connected component.
-        connected = [n for n in G.nodes() if G.degree(n) > 0]
-        orphans = [n for n in G.nodes() if G.degree(n) == 0]
-        if connected and orphans:
-            xs = [pos[n][0] for n in connected]
-            ys = [pos[n][1] for n in connected]
-            cx = sum(xs) / len(xs)
-            cy = sum(ys) / len(ys)
-            half_w = (max(xs) - min(xs)) / 2 or 1.0
-            half_h = (max(ys) - min(ys)) / 2 or 1.0
-            base_r = max(half_w, half_h) * 1.4 + max(half_w, half_h) * 0.3
-            ring_depth = base_r * 0.5
-            import math, random
-            rnd = random.Random(42)
-            for i, node in enumerate(orphans):
-                angle = (i / len(orphans)) * 2 * math.pi + (rnd.random() - 0.5) * 0.2
-                r = base_r + rnd.random() * ring_depth
-                pos[node] = (cx + math.cos(angle) * r, cy + math.sin(angle) * r)
-
-        return pos
-
     def build_unified_graph(self) -> Dict[str, Any]:
         """
-        Builds a unified graph including 4-layer structure and content nodes.
-        Returns a Sigma.js compatible format.
+        Build the current vault topology and its semantic proposal overlay.
+
+        The frontend owns coordinates and visible-subgraph layout.
         """
         now = time.time()
         # 0. Load live config (needed to resolve the active vault for the cache key)
@@ -564,21 +407,14 @@ class GraphService:
 
         self.registry = self._load_registry()
         
-        graph_config = cfg.params.get("graph", {})
-        self.visible_dbs = set(graph_config.get("visible_databases", []))
-        self.visible_tables = set(graph_config.get("visible_tables", []))
-
-        log.info(f"Building unified graph (Visible DBs: {self.visible_dbs}, Tables: {self.visible_tables})...")
-        G = nx.Graph()
-
-        # Registry nodes (database/table/view) are metadata-only — add them temporarily
-        # so that _add_structural_edges can resolve parent IDs, then strip them before export.
-        self._add_registry_nodes(G)
+        log.info("Building current vault graph...")
+        # Direction is domain data: reciprocal links must remain two distinct
+        # edges instead of being collapsed by an undirected NetworkX graph.
+        G = nx.DiGraph()
 
         # Cold start: loads the node cache from disk to avoid re-reading thousands of
         # files after a restart (mtime invalidation is still preserved).
         GraphService._load_node_cache()
-        GraphService._load_layout_cache()
         page_nodes, skipped_dirs = self._add_page_nodes(G)
         # Per-file node cache stays valid even on a partial scan: it only holds
         # files that were actually read, keyed by path with mtime invalidation.
@@ -586,32 +422,8 @@ class GraphService:
         self._add_contact_nodes(G)
         self._add_structural_edges(G, page_nodes)
 
-        # Remove structural registry nodes: they are never rendered as content
-        registry_nodes = [n for n, d in G.nodes(data=True) if d.get("kind") in ("database", "table", "view")]
-        G.remove_nodes_from(registry_nodes)
-        
-        # 4. Generate Layout — calculated on the backend with igraph (Fruchterman-Reingold)
-        # Cache keyed by hash of the graph structure (nodes + edges). If it doesn't change, it doesn't recalculate.
-        graph_hash = self._compute_graph_hash(G)
-        if GraphService._LAYOUT_HASH == graph_hash and GraphService._LAYOUT_CACHE:
-            log.info(f"Reusing cached layout (hash={graph_hash[:8]}, {len(G.nodes())} nodes)")
-            pos = GraphService._LAYOUT_CACHE
-        else:
-            log.info(f"Computing new layout for {len(G.nodes())} nodes / {len(G.edges())} edges...")
-            t0 = time.time()
-            pos = self._compute_layout(G)
-            log.info(f"Layout computed in {time.time() - t0:.2f}s")
-            GraphService._LAYOUT_CACHE = pos
-            GraphService._LAYOUT_HASH = graph_hash
-            if not skipped_dirs:
-                # Don't persist a partial graph's layout: it would clobber the
-                # complete layout on disk and force a recompute at next cold
-                # start once OneDrive recovers. In-memory reuse is still fine.
-                GraphService._save_layout_cache()
-
         # Pending semantic proposals are an overlay, not structural topology.
-        # Add them only after layout calculation so they never affect positions,
-        # degree-based sizing, or the stable layout hash.
+        # The frontend owns layout and excludes this layer from its simulation.
         self._add_suggestion_edges(G)
 
         # Index pages generated for relation fields sometimes inherit the raw
@@ -632,10 +444,6 @@ class GraphService:
             attrs = G.nodes[node_id]
             meta = attrs.get("metadata", {}) or {}
             cluster = _node_cluster(meta, attrs)
-            ai_cluster = _cluster_label(attrs.get("ai_cluster") or meta.get("ai_cluster"))
-            ai_cluster_color = attrs.get("ai_cluster_color") or meta.get("ai_cluster_color")
-            if ai_cluster and not ai_cluster_color:
-                ai_cluster_color = _string_to_color(ai_cluster)
             label = str(attrs.get("label", node_id))
             match = relation_index_re.match(label.strip())
             if match:
@@ -646,15 +454,11 @@ class GraphService:
                 "id": node_id,
                 "key": node_id,
                 "label": label,
-                "x": float(pos[node_id][0]),
-                "y": float(pos[node_id][1]),
                 "size": attrs.get("size", 10),
                 "color": attrs.get("color", COLOR_PALETTE.get(attrs.get("kind"), COLOR_PALETTE["default"])),
                 "kind": attrs.get("kind", "page"),
                 "metadata": meta,
                 "cluster": cluster,
-                "ai_cluster": ai_cluster,
-                "ai_cluster_color": ai_cluster_color,
                 # Additional attributes needed for categorization in the frontend (graphFilters.js)
                 "path": attrs.get("path", ""),
                 "table_id": attrs.get("table_id") or meta.get("table_id") or meta.get("database_table_id"),
@@ -668,12 +472,8 @@ class GraphService:
                 "id": f"e_{u}_{v}",
                 "source": u,
                 "target": v,
-                # `source`/`target` follow nx's undirected adjacency iteration order
-                # (driven by node-insertion order) and DO NOT encode link direction.
-                # `src`/`dst` carry the real semantic direction (the page whose body
-                # or metadata produced the edge → the referenced page). Consumers that
-                # need direction (e.g. outgoing vs incoming counts) must read src/dst,
-                # never source/target. See feedback_links_panel_vs_graph_divergence.
+                # `src`/`dst` remain explicit for consumers that use semantic
+                # direction rather than the transport endpoint names.
                 "src": edge_attrs.get("src", u),
                 "dst": edge_attrs.get("dst", v),
                 "directed": edge_attrs.get("directed", False),
@@ -684,8 +484,8 @@ class GraphService:
                 "similarity": edge_attrs.get("similarity"),
                 "body_link": bool(edge_attrs.get("body_link", False)),
                 "reason": edge_attrs.get("reason", ""),
-                "scope_only": bool(edge_attrs.get("scope_only", False)),
                 "unresolved": bool(edge_attrs.get("unresolved", False)),
+                "suggestion_id": edge_attrs.get("suggestion_id"),
             })
             
         # Legend generation (dynamic based on the fields exported to the client).
@@ -693,9 +493,7 @@ class GraphService:
         kind_counts = {}
         kind_colors = {}
         cluster_counts = {}
-        ai_cluster_counts = {}
         cluster_colors = {}
-        ai_cluster_colors = {}
         
         for n in nodes:
             k = n.get("kind")
@@ -707,10 +505,6 @@ class GraphService:
             if cluster:
                 cluster_counts[cluster] = cluster_counts.get(cluster, 0) + 1
                 cluster_colors.setdefault(cluster, _string_to_color(cluster))
-            ai_cluster = n.get("ai_cluster")
-            if ai_cluster:
-                ai_cluster_counts[ai_cluster] = ai_cluster_counts.get(ai_cluster, 0) + 1
-                ai_cluster_colors.setdefault(ai_cluster, n["ai_cluster_color"])
         
         for k, count in kind_counts.items():
             label = k.capitalize()
@@ -724,18 +518,12 @@ class GraphService:
             {"label": label, "color": cluster_colors[label], "count": count}
             for label, count in sorted(cluster_counts.items())
         ]
-        legend_ai_clusters = [
-            {"label": label, "color": ai_cluster_colors[label], "count": count}
-            for label, count in sorted(ai_cluster_counts.items())
-        ]
-        
         result = {
             "nodes": nodes,
             "edges": edges,
             "legend": {
                 "kinds": legend_kinds,
                 "clusters": legend_clusters,
-                "ai_clusters": legend_ai_clusters,
             }
         }
 
@@ -757,58 +545,6 @@ class GraphService:
         GraphService._graph_cache[vault_key] = result
         GraphService._last_graph_time[vault_key] = time.time()  # time AFTER the build, not before
         return result
-
-    def _add_registry_nodes(self, G: nx.Graph):
-        # Databases
-        for db in self.registry.get("databases", []):
-            db_id = db.get("id")
-            if self.visible_dbs and db_id not in self.visible_dbs:
-                continue
-            G.add_node(db_id, 
-                       label=db.get("name", "DB"), 
-                       kind="database", 
-                       color=COLOR_PALETTE["database"],
-                       size=15,
-                       metadata=db)
-            
-        # Tables
-        for table in self.registry.get("tables", []):
-            table_id = table.get("id")
-            db_id = table.get("database_id")
-            
-            # Table is visible if:
-            # 1. It's explicitly selected
-            # 2. Its parent DB is selected
-            # 3. No explicit selections exist at all
-            is_explicit = self.visible_tables and table_id in self.visible_tables
-            is_db_explicit = self.visible_dbs and db_id in self.visible_dbs
-            
-            if (self.visible_tables or self.visible_dbs):
-                if not (is_explicit or is_db_explicit):
-                    continue
-            
-                
-            G.add_node(table_id, 
-                       label=table.get("name", "Table"), 
-                       kind="table", 
-                       color=COLOR_PALETTE["table"],
-                       size=12,
-                       metadata=table)
-            
-        # Views
-        for view in self.registry.get("views", []):
-            view_id = view.get("id")
-            table_id = view.get("table_id")
-            
-            if table_id not in G:
-                continue
-                
-            G.add_node(view_id, 
-                       label=view.get("name", "View"), 
-                       kind="view", 
-                       color=COLOR_PALETTE["view"],
-                       size=11,
-                       metadata=view)
 
     def _add_page_nodes(self, G: nx.Graph) -> Tuple[List[Dict[str, Any]], List[str]]:
         """Adds one node per vault .md file.
@@ -967,10 +703,6 @@ class GraphService:
                        table_id=inferred_table_id,
                        database_id=inferred_db_id)
             
-            # Update Global Index (ID -> Relative Path string)
-            # This allows find_page_path to be O(1)
-            GraphService._ID_TO_PATH_CACHE[id_to_use] = path_str
-            
             page_nodes.append({
                 "id": id_to_use,
                 "title": title,
@@ -1025,53 +757,6 @@ class GraphService:
                                path=f"Contacts/{label}.md")
         except Exception as e:
             log.warning(f"_add_contact_nodes: {e}")
-
-    def _add_media_nodes(self, G: nx.Graph) -> List[Dict[str, Any]]:
-        """Scans Vault/Images for media nodes using MediaService."""
-        from backend.services.media_service import MediaService
-        service = MediaService()
-        
-        result = service.get_all_media(limit=500)
-        media_list = result.get("items", [])
-        media_nodes = []
-
-        for media in media_list:
-            # We only show media with tags or description by default to avoid clutter
-            # unless a global setting says otherwise.
-            if not media.get("tags") and not media.get("description"):
-                continue
-                
-            media_id = f"media_{media['id']}"
-            title = media.get("filename")
-            
-            # Metadata for sigma
-            metadata = {
-                "id": media["id"],
-                "title": title,
-                "kind": "media",
-                "url": media.get("url"),
-                "album": media.get("album"),
-                "tags": media.get("tags", []),
-                "description": media.get("description", ""),
-                "created_time": media.get("date_taken") or media.get("last_modified")
-            }
-            
-            G.add_node(media_id, 
-                       label=title, 
-                       kind="media", 
-                       color=COLOR_PALETTE["media"],
-                       size=10, # Slightly larger than pages
-                       metadata=metadata,
-                       url=media.get("url")) # Direct URL for frontend preview
-            
-            media_nodes.append({
-                "id": media_id,
-                "title": title,
-                "tags": media.get("tags", []),
-                "metadata": metadata
-            })
-            
-        return media_nodes
 
     def _add_structural_edges(self, G: nx.Graph, page_nodes: List[Dict[str, Any]]):
         # 1. Frontmatter relation detection (Already loaded in node attributes).
@@ -1137,42 +822,16 @@ class GraphService:
             target_key = target_label.split('|')[0].split('#')[0].strip()
             target_lower = target_key.lower()
             if G.has_node(target_key):
-                # Obsidian resolves the target path before the alias separator.
-                # A Gnosi UUID may identify a page internally, but `[[uuid|Title]]`
-                # remains unresolved when no Markdown file is actually named
-                # `uuid.md`. Resolving it through the internal ID collapses graph
-                # components that stay separate in Obsidian.
-                node_path = G.nodes[target_key].get("path", "")
-                if node_path and Path(node_path).stem.lower() == target_lower:
-                    return target_key
-                return None
+                # Gnosi-generated body links use stable page IDs as targets.
+                # Page identity is independent of the human-readable filename.
+                return target_key
             return label_to_id.get(target_lower) or stem_to_id.get(target_lower)
 
-        def add_scoped_unresolved(
-            source_id: str,
-            target_label: str,
-            resolved_target_id: Optional[str] = None,
-        ) -> str:
-            """Adds the placeholder Obsidian renders for an unavailable target.
-
-            The table scope is part of the ID because the same target can be
-            available in the root vault but unresolved inside a table opened as
-            its own Obsidian vault.
-            """
+        def add_unresolved(source_id: str, target_label: str) -> str:
+            """Add one global placeholder for a genuinely missing target."""
             target_key = target_label.split('|')[0].split('#')[0].strip()
-            source_attrs = G.nodes[source_id]
-            source_table_id = (
-                source_attrs.get("table_id")
-                or source_attrs.get("metadata", {}).get("table_id")
-                or source_attrs.get("metadata", {}).get("database_table_id")
-            )
-            source_database_id = (
-                source_attrs.get("database_id")
-                or source_attrs.get("metadata", {}).get("database_id")
-            )
-            scope = str(source_table_id or "__vault__")
             digest = hashlib.sha1(
-                f"{scope}\0{target_key.casefold()}".encode("utf-8")
+                target_key.casefold().encode("utf-8")
             ).hexdigest()[:20]
             unresolved_id = f"unresolved:{digest}"
 
@@ -1183,13 +842,7 @@ class GraphService:
                     kind="unresolved",
                     color=COLOR_PALETTE["unresolved"],
                     size=6,
-                    metadata={
-                        "unresolved": True,
-                        "scope_only": resolved_target_id is not None,
-                        "resolved_target_id": resolved_target_id,
-                    },
-                    table_id=source_table_id,
-                    database_id=source_database_id,
+                    metadata={"unresolved": True},
                 )
 
             if not G.has_edge(source_id, unresolved_id):
@@ -1204,7 +857,6 @@ class GraphService:
                     dst=unresolved_id,
                     directed=True,
                     unresolved=True,
-                    scope_only=resolved_target_id is not None,
                 )
             return unresolved_id
 
@@ -1228,23 +880,10 @@ class GraphService:
                 for target_label in links:
                     resolved = resolve_link(target_label)
                     if not resolved:
-                        add_scoped_unresolved(node_id, target_label)
+                        add_unresolved(node_id, target_label)
                         continue
                     if resolved == node_id or not G.has_node(resolved):
                         continue
-
-                    target_attrs = G.nodes[resolved]
-                    target_table_id = (
-                        target_attrs.get("table_id")
-                        or target_attrs.get("metadata", {}).get("table_id")
-                        or target_attrs.get("metadata", {}).get("database_table_id")
-                    )
-                    if table_id and target_table_id != table_id:
-                        add_scoped_unresolved(
-                            node_id,
-                            target_label,
-                            resolved_target_id=str(resolved),
-                        )
 
                     if G.has_edge(node_id, resolved):
                         G.edges[node_id, resolved]["body_link"] = True
@@ -1265,149 +904,52 @@ class GraphService:
 
     
     def _add_suggestion_edges(self, G: nx.Graph):
-        """Loads AI suggestions from suggestions.json in vault root."""
-        cfg = load_params(strict_env=False)
-        vault_path = _resolve_active_vault_path(cfg)
-        if not vault_path:
-            return
-            
-        suggestions_path = vault_path / "suggestions.json"
-        
-        if not suggestions_path.exists():
-            return
-            
+        """Add the canonical Brain proposal queue as a non-structural overlay."""
         try:
-            data = json.loads(suggestions_path.read_text(encoding="utf-8"))
-            # Expected format: { "source_id": [ {"target_id": "...", "reason": "...", "score": 0.8}, ... ] }
-            for source_id, suggestions in data.items():
-                if not G.has_node(source_id): continue
-                
-                for sug in suggestions:
-                    target_id = sug.get("target_id")
-                    if target_id and G.has_node(target_id):
-                        # Don't overwrite existing explicit links
-                        if G.has_edge(source_id, target_id): continue
-                        
-                        G.add_edge(source_id, target_id, 
-                                   kind="suggestion", 
-                                   color="#FF4081", 
-                                   size=1, 
-                                   dashed=True,
-                                   similarity=float(sug.get("score", 0.0)) * 100,
-                                   reason=sug.get("reason", "AI Suggested"))
+            from backend.services.llm_wiki_suggestions import list_graph_edges
+
+            for suggestion in list_graph_edges():
+                source_id = str(suggestion.get("source") or "")
+                target_id = str(suggestion.get("target") or "")
+                if not source_id or not target_id:
+                    continue
+                if not G.has_node(source_id) or not G.has_node(target_id):
+                    continue
+                # An explicit relationship supersedes a proposal.
+                if G.has_edge(source_id, target_id) or G.has_edge(target_id, source_id):
+                    continue
+                G.add_edge(
+                    source_id,
+                    target_id,
+                    kind="suggestion",
+                    color="#FF4081",
+                    size=1,
+                    dashed=True,
+                    similarity=float(suggestion.get("similarity") or 0),
+                    reason=str(suggestion.get("reason") or ""),
+                    suggestion_id=str(suggestion.get("suggestion_id") or ""),
+                    src=source_id,
+                    dst=target_id,
+                    directed=False,
+                )
         except Exception as e:
-            log.error(f"Error loading AI suggestions: {e}")
-
-    def _add_tag_inference_edges(self, G: nx.Graph, page_nodes: List[Dict[str, Any]]):
-        """Adds edges between pages that share common tags, creating tag nodes."""
-        tag_map = {}
-        for page in page_nodes:
-            tags_raw = page.get("tags") or []
-            if isinstance(tags_raw, str):
-                tags = [t.strip() for t in tags_raw.split(",") if t.strip()]
-            elif isinstance(tags_raw, list):
-                tags = [str(t).strip() for t in tags_raw if t]
-            else:
-                tags = []
-            
-            for tag in tags:
-                if not tag: continue
-                if tag not in tag_map:
-                    tag_map[tag] = []
-                tag_map[tag].append(page["id"])
-        
-        for tag, pages in tag_map.items():
-            if len(pages) < 2: continue 
-            
-            tag_node_id = f"tag_{tag}"
-            if not G.has_node(tag_node_id):
-                G.add_node(tag_node_id, label=f"#{tag}", kind="tag", color=COLOR_PALETTE["tag"], size=6)
-            
-            for p_id in pages:
-                if G.has_node(p_id):
-                    G.add_edge(tag_node_id, p_id, kind="tag_connection", color="#f59e0b", size=0.8, dashed=True)
-
-    def accept_suggestion(self, source_id: str, target_id: str, reason: Optional[str] = None) -> Dict[str, Any]:
-        """Accepts an AI suggestion. Currently disabled — SuggestionHandler
-        module is not present in this build.
-
-        Previous bug: the entire body was inside a triple-quote as a
-        "docstring" → the function returned None and the caller crashed
-        with a TypeError when doing `result["success"]`. Now it returns an
-        explicit dict so the caller shows a clean 400 error.
-        
-        """
-        _ = (source_id, target_id, reason)
-        return {
-            "success": False,
-            "message": "SuggestionHandler module not available in this build",
-            "updated_file": None,
-            "new_relations": [],
-        }
-
+            log.error(f"Error loading Brain suggestions: {e}")
 
     def get_node_count(self) -> int:
-        """
-        Calculates the total number of 'memories' (Registry items + MD files + Media).
-        Uses a short-lived class cache for performance.
-        """
-        now = time.time()
+        """Return the real-node count from the canonical graph projection."""
         cfg = load_params(strict_env=False)
         vault_path = _resolve_active_vault_path(cfg)
         vault_key = str(vault_path or "")
-        if now - GraphService._last_count_time.get(vault_key, 0) < self._CACHE_TTL:
-            return GraphService._node_count_cache.get(vault_key, 0)
-
         try:
-            # 1. Registry items
-            reg = self._load_registry()
-            count = len(reg.get("databases", [])) + len(reg.get("tables", [])) + len(reg.get("views", []))
-
-            # 2. Vault content (Pages + Media)
-            # The node-data cache is keyed by ABSOLUTE path and shared across
-            # vaults, so count only the entries under THIS vault.
-            vault_prefix = str(vault_path) + os.sep if vault_path else None
-            cached_for_vault = 0
-            if vault_prefix:
-                cached_for_vault = sum(
-                    1 for k in GraphService._NODE_DATA_CACHE if k.startswith(vault_prefix)
-                )
-            if cached_for_vault:
-                count += cached_for_vault
-                # Still need media count from disk or separate cache
-                img_path = vault_path / "Images" if vault_path else None
-                media_count = 0
-                if img_path and img_path.exists():
-                    try:
-                        media_count = sum(1 for p in os.scandir(img_path) if p.is_file() and p.name.lower().endswith((".png", ".jpg", ".jpeg", ".webp")))
-                    except Exception as e:
-                        log.debug(f"media scan (cached path) failed at {img_path}: {e}")
-                count += media_count
-            else:
-                # Fallback to disk scan - EFFICIENT
-                if vault_path and vault_path.exists():
-                    skipped_dirs: List[str] = []
-                    all_md = get_markdown_files_efficient(vault_path, skipped_dirs)
-                    if skipped_dirs and GraphService._node_count_cache.get(vault_key):
-                        # Partial scan (wedged OneDrive subtree): keep serving
-                        # the previous count instead of caching a lower one.
-                        # Refresh the timestamp so the 2s poll doesn't rescan
-                        # the vault on every call while it's wedged.
-                        GraphService._last_count_time[vault_key] = now
-                        return GraphService._node_count_cache[vault_key]
-                    md_count = len(all_md)
-
-                    img_path = vault_path / "Images"
-                    media_count = 0
-                    if img_path.exists():
-                        try:
-                            media_count = sum(1 for p in os.scandir(img_path) if p.is_file() and p.name.lower().endswith((".png", ".jpg", ".jpeg", ".webp")))
-                        except Exception as e:
-                            log.debug(f"media scan (fallback) failed at {img_path}: {e}")
-                    count += md_count + media_count
-
+            graph = self.build_unified_graph()
+            count = sum(
+                1
+                for node in graph.get("nodes", [])
+                if str(node.get("kind") or "page").lower() != "unresolved"
+            )
+            if graph.get("partial") and vault_key in GraphService._node_count_cache:
+                return GraphService._node_count_cache[vault_key]
             GraphService._node_count_cache[vault_key] = count
-            GraphService._last_count_time[vault_key] = now
             return count
         except Exception as e:
             log.error(f"Error counting nodes: {e}")

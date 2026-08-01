@@ -18,7 +18,6 @@ monkeypatched to raise EDEADLK for one directory. No real OneDrive needed.
 from __future__ import annotations
 
 import errno
-import json
 import logging
 import os
 from pathlib import Path
@@ -57,14 +56,9 @@ def vault(tmp_path, monkeypatch):
     GraphService._graph_cache = {}
     GraphService._last_graph_time = {}
     GraphService._node_count_cache = {}
-    GraphService._last_count_time = {}
     GraphService._NODE_DATA_CACHE = {}
-    GraphService._ID_TO_PATH_CACHE = {}
-    GraphService._LAYOUT_CACHE = {}
-    GraphService._LAYOUT_HASH = None
     # Skip disk cache loads: keep the test hermetic regardless of prior runs.
     GraphService._NODE_CACHE_LOADED = True
-    GraphService._LAYOUT_CACHE_LOADED = True
     gs._DIR_WARMUP_REQUESTED.clear()
     return vault
 
@@ -195,17 +189,17 @@ def test_build_recovers_from_legacy_none_graph_cache(vault):
     assert isinstance(GraphService._last_graph_time, dict)
 
 
-def test_complete_graph_exports_pending_suggestions_as_overlay(vault):
-    (vault / "suggestions.json").write_text(
-        json.dumps({
-            "beta": [{
-                "target_id": "gamma",
-                "score": 0.83,
-                "reason": "Shared concern",
-            }],
-        }),
+def test_complete_graph_exports_pending_suggestions_as_overlay(vault, monkeypatch):
+    from backend.services import llm_wiki_suggestions
+
+    queue_path = vault / ".gnosi" / "llm_wiki_suggestions.json"
+    queue_path.parent.mkdir()
+    queue_path.write_text(
+        '{"suggestions":[{"id":"proposal-1","member_ids":["beta","gamma"],'
+        '"title":"Shared concern"}]}',
         encoding="utf-8",
     )
+    monkeypatch.setattr(llm_wiki_suggestions, "_queue_path", lambda: queue_path)
 
     result = GraphService().build_unified_graph()
 
@@ -214,7 +208,7 @@ def test_complete_graph_exports_pending_suggestions_as_overlay(vault):
         if item["kind"] == "suggestion"
     )
     assert {edge["source"], edge["target"]} == {"beta", "gamma"}
-    assert edge["similarity"] == 83.0
+    assert edge["similarity"] == 90
     assert edge["reason"] == "Shared concern"
 
 
@@ -225,10 +219,10 @@ def test_node_count_keeps_previous_value_on_partial_scan(vault, monkeypatch):
     full_count = svc.get_node_count()
     assert full_count >= 3
 
-    # Wedge the dir, expire caches → the partial rescan must NOT lower the count.
+    # Wedge the dir and invalidate the response → the partial graph must NOT
+    # lower the last complete canonical count.
     _wedge(monkeypatch)
-    GraphService._last_count_time = {}  # expire the TTL, keep the cached count
-    GraphService._NODE_DATA_CACHE = {}  # force the disk-scan fallback branch
+    GraphService.invalidate_response_cache()
     assert svc.get_node_count() == full_count
 
 

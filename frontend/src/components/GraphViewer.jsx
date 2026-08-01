@@ -86,6 +86,7 @@ export const GraphViewer = forwardRef(({
     const rendererRef = useRef(null);
     const graphRef = useRef(null);
     const layoutRef = useRef(null); // Ref for the layout worker
+    const clearHoverRef = useRef(null);
     const [edgeTooltip] = useState(null);
 
     // Sync prop to ref so renderer can access latest value without re-init
@@ -349,6 +350,19 @@ export const GraphViewer = forwardRef(({
         let hoverDistances = {};
         let hoveredEdges = new Set();
 
+        const clearHover = (refresh = true) => {
+            const hadHover = hoveredNode !== null;
+            hoveredNode = null;
+            hoverDistances = {};
+            hoveredEdges = new Set();
+            if (refresh && containerRef.current?.offsetWidth > 0) {
+                rendererRef.current?.refresh();
+            }
+            if (hadHover && onNodeHoverRef.current) onNodeHoverRef.current(null);
+            if (containerRef.current) containerRef.current.style.cursor = "default";
+        };
+        clearHoverRef.current = clearHover;
+
         // Sync refs
         colorModeRef.current = colorMode;
         isDarkModeRef.current = isDarkMode;
@@ -387,9 +401,6 @@ export const GraphViewer = forwardRef(({
 
             if (colorModeRef.current === 'cluster' && data.cluster) {
                 res.color = stringToColor(data.cluster);
-                res.borderColor = res.color;
-            } else if (colorModeRef.current === 'ai_cluster' && data.ai_cluster) {
-                res.color = data.ai_cluster_color || stringToColor(data.ai_cluster);
                 res.borderColor = res.color;
             } else if (data.kind === 'unresolved') {
                 res.color = isDarkModeRef.current ? '#94a3b8' : '#cbd5e1';
@@ -517,6 +528,10 @@ export const GraphViewer = forwardRef(({
                 }
             },
             defaultDrawNodeHover: (context, data, settings) => {
+                // Sigma only recomputes its internal hover on pointer movement.
+                // The application hover is cleared before layout moves nodes,
+                // so never draw an internal hover that no longer has an owner.
+                if (!hoveredNode) return;
                 // Simplified hover draw for reliability
                 const size = settings.labelSize;
                 const font = settings.labelFont;
@@ -545,7 +560,10 @@ export const GraphViewer = forwardRef(({
         window.sigmaRenderer = renderer;
         rendererRef.current = renderer;
         if (setRendererInstance) setRendererInstance(renderer);
-        renderer.getCamera().setState({ x: 0.5, y: 0.4, ratio: 1.4 });
+        const camera = renderer.getCamera();
+        camera.setState({ x: 0.5, y: 0.4, ratio: 1.4 });
+        const handleCameraUpdate = () => clearHover(false);
+        camera.on('updated', handleCameraUpdate);
 
         // Event Listeners
         renderer.on("enterNode", (e) => {
@@ -561,12 +579,7 @@ export const GraphViewer = forwardRef(({
             containerRef.current.style.cursor = isPathfindingModeRef.current ? "crosshair" : "pointer";
         });
         renderer.on("leaveNode", () => {
-            hoveredNode = null;
-            hoverDistances = {};
-            hoveredEdges = new Set();
-            if (containerRef.current?.offsetWidth > 0) renderer.refresh();
-            if (onNodeHoverRef.current) onNodeHoverRef.current(null);
-            containerRef.current.style.cursor = "default";
+            clearHover();
         });
         renderer.on("clickNode", (e) => {
             if (isPathfindingModeRef.current) {
@@ -582,10 +595,12 @@ export const GraphViewer = forwardRef(({
 
         // Cleanup
         return () => {
+            camera.off('updated', handleCameraUpdate);
             if (renderer) {
                 try { renderer.kill(); } catch (e) { console.error(e); }
             }
             rendererRef.current = null;
+            clearHoverRef.current = null;
             initializedRef.current = false;
             if (setRendererInstance) setRendererInstance(null);
         };
@@ -599,33 +614,23 @@ export const GraphViewer = forwardRef(({
 
 
 
-        // Option 1: Clear and Rebuild (Simple and robust for layout)
-        // Since backend sends full graph, this prevents ghost nodes.
-        // We preserve positions if they are in graphData (they are).
+        clearHoverRef.current?.(false);
+
+        // Rebuild the transport projection and seed it deterministically.
         graph.clear();
 
         // Initial positions: uniform distribution over a large area → FA2 converges better
         const totalNodes = (graphData.nodes || []).length;
         const spreadRadius = Math.max(300, Math.sqrt(totalNodes) * 40);
 
-        graphData.nodes.forEach((n, i) => {
+        graphData.nodes.forEach((n) => {
             const key = String(n.key);
             const rawSize = Number(n.size || 8);
             const displaySize = 1.0 + (rawSize - 8) * (2.0 / 10); // map [8,18]→[1,3]
-            // If the backend has sent real positions (igraph FR), we respect them.
-            // Fallback: golden spiral distribution.
-            const hasBackendPos = typeof n.x === 'number' && typeof n.y === 'number'
-                && (n.x !== 0 || n.y !== 0);
-            let nx, ny;
-            if (hasBackendPos) {
-                nx = n.x;
-                ny = n.y;
-            } else {
-                const goldenAngle = i * 2.399963;
-                const r = spreadRadius * Math.sqrt((i + 1) / totalNodes);
-                nx = Math.cos(goldenAngle) * r;
-                ny = Math.sin(goldenAngle) * r;
-            }
+            const angle = seededUnitInterval(`${key}:initial-angle`) * Math.PI * 2;
+            const radius = Math.sqrt(seededUnitInterval(`${key}:initial-radius`)) * spreadRadius;
+            const nx = Math.cos(angle) * radius;
+            const ny = Math.sin(angle) * radius;
             graph.addNode(key, {
                 ...n,
                 x: nx,
@@ -672,6 +677,8 @@ export const GraphViewer = forwardRef(({
         const graph = graphRef.current;
         const renderer = rendererRef.current;
         if (!graph || !renderer) return;
+
+        clearHoverRef.current?.(false);
 
         const { visibleNodes, visibleEdges } = applyFilters(graph, filters);
 
@@ -853,6 +860,9 @@ export const GraphViewer = forwardRef(({
                 return;
             }
 
+            // Node geometry changes without a pointer event. Invalidate the
+            // previous hover before applying new positions.
+            clearHoverRef.current?.(false);
             copyPositions();
             totalTicks += TICKS_PER_FRAME;
 

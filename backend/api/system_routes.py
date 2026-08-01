@@ -141,15 +141,6 @@ async def get_system_stats():
         }
 
 
-@router.get("/suggestions")
-async def get_suggestions():
-    """Compatibility endpoint for the canonical Brain proposal queue."""
-
-    from backend.services import llm_wiki_suggestions
-
-    return await asyncio.to_thread(llm_wiki_suggestions.list_graph_edges)
-
-
 @router.get("/graph/visualization")
 async def get_graph_viz():
     return {"nodes": [], "edges": []}
