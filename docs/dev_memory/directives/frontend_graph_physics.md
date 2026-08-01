@@ -197,6 +197,14 @@ perceived. Keep the loading overlay visible briefly and expose real progress
 stages with a determinate bar; do not retain a global refresh button that only
 duplicates GET `/api/graph` and reloads the complete page.
 
+Semantic proposals are a viewport-synchronized canvas overlay over Sigma, not
+Graphology edges. Drawing them inside the structural graph makes similarity
+filters contaminate isolation, hover, pathfinding, degree, and physics. Derive
+the overlay from the currently visible structural nodes, redraw it after each
+Sigma render, and expose the similarity control only when the transport
+contains proposal edges. Use a visually distinct dashed purple stroke and keep
+the connection legend count aligned with the same thresholded proposal set.
+
 ## Visible topology consistency
 
 Isolation, hover neighbors, node sizing, and highlighted edges must all use

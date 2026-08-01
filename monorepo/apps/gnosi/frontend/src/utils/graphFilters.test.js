@@ -78,6 +78,17 @@ describe('visible graph topology', () => {
         expect(visibleEdges.size).toBe(1);
     });
 
+    it('never promotes semantic proposals into the structural topology', () => {
+        const graph = buildSimilarityGraph();
+        const { visibleNodes, visibleEdges } = applyFilters(graph, {
+            similarity: 0,
+            onlyIsolated: true,
+        });
+
+        expect([...visibleNodes].sort()).toEqual(['a', 'b']);
+        expect(visibleEdges.size).toBe(0);
+    });
+
     it('prefers only-isolated mode if both isolation flags are supplied', () => {
         const graph = buildSimilarityGraph();
         const { visibleNodes, visibleEdges } = applyFilters(graph, {
@@ -108,6 +119,15 @@ describe('visible graph topology', () => {
         const neighborhood = getVisibleHoverNeighborhood(graph, 'isolated');
 
         expect([...neighborhood.nodes]).toEqual(['isolated']);
+        expect(neighborhood.edges.size).toBe(0);
+    });
+
+    it('does not treat a semantic proposal as a hover connection', () => {
+        const graph = buildSimilarityGraph();
+
+        const neighborhood = getVisibleHoverNeighborhood(graph, 'a');
+
+        expect([...neighborhood.nodes]).toEqual(['a']);
         expect(neighborhood.edges.size).toBe(0);
     });
 });

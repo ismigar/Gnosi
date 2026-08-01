@@ -27,6 +27,12 @@ import {
     getVisibleCameraRatio,
     getVisibleGraphBounds,
 } from '../utils/graphViewGeometry';
+import {
+    getSemanticOverlaySegments,
+    getSimilarityPercentage,
+    getVisibleSimilarityEdges,
+    SEMANTIC_SUGGESTION_COLOR,
+} from '../utils/similarityOverlay';
 
 
 function stringToColor(str) {
@@ -87,6 +93,7 @@ export const GraphViewer = forwardRef(({
     const graphRef = useRef(null);
     const layoutRef = useRef(null); // Ref for the layout worker
     const clearHoverRef = useRef(null);
+    const semanticEdgesRef = useRef([]);
     const [edgeTooltip] = useState(null);
 
     // Sync prop to ref so renderer can access latest value without re-init
@@ -456,7 +463,7 @@ export const GraphViewer = forwardRef(({
             const activeColor = isDark
                 ? 'rgba(226, 232, 240, 0.72)'
                 : 'rgba(71, 85, 105, 0.58)';
-            const color = data.kind === 'suggestion' ? '#FF4081' : baseColor;
+            const color = baseColor;
 
             const pathResult = pathResultRef.current;
             if (pathResult && pathResult.edges) {
@@ -560,6 +567,52 @@ export const GraphViewer = forwardRef(({
         window.sigmaRenderer = renderer;
         rendererRef.current = renderer;
         if (setRendererInstance) setRendererInstance(renderer);
+
+        const semanticCanvas = renderer.createCanvas('semanticSuggestions', {
+            beforeLayer: 'nodes',
+            style: { pointerEvents: 'none' },
+        });
+        const semanticContext = semanticCanvas.getContext('2d');
+        const drawSemanticSuggestions = () => {
+            if (!semanticContext) return;
+
+            const { width, height } = renderer.getDimensions();
+            const pixelRatio = window.devicePixelRatio || 1;
+            const pixelWidth = Math.max(1, Math.round(width * pixelRatio));
+            const pixelHeight = Math.max(1, Math.round(height * pixelRatio));
+            if (semanticCanvas.width !== pixelWidth || semanticCanvas.height !== pixelHeight) {
+                semanticCanvas.width = pixelWidth;
+                semanticCanvas.height = pixelHeight;
+                semanticCanvas.style.width = `${width}px`;
+                semanticCanvas.style.height = `${height}px`;
+            }
+            semanticContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+            semanticContext.clearRect(0, 0, width, height);
+
+            const segments = getSemanticOverlaySegments(
+                semanticEdgesRef.current,
+                graph,
+                (point) => renderer.graphToViewport(point),
+            );
+            if (segments.length === 0) return;
+
+            semanticContext.save();
+            semanticContext.strokeStyle = SEMANTIC_SUGGESTION_COLOR;
+            semanticContext.lineCap = 'round';
+            semanticContext.lineWidth = Math.max(1, 1.35 * edgeThicknessRef.current);
+            semanticContext.setLineDash([6, 5]);
+            segments.forEach(({ edge, source, target }) => {
+                const score = getSimilarityPercentage(edge);
+                semanticContext.globalAlpha = 0.45 + Math.min(1, Math.max(0, score || 0) / 100) * 0.4;
+                semanticContext.beginPath();
+                semanticContext.moveTo(source.x, source.y);
+                semanticContext.lineTo(target.x, target.y);
+                semanticContext.stroke();
+            });
+            semanticContext.restore();
+        };
+        renderer.on('afterRender', drawSemanticSuggestions);
+
         const camera = renderer.getCamera();
         camera.setState({ x: 0.5, y: 0.4, ratio: 1.4 });
         const handleCameraUpdate = () => clearHover(false);
@@ -596,6 +649,7 @@ export const GraphViewer = forwardRef(({
         // Cleanup
         return () => {
             camera.off('updated', handleCameraUpdate);
+            renderer.off('afterRender', drawSemanticSuggestions);
             if (renderer) {
                 try { renderer.kill(); } catch (e) { console.error(e); }
             }
@@ -681,6 +735,11 @@ export const GraphViewer = forwardRef(({
         clearHoverRef.current?.(false);
 
         const { visibleNodes, visibleEdges } = applyFilters(graph, filters);
+        semanticEdgesRef.current = getVisibleSimilarityEdges(
+            graphData?.edges,
+            visibleNodes,
+            filters?.similarity,
+        );
 
         const visibleDegree = new Map();
         visibleEdges.forEach((edge) => {
@@ -748,7 +807,7 @@ export const GraphViewer = forwardRef(({
             }
         });
         graph.forEachEdge((_edge, attrs, source, target) => {
-            if (subG.hasNode(source) && subG.hasNode(target) && !subG.hasEdge(source, target)) {
+            if (!attrs.hidden && subG.hasNode(source) && subG.hasNode(target) && !subG.hasEdge(source, target)) {
                 subG.addEdge(source, target, attrs);
             }
         });
