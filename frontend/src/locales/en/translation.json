@@ -1329,6 +1329,7 @@
       "add": "Add snippet"
     },
     "social": {
+      "sections_label": "Social settings sections",
       "networks_title": "Social Networks",
       "enable_network": "Enable {{name}}",
       "streams_title": "Dashboard Streams",

@@ -801,6 +801,7 @@
       "add": "Ajouter un fragment"
     },
     "social": {
+      "sections_label": "Sections de configuration sociale",
       "networks_title": "Réseaux sociaux",
       "enable_network": "Activer {{name}}",
       "streams_title": "Flux du tableau de bord",

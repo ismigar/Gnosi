@@ -1344,7 +1344,8 @@
       "add": "Afegir fragment"
     },
     "social": {
-      "networks_title": "Xarxes Socials",
+      "sections_label": "Apartats de configuració social",
+      "networks_title": "Xarxes socials",
       "enable_network": "Activar {{name}}",
       "streams_title": "Streams del Dashboard",
       "add_stream": "Afegir stream",
