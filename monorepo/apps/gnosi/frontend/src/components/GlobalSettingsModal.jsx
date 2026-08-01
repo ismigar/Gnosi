@@ -568,6 +568,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [generalSection, setGeneralSection] = useState('system');
     const [mailSection, setMailSection] = useState('accounts');
     const [graphSection, setGraphSection] = useState('engine');
+    const [socialSection, setSocialSection] = useState('networks');
     const [isAdvancedOpen, setIsAdvancedOpen] = useState(
         () => ['api', 'plugins'].includes(initialTab)
     );
@@ -3390,7 +3391,17 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             {/* SOCIAL */}
                             {activeTab === 'social' && (
                                 <>
-                                    <Section title={tn('social.networks_title')} icon={Share2}>
+                                    <SettingsSectionTabs
+                                        ariaLabel={tn('social.sections_label')}
+                                        activeId={socialSection}
+                                        onChange={setSocialSection}
+                                        items={[
+                                            { id: 'networks', icon: Share2, label: tn('social.networks_title') },
+                                            { id: 'streams', icon: Rss, label: tn('social.streams_title') },
+                                        ]}
+                                    />
+
+                                    {socialSection === 'networks' && <Section title={tn('social.networks_title')} icon={Share2}>
                                         <div className="social-network-tabs" aria-label={tn('social.networks_title')}>
                                             {socialNetworks.map(net => (
                                                 <button
@@ -3412,9 +3423,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 </button>
                                             ))}
                                         </div>
-                                    </Section>
+                                    </Section>}
 
-                                    <Section title={tn('social.streams_title')} icon={Rss} extra={
+                                    {socialSection === 'streams' && <Section title={tn('social.streams_title')} icon={Rss} extra={
                                         <button onClick={() => setShowAddStream(v => !v)} className="btn-gnosi-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', fontSize: '0.85rem', borderRadius: '10px' }}>
                                             {showAddStream ? <X size={15} /> : <Plus size={15} />}
                                             {showAddStream ? t('common.cancel') : tn('social.add_stream')}
@@ -3479,7 +3490,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 </div>
                                             ))}
                                         </div>
-                                    </Section>
+                                    </Section>}
                                 </>
                             )}
 
@@ -4351,7 +4362,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
                             {/* NOTION IMPORT */}
                             {activeTab === 'notion' && (
-                                <NotionImportSettings />
+                                <Section title={t('settings.tabs.notion')} icon={Database}>
+                                    <NotionImportSettings />
+                                </Section>
                             )}
 
                             {/* PLUGINS */}

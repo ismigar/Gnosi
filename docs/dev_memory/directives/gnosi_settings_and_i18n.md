@@ -74,7 +74,10 @@ configuration autosave.
 - General separates System Configuration from File Structure; Profile separates
   Assistant Configuration from Contact Details and Forms; Mail separates Mail
   Accounts from Text Snippets; Graph Configuration separates the Visual Graph
-  Engine from Visible Structures.
+  Engine from Visible Structures; Social separates Social Networks from
+  Dashboard Streams.
+- Standalone Settings destinations such as Notion import retain a visible
+  translated section title even when they do not need secondary tabs.
 - Render only the selected surface. Do not keep the former sections stacked or
   nest one titled `Section` inside another after introducing tabs.
 - Reuse each surface's translated section title as its tab label and add a

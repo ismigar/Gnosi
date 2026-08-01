@@ -1290,6 +1290,7 @@
       "add": "Añadir fragmento"
     },
     "social": {
+      "sections_label": "Secciones de configuración social",
       "networks_title": "Redes Sociales",
       "enable_network": "Activar {{name}}",
       "streams_title": "Streams del Dashboard",
