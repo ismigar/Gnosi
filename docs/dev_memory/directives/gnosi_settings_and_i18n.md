@@ -67,6 +67,19 @@ configuration autosave.
 
 ## Collection editor interaction
 
+## Settings section navigation
+
+- Use the shared `SettingsSectionTabs` component when a sidebar destination owns
+  multiple substantial configuration surfaces.
+- General separates System Configuration from File Structure; Profile separates
+  Assistant Configuration from Contact Details and Forms; Mail separates Mail
+  Accounts from Text Snippets; Graph Configuration separates the Visual Graph
+  Engine from Visible Structures.
+- Render only the selected surface. Do not keep the former sections stacked or
+  nest one titled `Section` inside another after introducing tabs.
+- Reuse each surface's translated section title as its tab label and add a
+  translated navigation label for assistive technology in all four locales.
+
 - Forms that create or edit an item inside Settings must expand inline in the
   owning section. Do not open a second modal over the Settings modal.
 - The section action changes from `Add …` to `Cancel` while the inline form is

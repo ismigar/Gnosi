@@ -1545,7 +1545,7 @@
       "graph": "Graph Config",
       "reader": "Reader",
       "newsletters": "Subscriptions",
-      "mail_accounts": "Mail Accounts",
+      "mail_accounts": "Mail",
       "contacts": "Contacts",
       "references": "References",
       "ai": "Artificial Intelligence",
@@ -1574,6 +1574,7 @@
       "no_active_models": "No explicit models are active. You can use the default model or activate one in Artificial Intelligence."
     },
     "general": {
+      "sections_label": "General settings sections",
       "system_title": "System Settings",
       "workspace_name_desc": "Identifier of your digital brain.",
       "workspace_name_placeholder": "My Digital Brain",
@@ -1618,6 +1619,7 @@
       "workspace_placeholder": "Gnosi, My Brain..."
     },
     "profile": {
+      "sections_label": "Profile sections",
       "title": "User Profile",
       "desc": "Your digital identity and contact information.",
       "assistant_section": "Assistant Configuration",
@@ -1729,6 +1731,8 @@
     },
     "graph": {
       "section_title": "Graph Visual Engine",
+      "sections_label": "Graph settings sections",
+      "visual_engine": "Graph Visual Engine",
       "aesthetics": "Aesthetics",
       "node_size_value": "Node Size: {{value}}",
       "edge_thickness_value": "Edge Thickness: {{value}}",
@@ -1778,6 +1782,7 @@
       "attributes_label": "Attributes"
     },
     "mail_accounts": {
+      "sections_label": "Mail sections",
       "title": "Mail Accounts",
       "desc": "Manage your IMAP/SMTP mail accounts to receive newsletters and communications."
     },
