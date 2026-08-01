@@ -38,11 +38,18 @@ import { useTheme } from './hooks/useTheme';
 import { useFileLinkInterceptor } from './hooks/useFileLinkInterceptor';
 import { useAuth } from './context/AuthContext';
 import { LoginPage } from './components/Auth/LoginPage';
+import { GraphLoadingState } from './components/GraphLoadingState';
 
 // Fallback while the chunk for a lazy route is downloading. Discreet and centered,
 // reusing the auth bootstrap's style so there's no visual jump.
 function RouteFallback() {
   const { t } = useTranslation();
+  const location = useLocation();
+
+  if (location.pathname === '/graph') {
+    return <GraphLoadingState />;
+  }
+
   return (
     <div className="gnosi-route-skeleton" role="status" aria-live="polite">
       <div className="gnosi-route-skeleton__header">
@@ -83,6 +90,10 @@ function App() {
 
   // Bootstrap: we wait to know the mode and whether there's a session before deciding.
   if (loading) {
+    if (location.pathname === '/graph') {
+      return <GraphLoadingState />;
+    }
+
     return (
       <div className="flex h-screen items-center justify-center bg-[var(--bg-secondary)] text-[var(--text-secondary)]">
         <div className="animate-pulse text-sm">{t('common.loading', "Loading...")}</div>

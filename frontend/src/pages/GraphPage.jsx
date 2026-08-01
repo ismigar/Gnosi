@@ -23,7 +23,10 @@ import { useConfigChanged } from '../lib/configEvents';
 
 
 import { NodeDetailsPanel } from '../components/NodeDetailsPanel';
+import { GraphLoadingState } from '../components/GraphLoadingState';
 import '../viewer/style.css';
+
+const MINIMUM_LOADING_DURATION_MS = 900;
 
 function GraphPage() {
     const { t } = useTranslation();
@@ -170,7 +173,7 @@ function GraphPage() {
             .finally(() => {
                 if (isBackground) return;
                 setLoadingProgress(100);
-                const remainingDelay = Math.max(0, 450 - (Date.now() - startedAt));
+                const remainingDelay = Math.max(0, MINIMUM_LOADING_DURATION_MS - (Date.now() - startedAt));
                 window.setTimeout(() => setLoading(false), remainingDelay);
             });
     };
@@ -559,14 +562,7 @@ function GraphPage() {
     };
 
     if (loading) {
-        return (
-            <div className="flex h-full flex-col items-center justify-center gap-3 bg-[var(--bg-secondary)] text-[var(--text-primary)]" role="status" aria-live="polite">
-                <div className="text-sm font-medium text-[var(--text-secondary)]">{t('graph.loading.title', 'Loading...')}</div>
-                <div className="w-64 h-2 overflow-hidden rounded-full bg-[var(--color-border)]" aria-label={t('graph.loading.progress', 'Graph loading progress')}>
-                    <div className="h-full rounded-full bg-[var(--gnosi-blue)] transition-all duration-300" style={{ width: `${loadingProgress}%` }} />
-                </div>
-            </div>
-        );
+        return <GraphLoadingState progress={loadingProgress} />;
     }
 
     return (
