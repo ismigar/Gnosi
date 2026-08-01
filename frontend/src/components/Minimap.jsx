@@ -1,9 +1,11 @@
 import React, { useEffect, useRef } from 'react';
 import {
     createMinimapTransform,
+    getCameraGraphBounds,
     getCameraViewportRect,
     getVisibleCameraRatio,
     getVisibleGraphBounds,
+    mergeGraphBounds,
 } from '../utils/graphViewGeometry';
 
 export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanToGraph, onPanToNode, onCenter }) => {
@@ -30,7 +32,10 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanToGraph, onPanTo
             canvas.width = width;
             canvas.height = height;
 
-            const bounds = getVisibleGraphBounds(graph);
+            const bounds = mergeGraphBounds(
+                getVisibleGraphBounds(graph),
+                getCameraGraphBounds(mainRenderer),
+            );
             if (!bounds) return null;
 
             transformRef.current = createMinimapTransform(bounds, width, height);
@@ -66,19 +71,15 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanToGraph, onPanTo
                 ctx.fill();
             });
 
-
-
-
+            return t;
         };
 
-        draw();
-
         // 3. Sync Viewport Rect
-        const syncViewport = () => {
+        const syncViewport = (currentTransform) => {
             if (!viewportRef.current || !containerRef.current || !canvasRef.current) return;
             if (!mainRenderer || mainRenderer.killed) return;
 
-            const transform = transformRef.current || updateTransform();
+            const transform = currentTransform || transformRef.current || updateTransform();
             const rect = getCameraViewportRect(mainRenderer, transform);
             if (!rect) return;
 
@@ -89,15 +90,20 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanToGraph, onPanTo
             vp.style.display = 'block';
         };
 
+        const renderMinimap = () => {
+            const transform = draw();
+            if (transform) syncViewport(transform);
+        };
+
         // Initial sync
-        syncViewport();
+        renderMinimap();
 
         // Listeners
-        mainRenderer.on('afterRender', syncViewport);
+        mainRenderer.on('afterRender', renderMinimap);
 
         const camera = mainRenderer.getCamera();
         if (camera) {
-            camera.on('updated', syncViewport);
+            camera.on('updated', renderMinimap);
         }
 
         // Polling fallback to ensure smooth updates even if events are missed
@@ -107,7 +113,7 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanToGraph, onPanTo
         // Sigma/Graphology emits 'nodeAttributesUpdated' if we use setNodeAttribute
         // But we might need to bind to the graph instance
         const handleGraphUpdate = () => {
-            requestAnimationFrame(draw);
+            requestAnimationFrame(renderMinimap);
         };
 
         // If the graph instance supports events (Graphology does)
@@ -175,7 +181,7 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanToGraph, onPanTo
             }
 
             // Force update of debug text
-            syncViewport();
+            renderMinimap();
         };
 
         const handleMinimapDoubleClick = () => {
@@ -238,11 +244,11 @@ export const Minimap = ({ graph, mainRenderer, isDarkMode, onPanToGraph, onPanTo
 
         return () => {
             if (mainRenderer && !mainRenderer.killed) {
-                mainRenderer.off('afterRender', syncViewport);
+                mainRenderer.off('afterRender', renderMinimap);
             }
             const camera = mainRenderer && !mainRenderer.killed ? mainRenderer.getCamera() : null;
             if (camera) {
-                camera.off('updated', syncViewport);
+                camera.off('updated', renderMinimap);
             }
             if (graph.off) {
                 graph.off('nodeAttributesUpdated', handleGraphUpdate);

@@ -4035,7 +4035,8 @@
     "page_title": "Grafo de conocimiento",
     "loading": {
       "title": "Cargando el Cerebro Digital...",
-      "subtitle": "Conectando neuronas..."
+      "subtitle": "Conectando neuronas...",
+      "progress": "Progreso de carga del grafo"
     },
     "sync": {
       "updating": "Actualizando el grafo...",
@@ -4127,6 +4128,10 @@
       "zoom_in": "Acercar",
       "zoom_out": "Alejar",
       "legend": "Leyenda del grafo"
+    },
+    "keyboard": {
+      "sidebar_focus": "Filtros del grafo",
+      "graph_focus": "Área del grafo"
     },
     "legend": {
       "nodes": "Nodos",

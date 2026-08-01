@@ -116,6 +116,7 @@ body {
   border-left: 1px solid var(--color-border);
   padding: 12px;
   overflow-y: auto;
+  overscroll-behavior: contain;
   font-size: 0.9rem;
   transition: opacity 0.3s ease, transform 0.35s ease;
 }
