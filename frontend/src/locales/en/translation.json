@@ -3906,8 +3906,7 @@
   "graph": {
     "page_title": "Knowledge graph",
     "loading": {
-      "title": "Loading the Digital Brain...",
-      "subtitle": "Connecting neurons...",
+      "title": "Loading...",
       "progress": "Graph loading progress"
     },
     "sync": {
