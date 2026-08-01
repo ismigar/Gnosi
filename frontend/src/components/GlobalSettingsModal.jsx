@@ -39,6 +39,7 @@ import { groupEnabledModelRoutes, parseModelRouteKey } from './AI/aiSettingsUtil
 import { useModelReliability, findModelFault, MODEL_FAULT_REASONS } from '../lib/modelReliability';
 import { availableLocales, resolveLocale } from '../locales/registry';
 import { sortFieldItems } from '../utils/fieldOrdering';
+import { SettingsSectionTabs } from './SettingsSectionTabs';
 import './GlobalSettingsModal.css';
 import './AI/AIResourcesSettings.css';
 
@@ -556,7 +557,12 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         }
     });
 
-    const [activeTab, setActiveTab] = useState(initialTab);
+    const [activeTab, setActiveTab] = useState(
+        initialTab === 'newsletters' ? 'reader' : initialTab,
+    );
+    const [readerSection, setReaderSection] = useState(
+        initialTab === 'newsletters' ? 'subscriptions' : 'podcast',
+    );
     const [aiSection, setAiSection] = useState('agents');
     const [isAdvancedOpen, setIsAdvancedOpen] = useState(
         () => ['api', 'plugins'].includes(initialTab)
@@ -2209,7 +2215,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                 <SidebarItem id="contacts" icon={Users} label={t('settings.tabs.contacts') || 'Contactes'} active={activeTab === 'contacts'} onClick={() => { setActiveTab('contacts'); setAddAccountType(null); }} />
                                 <SidebarItem id="mail" icon={Mail} label={t('settings.tabs.mail_accounts') || 'Correu'} active={activeTab === 'mail'} onClick={() => { setActiveTab('mail'); setAddAccountType(null); }} />
                                 <SidebarItem id="reader" icon={Newspaper} label={t('settings.tabs.reader')} active={activeTab === 'reader'} onClick={() => { setActiveTab('reader'); setAddAccountType(null); }} />
-                                <SidebarItem id="newsletters" icon={Rss} label={t('settings.tabs.newsletters') || 'Subscripcions'} active={activeTab === 'newsletters'} onClick={() => { setActiveTab('newsletters'); setAddAccountType(null); }} />
                                 <SidebarItem id="social" icon={Share2} label={t('settings.tabs.social') || 'Social'} active={activeTab === 'social'} onClick={() => { setActiveTab('social'); setAddAccountType(null); }} />
                                 <SidebarItem id="notion" icon={Database} label={t('settings.tabs.notion') || 'Importar Notion'} active={activeTab === 'notion'} onClick={() => { setActiveTab('notion'); setAddAccountType(null); }} />
                             </SettingsNavGroup>
@@ -3446,7 +3451,19 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
                             {/* READER */}
                             {activeTab === 'reader' && (
-                                <Section title={t('settings.reader.podcast_title')} icon={Newspaper}>
+                                <>
+                                    <SettingsSectionTabs
+                                        ariaLabel={t('settings.reader.sections_label')}
+                                        activeId={readerSection}
+                                        onChange={setReaderSection}
+                                        items={[
+                                            { id: 'podcast', icon: Newspaper, label: t('settings.reader.podcast_tab') },
+                                            { id: 'subscriptions', icon: Rss, label: t('settings.reader.subscriptions_tab') },
+                                        ]}
+                                    />
+
+                                    {readerSection === 'podcast' && (
+                                    <Section title={t('settings.reader.podcast_title')} icon={Newspaper}>
                                     <div className="settings-desc" style={{ marginBottom: '24px', lineHeight: 1.6 }}>
                                         {t('settings.reader.podcast_description')}
                                     </div>
@@ -3498,11 +3515,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             </div>
                                         )}
                                     </FormGroup>
-                                </Section>
-                            )}
+                                    </Section>
+                                    )}
 
-                            {/* NEWSLETTERS — dynamic form + list */}
-                            {activeTab === 'newsletters' && (
+                                    {/* SUBSCRIPTIONS — dynamic form + list */}
+                                    {readerSection === 'subscriptions' && (
                                 <Section title={t('subs_section_title')} icon={Rss} extra={
                                     <div style={{ display: 'inline-flex', gap: '8px' }}>
                                         <button onClick={() => loadNewsletterSources()} disabled={newsletterSourcesLoading} className="btn-gnosi-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 18px', fontSize: '0.85rem', borderRadius: '12px', whiteSpace: 'nowrap', opacity: newsletterSourcesLoading ? 0.6 : 1, cursor: newsletterSourcesLoading ? 'wait' : 'pointer' }}>{newsletterSourcesLoading ? t('subs_btn_reload_loading') : t('subs_btn_reload')}</button>
@@ -3676,7 +3693,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             </div>
                                         ))}
                                     </div>
-                                </Section>
+                                    </Section>
+                                    )}
+                                </>
                             )}
 
                             {/* GRAF */}
@@ -4089,28 +4108,20 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             {/* IA */}
                             {activeTab === 'ai' && (
                                 <>
-                                    <nav className="ai-settings-sections" aria-label={t('settings.ai.resources.sections_label')}>
-                                        {[
+                                    <SettingsSectionTabs
+                                        ariaLabel={t('settings.ai.resources.sections_label')}
+                                        activeId={aiSection}
+                                        items={[
                                             { id: 'models', icon: Activity, label: t('settings.ai.resources.models_tab') },
                                             { id: 'agents', icon: Bot, label: t('settings.ai.resources.agents_tab') },
                                             { id: 'skills', icon: Zap, label: t('settings.ai.resources.skills_tab') },
                                             { id: 'tools', icon: Sliders, label: t('settings.ai.resources.tools_tab') },
-                                        ].map(({ id, icon: Icon, label }) => (
-                                            <button
-                                                key={id}
-                                                type="button"
-                                                className={aiSection === id ? 'is-active' : ''}
-                                                aria-current={aiSection === id ? 'page' : undefined}
-                                                onClick={() => {
-                                                    setAiSection(id);
-                                                    setEditingAgent(null);
-                                                }}
-                                            >
-                                                <Icon size={17} />
-                                                {label}
-                                            </button>
-                                        ))}
-                                    </nav>
+                                        ]}
+                                        onChange={sectionId => {
+                                            setAiSection(sectionId);
+                                            setEditingAgent(null);
+                                        }}
+                                    />
 
                                     {aiSection === 'models' && <div className="ai-comparison-launcher">
                                         <div>
