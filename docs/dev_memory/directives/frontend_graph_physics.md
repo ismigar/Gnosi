@@ -165,3 +165,11 @@ color; reserve saturated edges for hover, pathfinding, and suggestions.
 The dynamic field-value filter can contain many values and must start
 collapsed. Keep the table selector expanded, but do not pass `defaultOpen` to
 the field filter's `CollapsibleSection`; its component default is collapsed.
+
+## Validation
+
+Run frontend checks from `frontend/`, but execute backend graph tests from
+`backend/` with the repository virtual environment. Do not invoke a backend
+test path from the frontend directory, because pytest cannot discover the file
+and reports a false validation failure; use the backend working directory
+instead.

@@ -4083,7 +4083,7 @@
       "color_by": "Colorear por",
       "color_kind": "Tipo",
       "color_cluster": "Clúster",
-      "color_ai_cluster": "Clúster IA",
+      "color_ai_cluster": "Clústeres de IA",
       "pathfinding_title": "Búsqueda de caminos",
       "pathfinding_stop": "Detener búsqueda",
       "pathfinding_start": "Iniciar búsqueda",
@@ -4136,7 +4136,9 @@
       "database_wikilink": "Enlaces wiki de vista de base de datos",
       "unresolved": "Enlaces sin resolver",
       "semantic_similarity": "Conexiones semánticas",
-      "node_groups": "Grupos de nodos"
+      "node_groups": "Grupos de nodos",
+      "clusters": "Clústeres",
+      "ai_clusters": "Clústeres de IA"
     },
     "node_panel": {
       "close": "Cerrar detalles",
