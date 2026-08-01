@@ -208,3 +208,9 @@ edges and nodes from the backing graph. First resolve visible candidate nodes
 and renderable edges, then classify isolation from the endpoints of those
 edges. Hover must traverse only edges whose `hidden` attribute is false and
 must ignore hidden neighbors.
+
+“Hide isolated nodes” and “Show only isolated nodes” are mutually exclusive
+modes. Keep both controls visible so switching modes is explicit, and have each
+activation clear the other state. The filter utility must still handle stale
+state defensively by giving “show only” precedence; applying both predicates
+independently removes every node and produces an unexplained empty graph.
