@@ -1030,6 +1030,9 @@
       "advanced": "Avancé"
     },
     "reader": {
+      "sections_label": "Sections du lecteur",
+      "podcast_tab": "Podcast quotidien",
+      "subscriptions_tab": "Abonnements",
       "podcast_title": "Podcast quotidien",
       "podcast_description": "Choisissez le modèle d’intelligence artificielle qui rédige le script du podcast quotidien à partir des actualités non lues.",
       "model_label": "Modèle d’IA pour le script",
