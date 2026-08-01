@@ -4710,5 +4710,16 @@
     "history_error": "Could not restore the relation change",
     "undo_success": "Relation restored",
     "redo_success": "Relation removed again"
+  },
+  "desktop_update": {
+    "aria_label": "Application update",
+    "dismiss": "Dismiss update notice",
+    "available_title": "A new Gnosi version is available",
+    "available_body": "Version {{version}} is ready to download.",
+    "downloading_body": "Downloading version {{version}}… {{percent}}%",
+    "ready_title": "Update ready",
+    "ready_body": "Restart Gnosi to finish installing version {{version}}.",
+    "download": "Download update",
+    "restart": "Restart and install"
   }
 }
