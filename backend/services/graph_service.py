@@ -44,6 +44,37 @@ COLOR_PALETTE = {
     "default": "#94a3b8"    # Slate
 }
 
+
+def _string_to_color(value: str) -> str:
+    """Return the deterministic colour used by the graph client for a label."""
+    color_hash = 0
+    for character in value:
+        color_hash = ord(character) + ((color_hash << 5) - color_hash)
+    return "#" + "".join(
+        f"{(color_hash >> (index * 8)) & 0xFF:02x}" for index in range(3)
+    )
+
+
+def _cluster_label(value: Any) -> Optional[str]:
+    """Normalize a stored cluster or tag value into a displayable label."""
+    if isinstance(value, dict):
+        value = value.get("name") or value.get("label")
+    if value is None:
+        return None
+    label = str(value).strip()
+    return label or None
+
+
+def _node_cluster(metadata: Dict[str, Any], attrs: Dict[str, Any]) -> Optional[str]:
+    """Get the primary user-defined cluster from graph attributes or metadata."""
+    cluster = _cluster_label(attrs.get("cluster") or metadata.get("cluster"))
+    if cluster:
+        return cluster
+    tags = metadata.get("tags") or attrs.get("tags") or []
+    if isinstance(tags, (str, dict)):
+        tags = [tags]
+    return _cluster_label(tags[0]) if tags else None
+
 # Optimization: Directories to skip during recursive scans
 IGNORED_DIRS = {
     "node_modules", ".venv", ".git", ".tmp", "dist", "build",
@@ -600,6 +631,11 @@ class GraphService:
         for node_id in G.nodes():
             attrs = G.nodes[node_id]
             meta = attrs.get("metadata", {}) or {}
+            cluster = _node_cluster(meta, attrs)
+            ai_cluster = _cluster_label(attrs.get("ai_cluster") or meta.get("ai_cluster"))
+            ai_cluster_color = attrs.get("ai_cluster_color") or meta.get("ai_cluster_color")
+            if ai_cluster and not ai_cluster_color:
+                ai_cluster_color = _string_to_color(ai_cluster)
             label = str(attrs.get("label", node_id))
             match = relation_index_re.match(label.strip())
             if match:
@@ -616,6 +652,9 @@ class GraphService:
                 "color": attrs.get("color", COLOR_PALETTE.get(attrs.get("kind"), COLOR_PALETTE["default"])),
                 "kind": attrs.get("kind", "page"),
                 "metadata": meta,
+                "cluster": cluster,
+                "ai_cluster": ai_cluster,
+                "ai_cluster_color": ai_cluster_color,
                 # Additional attributes needed for categorization in the frontend (graphFilters.js)
                 "path": attrs.get("path", ""),
                 "table_id": attrs.get("table_id") or meta.get("table_id") or meta.get("database_table_id"),
@@ -649,10 +688,14 @@ class GraphService:
                 "unresolved": bool(edge_attrs.get("unresolved", False)),
             })
             
-        # Legend generation (Dynamic based on discovered kinds)
+        # Legend generation (dynamic based on the fields exported to the client).
         legend_kinds = []
         kind_counts = {}
         kind_colors = {}
+        cluster_counts = {}
+        ai_cluster_counts = {}
+        cluster_colors = {}
+        ai_cluster_colors = {}
         
         for n in nodes:
             k = n.get("kind")
@@ -660,6 +703,14 @@ class GraphService:
                 kind_counts[k] = kind_counts.get(k, 0) + 1
                 if k not in kind_colors:
                     kind_colors[k] = n.get("color", COLOR_PALETTE.get(k, COLOR_PALETTE["default"]))
+            cluster = n.get("cluster")
+            if cluster:
+                cluster_counts[cluster] = cluster_counts.get(cluster, 0) + 1
+                cluster_colors.setdefault(cluster, _string_to_color(cluster))
+            ai_cluster = n.get("ai_cluster")
+            if ai_cluster:
+                ai_cluster_counts[ai_cluster] = ai_cluster_counts.get(ai_cluster, 0) + 1
+                ai_cluster_colors.setdefault(ai_cluster, n["ai_cluster_color"])
         
         for k, count in kind_counts.items():
             label = k.capitalize()
@@ -668,12 +719,23 @@ class GraphService:
                 "color": kind_colors[k],
                 "count": count
             })
+
+        legend_clusters = [
+            {"label": label, "color": cluster_colors[label], "count": count}
+            for label, count in sorted(cluster_counts.items())
+        ]
+        legend_ai_clusters = [
+            {"label": label, "color": ai_cluster_colors[label], "count": count}
+            for label, count in sorted(ai_cluster_counts.items())
+        ]
         
         result = {
             "nodes": nodes,
             "edges": edges,
             "legend": {
-                "kinds": legend_kinds
+                "kinds": legend_kinds,
+                "clusters": legend_clusters,
+                "ai_clusters": legend_ai_clusters,
             }
         }
 

@@ -16,12 +16,18 @@ export const Legend = ({ graphData, colorMode, filteredNodesCount, filteredEdges
 
     // Select the active node grouping for the current color mode.
     let nodeItems = [];
+    let nodeGroupsLabel = t('graph.legend.node_groups', 'Node groups');
     if (colorMode === 'kind') {
         // Content types are intentionally omitted from the legend.
         nodeItems = [];
     }
-    else if (colorMode === 'cluster') nodeItems = clusters;
-    else if (colorMode === 'ai_cluster') nodeItems = ai_clusters;
+    else if (colorMode === 'cluster') {
+        nodeItems = clusters;
+        nodeGroupsLabel = t('graph.legend.clusters', 'Clusters');
+    } else if (colorMode === 'ai_cluster') {
+        nodeItems = ai_clusters;
+        nodeGroupsLabel = t('graph.legend.ai_clusters', 'AI clusters');
+    }
 
     // Omit empty groups from the tooltip.
     const visibleNodeItems = nodeItems.filter(item => item.count > 0);
@@ -42,8 +48,8 @@ export const Legend = ({ graphData, colorMode, filteredNodesCount, filteredEdges
                 ))}
             </section>
             {visibleNodeItems.length > 0 && (
-                <section className="graph-legend-section" aria-label={t('graph.legend.node_groups', 'Node groups')}>
-                    <strong>{t('graph.legend.node_groups', 'Node groups')}</strong>
+                <section className="graph-legend-section" aria-label={nodeGroupsLabel}>
+                    <strong>{nodeGroupsLabel}</strong>
                     {visibleNodeItems.map((item) => (
                         <div className="graph-legend-item" key={item.label}>
                             <span className="graph-legend-dot" style={{ background: item.color }} />
