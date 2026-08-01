@@ -1543,6 +1543,7 @@
       "appearance": "Appearance",
       "calendar": "Calendars",
       "graph": "Graph Config",
+      "reader": "Reader",
       "newsletters": "Subscriptions",
       "mail_accounts": "Mail Accounts",
       "contacts": "Contacts",
@@ -1558,6 +1559,16 @@
       "connections": "Connections",
       "knowledge": "Knowledge & AI",
       "advanced": "Advanced"
+    },
+    "reader": {
+      "podcast_title": "Daily podcast",
+      "podcast_description": "Choose the artificial intelligence model that writes the daily podcast script from unread news.",
+      "model_label": "AI model for the script",
+      "model_description": "Only models activated in Artificial Intelligence are shown. Voice synthesis is configured separately.",
+      "default_model": "Default AI model (active agent)",
+      "unavailable_group": "Unavailable selection",
+      "unavailable_model": "{{provider}} / {{model}} — unavailable",
+      "no_active_models": "No explicit models are active. You can use the default model or activate one in Artificial Intelligence."
     },
     "general": {
       "system_title": "System Settings",

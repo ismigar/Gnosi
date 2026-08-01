@@ -5,7 +5,7 @@ import {
     Check, FolderOpen, Database, Cpu, Zap, Settings as SettingsIcon,
     Sliders, Calendar, Mail, Trash2, Plus, Users, Rss, Share2, Inbox,
     ChevronRight, ChevronDown, Search, FileUp, Shield, Activity, Bot, FileText,
-    PenTool, Image, Paperclip, Eye, EyeOff, User, Languages, Loader2
+    PenTool, Image, Paperclip, Eye, EyeOff, User, Languages, Loader2, Newspaper
 } from 'lucide-react';
 import { useTranslation, Trans } from 'react-i18next';
 import { useModalKeyboard } from '../hooks/useModalKeyboard';
@@ -35,6 +35,7 @@ import {
     ToolsSettingsPanel,
 } from './AI/AIResourcesSettings';
 import { useAIResources } from './AI/useAIResources';
+import { groupEnabledModelRoutes, parseModelRouteKey } from './AI/aiSettingsUtils';
 import { useModelReliability, findModelFault, MODEL_FAULT_REASONS } from '../lib/modelReliability';
 import { availableLocales, resolveLocale } from '../locales/registry';
 import { sortFieldItems } from '../utils/fieldOrdering';
@@ -539,7 +540,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             user_name: '', workspace_name: '', gnosi_mode: 'personal',
             org_user: '', org_password: '', org_workspace: '',
             language: 'ca', week_start: 1, currency: 'EUR (€)', decimal_symbol: ',', date_format: 'locale',
-            theme: 'system', reduce_animations: false
+            theme: 'system', reduce_animations: false,
+            reader: { podcast: { provider: '', model: '' } }
         },
         paths: { vault: '', databases: '', newsletters: '' },
         graph: {
@@ -584,6 +586,15 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     // user activated through the comparison workflow. Agent creation chooses
     // from this, NOT the full catalog: an agent runs on a configured model.
     const [aiRegistry, setAiRegistry] = useState([]);
+    const podcastProvider = draft.settings?.reader?.podcast?.provider || '';
+    const podcastModelId = draft.settings?.reader?.podcast?.model || '';
+    const podcastModelRoutes = useMemo(
+        () => groupEnabledModelRoutes(aiRegistry, {
+            provider: podcastProvider,
+            model: podcastModelId,
+        }),
+        [aiRegistry, podcastProvider, podcastModelId],
+    );
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState('');
 
@@ -2197,6 +2208,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                 <SidebarItem id="calendar" icon={Calendar} label={t('settings.tabs.calendar') || 'Calendari'} active={activeTab === 'calendar'} onClick={() => { setActiveTab('calendar'); setAddAccountType(null); }} />
                                 <SidebarItem id="contacts" icon={Users} label={t('settings.tabs.contacts') || 'Contactes'} active={activeTab === 'contacts'} onClick={() => { setActiveTab('contacts'); setAddAccountType(null); }} />
                                 <SidebarItem id="mail" icon={Mail} label={t('settings.tabs.mail_accounts') || 'Correu'} active={activeTab === 'mail'} onClick={() => { setActiveTab('mail'); setAddAccountType(null); }} />
+                                <SidebarItem id="reader" icon={Newspaper} label={t('settings.tabs.reader')} active={activeTab === 'reader'} onClick={() => { setActiveTab('reader'); setAddAccountType(null); }} />
                                 <SidebarItem id="newsletters" icon={Rss} label={t('settings.tabs.newsletters') || 'Subscripcions'} active={activeTab === 'newsletters'} onClick={() => { setActiveTab('newsletters'); setAddAccountType(null); }} />
                                 <SidebarItem id="social" icon={Share2} label={t('settings.tabs.social') || 'Social'} active={activeTab === 'social'} onClick={() => { setActiveTab('social'); setAddAccountType(null); }} />
                                 <SidebarItem id="notion" icon={Database} label={t('settings.tabs.notion') || 'Importar Notion'} active={activeTab === 'notion'} onClick={() => { setActiveTab('notion'); setAddAccountType(null); }} />
@@ -3430,6 +3442,63 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         </div>
                                     </Section>
                                 </>
+                            )}
+
+                            {/* READER */}
+                            {activeTab === 'reader' && (
+                                <Section title={t('settings.reader.podcast_title')} icon={Newspaper}>
+                                    <div className="settings-desc" style={{ marginBottom: '24px', lineHeight: 1.6 }}>
+                                        {t('settings.reader.podcast_description')}
+                                    </div>
+                                    <FormGroup
+                                        label={t('settings.reader.model_label')}
+                                        description={t('settings.reader.model_description')}
+                                    >
+                                        <select
+                                            className="gnosi-select"
+                                            value={podcastModelRoutes.selectedKey}
+                                            onChange={event => {
+                                                const route = parseModelRouteKey(event.target.value);
+                                                setDraft(previous => ({
+                                                    ...previous,
+                                                    settings: {
+                                                        ...previous.settings,
+                                                        reader: {
+                                                            ...(previous.settings.reader || {}),
+                                                            podcast: route,
+                                                        },
+                                                    },
+                                                }));
+                                            }}
+                                        >
+                                            <option value="">{t('settings.reader.default_model')}</option>
+                                            {podcastModelRoutes.groups.map(([provider, modelIds]) => (
+                                                <optgroup key={provider} label={provider}>
+                                                    {modelIds.map(modelId => (
+                                                        <option key={modelId} value={`${provider}||${modelId}`}>
+                                                            {modelId}
+                                                        </option>
+                                                    ))}
+                                                </optgroup>
+                                            ))}
+                                            {podcastModelRoutes.unavailableSelection && (
+                                                <optgroup label={t('settings.reader.unavailable_group')}>
+                                                    <option value={podcastModelRoutes.unavailableSelection.key}>
+                                                        {t('settings.reader.unavailable_model', {
+                                                            provider: podcastModelRoutes.unavailableSelection.provider,
+                                                            model: podcastModelRoutes.unavailableSelection.model,
+                                                        })}
+                                                    </option>
+                                                </optgroup>
+                                            )}
+                                        </select>
+                                        {podcastModelRoutes.groups.length === 0 && (
+                                            <div style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)', marginTop: 8 }}>
+                                                {t('settings.reader.no_active_models')}
+                                            </div>
+                                        )}
+                                    </FormGroup>
+                                </Section>
                             )}
 
                             {/* NEWSLETTERS — dynamic form + list */}

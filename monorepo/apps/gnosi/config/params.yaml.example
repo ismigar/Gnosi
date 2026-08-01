@@ -8,6 +8,10 @@ settings:
   currency: EUR
   week_start: 1
   use_system_defaults: true
+  reader:
+    podcast:
+      provider: ''
+      model: ''
 graph:
   visible_databases: []
   visible_tables: []

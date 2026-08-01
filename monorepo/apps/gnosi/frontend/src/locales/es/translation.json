@@ -1504,6 +1504,7 @@
       "appearance": "Apariencia",
       "calendar": "Calendarios",
       "graph": "Configuración del Grafo",
+      "reader": "Lector",
       "newsletters": "Suscripciones",
       "mail_accounts": "Cuentas de Correo",
       "contacts": "Contactos",
@@ -1519,6 +1520,16 @@
       "connections": "Conexiones",
       "knowledge": "Conocimiento e IA",
       "advanced": "Avanzado"
+    },
+    "reader": {
+      "podcast_title": "Podcast diario",
+      "podcast_description": "Configura el modelo de inteligencia artificial que redacta el guion del podcast diario a partir de las noticias pendientes.",
+      "model_label": "Modelo de IA para el guion",
+      "model_description": "Solo se muestran los modelos activados en Inteligencia Artificial. La síntesis de voz se configura por separado.",
+      "default_model": "Modelo de IA predeterminado (agente activo)",
+      "unavailable_group": "Selección no disponible",
+      "unavailable_model": "{{provider}} / {{model}} — no disponible",
+      "no_active_models": "No hay modelos explícitos activados. Puedes usar el modelo predeterminado o activar uno en Inteligencia Artificial."
     },
     "general": {
       "system_title": "Configuración del Sistema",
