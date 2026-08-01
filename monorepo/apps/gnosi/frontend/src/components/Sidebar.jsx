@@ -6,6 +6,7 @@ export function Sidebar({
     onSearchChange,
     similarity,
     onSimilarityChange,
+    hasSimilarityData = false,
     hideIsolated,
     onHideIsolatedChange,
     onlyIsolated,
@@ -201,7 +202,7 @@ export function Sidebar({
                 </div>
             </div>
 
-            <div className="section">
+            {hasSimilarityData && <div className="section">
                 <h2 className="filter-title">{t('similarity_score')}</h2>
                 <div className="similarity-filter">
                     <input
@@ -215,7 +216,7 @@ export function Sidebar({
                     />
                     <label htmlFor="similarity-slider" id="similarity-label">{t('similarity_score')}: {similarity}%</label>
                 </div>
-            </div>
+            </div>}
 
             <div className="section">
                 <div className="filter-item">
