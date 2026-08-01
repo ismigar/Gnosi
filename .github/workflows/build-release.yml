@@ -80,7 +80,7 @@ jobs:
           # Cache disabled: monorepo/apps/gnosi/electron has no committed lockfile yet.
 
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: '3.11'
 
@@ -132,7 +132,7 @@ jobs:
           # Cache disabled: monorepo/apps/gnosi/electron has no committed lockfile yet.
 
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: '3.11'
 
@@ -193,7 +193,7 @@ jobs:
       # els marcaria "no verificat"). Les entrades apunten a
       # releases/latest/download → l'app hi accedeix un cop publiques el release.
       - name: Setup Python (per a l'índex de plugins)
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: '3.11'
 
