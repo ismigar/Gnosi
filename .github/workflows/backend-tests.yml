@@ -41,7 +41,7 @@ jobs:
 
       # 3.11 is what the maintainer's venv runs; the ML pins in requirements.txt
       # are validated against it.
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: pip
