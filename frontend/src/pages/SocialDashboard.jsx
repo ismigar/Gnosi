@@ -168,6 +168,7 @@ const SocialDashboard = () => {
                                             id={col.id}
                                             title={col.title}
                                             icon={col.icon}
+                                            network={col.network}
                                             posts={streamData[col.id] || []}
                                             onDelete={() => handleDeleteStream(col.id)}
                                             onRefresh={() => handleRefreshStream(col.id)}

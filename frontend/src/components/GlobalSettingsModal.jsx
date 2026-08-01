@@ -40,6 +40,7 @@ import { useModelReliability, findModelFault, MODEL_FAULT_REASONS } from '../lib
 import { availableLocales, resolveLocale } from '../locales/registry';
 import { sortFieldItems } from '../utils/fieldOrdering';
 import { SettingsSectionTabs } from './SettingsSectionTabs';
+import { SocialNetworkIcon, isKnownSocialNetwork } from './social/SocialNetworkIcon';
 import './GlobalSettingsModal.css';
 import './AI/AIResourcesSettings.css';
 
@@ -3362,22 +3363,25 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             {activeTab === 'social' && (
                                 <>
                                     <Section title={tn('social.networks_title')} icon={Share2}>
-                                        <div className="settings-configurable-list" style={{ '--settings-configurable-gap': '10px' }}>
+                                        <div className="social-network-tabs" aria-label={tn('social.networks_title')}>
                                             {socialNetworks.map(net => (
-                                                <div key={net.id} className="settings-configurable-item" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: 'var(--settings-sidebar-bg)', borderRadius: '14px', border: '1px solid var(--settings-border)' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                        <span style={{ fontSize: '1.4rem' }}>{net.icon}</span>
-                                                        <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{net.name}</span>
-                                                    </div>
-                                                    <GnosiToggle
-                                                        active={net.enabled}
-                                                        label={tn('social.enable_network', { name: net.name })}
-                                                        onChange={() => {
-                                                            const updated = socialNetworks.map(n => n.id === net.id ? { ...n, enabled: !n.enabled } : n);
-                                                            saveSocialNetworks(updated);
-                                                        }}
-                                                    />
-                                                </div>
+                                                <button
+                                                    key={net.id}
+                                                    type="button"
+                                                    className={`social-network-tab ${net.enabled ? 'is-enabled' : ''}`}
+                                                    aria-pressed={net.enabled}
+                                                    aria-label={tn('social.enable_network', { name: net.name })}
+                                                    onClick={() => {
+                                                        const updated = socialNetworks.map(n => n.id === net.id ? { ...n, enabled: !n.enabled } : n);
+                                                        saveSocialNetworks(updated);
+                                                    }}
+                                                >
+                                                    {isKnownSocialNetwork(net.id)
+                                                        ? <SocialNetworkIcon network={net.id} size={26} />
+                                                        : <span aria-hidden="true" className="social-network-tab__fallback">{net.icon}</span>}
+                                                    <span>{net.name}</span>
+                                                    <GnosiToggle active={net.enabled} display scale={0.78} />
+                                                </button>
                                             ))}
                                         </div>
                                     </Section>
@@ -3425,7 +3429,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             {socialStreams.map(stream => (
                                                 <div key={stream.id} className="settings-configurable-item" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'var(--settings-sidebar-bg)', borderRadius: '12px', border: '1px solid var(--settings-border)' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                        <span style={{ fontSize: '1.2rem' }}>{stream.icon}</span>
+                                                        {isKnownSocialNetwork(stream.network)
+                                                            ? <SocialNetworkIcon network={stream.network} size={21} />
+                                                            : <span style={{ fontSize: '1.2rem' }}>{stream.icon}</span>}
                                                         <div>
                                                             <div style={{ fontWeight: '700', color: 'var(--text-primary)', fontSize: '0.9rem' }}>{stream.title}</div>
                                                             <div style={{ color: 'var(--text-secondary)', fontSize: '0.78rem' }}>{stream.network} · {stream.id}</div>
