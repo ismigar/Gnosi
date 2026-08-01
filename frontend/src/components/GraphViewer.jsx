@@ -17,7 +17,7 @@ import {
 } from 'd3-force';
 import Graph from 'graphology';
 import Sigma from 'sigma';
-import { applyFilters } from '../utils/graphFilters';
+import { applyFilters, getVisibleHoverNeighborhood } from '../utils/graphFilters';
 import {
     GRAPH_KEYBOARD_ACTIONS,
     getGraphKeyboardAction,
@@ -347,6 +347,7 @@ export const GraphViewer = forwardRef(({
         // Define Reducers
         let hoveredNode = null;
         let hoverDistances = {};
+        let hoveredEdges = new Set();
 
         // Sync refs
         colorModeRef.current = colorMode;
@@ -453,9 +454,7 @@ export const GraphViewer = forwardRef(({
             }
 
             if (hoveredNode) {
-                const source = graph.source(edge);
-                const target = graph.target(edge);
-                if (source === hoveredNode || target === hoveredNode) {
+                if (hoveredEdges.has(edge)) {
                     return { ...data, color: activeColor, size: 0.65, zIndex: 10 };
                 }
                 else return { ...data, color: isDarkModeRef.current ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.05)", zIndex: 0 };
@@ -552,8 +551,11 @@ export const GraphViewer = forwardRef(({
         renderer.on("enterNode", (e) => {
             hoveredNode = e.node;
             hoverDistances = {};
-            hoverDistances[e.node] = 0;
-            graph.forEachNeighbor(e.node, n => hoverDistances[n] = 1);
+            const visibleNeighborhood = getVisibleHoverNeighborhood(graph, e.node);
+            visibleNeighborhood.nodes.forEach((node) => {
+                hoverDistances[node] = node === e.node ? 0 : 1;
+            });
+            hoveredEdges = visibleNeighborhood.edges;
             if (containerRef.current?.offsetWidth > 0) renderer.refresh();
             if (onNodeHoverRef.current) onNodeHoverRef.current(e.node);
             containerRef.current.style.cursor = isPathfindingModeRef.current ? "crosshair" : "pointer";
@@ -561,6 +563,7 @@ export const GraphViewer = forwardRef(({
         renderer.on("leaveNode", () => {
             hoveredNode = null;
             hoverDistances = {};
+            hoveredEdges = new Set();
             if (containerRef.current?.offsetWidth > 0) renderer.refresh();
             if (onNodeHoverRef.current) onNodeHoverRef.current(null);
             containerRef.current.style.cursor = "default";
