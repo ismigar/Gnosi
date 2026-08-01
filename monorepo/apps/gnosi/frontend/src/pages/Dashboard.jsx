@@ -9,6 +9,7 @@ import { useConfigChanged } from '../lib/configEvents';
 import { APP_VERSION } from '../lib/version';
 import ConfirmModal from '../components/ConfirmModal';
 import { DashboardPaginationControls } from '../components/DashboardPaginationControls';
+import { SettingsSectionTabs } from '../components/SettingsSectionTabs';
 
 const ROLE_CAPABILITIES = {
     viewer: ['read'],
@@ -217,16 +218,6 @@ function Dashboard() {
         } finally {
             setIsDirectivesLoading(false);
         }
-    };
-
-    const handleGlobalRefresh = async () => {
-        await Promise.all([
-            fetchAnalytics(),
-            fetchSchedulers(false),
-            fetchApprovedTools(),
-            fetchPendingTools(),
-            fetchNotifications(0)
-        ]);
     };
 
     const handleEditDirective = useCallback(async (directive) => {
@@ -587,61 +578,26 @@ function Dashboard() {
                     <div className="w-full">
             {/* Control Center Tabs */}
             <div>
-                <div className="flex items-center gap-3 mb-6">
-                    <button
-                        onClick={() => setSelectedControlTab('schedulers')}
-                        className={`px-4 py-2 rounded-xl text-sm font-semibold border transition-all ${selectedControlTab === 'schedulers'
-                            ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/20'
-                            : 'bg-[var(--bg-tertiary)] border-[var(--border-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-primary)]'
-                            }`}
-                    >
-                        <span className="inline-flex items-center gap-2">
-                            <Clock3 size={16} />
-                            {t('dashboard.tab_schedulers')}
-                        </span>
-                    </button>
-                    <button
-                        onClick={() => setSelectedControlTab('history')}
-                        className={`px-4 py-2 rounded-xl text-sm font-semibold border transition-all ${selectedControlTab === 'history'
-                            ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/20'
-                            : 'bg-[var(--bg-tertiary)] border-[var(--border-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-primary)]'
-                            }`}
-                    >
-                        <span className="inline-flex items-center gap-2">
-                            <History size={16} />
-                            {t('dashboard.tab_history')}
-                        </span>
-                    </button>
-                    {isAdmin && gnosiMode === 'org' && (
-                        <button
-                            onClick={() => setSelectedControlTab('admin')}
-                            className={`px-4 py-2 rounded-xl text-sm font-semibold border transition-all ${selectedControlTab === 'admin'
-                                ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-500/20'
-                                : 'bg-[var(--bg-tertiary)] border-[var(--border-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-primary)]'
-                                }`}
-                        >
-                            <span className="inline-flex items-center gap-2">
-                                <Users size={16} />
-                                {t('dashboard.tab_admin')}
-                            </span>
-                        </button>
-                    )}
-                </div>
+                <SettingsSectionTabs
+                    ariaLabel={t('dashboard.control_center')}
+                    activeId={selectedControlTab}
+                    onChange={setSelectedControlTab}
+                    items={[
+                        { id: 'schedulers', icon: Clock3, label: t('dashboard.tab_schedulers') },
+                        { id: 'history', icon: History, label: t('dashboard.tab_history') },
+                        ...(isAdmin && gnosiMode === 'org'
+                            ? [{ id: 'admin', icon: Users, label: t('dashboard.tab_admin') }]
+                            : [])
+                    ]}
+                />
 
                 {selectedControlTab === 'schedulers' && (
                     <div className="glass-panel p-6 rounded-2xl border border-[var(--border-primary)]">
-                        <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center mb-6">
                             <h2 className="text-xl font-bold flex items-center gap-2">
                                 <span className="w-1 h-6 bg-blue-500 rounded-full"></span>
                                 {t('dashboard.tab_schedulers')}
                             </h2>
-                            <button
-                                onClick={handleGlobalRefresh}
-                                className="inline-flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg border border-blue-500/30 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-all hover:scale-105"
-                            >
-                                <RefreshCw size={14} />
-                                {t('common.refresh', "Refresh")}
-                            </button>
                         </div>
 
                         {schedulerLoading ? (
