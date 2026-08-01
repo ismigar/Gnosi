@@ -9,6 +9,14 @@ import { useTheme } from '../hooks/useTheme';
 import { useConfigChanged } from '../lib/configEvents';
 import { APP_VERSION } from '../lib/version';
 import ConfirmModal from '../components/ConfirmModal';
+import { DashboardPaginationControls } from '../components/DashboardPaginationControls';
+
+const ROLE_CAPABILITIES = {
+    viewer: ['read'],
+    editor: ['read', 'write'],
+    admin: ['read', 'write', 'delete', 'admin', 'analytics', 'tools'],
+    owner: ['read', 'write', 'delete', 'admin', 'analytics', 'tools']
+};
 
 function Dashboard() {
     const navigate = useNavigate();
@@ -22,66 +30,6 @@ function Dashboard() {
     const [approvedTools, setApprovedTools] = useState([]);
     const [pendingTools, setPendingTools] = useState([]);
     
-    // Add pagination icons for the custom component
-    const ChevronLeft = (props) => <i className="pi pi-chevron-left" {...props}></i>;
-    const ChevronRight = (props) => <i className="pi pi-chevron-right" {...props}></i>;
-
-    const PaginationControls = ({ total, limit, page, onPageChange, loading }) => {
-        const totalPages = Math.ceil((total || 0) / (limit || 1));
-        if (totalPages <= 1 || isNaN(totalPages)) return null;
-
-        return (
-            <div className="flex items-center justify-between mt-4 px-2 py-4 border-t border-[var(--border-primary)]">
-                <div className="text-[10px] text-[var(--text-secondary)] font-bold uppercase tracking-widest">
-                    Showing {page * limit + 1} to {Math.min((page + 1) * limit, total)} of {total}
-                </div>
-                <div className="flex items-center gap-1">
-                    <button
-                        onClick={() => onPageChange(page - 1)}
-                        disabled={page === 0 || loading}
-                        className="p-2 rounded-lg hover:bg-[var(--bg-tertiary)] disabled:opacity-30 transition-all text-[var(--text-secondary)]"
-                    >
-                        <ChevronLeft size={16} />
-                    </button>
-                    
-                    <div className="flex items-center gap-1">
-                        {[...Array(totalPages)].map((_, i) => {
-                            // Show only some pages if there are many
-                            if (totalPages > 7) {
-                                if (i > 0 && i < totalPages - 1 && Math.abs(i - page) > 1) {
-                                    if (i === 1 || i === totalPages - 2) return <span key={i} className="px-1 text-[10px] opacity-30">...</span>;
-                                    return null;
-                                }
-                            }
-                            return (
-                                <button
-                                    key={i}
-                                    onClick={() => onPageChange(i)}
-                                    disabled={loading}
-                                    className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${
-                                        page === i 
-                                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' 
-                                            : 'hover:bg-[var(--bg-tertiary)] text-[var(--text-secondary)]'
-                                    }`}
-                                >
-                                    {i + 1}
-                                </button>
-                            );
-                        })}
-                    </div>
-
-                    <button
-                        onClick={() => onPageChange(page + 1)}
-                        disabled={page >= totalPages - 1 || loading}
-                        className="p-2 rounded-lg hover:bg-[var(--bg-tertiary)] disabled:opacity-30 transition-all text-[var(--text-secondary)]"
-                    >
-                        <ChevronRight size={16} />
-                    </button>
-                </div>
-            </div>
-        );
-    };
-
     const [approvedLoading, setApprovedLoading] = useState(true);
     const [analytics, setAnalytics] = useState(null);
     const [schedulers, setSchedulers] = useState([]);
@@ -118,13 +66,6 @@ function Dashboard() {
     const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
     const [isPermissionsModalOpen, setIsPermissionsModalOpen] = useState(false);
 
-    // Role mapping to capabilities (Presets)
-    const ROLE_CAPABILITIES = {
-        viewer: ['read'],
-        editor: ['read', 'write'],
-        admin: ['read', 'write', 'delete', 'admin', 'analytics', 'tools'],
-        owner: ['read', 'write', 'delete', 'admin', 'analytics', 'tools']
-    };
     const [selectedMember, setSelectedMember] = useState(null);
     const [newMemberEmail, setNewMemberEmail] = useState('');
     const [newMemberRole, setNewMemberRole] = useState('viewer');
@@ -153,9 +94,6 @@ function Dashboard() {
     const [graphNodes, setGraphNodes] = useState([]);
     const [isGraphLoading, setIsGraphLoading] = useState(false);
     
-    // Suppress unused-variable warning
-    const [selectedHardwareType, setSelectedHardwareType] = useState('summary');
-
     const activeWorkspaceId = localStorage.getItem('gnosi_workspace_id') || 'personal';
 
     const [gnosiMode, setGnosiMode] = useState('personal');
@@ -576,18 +514,6 @@ function Dashboard() {
         }
     };
 
-    const refreshSchedulers = async (silent = false) => {
-        if (!silent) setSchedulerLoading(true);
-        try {
-            const data = await apiFetch('/api/schedulers');
-            setSchedulers(Array.isArray(data) ? data : []);
-        } catch (e) {
-            console.error("Error refreshing schedulers", e);
-        } finally {
-            if (!silent) setSchedulerLoading(false);
-        }
-    };
-
     const updateScheduler = async (task, overrides) => {
         try {
             const payload = { ...task, ...overrides };
@@ -595,7 +521,7 @@ function Dashboard() {
                 method: 'PUT',
                 body: JSON.stringify(payload)
             });
-            refreshSchedulers(true);
+            fetchSchedulers(true);
         } catch (e) {
             console.error("Error updating scheduler", e);
         }
@@ -615,7 +541,7 @@ function Dashboard() {
                 toast.error(data.error || t('dashboard.unknown_error'), { id: t_id });
             }
             // We refresh after a short delay so the backend has processed the state change to "running"
-            setTimeout(() => refreshSchedulers(true), 500);
+            setTimeout(() => fetchSchedulers(true), 500);
         } catch (e) {
             console.error("Error running scheduler", e);
             toast.error(`${t('dashboard.run_error', "Run error")}: ${e.message}`, { id: t_id });
@@ -942,6 +868,7 @@ function Dashboard() {
                                                     <option value={90}>{t('dashboard.time_1_5_hours')}</option>
                                                     <option value={120}>{t('dashboard.time_2_hours')}</option>
                                                     <option value={180}>{t('dashboard.time_3_hours')}</option>
+                                                    <option value={300}>{t('dashboard.time_5_hours')}</option>
                                                     <option value={360}>{t('dashboard.time_6_hours')}</option>
                                                     <option value={720}>{t('dashboard.time_12_hours')}</option>
                                                     <option value={1440}>{t('dashboard.time_1_day')}</option>
@@ -1018,7 +945,7 @@ function Dashboard() {
                                         ))
                                     )}
                                 </div>
-                                <PaginationControls 
+                                <DashboardPaginationControls
                                     total={taskHistoryTotal}
                                     limit={HISTORY_LIMIT}
                                     page={taskHistoryPage}
@@ -1100,7 +1027,7 @@ function Dashboard() {
                                             </tbody>
                                         </table>
                                     </div>
-                                    <PaginationControls 
+                                    <DashboardPaginationControls
                                         total={notifTotal}
                                         limit={NOTIF_LIMIT}
                                         page={notifPage}
@@ -1402,7 +1329,7 @@ function Dashboard() {
                                             </tbody>
                                         </table>
                                     </div>
-                                    <PaginationControls 
+                                    <DashboardPaginationControls
                                         total={trapsTotal}
                                         limit={TRAPS_LIMIT}
                                         page={trapsPage}
@@ -1485,7 +1412,7 @@ function Dashboard() {
                                             </div>
                                         ))}
                                     </div>
-                                    <PaginationControls 
+                                    <DashboardPaginationControls
                                         total={directivesTotal}
                                         limit={DIRECTIVES_LIMIT}
                                         page={directivesPage}

@@ -1,0 +1,29 @@
+schema_version: 1
+purpose: development-and-automation-classification
+agent_assignable_default: false
+packages:
+  augment_clusters: {kind: developer}
+  autonomous_loop: {kind: developer}
+  auto_improver: {kind: developer}
+  backup_projectes: {kind: automation}
+  calendar_sync: {kind: automation}
+  filter_graph: {kind: developer}
+  host_open_helper: {kind: infrastructure}
+  json_to_sigma: {kind: developer}
+  mail_sync: {kind: automation}
+  maintenance: {kind: automation}
+  notification_service: {kind: infrastructure}
+  notion_clone: {kind: action}
+  playwright_e2e: {kind: developer}
+  proves_dataset: {kind: developer}
+  publisher: {kind: automation}
+  rss_to_audio: {kind: automation}
+  scheduler: {kind: infrastructure}
+  suggest_connections: {kind: action}
+  team_manager: {kind: developer}
+  translate_page: {kind: action}
+  translate_row: {kind: action}
+  ui_stability: {kind: developer}
+  vault_ai_assistant: {kind: developer}
+  vault_core: {kind: developer}
+  zotero_schema: {kind: developer}

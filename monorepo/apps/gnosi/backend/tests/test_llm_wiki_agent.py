@@ -7,9 +7,13 @@ from fastapi import HTTPException
 from backend.services.llm_wiki_agent import (
     LLM_WIKI_AGENT_ID,
     LLM_WIKI_AGENT_MARKER,
+    LLM_WIKI_REQUIRED_SKILL_IDS,
+    LLM_WIKI_SKILL_IDS,
+    LEGACY_LLM_WIKI_SKILL_IDS,
     LlmWikiAgentError,
     ensure_agent,
     remove_agent,
+    suspend_agent,
     validate_agent_preserved,
 )
 
@@ -39,11 +43,88 @@ def test_ensure_agent_uses_active_model_and_is_idempotent():
     assert profile["provider"] == "openai"
     assert profile["model"] == "gpt-test"
     assert profile["enabled"] is True
+    assert profile["skill_ids"] == LLM_WIKI_SKILL_IDS
+    assert profile["required_skill_ids"] == LLM_WIKI_REQUIRED_SKILL_IDS
 
     profile["persona"] = "Instruccions personals"
     repeated, changed = ensure_agent(created)
     assert changed is False
     assert next(agent for agent in repeated["agents"] if agent["id"] == LLM_WIKI_AGENT_ID)["persona"] == "Instruccions personals"
+
+
+def test_ensure_agent_migrates_skills_and_resumes_without_overwriting_edits():
+    current = {
+        "agents": [{
+            **_configured_agent(LLM_WIKI_AGENT_ID),
+            "managed_by": LLM_WIKI_AGENT_MARKER,
+            "persona": "Custom persona",
+            "plugin_suspended": True,
+            "plugin_enabled_before_suspend": True,
+            "enabled": False,
+        }],
+    }
+
+    updated, changed = ensure_agent(current)
+    profile = updated["agents"][0]
+
+    assert changed is True
+    assert profile["skill_ids"] == LLM_WIKI_SKILL_IDS
+    assert profile["required_skill_ids"] == LLM_WIKI_REQUIRED_SKILL_IDS
+    assert profile["persona"] == "Custom persona"
+    assert profile["enabled"] is True
+    assert "plugin_suspended" not in profile
+    assert "plugin_enabled_before_suspend" not in profile
+
+
+def test_ensure_agent_replaces_only_the_synthetic_legacy_skill_bundle():
+    legacy = {
+        "agents": [{
+            **_configured_agent(LLM_WIKI_AGENT_ID),
+            "managed_by": LLM_WIKI_AGENT_MARKER,
+            "persona": "Keep me",
+            "skill_ids": ["core.legacy-default-v1"],
+        }],
+    }
+
+    migrated, changed = ensure_agent(legacy)
+
+    assert changed is True
+    assert migrated["agents"][0]["skill_ids"] == LLM_WIKI_SKILL_IDS
+    assert migrated["agents"][0]["required_skill_ids"] == (
+        LLM_WIKI_REQUIRED_SKILL_IDS
+    )
+    assert migrated["agents"][0]["persona"] == "Keep me"
+
+    customized = {
+        "agents": [{
+            **_configured_agent(LLM_WIKI_AGENT_ID),
+            "managed_by": LLM_WIKI_AGENT_MARKER,
+            "skill_ids": ["user.my-own-skill"],
+        }],
+    }
+    migrated_custom, changed_custom = ensure_agent(customized)
+
+    assert changed_custom is True
+    assert migrated_custom["agents"][0]["skill_ids"] == ["user.my-own-skill"]
+    assert migrated_custom["agents"][0]["required_skill_ids"] == (
+        LLM_WIKI_REQUIRED_SKILL_IDS
+    )
+
+
+def test_ensure_agent_adds_vault_tools_to_the_previous_wiki_default():
+    previous_default = {
+        "agents": [{
+            **_configured_agent(LLM_WIKI_AGENT_ID),
+            "managed_by": LLM_WIKI_AGENT_MARKER,
+            "skill_ids": LEGACY_LLM_WIKI_SKILL_IDS,
+        }],
+    }
+
+    migrated, changed = ensure_agent(previous_default)
+
+    assert changed is True
+    assert migrated["agents"][0]["skill_ids"] == LLM_WIKI_SKILL_IDS
+    assert "core.gnosi-vault" in migrated["agents"][0]["skill_ids"]
 
 
 def test_ensure_agent_without_model_stays_disabled():
@@ -77,6 +158,39 @@ def test_remove_agent_only_removes_managed_profile_and_repairs_active_selection(
     assert changed is True
     assert all(agent["id"] != LLM_WIKI_AGENT_ID for agent in updated["agents"])
     assert updated["active_agent_id"] == "active"
+
+
+def test_suspend_agent_preserves_profile_and_reactivation_restores_enabled_state():
+    ai, _ = ensure_agent({
+        "active_agent_id": "active",
+        "agents": [_configured_agent("active")],
+    })
+    ai["active_agent_id"] = LLM_WIKI_AGENT_ID
+    profile = next(
+        agent for agent in ai["agents"] if agent["id"] == LLM_WIKI_AGENT_ID
+    )
+    profile["persona"] = "Custom persona"
+
+    suspended, changed = suspend_agent(ai)
+    suspended_profile = next(
+        agent
+        for agent in suspended["agents"]
+        if agent["id"] == LLM_WIKI_AGENT_ID
+    )
+
+    assert changed is True
+    assert suspended_profile["enabled"] is False
+    assert suspended_profile["plugin_suspended"] is True
+    assert suspended_profile["persona"] == "Custom persona"
+    assert suspended["active_agent_id"] == "active"
+
+    resumed, resumed_changed = ensure_agent(suspended)
+    resumed_profile = next(
+        agent for agent in resumed["agents"] if agent["id"] == LLM_WIKI_AGENT_ID
+    )
+    assert resumed_changed is True
+    assert resumed_profile["enabled"] is True
+    assert resumed_profile["persona"] == "Custom persona"
 
 
 def test_generic_settings_save_cannot_remove_or_unmanage_the_profile():

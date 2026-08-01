@@ -38,8 +38,8 @@ synchronized with the vault. It contains `brain_table_id`, `brain_roles`,
 
 The default generated-content language is **English**. New table names, properties,
 relations, system rows, and the managed agent therefore use English by default:
-**Brain**, **Note type**, **Sources**, **Position**, **General index**, **Brain schema**,
-**Brain log**, and **Source · <table>**. Interface copy remains localized through i18n.
+**Brain**, **Note type**, **Source**, **Position**, **General index**, **Brain schema**,
+and **Brain log**. Interface copy remains localized through i18n.
 Existing configured vaults retain their saved locale and are never renamed automatically.
 
 Each source table stores property IDs for its title, attachments, URLs, language, the
@@ -77,6 +77,9 @@ deleting existing properties:
 
 Code uses persistent IDs and semantic roles, never visible field names. Compatible existing
 fields are reused. A relation always targets exactly one table; it is never retargeted.
+Each reading note and resource index links to exactly one source row through the canonical
+singular source relation. A permanent note has no source relation. Legacy plural source
+properties are merged into the singular relation and removed.
 
 The ethical contract is that automation performs mechanical work while the user retains
 cognitive authorship:
@@ -87,13 +90,21 @@ cognitive authorship:
 | Reading notes | Plugin | One atomic idea per note, linked to exactly one source, in source order |
 | Permanent notes | User only | The plugin never creates or accepts permanent-note drafts |
 
-Generated reading notes retain the persisted `note_type: lectura` marker for graph
-compatibility. This stored legacy value is not a display name and must not be migrated
-destructively.
+Generated and managed pages keep their operational state in synchronized sidecars at
+`<vault>/.gnosi/llm_wiki/pages/<page-id>.json`. The Markdown frontmatter contains only
+portable schema properties plus structural `id` and `table_id`; it never stores
+`llm_wiki_*` or the technical `note_type` marker. The visible schema **Note type** property
+is the portable classification used outside Gnosi.
+
+Legacy managed pages are migrated idempotently. The sidecar is written before the Markdown
+is cleaned, readers temporarily fall back to legacy frontmatter when no sidecar exists,
+and manual body content is never rewritten except through the normal page serializer.
 
 The inbox exposes evidence-backed connections, support, contradictions, and gaps. It can
 open notes or dismiss a proposal; it cannot create permanent notes. Semantic proposals run
-only through explicit manual maintenance to avoid unexpected model costs.
+only through explicit manual maintenance or the dedicated, user-enabled
+`suggest_connections` scheduler. Daily deterministic maintenance and the general memory
+refresh never invoke a model, so enabling those tasks cannot create unexpected model costs.
 
 ## 5. Ingestion and provenance
 
@@ -154,7 +165,8 @@ outside them is preserved. Existing manual MOCs are never adopted by title alone
 
 The system maintains:
 
-- a resource index with sections per attachment/URL and reading notes in appearance order;
+- a flat resource index with reading notes in appearance order; the source relation stores
+  the resource and citations retain attachment/URL provenance;
 - a direct category index for each selected field value, grouped by resource, with manual
   permanent notes in a separate section;
 - **General index**, **Brain schema**, and append-only **Brain log**;
@@ -184,6 +196,49 @@ overwrite user-edited instructions.
 
 - Do not use the legacy processed-date property to discover sources. Use
   `source_tables[]`, manifests, and jobs.
+- Do not keep a parallel plural source relation. Merge its values into the
+  canonical singular relation and remove the duplicate property.
+- Embedded Brain views on source pages must use the contextual
+  `<source relation> = this` filter. Do not persist a URL or UID for one
+  particular row because copied resource pages would show the wrong notes.
+- Resolve generated source labels from the configured title property before
+  generic metadata or the path stem. A UUID filename is only a last-resort
+  fallback when the row genuinely has no title.
+- Do not hide Process or Reprocess for a configured source row merely because
+  the frontend cannot resolve its attachment/URL field. Stale schemas and
+  interrupted jobs can make that client-side check incomplete; expose the
+  action and let the backend inspect the durable row data.
+- Closing an in-progress Process modal must not abandon its durable job. Keep
+  polling it from the dashboard and show a localized terminal notification;
+  this in-session notification does not persist after the whole application is
+  closed.
+- Generated Markdown wikilinks use `[[stable-id|visible title]]`. Do not write
+  `[[title|id]]`: the editor treats the text after `|` as the visible alias and
+  would expose internal UUIDs in managed indexes and logs.
+- Source-mapped relation values may arrive as bare UUIDs after frontmatter
+  normalization. Canonicalize relation mappings by target row ID as well as by
+  title and serialized relation value, or configured fields will be dropped.
+- Explicit source mappings override any persisted or model-generated dimension
+  values. The source relation property is the canonical provenance link; do not
+  duplicate it in reading-note citations or as a resource line in the managed
+  resource index.
+- Do not render attachment names, URL labels, or other source headings in a
+  managed resource index. The canonical source is already visible in the
+  relation property, while citations preserve origin-level provenance.
+- Keep a blank line between managed HTML markers and their Markdown content.
+  Without that boundary, BlockNote parses ordered index entries as one
+  paragraph and visually collapses the source-order line breaks.
+- Deterministic index maintenance re-synchronizes source-mapped fields into
+  existing managed reading notes and clears target values when the source value
+  is empty. Configuration repairs must not require another LLM ingest.
+- Do not cast legacy position values directly to integers while rebuilding
+  indexes. Manual or imported notes may contain ranges such as `254-255`; use
+  their numeric prefix as a stable sort key and let nonnumeric values sort as
+  zero instead of aborting maintenance.
+- Keep deterministic `note_type` and `llm_wiki_*` state only in synchronized
+  `.gnosi/llm_wiki/pages/` sidecars. Write the sidecar before removing legacy
+  fields from Markdown, overlay it on every Brain read path, and retain a
+  frontmatter fallback until existing vaults have migrated.
 - Do not use `tempfile` without an explicit `llm_wiki/tmp` directory under
   `GNOSI_LOCAL_DATA`.
 - Do not create unconstrained categorical values. Canonicalize them against existing
@@ -191,6 +246,18 @@ overwrite user-edited instructions.
 - Do not resume a plan when any origin hash changes; citations could point to another
   source version.
 - Do not run semantic proposals on every ingest or scheduled maintenance.
+- Treat `.gnosi/llm_wiki_suggestions.json` as the canonical proposal queue. The
+  `suggest_connections` scheduler, Brain inbox, and global graph must all use this queue;
+  do not revive a parallel generated graph under `BD/` as a second suggestion source.
+- Mirror the canonical queue to `<vault>/suggestions.json` for graph portability, add that
+  layer during `/api/graph` construction, and invalidate the graph response cache whenever
+  the mirror changes. The frontend must not merge a second no-op suggestions endpoint.
+- A dedicated `suggest_connections` scheduler is an explicit opt-in to model use. Keep it
+  disabled by default, make failures fail the scheduler execution, and never let
+  `update_memories` call it implicitly.
+- Scheduler task functions may return structured failures. Do not mark a task successful
+  merely because it returned normally; propagate `success: false` or an `error` value to
+  task state, history, and notifications.
 - Do not treat the `(llm, provider, model)` result of `_get_hybrid_llm()` as a model.
   Unpack it before calling model methods.
 - Docker CI must provide a unique job-only `GNOSI_JWT_SECRET` to both Compose validation

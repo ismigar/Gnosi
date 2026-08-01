@@ -465,6 +465,7 @@ class SchedulerManager:
             # Execute the task
             start_time = datetime.now()
             result = self._execute_task(name)
+            self._raise_for_task_failure(result)
             end_time = datetime.now()
             duration = (end_time - start_time).total_seconds()
             
@@ -541,6 +542,18 @@ class SchedulerManager:
             task.status = "error"
             self._save_config()
             return {"success": False, "error": error_msg}
+
+    @staticmethod
+    def _raise_for_task_failure(result: Any) -> None:
+        """Turn structured task failures into scheduler execution failures."""
+
+        if not isinstance(result, dict):
+            return
+        error = result.get("error")
+        failed = result.get("success") is False
+        if failed or error:
+            detail = error or result.get("message") or "Task returned an unsuccessful result"
+            raise RuntimeError(str(detail))
 
     def _task_publish_scheduled_social(self) -> Dict[str, Any]:
         """Publishes scheduled social posts that are already due.
@@ -850,19 +863,23 @@ class SchedulerManager:
         }
 
     def _task_suggest_connections(self) -> Dict[str, Any]:
-        """Analyze connections between notes."""
-        try:
-            from pipeline.skills.suggest_connections.scripts import (
-                suggest_connections_digital_brain,
-            )
-            from pipeline.skills.json_to_sigma.scripts import json_to_sigma
-            suggest_connections_digital_brain.process()
-            json_to_sigma.convert_for_sigma()
-        except ImportError:
-            return {"error": "Pipeline skills not found"}
-        except Exception as e:
-            return {"success": False, "error": str(e)}
-        return {"success": True, "message": "Anàlisi de connexions completada."}
+        """Generate proposals in the canonical Brain connection queue."""
+
+        from backend.api.vault_routes import _llm_wiki_enabled, _load_plugins_state
+        from backend.services.llm_wiki_actions import run_maintenance
+
+        if not _llm_wiki_enabled(_load_plugins_state()):
+            return {
+                "success": True,
+                "skipped": True,
+                "message": "LLM Wiki is disabled; connection analysis was skipped.",
+            }
+        report = run_maintenance(semantic=True)
+        return {
+            "success": True,
+            "message": "Brain connection analysis completed.",
+            **report,
+        }
 
 
 
@@ -880,8 +897,9 @@ class SchedulerManager:
         return {"stats": stats}
 
     def _task_update_memories(self) -> Dict[str, Any]:
-        """Performs a general update of the memory system (Graph + Connections)."""
+        """Refresh graph, proposal overlay, and analytics without invoking an LLM."""
         from backend.services.graph_service import GraphService
+        from backend.services import llm_wiki_suggestions
         from backend.config.logger_config import get_logger
         log = get_logger(__name__)
         
@@ -890,17 +908,16 @@ class SchedulerManager:
         try:
             # 1. Clear Graph Cache and Force Rebuild
             log.info("⏰ Scheduler: Force rebuilding Unified Graph...")
-            GraphService._graph_cache = None
+            # Keep the cache contract stable: GraphService always expects a
+            # per-vault dictionary, including immediately after invalidation.
+            pending = llm_wiki_suggestions.sync_graph_mirror()
+            GraphService.invalidate_response_cache()
             service = GraphService()
             graph = service.build_unified_graph()
             results["steps"].append(f"Graph rebuilt with {len(graph.get('nodes', []))} nodes")
+            results["steps"].append({"connections_synced": pending})
             
-            # 2. Update semantic connections (reuse suggest_connections logic)
-            log.info("⏰ Scheduler: Updating semantic connections...")
-            conn_res = self._task_suggest_connections()
-            results["steps"].append({"suggest_connections": conn_res})
-            
-            # 3. Update analytics to reflect new state
+            # 2. Update analytics to reflect the rebuilt graph.
             self._task_update_analytics()
             results["steps"].append("Analytics updated")
             

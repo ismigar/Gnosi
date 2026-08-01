@@ -63,6 +63,12 @@ def set_host_handlers(handlers: Dict[str, Callable[[Dict[str, Any]], Any]]) -> N
     _host_handlers = dict(handlers or {})
 
 
+def runtime_permissions() -> frozenset[str]:
+    """Permissions that a sandboxed agent tool may receive at runtime."""
+
+    return frozenset(_METHOD_PERMISSION.values())
+
+
 def node_available() -> bool:
     return shutil.which("node") is not None
 
@@ -190,7 +196,7 @@ def run_event(
                 logs.append({"level": str(msg.get("level") or "info"),
                              "message": str(msg.get("message") or "")})
             elif mtype == "done":
-                result = {"ok": True}
+                result = {"ok": True, "result": msg.get("result")}
                 break
             elif mtype == "error":
                 result = {"ok": False, "error": str(msg.get("message") or "error del plugin")}

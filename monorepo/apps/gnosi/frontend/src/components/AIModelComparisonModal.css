@@ -26,8 +26,17 @@
 .model-comparison-key-form input { box-sizing: border-box; width: 100%; min-height: 42px; padding: 9px 12px; border: 1px solid var(--settings-border); border-radius: 12px; background: var(--bg-primary); color: var(--text-primary); outline: none; }
 .model-comparison-key-form input:focus { border-color: var(--gnosi-blue); }
 .model-comparison-key-form button { flex-shrink: 0; }
-.model-comparison-toolbar { display: grid; grid-template-columns: minmax(250px, 2fr) repeat(4, minmax(145px, 1fr)); gap: 12px; }
+.model-comparison-toolbar { display: grid; grid-template-columns: minmax(250px, 2fr) repeat(5, minmax(145px, 1fr)); gap: 12px; }
 .model-comparison-toolbar label, .model-cost-calculator label { display: flex; flex-direction: column; gap: 7px; color: var(--text-secondary); font-size: .76rem; font-weight: 800; }
+.model-modes-filter { position: relative; display: flex; flex-direction: column; gap: 7px; color: var(--text-secondary); font-size: .76rem; font-weight: 800; }
+.model-modes-filter > button { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 42px; padding: 9px 12px; border: 1px solid var(--settings-border); border-radius: 12px; background: var(--bg-primary); color: var(--text-primary); font: inherit; text-align: start; cursor: pointer; }
+.model-modes-filter > button:focus-visible { outline: none; border-color: var(--gnosi-blue); }
+.model-modes-menu { position: absolute; top: calc(100% + 5px); z-index: 20; display: grid; gap: 3px; width: 100%; min-width: 170px; padding: 6px; border: 1px solid var(--settings-border); border-radius: 12px; background: var(--settings-bg); box-shadow: 0 12px 30px rgba(0,0,0,.22); }
+.model-modes-filter label { display: inline-flex; flex-direction: row; align-items: center; gap: 7px; padding: 7px 8px; border-radius: 8px; cursor: pointer; }
+.model-modes-filter label:hover { background: rgba(59,130,246,.1); }
+.model-modes-filter input { width: auto; min-height: auto; margin: 0; accent-color: var(--gnosi-blue); }
+.model-mode-list { display: flex; flex-wrap: wrap; gap: 4px; }
+.model-mode-list span { padding: 3px 6px; border-radius: 999px; background: rgba(59,130,246,.12); color: var(--gnosi-blue); font-size: .7rem; font-weight: 800; }
 .model-profile-filter > span { display: inline-flex; align-items: center; gap: 6px; }
 .model-profile-help { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; padding: 0; border: 1px solid var(--settings-border); border-radius: 50%; background: var(--settings-sidebar-bg); color: var(--text-secondary); font-size: .7rem; font-weight: 900; cursor: pointer; }
 .model-profile-help:hover { border-color: var(--gnosi-blue); color: var(--gnosi-blue); }
@@ -44,6 +53,8 @@
 .model-profile-help-content p { margin: 5px 0 0; color: var(--text-secondary); font-size: .76rem; line-height: 1.45; }
 .model-comparison-toolbar input, .model-comparison-toolbar select, .model-cost-calculator input { box-sizing: border-box; width: 100%; min-height: 42px; padding: 9px 12px; border: 1px solid var(--settings-border); border-radius: 12px; background: var(--bg-primary); color: var(--text-primary); outline: none; }
 .model-comparison-toolbar input:focus, .model-comparison-toolbar select:focus, .model-cost-calculator input:focus { border-color: var(--gnosi-blue); }
+.model-modes-menu label { display: grid; grid-template-columns: 18px minmax(0, 1fr); align-items: center; min-height: 34px; box-sizing: border-box; }
+.model-modes-menu input[type="checkbox"] { box-sizing: border-box; width: 18px; height: 18px; min-height: 18px; padding: 0; border: 0; border-radius: 4px; background: transparent; }
 .model-comparison-toolbar .model-search { position: relative; justify-content: flex-end; }
 .model-search svg { position: absolute; inset-inline-start: 13px; bottom: 12px; color: var(--text-secondary); }
 .model-search input { padding-inline-start: 40px; }

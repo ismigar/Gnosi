@@ -19,6 +19,8 @@ export function Sidebar({
     // Color props
     colorMode,
     onColorModeChange,
+    hasClusterData = false,
+    hasAiClusterData = false,
     // Pathfinding props
     isPathfindingMode,
     onPathfindingModeChange,
@@ -56,7 +58,7 @@ export function Sidebar({
             <div className="section">
                 <h2 className="filter-title">{t('graph.sidebar.color_by', "Color by")}</h2>
                 <div style={{ display: 'flex', gap: '10px' }}>
-                    <label style={{ cursor: 'pointer' }}>
+                    {hasClusterData && <label style={{ cursor: 'pointer' }}>
                         <input
                             type="radio"
                             name="colorMode"
@@ -66,8 +68,8 @@ export function Sidebar({
                             style={{ marginRight: '5px' }}
                         />
                         {t('graph.sidebar.color_kind', "Type")}
-                    </label>
-                    <label style={{ cursor: 'pointer' }}>
+                    </label>}
+                    {hasAiClusterData && <label style={{ cursor: 'pointer' }}>
                         <input
                             type="radio"
                             name="colorMode"
@@ -77,7 +79,7 @@ export function Sidebar({
                             style={{ marginRight: '5px' }}
                         />
                         {t('graph.sidebar.color_cluster', "Cluster")}
-                    </label>
+                    </label>}
                     <label style={{ cursor: 'pointer' }}>
                         <input
                             type="radio"

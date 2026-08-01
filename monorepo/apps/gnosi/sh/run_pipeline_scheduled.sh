@@ -28,8 +28,8 @@ fi
 # 3. Safe execution with Caffeinate
 echo "🚀 Running pipeline (using $VENV_PYTHON)..." # >> "$LOG_FILE"
 
-# NOTE: We no longer use "python3", but the variable "$VENV_PYTHON"
-caffeinate -i "$VENV_PYTHON" -m pipeline.skills.suggest_connections_digital_brain #>> "$LOG_FILE" 2>&1
+# Use the same canonical Brain proposal service as the Gnosi scheduler.
+caffeinate -i "$VENV_PYTHON" -c 'import json; from backend.services.llm_wiki_actions import run_maintenance; print(json.dumps(run_maintenance(semantic=True), ensure_ascii=False))' #>> "$LOG_FILE" 2>&1
 
 EXIT_CODE=$?
 

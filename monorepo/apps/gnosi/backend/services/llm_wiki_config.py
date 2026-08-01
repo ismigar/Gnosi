@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import re
 import threading
+import unicodedata
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Iterable, Optional
@@ -36,7 +37,35 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "source_tables": [],
     "index_field_ids": [],
     "brain_roles": {},
+    "source_contract_revision": 0,
     "configured": False,
+}
+
+NOTE_TYPE_LABELS = {
+    "ca": {
+        "reading": "Nota de lectura",
+        "index": "Nota índex",
+        "permanent": "Nota permanent",
+        "system": "Nota de sistema",
+    },
+    "en": {
+        "reading": "Reading note",
+        "index": "Index note",
+        "permanent": "Permanent note",
+        "system": "System note",
+    },
+    "es": {
+        "reading": "Nota de lectura",
+        "index": "Nota índice",
+        "permanent": "Nota permanente",
+        "system": "Nota de sistema",
+    },
+    "fr": {
+        "reading": "Note de lecture",
+        "index": "Note d’index",
+        "permanent": "Note permanente",
+        "system": "Note système",
+    },
 }
 
 
@@ -57,6 +86,83 @@ def _property_id(prop: dict) -> str:
 
 def _property_type(prop: dict) -> str:
     return str(prop.get("type") or "").strip().lower()
+
+
+def _semantic_token(value: Any) -> str:
+    ascii_text = "".join(
+        char
+        for char in unicodedata.normalize("NFKD", str(value or "").casefold())
+        if not unicodedata.combining(char)
+    )
+    return re.sub(r"[^a-z0-9]+", "", ascii_text)
+
+
+def _property_options(prop: Optional[dict]) -> list[str]:
+    raw_options = (
+        (prop or {}).get("options")
+        or ((prop or {}).get("config") or {}).get("options")
+        or ((prop or {}).get("select") or {}).get("options")
+        or []
+    )
+    return [
+        str(option.get("name") if isinstance(option, dict) else option).strip()
+        for option in raw_options
+        if str(option.get("name") if isinstance(option, dict) else option).strip()
+    ]
+
+
+def note_type_value(kind: str, config: dict, prop: Optional[dict]) -> str:
+    """Return the existing visible option for one semantic note kind."""
+    resolved_kind = note_type_kind(kind)
+    semantic_kind = "reading" if resolved_kind == "lectura" else (resolved_kind or "reading")
+    markers = {
+        "reading": ("reading", "lectura", "lecture"),
+        "index": ("index", "indice"),
+        "permanent": ("permanent",),
+        "system": ("system", "sistema", "systeme"),
+    }[semantic_kind]
+    for option in _property_options(prop):
+        token = _semantic_token(option)
+        if any(marker in token for marker in markers):
+            return option
+    locale = str((config or {}).get("ui_locale") or "en").split("-", 1)[0].lower()
+    labels = NOTE_TYPE_LABELS.get(locale, NOTE_TYPE_LABELS["en"])
+    return labels[semantic_kind]
+
+
+def note_type_kind(value: Any) -> str:
+    """Return the canonical semantic kind represented by a stored label."""
+    token = _semantic_token(value)
+    if any(marker in token for marker in ("reading", "lectura", "lecture")):
+        return "lectura"
+    if any(marker in token for marker in ("permanent",)):
+        return "permanent"
+    if any(marker in token for marker in ("index", "indice")):
+        return "index"
+    if any(marker in token for marker in ("system", "sistema", "systeme")):
+        return "system"
+    return ""
+
+
+def metadata_note_type(metadata: Optional[dict[str, Any]]) -> str:
+    """Resolve a Brain note kind from technical or visible schema metadata."""
+    source = metadata if isinstance(metadata, dict) else {}
+    direct = note_type_kind(source.get("note_type"))
+    if direct:
+        return direct
+    for key, value in source.items():
+        if _norm(key) in {"tipusdenota", "notetype", "tipodenota", "typedenote"}:
+            resolved = note_type_kind(value)
+            if resolved:
+                return resolved
+    return ""
+
+
+def _revision(value: Any) -> int:
+    try:
+        return max(0, int(value or 0))
+    except (TypeError, ValueError):
+        return 0
 
 
 def _properties(table: Optional[dict]) -> list[dict]:
@@ -143,6 +249,7 @@ def normalize_config(raw: Any, *, reference_table_id: str = "") -> dict[str, Any
         "source_tables": sources,
         "index_field_ids": index_ids,
         "brain_roles": roles,
+        "source_contract_revision": _revision(data.get("source_contract_revision")),
         "configured": bool(data.get("configured") or brain_id or sources),
     }
 

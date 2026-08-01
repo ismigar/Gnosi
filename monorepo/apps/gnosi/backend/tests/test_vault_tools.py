@@ -6,7 +6,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from agent.vault_tools import (  # noqa: E402
     build_page_frontmatter, build_cornell_note, rank_link_candidates,
-    _parse_cornell_json, VAULT_KNOWLEDGE_TOOLS,
+    _parse_cornell_json, MAX_PAGE_READ_CHARS, VAULT_KNOWLEDGE_TOOLS,
+    read_page,
 )
 
 
@@ -77,6 +78,21 @@ def test_tools_exported():
     assert any("create_page" in n for n in names)
     assert any("query_wiki" in n for n in names)
     assert len(VAULT_KNOWLEDGE_TOOLS) == 6
+
+
+def test_read_page_is_server_bounded(monkeypatch, tmp_path):
+    page = tmp_path / "large.md"
+    page.write_text("x" * (MAX_PAGE_READ_CHARS + 500), encoding="utf-8")
+    monkeypatch.setattr(
+        "agent.vault_tools._resolve_page_path",
+        lambda _identifier: page,
+    )
+
+    result = read_page.func("large") if hasattr(read_page, "func") else read_page("large")
+
+    assert result.startswith("x" * 100)
+    assert len(result) < MAX_PAGE_READ_CHARS + 100
+    assert "truncated by Gnosi" in result
 
 
 if __name__ == "__main__":

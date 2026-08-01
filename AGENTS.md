@@ -111,3 +111,9 @@ network, merge-conflict, or approval blockers instead.
 - **Conversation with the maintainer: Spanish/Catalan only.** (This is about chat, NOT the code — code documentation is written in English; see Code Style Summary.)
 - Native by default (uvicorn + vite through LaunchAgents). Docker is optional (self-hosted server).
 - Idempotent scripts. Environment: `.env_shared` (shared) + `.env` (local override).
+
+## GitHub operations
+- Always use `git` via SSH remote for fetch, pull, and push.
+- Never use the `gh` CLI or check `gh auth status`.
+- To create or update pull requests, use the GitHub plugin.
+- If the plugin is not available, report the crash without replacing it with `gh`.

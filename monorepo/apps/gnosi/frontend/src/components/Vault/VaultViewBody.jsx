@@ -52,6 +52,8 @@ export function VaultViewBody({
     onExitBottom,
     onEscape,
     onFocusShell,
+    feedDensity = 'comfortable',
+    feedGroupMode = 'none',
 }) {
     const t = String(type || 'table').toLowerCase();
 
@@ -70,6 +72,7 @@ export function VaultViewBody({
         onDeleteSelected,
         onEditSchema,
         onUpdateView,
+        onUpdateNote,
     };
 
     // Notes filtered/sorted according to the view. The calendar receives `allNotes` and does not
@@ -112,6 +115,7 @@ export function VaultViewBody({
     } else if (t === 'feed') {
         body = (
             <VaultFeed
+                key={activeView?.id || 'default'}
                 notes={notes}
                 schema={schema}
                 idToTitle={idToTitle}
@@ -122,6 +126,12 @@ export function VaultViewBody({
                 onNoteSelect={onNoteSelect}
                 onDeletePage={onDeletePage}
                 onDeleteSelected={onDeleteSelected}
+                onUpdateNote={onUpdateNote}
+                onCreateRecord={onCreateRecord}
+                onOpenConfig={() => onEditSchema?.('filters')}
+                onClearSearch={() => onSearchChange?.('')}
+                density={feedDensity}
+                groupMode={feedGroupMode}
             />
         );
     } else if (t === 'calendar') {

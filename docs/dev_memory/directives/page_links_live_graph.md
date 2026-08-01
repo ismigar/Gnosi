@@ -33,6 +33,9 @@ center and every directly connected page around it.
   or make unrelated nodes jump unpredictably.
 - Deduplicate connected pages by canonical page ID. Keep unresolved outgoing
   targets distinct by normalized title.
+- Render every page as one compact, filled node, consistent with the global
+  graph. The current page is larger, but it does not use a separate inner core
+  or translucent outer sphere.
 - Scale the SVG height by the number of rings and keep a responsive view box.
 - Keep the graph compact enough to remain an overview above the detailed
   textual lists.
@@ -47,6 +50,9 @@ center and every directly connected page around it.
 - Do not replace full titles in application state with truncated values.
   Truncation is presentational only.
 - Do not create clickable graph nodes for unresolved outgoing targets.
+- Do not represent page nodes as a small core inside a larger translucent
+  circle. The extra layer has no semantic meaning and diverges from the global
+  graph's compact-node vocabulary.
 - Do not export graph-model helpers from the React component module because
   the Fast Refresh lint rule rejects mixed component and utility exports. Keep
   pure helpers in a separate model module.

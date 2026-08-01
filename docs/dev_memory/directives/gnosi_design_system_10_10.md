@@ -178,3 +178,91 @@ environment-specific frontend assumptions.
   top margin inside the shared icon frame, avoiding a broader header geometry
   change. On pages without a cover, the entire icon frame also sits 8 pixels
   lower so it does not visually attach to the document-strip edge.
+- Embedded database actions share one toolbar. Do not leave the add-view action
+  on a visually empty single-view row, and never nest an interactive element
+  inside another button; use a semantic split-button group.
+- Mobile Vault icon controls use the shared 44-pixel touch size, including shell
+  navigation, page actions, summary toggles, embedded-view actions, and feed
+  controls. Reduce redundant chrome before shrinking a control below that size.
+- Adjacent collapsed Vault summary panels share the same 44-pixel header height.
+  Do not add vertical container padding around children that already use the
+  touch-height control because it makes sibling panels visibly misalign.
+- Nested mobile feed views remove both the embed padding and the feed's desktop
+  inline padding. Keeping either layer makes a readable card materially narrower
+  than the surrounding page summary.
+- Every icon-removal and disclosure control needs a translated accessible name.
+  A visible icon or a sibling text label does not name a separate button.
+- Feed cards are semantic articles, not synthetic links containing checkboxes,
+  disclosure buttons, Markdown links, and other interactive descendants. Use
+  the record title as the single primary navigation control and name the
+  selection checkbox with the record title.
+- At widths below 360 pixels, the Vault shell exposes at most one applicable
+  history direction alongside document actions. Rendering both disabled
+  history buttons makes the left and right control groups overlap without
+  producing detectable horizontal overflow.
+- A mobile Vault drawer includes its own translated close control and Escape
+  behavior. Its identity row reserves space for both the global navigation
+  toggle and drawer close button; relying only on the backdrop leaves no clear
+  way to exit and clips the active-vault label.
+- Sidebar icon actions have translated names and use the shared small control
+  size on desktop and touch size on mobile. An opacity-zero hover treatment
+  does not excuse an unnamed or 18-pixel target.
+- Development checkout warnings remain informative without displacing the
+  product: use a one-line mobile summary, preserve the full message as
+  supplementary text, and provide a translated dismiss action.
+- Desktop page titles keep a stable primary action set. Favorite, comments,
+  and active mode toggles may remain inline; destructive and secondary actions
+  use progressive disclosure even when the pane is wide.
+- Compact feed cards show at most three property pills and a short measured
+  excerpt before disclosure. Compact summary panels replace long zero-heavy
+  metadata strings with badges for nonzero counts.
+- Bare Vault pages use a smaller icon and collapse cover-only geometry. Do not
+  reserve covered-page vertical space when neither a cover nor its actions are
+  visible.
+- Embedded-view toolbars remain sticky within the document flow so record
+  count, search, filters, and creation stay reachable while browsing long
+  datasets.
+- Vault sidebar section expansion is persisted as one version-tolerant local
+  object. Secondary sections default closed; adding independent ad-hoc keys
+  makes the navigation state inconsistent between sessions.
+- Hover-only sidebar actions must also appear on `focus-within`, and every Vault
+  icon action shares a visible theme-aware focus ring in both color schemes.
+- Feed hierarchy prioritizes the record title over its timestamp and property
+  pills without lowering secondary text below accessible contrast.
+- Feed density is an explicit user preference stored independently for mobile
+  and desktop. Responsive defaults must not overwrite a choice made for the
+  other profile.
+- Long document workflows retain context with a minimal sticky title/action
+  header and sticky view controls; loading placeholders preserve the same
+  toolbar-and-content geometry to avoid layout shifts.
+- Active search and filter state remains visible beside its result count.
+  Hidden configuration state without a visible chip makes filtered datasets
+  look incomplete.
+- Sidebar navigation can reveal and center the active page by expanding only
+  its ancestor chain. Do not require users to manually reopen an entire tree
+  to recover their current context.
+- Variable-height feed cards use browser-native `content-visibility` together
+  with progressive batching. Do not assume fixed row heights or unmount
+  expanded cards, because that causes scroll jumps and loses local card state.
+- Quick views are lightweight, page-and-view-scoped local presets. Persist only
+  presentation state such as search, density, and active tab; server-backed
+  filters remain part of the canonical view configuration.
+- Contextual single-key shortcuts ignore editable controls and modified key
+  combinations. Keep `/`, `F`, `N`, `D`, and `L` scoped to the active embedded
+  view so normal typing and application shortcuts are unaffected.
+- Compact page headers appear after the hero leaves the viewport, hide while
+  scrolling down, and return while scrolling up. Motion is disabled when
+  `prefers-reduced-motion` is active.
+- Visual regression coverage for Vault pages includes mobile, tablet, and
+  desktop viewports in both color schemes. Mask live feed content so snapshots
+  detect layout regressions without becoming unstable from user data.
+- Advanced feed controls live in one discoverable tools popover rather than
+  expanding the primary toolbar. It contains shortcut help, quick-view
+  management, grouping, focus, accessibility, and local performance feedback.
+- Feed position and last-record recovery are local navigation aids. They do not
+  mutate the canonical sort order and must tolerate records disappearing.
+- Accessibility preferences for contrast and text scale persist locally and
+  remain scoped to Vault page content; they must not silently restyle unrelated
+  applications.
+- Loading skeletons reflect the geometry of each view family. A table skeleton
+  must not look like a feed, and live user data stays out of regression fixtures.

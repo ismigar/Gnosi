@@ -251,3 +251,16 @@ class MultiServerMCPClient:
             raise ValueError(f"Tool {tool_name} not found in any server")
 
         return await self.clients[target_server].call_tool(tool_name, tool_args)
+
+    async def call_server_tool(
+        self,
+        server_name: str,
+        tool_name: str,
+        tool_args: Dict,
+    ):
+        """Call a tool on one explicit server without ambiguous name routing."""
+
+        client = self.clients.get(server_name)
+        if client is None or not client.process or client.process.returncode is not None:
+            raise ValueError(f"MCP server {server_name!r} is unavailable")
+        return await client.call_tool(tool_name, tool_args)

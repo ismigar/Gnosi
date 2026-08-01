@@ -19,6 +19,6 @@ if [[ -z "$VIRTUAL_ENV" ]]; then
     fi
 fi
 
-# Run the pipeline
-echo "🚀 Running suggest_connections_digital_brain..."
-python3 -m pipeline.skills.suggest_connections_digital_brain
+# Run the same canonical Brain proposal service as the Gnosi scheduler.
+echo "🚀 Running Brain connection analysis..."
+python3 -c 'import json; from backend.services.llm_wiki_actions import run_maintenance; print(json.dumps(run_maintenance(semantic=True), ensure_ascii=False))'

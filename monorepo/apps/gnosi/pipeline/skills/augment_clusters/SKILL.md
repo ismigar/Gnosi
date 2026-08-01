@@ -5,7 +5,7 @@ Configure and maintain the hybrid AI system that uses Ollama (local) as primary 
 
 ## Context
 Gnosi uses AI for:
-1. **Pipeline**: Suggesting connections between notes (suggest_connections_digital_brain.py)
+1. **Brain proposals**: Canonical connection analysis through `backend/services/llm_wiki_suggestions.py`
 2. **Agent**: Multi-agent chat with tools (backend/agent/)
 
 ## Procedure

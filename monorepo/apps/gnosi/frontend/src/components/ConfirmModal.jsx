@@ -11,7 +11,11 @@ export const ConfirmModal = ({
     message,
     confirmText,
     cancelText,
-    isDestructive = true
+    isDestructive = true,
+    confirmOnEnter = true,
+    autofocusConfirm = true,
+    requireAcknowledgement = false,
+    acknowledgementLabel,
 }) => {
     const { t } = useTranslation();
     // Localized fallbacks: callers may omit these props; default to i18n instead
@@ -23,6 +27,7 @@ export const ConfirmModal = ({
     const resolvedCancelText = cancelText ?? t('common.cancel', "Cancel");
     const modalRef = useRef(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isAcknowledged, setIsAcknowledged] = useState(false);
 
     const handleConfirm = useCallback(async () => {
         if (isSubmitting) return;
@@ -42,8 +47,8 @@ export const ConfirmModal = ({
     useModalKeyboard({
         isOpen,
         onClose: () => { if (!isSubmitting) onClose(); },
-        onConfirm: handleConfirm,
-        confirmDisabled: isSubmitting,
+        onConfirm: confirmOnEnter ? handleConfirm : null,
+        confirmDisabled: isSubmitting || (requireAcknowledgement && !isAcknowledged),
         containerRef: modalRef,
         trapFocus: true,
     });
@@ -51,6 +56,7 @@ export const ConfirmModal = ({
     useEffect(() => {
         if (!isOpen) {
             setIsSubmitting(false);
+            setIsAcknowledged(false);
         }
     }, [isOpen]);
 
@@ -95,13 +101,27 @@ export const ConfirmModal = ({
                     <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">
                         {resolvedTitle}
                     </h3>
-                    <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-6">
+                    <div className="text-sm text-[var(--text-secondary)] leading-relaxed mb-6">
                         {resolvedMessage}
-                    </p>
+                    </div>
                 </div>
+
+                {requireAcknowledgement && (
+                    <label className="flex items-start gap-2 mb-4 text-sm text-[var(--text-secondary)] cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={isAcknowledged}
+                            onChange={(event) => setIsAcknowledged(event.target.checked)}
+                            disabled={isSubmitting}
+                            className="mt-0.5"
+                        />
+                        <span>{acknowledgementLabel ?? t('common.confirm_acknowledgement', 'I have reviewed this action and want to continue.')}</span>
+                    </label>
+                )}
 
                 <div className="flex items-center justify-end gap-3 mt-2">
                     <button
+                        {...(!autofocusConfirm ? { 'data-autofocus': 'true' } : {})}
                         type="button"
                         onClick={onClose}
                         disabled={isSubmitting}
@@ -110,10 +130,10 @@ export const ConfirmModal = ({
                         {resolvedCancelText}
                     </button>
                     <button
-                        data-autofocus="true"
+                        {...(autofocusConfirm ? { 'data-autofocus': 'true' } : {})}
                         type="button"
                         onClick={handleConfirm}
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || (requireAcknowledgement && !isAcknowledged)}
                         className={`px-4 py-2 font-medium rounded-lg text-white shadow-sm transition-colors focus:ring-2 focus:ring-offset-1 outline-none ${isDestructive
                             ? 'bg-[var(--status-error)] hover:opacity-90 focus:ring-[var(--status-error)]/50'
                             : 'bg-[var(--gnosi-blue)] hover:opacity-90 focus:ring-[var(--gnosi-blue)]/50'

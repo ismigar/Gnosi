@@ -1,17 +1,94 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import * as LucideIcons from 'lucide-react';
-import { Send, X, Paperclip, Minimize2, Maximize2, Bot, Sparkles, Plus, AtSign, Archive, PanelBottomClose } from 'lucide-react';
+import { DynamicIcon, iconNames } from 'lucide-react/dynamic';
+import { Send, X, Paperclip, Minimize2, Maximize2, Bot, Brain, Sparkles, Plus, AtSign, Archive, PanelBottomClose, Copy, Reply, RotateCcw, Pencil, ThumbsUp, ThumbsDown, Info, Bookmark, Undo2 } from 'lucide-react';
 import { useConfigChanged } from '../lib/configEvents';
 import { announceFloatingPanelOpen, useExclusiveFloatingPanel } from '../hooks/useExclusiveFloatingPanel';
 import { useFloatingActionDock } from '../hooks/useFloatingActionDock';
+import ConfirmModal from './ConfirmModal';
+import {
+    agentChatStorageScope,
+    confirmationForStorage,
+    mergeConfirmationRecords,
+    startConfirmationRefresh,
+} from './agentConfirmationUtils';
+import { chatScrollDeltaForComposerKey } from './agentChatKeyboardUtils';
+import { selectedMentionsInText, visibleMentionToken } from './agentChatMentionUtils';
 
 const CHAT_SESSIONS_KEY = 'agent_chat_sessions_v2';
 const CHAT_ACTIVE_SESSION_KEY = 'agent_chat_active_session_id_v2';
 const CHAT_SELECTED_AGENT_KEY = 'agent_selected_id_v2';
+const CHAT_PENDING_CHECKPOINT_DELETES_KEY = 'agent_pending_checkpoint_deletes_v1';
 const MAX_CHAT_ATTACHMENT_SIZE = 15 * 1024 * 1024;
+const MAX_CHAT_ATTACHMENTS = 8;
+const CHAT_ATTACHMENT_ACCEPT = [
+    '.txt', '.md', '.markdown', '.csv', '.tsv', '.json', '.yaml', '.yml',
+    '.xml', '.html', '.css', '.js', '.jsx', '.ts', '.tsx', '.py', '.pdf',
+].join(',');
+const MAX_STORED_SESSIONS = 20;
+const MAX_STORED_MESSAGES = 100;
+const MAX_STORED_MESSAGE_CHARS = 20_000;
+const DYNAMIC_ICON_NAMES = new Set(iconNames);
 
-const createChatSession = (title = 'Nova conversa', agentId = 'gnosy') => ({
+const lucideIconName = (name) => name.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+const confirmationScope = (confirmation, browserStorageScope = '') => {
+    if (confirmation?.client_scope) return confirmation.client_scope;
+    if (confirmation?.agent_id && confirmation?.session_id) {
+        return [
+            browserStorageScope,
+            confirmation.agent_id,
+            confirmation.session_id,
+        ].filter(Boolean).join(':');
+    }
+    return '';
+};
+
+const formatConfirmationValue = value => {
+    if (typeof value === 'string') return value;
+    if (value === null || value === undefined) return '—';
+    if (typeof value === 'object') {
+        try {
+            return JSON.stringify(value, null, 2);
+        } catch {
+            return String(value);
+        }
+    }
+    return String(value);
+};
+
+const boundedChatSessions = (sessions) => [...(Array.isArray(sessions) ? sessions : [])]
+    .filter((session) => session && typeof session === 'object' && session.id)
+    .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+    .slice(0, MAX_STORED_SESSIONS)
+    .map((session) => ({
+        ...session,
+        messages: (Array.isArray(session.messages) ? session.messages : [])
+            .slice(-MAX_STORED_MESSAGES)
+            .map((message) => ({
+                ...message,
+                content: message?.confirmation
+                    ? ''
+                    : (
+                        typeof message?.content === 'string'
+                            ? message.content.slice(0, MAX_STORED_MESSAGE_CHARS)
+                            : String(message?.content || '')
+                                .slice(0, MAX_STORED_MESSAGE_CHARS)
+                    ),
+                confirmation: confirmationForStorage(message?.confirmation),
+            })),
+    }));
+
+const safeLocalStorageSet = (key, value) => {
+    try {
+        localStorage.setItem(key, value);
+        return true;
+    } catch (error) {
+        console.warn('Could not persist assistant chat state', error);
+        return false;
+    }
+};
+
+const createChatSession = (title, agentId = 'gnosy') => ({
     id: crypto.randomUUID(),
     title,
     archived: false,
@@ -21,7 +98,7 @@ const createChatSession = (title = 'Nova conversa', agentId = 'gnosy') => ({
     updatedAt: Date.now(),
 });
 
-const deriveSessionTitle = (messages, fallback = 'Nova conversa') => {
+const deriveSessionTitle = (messages, fallback) => {
     const firstUser = (messages || []).find((m) => m.role === 'user' && String(m.content || '').trim());
     if (!firstUser) return fallback;
     const clean = String(firstUser.content).replace(/@\[[^\]]+\]\([^)]+\)/g, '').trim();
@@ -29,19 +106,18 @@ const deriveSessionTitle = (messages, fallback = 'Nova conversa') => {
     return clean.length > 42 ? `${clean.slice(0, 42)}...` : clean;
 };
 
-const parseMentions = (text) => {
-    const mentions = [];
-    const regex = /@\[([^\]]+)\]\((page|table|database):([^)]+)\)/g;
-    let match = regex.exec(text || '');
-    while (match) {
-        mentions.push({ label: match[1], type: match[2], id: match[3] });
-        match = regex.exec(text || '');
-    }
-    return mentions;
+const deleteSessionCheckpoint = async (session) => {
+    if (!session?.agentId || !session?.id) return true;
+    const response = await fetch(`/api/chat/sessions/${encodeURIComponent(session.agentId)}/${encodeURIComponent(session.id)}`, {
+        method: 'DELETE',
+    });
+    if (!response.ok) throw new Error(`Checkpoint deletion failed (${response.status})`);
+    return true;
 };
 
-const AgentChat = () => {
+const AgentChat = ({ storageIdentity = '' }) => {
     const { t } = useTranslation();
+    const defaultSessionTitle = t('chat.default_session_title', 'New conversation');
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState([]);
     const [inputValue, setInputValue] = useState('');
@@ -53,29 +129,71 @@ const AgentChat = () => {
     const [isMinimized, setIsMinimized] = useState(false);
     const [chatSessions, setChatSessions] = useState([]);
     const [sessionsHydrated, setSessionsHydrated] = useState(false);
+    const [hydratedStorageScope, setHydratedStorageScope] = useState('');
     const [showSessionsView, setShowSessionsView] = useState(false);
     const [mentionCatalog, setMentionCatalog] = useState([]);
     const [mentionResults, setMentionResults] = useState([]);
     const [showMentionMenu, setShowMentionMenu] = useState(false);
     const [mentionAnchorIndex, setMentionAnchorIndex] = useState(-1);
+    const [selectedMentions, setSelectedMentions] = useState([]);
     const [attachments, setAttachments] = useState([]);
     const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
+    const [pendingConfirmation, setPendingConfirmation] = useState(null);
+    const [agentRuntime, setAgentRuntime] = useState(null);
+    const [detailsMessageIndex, setDetailsMessageIndex] = useState(null);
     const [isDockOpen, setIsDockOpen] = useFloatingActionDock();
     useExclusiveFloatingPanel('chat', isOpen, setIsOpen);
 
     // Ref to scroll to the bottom
     const messagesEndRef = useRef(null);
+    const messagesContainerRef = useRef(null);
     const inputRef = useRef(null);
     const fileInputRef = useRef(null);
     const requestAbortRef = useRef(null);
-    const vaultStorageScope = localStorage.getItem('gnosi_active_vault') || 'default';
-    const scopedStorageKey = useCallback(
-        (key) => `${key}:${vaultStorageScope}`,
-        [vaultStorageScope],
+    const historyHydrationRef = useRef(0);
+    const activeScopeRef = useRef('');
+    const activeVaultStorageScope = localStorage.getItem('gnosi_active_vault') || 'default';
+    const workspaceStorageScope = localStorage.getItem('gnosi_workspace_id') || 'personal';
+    const userStorageScope = (
+        storageIdentity
+        || localStorage.getItem('gnosi_user_id')
+        || 'personal'
     );
+    const browserStorageScope = agentChatStorageScope({
+        vaultId: activeVaultStorageScope,
+        workspaceId: workspaceStorageScope,
+        userId: userStorageScope,
+    });
+    const scopedStorageKey = useCallback(
+        (key) => `${key}:${browserStorageScope}`,
+        [browserStorageScope],
+    );
+    const scopeReady = (
+        sessionsHydrated
+        && hydratedStorageScope === browserStorageScope
+    );
+    const queueCheckpointDeletion = useCallback((session) => {
+        if (!session?.agentId || !session?.id) return;
+        const key = scopedStorageKey(CHAT_PENDING_CHECKPOINT_DELETES_KEY);
+        let pending = [];
+        try {
+            pending = JSON.parse(localStorage.getItem(key) || '[]');
+        } catch {
+            pending = [];
+        }
+        const unique = new Map(
+            [...pending, { agentId: session.agentId, id: session.id }]
+                .map((item) => [`${item.agentId}:${item.id}`, item]),
+        );
+        safeLocalStorageSet(key, JSON.stringify([...unique.values()]));
+    }, [scopedStorageKey]);
 
     // Init session ID
     useEffect(() => {
+        requestAbortRef.current?.abort();
+        setPendingConfirmation(null);
+        setSessionsHydrated(false);
+        setHydratedStorageScope('');
         const savedAgentId = localStorage.getItem(scopedStorageKey(CHAT_SELECTED_AGENT_KEY)) || 'gnosy';
         let sid = localStorage.getItem(scopedStorageKey('agent_session_id_v2'));
         const savedSessionsRaw = localStorage.getItem(scopedStorageKey(CHAT_SESSIONS_KEY));
@@ -89,16 +207,33 @@ const AgentChat = () => {
         }
 
         if (!Array.isArray(parsedSessions) || !parsedSessions.length) {
-            parsedSessions = [createChatSession('Nova conversa', savedAgentId)];
+            parsedSessions = [createChatSession(defaultSessionTitle, savedAgentId)];
         }
-        parsedSessions = parsedSessions.map((session) => ({
+        const retainedSessions = boundedChatSessions(parsedSessions);
+        const retainedIds = new Set(retainedSessions.map((session) => session.id));
+        parsedSessions
+            .filter((session) => session?.id && !retainedIds.has(session.id))
+            .forEach((session) => {
+                void deleteSessionCheckpoint(session).catch(
+                    (error) => {
+                        queueCheckpointDeletion(session);
+                        console.warn('Could not delete evicted assistant checkpoint', error);
+                    },
+                );
+            });
+        parsedSessions = retainedSessions.map((session) => ({
             ...session,
             agentId: session.agentId || savedAgentId,
+            title: (
+                ['Nova conversa', 'New conversation', 'Nueva conversación', 'Nouvelle conversation']
+                    .includes(session.title)
+                && !(session.messages || []).length
+            ) ? defaultSessionTitle : session.title,
         }));
 
         const agentSessions = parsedSessions.filter((session) => session.agentId === savedAgentId);
         if (!agentSessions.length) {
-            const fresh = createChatSession('Nova conversa', savedAgentId);
+            const fresh = createChatSession(defaultSessionTitle, savedAgentId);
             parsedSessions.unshift(fresh);
             agentSessions.push(fresh);
         }
@@ -123,58 +258,114 @@ const AgentChat = () => {
         setMessages(activeSession.messages || []);
         setSessionId(activeSession.id);
         if (activeSession.id) {
-            localStorage.setItem(scopedStorageKey(CHAT_ACTIVE_SESSION_KEY), activeSession.id);
-            localStorage.setItem(scopedStorageKey('agent_session_id_v2'), activeSession.id);
+            safeLocalStorageSet(scopedStorageKey(CHAT_ACTIVE_SESSION_KEY), activeSession.id);
+            safeLocalStorageSet(scopedStorageKey('agent_session_id_v2'), activeSession.id);
         }
 
+        setHydratedStorageScope(browserStorageScope);
         setSessionsHydrated(true);
-    }, [scopedStorageKey]);
+    }, [browserStorageScope, defaultSessionTitle, queueCheckpointDeletion, scopedStorageKey]);
 
     useEffect(() => {
-        if (!sessionsHydrated) return;
-        localStorage.setItem(scopedStorageKey(CHAT_SESSIONS_KEY), JSON.stringify(chatSessions));
-    }, [chatSessions, scopedStorageKey, sessionsHydrated]);
+        if (!scopeReady) return;
+        const retainedSessions = boundedChatSessions(chatSessions);
+        const retainedIds = new Set(retainedSessions.map((session) => session.id));
+        const evictedSessions = chatSessions.filter((session) => !retainedIds.has(session.id));
+        if (evictedSessions.length) {
+            evictedSessions.forEach((session) => {
+                void deleteSessionCheckpoint(session).catch(
+                    (error) => {
+                        queueCheckpointDeletion(session);
+                        console.warn('Could not delete evicted assistant checkpoint', error);
+                    },
+                );
+            });
+            setChatSessions(retainedSessions);
+            return;
+        }
+        safeLocalStorageSet(
+            scopedStorageKey(CHAT_SESSIONS_KEY),
+            JSON.stringify(retainedSessions),
+        );
+    }, [chatSessions, queueCheckpointDeletion, scopeReady, scopedStorageKey]);
 
     useEffect(() => {
-        if (!sessionsHydrated || !sessionId) return;
-        localStorage.setItem(scopedStorageKey(CHAT_ACTIVE_SESSION_KEY), sessionId);
-        localStorage.setItem(scopedStorageKey('agent_session_id_v2'), sessionId);
-    }, [scopedStorageKey, sessionId, sessionsHydrated]);
+        if (!scopeReady) return;
+        const key = scopedStorageKey(CHAT_PENDING_CHECKPOINT_DELETES_KEY);
+        let pending = [];
+        try {
+            pending = JSON.parse(localStorage.getItem(key) || '[]');
+        } catch {
+            pending = [];
+        }
+        if (!Array.isArray(pending) || !pending.length) return;
+        void (async () => {
+            const failed = [];
+            for (const session of pending) {
+                try {
+                    await deleteSessionCheckpoint(session);
+                } catch {
+                    failed.push(session);
+                }
+            }
+            safeLocalStorageSet(key, JSON.stringify(failed));
+        })();
+    }, [scopeReady, scopedStorageKey]);
 
     useEffect(() => {
-        localStorage.setItem(scopedStorageKey(CHAT_SELECTED_AGENT_KEY), selectedAgentId);
-    }, [scopedStorageKey, selectedAgentId]);
+        if (!scopeReady || !sessionId) return;
+        safeLocalStorageSet(scopedStorageKey(CHAT_ACTIVE_SESSION_KEY), sessionId);
+        safeLocalStorageSet(scopedStorageKey('agent_session_id_v2'), sessionId);
+        setAgentRuntime(null);
+    }, [scopeReady, scopedStorageKey, sessionId]);
 
     useEffect(() => {
-        if (!sessionsHydrated || !selectedAgentId) return;
+        if (!scopeReady) return;
+        safeLocalStorageSet(scopedStorageKey(CHAT_SELECTED_AGENT_KEY), selectedAgentId);
+        historyHydrationRef.current += 1;
+        setAgentRuntime(null);
+    }, [scopeReady, scopedStorageKey, selectedAgentId]);
+
+    useEffect(() => {
+        if (!scopeReady || !selectedAgentId) return;
         const current = chatSessions.find((session) => session.id === sessionId);
         if (current?.agentId === selectedAgentId) return;
         let target = [...chatSessions]
             .filter((session) => session.agentId === selectedAgentId && !session.archived)
             .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0];
         if (!target) {
-            target = createChatSession('Nova conversa', selectedAgentId);
+            target = createChatSession(defaultSessionTitle, selectedAgentId);
             setChatSessions((prev) => [target, ...prev]);
         }
         setSessionId(target.id);
         setMessages(target.messages || []);
+        setSelectedMentions([]);
         setAttachments([]);
-    }, [chatSessions, selectedAgentId, sessionId, sessionsHydrated]);
+    }, [chatSessions, defaultSessionTitle, scopeReady, selectedAgentId, sessionId]);
 
     useEffect(() => () => requestAbortRef.current?.abort(), []);
 
     useEffect(() => {
-        if (!sessionsHydrated || !sessionId) return;
+        const nextScope = `${browserStorageScope}:${selectedAgentId}:${sessionId}`;
+        if (activeScopeRef.current && activeScopeRef.current !== nextScope) {
+            requestAbortRef.current?.abort();
+            setPendingConfirmation(null);
+        }
+        activeScopeRef.current = nextScope;
+    }, [browserStorageScope, selectedAgentId, sessionId]);
+
+    useEffect(() => {
+        if (!scopeReady || !sessionId) return;
         setChatSessions((prev) => prev.map((session) => {
             if (session.id !== sessionId) return session;
             return {
                 ...session,
                 messages,
                 updatedAt: Date.now(),
-                title: deriveSessionTitle(messages, session.title || 'Nova conversa'),
+                title: deriveSessionTitle(messages, session.title || defaultSessionTitle),
             };
         }));
-    }, [messages, sessionId, sessionsHydrated]);
+    }, [defaultSessionTitle, messages, scopeReady, sessionId]);
 
     useEffect(() => {
         const current = inputValue || '';
@@ -303,13 +494,36 @@ const AgentChat = () => {
         void loadMentionCatalog();
     }, [loadConfig, loadMentionCatalog]);
 
-    const selectSession = (nextId) => {
+    const selectSession = async (nextId) => {
+        if (isLoading) return;
         const target = chatSessions.find((s) => s.id === nextId);
         if (!target) return;
+        const hydrationId = historyHydrationRef.current + 1;
+        historyHydrationRef.current = hydrationId;
+        setAgentRuntime(null);
         setChatSessions((prev) => prev.map((s) => s.id === nextId ? { ...s, archived: false, updatedAt: Date.now() } : s));
         setSessionId(target.id);
         setMessages(target.messages || []);
         setShowSessionsView(false);
+        try {
+            const response = await fetch(
+                `/api/chat/sessions/${encodeURIComponent(target.agentId)}/${encodeURIComponent(target.id)}`,
+            );
+            if (response.ok) {
+                const canonical = await response.json();
+                if (historyHydrationRef.current !== hydrationId) return;
+                if (Array.isArray(canonical.messages) && canonical.messages.length) {
+                    setMessages(canonical.messages);
+                    setChatSessions((prev) => prev.map((session) => (
+                        session.id === target.id
+                            ? { ...session, messages: canonical.messages }
+                            : session
+                    )));
+                }
+            }
+        } catch (error) {
+            console.warn('Could not load canonical assistant history', error);
+        }
     };
 
     const archiveCurrentSession = () => {
@@ -318,28 +532,41 @@ const AgentChat = () => {
     };
 
     const createNewSession = () => {
-        const next = createChatSession('Nova conversa', selectedAgentId);
+        if (isLoading) return;
+        historyHydrationRef.current += 1;
+        const next = createChatSession(defaultSessionTitle, selectedAgentId);
         setChatSessions((prev) => [
             next,
             ...prev.map((s) => s.id === sessionId ? { ...s, archived: true, updatedAt: Date.now() } : s),
         ]);
         setSessionId(next.id);
         setMessages([]);
+        setAgentRuntime(null);
         setInputValue('');
+        setSelectedMentions([]);
         setShowSessionsView(false);
     };
 
-    const deleteSessionById = (targetId) => {
-        if (!targetId) return;
+    const deleteSessionById = async (targetId) => {
+        if (!targetId || isLoading) return;
+        historyHydrationRef.current += 1;
+        const target = chatSessions.find((session) => session.id === targetId);
+        try {
+            await deleteSessionCheckpoint(target);
+        } catch (error) {
+            console.warn('Could not delete assistant checkpoint', error);
+            return;
+        }
 
         const remaining = chatSessions.filter((s) => s.id !== targetId);
         const remainingForAgent = remaining.filter((s) => s.agentId === selectedAgentId);
         if (!remainingForAgent.length) {
-            const fresh = createChatSession('Nova conversa', selectedAgentId);
+            const fresh = createChatSession(defaultSessionTitle, selectedAgentId);
             setChatSessions([fresh, ...remaining]);
             setSessionId(fresh.id);
             setMessages([]);
             setInputValue('');
+            setSelectedMentions([]);
             return;
         }
 
@@ -357,13 +584,22 @@ const AgentChat = () => {
         const caret = inputRef.current?.selectionStart ?? current.length;
         if (mentionAnchorIndex < 0 || mentionAnchorIndex > caret) return;
 
-        const token = `@[${item.label}](${item.type}:${item.id}) `;
+        const token = `${visibleMentionToken(item.label)} `;
         const before = current.slice(0, mentionAnchorIndex);
         const after = current.slice(caret);
         const nextValue = `${before}${token}${after}`;
         const nextCaret = before.length + token.length;
 
         setInputValue(nextValue);
+        setSelectedMentions((previous) => [
+            ...previous.filter((mention) => mention.token !== token.trim()),
+            {
+                type: item.type,
+                id: item.id,
+                label: item.label,
+                token: token.trim(),
+            },
+        ]);
         setShowMentionMenu(false);
         setMentionResults([]);
         setMentionAnchorIndex(-1);
@@ -387,9 +623,27 @@ const AgentChat = () => {
         inputRef.current.style.height = `${inputRef.current.scrollHeight}px`;
     };
 
+    const handleChatKeyDown = (event) => {
+        if (event.defaultPrevented) return;
+        const isComposer = event.target === inputRef.current;
+        const scrollDelta = chatScrollDeltaForComposerKey({
+            key: event.key,
+            value: isComposer ? event.target.value : '',
+            altKey: event.altKey,
+            ctrlKey: event.ctrlKey,
+            metaKey: event.metaKey,
+            shiftKey: event.shiftKey,
+        });
+        if (!scrollDelta) return;
+        event.preventDefault();
+        messagesContainerRef.current?.scrollBy({ top: scrollDelta, behavior: 'smooth' });
+    };
+
     const uploadAttachmentFile = async (file) => {
         const formData = new FormData();
         formData.append('file', file);
+        formData.append('agent_id', selectedAgentId);
+        formData.append('session_id', sessionId);
 
         const res = await fetch('/api/chat/attachments', {
             method: 'POST',
@@ -417,25 +671,35 @@ const AgentChat = () => {
         e.target.value = '';
         if (!picked.length) return;
 
-        const validFiles = picked.filter((file) => file.size <= MAX_CHAT_ATTACHMENT_SIZE);
+        const remainingSlots = Math.max(0, MAX_CHAT_ATTACHMENTS - attachments.length);
+        const validFiles = picked
+            .filter((file) => file.size <= MAX_CHAT_ATTACHMENT_SIZE)
+            .slice(0, remainingSlots);
         const skipped = picked.length - validFiles.length;
         if (skipped > 0) {
             setMessages((prev) => [
                 ...prev,
-                { role: 'system', content: t('chat.attachments_skipped', "Notice: {{count}} file(s) exceed 15MB and were not attached.", { count: skipped }) },
+                { role: 'system', content: t('chat.attachments_skipped_limits', "Notice: {{count}} file(s) exceed the size or count limit and were not attached.", { count: skipped }) },
             ]);
         }
         if (!validFiles.length) return;
 
         setIsUploadingAttachment(true);
+        const uploaded = [];
         try {
-            const uploaded = [];
             for (const file of validFiles) {
                 const saved = await uploadAttachmentFile(file);
                 uploaded.push(saved);
             }
             setAttachments((prev) => [...prev, ...uploaded]);
         } catch (error) {
+            for (const item of uploaded) {
+                void fetch('/api/chat/attachments', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ path: item.path, agent_id: selectedAgentId, session_id: sessionId }),
+                }).catch(() => {});
+            }
             setMessages((prev) => [...prev, { role: 'system', content: t('chat.attachment_upload_error', "Error uploading attachment: {{message}}", { message: error.message }) }]);
         } finally {
             setIsUploadingAttachment(false);
@@ -443,7 +707,15 @@ const AgentChat = () => {
     };
 
     const removeAttachment = (attachmentId) => {
+        const target = attachments.find((item) => item.id === attachmentId);
         setAttachments((prev) => prev.filter((item) => item.id !== attachmentId));
+        if (target?.path) {
+            void fetch('/api/chat/attachments', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: target.path, agent_id: selectedAgentId, session_id: sessionId }),
+            }).catch((error) => console.warn('Could not delete abandoned chat attachment', error));
+        }
     };
 
     const scrollToBottom = () => {
@@ -454,11 +726,447 @@ const AgentChat = () => {
         scrollToBottom();
     }, [messages, isOpen, isMinimized]);
 
+    const confirmationTitle = useCallback((confirmation) => t(
+        confirmation?.title_key || 'chat.confirmations.title',
+        'Confirm action',
+        confirmation?.details || {},
+    ), [t]);
+
+    const confirmationSummary = useCallback((confirmation) => t(
+        confirmation?.summary_key || 'chat.confirmations.summary',
+        'Review this action before continuing.',
+        confirmation?.details || {},
+    ), [t]);
+
+    const confirmationReview = useCallback(confirmation => {
+        const details = Object.entries(confirmation?.details || {});
+        const renderDetailValue = (key, value) => {
+            if (key === 'updates' && Array.isArray(value)) {
+                return (
+                    <div style={{ display: 'grid', gap: '6px' }}>
+                        {value.map((update, index) => (
+                            <div key={`${update?.id || 'row'}-${index}`} style={{ padding: '6px 8px', borderRadius: '6px', background: 'var(--bg-secondary)' }}>
+                                <strong>{update?.title || update?.id || t('chat.confirmations.row_fallback', 'Row {{count}}', { count: index + 1 })}</strong>
+                                {update?.properties && <div style={{ marginTop: '2px', fontSize: '0.75rem' }}>{formatConfirmationValue(update.properties)}</div>}
+                                {update?.from && update?.to && (
+                                    <div style={{ marginTop: '2px', fontSize: '0.75rem' }}>
+                                        {update.from} → {update.to}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                );
+            }
+            return formatConfirmationValue(value);
+        };
+        return (
+            <div>
+                <p style={{ margin: '0 0 12px' }}>
+                    {confirmationSummary(confirmation)}
+                </p>
+                {details.length > 0 && (
+                    <dl style={{
+                        display: 'grid',
+                        gap: '8px',
+                        margin: 0,
+                        maxHeight: '45vh',
+                        overflowY: 'auto',
+                    }}>
+                        {details.map(([key, value]) => (
+                            <div key={key}>
+                                <dt style={{
+                                    color: 'var(--text-primary)',
+                                    fontWeight: 700,
+                                    fontSize: '0.72rem',
+                                }}>
+                                    {t(
+                                        `chat.confirmations.details.${key}`,
+                                        key.replaceAll('_', ' '),
+                                    )}
+                                </dt>
+                                <dd style={{
+                                    margin: '2px 0 0',
+                                    whiteSpace: 'pre-wrap',
+                                    overflowWrap: 'anywhere',
+                                    fontFamily: key === 'body' || key === 'arguments'
+                                        ? 'monospace'
+                                        : 'inherit',
+                                }}>
+                                    {renderDetailValue(key, value)}
+                                </dd>
+                            </div>
+                        ))}
+                    </dl>
+                )}
+            </div>
+        );
+    }, [confirmationSummary, t]);
+
+    const updateConfirmationStatus = useCallback((confirmationId, status) => {
+        const terminal = [
+            'cancelled',
+            'completed',
+            'expired',
+            'failed',
+            'outcome_unknown',
+            'partial',
+        ].includes(status);
+        setMessages((prev) => prev.map((message) => (
+            message?.confirmation?.confirmation_id === confirmationId
+                ? {
+                    ...message,
+                    confirmation: {
+                        ...message.confirmation,
+                        status,
+                        ...(terminal ? {
+                            details: {},
+                            summary_key: 'chat.confirmations.summary',
+                            destructive: false,
+                        } : {}),
+                    },
+                }
+                : message
+        )));
+    }, []);
+
+    useEffect(() => {
+        if (!scopeReady || !selectedAgentId || !sessionId) return undefined;
+        const requestScope = `${browserStorageScope}:${selectedAgentId}:${sessionId}`;
+        const controller = new AbortController();
+        let inFlight = false;
+        const params = new URLSearchParams({
+            agent_id: selectedAgentId,
+            session_id: sessionId,
+        });
+        const refreshConfirmations = () => {
+            if (inFlight || controller.signal.aborted) return;
+            inFlight = true;
+            void fetch(`/api/chat/confirmations?${params.toString()}`, {
+                signal: controller.signal,
+            })
+                .then(async response => {
+                    if (!response.ok) return null;
+                    return response.json();
+                })
+                .then(payload => {
+                    if (
+                        !payload
+                        || controller.signal.aborted
+                        || activeScopeRef.current !== requestScope
+                    ) return;
+                    const records = (payload.confirmations || []).map(item => ({
+                        ...item,
+                        client_scope: requestScope,
+                        agent_id: selectedAgentId,
+                        session_id: sessionId,
+                    }));
+                    setMessages(prev => mergeConfirmationRecords(
+                        prev,
+                        records,
+                        confirmationSummary,
+                    ));
+                })
+                .catch(error => {
+                    if (error.name !== 'AbortError') {
+                        console.error('Could not refresh pending agent actions', error);
+                    }
+                })
+                .finally(() => {
+                    inFlight = false;
+                });
+        };
+        const stopRefreshing = startConfirmationRefresh(
+            refreshConfirmations,
+            window.setInterval.bind(window),
+            window.clearInterval.bind(window),
+        );
+        return () => {
+            stopRefreshing();
+            controller.abort();
+        };
+    }, [
+        confirmationSummary,
+        browserStorageScope,
+        scopeReady,
+        selectedAgentId,
+        sessionId,
+    ]);
+
+    const localizedConfirmationError = useCallback((payload, fallback) => {
+        const code = payload?.detail?.code || payload?.code || '';
+        if (!code) return fallback;
+        return t(
+            `chat.confirmations.errors.${code}`,
+            fallback,
+        );
+    }, [t]);
+
+    const fetchConfirmationStatus = useCallback(async confirmation => {
+        const agentId = confirmation?.agent_id || selectedAgentId;
+        const chatSessionId = confirmation?.session_id || sessionId;
+        const params = new URLSearchParams({
+            agent_id: agentId,
+            session_id: chatSessionId,
+        });
+        const response = await fetch(
+            `/api/chat/confirmations/${encodeURIComponent(confirmation.confirmation_id)}?${params.toString()}`,
+        );
+        if (!response.ok) return null;
+        return response.json();
+    }, [selectedAgentId, sessionId]);
+
+    const confirmPendingAction = useCallback(async () => {
+        const confirmation = pendingConfirmation;
+        if (!confirmation?.confirmation_id) return;
+        const agentId = confirmation.agent_id || selectedAgentId;
+        const chatSessionId = confirmation.session_id || sessionId;
+        const requestScope = confirmationScope(
+            confirmation,
+            browserStorageScope,
+        ) || `${browserStorageScope}:${agentId}:${chatSessionId}`;
+        let response;
+        try {
+            response = await fetch(
+                `/api/chat/confirmations/${encodeURIComponent(confirmation.confirmation_id)}/confirm`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        agent_id: agentId,
+                        session_id: chatSessionId,
+                    }),
+                },
+            );
+        } catch (error) {
+            console.error('Could not confirm pending agent action', error);
+            let recovered = null;
+            try {
+                recovered = await fetchConfirmationStatus(confirmation);
+            } catch (statusError) {
+                console.error('Could not reconcile pending agent action', statusError);
+            }
+            setPendingConfirmation(null);
+            if (activeScopeRef.current !== requestScope) return;
+            const recoveredStatus = recovered?.status || 'outcome_unknown';
+            updateConfirmationStatus(
+                confirmation.confirmation_id,
+                recoveredStatus,
+            );
+            const recoveredResult = recovered?.result || {};
+            let recoveredMessage;
+            if (recoveredStatus === 'completed') {
+                recoveredMessage = t(
+                    'chat.confirmations.completed',
+                    'Action completed after confirmation.',
+                );
+            } else if (recoveredStatus === 'partial') {
+                recoveredMessage = t(
+                    'chat.confirmations.partial',
+                    'The action completed partially: {{completed}} completed, {{failed}} failed.',
+                    {
+                        completed: recoveredResult.purged_count
+                            || recoveredResult.updated_count
+                            || 0,
+                        failed: recoveredResult.failed_count
+                            || recoveredResult.rollback_failed_ids?.length
+                            || 0,
+                    },
+                );
+            } else if (recoveredStatus === 'outcome_unknown') {
+                recoveredMessage = t(
+                    'chat.confirmations.outcome_unknown',
+                    'The connection was lost and the action outcome is unknown. Check the target before trying again.',
+                );
+            } else {
+                recoveredMessage = t(
+                    `chat.confirmations.status.${recoveredStatus}`,
+                    recoveredStatus,
+                );
+            }
+            setMessages((prev) => [...prev, {
+                role: 'system',
+                content: recoveredMessage,
+            }]);
+            return;
+        }
+        let payload = {};
+        try {
+            payload = await response.json();
+        } catch {
+            payload = {};
+        }
+        if (!response.ok) {
+            let authoritative = payload;
+            try {
+                authoritative = (
+                    await fetchConfirmationStatus(confirmation)
+                ) || payload;
+            } catch (statusError) {
+                console.error('Could not reconcile failed agent action', statusError);
+            }
+            setPendingConfirmation(null);
+            if (activeScopeRef.current !== requestScope) return;
+            const status = authoritative?.status || (
+                payload?.detail?.code === 'confirmation_outcome_unknown'
+                    ? 'outcome_unknown'
+                    : 'failed'
+            );
+            updateConfirmationStatus(confirmation.confirmation_id, status);
+            const fallback = response.statusText || t(
+                'chat.confirmations.errors.confirmation_action_failed',
+                'The action could not be completed.',
+            );
+            setMessages((prev) => [...prev, {
+                role: 'system',
+                content: localizedConfirmationError(payload, fallback),
+            }]);
+            return;
+        }
+        const status = payload.status || 'completed';
+        setPendingConfirmation(null);
+        if (activeScopeRef.current !== requestScope) return;
+        updateConfirmationStatus(confirmation.confirmation_id, status);
+        const result = payload.result || {};
+        setMessages((prev) => [...prev, {
+            role: 'system',
+            content: status === 'partial'
+                ? t(
+                    'chat.confirmations.partial',
+                    'The action completed partially: {{completed}} completed, {{failed}} failed.',
+                    {
+                        completed: result.purged_count || result.updated_count || 0,
+                        failed: result.failed_count || result.rollback_failed_ids?.length || 0,
+                    },
+                )
+                : t(
+                    'chat.confirmations.completed',
+                    'Action completed after confirmation.',
+                ),
+        }]);
+    }, [
+        browserStorageScope,
+        fetchConfirmationStatus,
+        localizedConfirmationError,
+        pendingConfirmation,
+        selectedAgentId,
+        sessionId,
+        t,
+        updateConfirmationStatus,
+    ]);
+
+    const cancelPendingAction = useCallback(async () => {
+        const confirmation = pendingConfirmation;
+        setPendingConfirmation(null);
+        if (!confirmation?.confirmation_id) return;
+        const agentId = confirmation.agent_id || selectedAgentId;
+        const chatSessionId = confirmation.session_id || sessionId;
+        const requestScope = confirmationScope(
+            confirmation,
+            browserStorageScope,
+        ) || `${browserStorageScope}:${agentId}:${chatSessionId}`;
+        try {
+            const response = await fetch(
+                `/api/chat/confirmations/${encodeURIComponent(confirmation.confirmation_id)}/cancel`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        agent_id: agentId,
+                        session_id: chatSessionId,
+                    }),
+                },
+            );
+            if (activeScopeRef.current !== requestScope) return;
+            let status = response.ok ? 'cancelled' : 'pending';
+            if (!response.ok) {
+                try {
+                    const authoritative = await fetchConfirmationStatus(
+                        confirmation,
+                    );
+                    status = authoritative?.status || status;
+                } catch (statusError) {
+                    console.error(
+                        'Could not reconcile cancelled agent action',
+                        statusError,
+                    );
+                }
+            }
+            if (activeScopeRef.current !== requestScope) return;
+            updateConfirmationStatus(
+                confirmation.confirmation_id,
+                status,
+            );
+        } catch (error) {
+            console.error('Could not cancel pending agent action', error);
+            if (activeScopeRef.current !== requestScope) return;
+            let status = 'pending';
+            try {
+                const authoritative = await fetchConfirmationStatus(
+                    confirmation,
+                );
+                status = authoritative?.status || status;
+            } catch (statusError) {
+                console.error(
+                    'Could not reconcile pending cancellation',
+                    statusError,
+                );
+            }
+            if (activeScopeRef.current !== requestScope) return;
+            updateConfirmationStatus(confirmation.confirmation_id, status);
+        }
+    }, [
+        browserStorageScope,
+        fetchConfirmationStatus,
+        pendingConfirmation,
+        selectedAgentId,
+        sessionId,
+        updateConfirmationStatus,
+    ]);
+
+    const focusComposerWith = useCallback((value) => {
+        setInputValue(value);
+        setShowMentionMenu(false);
+        requestAnimationFrame(() => inputRef.current?.focus());
+    }, []);
+
+    const copyMessage = useCallback(async (content) => {
+        try {
+            await navigator.clipboard.writeText(String(content || ''));
+            toast.success(t('chat.message_copied', 'Message copied'));
+        } catch (error) {
+            console.error('Could not copy assistant message', error);
+            toast.error(t('chat.copy_failed', 'Could not copy the message'));
+        }
+    }, [t]);
+
+    const quoteMessage = useCallback((message) => {
+        const prefix = message?.role === 'user'
+            ? t('chat.you', 'You')
+            : agentConfig?.name || 'Gnosi Copilot';
+        focusComposerWith(`> ${prefix}: ${String(message?.content || '').replace(/\n/g, '\n> ')}\n\n`);
+    }, [agentConfig?.name, focusComposerWith, t]);
+
+    const markMessage = useCallback((index, field, value) => {
+        setMessages((previous) => previous.map((message, messageIndex) => (
+            messageIndex === index ? { ...message, [field]: value } : message
+        )));
+    }, []);
+
+    const previousUserPrompt = useCallback((index) => {
+        for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
+            if (messages[cursor]?.role === 'user' && messages[cursor]?.content) {
+                return messages[cursor].content;
+            }
+        }
+        return '';
+    }, [messages]);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         if ((!inputValue.trim() && attachments.length === 0) || isLoading || !agentHasModel) return;
 
-        const mentions = parseMentions(inputValue);
+        const mentions = selectedMentionsInText(inputValue, selectedMentions);
         const attachmentsPayload = attachments.map((item) => ({
             name: item.name,
             size: item.size,
@@ -477,9 +1185,11 @@ const AgentChat = () => {
         };
         setMessages(prev => [...prev, userMsg]);
         setInputValue('');
+        setSelectedMentions([]);
         setAttachments([]);
         setShowMentionMenu(false);
         setIsLoading(true);
+        const requestScope = `${browserStorageScope}:${selectedAgentId}:${sessionId}`;
 
         try {
             requestAbortRef.current?.abort();
@@ -521,9 +1231,11 @@ const AgentChat = () => {
             let selectedLlm = null;
             let terminalReceived = false;
             let responseReceived = false;
+            let streamDone = false;
 
-            while (true) {
+            while (!streamDone) {
                 const { done, value } = await reader.read();
+                streamDone = done;
 
                 // We accumulate in the buffer and only process COMPLETE lines: a line
                 // JSON can end up split across two network chunks (losing the
@@ -549,6 +1261,10 @@ const AgentChat = () => {
                             };
                             continue;
                         }
+                        if (data.type === 'agent_runtime') {
+                            setAgentRuntime(data);
+                            continue;
+                        }
                         if (data.type === 'done') {
                             terminalReceived = true;
                             responseReceived = responseReceived || Boolean(data.has_response);
@@ -556,13 +1272,38 @@ const AgentChat = () => {
                         }
                         const carriesResponse = [
                             'tool_start', 'tool_end', 'message', 'thought', 'error',
+                            'confirmation_required',
                         ].includes(data.type);
                         if (!carriesResponse) continue;
 
-                        responseReceived = true;
+                        if ([
+                            'message',
+                            'thought',
+                            'error',
+                            'confirmation_required',
+                        ].includes(data.type)) {
+                            responseReceived = true;
+                        }
+                        if (
+                            data.type === 'confirmation_required'
+                            && activeScopeRef.current === requestScope
+                        ) {
+                            data.status = 'pending';
+                            data.client_scope = requestScope;
+                            data.agent_id = selectedAgentId;
+                            data.session_id = sessionId;
+                        }
                         const addAssistant = !aiMsgAdded;
                         aiMsgAdded = true;
                         setMessages(prev => {
+                            if (activeScopeRef.current !== requestScope) return prev;
+                            if (data.type === 'confirmation_required') {
+                                return mergeConfirmationRecords(
+                                    prev,
+                                    [data],
+                                    confirmationSummary,
+                                );
+                            }
                             const newMsgs = [...prev];
 
                             // Metadata never creates an empty assistant bubble.
@@ -576,12 +1317,21 @@ const AgentChat = () => {
                             if (data.type === 'tool_start') {
                                 lastMsg.content = t('chat.tool_start', "🛠️ *Calling tool: {{tool}}...*", { tool: data.tool });
                             } else if (data.type === 'tool_end') {
-                                lastMsg.content = t('chat.tool_end', "✅ *Tool {{tool}} finished.*", { tool: data.tool });
+                                lastMsg.content = data.awaiting_confirmation
+                                    ? t('chat.tool_pending_confirmation', "🟡 *Tool {{tool}} is awaiting confirmation.*", { tool: data.tool })
+                                    : t('chat.tool_end', "✅ *Tool {{tool}} finished.*", { tool: data.tool });
                             } else if (data.type === 'message' || data.type === 'thought') {
                                 if (data.content) lastMsg.content = data.content;
                             } else if (data.type === 'error') {
                                 // Translation and improvement of common messages
-                                let errorContent = data.content || t('errors.unknown');
+                                const streamedError = typeof data.content === 'string'
+                                    ? data.content.trim()
+                                    : '';
+                                let errorContent = streamedError
+                                    || t('errors.unknown', 'Unknown error');
+                                if (data.code === 'agent_model_unavailable') {
+                                    errorContent = t('chat.agent_model_unavailable', 'The selected agent model is unavailable. Configure the agent and try again.');
+                                }
                                 if (errorContent.includes('rate_limit_exceeded')) {
                                     errorContent = t('chat.rate_limit_message', "You've exceeded this agent model's quota. Try a different agent or wait a few minutes.");
                                 }
@@ -594,21 +1344,25 @@ const AgentChat = () => {
                         console.error("Error parsing JSON line:", line, e);
                     }
                 }
-
-                if (done) break;
             }
             if (!terminalReceived || !responseReceived) {
-                setMessages((prev) => [
-                    ...prev,
-                    {
+                setMessages((prev) => {
+                    if (activeScopeRef.current !== requestScope) return prev;
+                    return [...prev, {
                         role: 'system',
                         content: `${t('chat.error_prefix', 'Error')}: ${t('chat.empty_response', 'The assistant finished without returning a response. Please try again.')}`,
-                    },
-                ]);
+                    }];
+                });
             }
         } catch (error) {
-            if (error.name !== 'AbortError') {
-                setMessages(prev => [...prev, { role: 'system', content: `${t('chat.error_prefix', 'Error')}: ${error.message}` }]);
+            if (error.name !== 'AbortError' && activeScopeRef.current === requestScope) {
+                const errorMessage = typeof error.message === 'string'
+                    ? error.message.trim()
+                    : '';
+                setMessages(prev => [...prev, {
+                    role: 'system',
+                    content: `${t('chat.error_prefix', 'Error')}: ${errorMessage || t('errors.unknown', 'Unknown error')}`,
+                }]);
             }
         } finally {
             requestAbortRef.current = null;
@@ -623,10 +1377,12 @@ const AgentChat = () => {
         if (!iconStr) return <Bot size={size} />;
         if (iconStr.startsWith('lucide:')) {
             const [_, name, colorName] = iconStr.split(':');
-            const IconComp = LucideIcons[name];
             // Support 'white', 'gray', or any color name. Fallback to white for Brain if no color.
             const color = colorName || (name === 'Brain' ? 'white' : 'currentColor');
-            return IconComp ? <IconComp size={size} color={color} /> : <Bot size={size} />;
+            const normalizedName = lucideIconName(name || '');
+            return DYNAMIC_ICON_NAMES.has(normalizedName)
+                ? <DynamicIcon name={normalizedName} size={size} color={color} />
+                : <Bot size={size} />;
         }
         return <span style={{ fontSize: `${size}px` }}>{iconStr}</span>;
     };
@@ -637,6 +1393,11 @@ const AgentChat = () => {
     const agentModel = agentHasModel
         ? `${agentConfig.provider} · ${agentConfig.model}`
         : t('chat.model_not_configured', 'Model not configured');
+    const runtimeLimited = Boolean(agentRuntime && (
+        (agentRuntime.active_skill_ids?.length && !agentRuntime.supports_tools)
+        || agentRuntime.missing_skill_ids?.length
+        || agentRuntime.unavailable_tool_ids?.length
+    ));
     const sortedSessions = chatSessions
         .filter((session) => session.agentId === selectedAgentId)
         .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
@@ -679,7 +1440,11 @@ const AgentChat = () => {
     }
 
     return (
-        <div className="gnosi-floating-panel gnosi-floating-panel--chat" style={{
+        <div
+            className="gnosi-floating-panel gnosi-floating-panel--chat"
+            tabIndex={0}
+            onKeyDown={handleChatKeyDown}
+            style={{
             position: 'fixed', bottom: 'max(16px, env(safe-area-inset-bottom))', right: 'max(16px, env(safe-area-inset-right))', zIndex: 'var(--z-floating)',
             width: isMinimized ? '200px' : 'min(400px, calc(100vw - 2rem))',
             height: isMinimized ? '50px' : '600px',
@@ -689,7 +1454,8 @@ const AgentChat = () => {
             display: 'flex', flexDirection: 'column', overflow: 'hidden',
             border: '1px solid var(--settings-border, #e5e7eb)',
             transition: 'all 0.3s ease-in-out'
-        }}>
+            }}
+        >
             {/* Header */}
             <div style={{
                 padding: '12px 16px', 
@@ -711,6 +1477,7 @@ const AgentChat = () => {
                             value={selectedAgentId}
                             onChange={(e) => setSelectedAgentId(e.target.value)}
                             onClick={(e) => e.stopPropagation()}
+                            disabled={isLoading}
                             style={{
                                 margin: 0,
                                 width: 'auto',
@@ -729,9 +1496,9 @@ const AgentChat = () => {
                                 <option key={a.id} value={a.id}>{a.name || a.id}</option>
                             ))}
                         </select>
-                        {!isMinimized && <div style={{ fontSize: '0.7rem', color: agentHasModel ? '#10b981' : '#ef4444', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: agentHasModel ? '#10b981' : '#ef4444' }}></span>
-                            {agentHasModel ? t('chat.online', "Online") : t('chat.model_not_configured', 'Model not configured')}
+                        {!isMinimized && <div style={{ fontSize: '0.7rem', color: runtimeLimited ? '#f59e0b' : (agentHasModel ? '#10b981' : '#ef4444'), display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: runtimeLimited ? '#f59e0b' : (agentHasModel ? '#10b981' : '#ef4444') }}></span>
+                            {runtimeLimited ? t('chat.runtime_limited', 'Connected · tools limited') : (agentHasModel ? t('chat.online', "Online") : t('chat.model_not_configured', 'Model not configured'))}
                             {agentHasModel && <span style={{ color: 'var(--text-secondary)' }}>· {t('chat.agent_model', 'Model: {{model}}', { model: agentModel })}</span>}
                         </div>}
                     </div>
@@ -749,7 +1516,7 @@ const AgentChat = () => {
             {!isMinimized && (
                 <>
                     {/* Missatges */}
-                    <div style={{ flex: 1, padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div ref={messagesContainerRef} style={{ flex: 1, padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         {showSessionsView && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -796,7 +1563,7 @@ const AgentChat = () => {
                         {!showSessionsView && messages.length === 0 && (
                             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', color: 'var(--text-secondary)', padding: '40px' }}>
                                 <div style={{ fontSize: '3rem', marginBottom: '16px', color: 'var(--gnosi-blue)' }}>
-                                    <LucideIcons.Brain size={64} strokeWidth={1.5} />
+                                    <Brain size={64} strokeWidth={1.5} />
                                 </div>
                                 <h4 style={{ margin: '0 0 8px 0', color: 'var(--text-primary)' }}>{t('chat.empty_title', "How can I help you today?")}</h4>
                                 <p style={{ fontSize: '0.85rem', margin: 0 }}>{t('chat.empty_subtitle', "I can analyze your Vault, manage your calendar, or write code for you.")}</p>
@@ -820,6 +1587,45 @@ const AgentChat = () => {
                                     whiteSpace: 'pre-wrap'
                                 }}>
                                     {msg.content}
+                                    {msg.confirmation && (
+                                        <div style={{
+                                            marginTop: '10px',
+                                            padding: '10px',
+                                            border: '1px solid var(--border-primary)',
+                                            borderRadius: '10px',
+                                            background: 'var(--bg-primary)',
+                                            color: 'var(--text-primary)',
+                                        }}>
+                                            <div style={{ fontWeight: 700, fontSize: '0.8rem' }}>
+                                                {confirmationTitle(msg.confirmation)}
+                                            </div>
+                                            <div style={{ marginTop: '4px', fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                                                {t(
+                                                    `chat.confirmations.status.${msg.confirmation.status || 'pending'}`,
+                                                    msg.confirmation.status || 'pending',
+                                                )}
+                                            </div>
+                                            {msg.confirmation.status === 'pending' && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setPendingConfirmation(msg.confirmation)}
+                                                    style={{
+                                                        marginTop: '8px',
+                                                        border: 'none',
+                                                        borderRadius: '8px',
+                                                        padding: '6px 10px',
+                                                        background: 'var(--status-error)',
+                                                        color: 'white',
+                                                        cursor: 'pointer',
+                                                        fontSize: '0.72rem',
+                                                        fontWeight: 600,
+                                                    }}
+                                                >
+                                                    {t('chat.confirmations.review', 'Review and confirm')}
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
                                     {Array.isArray(msg.attachments) && msg.attachments.length > 0 && (
                                         <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                             {msg.attachments.map((item, idx2) => (
@@ -836,6 +1642,34 @@ const AgentChat = () => {
                                         </div>
                                     )}
                                 </div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '2px', padding: '0 2px', alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                                    <button type="button" onClick={() => copyMessage(msg.content)} aria-label={t('chat.copy_message', 'Copy message')} title={t('chat.copy_message', 'Copy message')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Copy size={13} /></button>
+                                    <button type="button" onClick={() => quoteMessage(msg)} aria-label={t('chat.reply_to_message', 'Reply to message')} title={t('chat.reply_to_message', 'Reply to message')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Reply size={13} /></button>
+                                    {msg.role === 'user' && (
+                                        <button type="button" onClick={() => focusComposerWith(msg.content || '')} aria-label={t('chat.edit_message', 'Edit and resend')} title={t('chat.edit_message', 'Edit and resend')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Pencil size={13} /></button>
+                                    )}
+                                    {msg.role === 'assistant' && previousUserPrompt(idx) && (
+                                        <button type="button" onClick={() => focusComposerWith(previousUserPrompt(idx))} aria-label={t('chat.regenerate_message', 'Regenerate response')} title={t('chat.regenerate_message', 'Regenerate response')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><RotateCcw size={13} /></button>
+                                    )}
+                                    {msg.role === 'assistant' && (
+                                        <>
+                                            <button type="button" onClick={() => markMessage(idx, 'feedback', msg.feedback === 'up' ? null : 'up')} aria-label={t('chat.helpful_response', 'Helpful response')} title={t('chat.helpful_response', 'Helpful response')} aria-pressed={msg.feedback === 'up'} style={{ background: 'none', border: 'none', color: msg.feedback === 'up' ? 'var(--gnosi-blue, #2563eb)' : 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><ThumbsUp size={13} /></button>
+                                            <button type="button" onClick={() => markMessage(idx, 'feedback', msg.feedback === 'down' ? null : 'down')} aria-label={t('chat.unhelpful_response', 'Unhelpful response')} title={t('chat.unhelpful_response', 'Unhelpful response')} aria-pressed={msg.feedback === 'down'} style={{ background: 'none', border: 'none', color: msg.feedback === 'down' ? 'var(--status-error, #dc2626)' : 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><ThumbsDown size={13} /></button>
+                                            <button type="button" onClick={() => markMessage(idx, 'saved', !msg.saved)} aria-label={t('chat.save_message', 'Save message')} title={t('chat.save_message', 'Save message')} aria-pressed={Boolean(msg.saved)} style={{ background: 'none', border: 'none', color: msg.saved ? 'var(--gnosi-blue, #2563eb)' : 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Bookmark size={13} fill={msg.saved ? 'currentColor' : 'none'} /></button>
+                                        </>
+                                    )}
+                                    {msg.undo?.available && idx === messages.length - 1 && (
+                                        <button type="button" onClick={msg.undo.run} aria-label={t('chat.undo_last_action', 'Undo last action')} title={t('chat.undo_last_action', 'Undo last action')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Undo2 size={13} /></button>
+                                    )}
+                                    <button type="button" onClick={() => setDetailsMessageIndex(detailsMessageIndex === idx ? null : idx)} aria-label={t('chat.message_details', 'Message details')} title={t('chat.message_details', 'Message details')} aria-expanded={detailsMessageIndex === idx} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Info size={13} /></button>
+                                </div>
+                                {detailsMessageIndex === idx && (
+                                    <div style={{ alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', margin: '0 4px', padding: '6px 8px', borderRadius: '8px', background: 'var(--settings-sidebar-bg, #f3f4f6)', color: 'var(--text-secondary)', fontSize: '0.68rem' }}>
+                                        {msg.llm?.model && <div>{t('chat.agent_model', 'Model: {{model}}', { model: msg.llm.model })}</div>}
+                                        {msg.confirmation && <div>{t('chat.message_has_confirmation', 'This message includes a governed action confirmation.')}</div>}
+                                        {Array.isArray(msg.attachments) && msg.attachments.length > 0 && <div>{t('chat.message_attachments_count', '{{count}} attachment(s)', { count: msg.attachments.length })}</div>}
+                                    </div>
+                                )}
                                 <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', padding: '0 4px' }}>
                                     {msg.role === 'user'
                                         ? t('chat.you', "You")
@@ -846,6 +1680,13 @@ const AgentChat = () => {
                         {!showSessionsView && isLoading && (
                             <div style={{ alignSelf: 'flex-start', display: 'flex', gap: '8px', alignItems: 'center', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
                                 <Sparkles size={14} className="spin-slow" /> {t('chat.processing', "Processing...")}
+                                <button
+                                    type="button"
+                                    onClick={() => requestAbortRef.current?.abort()}
+                                    style={{ border: 'none', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', textDecoration: 'underline', fontSize: '0.76rem' }}
+                                >
+                                    {t('chat.cancel_response', 'Cancel')}
+                                </button>
                             </div>
                         )}
                         {!showSessionsView && <div ref={messagesEndRef} />}
@@ -863,6 +1704,7 @@ const AgentChat = () => {
                                     ref={fileInputRef}
                                     type="file"
                                     multiple
+                                    accept={CHAT_ATTACHMENT_ACCEPT}
                                     style={{ display: 'none' }}
                                     onChange={handleAttachmentInputChange}
                                 />
@@ -877,6 +1719,22 @@ const AgentChat = () => {
                                         requestAnimationFrame(autoResizeInput);
                                     }}
                                     onKeyDown={(e) => {
+                                        const scrollDelta = chatScrollDeltaForComposerKey({
+                                            key: e.key,
+                                            value: e.currentTarget.value,
+                                            altKey: e.altKey,
+                                            ctrlKey: e.ctrlKey,
+                                            metaKey: e.metaKey,
+                                            shiftKey: e.shiftKey,
+                                        });
+                                        if (scrollDelta) {
+                                            e.preventDefault();
+                                            messagesContainerRef.current?.scrollBy({
+                                                top: scrollDelta,
+                                                behavior: 'smooth',
+                                            });
+                                            return;
+                                        }
                                         if (e.key === 'Enter' && e.shiftKey) {
                                             // Keep newline behavior and avoid parent-level Enter handlers.
                                             e.stopPropagation();
@@ -976,7 +1834,7 @@ const AgentChat = () => {
 
                         <div style={{ marginTop: '6px', padding: '0 2px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', flexWrap: 'wrap' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                                <button onClick={createNewSession} title={t('chat.new_session', "New session")} aria-label={t('chat.new_session', "New session")} style={{ width: '26px', height: '26px', borderRadius: '13px', border: '1px solid var(--settings-border, #e5e7eb)', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <button onClick={createNewSession} disabled={isLoading} title={t('chat.new_session', "New session")} aria-label={t('chat.new_session', "New session")} style={{ width: '26px', height: '26px', borderRadius: '13px', border: '1px solid var(--settings-border, #e5e7eb)', background: 'transparent', color: 'var(--text-secondary)', cursor: isLoading ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <Plus size={12} />
                                 </button>
                                 <button onClick={() => setShowSessionsView((v) => !v)} title={t('chat.sessions', 'Sessions')} aria-label={t('chat.sessions', 'Sessions')} style={{ width: '26px', height: '26px', borderRadius: '13px', border: '1px solid var(--settings-border, #e5e7eb)', background: showSessionsView ? 'var(--settings-sidebar-bg, #f3f4f6)' : 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -987,6 +1845,20 @@ const AgentChat = () => {
                     </div>
                 </>
             )}
+            <ConfirmModal
+                isOpen={Boolean(pendingConfirmation)}
+                onClose={() => { void cancelPendingAction(); }}
+                onConfirm={confirmPendingAction}
+                title={pendingConfirmation ? confirmationTitle(pendingConfirmation) : ''}
+                message={pendingConfirmation ? confirmationReview(pendingConfirmation) : ''}
+                confirmText={t('chat.confirmations.confirm', 'Confirm and execute')}
+                cancelText={t('chat.confirmations.cancel', 'Cancel action')}
+                isDestructive={pendingConfirmation?.destructive !== false}
+                confirmOnEnter={false}
+                autofocusConfirm={false}
+                requireAcknowledgement
+                acknowledgementLabel={t('chat.confirmations.acknowledgement', 'I have reviewed this action and want to continue.')}
+            />
         </div>
     );
 };

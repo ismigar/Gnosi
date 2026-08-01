@@ -5,7 +5,8 @@
 // `define` in vite.config.js). The fallback covers environments without this define
 // (e.g. tests with Vitest), where the identifier doesn't exist.
 //
-// To bump the version use scripts/bump-version.sh, which keeps
-// synced in frontend/ and electron/ and creates the vX.Y.Z release tag.
+// To prepare a version, use electron/release.sh. It keeps the frontend,
+// Electron, and the monorepo lockfile synchronized. Create the release tag
+// only after the preparation PR has been merged into main.
 export const APP_VERSION =
   typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0-dev';

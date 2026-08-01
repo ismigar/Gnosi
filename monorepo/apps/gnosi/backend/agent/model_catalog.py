@@ -38,7 +38,7 @@ MODELS_DEV_URL = "https://models.dev/api.json"
 # Bump when the compact schema gains fields: caches with an older schema are
 # treated as stale so the new fields appear right after a deploy, without
 # waiting out the TTL.
-CATALOG_SCHEMA = 2
+CATALOG_SCHEMA = 3
 _CACHE_TTL = 24 * 3600  # refresh the remote snapshot at most once a day
 _REMOTE_TIMEOUT = 8     # seconds; UI must never hang on models.dev
 _OLLAMA_TIMEOUT = 1.5   # seconds; local daemon answers instantly or not at all
@@ -124,6 +124,18 @@ def _text_output(model: Dict[str, Any]) -> bool:
     return "text" in outputs if outputs else True
 
 
+def _supported_modes(model: Dict[str, Any]) -> List[str]:
+    """Return the normalized input and output modalities for a model."""
+    modalities = model.get("modalities") or {}
+    supported = {
+        str(mode).lower()
+        for direction in ("input", "output")
+        for mode in (modalities.get(direction) or [])
+        if str(mode).lower() in {"text", "image", "audio", "video"}
+    }
+    return sorted(supported or {"text"})
+
+
 def _connect_base_url(gnosi_id: str, provider: Dict[str, Any]) -> str:
     """OpenAI-compatible base URL for a provider, if one is known (PURE).
 
@@ -162,6 +174,7 @@ def build_catalog(models_dev: Dict[str, Any]) -> Dict[str, Any]:
                 "cost_in": round(float(cost.get("input") or 0), 4),
                 "cost_out": round(float(cost.get("output") or 0), 4),
                 "context_window": int((model.get("limit") or {}).get("context") or 8192),
+                "modes": _supported_modes(model),
                 "tags": _infer_tags(model),
                 "quality": _infer_quality(model),
                 "release_date": model.get("release_date") or "",
