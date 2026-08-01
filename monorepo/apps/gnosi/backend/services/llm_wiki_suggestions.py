@@ -5,9 +5,7 @@ notes and existing manual permanent notes. A proposal can be opened or
 dismissed; this service never creates or edits a permanent note.
 
 Storage: `<vault>/.gnosi/llm_wiki_suggestions.json` (per-vault, travels with
-the vault). Pending suggestions are also mirrored into the graph's
-`<vault>/suggestions.json` as `kind=suggestion` edges between member notes
-(entries tagged `llm_wiki: <id>` so only ours are added/removed).
+the vault). The graph reads this canonical queue directly.
 """
 from __future__ import annotations
 
@@ -56,6 +54,14 @@ def _save_queue(items: List[Dict[str, Any]]) -> None:
     safe_write_json(path, {"suggestions": items}, indent=2, ensure_ascii=False)
 
 
+def _invalidate_graph_cache() -> None:
+    """Make queue changes visible on the next graph request."""
+
+    from backend.services.graph_service import GraphService
+
+    GraphService.invalidate_response_cache()
+
+
 def add_suggestions(new_items: List[Dict[str, Any]]) -> int:
     """Appends suggestions to the queue, skipping near-duplicates (same member
     set already pending). Returns how many were added."""
@@ -74,7 +80,7 @@ def add_suggestions(new_items: List[Dict[str, Any]]) -> int:
         if added:
             _save_queue(items)
     if added:
-        _mirror_to_graph()
+        _invalidate_graph_cache()
     return added
 
 
@@ -96,70 +102,8 @@ def pop_suggestion(suggestion_id: str) -> Optional[Dict[str, Any]]:
         if found is not None:
             _save_queue(kept)
     if found is not None:
-        _mirror_to_graph()
+        _invalidate_graph_cache()
     return found
-
-
-# ---------------------------------------------------------------------------
-# Graph mirror — pending suggestions as dashed edges among member notes
-# ---------------------------------------------------------------------------
-
-def _graph_suggestions_path():
-    from backend.api.vault_routes import get_p
-
-    return get_p("VAULT") / "suggestions.json"
-
-
-def _mirror_to_graph() -> None:
-    """Rewrites OUR entries in the graph's suggestions.json (tagged `llm_wiki`)
-    to match the current queue. Entries from external writers are preserved
-    untouched for backwards-compatible vault portability."""
-    try:
-        from backend.utils.safe_io import safe_write_json
-
-        path = _graph_suggestions_path()
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            if not isinstance(data, dict):
-                data = {}
-        except Exception:  # noqa: BLE001
-            data = {}
-
-        # Drop all previous llm_wiki-tagged entries.
-        for src in list(data.keys()):
-            entries = [e for e in (data.get(src) or []) if not (isinstance(e, dict) and e.get("llm_wiki"))]
-            if entries:
-                data[src] = entries
-            else:
-                data.pop(src, None)
-
-        # Re-add one edge chain per pending suggestion (first member → rest).
-        for s in load_queue():
-            members = [m for m in (s.get("member_ids") or []) if m]
-            if len(members) < 2:
-                continue
-            head = members[0]
-            data.setdefault(head, [])
-            for other in members[1:]:
-                data[head].append({
-                    "target_id": other,
-                    "reason": str(s.get("question") or s.get("title") or ""),
-                    "score": 0.9,
-                    "llm_wiki": s["id"],
-                })
-        safe_write_json(path, data, indent=2, ensure_ascii=False)
-        from backend.services.graph_service import GraphService
-
-        GraphService.invalidate_response_cache()
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("llm_wiki: graph mirror failed: %s", exc)
-
-
-def sync_graph_mirror() -> int:
-    """Synchronize the portable graph overlay and return the pending count."""
-
-    _mirror_to_graph()
-    return len(load_queue())
 
 
 def list_graph_edges() -> List[Dict[str, Any]]:

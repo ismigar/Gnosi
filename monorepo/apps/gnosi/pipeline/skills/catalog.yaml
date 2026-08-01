@@ -2,14 +2,11 @@ schema_version: 1
 purpose: development-and-automation-classification
 agent_assignable_default: false
 packages:
-  augment_clusters: {kind: developer}
   autonomous_loop: {kind: developer}
   auto_improver: {kind: developer}
   backup_projectes: {kind: automation}
   calendar_sync: {kind: automation}
-  filter_graph: {kind: developer}
   host_open_helper: {kind: infrastructure}
-  json_to_sigma: {kind: developer}
   mail_sync: {kind: automation}
   maintenance: {kind: automation}
   notification_service: {kind: infrastructure}

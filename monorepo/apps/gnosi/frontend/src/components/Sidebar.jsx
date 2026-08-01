@@ -20,7 +20,6 @@ export function Sidebar({
     colorMode,
     onColorModeChange,
     hasClusterData = false,
-    hasAiClusterData = false,
     // Pathfinding props
     isPathfindingMode,
     onPathfindingModeChange,
@@ -58,7 +57,7 @@ export function Sidebar({
             {children}
 
             {/* --- COLOR SELECTOR --- */}
-            {(hasClusterData || hasAiClusterData) && <div className="section">
+            {hasClusterData && <div className="section">
                 <h2 className="filter-title">{t('graph.sidebar.color_by', "Color by")}</h2>
                 <div style={{ display: 'flex', gap: '10px' }}>
                     {hasClusterData && <label style={{ cursor: 'pointer' }}>
@@ -69,15 +68,6 @@ export function Sidebar({
                             style={{ marginRight: '5px' }}
                         />
                         {t('graph.sidebar.color_cluster', "Cluster")}
-                    </label>}
-                    {hasAiClusterData && <label style={{ cursor: 'pointer' }}>
-                        <input
-                            type="checkbox"
-                            checked={colorMode === 'ai_cluster'}
-                            onChange={() => toggleColorMode('ai_cluster')}
-                            style={{ marginRight: '5px' }}
-                        />
-                        {t('graph.sidebar.color_ai_cluster', "AI Cluster")}
                     </label>}
                 </div>
             </div>}

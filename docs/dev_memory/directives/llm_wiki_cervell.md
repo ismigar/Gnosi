@@ -249,9 +249,10 @@ overwrite user-edited instructions.
 - Treat `.gnosi/llm_wiki_suggestions.json` as the canonical proposal queue. The
   `suggest_connections` scheduler, Brain inbox, and global graph must all use this queue;
   do not revive a parallel generated graph under `BD/` as a second suggestion source.
-- Mirror the canonical queue to `<vault>/suggestions.json` for graph portability, add that
-  layer during `/api/graph` construction, and invalidate the graph response cache whenever
-  the mirror changes. The frontend must not merge a second no-op suggestions endpoint.
+- Add the canonical queue directly during `/api/graph` construction and
+  invalidate the graph response cache whenever the queue changes. Do not
+  mirror it to `<vault>/suggestions.json`, and do not expose a second graph
+  suggestions endpoint.
 - A dedicated `suggest_connections` scheduler is an explicit opt-in to model use. Keep it
   disabled by default, make failures fail the scheduler execution, and never let
   `update_memories` call it implicitly.

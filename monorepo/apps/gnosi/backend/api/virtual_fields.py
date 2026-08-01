@@ -17,98 +17,48 @@ computer must be O(1) given the precomputed indexes.
 
 from __future__ import annotations
 
-import json
 import logging
+import threading
 import time
 from collections import defaultdict
-from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
 log = logging.getLogger(__name__)
 
 
-# ── Graph cache (avoids re-reading vault_graph.json on every request) ──────────
+def _structural_page_ids(graph: Dict[str, Any]) -> set[str]:
+    """Return real page IDs that may participate in graph metrics."""
 
-# PER-VAULT caches (key = graph path, which depends on the active vault). They used to be global → in
-# multi-vault, one vault was serving another's graph.
-_graph_cache: Dict[str, Dict[str, Any]] = {}       # graph_path_str -> data
-_graph_cache_mtime: Dict[str, float] = {}          # graph_path_str -> mtime
-_graph_cache_ts: Dict[str, float] = {}             # graph_path_str -> monotonic ts
-_GRAPH_TTL_SECONDS = 60  # in-memory TTL
-import threading
-_graph_cache_lock = threading.Lock()
+    excluded_kinds = {"unresolved", "database", "table", "view", "tag"}
+    return {
+        str(node.get("id") or node.get("key"))
+        for node in graph.get("nodes", [])
+        if (node.get("id") or node.get("key"))
+        and str(node.get("kind") or "page").lower() not in excluded_kinds
+    }
 
 
-def _load_graph(graph_path: Path) -> Dict[str, Any]:
-    """Loads vault_graph.json with TTL cache and stale-cache fallback (PER-VAULT).
+def _iter_structural_edges(graph: Dict[str, Any]):
+    """Yield resolved, non-semantic edges with their semantic direction."""
 
-    Thread-safe: the lock prevents two concurrent requests from reading the JSON
-    in parallel when the cache expires (saves redundant I/O on OneDrive).
-    
-    """
-    global _graph_cache, _graph_cache_mtime, _graph_cache_ts
-    empty = {"nodes": [], "edges": []}
-    if not graph_path:
-        return empty
-    key = str(graph_path)
-
-    # Fast-path without lock (atomic reference read in Python with the GIL)
-    now = time.monotonic()
-    cached = _graph_cache.get(key)
-    if cached is not None and (now - _graph_cache_ts.get(key, 0.0)) < _GRAPH_TTL_SECONDS:
-        return cached
-
-    with _graph_cache_lock:
-        now = time.monotonic()
-        cached = _graph_cache.get(key)
-        if cached is not None and (now - _graph_cache_ts.get(key, 0.0)) < _GRAPH_TTL_SECONDS:
-            return cached
-
-        if not graph_path.exists():
-            return cached if cached is not None else empty
-
-        try:
-            mtime = graph_path.stat().st_mtime
-            if cached is not None and mtime <= _graph_cache_mtime.get(key, 0.0):
-                _graph_cache_ts[key] = now
-                return cached
-        except Exception as e:
-            if cached is not None:
-                log.warning(f"⚠️ virtual_fields: graph stat failed ({e}); serving stale cache")
-                return cached
-            return empty
-
-        try:
-            data = json.loads(graph_path.read_text(encoding="utf-8"))
-            _graph_cache[key] = data
-            _graph_cache_ts[key] = now
-            try:
-                _graph_cache_mtime[key] = graph_path.stat().st_mtime
-            except Exception:
-                pass
-            return data
-        except Exception as e:
-            log.error(f"❌ virtual_fields: failed to load graph: {e}")
-            return cached if cached is not None else empty
+    page_ids = _structural_page_ids(graph)
+    for edge in graph.get("edges", []):
+        if edge.get("kind") == "suggestion" or edge.get("unresolved"):
+            continue
+        source = str(edge.get("src") or edge.get("source") or "")
+        target = str(edge.get("dst") or edge.get("target") or "")
+        if source in page_ids and target in page_ids and source != target:
+            yield source, target
 
 
 def _build_degree_index(graph: Dict[str, Any]) -> Dict[str, Dict[str, int]]:
-    """Returns {page_id: {'in': N, 'out': N, 'total': N}} from graph edges.
-
-    Tag-pseudo-nodes (keys like 'tag::xxx') are excluded from in/out counts.
-    """
+    """Return directed degree counts from the canonical structural topology."""
     in_deg: Dict[str, int] = defaultdict(int)
     out_deg: Dict[str, int] = defaultdict(int)
-    for e in graph.get("edges", []):
-        s = e.get("source") or ""
-        t = e.get("target") or ""
-        if not s or not t:
-            continue
-        if not s.startswith("tag::"):
-            out_deg[s] += 1
-        if not t.startswith("tag::"):
-            in_deg[t] += 1
-    all_ids = set(in_deg) | set(out_deg)
+    for source, target in _iter_structural_edges(graph):
+        out_deg[source] += 1
+        in_deg[target] += 1
+    all_ids = _structural_page_ids(graph)
     return {
         nid: {
             "in": in_deg.get(nid, 0),
@@ -143,7 +93,7 @@ def _ensure_nx_cache_fresh(graph: Dict[str, Any]) -> None:
 
 
 def _get_nx_graph(graph: Dict[str, Any]):
-    """Returns an undirected NetworkX graph from the JSON, excluding tag pseudo-nodes.
+    """Return an undirected NetworkX view of the structural page topology.
 
     Cached based on the graph dict identity (rebuilt only if the underlying graph
     cache reloaded a fresh object).
@@ -153,18 +103,8 @@ def _get_nx_graph(graph: Dict[str, Any]):
     if _nx_cache.get("nx") is not None:
         return _nx_cache["nx"]
     G = nx.Graph()
-    for n in graph.get("nodes", []):
-        nid = n.get("key") or n.get("id")
-        if nid and not str(nid).startswith("tag::"):
-            G.add_node(nid)
-    for e in graph.get("edges", []):
-        s = e.get("source") or ""
-        t = e.get("target") or ""
-        if not s or not t:
-            continue
-        if str(s).startswith("tag::") or str(t).startswith("tag::"):
-            continue
-        G.add_edge(s, t)
+    G.add_nodes_from(_structural_page_ids(graph))
+    G.add_edges_from(_iter_structural_edges(graph))
     _nx_cache["nx"] = G
     return G
 
@@ -564,7 +504,7 @@ def list_virtual_field_specs() -> List[Dict[str, Any]]:
 
 # ── Context building & injection ─────────────────────────────────────────────
 
-def _build_ctx(needs: Iterable[str], graph_path: Optional[Path]) -> Dict[str, Any]:
+def _build_ctx(needs: Iterable[str]) -> Dict[str, Any]:
     """Builds the shared computation context based on which indexes are needed.
 
     Each index is computed at most once per request and shared across all pages
@@ -573,9 +513,12 @@ def _build_ctx(needs: Iterable[str], graph_path: Optional[Path]) -> Dict[str, An
     """
     ctx: Dict[str, Any] = {}
     needs_set = set(needs)
-    if not needs_set or graph_path is None:
+    graph_needs = {"graph", "nx", "hubs"}
+    if not needs_set.intersection(graph_needs):
         return ctx
-    graph = _load_graph(graph_path)
+    from backend.services.graph_service import GraphService
+
+    graph = GraphService().build_unified_graph()
     if "graph" in needs_set:
         ctx["degrees"] = _build_degree_index(graph)
     if "nx" in needs_set:
@@ -627,7 +570,6 @@ def _frontmatter_key(prop_name: str) -> str:
 def inject_for_table(
     table: Optional[Dict[str, Any]],
     pages: List[Any],
-    graph_path: Optional[Path] = None,
     page_loader: Optional[Callable[[str], List[Any]]] = None,
     id_resolver: Optional[Callable[[str], Optional[str]]] = None,
 ) -> None:
@@ -656,7 +598,7 @@ def inject_for_table(
             # Add the compute key itself so _build_ctx can decide which NX
             # metric to run (avoids computing all when only one is requested).
             needs.add(comp_key)
-    ctx = _build_ctx(needs, graph_path)
+    ctx = _build_ctx(needs)
     _inject_task_progress_into_ctx(ctx, vprops, page_loader, id_resolver)
 
     for page in pages:
@@ -700,7 +642,6 @@ def inject_for_single_page(
     table: Optional[Dict[str, Any]],
     page_id: str,
     metadata: Dict[str, Any],
-    graph_path: Optional[Path] = None,
     page_loader: Optional[Callable[[str], List[Any]]] = None,
     id_resolver: Optional[Callable[[str], Optional[str]]] = None,
 ) -> None:
@@ -720,7 +661,7 @@ def inject_for_single_page(
             # Add the compute key itself so _build_ctx can decide which NX
             # metric to run (avoids computing all when only one is requested).
             needs.add(comp_key)
-    ctx = _build_ctx(needs, graph_path)
+    ctx = _build_ctx(needs)
     _inject_task_progress_into_ctx(ctx, vprops, page_loader, id_resolver)
 
     for prop in vprops:
