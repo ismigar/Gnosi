@@ -33,6 +33,9 @@ export function Sidebar({
     afterWidgets
 }) {
     const { t } = useTranslation();
+    const toggleColorMode = (mode) => {
+        onColorModeChange(colorMode === mode ? 'kind' : mode);
+    };
     return (
         <>
             <div className="section">
@@ -55,44 +58,29 @@ export function Sidebar({
             {children}
 
             {/* --- COLOR SELECTOR --- */}
-            <div className="section">
+            {(hasClusterData || hasAiClusterData) && <div className="section">
                 <h2 className="filter-title">{t('graph.sidebar.color_by', "Color by")}</h2>
                 <div style={{ display: 'flex', gap: '10px' }}>
                     {hasClusterData && <label style={{ cursor: 'pointer' }}>
                         <input
-                            type="radio"
-                            name="colorMode"
-                            value="kind"
-                            checked={colorMode === 'kind'}
-                            onChange={(e) => onColorModeChange(e.target.value)}
-                            style={{ marginRight: '5px' }}
-                        />
-                        {t('graph.sidebar.color_kind', "Type")}
-                    </label>}
-                    {hasAiClusterData && <label style={{ cursor: 'pointer' }}>
-                        <input
-                            type="radio"
-                            name="colorMode"
-                            value="cluster"
+                            type="checkbox"
                             checked={colorMode === 'cluster'}
-                            onChange={(e) => onColorModeChange(e.target.value)}
+                            onChange={() => toggleColorMode('cluster')}
                             style={{ marginRight: '5px' }}
                         />
                         {t('graph.sidebar.color_cluster', "Cluster")}
                     </label>}
-                    <label style={{ cursor: 'pointer' }}>
+                    {hasAiClusterData && <label style={{ cursor: 'pointer' }}>
                         <input
-                            type="radio"
-                            name="colorMode"
-                            value="ai_cluster"
+                            type="checkbox"
                             checked={colorMode === 'ai_cluster'}
-                            onChange={(e) => onColorModeChange(e.target.value)}
+                            onChange={() => toggleColorMode('ai_cluster')}
                             style={{ marginRight: '5px' }}
                         />
                         {t('graph.sidebar.color_ai_cluster', "AI Cluster")}
-                    </label>
+                    </label>}
                 </div>
-            </div>
+            </div>}
 
             {/* --- PATHFINDING SECTION --- */}
             <div className="section" style={{ border: isPathfindingMode ? '2px solid var(--gnosi-blue)' : 'none', borderRadius: '8px', padding: isPathfindingMode ? '10px' : '0' }}>

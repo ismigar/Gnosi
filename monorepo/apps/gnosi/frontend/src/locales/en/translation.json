@@ -3897,7 +3897,8 @@
     "page_title": "Knowledge graph",
     "loading": {
       "title": "Loading the Digital Brain...",
-      "subtitle": "Connecting neurons..."
+      "subtitle": "Connecting neurons...",
+      "progress": "Graph loading progress"
     },
     "sync": {
       "updating": "Updating the graph...",
@@ -3987,6 +3988,10 @@
       "zoom_in": "Zoom in",
       "zoom_out": "Zoom out",
       "legend": "Graph legend"
+    },
+    "keyboard": {
+      "sidebar_focus": "Graph filters",
+      "graph_focus": "Graph area"
     },
     "legend": {
       "nodes": "Nodes",

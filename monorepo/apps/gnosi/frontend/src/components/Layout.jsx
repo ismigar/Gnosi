@@ -1,20 +1,38 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { RefreshCw, PanelRight, Network } from 'lucide-react';
+import { PanelRight, Network } from 'lucide-react';
 import { AppHeader } from './AppHeader';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 
-export function Layout({ children, sidebar, controls, bottomPanel, containerStyle = {}, onSync, isSyncing }) {
+export function Layout({ children, sidebar, controls, bottomPanel, containerStyle = {} }) {
   const { t } = useTranslation();
   const isCompact = useMediaQuery('(max-width: 767px)');
   const [isPanelOpen, setIsPanelOpen] = React.useState(
     () => typeof window === 'undefined' || !window.matchMedia('(max-width: 767px)').matches
   );
   const [isBottomPanelOpen, setIsBottomPanelOpen] = React.useState(false);
+  const graphContainerRef = React.useRef(null);
+  const sidebarRef = React.useRef(null);
 
   React.useEffect(() => {
     setIsPanelOpen(!isCompact);
   }, [isCompact]);
+
+  React.useEffect(() => {
+    const handleFocusShortcut = (event) => {
+      if (!(event.metaKey || event.ctrlKey) || !event.shiftKey) return;
+      if (event.key.toLowerCase() === 'p') {
+        event.preventDefault();
+        sidebarRef.current?.focus();
+      }
+      if (event.key.toLowerCase() === 'g') {
+        event.preventDefault();
+        graphContainerRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handleFocusShortcut);
+    return () => window.removeEventListener('keydown', handleFocusShortcut);
+  }, []);
 
   return (
     <div id="app" className={!isPanelOpen ? 'panel-hidden' : ''}>
@@ -29,15 +47,6 @@ export function Layout({ children, sidebar, controls, bottomPanel, containerStyl
           >
             <PanelRight size={20} />
           </button>
-          {onSync && (
-            <button onClick={onSync} title={t('graph.sync_tooltip', "Sync")} aria-label={t('graph.sync_tooltip', "Sync")} className="gnosi-icon-button">
-              <RefreshCw size={20} className={isSyncing ? 'spin-anim' : ''} />
-            </button>
-          )}
-        <style>{`
-            .spin-anim { animation: spin 1s linear infinite; }
-            @keyframes spin { 100% { transform: rotate(360deg); } }
-        `}</style>
       </AppHeader>
 
       <main id="main-content">
@@ -49,12 +58,24 @@ export function Layout({ children, sidebar, controls, bottomPanel, containerStyl
             aria-label={t('common.close', 'Close')}
           />
         )}
-        <div id="sigma-container" style={{ position: 'relative', width: '100%', height: '100%', ...containerStyle }}>
+        <div
+          id="sigma-container"
+          ref={graphContainerRef}
+          tabIndex={-1}
+          aria-label={t('graph.keyboard.graph_focus', 'Graph area')}
+          style={{ position: 'relative', width: '100%', height: '100%', ...containerStyle }}
+        >
           {children}
           {controls}
         </div>
 
-        <aside id="side-panel">
+        <aside
+          id="side-panel"
+          ref={sidebarRef}
+          tabIndex={-1}
+          aria-label={t('graph.keyboard.sidebar_focus', 'Graph filters')}
+          onWheelCapture={(event) => event.stopPropagation()}
+        >
           {sidebar}
         </aside>
       </main>

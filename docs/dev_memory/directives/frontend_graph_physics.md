@@ -173,3 +173,28 @@ Run frontend checks from `frontend/`, but execute backend graph tests from
 test path from the frontend directory, because pytest cannot discover the file
 and reports a false validation failure; use the backend working directory
 instead.
+Likewise, use paths relative to the selected working directory for frontend
+inspection commands; prefixing them again with `monorepo/apps/gnosi/frontend/`
+points to a nonexistent nested directory.
+
+## Interaction controls
+
+Only display a color grouping control when the current graph response contains
+that grouping. Do not leave a selectable AI-cluster control with no
+`ai_cluster` values, because it produces no visible effect and looks broken.
+Color group controls must be reversible: toggling the active group restores
+the normal node colors.
+When conditionally rendering a color control with JSX `&&`, close both the
+element and the expression. A missing closing brace turns the following panel
+markup into an unterminated expression and prevents Vite from building.
+
+The graph canvas and filter sidebar both consume wheel input. Stop wheel event
+propagation at the sidebar and contain its overscroll so a user interacting
+with its filters scrolls the sidebar, never Sigma's camera. Provide focus
+shortcuts with Cmd/Ctrl+Shift+P for the panel and Cmd/Ctrl+Shift+G for the
+graph; Cmd/Ctrl+Shift+C cycles the available color modes.
+
+Graph responses can be served from cache too quickly for a loading state to be
+perceived. Keep the loading overlay visible briefly and expose real progress
+stages with a determinate bar; do not retain a global refresh button that only
+duplicates GET `/api/graph` and reloads the complete page.

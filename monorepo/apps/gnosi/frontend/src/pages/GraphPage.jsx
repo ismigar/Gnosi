@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useTranslation, Trans } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
-import toast from '../lib/toast';
-import { RefreshCw, Check, AlertTriangle } from 'lucide-react';
+import { Check, AlertTriangle } from 'lucide-react';
 import { Layout } from '../components/Layout';
 import { Sidebar } from '../components/Sidebar';
 import { CollapsibleSection } from '../components/CollapsibleSection';
@@ -85,9 +84,6 @@ function GraphPage() {
     const [strongGravityMode, setStrongGravityMode] = useState(true);
     const [outboundAttractionDistribution, setOutboundAttractionDistribution] = useState(false);
 
-    // Sync State
-    const [isSyncing, setIsSyncing] = useState(false);
-
     // Physics State - Real (Debounced for ForceAtlas2)
     // Initial values matching the UI's to avoid an abrupt restart at 300ms
     const [gravity, setGravity] = useState(0.1);
@@ -137,6 +133,7 @@ function GraphPage() {
 
     const [config, setConfig] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [loadingProgress, setLoadingProgress] = useState(15);
 
     const mediaTagsList = useMemo(() => {
         if (!graphData?.nodes) return [];
@@ -150,13 +147,18 @@ function GraphPage() {
     }, [graphData]);
 
     const fetchGraphData = (isBackground = false) => {
-        if (!isBackground) setLoading(true);
+        const startedAt = Date.now();
+        if (!isBackground) {
+            setLoadingProgress(15);
+            setLoading(true);
+        }
 
         fetch('/api/graph').then(res => {
             if (!res.ok) throw new Error(`Graph API error: ${res.status}`);
             return res.json();
         }).then(graph => {
             // /api/graph is the single source for structural and proposal edges.
+            if (!isBackground) setLoadingProgress(70);
             setGraphData(graph);
         })
             .catch(err => {
@@ -164,9 +166,25 @@ function GraphPage() {
                 setGraphData({ nodes: [], edges: [], legend: { kinds: [], clusters: [] } });
             })
             .finally(() => {
-                setLoading(false);
+                if (isBackground) return;
+                setLoadingProgress(100);
+                const remainingDelay = Math.max(0, 450 - (Date.now() - startedAt));
+                window.setTimeout(() => setLoading(false), remainingDelay);
             });
     };
+
+    useEffect(() => {
+        const handleColorShortcut = (event) => {
+            if (!(event.metaKey || event.ctrlKey) || !event.shiftKey || event.key.toLowerCase() !== 'c') return;
+            event.preventDefault();
+            const modes = ['kind'];
+            if (hasClusterData) modes.push('cluster');
+            if (hasAiClusterData) modes.push('ai_cluster');
+            setColorMode((currentMode) => modes[(modes.indexOf(currentMode) + 1) % modes.length]);
+        };
+        window.addEventListener('keydown', handleColorShortcut);
+        return () => window.removeEventListener('keydown', handleColorShortcut);
+    }, [hasClusterData, hasAiClusterData]);
 
     const [minDate, setMinDate] = useState(null);
     const [maxDate, setMaxDate] = useState(null);
@@ -540,37 +558,15 @@ function GraphPage() {
                 <div className="text-4xl animate-bounce">🧠</div>
                 <div className="animate-pulse text-xl font-medium text-[var(--text-secondary)]">{t('graph.loading.title', "Loading the Digital Brain...")}</div>
                 <div className="text-sm text-[var(--text-tertiary)]">{t('graph.loading.subtitle', "Connecting neurons...")}</div>
+                <div className="w-64 h-2 overflow-hidden rounded-full bg-[var(--color-border)]" aria-label={t('graph.loading.progress', 'Graph loading progress')}>
+                    <div className="h-full rounded-full bg-[var(--gnosi-blue)] transition-all duration-300" style={{ width: `${loadingProgress}%` }} />
+                </div>
             </div>
         );
     }
 
-
-
-    // The graph is computed on demand from GET /api/graph; there is no
-    // endpoint /api/sync on the native backend (syncs are per service). Here
-    // we only refresh the graph: we verify that /api/graph responds and reload.
-    const handleSync = async () => {
-        if (isSyncing) return;
-        setIsSyncing(true);
-        const toastId = toast.loading(t('graph.sync.updating', "Updating the graph..."));
-        try {
-            const res = await fetch('/api/graph');
-            if (!res.ok) throw new Error(`Graph API error: ${res.status}`);
-            toast.success(t('graph.sync.success', "Graph updated!"), { id: toastId });
-            window.location.reload();
-        } catch (e) {
-            console.error(e);
-            toast.error(t('graph.sync.error', "Error updating the graph"), { id: toastId });
-        } finally {
-            setIsSyncing(false);
-        }
-    };
-
     return (
         <Layout
-
-            onSync={handleSync}
-            isSyncing={isSyncing}
             sidebar={
                 <Sidebar
                     searchTerm={searchTerm}
