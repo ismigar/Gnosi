@@ -3944,7 +3944,7 @@
       "color_by": "Color by",
       "color_kind": "Type",
       "color_cluster": "Cluster",
-      "color_ai_cluster": "AI Cluster",
+      "color_ai_cluster": "AI Clusters",
       "pathfinding_title": "Path search",
       "pathfinding_stop": "Stop search",
       "pathfinding_start": "Start search",
@@ -3996,7 +3996,9 @@
       "database_wikilink": "Database-view wikilinks",
       "unresolved": "Unresolved links",
       "semantic_similarity": "Semantic connections",
-      "node_groups": "Node groups"
+      "node_groups": "Node groups",
+      "clusters": "Clusters",
+      "ai_clusters": "AI clusters"
     },
     "node_panel": {
       "close": "Close details",
