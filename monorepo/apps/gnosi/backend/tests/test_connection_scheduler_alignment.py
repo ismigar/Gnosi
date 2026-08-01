@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import asyncio
-
 import pytest
 
-from backend.api import system_routes, vault_routes
+from backend.api import vault_routes
 from backend.scheduler.manager import SchedulerManager
 from backend.services import llm_wiki_actions, llm_wiki_suggestions
 from backend.services.graph_service import GraphService
@@ -47,14 +45,18 @@ def test_suggest_connections_uses_llm_wiki_queue(monkeypatch):
     assert result["suggestions_pending"] == 4
 
 
-def test_memory_refresh_syncs_without_generating_suggestions(monkeypatch):
+def test_memory_refresh_reads_queue_without_generating_suggestions(monkeypatch):
     manager = _manager()
     monkeypatch.setattr(
         manager,
         "_task_suggest_connections",
         lambda: pytest.fail("Memory refresh must not invoke the semantic generator"),
     )
-    monkeypatch.setattr(llm_wiki_suggestions, "sync_graph_mirror", lambda: 3)
+    monkeypatch.setattr(
+        llm_wiki_suggestions,
+        "load_queue",
+        lambda: [{"id": "one"}, {"id": "two"}, {"id": "three"}],
+    )
     monkeypatch.setattr(GraphService, "invalidate_response_cache", lambda: None)
     monkeypatch.setattr(
         GraphService,
@@ -66,11 +68,4 @@ def test_memory_refresh_syncs_without_generating_suggestions(monkeypatch):
     result = manager._task_update_memories()
 
     assert result["success"] is True
-    assert {"connections_synced": 3} in result["steps"]
-
-
-def test_system_suggestions_compatibility_endpoint_returns_canonical_edges(monkeypatch):
-    expected = [{"source": "a", "target": "b", "kind": "suggestion"}]
-    monkeypatch.setattr(llm_wiki_suggestions, "list_graph_edges", lambda: expected)
-
-    assert asyncio.run(system_routes.get_suggestions()) == expected
+    assert {"connections_pending": 3} in result["steps"]

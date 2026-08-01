@@ -1328,7 +1328,7 @@ def _resolve_view_and_candidates(view_id: str, host_page_id: Optional[str]):
     try:
         _vf_inject_for_table(
             table_obj, pages,
-            get_p("DATABASES") / "vault_graph.json", _vf_page_loader,
+            _vf_page_loader,
         )
     except Exception as e:
         log.debug(f"virtual fields injection (view {vid}) failed: {e}")
@@ -4002,7 +4002,7 @@ async def list_pages_by_table(table_id: str, include_templates: bool = Query(Tru
     table_obj = _table_by_id(table_id)
     await asyncio.to_thread(
         _vf_inject_for_table, table_obj, filtered,
-        get_p("DATABASES") / "vault_graph.json", _vf_page_loader,
+        _vf_page_loader,
     )
     if table_obj:
         for p in filtered:
@@ -4028,7 +4028,7 @@ async def list_pages_by_table_snapshot(table_id: str):
     table_obj = _table_by_id(table_id)
     await asyncio.to_thread(
         _vf_inject_for_table, table_obj, visible_pages,
-        get_p("DATABASES") / "vault_graph.json", _vf_page_loader,
+        _vf_page_loader,
     )
     if table_obj:
         for p in visible_pages:
@@ -5714,7 +5714,6 @@ async def get_page(page_id: str):
             _table_obj,
             str(metadata.get("id") or page_id),
             metadata,
-            get_p("DATABASES") / "vault_graph.json",
             _vf_page_loader,
         )
         # Backward compatibility: the old frontend reads metadata by name of
@@ -19231,7 +19230,7 @@ async def _drupal_row_text_fields(page_id, *, mapping, props_by_ref, field_meta,
     if _vf_table:
         await asyncio.to_thread(
             _vf_inject_for_single_page, _vf_table, str(meta.get("id") or page_id),
-            meta, get_p("DATABASES") / "vault_graph.json", _vf_page_loader,
+            meta, _vf_page_loader,
         )
     fields, _, _ = await _drupal_build_fields(
         mapping=mapping, props_by_ref=props_by_ref, field_meta=field_meta,
@@ -19275,7 +19274,7 @@ async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks
     # Injects derived fields (e.g. «Progress») before building the Drupal fields.
     await asyncio.to_thread(
         _vf_inject_for_single_page, table, str(metadata.get("id") or item_id),
-        metadata, get_p("DATABASES") / "vault_graph.json", _vf_page_loader,
+        metadata, _vf_page_loader,
     )
     # action_rules safeguard («a draft cannot be synced»): the
     # backend always revalidates what the frontend already shows as a disabled button.

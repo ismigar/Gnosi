@@ -15,7 +15,6 @@ contradictions, and gaps.
 
 - **Config**: `<vault>/.gnosi/llm_wiki.json` and the managed Brain agent.
 - **Source of truth**: `<vault>/.gnosi/llm_wiki_suggestions.json`.
-- **Portable graph mirror**: `<vault>/suggestions.json`.
 - **CLI**: `python3 -c "from backend.services.llm_wiki_actions import run_maintenance; print(run_maintenance(semantic=True))"`
 - **Runtime**: the `suggest_connections` scheduler invokes the same service.
 
@@ -25,7 +24,7 @@ contradictions, and gaps.
 
 - Proposals may be inspected, opened, or dismissed.
 - The automation never creates or edits a permanent note.
-- Dismissal updates the canonical queue and graph mirror atomically.
+- Dismissal updates the canonical queue and invalidates the graph response.
 - Only existing Brain page IDs may become proposal members.
 
 ---
@@ -45,5 +44,5 @@ contradictions, and gaps.
 - Do not write a second generated graph under `BD/`; it diverges from the inbox.
 - Do not call the removed `suggest_connections_digital_brain` module.
 - Do not report a structured generator error as scheduler success.
-- Add proposal edges only after structural layout calculation, and invalidate
-  the graph response cache whenever the mirror changes.
+- Add proposal edges directly from the queue as a non-structural response
+  overlay, and invalidate the graph response cache whenever the queue changes.

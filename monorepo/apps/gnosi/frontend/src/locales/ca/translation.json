@@ -4084,7 +4084,6 @@
       "color_by": "Colora per",
       "color_kind": "Tipus",
       "color_cluster": "Clúster",
-      "color_ai_cluster": "Clústers d’IA",
       "pathfinding_title": "Cerca de camins",
       "pathfinding_stop": "Atura la cerca",
       "pathfinding_start": "Comença la cerca",
@@ -4142,8 +4141,7 @@
       "unresolved": "Enllaços sense resoldre",
       "semantic_similarity": "Connexions semàntiques",
       "node_groups": "Grups de nodes",
-      "clusters": "Clústers",
-      "ai_clusters": "Clústers d’IA"
+      "clusters": "Clústers"
     },
     "node_panel": {
       "close": "Tancar detalls",

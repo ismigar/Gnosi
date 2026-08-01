@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import Graph from 'graphology';
 import { applyFilters, getVisibleHoverNeighborhood } from './graphFilters';
 
-function buildScopedGraph() {
+function buildCrossTableGraph() {
     const graph = new Graph();
     graph.addNode('source', {
         kind: 'page',
@@ -14,37 +14,24 @@ function buildScopedGraph() {
         table_id: 'table-b',
         database_id: 'db',
     });
-    graph.addNode('placeholder', {
-        kind: 'unresolved',
-        table_id: 'table-a',
-        database_id: 'db',
-        metadata: {
-            unresolved: true,
-            scope_only: true,
-            resolved_target_id: 'target',
-        },
-    });
     graph.addEdge('source', 'target', { kind: 'link' });
-    graph.addEdge('source', 'placeholder', { kind: 'link', scope_only: true });
     return graph;
 }
 
-describe('graph unresolved scope filtering', () => {
-    it('shows the placeholder when its real target is outside the visible table', () => {
-        const graph = buildScopedGraph();
+describe('cross-table graph filtering', () => {
+    it('does not invent a placeholder when the real target is outside the visible table', () => {
+        const graph = buildCrossTableGraph();
         const { visibleNodes, visibleEdges } = applyFilters(graph, {
             visibleTables: ['table-a'],
             sourcesInitialized: true,
         });
 
-        expect([...visibleNodes].sort()).toEqual(['placeholder', 'source']);
-        expect(visibleEdges.size).toBe(1);
-        const edge = [...visibleEdges][0];
-        expect(graph.hasExtremity(edge, 'placeholder')).toBe(true);
+        expect([...visibleNodes]).toEqual(['source']);
+        expect(visibleEdges.size).toBe(0);
     });
 
-    it('hides the placeholder when both source and real target are visible', () => {
-        const graph = buildScopedGraph();
+    it('shows the real edge when both endpoints are visible', () => {
+        const graph = buildCrossTableGraph();
         const { visibleNodes, visibleEdges } = applyFilters(graph, {
             visibleTables: ['table-a', 'table-b'],
             sourcesInitialized: true,
@@ -111,6 +98,16 @@ describe('visible graph topology', () => {
         const neighborhood = getVisibleHoverNeighborhood(graph, 'a');
 
         expect([...neighborhood.nodes]).toEqual(['a']);
+        expect(neighborhood.edges.size).toBe(0);
+    });
+
+    it('does not highlight any edge when hovering an isolated node', () => {
+        const graph = buildSimilarityGraph();
+        graph.addNode('isolated', { kind: 'page' });
+
+        const neighborhood = getVisibleHoverNeighborhood(graph, 'isolated');
+
+        expect([...neighborhood.nodes]).toEqual(['isolated']);
         expect(neighborhood.edges.size).toBe(0);
     });
 });

@@ -48,7 +48,6 @@ function GraphPage() {
     const [activeProjects] = useState(new Set());
     const [colorMode, setColorMode] = useState('kind');
     const hasClusterData = useMemo(() => (graphData?.nodes || []).some((node) => node.cluster), [graphData]);
-    const hasAiClusterData = useMemo(() => (graphData?.nodes || []).some((node) => node.ai_cluster), [graphData]);
 
     // Visibility & Configuration (from config.graph)
     const [visibleDatabases, setVisibleDatabases] = useState([]);
@@ -179,12 +178,11 @@ function GraphPage() {
             event.preventDefault();
             const modes = ['kind'];
             if (hasClusterData) modes.push('cluster');
-            if (hasAiClusterData) modes.push('ai_cluster');
             setColorMode((currentMode) => modes[(modes.indexOf(currentMode) + 1) % modes.length]);
         };
         window.addEventListener('keydown', handleColorShortcut);
         return () => window.removeEventListener('keydown', handleColorShortcut);
-    }, [hasClusterData, hasAiClusterData]);
+    }, [hasClusterData]);
 
     const [minDate, setMinDate] = useState(null);
     const [maxDate, setMaxDate] = useState(null);
@@ -591,7 +589,6 @@ function GraphPage() {
                     colorMode={colorMode}
                     onColorModeChange={setColorMode}
                     hasClusterData={hasClusterData}
-                    hasAiClusterData={hasAiClusterData}
                     isPathfindingMode={isPathfindingMode}
                     onPathfindingModeChange={setIsPathfindingMode}
                     pathSource={pathSource}

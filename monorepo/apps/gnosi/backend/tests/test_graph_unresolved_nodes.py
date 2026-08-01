@@ -1,4 +1,4 @@
-"""Graph placeholders must match the unresolved nodes shown by Obsidian."""
+"""Only genuinely missing wikilink targets become graph placeholders."""
 
 import networkx as nx
 
@@ -16,8 +16,8 @@ def _page(graph, node_id, label, table_id):
     )
 
 
-def test_missing_wikilink_creates_scoped_unresolved_node():
-    graph = nx.Graph()
+def test_missing_wikilink_creates_global_unresolved_node():
+    graph = nx.DiGraph()
     _page(graph, "source", "Source", "table-a")
     service = GraphService()
     service.registry = {"tables": []}
@@ -38,14 +38,13 @@ def test_missing_wikilink_creates_scoped_unresolved_node():
     assert len(unresolved) == 1
     node_id = unresolved[0]
     assert graph.nodes[node_id]["label"] == "Missing note"
-    assert graph.nodes[node_id]["table_id"] == "table-a"
-    assert graph.nodes[node_id]["metadata"]["resolved_target_id"] is None
+    assert graph.nodes[node_id]["metadata"] == {"unresolved": True}
     assert graph.edges["source", node_id]["kind"] == "link"
     assert graph.edges["source", node_id]["unresolved"] is True
 
 
-def test_cross_table_wikilink_keeps_real_edge_and_adds_scoped_placeholder():
-    graph = nx.Graph()
+def test_cross_table_wikilink_uses_the_real_target_without_a_placeholder():
+    graph = nx.DiGraph()
     _page(graph, "source", "Source", "table-a")
     _page(graph, "target", "Target", "table-b")
     service = GraphService()
@@ -65,15 +64,11 @@ def test_cross_table_wikilink_keeps_real_edge_and_adds_scoped_placeholder():
         node for node, attrs in graph.nodes(data=True)
         if attrs.get("kind") == "unresolved"
     ]
-    assert len(unresolved) == 1
-    placeholder = unresolved[0]
-    assert graph.nodes[placeholder]["metadata"]["resolved_target_id"] == "target"
-    assert graph.nodes[placeholder]["metadata"]["scope_only"] is True
-    assert graph.edges["source", placeholder]["scope_only"] is True
+    assert unresolved == []
 
 
-def test_internal_page_id_is_unresolved_without_matching_filename():
-    graph = nx.Graph()
+def test_internal_page_id_resolves_independently_of_the_filename():
+    graph = nx.DiGraph()
     _page(graph, "source", "Source", "table-a")
     graph.add_node(
         "target-id",
@@ -99,13 +94,12 @@ def test_internal_page_id_is_unresolved_without_matching_filename():
         node for node, attrs in graph.nodes(data=True)
         if attrs.get("kind") == "unresolved"
     ]
-    assert len(unresolved) == 1
-    assert graph.has_edge("source", unresolved[0])
-    assert not graph.has_edge("source", "target-id")
+    assert unresolved == []
+    assert graph.has_edge("source", "target-id")
 
 
 def test_internal_page_id_resolves_when_filename_matches():
-    graph = nx.Graph()
+    graph = nx.DiGraph()
     _page(graph, "source", "Source", "table-a")
     graph.add_node(
         "target-id",
