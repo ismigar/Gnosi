@@ -45,8 +45,10 @@ is not an intermediate persisted artifact.
 - Filtering a table is a view over the same vault, not a separate Obsidian
   vault. Do not manufacture scoped unresolved nodes for resolved targets that
   happen to be outside the current filter.
-- Semantic suggestions are a scored overlay. They do not affect structural
-  degree, pathfinding, isolation, or layout.
+- Semantic suggestions are an unscored review overlay backed by the canonical
+  pending Brain queue. They do not affect structural degree, pathfinding,
+  isolation, or layout. Do not fabricate a confidence percentage: expose a
+  numeric score only when it comes from a measured, documented source.
 - Graph metrics exclude semantic suggestions and unresolved placeholders.
 
 ## Layout and interaction

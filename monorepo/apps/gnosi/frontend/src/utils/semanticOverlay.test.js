@@ -1,23 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import {
     getSemanticOverlaySegments,
-    getVisibleSimilarityEdges,
+    getVisibleSemanticEdges,
     hasSemanticSuggestions,
-} from './similarityOverlay';
+} from './semanticOverlay';
 
-describe('getVisibleSimilarityEdges', () => {
+describe('semantic proposal overlay', () => {
     const edges = [
-        { source: 'a', target: 'b', kind: 'suggestion', similarity: 88 },
-        { source: 'a', target: 'c', kind: 'suggestion', similarity: 0.76 },
-        { source: 'a', target: 'b', kind: 'link', similarity: 99 },
+        { source: 'a', target: 'b', kind: 'suggestion', reason: 'Shared concern' },
+        { source: 'a', target: 'c', kind: 'suggestion', reason: 'Related evidence' },
+        { source: 'a', target: 'b', kind: 'link' },
     ];
 
-    it('only returns visible semantic suggestions above the selected threshold', () => {
-        expect(getVisibleSimilarityEdges(edges, new Set(['a', 'b']), 80)).toEqual([edges[0]]);
-    });
-
-    it('keeps the semantic layer hidden at 100%', () => {
-        expect(getVisibleSimilarityEdges(edges, new Set(['a', 'b', 'c']), 100)).toEqual([]);
+    it('only returns enabled proposals between visible structural nodes', () => {
+        expect(getVisibleSemanticEdges(edges, new Set(['a', 'b']), true)).toEqual([edges[0]]);
+        expect(getVisibleSemanticEdges(edges, new Set(['a', 'b', 'c']), false)).toEqual([]);
     });
 
     it('reports whether the transport contains a semantic proposal layer', () => {

@@ -927,7 +927,6 @@ def test_connection_queue_is_the_canonical_graph_overlay(monkeypatch, tmp_path: 
         "source": "a",
         "target": "b",
         "kind": "suggestion",
-        "similarity": 90,
         "reason": "Shared concern",
         "suggestion_id": "proposal-1",
     }]
