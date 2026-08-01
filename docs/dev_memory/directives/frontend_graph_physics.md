@@ -161,8 +161,8 @@ color; reserve saturated edges for hover, pathfinding, and suggestions.
 ## Filter panel defaults
 
 The dynamic field-value filter can contain many values and must start
-collapsed. Keep the table selector expanded, but do not pass `defaultOpen` to
-the field filter's `CollapsibleSection`; its component default is collapsed.
+collapsed. Keep the table selector collapsed too; do not pass `defaultOpen` to
+either filter's `CollapsibleSection` because its component default is collapsed.
 
 ## Validation
 
@@ -193,11 +193,16 @@ shortcuts with Cmd/Ctrl+Shift+P for the panel and Cmd/Ctrl+Shift+G for the
 graph; Cmd/Ctrl+Shift+C cycles the available color modes.
 
 Graph responses can be served from cache too quickly for a loading state to be
-perceived. Keep the loading overlay visible briefly and expose real progress
-stages with a determinate bar. Keep this state visually minimal: one small,
-generic loading label and the progress bar, without decorative imagery or a
-second status slogan. Do not retain a global refresh button that only duplicates
-GET `/api/graph` and reloads the complete page.
+perceived. Keep the loading overlay visible for at least 900 milliseconds and
+expose real progress stages with a determinate, accessible bar. The lazy route
+fallback, authentication bootstrap, and graph data loader must reuse the same
+visual component. The bootstrap and route phases are indeterminate because they
+expose no percentage; the data phase becomes determinate. Give the track and
+fill explicit global theme colors so the first render does not depend on a
+graph-scoped CSS alias. Keep this state visually minimal: one small, generic
+loading label and the progress bar, without decorative imagery or a second
+status slogan. Do not retain a global refresh button that only duplicates GET
+`/api/graph` and reloads the complete page.
 
 Keep the table filter collapsed when the graph opens. The active-filter badge
 already communicates its state, while the collapsed default preserves vertical
