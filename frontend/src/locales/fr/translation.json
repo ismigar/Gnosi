@@ -4035,7 +4035,8 @@
     "page_title": "Graphe de connaissances",
     "loading": {
       "title": "Chargement du Cerveau Digital...",
-      "subtitle": "Connexion des neurones..."
+      "subtitle": "Connexion des neurones...",
+      "progress": "Progression du chargement du graphe"
     },
     "sync": {
       "updating": "Mise à jour du graphe...",
@@ -4127,6 +4128,10 @@
       "zoom_in": "Zoom avant",
       "zoom_out": "Zoom arrière",
       "legend": "Légende du graphe"
+    },
+    "keyboard": {
+      "sidebar_focus": "Filtres du graphe",
+      "graph_focus": "Zone du graphe"
     },
     "legend": {
       "nodes": "Nœuds",
