@@ -42,6 +42,32 @@ def test_sandbox_runs_and_logs(tmp_path):
     assert any("rebut" in l["message"] for l in res["logs"])
 
 
+def test_sandbox_returns_bounded_tool_result(tmp_path):
+    code = """
+    export default { async onEvent(event) {
+      return { action: event.name, value: event.payload.arguments.value };
+    } };
+    """
+    manifest = _install_backend_plugin(
+        tmp_path,
+        "tool-result",
+        code,
+        [],
+        [],
+    )
+
+    res = sb.run_event(
+        tmp_path,
+        manifest,
+        [],
+        "agent.tool.echo",
+        {"arguments": {"value": "ok"}},
+    )
+
+    assert res["ok"] is True
+    assert res["result"] == {"action": "agent.tool.echo", "value": "ok"}
+
+
 def test_sandbox_permission_granted_calls_host(tmp_path):
     called = {}
 

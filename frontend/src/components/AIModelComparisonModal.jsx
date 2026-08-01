@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
     ArrowDown, ArrowLeftRight, ArrowUp, ArrowUpDown, CheckCircle2,
-    Cloud, Loader2, RefreshCw, Search,
+    ChevronDown, Cloud, Loader2, RefreshCw, Search,
     Server, X,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -13,6 +13,7 @@ import {
 import './AIModelComparisonModal.css';
 
 const PROFILE_KEYS = ['worker', 'administrative', 'documentalist', 'allrounder', 'expert', 'unrated'];
+const MODE_KEYS = ['text', 'image', 'audio', 'video'];
 const PROFILE_ICONS = {
     worker: '🟢',
     administrative: '🔵',
@@ -42,6 +43,8 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
     const [query, setQuery] = useState('');
     const [profile, setProfile] = useState('all');
     const [availability, setAvailability] = useState('all');
+    const [modes, setModes] = useState([]);
+    const [modesMenuOpen, setModesMenuOpen] = useState(false);
     const [showProfileHelp, setShowProfileHelp] = useState(false);
     const [maxPrice, setMaxPrice] = useState('');
     const [minContext, setMinContext] = useState('');
@@ -199,6 +202,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
             .filter((model) => (
                 (!normalizedQuery || `${model.name} ${model.creator}`.toLocaleLowerCase().includes(normalizedQuery))
                 && (profile === 'all' || model.profile === profile)
+                && (!modes.length || modes.some((mode) => (model.modes || ['text']).includes(mode)))
                 && (
                     availability === 'all'
                     || matchingRegistryIndexes(registry.models, model)
@@ -218,7 +222,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                     : first - second;
                 return sort.direction === 'asc' ? comparison : -comparison;
             });
-    }, [availability, feed, maxPrice, minContext, profile, query, registry.models, sort]);
+    }, [availability, feed, maxPrice, minContext, modes, profile, query, registry.models, sort]);
 
     if (!isOpen) return null;
 
@@ -255,6 +259,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
     const columns = [
         ['name', 'model'],
         ['creator', 'creator'],
+        ['modes', 'modes'],
         ...(metricAvailability.intelligence ? [['intelligence', 'intelligence']] : []),
         ...(metricAvailability.coding ? [['coding', 'coding']] : []),
         ...(metricAvailability.agentic ? [['agentic', 'agentic']] : []),
@@ -678,6 +683,36 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                                         <option value="inactive">{t('model_comparison.inactive')}</option>
                                     </select>
                                 </label>
+                                <div className="model-modes-filter">
+                                    <span>{t('model_comparison.modes')}</span>
+                                    <button
+                                        type="button"
+                                        aria-expanded={modesMenuOpen}
+                                        aria-haspopup="menu"
+                                        onClick={() => setModesMenuOpen((current) => !current)}
+                                    >
+                                        <span>{modes.length
+                                            ? modes.map((mode) => t(`model_comparison.modes_list.${mode}`)).join(', ')
+                                            : t('model_comparison.all_modes')}</span>
+                                        <ChevronDown size={16} />
+                                    </button>
+                                    {modesMenuOpen && <div className="model-modes-menu" role="menu">
+                                        {MODE_KEYS.map((mode) => (
+                                            <label key={mode}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={modes.includes(mode)}
+                                                    onChange={() => setModes((current) => (
+                                                        current.includes(mode)
+                                                            ? current.filter((item) => item !== mode)
+                                                            : [...current, mode]
+                                                    ))}
+                                                />
+                                                {t(`model_comparison.modes_list.${mode}`)}
+                                            </label>
+                                        ))}
+                                    </div>}
+                                </div>
                                 <label>
                                     <span>{t('model_comparison.max_price')}</span>
                                     <input type="number" min="0" step="0.01" value={maxPrice} onChange={(event) => setMaxPrice(event.target.value)} placeholder="1.00" />
@@ -735,6 +770,13 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                                                     <tr>
                                                         <td className="model-comparison-sticky-start"><strong>{model.name}</strong><small>{model.release_date || '—'}</small></td>
                                                         <td>{model.creator || '—'}</td>
+                                                        <td>
+                                                            <div className="model-mode-list">
+                                                                {(model.modes || ['text']).map((mode) => (
+                                                                    <span key={mode}>{t(`model_comparison.modes_list.${mode}`)}</span>
+                                                                ))}
+                                                            </div>
+                                                        </td>
                                                         {metricAvailability.intelligence && <td>{formatMetric(model.intelligence)}</td>}
                                                         {metricAvailability.coding && <td>{formatMetric(model.coding)}</td>}
                                                         {metricAvailability.agentic && <td>{formatMetric(model.agentic)}</td>}

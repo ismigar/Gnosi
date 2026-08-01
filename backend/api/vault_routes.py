@@ -42,6 +42,7 @@ except Exception:
     Image = None
 from backend.config.app_config import load_params
 from backend.config.env_config import default_host_helper_url
+from backend.services.content_revision import path_collection_revision
 from backend.services.rule_engine import RuleEngine
 log = logging.getLogger(__name__)
 
@@ -2086,6 +2087,103 @@ def _table_assets_dir(
     return get_p("ASSETS") / db_segment / table_segment
 
 
+def _table_asset_paths(
+    table: Dict[str, Any],
+    database: Optional[Dict[str, Any]],
+) -> List[Path]:
+    """Return every active asset tree removed with one table."""
+    structured_path = _table_assets_dir(table, database)
+    paths = [structured_path]
+    table_name = str((table or {}).get("name") or "").strip()
+    if table_name:
+        table_segment = _sanitize_asset_segment(table_name, "Table")
+        database_segment = _sanitize_asset_segment(
+            (database or {}).get("name")
+            or (table or {}).get("database_id")
+            or "General",
+            "General",
+        )
+        flat_path = get_p("ASSETS") / table_segment
+        if _asset_segments_collide(table_segment, database_segment):
+            # The flat folder is also the database root. Only loose entries
+            # belong to this table; nested directories may belong to siblings.
+            if flat_path.is_dir() and not flat_path.is_symlink():
+                paths.extend(
+                    entry
+                    for entry in flat_path.iterdir()
+                    if not entry.is_dir() or entry.is_symlink()
+                )
+        else:
+            paths.append(flat_path)
+    unique: List[Path] = []
+    seen = set()
+    assets_root = get_p("ASSETS").resolve()
+    for candidate in paths:
+        # Resolve parents to reject traversal through a symlink, but preserve
+        # the final component itself so a table-owned symlink is hashed and
+        # quarantined instead of following or silently ignoring its target.
+        resolved = candidate.parent.resolve() / candidate.name
+        try:
+            resolved.relative_to(assets_root)
+        except ValueError:
+            log.warning("Unsafe table asset path ignored: %s", candidate)
+            continue
+        key = str(resolved)
+        if key not in seen:
+            seen.add(key)
+            unique.append(resolved)
+    # If a flat and structured path overlap, deleting the parent already
+    # covers the child. Keeping both would hash the child twice and make the
+    # quarantine revision differ after the first atomic move.
+    minimal: List[Path] = []
+    for candidate in sorted(unique, key=lambda path: len(path.parts)):
+        if any(
+            candidate == parent or parent in candidate.parents
+            for parent in minimal
+        ):
+            continue
+        minimal.append(candidate)
+    return minimal
+
+
+def _table_asset_revision(
+    table: Dict[str, Any],
+    database: Optional[Dict[str, Any]],
+) -> str:
+    assets_root = get_p("ASSETS").resolve()
+    return path_collection_revision(
+        (
+            path.relative_to(assets_root).as_posix(),
+            path,
+        )
+        for path in _table_asset_paths(table, database)
+    )
+
+
+def _stable_value_revision(value: Any) -> str:
+    return hashlib.sha256(
+        json.dumps(
+            value,
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+            default=str,
+        ).encode("utf-8")
+    ).hexdigest()
+
+
+def _table_views_revision(registry: Dict[str, Any], table_id: str) -> str:
+    views = sorted(
+        (
+            view
+            for view in registry.get("views", [])
+            if str(view.get("table_id") or "") == str(table_id)
+        ),
+        key=lambda view: str(view.get("id") or ""),
+    )
+    return _stable_value_revision(views)
+
+
 def _delete_asset_files_for_page(
     page_metadata: dict, table: Dict[str, Any], registry: dict
 ):
@@ -2162,26 +2260,276 @@ def _delete_asset_table_dir(table: Dict[str, Any], database: Optional[Dict[str, 
     consistent with the existing rmtree behaviour. The caller (delete_table
     handler) is the only entry point and it requires admin role.
     """
-    # 1) Structured Assets/[DB]/[Table]/
-    table_dir = _table_assets_dir(table, database)
-    if table_dir.is_dir():
+    for table_dir in _table_asset_paths(table, database):
+        if not table_dir.exists() and not table_dir.is_symlink():
+            continue
         try:
-            shutil.rmtree(table_dir)
-            log.info(f"Table folder deleted: {table_dir}")
+            if table_dir.is_dir() and not table_dir.is_symlink():
+                shutil.rmtree(table_dir)
+            else:
+                table_dir.unlink()
+            log.info("Table asset entry deleted: %s", table_dir)
         except Exception as exc:
-            log.warning(f"Could not delete folder {table_dir}: {exc}")
+            log.warning("Could not delete table asset entry %s: %s", table_dir, exc)
 
-    # 2) Flat Assets/<TableName>/
-    table_name = str((table or {}).get("name") or "").strip()
-    if table_name:
+
+def _table_asset_cleanup_root(vault_root: Path) -> Path:
+    root = Path(vault_root).resolve()
+    cleanup_root = (
+        root / ".gnosi" / "pending-cleanup" / "table-assets"
+    ).resolve()
+    try:
+        cleanup_root.relative_to(root)
+    except ValueError as error:
+        raise RuntimeError(
+            "The table asset cleanup path escapes the active Vault."
+        ) from error
+    return cleanup_root
+
+
+def _quarantine_table_asset_dirs(
+    table: Dict[str, Any],
+    database: Optional[Dict[str, Any]],
+) -> tuple[Optional[Path], List[tuple[Path, Path]]]:
+    """Atomically detach active asset trees before asynchronous deletion."""
+    sources = [
+        path
+        for path in _table_asset_paths(table, database)
+        if path.exists() or path.is_symlink()
+    ]
+    if not sources:
+        return None, []
+    vault_root = get_p("VAULT").resolve()
+    quarantine = (
+        _table_asset_cleanup_root(vault_root)
+        / f"in-progress-{uuid.uuid4().hex}"
+    )
+    quarantine.mkdir(parents=True, exist_ok=False)
+    destinations = [
+        f"{index:02d}-{source.name}"
+        for index, source in enumerate(sources)
+    ]
+    moved: List[tuple[Path, Path]] = []
+    try:
+        safe_write_json(
+            quarantine / "_manifest.json",
+            {
+                "table_id": str((table or {}).get("id") or ""),
+                "entries": [
+                    {
+                        "source": source.relative_to(vault_root).as_posix(),
+                        "destination": destination,
+                    }
+                    for source, destination in zip(sources, destinations)
+                ],
+            },
+            indent=2,
+        )
+        for source, destination_name in zip(sources, destinations):
+            destination = quarantine / destination_name
+            os.replace(source, destination)
+            moved.append((source, destination))
+    except Exception:
+        for source, destination in reversed(moved):
+            source.parent.mkdir(parents=True, exist_ok=True)
+            os.replace(destination, source)
+        shutil.rmtree(quarantine, ignore_errors=True)
+        raise
+    return quarantine, moved
+
+
+def _mark_table_asset_quarantine_ready(quarantine: Path) -> Path:
+    """Make a committed quarantine eligible for asynchronous cleanup."""
+    source = Path(quarantine)
+    if not source.name.startswith("in-progress-"):
+        raise ValueError("The table asset quarantine is not in progress.")
+    destination = source.with_name(
+        f"ready-{source.name.removeprefix('in-progress-')}"
+    )
+    os.replace(source, destination)
+    return destination
+
+
+def _quarantined_table_asset_revision(
+    table: Dict[str, Any],
+    database: Optional[Dict[str, Any]],
+    moved: List[tuple[Path, Path]],
+) -> str:
+    """Hash the sealed trees using their original logical asset labels."""
+    assets_root = get_p("ASSETS").resolve()
+    destinations = {str(source): destination for source, destination in moved}
+    logical_paths = {
+        str(path): path
+        for path in (
+            [source for source, _destination in moved]
+            + _table_asset_paths(table, database)
+        )
+    }
+    return path_collection_revision(
+        (
+            source.relative_to(assets_root).as_posix(),
+            destinations.get(str(source), source),
+        )
+        for source in sorted(logical_paths.values(), key=lambda path: str(path))
+    )
+
+
+def _restore_quarantined_table_assets(
+    quarantine: Optional[Path],
+    moved: List[tuple[Path, Path]],
+) -> None:
+    for source, destination in reversed(moved):
+        if not destination.exists():
+            continue
+        source.parent.mkdir(parents=True, exist_ok=True)
+        os.replace(destination, source)
+    if quarantine:
+        shutil.rmtree(quarantine, ignore_errors=True)
+
+
+def _delete_table_asset_quarantine(
+    quarantine: Path,
+    vault_root: Path,
+) -> None:
+    """Purge one server-created quarantine after the response is sent."""
+    cleanup_root = _table_asset_cleanup_root(vault_root)
+    target = Path(quarantine).resolve()
+    try:
+        target.relative_to(cleanup_root)
+    except ValueError:
+        log.error("Refusing to purge an unsafe table cleanup path: %s", target)
+        return
+    if not target.name.startswith("ready-"):
+        log.error("Refusing to purge an uncommitted table quarantine: %s", target)
+        return
+    shutil.rmtree(target, ignore_errors=True)
+
+
+def _restore_abandoned_table_asset_quarantine(
+    quarantine: Path,
+    vault_root: Path,
+) -> bool:
+    """Restore a pre-commit quarantine from its path-contained manifest."""
+    manifest_path = quarantine / "_manifest.json"
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        log.error("Cannot recover table quarantine without a manifest: %s", quarantine)
+        return False
+
+    root = Path(vault_root).resolve()
+    planned: List[tuple[Path, Path]] = []
+    for entry in manifest.get("entries") or []:
         try:
-            flat_segment = _sanitize_asset_segment(table_name, "Table")
-            flat_dir = get_p("ASSETS") / flat_segment
-            if flat_dir.is_dir():
-                shutil.rmtree(flat_dir)
-                log.info(f"Flat assets folder deleted: {flat_dir}")
-        except Exception as exc:
-            log.warning(f"Could not delete flat assets folder for {table_name}: {exc}")
+            source = (root / str(entry["source"])).resolve()
+            source.relative_to(root)
+            destination = (quarantine / str(entry["destination"])).resolve()
+            if source == root or destination.parent != quarantine.resolve():
+                raise ValueError
+        except (KeyError, OSError, TypeError, ValueError):
+            log.error("Unsafe table quarantine manifest entry: %s", quarantine)
+            return False
+        if source.exists() and destination.exists():
+            log.error(
+                "Cannot restore table quarantine over an active path: %s",
+                source,
+            )
+            return False
+        planned.append((source, destination))
+
+    for source, destination in reversed(planned):
+        if not destination.exists():
+            continue
+        source.parent.mkdir(parents=True, exist_ok=True)
+        os.replace(destination, source)
+    shutil.rmtree(quarantine, ignore_errors=True)
+    return not quarantine.exists()
+
+
+def _cleanup_registry_table_ids(vault_root: Path) -> Optional[set[str]]:
+    """Read durable table IDs, returning ``None`` when commit state is unknown."""
+    root = Path(vault_root).resolve()
+    try:
+        registry_path = get_p("REGISTRY").resolve()
+        registry_path.relative_to(root)
+        registry = json.loads(registry_path.read_text(encoding="utf-8"))
+        tables = registry["tables"]
+        if not isinstance(tables, list):
+            raise TypeError
+    except (KeyError, OSError, TypeError, ValueError):
+        log.error(
+            "Cannot verify table deletion commit; leaving in-progress "
+            "quarantines untouched in %s",
+            root,
+        )
+        return None
+    return {
+        str(table.get("id") or "")
+        for table in tables
+        if isinstance(table, dict)
+    }
+
+
+def cleanup_pending_table_asset_quarantines(vault_root: Path) -> int:
+    """Restore uncommitted quarantines and purge committed quarantines."""
+    vault_root = Path(vault_root).resolve()
+    cleanup_root = _table_asset_cleanup_root(vault_root)
+    if not cleanup_root.exists():
+        return 0
+    handled = 0
+    from backend.services.context_vars import active_vault_path
+
+    token = active_vault_path.set(vault_root)
+    try:
+        with registry_mutation():
+            active_table_ids: Optional[set[str]] = None
+            for candidate in list(cleanup_root.iterdir()):
+                if not candidate.is_dir() or candidate.is_symlink():
+                    continue
+                if candidate.name.startswith("in-progress-"):
+                    manifest_path = candidate / "_manifest.json"
+                    try:
+                        manifest = json.loads(
+                            manifest_path.read_text(encoding="utf-8")
+                        )
+                        table_id = str(manifest.get("table_id") or "")
+                        if not table_id:
+                            raise ValueError
+                    except (OSError, ValueError, TypeError):
+                        log.error(
+                            "Leaving an unreadable table quarantine untouched: %s",
+                            candidate,
+                        )
+                        continue
+                    if active_table_ids is None:
+                        active_table_ids = _cleanup_registry_table_ids(
+                            vault_root
+                        )
+                    if active_table_ids is None:
+                        continue
+                    if table_id in active_table_ids:
+                        if _restore_abandoned_table_asset_quarantine(
+                            candidate,
+                            vault_root,
+                        ):
+                            handled += 1
+                        continue
+                    shutil.rmtree(candidate, ignore_errors=True)
+                    if not candidate.exists():
+                        handled += 1
+                    continue
+                if candidate.name.startswith("ready-"):
+                    shutil.rmtree(candidate, ignore_errors=True)
+                    if not candidate.exists():
+                        handled += 1
+                    continue
+                log.warning(
+                    "Leaving an unknown table quarantine entry untouched: %s",
+                    candidate,
+                )
+    finally:
+        active_vault_path.reset(token)
+    return handled
 
 
 def _asset_segments_collide(a: str, b: str) -> bool:
@@ -2738,6 +3086,32 @@ def _is_metadata_stub(metadata: Dict[str, Any]) -> bool:
     return keys.issubset(bare)
 
 
+def _humanize_relation_index_title(title: Any, metadata: Dict[str, Any]) -> str:
+    """Replace a relation-index UUID suffix with its wikilink display name."""
+    display_title = str(title or "").strip()
+    match = re.match(
+        r"^(?:Index|Índex)\s*[·:]\s*(?:Projecte|Project|Àrea|Area)\s*:\s*"
+        r"([0-9a-f]{8}-[0-9a-f-]{27,})$",
+        display_title,
+        re.IGNORECASE,
+    )
+    if not match:
+        return display_title
+
+    target_id = match.group(1)
+    for raw_value in (metadata or {}).values():
+        values = raw_value if isinstance(raw_value, list) else [raw_value]
+        for value in values:
+            relation_match = re.search(
+                r"\[\[([^]|]+)\|\s*" + re.escape(target_id) + r"\s*\]\]",
+                str(value or ""),
+                re.IGNORECASE,
+            )
+            if relation_match:
+                return f"{display_title.split(':', 1)[0]}: {relation_match.group(1).strip()}"
+    return display_title
+
+
 def _build_page_cache_entry(file_path: Path, stat_result) -> Dict[str, Any]:
     # body always defined: if the dashboard branch or the except discards body,
     # the return further down references it → NameError → caller empties the whole
@@ -2801,10 +3175,14 @@ def _build_page_cache_entry(file_path: Path, stat_result) -> Dict[str, Any]:
     if rel_folder == ".":
         rel_folder = ""
 
-    # Better title handling: metadata > filename stem > "Untitled"
+    # Better title handling: metadata > filename stem > "Untitled". Generated
+    # relation-index pages can have a filename such as ``Index · Projecte:
+    # <uuid>`` while their relation metadata still contains ``[[Name|uuid]]``;
+    # prefer that human title for table rows and page lists.
     title = metadata.get("title")
     if not title:
         title = file_path.stem
+    title = _humanize_relation_index_title(title, metadata)
 
     entry = {
         "path": str(file_path),
@@ -3511,12 +3889,13 @@ def _get_pages_for_table(table_id: str) -> List[PageInfo]:
     pages_by_id: Dict[str, PageInfo] = {}
     duplicate_ids: set = set()
     for entry in matching:
+        entry_metadata = entry.get("metadata") or {}
         page_info = PageInfo.model_construct(
             id=entry["id"],
-            title=entry["title"],
+            title=_humanize_relation_index_title(entry["title"], entry_metadata),
             parent_id=entry["parent_id"],
             is_database=entry["is_database"],
-            metadata=entry.get("metadata") or {},
+            metadata=entry_metadata,
             last_modified=datetime.fromtimestamp(entry["mtime"]).isoformat(),
             created_time=datetime.fromtimestamp(entry.get("created_mtime") or entry["mtime"]).isoformat(),
             size=entry["size"],
@@ -4511,6 +4890,16 @@ def _llm_wiki_enabled(state: dict) -> bool:
     return "llm-wiki" not in {str(item) for item in (state.get("disabled") or [])}
 
 
+def _reconcile_plugin_ai_contributions() -> dict:
+    """Refresh governed third-party skills, tools, and managed agents."""
+
+    from backend.services.plugin_ai_contributions import (
+        reconcile_plugin_ai_contributions,
+    )
+
+    return reconcile_plugin_ai_contributions()
+
+
 @router.put("/plugins", dependencies=[Depends(require_role("editor"))])
 async def set_plugins_state(request: PluginsUpdateRequest):
     """Persists which plugins are disabled and their per-plugin settings.
@@ -4529,7 +4918,9 @@ async def set_plugins_state(request: PluginsUpdateRequest):
             )
         current["disabled"] = [str(x) for x in (request.disabled or [])]
         current["settings"] = request.settings if isinstance(request.settings, dict) else {}
-        return _save_plugins_state(current)
+        saved = _save_plugins_state(current)
+        _reconcile_plugin_ai_contributions()
+        return saved
     async with _plugins_mutation_lock:
         return await asyncio.to_thread(_write)
 
@@ -4538,8 +4929,9 @@ async def set_plugins_state(request: PluginsUpdateRequest):
 async def set_llm_wiki_lifecycle(payload: LlmWikiLifecycleRequest, request: Request):
     """Enables/disables LLM Wiki together with its protected AI profile.
 
-    Disabling needs an explicit confirmation because it removes the associated
-    agent profile. The knowledge table and its notes are deliberately retained.
+    Disabling needs an explicit confirmation because it suspends the associated
+    agent and its skills. Profile overrides, the knowledge table, and notes are
+    deliberately retained so reactivation restores the exact state.
     """
     from backend.services.llm_wiki_agent import LlmWikiAgentError, transition_agent
 
@@ -4549,7 +4941,8 @@ async def set_llm_wiki_lifecycle(payload: LlmWikiLifecycleRequest, request: Requ
         was_enabled = "llm-wiki" not in disabled
         if not payload.enabled and was_enabled and not payload.confirm_disable:
             raise LlmWikiAgentError(
-                "Confirm disabling the LLM Wiki plugin because its agent will be removed."
+                "Confirm disabling the LLM Wiki plugin because its agent and skills "
+                "will be suspended."
             )
 
         agent_result = transition_agent(payload.enabled)
@@ -4643,6 +5036,7 @@ async def set_plugin_permissions(plugin_id: str, request: PluginPermissionsReque
         state = _load_plugins_state()
         new_state = ps.set_granted(state, plugin_id, clean)
         _save_plugins_state(new_state)
+        _reconcile_plugin_ai_contributions()
         return {"id": plugin_id, "granted": clean}
 
     try:
@@ -4655,6 +5049,40 @@ async def set_plugin_permissions(plugin_id: str, request: PluginPermissionsReque
 class PluginSettingsRequest(BaseModel):
     # Patch to merge with the plugin's own configuration (key `settings`).
     settings: dict = {}
+
+
+class VaultSummaryRequest(BaseModel):
+    """Payload accepted by the built-in vault summary plugin."""
+
+    content: str
+    language: str = "en"
+
+
+def _configured_summary_model() -> tuple[str, str]:
+    """Return the enabled model selected for the vault-summary plugin."""
+    state = _load_plugins_state()
+    settings = (state.get("settings") or {}).get("vault-summary") or {}
+    model_ref = str(settings.get("model") or "").strip()
+    provider, separator, model_id = model_ref.partition(":")
+    if not separator or not provider or not model_id:
+        raise HTTPException(
+            status_code=409,
+            detail="Configure an active model for the vault-summary plugin first.",
+        )
+
+    from backend.agent.model_router import load_registry
+
+    active_models = {
+        f"{row.get('provider')}:{row.get('model_id')}"
+        for row in load_registry()
+        if row.get("enabled", True)
+    }
+    if model_ref not in active_models:
+        raise HTTPException(
+            status_code=409,
+            detail="The configured vault-summary model is no longer active.",
+        )
+    return provider, model_id
 
 
 @router.get("/plugins/{plugin_id}/settings")
@@ -4679,6 +5107,56 @@ async def set_plugin_settings(plugin_id: str, request: PluginSettingsRequest):
         return {"settings": settings[plugin_id]}
     async with _plugins_mutation_lock:
         return await asyncio.to_thread(_work)
+
+
+@router.post(
+    "/plugins/vault-summary/summarize",
+    dependencies=[Depends(require_role("editor"))],
+)
+async def summarize_with_vault_plugin(request: VaultSummaryRequest):
+    """Create a concise summary using the explicitly configured active model."""
+    content = request.content.strip()
+    if not content:
+        raise HTTPException(status_code=422, detail="Content is required.")
+    if len(content) > 60_000:
+        raise HTTPException(status_code=422, detail="Content exceeds the 60,000 character limit.")
+
+    provider, model_id = await asyncio.to_thread(_configured_summary_model)
+
+    def _summarize() -> dict:
+        from backend.agent.factory import get_llm
+        from backend.agent.model_router import record_llm_usage, usage_from_message
+        from backend.security.ai_credentials import resolve_provider_api_key
+
+        ai_cfg = load_params(strict_env=False).get("ai", {}) or {}
+        provider_cfg = (ai_cfg.get("providers") or {}).get(provider, {}) or {}
+        llm = get_llm(
+            provider=provider,
+            model=model_id,
+            api_key=resolve_provider_api_key(provider, provider_cfg),
+            base_url=provider_cfg.get("base_url"),
+            timeout=60,
+        )
+        if not llm:
+            raise HTTPException(status_code=503, detail="The configured summary model is unavailable.")
+        prompt = (
+            "Summarize the following vault record in the requested language. "
+            "Return a concise, factual Markdown summary with a short heading and 3–5 bullets. "
+            "Do not invent facts.\n\n"
+            f"Language: {request.language}\n\nRecord:\n{content}"
+        )
+        from langchain_core.messages import HumanMessage
+
+        response = llm.invoke([HumanMessage(content=prompt)])
+        summary = getattr(response, "content", "") or ""
+        if not isinstance(summary, str):
+            summary = str(summary)
+        usage = usage_from_message(response)
+        if usage:
+            record_llm_usage(provider, model_id, usage[0], usage[1])
+        return {"summary": summary.strip(), "model": f"{provider}:{model_id}"}
+
+    return await asyncio.to_thread(_summarize)
 
 
 @router.get("/plugins/{plugin_id}/asset/{asset_path:path}")
@@ -4745,6 +5223,7 @@ async def install_plugin(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail=str(e))
     async with _plugins_mutation_lock:
         await asyncio.to_thread(_quarantine_installed_plugin, manifest["id"])
+        await asyncio.to_thread(_reconcile_plugin_ai_contributions)
     return {"installed": manifest}
 
 
@@ -4761,6 +5240,7 @@ async def uninstall_plugin(plugin_id: str):
         state["disabled"] = [d for d in (state.get("disabled") or []) if d != plugin_id]
         state = ps.set_granted(state, plugin_id, [])
         _save_plugins_state(state)
+        _reconcile_plugin_ai_contributions()
         return True
 
     try:
@@ -4834,6 +5314,7 @@ async def install_from_catalog(request: CatalogInstallRequest):
         raise HTTPException(status_code=400, detail=str(e))
     async with _plugins_mutation_lock:
         await asyncio.to_thread(_quarantine_installed_plugin, manifest["id"])
+        await asyncio.to_thread(_reconcile_plugin_ai_contributions)
     return {"installed": manifest}
 
 
@@ -6580,9 +7061,6 @@ _BRAIN_SCHEMA_DEFINITIONS: list[tuple[str, str, dict[str, str]]] = [
     ("idea_type", "select", {
         "ca": "Tipus d’idea", "en": "Idea type", "es": "Tipo de idea", "fr": "Type d’idée",
     }),
-    ("legacy_source", "relation", {
-        "ca": "Fonts", "en": "Sources", "es": "Fuentes", "fr": "Sources",
-    }),
     ("position", "number", {
         "ca": "Posició", "en": "Position", "es": "Posición", "fr": "Position",
     }),
@@ -6604,6 +7082,19 @@ _BRAIN_SCHEMA_DEFINITIONS: list[tuple[str, str, dict[str, str]]] = [
         "ca": "Etiquetes", "en": "Tags", "es": "Etiquetas", "fr": "Étiquettes",
     }),
 ]
+
+_BRAIN_SOURCE_NAMES = {
+    "ca": "Font",
+    "en": "Source",
+    "es": "Fuente",
+    "fr": "Source",
+}
+_BRAIN_SOURCE_SINGULAR_TOKENS = {"font", "source", "fuente"}
+_BRAIN_SOURCE_PLURAL_TOKENS = {"fonts", "sources", "fuentes"}
+BRAIN_SOURCE_CONTRACT_REVISION = 2
+_BRAIN_VIEW_DEF_RE = re.compile(
+    r"<!--\s*gnosi-view:def\s+(?P<payload>\{.*?\})\s*-->",
+)
 
 _BRAIN_ROLE_SPECS: dict = {
     "note_type": ({"tipusdenota", "notetype", "tipodenota", "typedenote"}, "select"),
@@ -6630,11 +7121,6 @@ def _brain_property(role: str, name: str, ptype: str, brain_table_id: str = "") 
             if brain_table_id:
                 prop["relation_database_id"] = brain_table_id
                 prop["cardinality"] = "many-to-many"
-        elif role == "legacy_source":
-            ref_id = get_reference_table_id()
-            if ref_id:
-                prop["relation_database_id"] = ref_id
-                prop["cardinality"] = "many-to-one"
     return prop
 
 
@@ -6679,8 +7165,12 @@ def _ensure_default_db_group() -> None:
         log.info("🧠 Created the `gnosi_vault_db` database group in the sidebar registry")
 
 
-def ensure_brain_table_schema(table_id: str, locale: str = "en") -> int:
-    """Add missing localized Brain fields idempotently."""
+def ensure_brain_table_schema(
+    table_id: str,
+    locale: str = "en",
+    property_id_hints: Optional[dict[str, str]] = None,
+) -> int:
+    """Add missing Brain fields and stable property ids idempotently."""
     if not table_id:
         return 0
     added = 0
@@ -6705,19 +7195,29 @@ def ensure_brain_table_schema(table_id: str, locale: str = "en") -> int:
                 existing.add(_brain_schema_token(name))
                 added += 1
         repaired = 0
-        ref_id = get_reference_table_id()
+        used_ids = {
+            str(prop.get("id") or "")
+            for prop in props
+            if str(prop.get("id") or "")
+        }
+        hints = property_id_hints or {}
+        for prop in props:
+            if prop.get("id"):
+                continue
+            token = _brain_schema_token(prop.get("name"))
+            hinted_id = str(hints.get(token) or "")
+            prop["id"] = (
+                hinted_id
+                if hinted_id and hinted_id not in used_ids
+                else str(uuid.uuid4())
+            )
+            used_ids.add(str(prop["id"]))
+            repaired += 1
         for prop in props:
             if prop.get("type") != "relation":
                 continue
             property_token = _brain_schema_token(prop.get("name"))
-            if property_token in _brain_role_tokens("legacy_source"):
-                if prop.get("cardinality") != "many-to-one":
-                    prop["cardinality"] = "many-to-one"
-                    repaired += 1
-                if ref_id and not prop.get("relation_database_id"):
-                    prop["relation_database_id"] = ref_id
-                    repaired += 1
-            elif property_token in _brain_role_tokens("based_on"):
+            if property_token in _brain_role_tokens("based_on"):
                 if not prop.get("relation_database_id"):
                     prop["relation_database_id"] = table_id
                     repaired += 1
@@ -6727,7 +7227,7 @@ def ensure_brain_table_schema(table_id: str, locale: str = "en") -> int:
         if added or repaired:
             save_registry(reg)
             log.info(
-                "LLM Wiki Brain schema updated: %d fields added and %d relations repaired in %s",
+                "LLM Wiki Brain schema updated: %d fields added and %d properties repaired in %s",
                 added,
                 repaired,
                 table_id,
@@ -6768,13 +7268,276 @@ def _infer_brain_roles(table: Optional[dict]) -> dict:
     return roles
 
 
-def ensure_brain_source_relation(brain_table_id: str, source_table_id: str) -> str:
-    """Return a Brain relation property targeting one source table.
+def _dimension_name_key(value: object) -> str:
+    token = _brain_schema_token(value)
+    return {
+        "area": "area",
+        "areas": "area",
+        "arees": "area",
+        "domaine": "area",
+        "domaines": "area",
+    }.get(token, token)
 
-    Existing compatible relations are reused. No relation is ever retargeted.
+
+def _brain_property_id_hints(cfg: dict, brain_table: Optional[dict]) -> dict[str, str]:
+    """Recover legacy property ids from persisted role and dimension mappings."""
+    hints: dict[str, str] = {}
+    for role, property_id in (cfg.get("brain_roles") or {}).items():
+        stable_id = str(property_id or "")
+        if not stable_id:
+            continue
+        for token in _brain_role_tokens(str(role)):
+            hints[token] = stable_id
+
+    brain_properties = [
+        prop
+        for prop in (brain_table or {}).get("properties") or []
+        if isinstance(prop, dict)
+    ]
+    for field_id in cfg.get("index_field_ids") or []:
+        stable_id = str(field_id or "")
+        source_keys: set[str] = set()
+        for source in cfg.get("source_tables") or []:
+            mapping = (source.get("dimension_mappings") or {}).get(stable_id) or {}
+            source_property_id = str(mapping.get("source_property_id") or "")
+            source_table = _table_by_id(str(source.get("table_id") or "")) or {}
+            source_property = next(
+                (
+                    prop
+                    for prop in source_table.get("properties") or []
+                    if str(prop.get("id") or "") == source_property_id
+                ),
+                None,
+            )
+            if source_property:
+                source_keys.add(_dimension_name_key(source_property.get("name")))
+        candidates = [
+            prop
+            for prop in brain_properties
+            if _dimension_name_key(prop.get("name")) in source_keys
+        ]
+        if len(candidates) == 1:
+            hints[_brain_schema_token(candidates[0].get("name"))] = stable_id
+    return hints
+
+
+def _brain_source_name(locale: str) -> str:
+    language = str(locale or "en").split("-", 1)[0].lower()
+    return _BRAIN_SOURCE_NAMES.get(language, _BRAIN_SOURCE_NAMES["en"])
+
+
+def _relation_values(value: object) -> list[object]:
+    if value in (None, "", [], {}):
+        return []
+    return list(value) if isinstance(value, list) else [value]
+
+
+def _relation_value_key(value: object) -> str:
+    text = str(value or "").strip()
+    match = RELATION_WIKILINK_RE.match(text)
+    return str(match.group("rid") if match else text)
+
+
+def _merge_relation_values(*values: object) -> list[object]:
+    merged: list[object] = []
+    seen: set[str] = set()
+    for value in values:
+        for item in _relation_values(value):
+            key = _relation_value_key(item)
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            merged.append(item)
+    return merged
+
+
+def _migrate_brain_source_metadata(
+    brain_table_id: str,
+    canonical_name: str,
+    legacy_names: set[str],
+) -> int:
+    """Move duplicate source values to the canonical Brain relation."""
+    if not legacy_names:
+        return 0
+    migrated = 0
+    for page in _get_pages_for_table(brain_table_id) or []:
+        path_value = getattr(page, "path", None)
+        path = Path(path_value) if path_value else None
+        if not path or not path.exists():
+            continue
+        try:
+            metadata, body = parse_frontmatter(path.read_text(encoding="utf-8"), path)
+            present = [name for name in legacy_names if name in metadata]
+            if not present:
+                continue
+            metadata[canonical_name] = _merge_relation_values(
+                metadata.get(canonical_name),
+                *(metadata.get(name) for name in present),
+            )
+            for name in present:
+                metadata.pop(name, None)
+            save_page_md(path, metadata, body)
+            register_page_in_index(path)
+            migrated += 1
+        except Exception as error:
+            log.warning("Could not migrate a Brain source relation in %s: %s", path, error)
+    return migrated
+
+
+def _source_filter_rule(canonical_name: str) -> dict:
+    return {"field": canonical_name, "value": "this"}
+
+
+def _is_source_filter(rule: object, source_names: set[str]) -> bool:
+    return (
+        isinstance(rule, dict)
+        and _brain_schema_token(rule.get("field")) in {
+            _brain_schema_token(name) for name in source_names
+        }
+    )
+
+
+def _strip_source_filter_nodes(node: object, source_names: set[str]) -> object:
+    if not isinstance(node, dict):
+        return node
+    rules = node.get("rules")
+    if not isinstance(rules, list):
+        return None if _is_source_filter(node, source_names) else dict(node)
+    kept = [
+        child
+        for rule in rules
+        if (child := _strip_source_filter_nodes(rule, source_names)) is not None
+    ]
+    if not kept:
+        return None
+    if len(kept) == 1:
+        return kept[0]
+    result = dict(node)
+    result["rules"] = kept
+    return result
+
+
+def _normalize_brain_source_view(
+    view: dict,
+    canonical_name: str,
+    source_names: set[str],
+) -> bool:
+    """Guarantee one contextual source filter while preserving other filters."""
+    before = json.dumps(view, sort_keys=True, ensure_ascii=False)
+    source_rule = _source_filter_rule(canonical_name)
+
+    filters = view.get("filters")
+    if isinstance(filters, list):
+        remaining = [rule for rule in filters if not _is_source_filter(rule, source_names)]
+        view["filters"] = [source_rule, *remaining]
+    elif isinstance(view.get("filter"), dict):
+        legacy_filter = view.pop("filter")
+        remaining = [] if _is_source_filter(legacy_filter, source_names) else [legacy_filter]
+        view["filters"] = [source_rule, *remaining]
+    else:
+        view["filters"] = [source_rule]
+
+    filter_tree = view.get("filterTree")
+    if isinstance(filter_tree, dict):
+        remaining_tree = _strip_source_filter_nodes(filter_tree, source_names)
+        view["filterTree"] = (
+            source_rule
+            if remaining_tree is None
+            else {"conjunction": "and", "rules": [source_rule, remaining_tree]}
+        )
+
+    return before != json.dumps(view, sort_keys=True, ensure_ascii=False)
+
+
+def _embedded_view_ids_for_table(table_id: str) -> set[str]:
+    view_ids: set[str] = set()
+    for page in _get_pages_for_table(table_id) or []:
+        path_value = getattr(page, "path", None)
+        path = Path(path_value) if path_value else None
+        if not path or not path.exists():
+            continue
+        try:
+            raw = path.read_text(encoding="utf-8")
+        except Exception as error:
+            log.warning("Could not inspect embedded views in %s: %s", path, error)
+            continue
+        for match in _BRAIN_VIEW_DEF_RE.finditer(raw):
+            try:
+                payload = json.loads(match.group("payload"))
+            except (TypeError, ValueError):
+                continue
+            view_id = str(payload.get("view_id") or "").strip()
+            if view_id:
+                view_ids.add(view_id)
+    return view_ids
+
+
+def _normalize_brain_source_views(
+    brain_table_id: str,
+    source_table_id: str,
+    canonical_name: str,
+    source_names: set[str],
+) -> int:
+    """Repair every Brain view embedded in pages of one configured source."""
+    embedded_ids = _embedded_view_ids_for_table(source_table_id)
+    if not embedded_ids:
+        return 0
+    changed = 0
+    with registry_mutation():
+        registry = load_registry()
+        views = registry.get("views") or []
+        by_id = {
+            str(view.get("id") or ""): view
+            for view in views
+            if isinstance(view, dict)
+        }
+        pending = list(embedded_ids)
+        while pending:
+            view_id = pending.pop()
+            view = by_id.get(view_id)
+            if not view:
+                continue
+            for tab_id in view.get("tabs") or []:
+                tab_id = str(tab_id or "")
+                if tab_id and tab_id not in embedded_ids:
+                    embedded_ids.add(tab_id)
+                    pending.append(tab_id)
+        for view_id in embedded_ids:
+            view = by_id.get(view_id)
+            if (
+                not view
+                or str(view.get("table_id") or "") != brain_table_id
+                or not view.get("embedded")
+            ):
+                continue
+            if _normalize_brain_source_view(view, canonical_name, source_names):
+                changed += 1
+        if changed:
+            save_registry(registry)
+            log.info(
+                "LLM Wiki normalized %d embedded Brain source filters for table %s",
+                changed,
+                source_table_id,
+            )
+    return changed
+
+
+def ensure_brain_source_relation(
+    brain_table_id: str,
+    source_table_id: str,
+    locale: str = "en",
+) -> str:
+    """Return the single canonical Brain relation targeting one source table.
+
+    A singular relation is preferred, duplicate plural relations are merged and
+    removed, and resource-page views are normalized to filter by the host page.
     """
     if not brain_table_id or not source_table_id:
         return ""
+    canonical_name = _brain_source_name(locale)
+    legacy_names: set[str] = set()
+    source_names: set[str] = {canonical_name}
+    relation_id = ""
     with registry_mutation():
         registry = load_registry()
         brain = next(
@@ -6788,38 +7551,301 @@ def ensure_brain_source_relation(brain_table_id: str, source_table_id: str) -> s
         if not brain or not source:
             return ""
         properties = brain.setdefault("properties", [])
-        existing = next(
-            (
-                prop for prop in properties
-                if prop.get("type") == "relation"
-                and str(prop.get("relation_database_id") or "") == source_table_id
-                and _brain_schema_token(prop.get("name")) not in _brain_role_tokens("based_on")
-            ),
-            None,
+        compatible = [
+            prop for prop in properties
+            if prop.get("type") == "relation"
+            and str(prop.get("relation_database_id") or "") == source_table_id
+            and _brain_schema_token(prop.get("name")) not in _brain_role_tokens("based_on")
+        ]
+        compatible.sort(
+            key=lambda prop: (
+                _brain_schema_token(prop.get("name")) not in _BRAIN_SOURCE_SINGULAR_TOKENS,
+                _brain_schema_token(prop.get("name")) in _BRAIN_SOURCE_PLURAL_TOKENS,
+            )
         )
-        if existing:
-            if existing.get("cardinality") != "many-to-one":
-                existing["cardinality"] = "many-to-one"
-                save_registry(registry)
-            return str(existing.get("id") or "")
-        base_name = f"Source · {source.get('name') or source_table_id}"
-        used_names = {str(prop.get("name") or "").casefold() for prop in properties}
-        name = base_name
-        suffix = 2
-        while name.casefold() in used_names:
-            name = f"{base_name} {suffix}"
-            suffix += 1
-        prop = {
-            "id": str(uuid.uuid4()),
-            "name": name,
-            "type": "relation",
-            "relation_database_id": source_table_id,
-            "cardinality": "many-to-one",
+        changed = False
+        if compatible:
+            canonical = compatible[0]
+        else:
+            used_names = {str(prop.get("name") or "").casefold() for prop in properties}
+            name = canonical_name
+            if name.casefold() in used_names:
+                base_name = f"{canonical_name} · {source.get('name') or source_table_id}"
+                name = base_name
+                suffix = 2
+                while name.casefold() in used_names:
+                    name = f"{base_name} {suffix}"
+                    suffix += 1
+            canonical = {
+                "id": str(uuid.uuid4()),
+                "name": name,
+                "type": "relation",
+                "relation_database_id": source_table_id,
+                "cardinality": "many-to-one",
+            }
+            properties.append(canonical)
+            compatible = [canonical]
+            changed = True
+
+        original_name = str(canonical.get("name") or canonical_name)
+        original_token = _brain_schema_token(original_name)
+        used_by_others = {
+            str(prop.get("name") or "").casefold()
+            for prop in properties
+            if prop is not canonical
         }
-        properties.append(prop)
-        save_registry(registry)
-        log.info("LLM Wiki added source relation %s to Brain %s", prop["id"], brain_table_id)
-        return str(prop["id"])
+        if original_token in _BRAIN_SOURCE_PLURAL_TOKENS:
+            replacement_name = canonical_name
+            suffix = 2
+            if replacement_name.casefold() in used_by_others:
+                base_name = f"{canonical_name} · {source.get('name') or source_table_id}"
+                replacement_name = base_name
+                while replacement_name.casefold() in used_by_others:
+                    replacement_name = f"{base_name} {suffix}"
+                    suffix += 1
+            canonical["name"] = replacement_name
+            legacy_names.add(original_name)
+            changed = True
+        canonical_name = str(canonical.get("name") or canonical_name)
+        source_names.add(canonical_name)
+
+        if not canonical.get("id"):
+            canonical["id"] = str(uuid.uuid4())
+            changed = True
+        if canonical.get("cardinality") != "many-to-one":
+            canonical["cardinality"] = "many-to-one"
+            changed = True
+
+        duplicates = [prop for prop in compatible if prop is not canonical]
+        for duplicate in duplicates:
+            duplicate_name = str(duplicate.get("name") or "")
+            if duplicate_name:
+                legacy_names.add(duplicate_name)
+                source_names.add(duplicate_name)
+        aliases = [
+            str(alias)
+            for alias in canonical.get("aliases") or []
+            if str(alias).strip() and str(alias) != canonical_name
+        ]
+        for name in sorted(legacy_names):
+            if name and name not in aliases:
+                aliases.append(name)
+        if aliases != (canonical.get("aliases") or []):
+            canonical["aliases"] = aliases
+            changed = True
+        if duplicates:
+            duplicate_ids = {id(prop) for prop in duplicates}
+            brain["properties"] = [
+                prop for prop in properties if id(prop) not in duplicate_ids
+            ]
+            changed = True
+
+        relation_id = str(canonical.get("id") or "")
+        if changed:
+            save_registry(registry)
+            log.info(
+                "LLM Wiki consolidated the source relation %s in Brain %s",
+                relation_id,
+                brain_table_id,
+            )
+
+    migrated = _migrate_brain_source_metadata(
+        brain_table_id,
+        canonical_name,
+        legacy_names,
+    )
+    if migrated:
+        log.info("LLM Wiki migrated %d Brain pages to %s", migrated, canonical_name)
+    _normalize_brain_source_views(
+        brain_table_id,
+        source_table_id,
+        canonical_name,
+        source_names | legacy_names,
+    )
+    return relation_id
+
+
+def _normalize_brain_page_contract(
+    metadata: dict,
+    config: dict,
+    brain_table: dict,
+    source_titles: dict[tuple[str, str], str],
+) -> bool:
+    """Normalize visible note types, source cardinality, and source labels."""
+    from backend.services import llm_wiki_config
+
+    before = json.dumps(metadata, sort_keys=True, ensure_ascii=False, default=str)
+    props_by_id = {
+        str(prop.get("id") or ""): prop
+        for prop in brain_table.get("properties") or []
+        if isinstance(prop, dict) and prop.get("id")
+    }
+    note_type_id = str((config.get("brain_roles") or {}).get("note_type") or "")
+    note_type_prop = props_by_id.get(note_type_id)
+    note_type_name = str((note_type_prop or {}).get("name") or "")
+    stored_kind = llm_wiki_config.metadata_note_type(metadata)
+    managed_role = str(metadata.get("llm_wiki_role") or "")
+    semantic_kind = (
+        "reading"
+        if stored_kind == "lectura"
+        else stored_kind
+    )
+    if not semantic_kind and managed_role.endswith("-index"):
+        semantic_kind = "index"
+    if semantic_kind and note_type_name:
+        metadata[note_type_name] = llm_wiki_config.note_type_value(
+            semantic_kind,
+            config,
+            note_type_prop,
+        )
+
+    source_names: set[str] = set()
+    source_relations: dict[str, dict] = {}
+    for source in config.get("source_tables") or []:
+        relation = props_by_id.get(str(source.get("relation_property_id") or ""))
+        if not relation:
+            continue
+        relation_name = str(relation.get("name") or "")
+        if relation_name:
+            source_names.add(relation_name)
+            source_names.update(
+                str(alias)
+                for alias in relation.get("aliases") or []
+                if str(alias).strip()
+            )
+            source_relations[str(source.get("table_id") or "")] = relation
+
+    if stored_kind == "permanent":
+        for name in source_names:
+            metadata.pop(name, None)
+    else:
+        source_table_id = str(metadata.get("llm_wiki_source_table_id") or "")
+        resource_id = str(metadata.get("llm_wiki_resource_id") or "")
+        source_title = source_titles.get((source_table_id, resource_id))
+        relation = source_relations.get(source_table_id)
+        if source_title and resource_id:
+            metadata["llm_wiki_resource_title"] = source_title
+            if relation and (semantic_kind == "reading" or managed_role == "resource-index"):
+                relation_name = str(relation.get("name") or "")
+                for alias in relation.get("aliases") or []:
+                    metadata.pop(str(alias), None)
+                metadata[relation_name] = [f"[[{source_title}|{resource_id}]]"]
+            if managed_role == "resource-index":
+                locale = str(config.get("ui_locale") or "en").split("-", 1)[0].lower()
+                prefix = {
+                    "ca": "Índex",
+                    "en": "Index",
+                    "es": "Índice",
+                    "fr": "Index",
+                }.get(locale, "Index")
+                metadata["title"] = f"{prefix} · {source_title}"
+
+    return before != json.dumps(metadata, sort_keys=True, ensure_ascii=False, default=str)
+
+
+def _normalize_existing_brain_pages(
+    brain_table_id: str,
+    config: dict,
+) -> int:
+    """Migrate existing managed notes to the current singular-source contract."""
+    from backend.services import llm_wiki_storage
+
+    brain_table = _table_by_id(brain_table_id) or {}
+    source_titles: dict[tuple[str, str], str] = {}
+    for source in config.get("source_tables") or []:
+        source_table_id = str(source.get("table_id") or "")
+        source_table = _table_by_id(source_table_id) or {}
+        for page in _get_pages_for_table(source_table_id) or []:
+            resource_id = str(getattr(page, "id", "") or "")
+            path_value = getattr(page, "path", None)
+            path = Path(path_value) if path_value else None
+            metadata = getattr(page, "metadata", None) or {}
+            if path and path.exists() and not metadata:
+                try:
+                    metadata, _body = parse_frontmatter(
+                        path.read_text(encoding="utf-8"),
+                        path,
+                    )
+                except Exception as error:
+                    log.warning("Could not read source title from %s: %s", path, error)
+            if resource_id and path:
+                source_titles[(source_table_id, resource_id)] = _llm_wiki_source_title(
+                    metadata,
+                    path,
+                    source_table,
+                    source,
+                )
+
+    migrated = 0
+    for page in _get_pages_for_table(brain_table_id) or []:
+        path_value = getattr(page, "path", None)
+        path = Path(path_value) if path_value else None
+        if not path or not path.exists():
+            continue
+        try:
+            raw_metadata, body = parse_frontmatter(path.read_text(encoding="utf-8"), path)
+            page_id = str(
+                getattr(page, "id", "")
+                or raw_metadata.get("id")
+                or ""
+            )
+            metadata = llm_wiki_storage.merge_page_metadata(raw_metadata, page_id)
+            contract_changed = _normalize_brain_page_contract(
+                metadata,
+                config,
+                brain_table,
+                source_titles,
+            )
+            portable_metadata = llm_wiki_storage.prepare_managed_markdown(metadata)
+            portable_metadata.pop("note_type", None)
+            if not contract_changed and portable_metadata == raw_metadata:
+                continue
+            save_page_md(path, portable_metadata, body)
+            register_page_in_index(path)
+            migrated += 1
+        except Exception as error:
+            log.warning("Could not normalize a managed Brain page in %s: %s", path, error)
+    if migrated:
+        log.info("LLM Wiki normalized %d existing Brain pages", migrated)
+    return migrated
+
+
+def _reconcile_llm_wiki_source_contract(cfg: dict) -> dict:
+    """Apply the singular-source schema and embedded-view migration once."""
+    from backend.services import llm_wiki_config
+
+    brain_id = str(cfg.get("brain_table_id") or "")
+    if not brain_id or not _table_by_id(brain_id):
+        return cfg
+    locale = str(cfg.get("ui_locale") or "en")
+    brain_table = _table_by_id(brain_id)
+    ensure_brain_table_schema(
+        brain_id,
+        locale,
+        _brain_property_id_hints(cfg, brain_table),
+    )
+    changed = (
+        int(cfg.get("source_contract_revision") or 0)
+        < BRAIN_SOURCE_CONTRACT_REVISION
+    )
+    for source in cfg.get("source_tables") or []:
+        relation_id = ensure_brain_source_relation(
+            brain_id,
+            str(source.get("table_id") or ""),
+            locale,
+        )
+        if relation_id and relation_id != str(source.get("relation_property_id") or ""):
+            source["relation_property_id"] = relation_id
+            changed = True
+    roles = _infer_brain_roles(_table_by_id(brain_id))
+    if roles != (cfg.get("brain_roles") or {}):
+        cfg["brain_roles"] = roles
+        changed = True
+    _normalize_existing_brain_pages(brain_id, cfg)
+    if cfg.get("source_contract_revision") != BRAIN_SOURCE_CONTRACT_REVISION:
+        cfg["source_contract_revision"] = BRAIN_SOURCE_CONTRACT_REVISION
+        changed = True
+    return llm_wiki_config.set_full_config(cfg) if changed else cfg
 
 
 @router.get("/brain-table")
@@ -6863,8 +7889,11 @@ async def set_brain_table(payload: dict = Body(...)):
     cfg["brain_roles"] = _infer_brain_roles(_table_by_id(table_id))
     for source in cfg.get("source_tables") or []:
         source["relation_property_id"] = ensure_brain_source_relation(
-            table_id, str(source.get("table_id") or "")
+            table_id,
+            str(source.get("table_id") or ""),
+            locale,
         )
+    cfg["source_contract_revision"] = BRAIN_SOURCE_CONTRACT_REVISION
     cfg = bw.set_full_config(cfg)
     from backend.services import llm_wiki_indices
 
@@ -6908,8 +7937,11 @@ async def create_brain_table(payload: dict = Body(default=None)):
     cfg["brain_roles"] = _infer_brain_roles(_table_by_id(created["id"]))
     for source in cfg.get("source_tables") or []:
         source["relation_property_id"] = ensure_brain_source_relation(
-            created["id"], str(source.get("table_id") or "")
+            created["id"],
+            str(source.get("table_id") or ""),
+            locale,
         )
+    cfg["source_contract_revision"] = BRAIN_SOURCE_CONTRACT_REVISION
     cfg["index_field_ids"] = [
         field_id
         for role in ("areas", "tags")
@@ -7019,6 +8051,11 @@ async def get_llm_wiki_config():
     from backend.services import llm_wiki_config
 
     cfg = await asyncio.to_thread(llm_wiki_config.migrate_config)
+    if (
+        int(cfg.get("source_contract_revision") or 0)
+        < BRAIN_SOURCE_CONTRACT_REVISION
+    ):
+        cfg = await asyncio.to_thread(_reconcile_llm_wiki_source_contract, cfg)
     return await asyncio.to_thread(_llm_wiki_config_response, cfg)
 
 
@@ -7169,7 +8206,11 @@ async def put_llm_wiki_config(payload: dict = Body(...)):
     relation_ids = set()
     for source in prepared_sources:
         source_id = str(source["table_id"])
-        source["relation_property_id"] = ensure_brain_source_relation(brain_id, source_id)
+        source["relation_property_id"] = ensure_brain_source_relation(
+            brain_id,
+            source_id,
+            normalized.get("ui_locale") or "en",
+        )
         relation_ids.add(source["relation_property_id"])
     normalized["source_tables"] = prepared_sources
     brain = _table_by_id(brain_id)
@@ -7188,6 +8229,7 @@ async def put_llm_wiki_config(payload: dict = Body(...)):
             detail=f"Non-categorical or reserved index fields: {', '.join(invalid_index_ids)}",
         )
     normalized["index_field_ids"] = requested_index_ids
+    normalized["source_contract_revision"] = BRAIN_SOURCE_CONTRACT_REVISION
     normalized["configured"] = True
     saved = await asyncio.to_thread(llm_wiki_config.set_full_config, normalized)
     await asyncio.to_thread(llm_wiki_indices.ensure_system_pages, brain_id, saved)
@@ -7252,6 +8294,52 @@ def _resource_processed_value(metadata: dict) -> str:
     return ""
 
 
+def _llm_wiki_title_value(value: object) -> str:
+    """Return one displayable title without serializing structured metadata."""
+    if isinstance(value, list):
+        value = next((item for item in value if item not in (None, "")), "")
+    if isinstance(value, dict):
+        value = next(
+            (
+                value.get(key)
+                for key in ("title", "name", "label", "value")
+                if value.get(key) not in (None, "")
+            ),
+            "",
+        )
+    return str(value or "").strip()
+
+
+def _llm_wiki_source_title(
+    metadata: dict,
+    path: Path,
+    source_table: dict,
+    source_config: dict,
+) -> str:
+    """Resolve a source title from its configured title property before UID fallbacks."""
+    title_property_id = str(source_config.get("title_property_id") or "")
+    title_property = next(
+        (
+            prop
+            for prop in source_table.get("properties") or []
+            if str(prop.get("id") or "") == title_property_id
+        ),
+        None,
+    )
+    title_property_name = str((title_property or {}).get("name") or "")
+    candidates = [
+        metadata.get(title_property_name) if title_property_name else None,
+        metadata.get(title_property_id) if title_property_id else None,
+        metadata.get("title"),
+        metadata.get("Title"),
+        path.stem,
+    ]
+    return next(
+        (title for value in candidates if (title := _llm_wiki_title_value(value))),
+        path.stem,
+    )
+
+
 def mark_resource_processed(page_id: str, date_str: str) -> bool:
     """Write the ingest date to the resource's `Processat pel Cervell` column."""
     path = find_page_path(page_id)
@@ -7268,96 +8356,43 @@ def mark_resource_processed(page_id: str, date_str: str) -> bool:
 @router.post("/llm-wiki/process", dependencies=[Depends(require_role("editor"))])
 async def llm_wiki_process(payload: dict = Body(...)):
     """Start a durable ingest for one row of a configured source table."""
-    from backend.services import llm_wiki, llm_wiki_config
-
-    if not _llm_wiki_enabled(_load_plugins_state()):
-        raise HTTPException(status_code=409, detail="The LLM Wiki plugin is disabled")
-
-    item_id = str((payload or {}).get("resource_id") or (payload or {}).get("item_id") or "").strip()
-    if not item_id:
-        raise HTTPException(status_code=400, detail="resource_id is required")
-    force = bool((payload or {}).get("force"))
-    language = str((payload or {}).get("language") or "").strip()
-
-    cfg = llm_wiki_config.load_config()
-    brain_table_id = str(cfg.get("brain_table_id") or "")
-    if not brain_table_id:
-        raise HTTPException(status_code=400,
-                            detail="No Brain table is configured")
-    if not _table_by_id(brain_table_id):
-        raise HTTPException(status_code=400, detail="The configured Brain table does not exist")
-
-    path = find_page_path(item_id)
-    if not path or not path.exists():
-        raise HTTPException(status_code=404, detail=f"Resource {item_id} was not found")
-    metadata, body = parse_frontmatter(path.read_text(encoding="utf-8"), path)
-    source_table_id = str(
-        (payload or {}).get("source_table_id")
-        or metadata.get("table_id")
-        or ""
-    ).strip()
-    source_config = llm_wiki_config.get_source_config(source_table_id)
-    source_table = _table_by_id(source_table_id)
-    if not source_config or not source_table:
-        raise HTTPException(status_code=400, detail="This row is not in a configured source table")
-    metadata_table_id = str(metadata.get("table_id") or "")
-    if metadata_table_id and metadata_table_id != source_table_id:
-        raise HTTPException(status_code=400, detail="source_table_id does not match the resource row")
-    if not language:
-        language_property_id = str(source_config.get("language_property_id") or "")
-        language_property = next(
-            (
-                prop for prop in source_table.get("properties") or []
-                if str(prop.get("id") or "") == language_property_id
-            ),
-            None,
-        )
-        if language_property:
-            language = str(
-                metadata.get(str(language_property.get("name") or ""))
-                or metadata.get(language_property_id)
-                or ""
-            ).strip()
-    language = language or "the main language detected in the source"
-    if llm_wiki.is_running(item_id, source_table_id):
-        raise HTTPException(status_code=409, detail="This resource is already being processed")
-    if not force and _resource_processed_value(metadata):
-        raise HTTPException(
-            status_code=409,
-            detail=f"Already processed on {_resource_processed_value(metadata)}; use force to reprocess",
-        )
-
-    title = str(metadata.get("title") or path.stem)
-    vault_root = get_p("VAULT")
-    job = llm_wiki.start_ingest(
-        item_id,
-        title,
-        metadata,
-        body,
-        brain_table_id,
-        vault_root,
-        language,
-        source_table_id=source_table_id,
-        source_table=source_table,
-        source_config=source_config,
-        force=force,
+    from backend.services.llm_wiki_actions import (
+        LlmWikiActionError,
+        start_source_process,
     )
-    return {
-        "status": "started",
-        "item_id": item_id,
-        "resource_id": item_id,
-        "source_table_id": source_table_id,
-        "job_id": job.get("job_id"),
-        "job": job,
-    }
+
+    try:
+        return await asyncio.to_thread(
+            start_source_process,
+            str(
+                (payload or {}).get("resource_id")
+                or (payload or {}).get("item_id")
+                or ""
+            ),
+            source_table_id=str((payload or {}).get("source_table_id") or ""),
+            force=bool((payload or {}).get("force")),
+            language=str((payload or {}).get("language") or ""),
+        )
+    except LlmWikiActionError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
 
 
 @router.get("/llm-wiki/status/{item_id}", dependencies=[Depends(require_role("editor"))])
 async def llm_wiki_status(item_id: str, source_table_id: str = Query(default="")):
     """Non-blocking status of a resource's ongoing/last ingest (for polling)."""
-    from backend.services import llm_wiki
+    from backend.services.llm_wiki_actions import (
+        LlmWikiActionError,
+        process_status,
+    )
 
-    return llm_wiki.get_job_status(item_id, source_table_id)
+    try:
+        return await asyncio.to_thread(
+            process_status,
+            item_id,
+            source_table_id=source_table_id,
+        )
+    except LlmWikiActionError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
 
 
 @router.get("/llm-wiki/evidence/{resource_id}/{snapshot_id}/{segment_id}",
@@ -7384,44 +8419,15 @@ async def llm_wiki_maintenance(semantic: bool = Query(default=False)):
     ``semantic=true`` additionally runs the connection/contradiction proposal
     pass. Scheduled maintenance always uses the deterministic default.
     """
-    from backend.services import (
-        llm_wiki_config,
-        llm_wiki_indices,
-        llm_wiki_lint,
-        llm_wiki_suggestions,
+    from backend.services.llm_wiki_actions import (
+        LlmWikiActionError,
+        run_maintenance_async,
     )
 
-    cfg = llm_wiki_config.load_config()
-    brain_table_id = str(cfg.get("brain_table_id") or "")
-    if not brain_table_id:
-        raise HTTPException(status_code=400, detail="No Brain table is configured")
-    index_report = await asyncio.to_thread(
-        llm_wiki_indices.rebuild_indexes,
-        brain_table_id,
-        cfg,
-    )
-    source_ids = [
-        str(item.get("table_id") or "")
-        for item in cfg.get("source_tables") or []
-        if item.get("table_id")
-    ]
-    lint_report = await asyncio.to_thread(
-        llm_wiki_lint.run_lint,
-        brain_table_id,
-        source_ids,
-    )
-    queued = 0
-    if semantic:
-        queued = await asyncio.to_thread(
-            llm_wiki_suggestions.generate_suggestions,
-            brain_table_id,
-        )
-    return {
-        "indexes": index_report,
-        "lint": lint_report,
-        "suggestions_queued": queued,
-        "suggestions_pending": len(llm_wiki_suggestions.load_queue()),
-    }
+    try:
+        return await run_maintenance_async(semantic=semantic)
+    except LlmWikiActionError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
 
 
 @router.get("/llm-wiki/lint", dependencies=[Depends(require_role("editor"))])
@@ -15494,7 +16500,13 @@ def _create_table_locked(table: dict):
 
 
 @router.delete("/tables/{table_id}", dependencies=[Depends(require_role("admin"))])
-async def delete_table(table_id: str, background_tasks: BackgroundTasks):
+async def delete_table(
+    table_id: str,
+    background_tasks: BackgroundTasks,
+    expected_table_revision: Optional[str] = None,
+    expected_views_revision: Optional[str] = None,
+    expected_asset_revision: Optional[str] = None,
+):
     """Delete a table.
 
     Why background_tasks for the rmtree:
@@ -15506,6 +16518,10 @@ async def delete_table(table_id: str, background_tasks: BackgroundTasks):
       truth) and queue the disk cleanup as a background task.
     """
     # Entire load→modify→save cycle under lock (synchronous block, no `await`).
+    vault_root = get_p("VAULT").resolve()
+    quarantine: Optional[Path] = None
+    ready_quarantine: Optional[Path] = None
+    moved_assets: List[tuple[Path, Path]] = []
     with registry_mutation():
         registry = load_registry()
         # Get table info BEFORE deleting it from registry
@@ -15520,17 +16536,83 @@ async def delete_table(table_id: str, background_tasks: BackgroundTasks):
                 ),
                 None,
             )
-        # Update registry FIRST so the response is fast and the UI updates immediately
+        if expected_table_revision is not None:
+            if not table_entry:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Table changed after confirmation preview",
+                )
+            if _stable_value_revision(table_entry) != expected_table_revision:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Table changed after confirmation preview",
+                )
+        if (
+            expected_views_revision is not None
+            and _table_views_revision(registry, table_id)
+            != expected_views_revision
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail="Table views changed after confirmation preview",
+            )
+        if table_entry:
+            quarantine, moved_assets = _quarantine_table_asset_dirs(
+                table_entry,
+                db_entry,
+            )
+            if (
+                expected_asset_revision is not None
+                and _quarantined_table_asset_revision(
+                    table_entry,
+                    db_entry,
+                    moved_assets,
+                )
+                != expected_asset_revision
+            ):
+                _restore_quarantined_table_assets(quarantine, moved_assets)
+                raise HTTPException(
+                    status_code=409,
+                    detail="Table assets changed after confirmation preview",
+                )
+        # Update the registry after active assets have been sealed.
         registry["tables"] = [t for t in registry["tables"] if t.get("id") != table_id]
         # Remove associated views.
         registry["views"] = [v for v in registry["views"] if v.get("table_id") != table_id]
-        save_registry(registry)
+        try:
+            save_registry(registry)
+        except Exception:
+            _restore_quarantined_table_assets(quarantine, moved_assets)
+            raise
+        if quarantine:
+            try:
+                ready_quarantine = _mark_table_asset_quarantine_ready(quarantine)
+            except Exception:
+                log.exception(
+                    "Table deletion committed but asset quarantine could not "
+                    "be marked ready: %s",
+                    quarantine,
+                )
 
-    # Schedule the slow filesystem cleanup off the request path
-    if table_entry:
-        background_tasks.add_task(_delete_asset_table_dir, table_entry, db_entry)
+    # The active paths have already been detached atomically. Only deletion of
+    # the durable quarantine remains asynchronous and can resume after restart.
+    if ready_quarantine:
+        background_tasks.add_task(
+            _delete_table_asset_quarantine,
+            ready_quarantine,
+            vault_root,
+        )
 
-    return {"status": "success"}
+    return {
+        "status": "success",
+        "cleanup_status": (
+            "queued"
+            if ready_quarantine
+            else "deferred"
+            if quarantine
+            else "not_required"
+        ),
+    }
 
 
 @router.put("/tables/{table_id}", dependencies=[Depends(require_role("editor"))])

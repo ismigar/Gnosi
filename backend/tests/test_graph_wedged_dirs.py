@@ -18,6 +18,7 @@ monkeypatched to raise EDEADLK for one directory. No real OneDrive needed.
 from __future__ import annotations
 
 import errno
+import json
 import logging
 import os
 from pathlib import Path
@@ -180,6 +181,41 @@ def test_partial_build_is_marked_and_not_cached(vault, monkeypatch):
     assert "partial" not in result2
     # The complete build is cached; the per-vault dict now holds it as its value.
     assert any(v is result2 for v in GraphService._graph_cache.values())
+
+
+def test_build_recovers_from_legacy_none_graph_cache(vault):
+    """A stale scheduler cache state must not turn GET /api/graph into a 500."""
+    GraphService._graph_cache = None
+    GraphService._last_graph_time = None
+
+    result = GraphService().build_unified_graph()
+
+    assert result["nodes"]
+    assert isinstance(GraphService._graph_cache, dict)
+    assert isinstance(GraphService._last_graph_time, dict)
+
+
+def test_complete_graph_exports_pending_suggestions_as_overlay(vault):
+    (vault / "suggestions.json").write_text(
+        json.dumps({
+            "beta": [{
+                "target_id": "gamma",
+                "score": 0.83,
+                "reason": "Shared concern",
+            }],
+        }),
+        encoding="utf-8",
+    )
+
+    result = GraphService().build_unified_graph()
+
+    edge = next(
+        item for item in result["edges"]
+        if item["kind"] == "suggestion"
+    )
+    assert {edge["source"], edge["target"]} == {"beta", "gamma"}
+    assert edge["similarity"] == 83.0
+    assert edge["reason"] == "Shared concern"
 
 
 def test_node_count_keeps_previous_value_on_partial_scan(vault, monkeypatch):

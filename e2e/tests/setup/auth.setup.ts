@@ -23,6 +23,8 @@ setup('seed workspace localStorage', async ({ page }) => {
     localStorage.setItem('gnosi_workspace_id', 'personal');
     localStorage.setItem('gnosi_user_email', 'ismigar@gmail.com');
     localStorage.setItem('gnosi_role', 'admin');
+    const testVaultId = process.env.GNOSI_TEST_VAULT_ID;
+    if (testVaultId) localStorage.setItem('gnosi_active_vault', testVaultId);
   });
 
   await page.goto('/', { waitUntil: 'domcontentloaded' });

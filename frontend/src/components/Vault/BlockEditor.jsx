@@ -39,6 +39,7 @@ import {
     Calendar as CalendarIcon,
     RefreshCw,
     SpellCheck2,
+    PanelBottomOpen,
 } from 'lucide-react';
 import axios from 'axios';
 import {
@@ -73,6 +74,13 @@ import PageHistory from './PageHistory';
 import { IconPicker } from './IconPicker';
 import { CoverPicker } from './CoverPicker';
 import { IconRenderer } from './IconRenderer';
+import { RelationItem } from './RelationItem';
+import {
+    RELATION_VALUE_APPLIED_EVENT,
+    announceRelationUnlinked,
+    normalizeRelationValues,
+    withoutRelationValue,
+} from './relationItemUtils';
 
 import { VaultEditorContext } from './VaultEditorContext';
 import { DbViewEmbed } from './DbViewEmbed';
@@ -96,6 +104,9 @@ import SyncedBlock from './SyncedBlock';
 import SpellCheckLayer from './SpellCheckLayer';
 import AICorrectLayer from './AICorrectLayer';
 import { PageLinksGraph } from './PageLinksGraph';
+import { useFloatingActionDock } from '../../hooks/useFloatingActionDock';
+import { isManagedInternalMetadataKey } from './metadataVisibilityUtils';
+import { focusPropertyRow } from './propertyNavigationUtils';
 
 /**
  * Resolves the URI of the PDF associated with a Recursos page.
@@ -415,7 +426,19 @@ const extractOutgoingPageLinks = (markdown, idToTitle = {}, selfId = '') => {
     ];
 };
 
-const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, onCreate, onDeleteOption, single = false }) => {
+const MultiSelectPills = ({
+    value,
+    onChange,
+    options,
+    idToTitle,
+    placeholder,
+    onCreate,
+    onDeleteOption,
+    single = false,
+    relationItems = false,
+    onOpenRelation,
+    onRemoveRelation,
+}) => {
     const { t } = useTranslation();
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -562,6 +585,17 @@ const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, on
             >
                 {currentValues.length === 0 && <span className="text-[var(--text-tertiary)]/60 text-sm ml-1">{placeholder}</span>}
                 {currentValues.map(val => {
+                    if (relationItems) {
+                        return (
+                            <RelationItem
+                                key={val}
+                                relationId={val}
+                                title={idToTitle[val] || val}
+                                onOpen={onOpenRelation}
+                                onRemove={onRemoveRelation}
+                            />
+                        );
+                    }
                     const chip = optionChipStyle(optionColorByKey[val]);
                     return (
                     <span key={val} style={chip || undefined} className="flex items-center gap-1.5 px-2.5 py-1 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-full text-xs font-medium text-[var(--text-secondary)] shadow-sm">
@@ -3723,6 +3757,7 @@ export function EditorInner({
 export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}, onUpdate, allTables = [], allNotes = [], onEditSchema, onAddSchemaOption, onCreateRecord, onDeletePage = () => {}, onOpenParallel = () => {}, onOpenPage = () => {}, onOpenInCurrentTab = null, onOpenInNewTab = null, idToTitle = {}, aliasIndex = {}, registry = { databases: [], tables: [], views: [] }, onRefreshNotes = () => {}, onUpdatePageMetadata, historyOpenSignal = 0, isCodeView = false, isEditLocked = false, referenceTableId = null, onOpenViewConfig, pageActions = null, isActivePage = true }) {
     const { t } = useTranslation();
     const { apiFetch, role } = useApi();
+    const [isFloatingDockOpen, setIsFloatingDockOpen] = useFloatingActionDock();
     const isViewerRole = role === 'viewer';
     const isAdmin = role === 'admin' || role === 'owner';
     // `isViewer`/`isEditor` represent the combination: viewer role OR lock of
@@ -3824,6 +3859,45 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const linksHeaderRef = useRef(null);
     const registerEditorApi = useCallback((api) => { editorApiRef.current = api; }, []);
     const [isHeaderHovered, setIsHeaderHovered] = useState(false);
+    const [isPageHeaderCompact, setIsPageHeaderCompact] = useState(false);
+    const [isCompactHeaderVisible, setIsCompactHeaderVisible] = useState(true);
+    const [isFocusMode, setIsFocusMode] = useState(false);
+    const lastScrollTopRef = useRef(0);
+    useEffect(() => {
+        const hero = headerHoverRef.current;
+        if (!hero || typeof IntersectionObserver !== 'function') return undefined;
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                const compact = !entry.isIntersecting && entry.boundingClientRect.bottom < 0;
+                setIsPageHeaderCompact(compact);
+                if (compact) setIsCompactHeaderVisible(true);
+            },
+            { threshold: 0 },
+        );
+        observer.observe(hero);
+        return () => observer.disconnect();
+    }, [noteFilename]);
+    useEffect(() => {
+        const handleScroll = (event) => {
+            const target = event.target === document ? document.scrollingElement : event.target;
+            if (!(target instanceof Element)) return;
+            const nextScrollTop = target.scrollTop;
+            const delta = nextScrollTop - lastScrollTopRef.current;
+            if (Math.abs(delta) > 6) setIsCompactHeaderVisible(delta < 0);
+            lastScrollTopRef.current = nextScrollTop;
+        };
+        document.addEventListener('scroll', handleScroll, true);
+        return () => document.removeEventListener('scroll', handleScroll, true);
+    }, []);
+    useEffect(() => {
+        const toggleFocusMode = () => setIsFocusMode((current) => !current);
+        window.addEventListener('gnosi:toggle-focus-mode', toggleFocusMode);
+        try {
+            document.documentElement.dataset.vaultContrast = localStorage.getItem('gnosi.vault.contrast') || 'normal';
+            document.documentElement.dataset.vaultText = localStorage.getItem('gnosi.vault.textSize') || 'normal';
+        } catch { /* noop */ }
+        return () => window.removeEventListener('gnosi:toggle-focus-mode', toggleFocusMode);
+    }, []);
 
     const openPageViewModalFromContext = useCallback((tableId = '', editingBlock = null) => {
         setPageViewPreselectedTable(tableId);
@@ -3835,7 +3909,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     // Performs the actual PATCH. Don't call this directly from key-by-key
     // events — use handleSaveMetadata (debounced) or pass {immediate:true}.
     const _doSaveMetadata = useCallback(async (currentMetadata, removeKeys = null) => {
-        if (!noteFilename) return;
+        if (!noteFilename) return false;
         setSaveStatus('saving');
         try {
             const data = {
@@ -3855,6 +3929,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
             if (onUpdate) onUpdate(noteFilename, undefined, { title: data.title, metadata: data.metadata });
             if (onRefreshNotes) onRefreshNotes();
             setTimeout(() => setSaveStatus(prev => prev === 'saved' ? 'idle' : prev), 3000);
+            return true;
         } catch (err) {
             // Metadata-save failures used to be silent (console.error only).
             // They mean a property edit, title rename, or icon/cover change
@@ -3863,6 +3938,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
             // doesn't think the change was saved.
             notifyError('save-metadata', err, t('editor.markdown_save_error'));
             setSaveStatus('error');
+            return false;
         }
     }, [noteFilename, onUpdate, onRefreshNotes, t]);
 
@@ -3917,6 +3993,55 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         }
         handleSaveMetadata(nextMeta, isDiscrete ? { immediate: true } : undefined);
     };
+    const handleRelationRemove = useCallback(async (key, relationId, relatedMap) => {
+        const previousMetadata = metadataRef.current;
+        const previousValue = normalizeRelationValues(previousMetadata?.[key]);
+        const nextValue = withoutRelationValue(previousValue, relationId);
+        if (nextValue.length === previousValue.length) return false;
+
+        if (metaSaveTimerRef.current) {
+            clearTimeout(metaSaveTimerRef.current);
+            metaSaveTimerRef.current = null;
+        }
+
+        const nextMetadata = { ...previousMetadata, [key]: nextValue };
+        metadataRef.current = nextMetadata;
+        setMetadata(nextMetadata);
+        const saved = await _doSaveMetadata(nextMetadata);
+        if (!saved) {
+            metadataRef.current = previousMetadata;
+            setMetadata(previousMetadata);
+            return false;
+        }
+
+        announceRelationUnlinked({
+            pageId: noteFilename,
+            field: key,
+            metadataKey: key,
+            relationId,
+            relationTitle: relatedMap?.[relationId] || relationId,
+            previousValue,
+            nextValue,
+        });
+        return true;
+    }, [_doSaveMetadata, noteFilename]);
+
+    useEffect(() => {
+        const applyRelationValue = (event) => {
+            const detail = event.detail || {};
+            if (String(detail.pageId || '') !== String(noteFilename || '') || !detail.metadataKey) return;
+            const nextMetadata = {
+                ...metadataRef.current,
+                [detail.metadataKey]: normalizeRelationValues(detail.value),
+            };
+            metadataRef.current = nextMetadata;
+            setMetadata(nextMetadata);
+            setSaveStatus('saved');
+        };
+        window.addEventListener(RELATION_VALUE_APPLIED_EVENT, applyRelationValue);
+        return () => window.removeEventListener(RELATION_VALUE_APPLIED_EVENT, applyRelationValue);
+    }, [noteFilename]);
+
     // Removing a property is a structural change → save immediately so the
     // server-side state can never have a "stale" property removed only
     // locally if the user navigates away within 600ms.
@@ -3980,6 +4105,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
             const normalizedKey = String(key || '').toLowerCase();
             return (
                 !INTERNAL_METADATA_KEY_SET.has(key) &&
+                !isManagedInternalMetadataKey(key) &&
                 // 'Zotero Extras' is a dict; ZoteroExtrasSection renders it
                 // as its own panel outside the grid (see below). If it were
                 // left here, the text input would show "[object Object]".
@@ -4080,6 +4206,17 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         setActiveProp(navProps[next].name);
     }, [navProps, activeProp, propIndexByName]);
 
+    // Keep keyboard cursor state, DOM focus, and the nested page scroll in
+    // sync. Updating activeProp alone can move the highlight beyond the
+    // viewport while focus remains on the previous row.
+    useEffect(() => {
+        if (!activeProp || !isPropertiesOpen) return undefined;
+        const frame = requestAnimationFrame(() => {
+            focusPropertyRow(propertiesPanelRef.current || document, activeProp);
+        });
+        return () => cancelAnimationFrame(frame);
+    }, [activeProp, isPropertiesOpen]);
+
     // ── Focus navigation between zones (title ↔ properties ↔ body) ─────────
     const focusTitle = useCallback(() => {
         const el = titleInputRef.current;
@@ -4125,10 +4262,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         setActiveProp(name);
         const tryFocus = () => {
             const root = propertiesPanelRef.current || document;
-            let el = null;
-            try { el = root.querySelector(`[data-prop-row="${(window.CSS && CSS.escape) ? CSS.escape(name) : name}"]`); } catch { el = null; }
-            if (el) { el.focus(); el.scrollIntoView({ block: 'nearest' }); return true; }
-            return false;
+            return focusPropertyRow(root, name);
         };
         // If the panel is already open, the row exists in the DOM and we focus it right away.
         // If we had to open it (setIsPropertiesOpen), it hasn't
@@ -4476,8 +4610,17 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     }, [noteFilename, t]);
 
     return (
-        <div className="w-full flex justify-center bg-[var(--bg-primary)] min-h-full transition-colors duration-300">
+        <div className={`vault-page-editor ${isFocusMode ? 'vault-page-editor--focus' : ''} w-full flex justify-center bg-[var(--bg-primary)] min-h-full transition-colors duration-300`}>
             <div ref={contentRef} className="max-w-7xl w-full flex flex-col min-h-full bg-[var(--bg-primary)] relative transition-colors duration-300">
+                {isPageHeaderCompact && (
+                    <div className={`vault-page-compact-header ${isCompactHeaderVisible ? '' : 'is-hidden'}`}>
+                        <span className="vault-page-compact-header__title">{metadata.title || t('editor.untitled')}</span>
+                        <PageActionsBar
+                            pageActions={isActivePage ? pageActions : null}
+                            containerWidth={contentWidth}
+                        />
+                    </div>
+                )}
                 <div
                     className={`vault-page-hero relative w-full group/cover ${metadata.cover ? 'vault-page-hero--covered' : 'vault-page-hero--bare'}`}
                     onMouseEnter={() => setIsHeaderHovered(true)}
@@ -4498,7 +4641,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                             {!metadata.icon && (
                                 <button 
                                     onClick={() => setIsIconPickerOpen(true)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--bg-primary)]/80 hover:bg-[var(--bg-primary)] border border-[var(--border-primary)] shadow-sm backdrop-blur-md rounded-md text-xs font-semibold text-[var(--text-secondary)] transition-all"
+                                    className="vault-page-cover-action flex items-center gap-1.5 px-3 py-1.5 bg-[var(--bg-primary)]/80 hover:bg-[var(--bg-primary)] border border-[var(--border-primary)] shadow-sm backdrop-blur-md rounded-md text-xs font-semibold text-[var(--text-secondary)] transition-all"
                                 >
                                     <Smile size={14} />
                                     {t('editor.add_icon')}
@@ -4507,7 +4650,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                             <button 
                                 ref={coverTriggerRef}
                                 onClick={() => setIsCoverPickerOpen(true)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--bg-primary)]/80 hover:bg-[var(--bg-primary)] border border-[var(--border-primary)] shadow-sm backdrop-blur-md rounded-md text-xs font-semibold text-[var(--text-secondary)] transition-all"
+                                className="vault-page-cover-action flex items-center gap-1.5 px-3 py-1.5 bg-[var(--bg-primary)]/80 hover:bg-[var(--bg-primary)] border border-[var(--border-primary)] shadow-sm backdrop-blur-md rounded-md text-xs font-semibold text-[var(--text-secondary)] transition-all"
                             >
                                 <LayoutPanelLeft size={14} />
                                 {metadata.cover ? t('editor.change_cover') : t('editor.add_cover')}
@@ -4515,7 +4658,9 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                             {metadata.cover && (
                                 <button 
                                     onClick={() => handleMetaChange('cover', '')}
-                                    className="p-1.5 bg-[var(--bg-primary)]/80 hover:bg-[var(--status-error)]/10 hover:text-[var(--status-error)] border border-[var(--border-primary)] shadow-sm backdrop-blur-md rounded-md text-[var(--text-tertiary)] transition-all"
+                                    className="vault-page-cover-action p-1.5 bg-[var(--bg-primary)]/80 hover:bg-[var(--status-error)]/10 hover:text-[var(--status-error)] border border-[var(--border-primary)] shadow-sm backdrop-blur-md rounded-md text-[var(--text-tertiary)] transition-all"
+                                    title={t('editor.remove_cover')}
+                                    aria-label={t('editor.remove_cover')}
                                 >
                                     <X size={14} />
                                 </button>
@@ -4523,14 +4668,14 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                         </div>
                     </div>
 
-                    <div className="vault-page-icon absolute -bottom-10 left-12 group/icon z-10">
+                    <div className={`vault-page-icon absolute left-12 group/icon z-10 ${metadata.cover ? '-bottom-10' : '-bottom-8'}`}>
                         <div 
                             ref={iconTriggerRef}
                             onClick={() => setIsIconPickerOpen(true)}
-                            className={`relative flex items-center justify-center bg-[var(--bg-primary)] border-4 border-[var(--bg-primary)] rounded-3xl shadow-sm cursor-pointer hover:bg-[var(--bg-secondary)] transition-all group-hover/icon:scale-105 active:scale-95 ${metadata.icon ? 'w-24 h-24' : 'w-24 h-24 opacity-0 group-hover/cover:opacity-100'}`}
+                            className={`relative flex items-center justify-center bg-[var(--bg-primary)] border-4 border-[var(--bg-primary)] shadow-sm cursor-pointer hover:bg-[var(--bg-secondary)] transition-all group-hover/icon:scale-105 active:scale-95 ${metadata.cover ? 'h-24 w-24 rounded-3xl' : 'h-20 w-20 rounded-2xl'} ${metadata.icon ? '' : 'opacity-0 group-hover/cover:opacity-100 group-focus-within/cover:opacity-100'}`}
                         >
                             {metadata.icon ? (
-                                <IconRenderer icon={metadata.icon} size={64} />
+                                <IconRenderer icon={metadata.icon} size={metadata.cover ? 64 : 52} />
                             ) : (
                                 <div className="flex flex-col items-center gap-1 text-[var(--text-tertiary)]/40 hover:text-[var(--gnosi-primary)]">
                                     <Plus size={24} />
@@ -4541,16 +4686,20 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                             {metadata.icon && (
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); handleMetaChange('icon', ''); }}
-                                    className="absolute -top-2 -right-2 p-1 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-full text-[var(--text-tertiary)] hover:text-[var(--status-error)] opacity-0 group-hover/icon:opacity-100 transition-opacity shadow-md"
+                                    className="vault-page-icon-remove absolute -top-2 -right-2 p-0 text-[var(--text-tertiary)] hover:text-[var(--status-error)] opacity-0 group-hover/icon:opacity-100 transition-opacity"
+                                    title={t('editor.remove_icon')}
+                                    aria-label={t('editor.remove_icon')}
                                 >
-                                    <X size={12} />
+                                    <span className="vault-page-icon-remove-glyph flex h-6 w-6 items-center justify-center bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-full shadow-md">
+                                        <X size={12} />
+                                    </span>
                                 </button>
                             )}
                         </div>
                     </div>
                 </div>
 
-                <div className={`vault-page-overview px-12 pb-2 ${metadata.icon ? 'vault-page-overview--with-icon' : 'vault-page-overview--without-icon'}`}>
+                <div className={`vault-page-overview px-12 pb-2 ${metadata.cover ? '' : 'vault-page-overview--bare'} ${metadata.icon ? 'vault-page-overview--with-icon' : 'vault-page-overview--without-icon'}`}>
                     <div className="mb-4 space-y-1.5">
                         <div className="flex items-center justify-between gap-4 group/title mb-6">
                             <textarea
@@ -4588,7 +4737,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                 placeholder={t('editor.untitled')}
                                 className="vault-page-title flex-1 min-w-0 border-none outline-none placeholder:[var(--text-tertiary)]/20 text-[var(--text-primary)] bg-transparent resize-none overflow-hidden break-words"
                             />
-                            <div className="flex items-center gap-2 shrink-0 animate-in fade-in duration-300 justify-end">
+                            <div className="vault-page-title-actions flex items-center gap-2 shrink-0 animate-in fade-in duration-300 justify-end">
                                 {/* Page actions (history, comments, share, translate, code view,
                                     lock, delete) live here as inline icon buttons — see PageActionsBar.
                                     They used to sit in the VaultShell top-bar "…" menu; they were
@@ -4626,7 +4775,8 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                     type="button"
                                     onClick={() => window.dispatchEvent(new CustomEvent('gnosi:ai-correct-page'))}
                                     title={t('editor.ai_correct_page')}
-                                    className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--gnosi-primary)] transition-colors"
+                                    aria-label={t('editor.ai_correct_page')}
+                                    className="vault-page-ai-action flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--gnosi-primary)] transition-colors"
                                 >
                                     <Sparkles size={12} /> IA
                                 </button>
@@ -4641,6 +4791,19 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                             ? t('editor.spellcheck_active', { lang: spellLang.toUpperCase() })
                                             : t('editor.spellcheck_disabled'),
                                         onClick: () => setSpellEnabled((value) => !value),
+                                    }, {
+                                        key: 'ai-correct',
+                                        Icon: Sparkles,
+                                        label: t('editor.ai_correct_page'),
+                                        onClick: () => window.dispatchEvent(new CustomEvent('gnosi:ai-correct-page')),
+                                    }, {
+                                        key: 'quick-actions',
+                                        Icon: PanelBottomOpen,
+                                        active: isFloatingDockOpen,
+                                        label: isFloatingDockOpen
+                                            ? t('shell.close_quick_actions', 'Close quick actions')
+                                            : t('shell.open_quick_actions', 'Open quick actions'),
+                                        onClick: () => setIsFloatingDockOpen((value) => !value),
                                     }] : []}
                                 />
                                 <CollaborationPresence pageId={noteFilename} />
@@ -4651,7 +4814,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                             data-expanded={isPropertiesOpen || isLinksInfoOpen}
                         >
                             <div ref={propertiesPanelRef} className="rounded-xl border border-[var(--border-primary)] focus-within:border-[var(--gnosi-primary)]/50 focus-within:ring-1 focus-within:ring-[var(--gnosi-primary)]/30 bg-[var(--bg-secondary)]/40 overflow-hidden transition-all">
-                                <div className="w-full flex items-center justify-between gap-3 px-3 py-2.5 hover:bg-[var(--bg-secondary)]/60 transition-colors">
+                                <div className="w-full h-[var(--control-height-touch)] flex items-center justify-between gap-3 px-3 hover:bg-[var(--bg-secondary)]/60 transition-colors">
                                     <button
                                         ref={propertiesHeaderRef}
                                         tabIndex={0}
@@ -4664,8 +4827,13 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                         <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]/85">
                                             {t('common.properties')}
                                         </div>
-                                        <div className="text-[11px] text-[var(--text-tertiary)]/80 truncate">
+                                        <div className="vault-page-summary-meta text-[11px] truncate">
                                             {t('common.schema')} {properties.length} · {t('common.local')} {adhocProperties.length}
+                                        </div>
+                                        <div className="vault-page-summary-badges" aria-hidden="true">
+                                            {properties.length > 0 && <span>{t('common.schema')} {properties.length}</span>}
+                                            {adhocProperties.length > 0 && <span>{t('common.local')} {adhocProperties.length}</span>}
+                                            {properties.length === 0 && adhocProperties.length === 0 && <span>0</span>}
                                         </div>
                                     </button>
                                     {/* Enrichment button by identifier (DOI/ISBN/arXiv/URL).
@@ -4685,7 +4853,10 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                     <button
                                         type="button"
                                         onClick={() => setIsPropertiesOpen((prev) => !prev)}
-                                        className="shrink-0"
+                                        className="vault-summary-chevron shrink-0"
+                                        title={t('editor.toggle_properties')}
+                                        aria-label={t('editor.toggle_properties')}
+                                        aria-expanded={isPropertiesOpen}
                                     >
                                         {isPropertiesOpen ? (
                                             <ChevronDown size={14} className="text-[var(--text-tertiary)]/80" />
@@ -4730,6 +4901,11 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                             options={options}
                                                             idToTitle={relatedMap}
                                                             placeholder={isEditor ? t('editor.add_options') : t('common.empty')}
+                                                            relationItems
+                                                            onOpenRelation={onOpenInNewTab || onOpenPage}
+                                                            onRemoveRelation={isEditor
+                                                                ? (relationId) => handleRelationRemove(prop.name, relationId, relatedMap)
+                                                                : undefined}
                                                         />
                                                     );
                                                 })() : prop.type === 'multi_select' ? (
@@ -4980,15 +5156,26 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                     type="button"
                                     onClick={() => setIsLinksInfoOpen((prev) => !prev)}
                                     onKeyDown={handleLinksHeaderKeyDown}
-                                    className="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-[var(--bg-secondary)]/60 transition-colors focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]/40 rounded transition-all"
+                                    className="w-full h-[var(--control-height-touch)] flex items-center justify-between gap-3 px-3 text-left hover:bg-[var(--bg-secondary)]/60 transition-colors focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]/40 rounded transition-all"
                                 >
                                     <div className="flex items-center gap-2 min-w-0">
                                         <Link2 size={14} className="text-[var(--text-secondary)]/80" />
                                         <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]/85">
                                             {t('editor.links_and_mentions')}
                                         </div>
-                                        <div className="text-[11px] text-[var(--text-tertiary)]/80 truncate">
+                                        <div className="vault-page-summary-meta text-[11px] truncate">
                                             {t('editor.outgoing')} {outgoingLinks.length} · {t('editor.incoming')} {incomingLinks.length} · {t('editor.relations')} {relatedPages.length} · {t('editor.pending')} {unlinkedMentions.length}
+                                        </div>
+                                        <div className="vault-page-summary-badges" aria-hidden="true">
+                                            {outgoingLinks.length > 0 && <span>{t('editor.outgoing')} {outgoingLinks.length}</span>}
+                                            {incomingLinks.length > 0 && <span>{t('editor.incoming')} {incomingLinks.length}</span>}
+                                            {relatedPages.length > 0 && <span>{t('editor.relations')} {relatedPages.length}</span>}
+                                            {unlinkedMentions.length > 0 && <span>{t('editor.pending')} {unlinkedMentions.length}</span>}
+                                            {outgoingLinks.length === 0
+                                                && incomingLinks.length === 0
+                                                && relatedPages.length === 0
+                                                && unlinkedMentions.length === 0
+                                                && <span>0</span>}
                                         </div>
                                     </div>
                                     {isLinksInfoOpen ? (
@@ -5038,14 +5225,14 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                             {outgoingLinks.length === 0 ? (
                                                 <div className="text-xs text-[var(--text-tertiary)]/70">{t('editor.no_outgoing_links')}</div>
                                             ) : (
-                                                <div className="flex flex-wrap gap-1.5">
+                                                <div className="flex flex-wrap gap-1">
                                                     {outgoingLinks.map((link, idx) => (
                                                         link.id ? (
                                                             <button
                                                                 type="button"
                                                                 key={`${link.id}-${idx}`}
                                                                 onClick={() => openLinkedPage(link.id)}
-                                                                className="max-w-64 px-2.5 py-1 text-[11px] rounded-full border border-[var(--gnosi-primary)]/30 bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] hover:brightness-110 transition-all"
+                                                                className="vault-page-link-chip max-w-64 px-2 py-0.5 rounded-full border border-[var(--gnosi-primary)]/30 bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] hover:brightness-110 transition-all"
                                                                 title={`${link.title} — ${t('editor.open_parallel_tooltip')}`}
                                                             >
                                                                 <span className="block truncate">{link.title}</span>
@@ -5053,7 +5240,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                         ) : (
                                                             <span
                                                                 key={`${link.title}-${idx}`}
-                                                                className="max-w-64 px-2.5 py-1 text-[11px] rounded-full border border-[var(--border-primary)] text-[var(--text-tertiary)]/80"
+                                                                className="vault-page-link-chip max-w-64 px-2 py-0.5 rounded-full border border-[var(--border-primary)] text-[var(--text-tertiary)]/80"
                                                                 title={`${link.title} — ${t('editor.unresolved_link')}`}
                                                             >
                                                                 <span className="block truncate">{link.title}</span>
@@ -5077,13 +5264,13 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                             ) : incomingLinks.length === 0 ? (
                                                 <div className="text-xs text-[var(--text-tertiary)]/70">{t('editor.no_backlinks')}</div>
                                             ) : (
-                                                <div className="flex flex-wrap gap-1.5">
+                                                <div className="flex flex-wrap gap-1">
                                                     {incomingLinks.map((link) => (
                                                         <button
                                                             type="button"
                                                             key={link.id}
                                                             onClick={() => openLinkedPage(link.id)}
-                                                            className="max-w-64 px-2.5 py-1 text-[11px] rounded-full border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:border-[var(--gnosi-primary)]/40 hover:text-[var(--gnosi-primary)] transition-all"
+                                                            className="vault-page-link-chip max-w-64 px-2 py-0.5 rounded-full border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:border-[var(--gnosi-primary)]/40 hover:text-[var(--gnosi-primary)] transition-all"
                                                             title={`${formatIncomingLinkLabel(link)} — ${t('editor.open_parallel_tooltip')}`}
                                                         >
                                                             <span className="block truncate">{formatIncomingLinkLabel(link)}</span>
@@ -5101,13 +5288,13 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                             {relatedPages.length === 0 ? (
                                                 <div className="text-xs text-[var(--text-tertiary)]/70">{t('editor.no_relations')}</div>
                                             ) : (
-                                                <div className="flex flex-wrap gap-1.5">
+                                                <div className="flex flex-wrap gap-1">
                                                     {relatedPages.map((link) => (
                                                         <button
                                                             type="button"
                                                             key={link.id}
                                                             onClick={() => openLinkedPage(link.id)}
-                                                            className="max-w-64 px-2.5 py-1 text-[11px] rounded-full border border-[#6366f1]/30 bg-[#6366f1]/10 text-[#6366f1] hover:brightness-110 transition-all"
+                                                            className="vault-page-link-chip max-w-64 px-2 py-0.5 rounded-full border border-[#6366f1]/30 bg-[#6366f1]/10 text-[#6366f1] hover:brightness-110 transition-all"
                                                             title={`${link.title} — ${t('editor.open_parallel_tooltip')}`}
                                                         >
                                                             <span className="block truncate">{link.title}</span>

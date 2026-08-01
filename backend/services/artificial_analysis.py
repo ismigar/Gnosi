@@ -43,6 +43,7 @@ _PRESERVED_METRIC_FIELDS = (
     "coding",
     "agentic",
 )
+_SUPPORTED_MODES = {"text", "image", "audio", "video"}
 
 
 def _cache_path() -> Optional[Path]:
@@ -132,6 +133,17 @@ def _normalize_name(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", (value or "").lower())
 
 
+def _supported_modes(*values: Any) -> List[str]:
+    """Normalize modality lists, defaulting language-comparison rows to text."""
+    modes = {
+        str(mode).lower()
+        for value in values
+        for mode in (value or [])
+        if str(mode).lower() in _SUPPORTED_MODES
+    }
+    return sorted(modes or {"text"})
+
+
 def _catalog_enrichment_index(catalog: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
     """Index metadata and usable router routes by normalized model id/name."""
     index: Dict[str, Dict[str, Any]] = {}
@@ -142,6 +154,7 @@ def _catalog_enrichment_index(catalog: Dict[str, Any]) -> Dict[str, Dict[str, An
                 "input_price": _number(model.get("cost_in")),
                 "output_price": _number(model.get("cost_out")),
                 "tags": list(model.get("tags") or []),
+                "modes": _supported_modes(model.get("modes")),
                 "release_date": model.get("release_date") or "",
             }
             route = {
@@ -238,6 +251,8 @@ def _enrich_cached_payload(
             if model.get(field) is None and match.get(field) is not None:
                 model[field] = match[field]
                 metric_sources[field] = "models_dev"
+        if model.get("modes") or match.get("modes"):
+            model["modes"] = _supported_modes(model.get("modes"), match.get("modes"))
         if metric_sources:
             model["metric_sources"] = metric_sources
     return payload
@@ -328,6 +343,7 @@ def build_comparison_payload(
             "coding": _number(evaluations.get("artificial_analysis_coding_index")),
             "agentic": _number(evaluations.get("artificial_analysis_agentic_index")),
             "tags": list(match.get("tags") or []),
+            "modes": _supported_modes(row.get("modes"), match.get("modes")),
             "routes": routes,
         }
         if metric_sources:
@@ -371,6 +387,7 @@ def build_catalog_fallback_payload(catalog: Dict[str, Any], reason: str) -> Dict
                 "name": str(model.get("name") or model.get("id") or ""),
                 "release_date": model.get("release_date") or "",
                 "context_window_tokens": int(model.get("context_window") or 0),
+                "modes": list(model.get("modes") or []),
                 "model_creator": {"name": str(provider.get("name") or "")},
                 "pricing": {
                     "price_1m_input_tokens": model.get("cost_in"),

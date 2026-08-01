@@ -33,6 +33,7 @@ export function VaultBulkActionsBar({
     onChangeItemType,
     onExportSelection,
     onTranslateSelection,
+    extraActions,
 }) {
     const { t } = useTranslation();
     const [typeMenuOpen, setTypeMenuOpen] = useState(false);
@@ -144,6 +145,8 @@ export function VaultBulkActionsBar({
                     {t('translate.submit', "Translate")}
                 </button>
             )}
+
+            {extraActions}
 
             {/* Delete */}
             <button

@@ -20,6 +20,7 @@ const PHASE_LABELS = {
 };
 
 const POLL_MS = 1500;
+const NO_BRAIN_TABLE_ERROR = 'No Brain table is configured';
 
 export function ProcessResourceModal({
     isOpen,
@@ -30,6 +31,7 @@ export function ProcessResourceModal({
     force = false,
     onJobUpdate,
     onProcessed,
+    onContinueInBackground,
 }) {
     const { t } = useTranslation();
     const tp = (k, def, opts) => t(`llm_wiki.${k}`, { defaultValue: def, ...(opts || {}) });
@@ -38,10 +40,20 @@ export function ProcessResourceModal({
     const [error, setError] = useState('');
     const pollRef = useRef(null);
     const modalRef = useRef(null);
+    const jobRef = useRef(null);
 
     const stopPolling = () => {
         if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
     };
+
+    const localizeStartError = (err) => {
+        const detail = err.response?.data?.detail;
+        if (detail === NO_BRAIN_TABLE_ERROR) {
+            return tp('error_no_brain_table', 'No Brain table is configured. Create one in Settings → Plugins → LLM Wiki.');
+        }
+        return detail || err.message || tp('error_generic', 'Error processing the resource');
+    };
+
     useEffect(() => () => stopPolling(), []);
 
     const poll = async (identifier) => {
@@ -51,6 +63,7 @@ export function ProcessResourceModal({
                 { params: sourceTableId ? { source_table_id: sourceTableId } : undefined },
             );
             const j = res.data || {};
+            jobRef.current = j;
             setJob(j);
             onJobUpdate?.(j);
             if (j.phase === 'done' && !j.running) {
@@ -80,22 +93,32 @@ export function ProcessResourceModal({
                 force,
             });
             const nextJobId = response.data?.job_id || noteId;
-            setJob(response.data?.job || null);
-            if (response.data?.job) onJobUpdate?.(response.data.job);
+            const startedJob = response.data?.job || null;
+            jobRef.current = startedJob;
+            setJob(startedJob);
+            if (startedJob) onJobUpdate?.(startedJob);
             stopPolling();
             pollRef.current = setInterval(() => poll(nextJobId), POLL_MS);
             poll(nextJobId);
         } catch (err) {
-            const msg = err.response?.data?.detail || err.message || tp('error_generic', "Error processing the resource");
+            const msg = localizeStartError(err);
             setError(msg);
             setState('error');
             toast.error(msg);
         }
     };
 
+    const dismiss = () => {
+        const currentJob = jobRef.current;
+        if (state === 'running' && currentJob?.job_id) {
+            onContinueInBackground?.(currentJob);
+        }
+        onClose();
+    };
+
     useModalKeyboard({
         isOpen,
-        onClose,
+        onClose: dismiss,
         onConfirm: () => { if (state === 'confirm') start(); },
         confirmDisabled: state !== 'confirm',
         containerRef: modalRef,
@@ -124,7 +147,7 @@ export function ProcessResourceModal({
                         <BrainCircuit size={18} className="text-[var(--gnosi-primary)]" />
                         {tp('modal_title', "Process resource into the Brain")}
                     </h2>
-                    <button onClick={onClose} className="gnosi-close-btn" aria-label={t('common.close', "Close")}>
+                    <button onClick={dismiss} className="gnosi-close-btn" aria-label={t('common.close', "Close")}>
                         <X />
                     </button>
                 </div>

@@ -46,6 +46,9 @@ PERMISSIONS: Dict[str, str] = {
     "ui:view": "Register custom views and screens",
     "ui:sidebar": "Add panels to the sidebar",
     "settings": "Save the plugin's own settings",
+    "ai:skills": "Contribute declarative skills to AI agents",
+    "ai:agents": "Contribute managed AI agent templates",
+    "ai:tools": "Expose sandboxed plugin actions to contributed AI skills",
 }
 
 # Permissions that involve execution on the backend (data sandbox). The rest are
@@ -56,12 +59,13 @@ BACKEND_PERMISSIONS = {"vault:read", "vault:write", "vault:delete", "network"}
 # `apiVersion` in the manifest; if it asks for a HIGHER major, the host refuses it (the
 # plugin needs a newer Gnosi). Increment it ONLY on API changes
 # that are incompatible. Plugins that don't declare it assume 1 (backward compat).
-PLUGIN_API_VERSION = 1
+PLUGIN_API_VERSION = 2
 
 # safe plugin id as a path segment (same policy as _PAGE_ID_RE from
 # vault_routes: blocks `..`, `/`, `\`, leading dots → anti path-traversal).
 _PLUGIN_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{1,63}$")
 _SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+([-.+][0-9A-Za-z.-]+)?$")
+_RESERVED_PLUGIN_IDS = frozenset({"llm-wiki"})
 
 _state_lock = threading.Lock()
 
@@ -107,6 +111,8 @@ def validate_manifest(raw: Any) -> Dict[str, Any]:
         raise PluginError(
             f"invalid plugin ID: {pid!r} (lowercase [a-z0-9_-], 2–64 characters)"
         )
+    if pid in _RESERVED_PLUGIN_IDS:
+        raise PluginError(f"plugin ID is reserved by Gnosi: {pid!r}")
 
     version = str(raw.get("version") or "0.0.0")
     if not _SEMVER_RE.match(version):
@@ -144,6 +150,48 @@ def validate_manifest(raw: Any) -> Dict[str, Any]:
     if api_version < 1:
         raise PluginError("apiVersion ha de ser >= 1")
 
+    contributes_raw = raw.get("contributes") or {}
+    if not isinstance(contributes_raw, dict):
+        raise PluginError("contributes must be an object")
+    allowed_contributions = {"skills", "agents", "agentTools"}
+    unknown_contributions = set(contributes_raw) - allowed_contributions
+    if unknown_contributions:
+        raise PluginError(
+            "unknown AI contribution types: "
+            + ", ".join(sorted(unknown_contributions))
+        )
+    contributes: Dict[str, List[str]] = {}
+    for key in sorted(allowed_contributions):
+        entries = contributes_raw.get(key) or []
+        if not isinstance(entries, list):
+            raise PluginError(f"contributes.{key} must be a list")
+        normalized_entries: List[str] = []
+        for entry in entries:
+            rel = _rel(entry)
+            if rel and rel not in normalized_entries:
+                normalized_entries.append(rel)
+        if normalized_entries:
+            contributes[key] = normalized_entries
+
+    if contributes.get("skills") and "ai:skills" not in permissions:
+        raise PluginError(
+            "plugins that contribute skills must declare the ai:skills permission"
+        )
+    if contributes.get("agents") and "ai:agents" not in permissions:
+        raise PluginError(
+            "plugins that contribute agents must declare the ai:agents permission"
+        )
+    if contributes.get("agentTools") and "ai:tools" not in permissions:
+        raise PluginError(
+            "plugins that contribute agent tools must declare the ai:tools permission"
+        )
+    if contributes and api_version < 2:
+        raise PluginError("AI contributions require plugin apiVersion 2")
+    if contributes.get("agentTools") and not raw.get("backend"):
+        raise PluginError(
+            "plugins that contribute agent tools must declare a sandbox backend entry"
+        )
+
     return {
         "id": pid,
         "version": version,
@@ -158,6 +206,7 @@ def validate_manifest(raw: Any) -> Dict[str, Any]:
         # Node for events it doesn't care about).
         "events": events,
         "permissions": permissions,
+        "contributes": contributes,
         "author": str(raw.get("author") or ""),
         "homepage": str(raw.get("homepage") or ""),
     }
