@@ -1577,7 +1577,7 @@
       "graph": "Configuració del Graf",
       "reader": "Lector",
       "newsletters": "Subscripcions",
-      "mail_accounts": "Comptes de Correu",
+      "mail_accounts": "Correu",
       "contacts": "Contactes",
       "references": "Referències",
       "ai": "Intel·ligència Artificial",
@@ -1606,6 +1606,7 @@
       "no_active_models": "No hi ha models explícits activats. Pots usar el model predeterminat o activar-ne un a Intel·ligència Artificial."
     },
     "general": {
+      "sections_label": "Apartats de configuració general",
       "system_title": "Configuració del Sistema",
       "workspace_name_desc": "Identificador del teu cervell digital.",
       "workspace_name_placeholder": "Meu Cervell Digital",
@@ -1615,7 +1616,7 @@
       "organization": "Organització",
       "org_admin_user": "Usuari Admin Org",
       "org_admin_password": "Password Admin",
-      "files_structure": "Estructura de Fitxers",
+      "files_structure": "Estructura de fitxers",
       "root_folder": "Carpeta arrel",
       "root_folder_desc": "Carpeta principal on s'emmagatzemen tots els vaults i les dades del sistema.",
       "vaults_label": "Vaults",
@@ -1650,6 +1651,7 @@
       "vault": "Vault"
     },
     "profile": {
+      "sections_label": "Apartats del perfil",
       "title": "Perfil d'Usuari",
       "desc": "La teva identitat digital i dades de contacte.",
       "assistant_section": "Configuració de l'Assistent",
@@ -1760,7 +1762,9 @@
       "personal_calendar": "Calendari personal"
     },
     "graph": {
-      "section_title": "Motor Visual del Grafe",
+      "section_title": "Motor visual del graf",
+      "sections_label": "Apartats de configuració del graf",
+      "visual_engine": "Motor visual del graf",
       "aesthetics": "Estètica",
       "node_size_value": "Mida del Node: {{value}}",
       "edge_thickness_value": "Gruix de l'Arc: {{value}}",
@@ -1770,7 +1774,7 @@
       "gravity_value": "Gravetat: {{value}}",
       "repulsion_value": "Repulsió: {{value}}",
       "friction_value": "Fricció: {{value}}",
-      "visible_structures": "Estructures Visibles",
+      "visible_structures": "Estructures visibles",
       "databases": "Bases de dades",
       "system_entities": "Entitats del Sistema",
       "other_structures": "Altres Taules i Estructures",
@@ -1810,7 +1814,8 @@
       "show_labels": "Mostra les etiquetes"
     },
     "mail_accounts": {
-      "title": "Comptes de Correu",
+      "sections_label": "Apartats del correu",
+      "title": "Comptes de correu",
       "desc": "Gestiona les teves comptes de correu IMAP/SMTP per rebre newsletters i comunicacions."
     },
     "newsletters": {

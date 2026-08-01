@@ -565,6 +565,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         initialTab === 'newsletters' ? 'subscriptions' : 'podcast',
     );
     const [aiSection, setAiSection] = useState('agents');
+    const [generalSection, setGeneralSection] = useState('system');
+    const [mailSection, setMailSection] = useState('accounts');
+    const [graphSection, setGraphSection] = useState('engine');
     const [isAdvancedOpen, setIsAdvancedOpen] = useState(
         () => ['api', 'plugins'].includes(initialTab)
     );
@@ -904,6 +907,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     ];
     const [socialNetworks, setSocialNetworks] = useState(SOCIAL_NETWORK_DEFAULTS);
     const [socialStreams, setSocialStreams] = useState([]);
+    const [socialSection, setSocialSection] = useState('networks');
     const [newStreamForm, setNewStreamForm] = useState({ id: '', title: '', icon: '📡', network: 'mastodon' });
     const [showAddStream, setShowAddStream] = useState(false);
 
@@ -2274,8 +2278,19 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                              {/* ACCOUNT (credentials) */}
                              {activeTab === 'account' && <AccountSettings />}
 
-                             {/* GENERAL */}
+                            {/* GENERAL */}
                             {activeTab === 'general' && (
+                                <>
+                                <SettingsSectionTabs
+                                    ariaLabel={tn('general.sections_label')}
+                                    activeId={generalSection}
+                                    onChange={setGeneralSection}
+                                    items={[
+                                        { id: 'system', icon: SettingsIcon, label: tn('general.system_title') },
+                                        { id: 'files', icon: FolderOpen, label: tn('general.files_structure') },
+                                    ]}
+                                />
+                                {generalSection === 'system' && (
                                 <Section title={tn('general.system_title')} icon={SettingsIcon}>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '40px' }}>
                                         <FormGroup label={tn('general.workspace_name')} description={tn('general.workspace_name_desc')}>
@@ -2305,7 +2320,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         </div>
                                     )}
 
-                                    <div style={{ marginTop: '50px' }}>
+                                </Section>
+                                )}
+                                {generalSection === 'files' && (
                                         <Section title={tn('general.files_structure')} icon={FolderOpen}>
                                             <FormGroup label={tn('general.root_folder')} description={tn('general.root_folder_desc')}>
                                                 <div style={{ display: 'flex', gap: '14px' }}>
@@ -2322,8 +2339,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 </FormGroup>
                                             )}
                                         </Section>
-                                    </div>
-                                </Section>
+                                )}
+                                </>
                             )}
 
                             {/* WORKSPACE — member management and vault access */}
@@ -2503,8 +2520,20 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                 </div>
                             )}
 
+                            {activeTab === 'mail' && (
+                                <SettingsSectionTabs
+                                    ariaLabel={tn('mail_accounts.sections_label')}
+                                    activeId={mailSection}
+                                    onChange={setMailSection}
+                                    items={[
+                                        { id: 'accounts', icon: Mail, label: tn('mail_accounts.title') },
+                                        { id: 'snippets', icon: FileText, label: tn('snippets.title') },
+                                    ]}
+                                />
+                            )}
+
                             {/* CALENDAR, CONTACTS, MAIL */}
-                            {(activeTab === 'calendar' || activeTab === 'contacts' || activeTab === 'mail') && (
+                            {(activeTab === 'calendar' || activeTab === 'contacts' || (activeTab === 'mail' && mailSection === 'accounts')) && (
                                 <Section 
                                     title={activeTab === 'calendar' ? tn('calendar.manage_title') : (activeTab === 'contacts' ? tn('contacts.sync_section_title') : tn('mail_accounts.title'))} 
                                     icon={activeTab === 'calendar' ? Calendar : (activeTab === 'contacts' ? Users : Mail)}
@@ -3254,7 +3283,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             )}
 
                             {/* MAIL SNIPPETS */}
-                            {activeTab === 'mail' && (
+                            {activeTab === 'mail' && mailSection === 'snippets' && (
                                 <Section title={tn('snippets.title')} icon={FileText}>
                                     <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
                                         {tn('snippets.intro')}
@@ -3362,30 +3391,46 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             {/* SOCIAL */}
                             {activeTab === 'social' && (
                                 <>
+                                    <SettingsSectionTabs
+                                        ariaLabel={t('settings.tabs.social')}
+                                        activeId={socialSection}
+                                        onChange={setSocialSection}
+                                        items={[
+                                            { id: 'networks', icon: Share2, label: tn('social.networks_title') },
+                                            { id: 'streams', icon: Rss, label: tn('social.streams_title') },
+                                        ]}
+                                    />
+
+                                    {socialSection === 'networks' && (
                                     <Section title={tn('social.networks_title')} icon={Share2}>
-                                        <div className="social-network-tabs" aria-label={tn('social.networks_title')}>
+                                        <div className="settings-configurable-list" style={{ '--settings-configurable-gap': '10px' }}>
                                             {socialNetworks.map(net => (
-                                                <button
+                                                <div
                                                     key={net.id}
-                                                    type="button"
-                                                    className={`social-network-tab ${net.enabled ? 'is-enabled' : ''}`}
-                                                    aria-pressed={net.enabled}
-                                                    aria-label={tn('social.enable_network', { name: net.name })}
-                                                    onClick={() => {
-                                                        const updated = socialNetworks.map(n => n.id === net.id ? { ...n, enabled: !n.enabled } : n);
-                                                        saveSocialNetworks(updated);
-                                                    }}
+                                                    className="settings-configurable-item"
+                                                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: 'var(--settings-sidebar-bg)', borderRadius: '14px', border: '1px solid var(--settings-border)' }}
                                                 >
-                                                    {isKnownSocialNetwork(net.id)
-                                                        ? <SocialNetworkIcon network={net.id} size={26} />
-                                                        : <span aria-hidden="true" className="social-network-tab__fallback">{net.icon}</span>}
-                                                    <span>{net.name}</span>
-                                                    <GnosiToggle active={net.enabled} display scale={0.78} />
-                                                </button>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                        {isKnownSocialNetwork(net.id)
+                                                            ? <SocialNetworkIcon network={net.id} size={26} />
+                                                            : <span aria-hidden="true" style={{ fontSize: '1.4rem' }}>{net.icon}</span>}
+                                                        <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{net.name}</span>
+                                                    </div>
+                                                    <GnosiToggle
+                                                        active={net.enabled}
+                                                        label={tn('social.enable_network', { name: net.name })}
+                                                        onChange={() => {
+                                                            const updated = socialNetworks.map(n => n.id === net.id ? { ...n, enabled: !n.enabled } : n);
+                                                            saveSocialNetworks(updated);
+                                                        }}
+                                                    />
+                                                </div>
                                             ))}
                                         </div>
                                     </Section>
+                                    )}
 
+                                    {socialSection === 'streams' && (
                                     <Section title={tn('social.streams_title')} icon={Rss} extra={
                                         <button onClick={() => setShowAddStream(v => !v)} className="btn-gnosi-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', fontSize: '0.85rem', borderRadius: '10px' }}>
                                             {showAddStream ? <X size={15} /> : <Plus size={15} />}
@@ -3452,6 +3497,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             ))}
                                         </div>
                                     </Section>
+                                    )}
                                 </>
                             )}
 
@@ -3706,6 +3752,17 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
                             {/* GRAF */}
                             {activeTab === 'graph' && (
+                                <>
+                                <SettingsSectionTabs
+                                    ariaLabel={tn('graph.sections_label')}
+                                    activeId={graphSection}
+                                    onChange={setGraphSection}
+                                    items={[
+                                        { id: 'engine', icon: Share2, label: tn('graph.visual_engine') },
+                                        { id: 'structures', icon: Database, label: tn('graph.visible_structures') },
+                                    ]}
+                                />
+                                {graphSection === 'engine' && (
                                 <Section title={tn('graph.section_title')} icon={Share2}>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '50px', marginBottom: '50px' }}>
                                         <div>
@@ -3746,6 +3803,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         </div>
                                     </div>
 
+                                </Section>
+                                )}
+                                {graphSection === 'structures' && (
                                     <Section title={tn('graph.visible_structures')} icon={Database}>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
                                             {/* Databases and Tables */}
@@ -4108,7 +4168,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             </div>
                                         </div>
                                     </Section>
-                                </Section>
+                                )}
+                                </>
                             )}
 
                             {/* IA */}

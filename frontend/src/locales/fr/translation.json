@@ -253,6 +253,8 @@
       "title": "Configuration du graphe",
       "exposed_filter": "Filtre exposé",
       "section_title": "Moteur visuel du graphe",
+      "sections_label": "Sections de configuration du graphe",
+      "visual_engine": "Moteur visuel du graphe",
       "aesthetics": "Esthétique",
       "node_size_value": "Taille du nœud : {{value}}",
       "edge_thickness_value": "Épaisseur de l'arc : {{value}}",
@@ -1033,7 +1035,7 @@
       "graph": "Graphique",
       "reader": "Lecteur",
       "newsletters": "Abonnements",
-      "mail_accounts": "Comptes de Messagerie",
+      "mail_accounts": "Courrier",
       "contacts": "Contacts",
       "ai": "Intelligence Artificielle",
       "notion": "Importer Notion",
@@ -1060,6 +1062,7 @@
       "no_active_models": "Aucun modèle explicite n’est actif. Vous pouvez utiliser le modèle par défaut ou en activer un dans Intelligence artificielle."
     },
     "general": {
+      "sections_label": "Sections des paramètres généraux",
       "workspace_name": "Nom de l'espace de travail",
       "system_title": "Configuration du Système",
       "workspace_name_desc": "Identifiant de ton cerveau numérique.",
@@ -1104,6 +1107,7 @@
       "vault_path_desc": "Où sont enregistrées vos données locales de Gnosi."
     },
     "mail_accounts": {
+      "sections_label": "Sections du courrier",
       "title": "Comptes de Messagerie",
       "desc": "Gérez vos comptes de messagerie IMAP/SMTP pour recevoir des newsletters et des communications."
     },
@@ -1260,6 +1264,7 @@
       "personal_calendar": "Calendrier personnel"
     },
     "profile": {
+      "sections_label": "Sections du profil",
       "title": "Profil utilisateur",
       "desc": "Votre identité numérique et vos coordonnées.",
       "assistant_section": "Configuration de l'Assistant",

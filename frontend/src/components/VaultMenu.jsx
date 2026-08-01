@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
-import { Database, Check, Plus, Loader } from 'lucide-react';
+import { Vault as VaultIcon, Check, Plus, Loader } from 'lucide-react';
 
 /**
  * GLOBAL vault selector for the sidebar (personal multi-vault mode). Icon + popover
@@ -27,7 +27,7 @@ export default function VaultMenu() {
             setVaults(list);
             const active = list.find(v => v.active);
             if (active?.name) {
-                try { localStorage.setItem('gnosi_active_vault_name', active.name); } catch {}
+                try { localStorage.setItem('gnosi_active_vault_name', active.name); } catch { /* Storage may be unavailable. */ }
             }
         } catch { /* */ }
     };
@@ -77,7 +77,7 @@ export default function VaultMenu() {
     return (
         <>
             <button ref={btnRef} className="app-sidebar__item" title={`${vaultLabel}: ${active?.name || '…'}`} onClick={toggle}>
-                <Database size={16} strokeWidth={1.5} />
+                <VaultIcon size={16} strokeWidth={1.5} />
                 <span className="app-sidebar__tooltip"><span>{vaultLabel}: {active?.name || '…'}</span></span>
             </button>
             {open && pos && createPortal(
