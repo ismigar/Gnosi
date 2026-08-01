@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { User, ShieldCheck, Mail, Phone, MapPin, CreditCard, FileText } from 'lucide-react';
 import { Section, FormGroup } from '../GlobalSettingsModal';
+import { SettingsSectionTabs } from '../SettingsSectionTabs';
 
 export default function IdentityProfile({ userName, setUserName, profile, setProfile }) {
     const { t } = useTranslation();
+    const [activeSection, setActiveSection] = useState('assistant');
 
     const handleChange = (field, value) => {
         // Functional update: using `profile` from the closure can lose changes
@@ -29,8 +31,18 @@ export default function IdentityProfile({ userName, setUserName, profile, setPro
                 </div>
             </div>
 
+            <SettingsSectionTabs
+                ariaLabel={t('settings.profile.sections_label')}
+                activeId={activeSection}
+                onChange={setActiveSection}
+                items={[
+                    { id: 'assistant', icon: FileText, label: t('settings.profile.assistant_section') },
+                    { id: 'contact', icon: ShieldCheck, label: t('settings.profile.contact_section') },
+                ]}
+            />
+
             {/* AI Assistant Config Section */}
-            <Section title={t('settings.profile.assistant_section', "Assistant Configuration")} icon={FileText}>
+            {activeSection === 'assistant' && <Section title={t('settings.profile.assistant_section', "Assistant Configuration")} icon={FileText}>
                 <FormGroup
                     label={t('settings.profile.ai_username_label', "Username (AI)")}
                     description={t('settings.profile.ai_username_desc', "This is how the artificial intelligence agents will address you.")}
@@ -43,10 +55,10 @@ export default function IdentityProfile({ userName, setUserName, profile, setPro
                         placeholder={t('settings.profile.ai_username_placeholder', "e.g. Ismael")}
                     />
                 </FormGroup>
-            </Section>
+            </Section>}
 
             {/* Personal Data Section */}
-            <Section title={t('settings.profile.contact_section', "Contact Details and Forms")} icon={ShieldCheck}>
+            {activeSection === 'contact' && <Section title={t('settings.profile.contact_section', "Contact Details and Forms")} icon={ShieldCheck}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
                     <FormGroup label={t('settings.profile.full_name_label', "Full Name")}>
                         <input
@@ -163,7 +175,7 @@ export default function IdentityProfile({ userName, setUserName, profile, setPro
                         />
                     </FormGroup>
                 </div>
-            </Section>
+            </Section>}
         </div>
     );
 }
