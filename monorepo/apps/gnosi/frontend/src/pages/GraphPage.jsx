@@ -718,7 +718,7 @@ function GraphPage() {
 
                     {/* Field Value Filters (dynamic) */}
                     {visibleFields.length > 0 && (
-                        <CollapsibleSection title={t('graph.filters.fields_title', "Field Filter")} badge={visibleFields.length} defaultOpen={true}>
+                        <CollapsibleSection title={t('graph.filters.fields_title', "Field Filter")} badge={visibleFields.length}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '10px' }}>
                                 {visibleFields.map(fieldKey => {
                                     if (!fieldKey || !fieldKey.includes(':')) return null;

@@ -159,3 +159,9 @@ Sigma defaults `minEdgeThickness` to 1.7 pixels. This overrides small values
 from the edge-thickness control and turns dense wikilink graphs into a solid
 mass. Set an explicit sub-pixel minimum and use a low-opacity neutral base
 color; reserve saturated edges for hover, pathfinding, and suggestions.
+
+## Filter panel defaults
+
+The dynamic field-value filter can contain many values and must start
+collapsed. Keep the table selector expanded, but do not pass `defaultOpen` to
+the field filter's `CollapsibleSection`; its component default is collapsed.
