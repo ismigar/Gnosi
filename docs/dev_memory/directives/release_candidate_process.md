@@ -37,6 +37,25 @@ prerelease suffix makes the GitHub release a prerelease automatically.
 8. Wait for all release jobs and inspect the generated draft before publishing
    it manually.
 
+## Desktop update delivery
+
+The packaged Electron application checks the public `ismigar/Gnosi` GitHub
+repository after its renderer is ready. Update checks are disabled in
+development mode. A published release newer than the packaged application is
+offered in the global application shell; downloads start only after the user
+selects the download action. The interface reports download progress and
+offers an explicit restart-and-install action when the package is ready.
+
+The renderer must be able to recover the latest updater state through IPC as
+well as subscribe to events. This prevents a fast update check from finishing
+before React registers its listener. The main process owns update state and all
+updater operations; the renderer receives only the narrow preload API.
+
+Release artifacts must include both the platform installers and the metadata
+consumed by `electron-updater`: `latest*.yml`, blockmaps when generated, and the
+macOS ZIP update target. Draft releases are intentionally invisible to clients
+until a maintainer publishes them.
+
 ## Restrictions and edge cases
 
 - Do not create the release tag from a feature branch because the tag must
@@ -45,6 +64,13 @@ prerelease suffix makes the GitHub release a prerelease automatically.
   package version and would display a different release.
 - Do not publish the draft automatically. The workflow deliberately leaves the
   public release in draft state for final artifact inspection.
+- Do not point Electron publishing metadata at the private source repository.
+  Update clients must query the public `ismigar/Gnosi` release repository.
+- Do not upload only DMG, AppImage, DEB, or NSIS installers. Without the
+  generated update manifests (and macOS ZIP target), `electron-updater` cannot
+  discover or apply the release.
+- Do not start downloading an update merely because it exists. Keep
+  `autoDownload` disabled and require the user's download action.
 - Do not use `gh` in this repository. Use Git over SSH and the GitHub app.
 - Restart the native frontend after changing the package version. Vite injects
   the displayed version when the development server starts, so hot reload

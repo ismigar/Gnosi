@@ -4756,5 +4756,16 @@
     "redo_success": "Relació eliminada de nou"
   },
   "reader_articles_pending_many": "{{count}} articles pendents",
-  "reader_sources_count_many": "{{count}} fonts"
+  "reader_sources_count_many": "{{count}} fonts",
+  "desktop_update": {
+    "aria_label": "Actualització de l'aplicació",
+    "dismiss": "Descarta l'avís d'actualització",
+    "available_title": "Hi ha una nova versió de Gnosi",
+    "available_body": "La versió {{version}} està preparada per descarregar.",
+    "downloading_body": "S'està descarregant la versió {{version}}… {{percent}}%",
+    "ready_title": "Actualització preparada",
+    "ready_body": "Reinicia Gnosi per acabar d'instal·lar la versió {{version}}.",
+    "download": "Descarrega l'actualització",
+    "restart": "Reinicia i instal·la"
+  }
 }

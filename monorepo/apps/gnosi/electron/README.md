@@ -91,12 +91,16 @@ Python 3.9 from Xcode Command Line Tools bundles incorrectly on Apple Silicon. U
 
 ## Auto-Updates
 
-The app uses `electron-updater` with GitHub Releases for automatic updates.
+The app uses `electron-updater` with the public `ismigar/Gnosi` GitHub Releases.
 
 When a new version is published to GitHub:
 1. Create a GitHub Release with the tag `v{x.y.z}`
-2. Upload the artifacts from `dist/`
-3. App will automatically detect and prompt for update
+2. Upload the installers, `latest*.yml`, blockmaps, and the macOS ZIP target
+3. The app detects the release and offers a download action
+4. After download, the user selects **Restart and install**
+
+Draft releases are not visible to update clients. Downloads never start without
+the user's action.
 
 ## Distribution
 

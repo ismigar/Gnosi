@@ -8,6 +8,7 @@ const isDev = process.argv.includes('--dev');
 
 let mainWindow;
 let backendProcess = null;
+let updateState = { status: 'idle' };
 
 const BACKEND_PORT = 5002;
 const FRONTEND_PORT = 5173;
@@ -230,28 +231,36 @@ function setupAutoUpdater() {
   
   autoUpdater.logger = require('electron-log');
   autoUpdater.logger.transports.file.level = 'info';
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = false;
+
+  const publishUpdateState = (nextState) => {
+    updateState = { ...updateState, ...nextState };
+    mainWindow?.webContents.send('update-status', updateState);
+  };
   
   autoUpdater.on('checking-for-update', () => {
     log('Checking for update...');
+    publishUpdateState({ status: 'checking' });
   });
   
   autoUpdater.on('update-available', (info) => {
     log('Update available:', info.version);
-    mainWindow?.webContents.send('update-status', { status: 'available', version: info.version });
+    publishUpdateState({ status: 'available', version: info.version });
   });
   
   autoUpdater.on('update-not-available', () => {
     log('Update not available');
-    mainWindow?.webContents.send('update-status', { status: 'not-available' });
+    publishUpdateState({ status: 'not-available' });
   });
   
   autoUpdater.on('error', (err) => {
     log('Auto-updater error:', err.message);
-    mainWindow?.webContents.send('update-status', { status: 'error', error: err.message });
+    publishUpdateState({ status: 'error', error: err.message });
   });
   
   autoUpdater.on('download-progress', (progress) => {
-    mainWindow?.webContents.send('update-status', { 
+    publishUpdateState({
       status: 'downloading', 
       percent: progress.percent 
     });
@@ -259,15 +268,28 @@ function setupAutoUpdater() {
   
   autoUpdater.on('update-downloaded', (info) => {
     log('Update downloaded:', info.version);
-    mainWindow?.webContents.send('update-status', { status: 'downloaded', version: info.version });
+    publishUpdateState({ status: 'downloaded', version: info.version });
   });
   
-  autoUpdater.checkForUpdatesAndNotify();
+  autoUpdater.checkForUpdates().catch((err) => {
+    log('Initial update check failed:', err.message);
+  });
 }
 
 function setupIPC() {
   ipcMain.handle('get-app-version', () => {
     return app.getVersion();
+  });
+
+  ipcMain.handle('get-update-status', () => updateState);
+
+  ipcMain.handle('download-update', async () => {
+    if (updateState.status !== 'available') {
+      return updateState;
+    }
+
+    await autoUpdater.downloadUpdate();
+    return updateState;
   });
   
   ipcMain.handle('get-backend-status', async () => {
@@ -367,8 +389,8 @@ app.whenReady().then(async () => {
   }
   
   createWindow();
-  setupAutoUpdater();
   setupIPC();
+  setupAutoUpdater();
 });
 
 app.on('window-all-closed', () => {

@@ -64,7 +64,11 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: macos-arm64
-          path: monorepo/apps/gnosi/electron/dist/*.dmg
+          path: |
+            monorepo/apps/gnosi/electron/dist/*.dmg
+            monorepo/apps/gnosi/electron/dist/*.zip
+            monorepo/apps/gnosi/electron/dist/*.blockmap
+            monorepo/apps/gnosi/electron/dist/latest-mac.yml
           retention-days: 5
 
   build-linux:
@@ -117,6 +121,8 @@ jobs:
           path: |
             monorepo/apps/gnosi/electron/dist/*.AppImage
             monorepo/apps/gnosi/electron/dist/*.deb
+            monorepo/apps/gnosi/electron/dist/*.blockmap
+            monorepo/apps/gnosi/electron/dist/latest-linux.yml
           retention-days: 5
 
   build-windows:
@@ -166,7 +172,10 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: windows-x64
-          path: monorepo/apps/gnosi/electron/dist/*Setup*.exe
+          path: |
+            monorepo/apps/gnosi/electron/dist/*Setup*.exe
+            monorepo/apps/gnosi/electron/dist/*.blockmap
+            monorepo/apps/gnosi/electron/dist/latest.yml
           retention-days: 5
 
   release:
@@ -237,8 +246,11 @@ jobs:
             > The binaries are unsigned. On macOS: right-click the app → **Open**. On Windows: **More info → Run anyway**.
           files: |
             artifacts/*.dmg
+            artifacts/*.zip
             artifacts/*.AppImage
             artifacts/*.deb
             artifacts/*Setup*.exe
+            artifacts/*.blockmap
+            artifacts/latest*.yml
             artifacts/plugins/*.zip
             artifacts/plugins/plugins-index.json
