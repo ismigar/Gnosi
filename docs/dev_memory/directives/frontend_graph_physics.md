@@ -194,8 +194,14 @@ graph; Cmd/Ctrl+Shift+C cycles the available color modes.
 
 Graph responses can be served from cache too quickly for a loading state to be
 perceived. Keep the loading overlay visible briefly and expose real progress
-stages with a determinate bar; do not retain a global refresh button that only
-duplicates GET `/api/graph` and reloads the complete page.
+stages with a determinate bar. Keep this state visually minimal: one small,
+generic loading label and the progress bar, without decorative imagery or a
+second status slogan. Do not retain a global refresh button that only duplicates
+GET `/api/graph` and reloads the complete page.
+
+Keep the table filter collapsed when the graph opens. The active-filter badge
+already communicates its state, while the collapsed default preserves vertical
+space for the graph controls used more frequently.
 
 Semantic proposals are a viewport-synchronized canvas overlay over Sigma, not
 Graphology edges. Drawing them inside the structural graph makes similarity
