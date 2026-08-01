@@ -543,7 +543,7 @@ export const GraphViewer = forwardRef(({
                     const labelText = String(data.label || "");
                     const width = ctx.measureText(labelText).width;
                     ctx.fillStyle = bgColor;
-                    ctx.fillRect(x - 2, y - fontSize, width + 4, fontSize + 4);
+                    ctx.fillRect(x - 6, y - fontSize - 3, width + 12, fontSize + 9);
                     ctx.fillStyle = textColor;
                     ctx.fillText(labelText, x, y);
                 } else {
@@ -575,7 +575,12 @@ export const GraphViewer = forwardRef(({
                     const labelText = String(data.label);
                     const width = context.measureText(labelText).width;
                     context.fillStyle = labelBgColor;
-                    context.fillRect(data.x + data.size + 3, data.y - size + 4, width, size);
+                    context.fillRect(
+                        data.x + data.size - 3,
+                        data.y - size - 3,
+                        width + 12,
+                        size + 9
+                    );
                     context.fillStyle = textColor;
                     context.fillText(labelText, data.x + data.size + 3, data.y + size / 3);
                 }
