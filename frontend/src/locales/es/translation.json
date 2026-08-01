@@ -1506,7 +1506,7 @@
       "graph": "Configuración del Grafo",
       "reader": "Lector",
       "newsletters": "Suscripciones",
-      "mail_accounts": "Cuentas de Correo",
+      "mail_accounts": "Correo",
       "contacts": "Contactos",
       "references": "Referencias",
       "ai": "Inteligencia Artificial",
@@ -1535,6 +1535,7 @@
       "no_active_models": "No hay modelos explícitos activados. Puedes usar el modelo predeterminado o activar uno en Inteligencia Artificial."
     },
     "general": {
+      "sections_label": "Secciones de configuración general",
       "system_title": "Configuración del Sistema",
       "workspace_name_desc": "Identificador de tu cerebro digital.",
       "workspace_name_placeholder": "Mi Cerebro Digital",
@@ -1579,6 +1580,7 @@
       "error_creating_ws": "Error al crear el workspace"
     },
     "profile": {
+      "sections_label": "Secciones del perfil",
       "title": "Perfil de Usuario",
       "desc": "Tu identidad digital y datos de contacto.",
       "assistant_section": "Configuración del Asistente",
@@ -1690,6 +1692,8 @@
     },
     "graph": {
       "section_title": "Motor Visual del Grafo",
+      "sections_label": "Secciones de configuración del grafo",
+      "visual_engine": "Motor visual del grafo",
       "aesthetics": "Estética",
       "node_size_value": "Tamaño del Nodo: {{value}}",
       "edge_thickness_value": "Grosor del Arco: {{value}}",
@@ -1739,6 +1743,7 @@
       "show_labels": "Mostrar etiquetas"
     },
     "mail_accounts": {
+      "sections_label": "Secciones de correo",
       "title": "Cuentas de Correo",
       "desc": "Gestiona tus cuentas de correo IMAP/SMTP para recibir newsletters y comunicaciones."
     },

@@ -565,6 +565,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         initialTab === 'newsletters' ? 'subscriptions' : 'podcast',
     );
     const [aiSection, setAiSection] = useState('agents');
+    const [generalSection, setGeneralSection] = useState('system');
+    const [mailSection, setMailSection] = useState('accounts');
+    const [graphSection, setGraphSection] = useState('engine');
     const [isAdvancedOpen, setIsAdvancedOpen] = useState(
         () => ['api', 'plugins'].includes(initialTab)
     );
@@ -2275,8 +2278,19 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                              {/* ACCOUNT (credentials) */}
                              {activeTab === 'account' && <AccountSettings />}
 
-                             {/* GENERAL */}
+                            {/* GENERAL */}
                             {activeTab === 'general' && (
+                                <>
+                                <SettingsSectionTabs
+                                    ariaLabel={tn('general.sections_label')}
+                                    activeId={generalSection}
+                                    onChange={setGeneralSection}
+                                    items={[
+                                        { id: 'system', icon: SettingsIcon, label: tn('general.system_title') },
+                                        { id: 'files', icon: FolderOpen, label: tn('general.files_structure') },
+                                    ]}
+                                />
+                                {generalSection === 'system' && (
                                 <Section title={tn('general.system_title')} icon={SettingsIcon}>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '40px' }}>
                                         <FormGroup label={tn('general.workspace_name')} description={tn('general.workspace_name_desc')}>
@@ -2306,7 +2320,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         </div>
                                     )}
 
-                                    <div style={{ marginTop: '50px' }}>
+                                </Section>
+                                )}
+                                {generalSection === 'files' && (
                                         <Section title={tn('general.files_structure')} icon={FolderOpen}>
                                             <FormGroup label={tn('general.root_folder')} description={tn('general.root_folder_desc')}>
                                                 <div style={{ display: 'flex', gap: '14px' }}>
@@ -2323,8 +2339,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 </FormGroup>
                                             )}
                                         </Section>
-                                    </div>
-                                </Section>
+                                )}
+                                </>
                             )}
 
                             {/* WORKSPACE — member management and vault access */}
@@ -2504,8 +2520,20 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                 </div>
                             )}
 
+                            {activeTab === 'mail' && (
+                                <SettingsSectionTabs
+                                    ariaLabel={tn('mail_accounts.sections_label')}
+                                    activeId={mailSection}
+                                    onChange={setMailSection}
+                                    items={[
+                                        { id: 'accounts', icon: Mail, label: tn('mail_accounts.title') },
+                                        { id: 'snippets', icon: FileText, label: tn('snippets.title') },
+                                    ]}
+                                />
+                            )}
+
                             {/* CALENDAR, CONTACTS, MAIL */}
-                            {(activeTab === 'calendar' || activeTab === 'contacts' || activeTab === 'mail') && (
+                            {(activeTab === 'calendar' || activeTab === 'contacts' || (activeTab === 'mail' && mailSection === 'accounts')) && (
                                 <Section 
                                     title={activeTab === 'calendar' ? tn('calendar.manage_title') : (activeTab === 'contacts' ? tn('contacts.sync_section_title') : tn('mail_accounts.title'))} 
                                     icon={activeTab === 'calendar' ? Calendar : (activeTab === 'contacts' ? Users : Mail)}
@@ -3255,7 +3283,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             )}
 
                             {/* MAIL SNIPPETS */}
-                            {activeTab === 'mail' && (
+                            {activeTab === 'mail' && mailSection === 'snippets' && (
                                 <Section title={tn('snippets.title')} icon={FileText}>
                                     <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
                                         {tn('snippets.intro')}
@@ -3724,6 +3752,17 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
                             {/* GRAF */}
                             {activeTab === 'graph' && (
+                                <>
+                                <SettingsSectionTabs
+                                    ariaLabel={tn('graph.sections_label')}
+                                    activeId={graphSection}
+                                    onChange={setGraphSection}
+                                    items={[
+                                        { id: 'engine', icon: Share2, label: tn('graph.visual_engine') },
+                                        { id: 'structures', icon: Database, label: tn('graph.visible_structures') },
+                                    ]}
+                                />
+                                {graphSection === 'engine' && (
                                 <Section title={tn('graph.section_title')} icon={Share2}>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '50px', marginBottom: '50px' }}>
                                         <div>
@@ -3764,6 +3803,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         </div>
                                     </div>
 
+                                </Section>
+                                )}
+                                {graphSection === 'structures' && (
                                     <Section title={tn('graph.visible_structures')} icon={Database}>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
                                             {/* Databases and Tables */}
@@ -4126,7 +4168,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             </div>
                                         </div>
                                     </Section>
-                                </Section>
+                                )}
+                                </>
                             )}
 
                             {/* IA */}
