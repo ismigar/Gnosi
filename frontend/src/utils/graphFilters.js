@@ -97,6 +97,7 @@ export function getVisibleHoverNeighborhood(graph, node) {
     const edges = new Set();
 
     graph.forEachEdge((edge, attrs, source, target) => {
+        if (attrs.kind === 'suggestion' || attrs.kind === 'semantic_similarity') return;
         if (attrs.hidden || (source !== node && target !== node)) return;
         const neighbor = source === node ? target : source;
         if (graph.getNodeAttribute(neighbor, 'hidden')) return;
@@ -112,7 +113,6 @@ export function applyFilters(graph, filters) {
         activeClusters = new Set(),
         activeKinds = new Set(),
         activeProjects = new Set(),
-        similarity = 0,
         hideIsolated = false,
         onlyIsolated = false,
         selectedNode = null,
@@ -158,7 +158,8 @@ export function applyFilters(graph, filters) {
         }
 
         graph.forEachEdge((edge, attrs, source, target) => {
-            if (visibleNodes.has(source) && visibleNodes.has(target)) visibleEdges.add(edge);
+            const isSemantic = attrs.kind === 'suggestion' || attrs.kind === 'semantic_similarity';
+            if (!isSemantic && visibleNodes.has(source) && visibleNodes.has(target)) visibleEdges.add(edge);
         });
 
     } else {
@@ -290,14 +291,15 @@ export function applyFilters(graph, filters) {
         graph.forEachEdge((edge, attrs, source, target) => {
             if (!visibleNodes.has(source) || !visibleNodes.has(target)) return;
 
+            // Semantic proposals are drawn by a separate canvas overlay. They
+            // never belong to structural topology, even if a caller supplied
+            // them in the backing graph.
+            if (attrs.kind === 'suggestion' || attrs.kind === 'semantic_similarity') return;
+
             // 'link' = wikilinks [[...]], 'relation' = frontmatter relations (by schema)
             const isReal = attrs.kind === 'explicit' || attrs.kind === 'structural'
                 || attrs.kind === 'wikilink' || attrs.kind === 'link' || attrs.kind === 'relation';
-            const sim = attrs.similarity !== undefined ? Number(attrs.similarity) : 0;
-            const filterSim = Number(similarity);
-
-            const visible = isReal || (filterSim < 100 && sim >= filterSim);
-            if (visible) visibleEdges.add(edge);
+            if (isReal) visibleEdges.add(edge);
         });
 
         // Isolation is a property of the rendered topology, not the backing
