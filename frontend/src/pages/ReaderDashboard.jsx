@@ -435,7 +435,7 @@ const ReaderDashboard = () => {
                 >
                     <div className="px-5 py-5 flex items-center justify-between gap-2">
                         <div className="min-w-0">
-                            <h2 className="text-base font-semibold text-[var(--text-primary)]">{t('reader_channels')}</h2>
+                            <h2 className="gnosi-sidebar-section-title">{t('reader_channels')}</h2>
                             <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
                                 {sources.length === 0 ? t('reader_no_sources') : formatSourcesCount(sources.length)}
                             </p>
@@ -476,7 +476,7 @@ const ReaderDashboard = () => {
                                             {collapsed
                                                 ? <ChevronRight size={11} className="text-slate-400 flex-shrink-0" />
                                                 : <ChevronDown size={11} className="text-slate-400 flex-shrink-0" />}
-                                            <span className="text-[10px] uppercase tracking-[0.1em] font-semibold text-slate-400 dark:text-slate-500 truncate">
+                                            <span className="gnosi-sidebar-section-title truncate">
                                                 {displayCategory(group.category)}
                                             </span>
                                         </span>

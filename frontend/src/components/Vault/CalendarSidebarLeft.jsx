@@ -147,7 +147,7 @@ export const CalendarSidebarLeft = ({
 
             {/* Calendars Header */}
             <div className="px-[11px] pt-4 pb-2 flex items-center justify-between group">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)]/60">
+                <span className="gnosi-sidebar-section-title">
                     {t('calendars', "Calendars")}
                 </span>
                 <button
@@ -297,7 +297,7 @@ export const CalendarSidebarLeft = ({
                 <>
                     <hr className="border-[var(--border-primary)] mx-4 my-2" />
                     <div className="px-[11px] pt-2 pb-2">
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)]/60">
+                        <span className="gnosi-sidebar-section-title">
                             {t('pending_notes', "Unscheduled")}
                         </span>
                         <div className="mt-2 space-y-1">

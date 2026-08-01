@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useActiveVaultName } from '../../hooks/useActiveVaultName';
 import {
     Inbox, Send, FileText, Trash2,
     ChevronDown, Plus, Star,
@@ -28,7 +27,6 @@ export default function MailSidebar({
     counts = {},
 }) {
     const { t } = useTranslation();
-    const activeVaultName = useActiveVaultName();
     const [showAccountSelector, setShowAccountSelector] = useState(false);
     const [searchValue, setSearchValue] = useState('');
     const [showEditor, setShowEditor] = useState(false);
@@ -160,16 +158,8 @@ export default function MailSidebar({
     return (
         <>
             <div className="flex flex-col h-full w-64 bg-[var(--sidebar-bg)] border-r border-[var(--sidebar-border)] shrink-0">
-                {/* Vault badge */}
-                <div className="px-3 pt-3 pb-0">
-                    <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-[var(--bg-secondary)] border border-[var(--border-primary)] text-xs font-medium text-[var(--text-secondary)]">
-                        <span className="text-[var(--gnosi-blue)] font-bold">G</span>
-                        <span className="truncate">{t('common.vault_label', 'Vault')}: {activeVaultName || '…'}</span>
-                    </div>
-                </div>
-
                 {/* Account selector + compose */}
-                <div className="px-3 pt-2 pb-2 flex items-center justify-between gap-2 relative">
+                <div className="px-3 pt-3 pb-2 flex items-center justify-between gap-2 relative">
                     <button
                         onClick={() => setShowAccountSelector(v => !v)}
                         className="flex items-center gap-2 flex-1 min-w-0 px-2 py-1.5 rounded-lg hover:bg-[var(--bg-secondary)] transition-colors"
@@ -250,7 +240,7 @@ export default function MailSidebar({
                 >
                     {/* Custom views */}
                     <div>
-                        <div className="px-3 mb-1 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">
+                        <div className="gnosi-sidebar-section-title px-3 mb-1">
                             {t('mail.views')}
                         </div>
                         {views.map(view => <ViewItem key={view.id} view={view} />)}
@@ -265,7 +255,7 @@ export default function MailSidebar({
 
                     {/* System folders */}
                     <div>
-                        <div className="px-3 mb-1 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">
+                        <div className="gnosi-sidebar-section-title px-3 mb-1">
                             {t('mail.mail_section')}
                         </div>
                         {systemFolders.map(item => <NavItem key={item.id} item={item} />)}
@@ -275,7 +265,7 @@ export default function MailSidebar({
                     <div>
                         <button
                             onClick={() => setShowTags(v => !v)}
-                            className="w-full flex items-center gap-1.5 px-3 mb-1 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider hover:text-[var(--text-primary)] transition-colors"
+                            className="gnosi-sidebar-section-title w-full flex items-center gap-1.5 px-3 mb-1 transition-colors"
                         >
                             <span className="flex-1 text-left">{t('mail.labels', "Labels")}</span>
                             <ChevronDown size={11} className={`transition-transform ${showTags ? '' : '-rotate-90'}`} />
