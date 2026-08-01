@@ -176,7 +176,8 @@ environment-specific frontend assumptions.
   one collapsed launcher that reveals its independent actions only on demand.
 - Image-based page icons retain their established size and use a visibly small
   top margin inside the shared icon frame, avoiding a broader header geometry
-  change.
+  change. On pages without a cover, the entire icon frame also sits 8 pixels
+  lower so it does not visually attach to the document-strip edge.
 - Embedded database actions share one toolbar. Do not leave the add-view action
   on a visually empty single-view row, and never nest an interactive element
   inside another button; use a semantic split-button group.

@@ -321,6 +321,10 @@ textarea,
   bottom: -3rem;
 }
 
+.vault-page-hero--bare .vault-page-icon {
+  bottom: -3rem;
+}
+
 .vault-page-cover-actions {
   bottom: 1rem;
 }
