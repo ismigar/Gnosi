@@ -1018,6 +1018,7 @@
       "appearance": "Apparence",
       "calendar": "Calendrier Local",
       "graph": "Graphique",
+      "reader": "Lecteur",
       "newsletters": "Abonnements",
       "mail_accounts": "Comptes de Messagerie",
       "contacts": "Contacts",
@@ -1031,6 +1032,16 @@
       "connections": "Connexions",
       "knowledge": "Connaissances et IA",
       "advanced": "Avancé"
+    },
+    "reader": {
+      "podcast_title": "Podcast quotidien",
+      "podcast_description": "Choisissez le modèle d’intelligence artificielle qui rédige le script du podcast quotidien à partir des actualités non lues.",
+      "model_label": "Modèle d’IA pour le script",
+      "model_description": "Seuls les modèles activés dans Intelligence artificielle sont affichés. La synthèse vocale se configure séparément.",
+      "default_model": "Modèle d’IA par défaut (agent actif)",
+      "unavailable_group": "Sélection indisponible",
+      "unavailable_model": "{{provider}} / {{model}} — indisponible",
+      "no_active_models": "Aucun modèle explicite n’est actif. Vous pouvez utiliser le modèle par défaut ou en activer un dans Intelligence artificielle."
     },
     "general": {
       "workspace_name": "Nom de l'espace de travail",
