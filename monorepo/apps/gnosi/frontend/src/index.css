@@ -418,7 +418,12 @@ button.gnosi-sidebar-section-title:focus-visible {
   justify-content: center;
   border: 0;
   background: transparent;
-  color: inherit;
+  color: #fff !important;
+}
+
+.vault-new-split__create svg,
+.vault-new-split__menu svg {
+  color: #fff;
 }
 
 .vault-new-split__create {
