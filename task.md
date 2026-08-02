@@ -1,12 +1,14 @@
-# Persist AI provider deletion
+# Build the Gnosi engineering documentation system
 
-- [x] Read the Settings, environment, and QA directives.
-- [x] Trace provider deletion through frontend, API, and config loading.
-- [x] Prevent environment migration from recreating disconnected providers.
-- [x] Remove provider API keys from Keychain, managed env files, and runtime.
-- [x] Clear the tombstone when a provider is explicitly reconnected.
-- [x] Verify backend provider-deletion tests.
+- [x] Read the development, environment, language, and QA directives.
+- [x] Create the technical documentation system directive.
+- [x] Build and verify the deterministic source catalog generator in `pipeline/sandbox/`.
+- [x] Consolidate the generator into `pipeline/skills/technical_documentation/`.
+- [x] Create reviewed architecture, domain, security, operations, and testing guides.
+- [x] Add stale-output, source-link, navigation, and secret-safety validation.
+- [x] Generate and commit all reference catalogs.
 - [x] Verify integrity with `npm run build`.
-- [x] Validate deletion persistence in the browser.
+- [x] Build the documentation portal with strict warnings.
+- [x] Visual and functionality validation in the browser.
 - [x] Check for Z-index conflicts and visual overlapping.
-- [x] Consolidate the learned constraint into the AI provider directive.
+- [x] Consolidate staging memory into the corresponding Skill.
