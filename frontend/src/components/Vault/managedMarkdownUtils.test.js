@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { normalizeManagedBlockSpacing } from './managedMarkdownUtils';
+import { normalizeManagedBlockSpacing, stripManagedBlockMarkers } from './managedMarkdownUtils';
 
 describe('normalizeManagedBlockSpacing', () => {
     it('separates managed markers from a tight ordered list', () => {
@@ -40,5 +40,27 @@ describe('normalizeManagedBlockSpacing', () => {
 
         expect(normalized).toBe(markdown);
         expect(normalizeManagedBlockSpacing(normalized)).toBe(markdown);
+    });
+});
+
+describe('stripManagedBlockMarkers', () => {
+    it('hides boundary metadata while preserving the managed Markdown', () => {
+        const markdown = [
+            '<!-- gnosi:llm-wiki:start resource:source:record -->',
+            '1. [[note-1|First note]]',
+            '<!-- gnosi:llm-wiki:end resource:source:record -->',
+        ].join('\n');
+
+        expect(stripManagedBlockMarkers(markdown)).toBe('1. [[note-1|First note]]');
+    });
+
+    it('keeps marker examples inside fenced code', () => {
+        const markdown = [
+            '```md',
+            '<!-- gnosi:llm-wiki:start example -->',
+            '```',
+        ].join('\n');
+
+        expect(stripManagedBlockMarkers(markdown)).toBe(markdown);
     });
 });

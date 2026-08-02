@@ -21,8 +21,9 @@ import {
     normalizeRelationValues,
     unlinkRelationFromRecord,
 } from './relationItemUtils';
+import { GalleryContentPreview, GalleryOpenButton } from './GalleryCardPreview';
 
-export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onUpdateView, onEditSchema, onCreateRecord, onDeleteSelected, onDeletePage, onUpdateNote, searchTerm: externalSearchTerm, registerNavApi, onExitTop, onExitBottom, onFocusShell }) {
+export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onEditSchema, onCreateRecord, onDeleteSelected, onDeletePage, onUpdateNote, searchTerm: externalSearchTerm, registerNavApi, onExitTop, onExitBottom, onFocusShell }) {
     const { t } = useTranslation();
     const localeSettings = useLocaleSettings();
     const [internalSearchTerm, setInternalSearchTerm] = useState('');
@@ -227,7 +228,7 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
     // Excludes `title` (like the kanban): the card header already shows it and
     // the previous filter (`type` truthy) was a no-op — getFieldType never returns
     // falsy — so the title used to appear duplicated as a property row.
-    const dynamicColumns = visibleProperties.map(prop => [prop, getFieldType(schema, prop)]).filter(([key, type]) => type && type !== 'title');
+    const dynamicColumns = visibleProperties.map(prop => [prop, getFieldType(schema, prop)]).filter(([, type]) => type && type !== 'title');
 
     // ---- GROUPING (activeView.groupBy) ----
     // Notion-style sections: group header + grid for each value of the
@@ -404,24 +405,6 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
     // Cover image fit: 'contain' (whole image, default) or 'cover' (fills).
     const coverFitClass = (activeView.imageFit || 'contain') === 'cover' ? 'bg-cover' : 'bg-contain';
 
-    // Text excerpt for "content" mode. Tolerant of the record's shape
-    // (excerpt/body_md/content or a description in metadata); strips frontmatter,
-    // images/links, and basic markdown markup for a clean preview.
-    const getExcerpt = (note) => {
-        const raw = note.excerpt || note.body_md || note.content
-            || note.metadata?.description || note.metadata?.summary || '';
-        if (!raw) return '';
-        return String(raw)
-            .replace(/^---[\s\S]*?---/, '')
-            .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
-            .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
-            .replace(/[#>*_`~]/g, '')
-            .replace(/[ \t]+/g, ' ')        // spaces/tabs → 1 (preserves line breaks)
-            .replace(/\n{2,}/g, '\n')       // multiple blank lines → a single one
-            .split('\n').map(s => s.trim()).filter(Boolean).join('\n')
-            .slice(0, 600);                 // enough text to fill large cards
-    };
-
     const getRelationDisplayMap = (field) => {
         const config = getFieldConfig(schema, field);
         const relatedTableId = config?.relation_database_id;
@@ -558,7 +541,7 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
     const renderCard = (note, flatIndex) => {
         const coverUrl = getCoverUrl(note);
         const hasCover = !!coverUrl;
-        const excerpt = showContentPreview ? getExcerpt(note) : '';
+        const showEmbeddedPreview = showContentPreview || showProperties;
         return (
             <div
                 key={`${note.id || 'note'}-${flatIndex}`}
@@ -566,8 +549,9 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                 tabIndex={-1}
                 onKeyDown={(e) => handleCardKeyDown(e, flatIndex, note.id)}
                 onClick={() => { if (selectedIds.size > 0) { toggleSelect(note.id, {}); } else { onNoteSelect(note.id); } }}
-                className={`group relative bg-[var(--bg-primary)] rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col outline-none focus:ring-2 focus:ring-[var(--gnosi-primary)] focus:border-[var(--gnosi-primary)] ${(showCoverArea || showContentPreview) ? getCardHeightClass() : ''} ${isSelected(note.id) ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/50'}`}
+                className={`group relative bg-[var(--bg-primary)] rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col outline-none focus:ring-2 focus:ring-[var(--gnosi-primary)] focus:border-[var(--gnosi-primary)] ${showEmbeddedPreview ? getCardHeightClass() : ''} ${isSelected(note.id) ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/50'}`}
             >
+                {showEmbeddedPreview && <GalleryOpenButton pageId={note.id} />}
                 {/* Selection checkbox (top-left corner). The toggle lives ONLY in the
                     input's onChange (#722): with the toggle also on the label's onClick,
                     a direct click on the checkbox fired both via bubbling and it stayed
@@ -605,7 +589,7 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
 
                 {/* Content Area */}
                 <div className={`p-4 flex flex-col flex-1 min-h-0 ${showCoverArea ? 'pt-6' : ''}`}>
-                    <h3 className="font-semibold text-[var(--text-primary)] text-sm mb-2 truncate group-hover:text-[var(--gnosi-primary)] transition-colors flex items-center gap-2" title={note.title}>
+                    <h3 className={`font-semibold text-[var(--text-primary)] text-sm mb-2 truncate group-hover:text-[var(--gnosi-primary)] transition-colors flex items-center gap-2 ${showEmbeddedPreview && !showCoverArea ? 'pr-8' : ''}`} title={note.title}>
                         {!showCoverArea && (
                             <span className="shrink-0 inline-flex items-center justify-center w-5 h-5">
                                 <IconRenderer icon={note.metadata?.icon} size={18} />
@@ -614,26 +598,24 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                         <span className="truncate" {...titlePreview.getTitleProps(note.id)}>{note.title || t('common.untitled', "Untitled")}</span>
                     </h3>
 
-                    {/* Content preview (mode 'content'): whatever fits of the page
-                        text, below the title, with a fade at the end. */}
+                    {/* Content preview (mode 'content'): a scrollable, interactive
+                        Markdown surface with the same wikilink behavior as a page. */}
                     {showContentPreview && (
-                        <div className="relative flex-1 min-h-0 overflow-hidden">
-                            {excerpt ? (
-                                <p className="text-xs leading-relaxed text-[var(--text-secondary)] whitespace-pre-line">{excerpt}</p>
-                            ) : (
-                                <div className="h-full flex items-center justify-center text-[var(--text-tertiary)] opacity-40">
-                                    <FileText size={24} strokeWidth={1.5} />
-                                </div>
-                            )}
-                            {excerpt && (
-                                <div className="pointer-events-none absolute bottom-0 inset-x-0 h-8 bg-gradient-to-t from-[var(--bg-primary)] to-transparent" />
-                            )}
+                        <div className="relative flex-1 min-h-0">
+                            <GalleryContentPreview
+                                note={note}
+                                idToTitle={idToTitle}
+                                onNoteSelect={onNoteSelect}
+                            />
                         </div>
                     )}
 
                     {/* Properties */}
                     {showProperties && (
-                    <div className="flex-1 flex flex-col gap-1.5 overflow-hidden">
+                    <div
+                        onClick={(event) => event.stopPropagation()}
+                        className="flex-1 flex flex-col gap-1.5 overflow-y-auto overflow-x-hidden overscroll-contain pr-1 custom-scrollbar cursor-auto"
+                    >
                         {dynamicColumns.map(([key, type], propIndex) => {
                             const keyNorm = normalizeMetaKey(key);
 

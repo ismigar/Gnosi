@@ -14,6 +14,7 @@
   "common": {
     "knowledge": "Connaissance",
     "vault_label": "Vault",
+    "gallery_content_preview": "Aperçu du contenu de la page",
     "yes": "Oui",
     "undo": "Annuler",
     "new_dashboard": "Nouveau tableau de bord",
