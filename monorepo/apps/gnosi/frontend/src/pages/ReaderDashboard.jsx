@@ -2,8 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import { toast } from '../lib/toast';
-import { Play, RotateCw, Check, Headphones, ArrowLeft, Loader, BookOpen, ExternalLink, ChevronDown, ChevronRight, Inbox, Settings2, Menu, X, History } from 'lucide-react';
-import { FeedManagerModal } from '../components/FeedManagerModal';
+import { Play, RotateCw, Check, Headphones, ArrowLeft, Loader, BookOpen, ExternalLink, ChevronDown, ChevronRight, Inbox, Menu, X, History } from 'lucide-react';
 import { AppHeader } from '../components/AppHeader';
 import { getIntlLocale } from '../locales/registry';
 
@@ -154,7 +153,6 @@ const ReaderDashboard = () => {
     const [sources, setSources] = useState([]);
     const [selectedSourceId, setSelectedSourceId] = useState(null);
     const [showUnreadOnly, setShowUnreadOnly] = useState(true);
-    const [feedManagerOpen, setFeedManagerOpen] = useState(false);
     const [collapsedCategories, setCollapsedCategories] = useState(() => new Set());
     const [mobileChannelsOpen, setMobileChannelsOpen] = useState(false);
     const [podcastProgress, setPodcastProgress] = useState('');
@@ -523,14 +521,6 @@ const ReaderDashboard = () => {
                         })}
                     </nav>
 
-                    <button
-                        onClick={() => setFeedManagerOpen(true)}
-                        className="flex items-center gap-2 px-5 py-3 text-xs text-slate-500 dark:text-slate-400 hover:text-[var(--text-primary)] hover:bg-[var(--bg-primary)] transition-colors border-t border-[var(--border-primary)]"
-                    >
-                        <Settings2 size={13} />
-                        <span>{t('reader_manage_sources')}</span>
-                    </button>
-
                     <div className="border-t border-[var(--border-primary)] bg-[var(--bg-primary)] px-4 py-3">
                         {generatingPodcast ? (
                             <div className="flex items-center gap-3">
@@ -757,11 +747,6 @@ const ReaderDashboard = () => {
                 </div>
             </div>
 
-            <FeedManagerModal
-                isOpen={feedManagerOpen}
-                onClose={() => setFeedManagerOpen(false)}
-                onRefresh={() => { fetchSources(); fetchDisplayArticles(); fetchUnreadCounts(); }}
-            />
         </div>
     );
 };

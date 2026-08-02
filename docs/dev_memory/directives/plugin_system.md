@@ -143,4 +143,20 @@ Live QA covered data and UI plugins, command invocation, gallery install,
 settings round trips, trust management, and the full Plugin Settings UI.
 Frontend build and lint must remain clean.
 
+## Settings information architecture
+
+The Plugin Settings screen uses three top-level sections:
+
+- Installed contains built-in and third-party plugins already present in the
+  vault, with enabled and disabled filters.
+- Catalog contains discovery, search, official/community filters, ZIP
+  installation, the remote registry, and publisher trust keys.
+- Updates compares installed third-party manifest versions with newer versions
+  declared by catalog entries and offers an explicit update action. Entries
+  without comparable versions are not reported as updates.
+
+Do not duplicate plugin state between the sections. All three views must use
+the existing vault plugin APIs and refresh the shared installed/catalog state
+after mutations.
+
 See `plugins-examples/README.md` for author and distribution instructions.
