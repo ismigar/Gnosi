@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import asyncio
+import hashlib
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field
 
+from backend.agent.action_confirmations import list_workspace_confirmations
 from backend.config.app_config import load_params
 from backend.models.agent_skills import (
     CatalogStatus,
@@ -36,6 +39,17 @@ from backend.services.workspace_service import (
     get_workspace_context,
     require_role,
 )
+from backend.services.capability_automations import (
+    AutomationConflictError,
+    delete_automation,
+    get_automation,
+    list_automations,
+    list_runs,
+    run_automation,
+    save_automation,
+)
+from backend.services.capability_audit import list_workspace_capability_events
+from backend.services.capability_jobs import list_jobs as list_capability_jobs
 
 
 router = APIRouter(prefix="/ai", tags=["AI Skills"])
@@ -74,6 +88,23 @@ class AgentSkillAssignmentPayload(BaseModel):
     expected_revision: Optional[str] = None
 
 
+class AutomationWritePayload(BaseModel):
+    """A recurring invocation of one explicitly assigned agent skill."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=160)
+    agent_id: str = Field(min_length=1, max_length=128)
+    skill_id: str = Field(min_length=1, max_length=256)
+    instruction: str = Field(min_length=1, max_length=12_000)
+    interval_minutes: int = Field(default=1_440, ge=5, le=525_600)
+    enabled: bool = False
+    max_runs_per_day: int = Field(default=4, ge=1, le=144)
+    max_ai_calls_per_run: int = Field(default=4, ge=1, le=16)
+    max_runtime_seconds: int = Field(default=180, ge=15, le=900)
+    expected_revision: Optional[str] = None
+
+
 def _metadata(payload: UserSkillWritePayload) -> Dict[str, Any]:
     return {
         "schema_version": 1,
@@ -107,6 +138,67 @@ def _assignment_store() -> AgentSkillAssignmentStore:
         pass
     cfg = load_params(strict_env=False)
     return AgentSkillAssignmentStore(cfg.params_source, cfg.params)
+
+
+def _automation_scope(context: WorkspaceContext) -> Dict[str, str]:
+    vault = Path(context.vault_path).resolve()
+    return {
+        "vault_scope": hashlib.sha256(str(vault).encode("utf-8")).hexdigest()[:20],
+        "workspace_id": context.workspace_id,
+        "user_id": context.user_id,
+        "role": context.role,
+    }
+
+
+@router.get("/jobs")
+def list_governed_jobs(
+    context: WorkspaceContext = Depends(get_workspace_context),
+):
+    """List namespaced durable capability jobs for the active Vault."""
+    return {"jobs": list_capability_jobs(Path(context.vault_path))}
+
+
+@router.get("/capability-audit")
+def list_workspace_capability_audit(
+    limit: int = Query(default=200, ge=1, le=500),
+    context: WorkspaceContext = Depends(require_role("admin")),
+):
+    """List current-user metadata-only tool events across agents and sessions."""
+    return {
+        "events": list_workspace_capability_events(
+            _automation_scope(context), limit=limit
+        )
+    }
+
+
+@router.get("/approvals")
+def list_workspace_approvals(
+    context: WorkspaceContext = Depends(require_role("admin")),
+):
+    """List pending automation approvals without exposing stored arguments."""
+    return {
+        "approvals": list_workspace_confirmations(_automation_scope(context))
+    }
+
+
+def _validate_automation_target(
+    context: WorkspaceContext, *, agent_id: str, skill_id: str
+) -> None:
+    assignments = _assignment_store()
+    assignments.ensure_migrated()
+    try:
+        agent = assignments.get_agent(agent_id)
+    except AgentNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    normalized = skill_id.strip().lower()
+    assigned = {
+        str(value).strip().lower() for value in (agent.get("skill_ids") or [])
+    }
+    if normalized not in assigned:
+        raise HTTPException(status_code=409, detail="skill is not assigned to agent")
+    entry = get_skill_catalog().get_entry(normalized, Path(context.vault_path))
+    if entry is None or not entry.available or entry.descriptor.kind != SkillKind.AGENT:
+        raise HTTPException(status_code=409, detail="skill is unavailable for automation")
 
 
 def _refresh_mcp_catalog(request: Request) -> None:
@@ -438,3 +530,106 @@ def assign_agent_skills(
             status_code=409,
             detail={"message": str(exc), **exc.details},
         ) from exc
+
+
+@router.get("/automations")
+def list_skill_automations(
+    context: WorkspaceContext = Depends(get_workspace_context),
+):
+    """List automations visible in the exact workspace and vault scope."""
+    return {"automations": list_automations(_automation_scope(context))}
+
+
+@router.post("/automations", status_code=201)
+def create_skill_automation(
+    payload: AutomationWritePayload,
+    context: WorkspaceContext = Depends(require_role("admin")),
+):
+    _validate_automation_target(
+        context, agent_id=payload.agent_id, skill_id=payload.skill_id
+    )
+    return save_automation(
+        _automation_scope(context),
+        vault_path=Path(context.vault_path),
+        payload=payload.model_dump(exclude={"expected_revision"}),
+    )
+
+
+@router.get("/automations/{automation_id}")
+def get_skill_automation(
+    automation_id: str,
+    context: WorkspaceContext = Depends(get_workspace_context),
+):
+    try:
+        return get_automation(automation_id, _automation_scope(context))
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.put("/automations/{automation_id}")
+def update_skill_automation(
+    automation_id: str,
+    payload: AutomationWritePayload,
+    context: WorkspaceContext = Depends(require_role("admin")),
+):
+    _validate_automation_target(
+        context, agent_id=payload.agent_id, skill_id=payload.skill_id
+    )
+    try:
+        return save_automation(
+            _automation_scope(context),
+            vault_path=Path(context.vault_path),
+            payload=payload.model_dump(exclude={"expected_revision"}),
+            automation_id=automation_id,
+            expected_revision=payload.expected_revision,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except AutomationConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.delete("/automations/{automation_id}")
+def remove_skill_automation(
+    automation_id: str,
+    context: WorkspaceContext = Depends(require_role("admin")),
+):
+    try:
+        delete_automation(automation_id, _automation_scope(context))
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {"status": "deleted", "automation_id": automation_id}
+
+
+@router.get("/automations/{automation_id}/runs")
+def list_skill_automation_runs(
+    automation_id: str,
+    limit: int = Query(default=50, ge=1, le=200),
+    context: WorkspaceContext = Depends(get_workspace_context),
+):
+    try:
+        return {
+            "runs": list_runs(
+                automation_id, _automation_scope(context), limit=limit
+            )
+        }
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/automations/{automation_id}/run", status_code=202)
+def run_skill_automation_now(
+    automation_id: str,
+    background_tasks: BackgroundTasks,
+    context: WorkspaceContext = Depends(require_role("admin")),
+):
+    try:
+        get_automation(automation_id, _automation_scope(context))
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    def _run() -> None:
+        asyncio.run(run_automation(automation_id, manual=True))
+
+    background_tasks.add_task(_run)
+    return {"status": "queued", "automation_id": automation_id}

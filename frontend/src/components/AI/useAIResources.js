@@ -55,6 +55,10 @@ export const useAIResources = (enabled) => {
     const [skills, setSkills] = useState([]);
     const [tools, setTools] = useState([]);
     const [issues, setIssues] = useState([]);
+    const [automations, setAutomations] = useState([]);
+    const [jobs, setJobs] = useState([]);
+    const [auditEvents, setAuditEvents] = useState([]);
+    const [approvals, setApprovals] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -63,13 +67,21 @@ export const useAIResources = (enabled) => {
         setLoading(true);
         setError('');
         try {
-            const [skillsPayload, toolsPayload] = await Promise.all([
+            const [skillsPayload, toolsPayload, automationsPayload, jobsPayload, auditPayload, approvalsPayload] = await Promise.all([
                 request('/api/ai/skills'),
                 request('/api/ai/tools'),
+                request('/api/ai/automations').catch(() => ({ automations: [] })),
+                request('/api/ai/jobs').catch(() => ({ jobs: [] })),
+                request('/api/ai/capability-audit').catch(() => ({ events: [] })),
+                request('/api/ai/approvals').catch(() => ({ approvals: [] })),
             ]);
             setSkills(catalogRows(skillsPayload, 'skills').map(normalizeSkill));
             setTools(catalogRows(toolsPayload, 'tools').map(normalizeTool));
             setIssues(Array.isArray(skillsPayload?.issues) ? skillsPayload.issues : []);
+            setAutomations(Array.isArray(automationsPayload?.automations) ? automationsPayload.automations : []);
+            setJobs(Array.isArray(jobsPayload?.jobs) ? jobsPayload.jobs : []);
+            setAuditEvents(Array.isArray(auditPayload?.events) ? auditPayload.events : []);
+            setApprovals(Array.isArray(approvalsPayload?.approvals) ? approvalsPayload.approvals : []);
         } catch (requestError) {
             console.error('Error loading AI skill and tool catalogs:', requestError);
             setError(requestError.message);
@@ -86,11 +98,19 @@ export const useAIResources = (enabled) => {
         Promise.all([
             request('/api/ai/skills'),
             request('/api/ai/tools'),
-        ]).then(([skillsPayload, toolsPayload]) => {
+            request('/api/ai/automations').catch(() => ({ automations: [] })),
+            request('/api/ai/jobs').catch(() => ({ jobs: [] })),
+            request('/api/ai/capability-audit').catch(() => ({ events: [] })),
+            request('/api/ai/approvals').catch(() => ({ approvals: [] })),
+        ]).then(([skillsPayload, toolsPayload, automationsPayload, jobsPayload, auditPayload, approvalsPayload]) => {
             if (cancelled) return;
             setSkills(catalogRows(skillsPayload, 'skills').map(normalizeSkill));
             setTools(catalogRows(toolsPayload, 'tools').map(normalizeTool));
             setIssues(Array.isArray(skillsPayload?.issues) ? skillsPayload.issues : []);
+            setAutomations(Array.isArray(automationsPayload?.automations) ? automationsPayload.automations : []);
+            setJobs(Array.isArray(jobsPayload?.jobs) ? jobsPayload.jobs : []);
+            setAuditEvents(Array.isArray(auditPayload?.events) ? auditPayload.events : []);
+            setApprovals(Array.isArray(approvalsPayload?.approvals) ? approvalsPayload.approvals : []);
         }).catch(requestError => {
             if (cancelled) return;
             console.error('Error loading AI skill and tool catalogs:', requestError);
@@ -183,10 +203,68 @@ export const useAIResources = (enabled) => {
         return assignedIds;
     }, []);
 
+    const saveAutomation = useCallback(async draft => {
+        const editing = automations.find(item => item.id === draft.id);
+        const payload = {
+            name: draft.name,
+            agent_id: draft.agent_id,
+            skill_id: draft.skill_id,
+            instruction: draft.instruction,
+            interval_minutes: Number(draft.interval_minutes),
+            enabled: Boolean(draft.enabled),
+            max_runs_per_day: Number(draft.max_runs_per_day),
+            max_ai_calls_per_run: Number(draft.max_ai_calls_per_run),
+            max_runtime_seconds: Number(draft.max_runtime_seconds),
+            ...(editing?.revision ? { expected_revision: editing.revision } : {}),
+        };
+        const saved = await request(
+            editing
+                ? `/api/ai/automations/${encodeURIComponent(editing.id)}`
+                : '/api/ai/automations',
+            { method: editing ? 'PUT' : 'POST', body: JSON.stringify(payload) },
+        );
+        setAutomations(current => [
+            ...current.filter(item => item.id !== saved.id), saved,
+        ].sort((left, right) => left.name.localeCompare(right.name)));
+        return saved;
+    }, [automations]);
+
+    const deleteAutomation = useCallback(async automationId => {
+        await request(`/api/ai/automations/${encodeURIComponent(automationId)}`, {
+            method: 'DELETE',
+        });
+        setAutomations(current => current.filter(item => item.id !== automationId));
+    }, []);
+
+    const runAutomation = useCallback(async automationId => request(
+        `/api/ai/automations/${encodeURIComponent(automationId)}/run`,
+        { method: 'POST' },
+    ), []);
+
+    const resolveApproval = useCallback(async (approval, decision) => {
+        await request(
+            `/api/chat/confirmations/${encodeURIComponent(approval.confirmation_id)}/${decision}`,
+            {
+                method: 'POST',
+                body: JSON.stringify({
+                    agent_id: approval.agent_id,
+                    session_id: approval.session_id,
+                }),
+            },
+        );
+        setApprovals(current => current.filter(
+            item => item.confirmation_id !== approval.confirmation_id,
+        ));
+    }, []);
+
     return useMemo(() => ({
         skills,
         tools,
         issues,
+        automations,
+        jobs,
+        auditEvents,
+        approvals,
         loading,
         error,
         reload,
@@ -196,8 +274,15 @@ export const useAIResources = (enabled) => {
         cloneSkill,
         deleteSkill,
         assignAgentSkills,
+        saveAutomation,
+        deleteAutomation,
+        runAutomation,
+        resolveApproval,
     }), [
         assignAgentSkills,
+        auditEvents,
+        approvals,
+        automations,
         cloneSkill,
         createSkill,
         deleteSkill,
@@ -205,8 +290,13 @@ export const useAIResources = (enabled) => {
         loading,
         reload,
         issues,
+        jobs,
         skills,
         tools,
+        saveAutomation,
+        deleteAutomation,
+        runAutomation,
+        resolveApproval,
         updateSkill,
         validateSkill,
     ]);

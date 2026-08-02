@@ -52,6 +52,12 @@ class ToolEffect(str, Enum):
     DESTRUCTIVE = "destructive"
     CODE_EXECUTION = "code_execution"
     AI_COST = "ai_cost"
+    EXTERNAL_READ = "external_read"
+    PERSONAL_DATA = "personal_data"
+    DATA_EGRESS = "data_egress"
+    BULK_WRITE = "bulk_write"
+    FINANCIAL_COST = "financial_cost"
+    NOTIFICATION = "notification"
 
 
 class ConfirmationPolicy(str, Enum):
@@ -271,10 +277,14 @@ class ToolDescriptor(BaseModel):
             ToolEffect.DESTRUCTIVE,
             ToolEffect.CODE_EXECUTION,
             ToolEffect.AI_COST,
+            ToolEffect.DATA_EGRESS,
+            ToolEffect.BULK_WRITE,
+            ToolEffect.FINANCIAL_COST,
+            ToolEffect.NOTIFICATION,
         }
         if sensitive.intersection(self.effects) and self.confirmation == ConfirmationPolicy.NONE:
             raise ValueError(
-                "write, destructive, code, and AI-cost tools require turn authorization"
+                "write, egress, notification, destructive, code, and cost tools require turn authorization"
             )
         if (
             ToolEffect.EXTERNAL_WRITE in self.effects

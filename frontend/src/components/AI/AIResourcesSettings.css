@@ -239,6 +239,7 @@
 }
 
 .ai-resource-badge--external_write,
+.ai-resource-badge--data_egress,
 .ai-resource-badge--destructive,
 .ai-resource-badge--code_execution {
     background: rgba(239, 68, 68, 0.1);
@@ -246,9 +247,18 @@
 }
 
 .ai-resource-badge--local_write,
-.ai-resource-badge--ai_cost {
+.ai-resource-badge--bulk_write,
+.ai-resource-badge--ai_cost,
+.ai-resource-badge--financial_cost,
+.ai-resource-badge--notification {
     background: rgba(245, 158, 11, 0.12);
     color: #b45309;
+}
+
+.ai-resource-badge--external_read,
+.ai-resource-badge--personal_data {
+    background: rgba(59, 130, 246, 0.1);
+    color: #1d4ed8;
 }
 
 .ai-resource-details {
