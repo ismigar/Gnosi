@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import axios from 'axios';
 import { ExternalLink, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -26,20 +27,57 @@ export function GalleryOpenButton({ pageId }) {
 
 export function GalleryContentPreview({ note, idToTitle = {}, onNoteSelect }) {
     const { t } = useTranslation();
-    const markdown = getGalleryMarkdown(note);
+    const previewRef = useRef(null);
+    const fallbackMarkdown = getGalleryMarkdown(note);
+    const [visiblePageId, setVisiblePageId] = useState(null);
+    const [fullContent, setFullContent] = useState(null);
+    const pageId = note?.id || null;
+    const markdown = fullContent?.pageId === pageId
+        ? fullContent.markdown
+        : fallbackMarkdown;
 
-    if (!markdown) {
-        return (
-            <div className="flex h-full items-center justify-center text-[var(--text-tertiary)] opacity-40">
-                <FileText size={24} strokeWidth={1.5} aria-hidden="true" />
-            </div>
-        );
-    }
+    useEffect(() => {
+        const element = previewRef.current;
+        if (!pageId || !element) return undefined;
+        if (typeof IntersectionObserver === 'undefined') {
+            const timer = window.setTimeout(() => setVisiblePageId(pageId), 0);
+            return () => window.clearTimeout(timer);
+        }
+
+        const observer = new IntersectionObserver((entries) => {
+            if (entries.some(entry => entry.isIntersecting)) {
+                setVisiblePageId(pageId);
+                observer.disconnect();
+            }
+        }, { rootMargin: '160px' });
+        observer.observe(element);
+        return () => observer.disconnect();
+    }, [pageId]);
+
+    useEffect(() => {
+        if (!pageId || visiblePageId !== pageId || fullContent?.pageId === pageId) return undefined;
+        const controller = new AbortController();
+        axios.get(`/api/vault/pages/${encodeURIComponent(pageId)}/preview?full=true`, {
+            signal: controller.signal,
+        }).then((response) => {
+            const fullMarkdown = response.data?.body_md || response.data?.content || '';
+            if (fullMarkdown) {
+                setFullContent({ pageId, markdown: getGalleryMarkdown({ body_md: fullMarkdown }) });
+            }
+        }).catch((error) => {
+            if (error?.code !== 'ERR_CANCELED' && error?.name !== 'CanceledError') {
+                // The summary remains usable when the lazy full-content request fails.
+            }
+        });
+        return () => controller.abort();
+    }, [fullContent?.pageId, pageId, visiblePageId]);
 
     return (
         <div
+            ref={previewRef}
             tabIndex={0}
             aria-label={t('common.gallery_content_preview', { defaultValue: 'Page content preview' })}
+            data-gallery-content-source={fullContent?.pageId === pageId ? 'full' : 'summary'}
             onClick={(event) => event.stopPropagation()}
             onKeyDown={(event) => {
                 if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key)) {
@@ -48,14 +86,20 @@ export function GalleryContentPreview({ note, idToTitle = {}, onNoteSelect }) {
             }}
             className="gallery-card-preview h-full overflow-y-auto overflow-x-hidden overscroll-contain rounded-md px-1 text-xs leading-relaxed text-[var(--text-secondary)] outline-none custom-scrollbar focus-visible:ring-1 focus-visible:ring-[var(--gnosi-primary)] feed-md break-words [overflow-wrap:anywhere] [&_*]:max-w-full [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-xs [&_img]:max-h-40 [&_img]:object-contain [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_pre]:[overflow-wrap:anywhere] [&_code]:whitespace-pre-wrap [&_code]:break-words [&_code]:[overflow-wrap:anywhere] [&_code]:overflow-x-hidden [&_table]:table [&_table]:w-full [&_table]:table-fixed [&_th]:break-words [&_td]:break-words"
         >
-            <VaultMarkdown
-                md={String(markdown)}
-                imageTitle={note?.title || ''}
-                idToTitle={idToTitle}
-                onActivate={() => onNoteSelect?.(note?.id)}
-                onOpenInCurrentTab={onNoteSelect}
-                onOpenInNewTab={openGalleryPageWindow}
-            />
+            {markdown ? (
+                <VaultMarkdown
+                    md={String(markdown)}
+                    imageTitle={note?.title || ''}
+                    idToTitle={idToTitle}
+                    onActivate={() => onNoteSelect?.(note?.id)}
+                    onOpenInCurrentTab={onNoteSelect}
+                    onOpenInNewTab={openGalleryPageWindow}
+                />
+            ) : (
+                <div className="flex h-full items-center justify-center text-[var(--text-tertiary)] opacity-40">
+                    <FileText size={24} strokeWidth={1.5} aria-hidden="true" />
+                </div>
+            )}
         </div>
     );
 }

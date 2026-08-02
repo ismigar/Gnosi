@@ -1,5 +1,6 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
+import axios from 'axios';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -7,6 +8,10 @@ import {
     GalleryOpenButton,
 } from './GalleryCardPreview';
 import { getGalleryMarkdown } from './galleryCardPreviewUtils';
+
+vi.mock('axios', () => ({
+    default: { get: vi.fn() },
+}));
 
 const mountedRoots = [];
 
@@ -41,23 +46,42 @@ describe('GalleryCardPreview', () => {
         const onNoteSelect = vi.fn();
         const parentClick = vi.fn();
         const targetId = '2bb611b6-3d66-4be5-b8c0-381c60834361';
+        const fifthId = 'c3f95019-8d44-4ef2-8d7d-0ebc6c2a47ce';
+        axios.get.mockResolvedValueOnce({
+            data: {
+                body_md: `<!-- gnosi:llm-wiki:start resource:source-page -->\n1. [[${targetId}|Definition]]\n2. [[${fifthId}|Difference]]\n<!-- gnosi:llm-wiki:end resource:source-page -->`,
+            },
+        });
         const container = await render(
             <div onClick={parentClick}>
                 <GalleryContentPreview
                     note={{
                         id: 'source-page',
                         title: 'Index',
-                        content: `<!-- gnosi:llm-wiki:start resource:source-page -->\n1. [[${targetId}|Definition]]\n<!-- gnosi:llm-wiki:end resource:source-page -->`,
+                        content: `<!-- gnosi:llm-wiki:start resource:source-page -->\n1. [[${targetId}|Definition]]\n2. [[${fifthId}|Diffe`,
                     }}
-                    idToTitle={{ [targetId]: 'Definition' }}
+                    idToTitle={{ [targetId]: 'Definition', [fifthId]: 'Difference' }}
                     onNoteSelect={onNoteSelect}
                 />
             </div>,
         );
 
+        await act(async () => {
+            await new Promise(resolve => setTimeout(resolve, 0));
+            await Promise.resolve();
+            await Promise.resolve();
+        });
+
         expect(container.textContent).toContain('Definition');
+        expect(container.textContent).toContain('Difference');
+        expect(container.textContent).not.toContain(`[[${fifthId}`);
         expect(container.textContent).not.toContain('gnosi:llm-wiki');
         expect(container.querySelector('ol')).not.toBeNull();
+        expect(container.querySelector('[data-gallery-content-source]').dataset.galleryContentSource).toBe('full');
+        expect(axios.get).toHaveBeenCalledWith(
+            '/api/vault/pages/source-page/preview?full=true',
+            expect.objectContaining({ signal: expect.any(AbortSignal) }),
+        );
 
         await act(async () => {
             container.querySelector('[data-wikilink-target]').dispatchEvent(
