@@ -2,6 +2,7 @@ import io
 import os
 import re
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -32,12 +33,21 @@ _generation_lock = threading.Lock()
 MAX_SNIPPET_CHARS = 500  # Content chars per article
 MAX_BATCH_CHARS = 20000  # ~5k input tokens per batch
 MAX_BATCHES = 5  # Max batches (avoid >5 min wait)
+MAX_TTS_WORKERS = 4  # Bounded parallelism for independent sentence requests
+
+LANGUAGE_REQUIREMENT_TEMPLATE = (
+    "OUTPUT LANGUAGE REQUIREMENT: Write the entire response in {language_name}. "
+    "Translate all source material into {language_name}, regardless of the "
+    "language used by the articles or these instructions. Do not write in "
+    "English unless {language_name} is English; only proper names and "
+    "unavoidable literal terms may remain in their original language."
+)
 
 SYSTEM_PROMPT_TEMPLATE = (
     "You are an intelligent podcast assistant. "
     "Write exclusively the text that will be read literally out loud, "
     "without adding notes, section titles, or meta-comments. "
-    "Language: {language_name}."
+    + LANGUAGE_REQUIREMENT_TEMPLATE
 )
 
 PODCAST_LANGUAGES = {
@@ -180,9 +190,13 @@ def _summarize_batch(
     """Send one article batch to the configured LLM and return its script."""
     joined = "\n".join(batch_texts)
     num_articles = len(batch_texts)
+    language_requirement = LANGUAGE_REQUIREMENT_TEMPLATE.format(
+        language_name=language_name
+    )
 
     if total_batches == 1:
         user_prompt = (
+            f"{language_requirement}\n\n"
             "Summarize the following articles for a listener with a background in engineering and philosophy. "
             "Don't look for the easy headline; search for depth, connection between topics, and ethical implications. "
             "Structure the summary as a fluid 10-15 minute podcast script.\n\n"
@@ -190,6 +204,7 @@ def _summarize_batch(
         )
     else:
         user_prompt = (
+            f"{language_requirement}\n\n"
             f"Summarize the following {num_articles} articles as segment {batch_num} of {total_batches} "
             f"of a daily podcast. Make a fluid and deep narrative. "
             f"Do not add opening or closing phrases for the podcast, "
@@ -234,6 +249,19 @@ def _split_into_sentences(text):
     return result
 
 
+def _synthesize_tts_sentence(payload):
+    """Synthesize one indexed sentence and return its MP3 bytes."""
+    index, sentence, language_code = payload
+    try:
+        tts = gTTS(text=sentence, lang=language_code, slow=False)
+        buf = io.BytesIO()
+        tts.write_to_fp(buf)
+        return buf.getvalue()
+    except Exception as exc:
+        log.warning("TTS failed for sentence %s: %s", index + 1, exc)
+        return b""
+
+
 def _generate_tts_by_sentences(text, output_path, language_code):
     """
     Generate TTS audio sentence by sentence to avoid mid-sentence pauses.
@@ -241,22 +269,32 @@ def _generate_tts_by_sentences(text, output_path, language_code):
     sentences = _split_into_sentences(text)
     log.info(f"TTS: {len(sentences)} sentences to process.")
 
-    with open(output_path, "wb") as f:
-        for i, sentence in enumerate(sentences):
-            if not sentence.strip():
-                continue
-            try:
-                tts = gTTS(text=sentence, lang=language_code, slow=False)
-                buf = io.BytesIO()
-                tts.write_to_fp(buf)
-                buf.seek(0)
-                f.write(buf.read())
-            except Exception as e:
-                log.warning(f"TTS failed for sentence {i + 1}: {e}")
-                # Skip this sentence but continue with others
-                continue
+    payloads = [
+        (index, sentence, language_code)
+        for index, sentence in enumerate(sentences)
+        if sentence.strip()
+    ]
+    worker_count = min(MAX_TTS_WORKERS, len(payloads)) or 1
+    with ThreadPoolExecutor(max_workers=worker_count) as executor:
+        audio_chunks = executor.map(_synthesize_tts_sentence, payloads)
+        with open(output_path, "wb") as output_file:
+            for audio_chunk in audio_chunks:
+                output_file.write(audio_chunk)
 
     log.info(f"TTS completed: {os.path.getsize(output_path)} bytes")
+
+
+def _generate_tts_atomically(text, output_path, language_code):
+    """Publish a complete MP3 without exposing an in-progress audio file."""
+    partial_path = f"{output_path}.part"
+    try:
+        _generate_tts_by_sentences(text, partial_path, language_code)
+        if os.path.getsize(partial_path) <= 0:
+            raise RuntimeError("TTS produced an empty audio file.")
+        os.replace(partial_path, output_path)
+    finally:
+        if os.path.exists(partial_path):
+            os.remove(partial_path)
 
 
 def get_podcast_output_dir(vault_path=None):
@@ -367,7 +405,7 @@ def generate_daily_podcast():
 
         log.info(f"Generating TTS audio at {audio_path}...")
         try:
-            _generate_tts_by_sentences(full_script, audio_path, language_code)
+            _generate_tts_atomically(full_script, audio_path, language_code)
             log.info(f"Podcast generated successfully: {audio_filename}")
             generation_status["result_filename"] = audio_filename
             generation_status["progress"] = "Completed!"
