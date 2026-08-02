@@ -1,8 +1,9 @@
 /**
  * useFileLinkInterceptor
  *
- * Captures clicks on links pointing to local files and redirects them
- * to the backend so it opens them with the system shell (Finder/Explorer).
+ * Captures smart resource links inside the editor. Local files are routed to
+ * Gnosi's file opener, while generated citation links resolve their persisted
+ * evidence and open the source at the exact location.
  *
  * Why this is needed: modern browsers block file:// when navigating
  * from an http(s) page. Also, BlockNote/Tiptap (extension-link)
@@ -34,7 +35,8 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { FILE_PROTOCOL_SENTINEL, sentinelToFileUrl } from '../components/Vault/markdown-mapper';
-import { openFileResource } from '../lib/fileResource';
+import { citationParamsFromHref, isCitationHref } from '../lib/citationDeepLink';
+import { openCitation, openFileResource } from '../lib/fileResource';
 
 // We intercept BOTH mouse* and pointer* events. Tiptap/ProseMirror can
 // fire the link handler (which calls `window.open(href, target)`)
@@ -68,6 +70,16 @@ const toBackendPath = (href) => {
     return sentinelToFileUrl(href);
 };
 
+const citationTextFromAnchor = (anchor) => {
+    const quote = anchor?.closest?.('blockquote');
+    if (!quote) return '';
+    const copy = quote.cloneNode(true);
+    for (const link of copy.querySelectorAll('a')) {
+        if (isCitationHref(link.getAttribute('href') || '')) link.remove();
+    }
+    return String(copy.textContent || '').trim().replace(/[—–-]\s*$/, '').trim();
+};
+
 export function useFileLinkInterceptor() {
     const { t } = useTranslation();
     const navigate = useNavigate();
@@ -77,20 +89,22 @@ export function useFileLinkInterceptor() {
         // (mousedown + mouseup + click es dispararien en cadena).
         let lastOpenedAt = 0;
 
-        const findFileAnchor = (e) => {
+        const findSmartAnchor = (e) => {
             const a = e.target?.closest?.('a');
             if (!a) return null;
             const href = a.getAttribute('href') || '';
-            if (!isLocalFileHref(href)) return null;
-            return { a, href };
+            if (isLocalFileHref(href)) return { anchor: a, href, kind: 'file' };
+            if (isCitationHref(href)) return { anchor: a, href, kind: 'citation' };
+            return null;
         };
 
         // LAYER 1: handlers on window and document in the capture phase
         const winHandler = (e) => {
-            const found = findFileAnchor(e);
+            const found = findSmartAnchor(e);
             if (!found) return;
-            // Cmd/Ctrl-click keeps the native behavior (in case the user wants to force it)
-            if (e.metaKey || e.ctrlKey) return;
+            // Cmd/Ctrl-click keeps the native behavior for local file URLs.
+            // Citation sentinels must always stay inside Gnosi.
+            if ((e.metaKey || e.ctrlKey) && found.kind === 'file') return;
             e.preventDefault();
             e.stopPropagation();
             if (typeof e.stopImmediatePropagation === 'function') {
@@ -103,11 +117,26 @@ export function useFileLinkInterceptor() {
             if (e.type === 'click' || e.type === 'auxclick') {
                 if (now - lastOpenedAt > 250) {
                     lastOpenedAt = now;
-                    const backendPath = toBackendPath(found.href);
-                    // PDF/EPUB/HTML → embedded viewer (Zotero reader); others →
-                    // OS app. The routing lives in openFileResource so the
-                    // "Open" button on file fields behaves the same way.
-                    openFileResource(backendPath, { navigate, t });
+                    if (found.kind === 'citation') {
+                        const query = citationParamsFromHref(found.href);
+                        const resourceId = query?.get('res');
+                        if (resourceId) {
+                            void openCitation(resourceId, query.get('page'), {
+                                navigate,
+                                citation: {
+                                    ...Object.fromEntries(query.entries()),
+                                    highlightText: citationTextFromAnchor(found.anchor),
+                                },
+                                t,
+                            });
+                        }
+                    } else {
+                        const backendPath = toBackendPath(found.href);
+                        // PDF/EPUB/HTML → embedded viewer (Zotero reader); others →
+                        // OS app. The routing lives in openFileResource so the
+                        // "Open" button on file fields behaves the same way.
+                        openFileResource(backendPath, { navigate, t });
+                    }
                 }
             }
         };
