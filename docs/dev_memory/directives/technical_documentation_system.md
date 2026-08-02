@@ -175,6 +175,10 @@ product completeness.
 - Do not publish only `site/engineering/` while the configured canonical URL
   ends in `/engineering/`; doing so moves the portal to the repository root and
   makes the in-app link and canonical metadata disagree.
+- Do not run `generate.py --check` in the exported public repository. Generated
+  catalogs are verified in private CI and intentionally include private
+  development-memory directives that are not synchronized; the public Pages
+  workflow must validate the committed portal and build it without regeneration.
 - A missing doc-tool dependency is a failed documentation build, not permission
   to skip verification.
 
