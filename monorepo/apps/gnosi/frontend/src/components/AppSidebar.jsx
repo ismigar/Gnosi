@@ -1,6 +1,6 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { Home, Network, BookOpen, Gauge, Share2, Settings, Menu, X, FileText, Calendar, Inbox, LayoutGrid, Clock, PenTool, Image as ImageIcon, Users, User, LogOut, CalendarRange } from 'lucide-react';
+import { Home, Network, BookOpen, Gauge, Share2, Settings, Menu, X, FileText, Calendar, Inbox, LayoutGrid, Clock, PenTool, Image as ImageIcon, Users, User, LogOut, CalendarRange, CircleHelp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 // The Settings modal drags in the BlockEditor (blocknote/tiptap) and other
 // heavy views. By lazy-loading it we avoid these libraries
@@ -12,6 +12,8 @@ import { WorkspaceSwitcher } from './Navigation/WorkspaceSwitcher';
 import VaultMenu from './VaultMenu';
 import { useAuth } from '../context/AuthContext';
 import { toast } from '../lib/toast';
+
+export const ENGINEERING_DOCUMENTATION_URL = 'https://gnosi.temenosismael.org/engineering/';
 
 const GIcon = ({ size = 14 }) => (
     <div style={{
@@ -183,6 +185,19 @@ export function AppSidebar() {
 
                 <div className="app-sidebar__footer">
                     {gnosiMode === 'personal' && <VaultMenu />}
+                    <a
+                        href={ENGINEERING_DOCUMENTATION_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={t('sidebar.nav_documentation', 'Engineering documentation')}
+                        aria-label={t('sidebar.nav_documentation', 'Engineering documentation')}
+                        className="app-sidebar__item"
+                    >
+                        <CircleHelp size={16} strokeWidth={1.5} />
+                        <span className="app-sidebar__tooltip">
+                            <span>{t('sidebar.nav_documentation', 'Engineering documentation')}</span>
+                        </span>
+                    </a>
                     <NavLink
                         to="/dashboard"
                         title={t('sidebar.nav_dashboard')}

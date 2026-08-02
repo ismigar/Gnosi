@@ -36,6 +36,23 @@ mkdocs build --strict
 Then serve or open `site/engineering`, navigate the changed pages, inspect
 tables and diagrams, and verify the browser console.
 
+## Public access
+
+The canonical portal is published at
+`https://gnosi.temenosismael.org/engineering/`. The private monorepo exports
+`monorepo/` to the root of the public `ismigar/Gnosi` repository. That makes
+`monorepo/.github/workflows/documentation-pages.yml` the source of the public
+`.github/workflows/documentation-pages.yml` deployment workflow.
+
+On each relevant push to the public `main` branch, the workflow verifies the
+generated catalogs, validates traceability, builds MkDocs in strict mode, and
+publishes the complete `apps/gnosi/site/` tree through GitHub Pages. Publishing
+the parent `site/` directory preserves the `/engineering/` URL segment.
+
+Gnosi's global sidebar links to the same canonical address. The label is
+localized in Catalan, English, Spanish, and French and the portal opens outside
+the application route tree.
+
 ## Page metadata
 
 Every reviewed Markdown page declares:

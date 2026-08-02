@@ -94,6 +94,13 @@ Run the generator, validator, and strict MkDocs build from the application root.
 Generated differences are reviewed and committed. The portal output under
 `site/engineering` is disposable build output and should not be committed.
 
+After a documentation change reaches the public repository's `main` branch,
+the Pages workflow publishes the portal at
+`https://gnosi.temenosismael.org/engineering/`. If the deployment fails, check
+the generated-reference and validator steps before the Pages artifact. Confirm
+that repository Pages uses GitHub Actions as its publishing source and that the
+`github-pages` environment permits deployments from `main`.
+
 ## Incident learning
 
 After diagnosing a new failure, fix the implementation, add a regression test,
