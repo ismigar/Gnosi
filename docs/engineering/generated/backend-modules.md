@@ -10,34 +10,36 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Group | Modules | Lines |
 | --- | ---: | ---: |
-| `agent` | 25 | 9447 |
-| `api` | 35 | 34173 |
+| `agent` | 36 | 12536 |
+| `api` | 35 | 34611 |
 | `application root` | 6 | 627 |
 | `config` | 8 | 846 |
 | `data` | 2 | 295 |
 | `mcp` | 3 | 375 |
-| `models` | 12 | 1207 |
-| `scheduler` | 2 | 933 |
+| `models` | 12 | 1217 |
+| `scheduler` | 2 | 949 |
 | `scripts` | 3 | 130 |
 | `security` | 3 | 735 |
-| `services` | 107 | 34063 |
+| `services` | 111 | 36208 |
 | `sh` | 1 | 69 |
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **212 modules** and **83345 source lines**.
+Total: **227 modules** and **89043 source lines**.
 
 ## agent
 
 | Module | Lines | Classes | Functions | Async | Documented declarations | Purpose signal |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | [`backend/agent/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/__init__.py) | 0 | 0 | 0 | 0 | 0 | No module docstring |
-| [`backend/agent/action_confirmations.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/action_confirmations.py) | 748 | 0 | 27 | 0 | 21 | Persistent, scope-bound confirmations for consequential agent actions. |
-| [`backend/agent/agent_context.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/agent_context.py) | 448 | 0 | 17 | 0 | 8 | Attached context sources for a Cognition agent. |
+| [`backend/agent/action_confirmations.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/action_confirmations.py) | 802 | 0 | 28 | 0 | 22 | Persistent, scope-bound confirmations for consequential agent actions. |
+| [`backend/agent/agent_context.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/agent_context.py) | 662 | 0 | 19 | 0 | 10 | Attached context sources for a Cognition agent. |
+| [`backend/agent/calendar_tools.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/calendar_tools.py) | 125 | 0 | 6 | 5 | 5 | Governed adapters for exact calendar reads and external mutations. |
+| [`backend/agent/contact_tools.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/contact_tools.py) | 157 | 0 | 6 | 0 | 4 | Governed adapters for local contact maintenance. |
 | [`backend/agent/context_sources/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/context_sources/__init__.py) | 32 | 0 | 2 | 0 | 1 | Catalogue of large searchable sources an agent can attach (phase 3). |
 | [`backend/agent/context_sources/boe.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/context_sources/boe.py) | 174 | 0 | 6 | 0 | 4 | BOE adapter: search the Spanish official gazette through its open API. |
 | [`backend/agent/directive_tools.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/directive_tools.py) | 90 | 0 | 4 | 0 | 4 | No module docstring |
-| [`backend/agent/factory.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/factory.py) | 1864 | 1 | 31 | 1 | 29 | No module docstring |
+| [`backend/agent/factory.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/factory.py) | 1931 | 1 | 31 | 1 | 29 | No module docstring |
 | [`backend/agent/generated_tools/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/generated_tools/__init__.py) | 3 | 0 | 0 | 0 | 0 | No module docstring |
 | [`backend/agent/generated_tools/creator.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/generated_tools/creator.py) | 226 | 0 | 4 | 0 | 4 | Tool Creator: The meta-tool that allows the agent to create new tools. |
 | [`backend/agent/generated_tools/dry_run.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/generated_tools/dry_run.py) | 139 | 2 | 1 | 0 | 3 | Dry-Run Wrapper: Preview external operations before execution. |
@@ -47,13 +49,22 @@ Total: **212 modules** and **83345 source lines**.
 | [`backend/agent/generated_tools/validator.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/generated_tools/validator.py) | 273 | 3 | 0 | 0 | 1 | Tool Validator: Validates auto-generated tool code for security. |
 | [`backend/agent/gnosi_tools.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/gnosi_tools.py) | 2256 | 1 | 62 | 11 | 45 | Stable first-party Gnosi tools exposed to tool-capable chat models. |
 | [`backend/agent/graph.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/graph.py) | 47 | 1 | 1 | 0 | 1 | No module docstring |
+| [`backend/agent/internal_sources.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/internal_sources.py) | 1328 | 0 | 55 | 0 | 13 | Scoped read adapters for first-party Gnosi data modules. |
+| [`backend/agent/job_tools.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/job_tools.py) | 83 | 0 | 7 | 0 | 6 | Governed tools for provider-neutral durable capability jobs. |
 | [`backend/agent/llm_wiki_tools.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/llm_wiki_tools.py) | 120 | 0 | 4 | 0 | 4 | Governed agent adapters for the built-in LLM Wiki plugin. |
+| [`backend/agent/mail_tools.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/mail_tools.py) | 168 | 0 | 10 | 8 | 8 | Governed adapters for exact mail reads and mutations. |
 | [`backend/agent/memory.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/memory.py) | 185 | 2 | 4 | 0 | 3 | No module docstring |
 | [`backend/agent/model_catalog.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/model_catalog.py) | 492 | 0 | 22 | 0 | 18 | Provider → model catalog for the model-comparison activation workflow. |
 | [`backend/agent/model_reliability.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/model_reliability.py) | 220 | 0 | 10 | 0 | 5 | Why a model call failed, recorded as evidence per provider:model. |
 | [`backend/agent/model_router.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/model_router.py) | 487 | 1 | 13 | 0 | 12 | Data-driven, budget-aware model router. |
+| [`backend/agent/notion_tools.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/notion_tools.py) | 76 | 0 | 5 | 5 | 5 | Governed adapters for connected Notion discovery and exact cloning. |
+| [`backend/agent/planning_tools.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/planning_tools.py) | 167 | 0 | 13 | 12 | 12 | Governed tools over Gnosi's authoritative project-planning services. |
+| [`backend/agent/reader_tools.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/reader_tools.py) | 288 | 0 | 16 | 0 | 13 | Governed tools for inspecting and analysing Gnosi Reader content. |
+| [`backend/agent/social_tools.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/social_tools.py) | 142 | 0 | 8 | 7 | 7 | Governed adapters for Gnosi social reading, composition, and publishing. |
 | [`backend/agent/system_tools.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/system_tools.py) | 430 | 0 | 13 | 0 | 13 | No module docstring |
 | [`backend/agent/tools.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/tools.py) | 75 | 0 | 2 | 0 | 2 | No module docstring |
+| [`backend/agent/translation_tools.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/translation_tools.py) | 70 | 0 | 3 | 3 | 3 | Governed adapters for the existing idempotent translation workflows. |
+| [`backend/agent/vault_admin_tools.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/vault_admin_tools.py) | 150 | 0 | 6 | 0 | 5 | Governed adapters for Vault schema discovery and page organization. |
 | [`backend/agent/vault_tools.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/vault_tools.py) | 351 | 0 | 13 | 0 | 12 | Knowledge tool belt: gives the agent HANDS on the vault (not just search). |
 | [`backend/agent/web_context.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/web_context.py) | 144 | 0 | 3 | 0 | 3 | Fetching web pages attached to an agent's context (phase 2). |
 
@@ -62,8 +73,8 @@ Total: **212 modules** and **83345 source lines**.
 | Module | Lines | Classes | Functions | Async | Documented declarations | Purpose signal |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | [`backend/api/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/__init__.py) | 30 | 0 | 0 | 0 | 0 | No module docstring |
-| [`backend/api/agent_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py) | 1530 | 6 | 38 | 15 | 26 | No module docstring |
-| [`backend/api/agent_skills_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_skills_routes.py) | 440 | 3 | 16 | 0 | 4 | Settings APIs for governed agent skills and tools. |
+| [`backend/api/agent_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py) | 1633 | 7 | 40 | 17 | 29 | No module docstring |
+| [`backend/api/agent_skills_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_skills_routes.py) | 635 | 4 | 28 | 0 | 9 | Settings APIs for governed agent skills and tools. |
 | [`backend/api/ai_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/ai_routes.py) | 690 | 6 | 16 | 12 | 13 | No module docstring |
 | [`backend/api/analytics_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/analytics_routes.py) | 376 | 0 | 12 | 7 | 12 | No module docstring |
 | [`backend/api/auth_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/auth_routes.py) | 365 | 5 | 11 | 0 | 11 | Auth endpoints — register / login / logout / me. |
@@ -84,7 +95,7 @@ Total: **212 modules** and **83345 source lines**.
 | [`backend/api/notion_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/notion_routes.py) | 748 | 3 | 24 | 13 | 13 | Endpoints for the Notion CLONE → Gnosi Vault. |
 | [`backend/api/planning_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/planning_routes.py) | 511 | 9 | 28 | 23 | 10 | API for normalized project-planning resources and allocation reports. |
 | [`backend/api/public_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/public_routes.py) | 343 | 3 | 14 | 1 | 10 | Gnosi's public API with Personal Access Token (PAT) authentication. |
-| [`backend/api/reader.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/reader.py) | 553 | 0 | 22 | 1 | 22 | No module docstring |
+| [`backend/api/reader.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/reader.py) | 693 | 1 | 30 | 1 | 31 | No module docstring |
 | [`backend/api/scheduler_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/scheduler_routes.py) | 100 | 1 | 6 | 6 | 6 | No module docstring |
 | [`backend/api/share_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/share_routes.py) | 203 | 1 | 7 | 4 | 5 | External share links for single vault pages (Notion-style). |
 | [`backend/api/social_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/social_routes.py) | 696 | 8 | 23 | 18 | 22 | No module docstring |
@@ -142,7 +153,7 @@ Total: **212 modules** and **83345 source lines**.
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | [`backend/models/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/models/__init__.py) | 15 | 0 | 0 | 0 | 0 | No module docstring |
 | [`backend/models/_datetime_utils.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/models/_datetime_utils.py) | 32 | 0 | 1 | 0 | 1 | Helpers to ensure `datetime` fields always come out with timezone |
-| [`backend/models/agent_skills.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/models/agent_skills.py) | 313 | 11 | 2 | 0 | 11 | Typed contracts for agent skills and governed tools. |
+| [`backend/models/agent_skills.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/models/agent_skills.py) | 323 | 11 | 2 | 0 | 11 | Typed contracts for agent skills and governed tools. |
 | [`backend/models/calendar.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/models/calendar.py) | 18 | 1 | 0 | 0 | 1 | No module docstring |
 | [`backend/models/contact.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/models/contact.py) | 136 | 8 | 0 | 0 | 0 | No module docstring |
 | [`backend/models/mail.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/models/mail.py) | 182 | 15 | 0 | 0 | 0 | No module docstring |
@@ -158,7 +169,7 @@ Total: **212 modules** and **83345 source lines**.
 | Module | Lines | Classes | Functions | Async | Documented declarations | Purpose signal |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | [`backend/scheduler/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/scheduler/__init__.py) | 1 | 0 | 0 | 0 | 0 | No module docstring |
-| [`backend/scheduler/manager.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/scheduler/manager.py) | 932 | 2 | 0 | 0 | 1 | Scheduler Manager: Manages scheduled tasks using APScheduler. |
+| [`backend/scheduler/manager.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/scheduler/manager.py) | 948 | 2 | 0 | 0 | 1 | Scheduler Manager: Manages scheduled tasks using APScheduler. |
 
 ## scripts
 
@@ -184,12 +195,15 @@ Total: **212 modules** and **83345 source lines**.
 | [`backend/services/action_rules.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/action_rules.py) | 256 | 0 | 10 | 0 | 7 | Declarative action rules per table (`table.action_rules` block). |
 | [`backend/services/active_vault_middleware.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/active_vault_middleware.py) | 108 | 1 | 2 | 0 | 2 | ASGI Middleware: sets the ACTIVE vault from `X-Vault-Id` in a context that PROPAGATES. |
 | [`backend/services/agent_skill_assignments.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/agent_skill_assignments.py) | 308 | 4 | 2 | 0 | 5 | Revision-aware agent skill assignments and legacy migration. |
-| [`backend/services/agent_skill_catalog.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/agent_skill_catalog.py) | 749 | 6 | 21 | 0 | 18 | Effective catalogs and runtime resolution for agent skills and tools. |
+| [`backend/services/agent_skill_catalog.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/agent_skill_catalog.py) | 783 | 6 | 21 | 0 | 18 | Effective catalogs and runtime resolution for agent skills and tools. |
 | [`backend/services/article_extractor.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/article_extractor.py) | 137 | 0 | 2 | 0 | 2 | Full-text extraction for RSS articles whose feed only ships an excerpt. |
 | [`backend/services/artificial_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/artificial_analysis.py) | 526 | 1 | 17 | 0 | 13 | Artificial Analysis model-comparison feed. |
 | [`backend/services/audio_summarizer.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/audio_summarizer.py) | 381 | 1 | 9 | 0 | 10 | No module docstring |
 | [`backend/services/auth_public_surface.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/auth_public_surface.py) | 164 | 1 | 4 | 1 | 4 | The set of endpoints that must stay reachable without a session. |
 | [`backend/services/auth_service.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/auth_service.py) | 636 | 0 | 25 | 0 | 24 | Authentication service — JWT cookies + bcrypt password hashing. |
+| [`backend/services/capability_audit.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/capability_audit.py) | 274 | 0 | 8 | 0 | 3 | Bounded metadata-only audit log for governed capability execution. |
+| [`backend/services/capability_automations.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/capability_automations.py) | 474 | 1 | 16 | 2 | 4 | Durable, budgeted automation definitions for governed agent skills. |
+| [`backend/services/capability_jobs.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/capability_jobs.py) | 208 | 1 | 16 | 0 | 5 | Provider-neutral facade for durable Gnosi capability jobs. |
 | [`backend/services/contacts_service.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/contacts_service.py) | 215 | 1 | 0 | 0 | 0 | No module docstring |
 | [`backend/services/contacts_sync_engine.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/contacts_sync_engine.py) | 717 | 4 | 2 | 0 | 3 | No module docstring |
 | [`backend/services/content_revision.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/content_revision.py) | 55 | 0 | 3 | 0 | 2 | Stable content revisions for confirmed filesystem operations. |
@@ -209,7 +223,7 @@ Total: **212 modules** and **83345 source lines**.
 | [`backend/services/frontmatter_fallback.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/frontmatter_fallback.py) | 65 | 0 | 1 | 0 | 1 | Tolerant frontmatter parser for when `yaml.safe_load` fails. |
 | [`backend/services/fx_rates.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/fx_rates.py) | 188 | 0 | 9 | 0 | 5 | USD → user-currency conversion for the AI spend cap. |
 | [`backend/services/generated_tool_contributions.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/generated_tool_contributions.py) | 159 | 0 | 6 | 0 | 2 | Expose approved generated tools to skills without granting them globally. |
-| [`backend/services/gnosi_ai_contributions.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/gnosi_ai_contributions.py) | 239 | 0 | 7 | 0 | 2 | Governed core skills and tools for first-party Gnosi operations. |
+| [`backend/services/gnosi_ai_contributions.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/gnosi_ai_contributions.py) | 689 | 0 | 9 | 0 | 2 | Governed core skills and tools for first-party Gnosi operations. |
 | [`backend/services/google_calendar_service.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/google_calendar_service.py) | 250 | 0 | 7 | 0 | 7 | No module docstring |
 | [`backend/services/google_contacts_service.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/google_contacts_service.py) | 335 | 0 | 7 | 0 | 7 | No module docstring |
 | [`backend/services/google_mail_service.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/google_mail_service.py) | 343 | 0 | 13 | 0 | 11 | No module docstring |
@@ -265,6 +279,7 @@ Total: **212 modules** and **83345 source lines**.
 | [`backend/services/plugin_signing.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/plugin_signing.py) | 148 | 0 | 8 | 0 | 6 | Plugin signing and trust (phase 3 of plugin_system.md). |
 | [`backend/services/plugin_system.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/plugin_system.py) | 396 | 1 | 12 | 0 | 11 | Gnosi plugin system v2 — discovery, manifest and permissions. |
 | [`backend/services/project_planning.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/project_planning.py) | 393 | 2 | 13 | 0 | 11 | Vault-scoped storage and pure calculations for project planning resources. |
+| [`backend/services/reader_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/reader_analysis.py) | 705 | 0 | 35 | 0 | 7 | Durable hierarchical analysis for large Reader collections. |
 | [`backend/services/recursos_zotero_mapping.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/recursos_zotero_mapping.py) | 71 | 0 | 1 | 0 | 1 | Bidirectional mapping between Recursos columns and Zotero fields. |
 | [`backend/services/reference_table_config.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/reference_table_config.py) | 63 | 0 | 2 | 0 | 2 | Storage for the Vault's "References Table" designation. |
 | [`backend/services/references_io.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/references_io.py) | 556 | 0 | 19 | 0 | 10 | Import/Export BibTeX and RIS ↔ Recursos fields (Gnosi). |
