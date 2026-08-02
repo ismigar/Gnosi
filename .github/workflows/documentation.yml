@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "monorepo/apps/gnosi/**"
+      - "monorepo/.github/workflows/documentation-pages.yml"
       - "docs/dev_memory/directives/**"
       - ".github/workflows/documentation.yml"
   workflow_dispatch:

@@ -11,4 +11,7 @@
 - [x] Build the documentation portal with strict warnings.
 - [x] Visual and functionality validation in the browser.
 - [x] Check for Z-index conflicts and visual overlapping.
+- [x] Add the public GitHub Pages deployment workflow under the synchronized repository root.
+- [x] Add the localized in-app sidebar access to the canonical engineering portal.
+- [x] Configure the public repository to use GitHub Actions as its Pages source.
 - [x] Consolidate staging memory into the corresponding Skill.

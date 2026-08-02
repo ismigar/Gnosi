@@ -42,6 +42,26 @@ exported with the authoritative `monorepo/apps/gnosi/` application. Directives
 remain evidence and implementation memory; they are not copied into the public
 portal automatically.
 
+## Publication and access contract
+
+The canonical public URL is `https://gnosi.temenosismael.org/engineering/`, using
+the custom domain configured for the public `ismigar/Gnosi` GitHub Pages site.
+`scripts/sync_repos.py` exports `monorepo/` to the root of `ismigar/Gnosi`, so
+the Pages workflow belongs at
+`monorepo/.github/workflows/documentation-pages.yml`. In the public repository
+it becomes `.github/workflows/documentation-pages.yml` and builds the MkDocs
+project from `apps/gnosi/`.
+
+The workflow publishes `apps/gnosi/site/`, not only
+`apps/gnosi/site/engineering/`, so the repository Pages base path retains the
+documented `/engineering/` suffix. GitHub Pages uses GitHub Actions as its
+publishing source and deploys only from the public repository's `main` branch.
+
+Gnosi exposes the same canonical URL from the global sidebar. The link opens in
+the system browser or a new browser tab, remains available in native, Docker,
+and Electron distributions, and uses localized labels from all four frontend
+catalogs. It never points to a development-only localhost address.
+
 ## Information architecture
 
 The portal uses progressive disclosure:
@@ -140,6 +160,21 @@ product completeness.
   `pipeline/skills/catalog.yaml`. Every `pipeline/skills/*/SKILL.md` directory
   requires an explicit non-runtime classification; use `kind: developer` for
   this documentation procedure.
+- Do not place the public Pages workflow only under the private repository's
+  root `.github/workflows/`; that path is not exported to `ismigar/Gnosi`.
+  Store public-repository workflows under `monorepo/.github/workflows/`.
+- Do not let changes to the exported Pages workflow bypass private-repository
+  documentation CI. Include its source path in the root documentation
+  workflow's pull-request path filters.
+- Do not count `__pycache__`, bytecode, dependency, vendor, or build artifacts
+  matched by broad domain globs. Local caches make coverage output differ from
+  a clean CI checkout; apply the owned-file filter before counting matches.
+- Do not hand-merge conflicts under `docs/engineering/generated/`. Complete the
+  source merge first, run the catalog generator on the combined tree, and stage
+  its deterministic output as the conflict resolution.
+- Do not publish only `site/engineering/` while the configured canonical URL
+  ends in `/engineering/`; doing so moves the portal to the repository root and
+  makes the in-app link and canonical metadata disagree.
 - A missing doc-tool dependency is a failed documentation build, not permission
   to skip verification.
 
@@ -158,6 +193,10 @@ The documentation system is ready when:
 - The portal navigation reaches every reviewed and generated page.
 - A browser smoke test confirms that the built portal renders its home page,
   navigation, tables, code blocks, and Mermaid diagrams.
+- The public Pages workflow builds from the synchronized repository layout and
+  uploads an artifact whose root contains the `engineering/` directory.
+- The Gnosi sidebar exposes the canonical URL with correct labels in Catalan,
+  English, Spanish, and French.
 
 ## Related files
 
