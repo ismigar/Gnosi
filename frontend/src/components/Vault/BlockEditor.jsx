@@ -3032,11 +3032,13 @@ export function EditorInner({
                 .bn-editor .bn-inline-content a[href^="#"],
                 .bn-editor .bn-inline-content a[href*="localhost:5173"],
                 .bn-editor .bn-inline-content a[href*="127.0.0.1:5173"],
+                .bn-editor .bn-inline-content a[href*="gnosi-cite.local"],
                 .bn-editor .bn-inline-content a[href*="/vault/page/"],
                 .bn-container .bn-inline-content a[href^="/"],
                 .bn-container .bn-inline-content a[href^="#"],
                 .bn-container .bn-inline-content a[href*="localhost:5173"],
                 .bn-container .bn-inline-content a[href*="127.0.0.1:5173"],
+                .bn-container .bn-inline-content a[href*="gnosi-cite.local"],
                 .bn-container .bn-inline-content a[href*="/vault/page/"] {
                     color: var(--gnosi-primary) !important;
                     text-decoration-color: color-mix(in srgb, var(--gnosi-primary) 70%, transparent) !important;
@@ -3063,14 +3065,14 @@ export function EditorInner({
                     text-decoration-color: color-mix(in srgb, #22c55e 70%, transparent) !important;
                 }
 
-                .bn-editor .bn-inline-content a[href^="http"]:not([href*="localhost:5173"]):not([href*="127.0.0.1:5173"]):not([href*="localhost:4771"]),
-                .bn-container .bn-inline-content a[href^="http"]:not([href*="localhost:5173"]):not([href*="127.0.0.1:5173"]):not([href*="localhost:4771"]) {
+                .bn-editor .bn-inline-content a[href^="http"]:not([href*="localhost:5173"]):not([href*="127.0.0.1:5173"]):not([href*="localhost:4771"]):not([href*="gnosi-cite.local"]),
+                .bn-container .bn-inline-content a[href^="http"]:not([href*="localhost:5173"]):not([href*="127.0.0.1:5173"]):not([href*="localhost:4771"]):not([href*="gnosi-cite.local"]) {
                     color: #f59e0b !important;
                     text-decoration-style: wavy !important;
                     text-decoration-color: color-mix(in srgb, #f59e0b 70%, transparent) !important;
                 }
-                .bn-editor .bn-inline-content a[href^="http"]:not([href*="localhost:5173"]):not([href*="127.0.0.1:5173"]):not([href*="localhost:4771"])::after,
-                .bn-container .bn-inline-content a[href^="http"]:not([href*="localhost:5173"]):not([href*="127.0.0.1:5173"]):not([href*="localhost:4771"])::after {
+                .bn-editor .bn-inline-content a[href^="http"]:not([href*="localhost:5173"]):not([href*="127.0.0.1:5173"]):not([href*="localhost:4771"]):not([href*="gnosi-cite.local"])::after,
+                .bn-container .bn-inline-content a[href^="http"]:not([href*="localhost:5173"]):not([href*="127.0.0.1:5173"]):not([href*="localhost:4771"]):not([href*="gnosi-cite.local"])::after {
                     content: " ↗";
                     font-size: 0.8em;
                     opacity: 0.8;
