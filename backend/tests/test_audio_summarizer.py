@@ -211,10 +211,10 @@ def test_generate_tts_uses_selected_language(monkeypatch, tmp_path):
         "Primera frase. Segona frase.", output_path, "ca"
     )
 
-    assert observed == [
+    assert sorted(observed) == sorted([
         ("Primera frase.", "ca", False),
         ("Segona frase.", "ca", False),
-    ]
+    ])
     assert output_path.read_bytes() == b"audioaudio"
 
 

@@ -2,6 +2,7 @@ import io
 import os
 import re
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -32,6 +33,7 @@ _generation_lock = threading.Lock()
 MAX_SNIPPET_CHARS = 500  # Content chars per article
 MAX_BATCH_CHARS = 20000  # ~5k input tokens per batch
 MAX_BATCHES = 5  # Max batches (avoid >5 min wait)
+MAX_TTS_WORKERS = 4  # Bounded parallelism for independent sentence requests
 
 LANGUAGE_REQUIREMENT_TEMPLATE = (
     "OUTPUT LANGUAGE REQUIREMENT: Write the entire response in {language_name}. "
@@ -247,6 +249,19 @@ def _split_into_sentences(text):
     return result
 
 
+def _synthesize_tts_sentence(payload):
+    """Synthesize one indexed sentence and return its MP3 bytes."""
+    index, sentence, language_code = payload
+    try:
+        tts = gTTS(text=sentence, lang=language_code, slow=False)
+        buf = io.BytesIO()
+        tts.write_to_fp(buf)
+        return buf.getvalue()
+    except Exception as exc:
+        log.warning("TTS failed for sentence %s: %s", index + 1, exc)
+        return b""
+
+
 def _generate_tts_by_sentences(text, output_path, language_code):
     """
     Generate TTS audio sentence by sentence to avoid mid-sentence pauses.
@@ -254,20 +269,17 @@ def _generate_tts_by_sentences(text, output_path, language_code):
     sentences = _split_into_sentences(text)
     log.info(f"TTS: {len(sentences)} sentences to process.")
 
-    with open(output_path, "wb") as f:
-        for i, sentence in enumerate(sentences):
-            if not sentence.strip():
-                continue
-            try:
-                tts = gTTS(text=sentence, lang=language_code, slow=False)
-                buf = io.BytesIO()
-                tts.write_to_fp(buf)
-                buf.seek(0)
-                f.write(buf.read())
-            except Exception as e:
-                log.warning(f"TTS failed for sentence {i + 1}: {e}")
-                # Skip this sentence but continue with others
-                continue
+    payloads = [
+        (index, sentence, language_code)
+        for index, sentence in enumerate(sentences)
+        if sentence.strip()
+    ]
+    worker_count = min(MAX_TTS_WORKERS, len(payloads)) or 1
+    with ThreadPoolExecutor(max_workers=worker_count) as executor:
+        audio_chunks = executor.map(_synthesize_tts_sentence, payloads)
+        with open(output_path, "wb") as output_file:
+            for audio_chunk in audio_chunks:
+                output_file.write(audio_chunk)
 
     log.info(f"TTS completed: {os.path.getsize(output_path)} bytes")
 
