@@ -12,6 +12,7 @@ from pipeline.skills.technical_documentation.scripts.generate import (
     declares_router,
     format_environment_default,
     join_url_paths,
+    matches_for_globs,
     parse_route_module,
 )
 
@@ -90,3 +91,15 @@ def test_data_model_catalog_redacts_sensitive_defaults() -> None:
     assert "`users`" in catalog
     assert "`newsletter_account`" in catalog
     assert "redacted" in catalog
+
+
+def test_coverage_globs_exclude_cache_artifacts(tmp_path: Path) -> None:
+    """Broad domain patterns must ignore local bytecode and cache files."""
+    source = tmp_path / "integrations" / "adapter.py"
+    cache = tmp_path / "integrations" / "__pycache__" / "adapter.pyc"
+    source.parent.mkdir(parents=True)
+    cache.parent.mkdir(parents=True)
+    source.write_text("VALUE = 1\n", encoding="utf-8")
+    cache.write_bytes(b"local-only bytecode")
+
+    assert matches_for_globs(tmp_path, ["integrations/**/*"]) == [source]
