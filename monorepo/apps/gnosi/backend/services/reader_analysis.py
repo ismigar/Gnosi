@@ -606,6 +606,29 @@ def start_analysis(
     return _public_job(job)
 
 
+def estimate_analysis(
+    vault_path: Path,
+    raw_scope: Any,
+    *,
+    language: str = "Catalan",
+    guidance: str = "",
+) -> Dict[str, Any]:
+    """Return a deterministic no-model estimate for one Reader analysis."""
+    scope = normalize_internal_scope("reader", raw_scope)
+    scope["include_full_content"] = True
+    rows = _snapshot_articles(Path(vault_path), scope)
+    batches = _build_batches(rows)
+    return {
+        "estimate_only": True,
+        "record_count": len(rows),
+        "batch_count": len(batches),
+        "estimated_model_calls": len(batches) + (1 if batches else 0),
+        "language": str(language or "Catalan")[:64],
+        "guidance_chars": len(str(guidance or "")[:MAX_GUIDANCE_CHARS]),
+        "scope": scope,
+    }
+
+
 def list_analyses(vault_path: Path, limit: int = 20) -> List[Dict[str, Any]]:
     """List recent durable Reader jobs without exposing checkpoint internals."""
     jobs_dir = _root(vault_path) / "jobs"

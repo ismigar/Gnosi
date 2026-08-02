@@ -39,6 +39,20 @@ def test_internal_scope_is_bounded_and_normalized():
     assert scope["limit"] == internal_sources.MAX_RESULT_ITEMS
     assert scope["date_from"].startswith("2026-01-01T00:00:00")
 
+    social = internal_sources.normalize_internal_scope("social", {
+        "networks": ["Mastodon", "mastodon", "Bluesky"],
+        "statuses": ["Publicada"],
+    })
+    assert social["networks"] == ["mastodon", "bluesky"]
+    assert social["statuses"] == ["publicada"]
+
+    notion = internal_sources.normalize_internal_scope("notion", {
+        "object_types": ["PAGE", "database", "invalid"],
+        "database_ids": ["db-1"],
+    })
+    assert notion["object_types"] == ["page", "database"]
+    assert notion["database_ids"] == ["db-1"]
+
 
 def test_turn_context_accepts_internal_sources_only():
     request = ChatRequest(
@@ -111,6 +125,104 @@ def test_integration_accounts_are_resolved_inside_personal_workspace(monkeypatch
         internal_sources._allowed_accounts(["unknown@example.test"])
 
 
+def test_planning_source_filters_projects_resources_and_exact_ids(monkeypatch):
+    snapshot = {
+        "state": {
+            "revision": 4,
+            "calendars": [{"id": "default", "name": "Default"}],
+            "resources": [
+                {"id": "r1", "name": "Ada", "active": True},
+                {"id": "r2", "name": "Grace", "active": False},
+            ],
+            "assignments": [
+                {"id": "a1", "project_id": "p1", "task_id": "t1", "resource_id": "r1"},
+                {"id": "a2", "project_id": "p2", "task_id": "t2", "resource_id": "r2"},
+            ],
+            "recurrences": [],
+        },
+        "schedule": {
+            "projects": {
+                "p1": {
+                    "title": "Launch",
+                    "scheduleRevision": 3,
+                    "criticalTaskIds": ["t1"],
+                    "tasks": [{"id": "t1", "title": "Ship", "start": "2026-01-01"}],
+                },
+                "p2": {
+                    "title": "Hidden",
+                    "tasks": [{"id": "t2", "title": "Ignore"}],
+                },
+            }
+        },
+        "allocation": {"warnings": [{"code": "overallocated"}], "total_estimated_cost": 120},
+    }
+    monkeypatch.setattr(internal_sources, "_planning_snapshot", lambda: snapshot)
+    scope = internal_sources.normalize_internal_scope("planning", {
+        "project_ids": ["p1"],
+        "resource_ids": ["r1"],
+        "entity_types": ["project", "task", "resource", "assignment"],
+    })
+
+    inventory = internal_sources._planning_inventory(scope)
+    assert inventory["counts"] == {
+        "project": 1,
+        "task": 1,
+        "resource": 1,
+        "assignment": 1,
+    }
+    searched = internal_sources._planning_search(scope, "ship")
+    assert searched["records"][0]["id"] == "task|p1|t1"
+    exact = internal_sources._planning_read(scope, "resource|r1")
+    assert exact["name"] == "Ada"
+    with pytest.raises(KeyError):
+        internal_sources._planning_read(scope, "resource|r2")
+
+
+def test_references_source_reapplies_type_and_vault_path_scope(tmp_path, monkeypatch):
+    from backend.api import vault_routes
+    from backend.services.context_vars import active_vault_path
+
+    article_path = tmp_path / "article.md"
+    article_path.write_text("---\ntitle: Evidence\n---\nCited body", encoding="utf-8")
+    book_path = tmp_path / "book.md"
+    book_path.write_text("Book body", encoding="utf-8")
+    pages = [
+        SimpleNamespace(
+            id="ref-1",
+            title="Evidence paper",
+            path=str(article_path),
+            metadata={
+                "Citation Key": "Ada2026",
+                "Item Type": "article",
+                "Language": "en",
+                "Authors": ["Ada"],
+            },
+        ),
+        SimpleNamespace(
+            id="ref-2",
+            title="Hidden book",
+            path=str(book_path),
+            metadata={"Item Type": "book", "Language": "en"},
+        ),
+    ]
+    monkeypatch.setattr(internal_sources, "_reference_table", lambda: {"id": "refs"})
+    monkeypatch.setattr(vault_routes, "_get_pages_for_table", lambda _table_id: pages)
+    token = active_vault_path.set(tmp_path)
+    try:
+        scope = internal_sources.normalize_internal_scope("references", {
+            "item_types": ["article"],
+            "languages": ["EN"],
+        })
+        searched = internal_sources._references_search(scope, "evidence")
+        assert [row["id"] for row in searched["records"]] == ["ref-1"]
+        exact = internal_sources._references_read(scope, "ref-1")
+        assert exact["body"] == "Cited body"
+        with pytest.raises(KeyError):
+            internal_sources._references_read(scope, "ref-2")
+    finally:
+        active_vault_path.reset(token)
+
+
 def test_reader_inventory_counts_filtered_rows_and_feed_breakdown(monkeypatch):
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
@@ -176,6 +288,10 @@ def test_internal_context_tools_preserve_scope_and_exact_read(monkeypatch):
     tools = {tool.name: tool for tool in build_context_tools(refs)}
 
     searched = tools["search_context"].invoke({"query": "climate policy"})
+    searched_one = tools["search_context_source"].invoke({
+        "source_id": "reader-source",
+        "query": "climate policy",
+    })
     exact = tools["read_context_record"].invoke({
         "source_id": "reader-source",
         "record_id": "42",
@@ -183,6 +299,7 @@ def test_internal_context_tools_preserve_scope_and_exact_read(monkeypatch):
 
     assert '"source_ids": [7]' in searched
     assert '"query": "climate policy"' in searched
+    assert '"query": "climate policy"' in searched_one
     assert '"record_id": "42"' in exact
     assert "START EXTERNAL CONTENT" in searched
 
@@ -500,3 +617,17 @@ def test_reader_analysis_tools_are_governed_by_effect():
     start = descriptors["core.gnosi.start-reader-topic-analysis"]
     assert start.effects == [ToolEffect.LOCAL_WRITE, ToolEffect.AI_COST]
     assert start.confirmation == ConfirmationPolicy.EXPLICIT_REQUEST
+
+
+def test_provider_neutral_job_tools_are_governed_by_effect():
+    descriptors = {
+        descriptor.id: descriptor
+        for descriptor, _handler in core_gnosi_registrations()
+        if descriptor.metadata.get("domain") == "jobs"
+    }
+
+    assert descriptors["core.gnosi.list-capability-jobs"].effects == [ToolEffect.READ]
+    assert descriptors["core.gnosi.estimate-capability-job"].effects == [ToolEffect.READ]
+    resume = descriptors["core.gnosi.resume-capability-job"]
+    assert resume.effects == [ToolEffect.LOCAL_WRITE, ToolEffect.AI_COST]
+    assert resume.confirmation == ConfirmationPolicy.EXPLICIT_REQUEST

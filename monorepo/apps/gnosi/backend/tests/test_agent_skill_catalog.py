@@ -124,6 +124,12 @@ def test_descriptor_validation_enforces_namespaces_and_sensitive_policy():
         (ToolEffect.DESTRUCTIVE, ConfirmationPolicy.ALWAYS),
         (ToolEffect.CODE_EXECUTION, ConfirmationPolicy.EXPLICIT_REQUEST),
         (ToolEffect.AI_COST, ConfirmationPolicy.EXPLICIT_REQUEST),
+        (ToolEffect.EXTERNAL_READ, ConfirmationPolicy.NONE),
+        (ToolEffect.PERSONAL_DATA, ConfirmationPolicy.NONE),
+        (ToolEffect.DATA_EGRESS, ConfirmationPolicy.EXPLICIT_REQUEST),
+        (ToolEffect.BULK_WRITE, ConfirmationPolicy.EXPLICIT_REQUEST),
+        (ToolEffect.FINANCIAL_COST, ConfirmationPolicy.EXPLICIT_REQUEST),
+        (ToolEffect.NOTIFICATION, ConfirmationPolicy.EXPLICIT_REQUEST),
     ],
 )
 def test_descriptor_accepts_governed_policy_for_each_effect(
@@ -137,6 +143,31 @@ def test_descriptor_accepts_governed_policy_for_each_effect(
         confirmation=confirmation,
     )
     assert descriptor.effects == [effect]
+
+
+def test_capability_platform_domain_tools_are_least_privilege():
+    tools = {
+        descriptor.id: descriptor
+        for descriptor in agent_skill_catalog_module.get_tool_catalog().list()
+    }
+    reply = tools["core.gnosi.reply-mail-message"]
+    assert reply.confirmation == ConfirmationPolicy.ALWAYS
+    assert ToolEffect.EXTERNAL_WRITE in reply.effects
+    assert reply.metadata["prepares_confirmation"] is False
+
+    duplicates = tools["core.gnosi.find-duplicate-contacts"]
+    assert duplicates.confirmation == ConfirmationPolicy.NONE
+    assert duplicates.effects == [ToolEffect.READ, ToolEffect.PERSONAL_DATA]
+
+    extract = tools["core.gnosi.extract-reader-article"]
+    assert extract.confirmation == ConfirmationPolicy.EXPLICIT_REQUEST
+    assert extract.effects == [ToolEffect.LOCAL_WRITE, ToolEffect.EXTERNAL_READ]
+
+    legacy = agent_skill_catalog_module.get_skill_catalog().descriptors()[
+        LEGACY_SKILL_ID
+    ]
+    assert len(legacy.tool_ids) <= 64
+    assert "core.gnosi.reply-mail-message" not in legacy.tool_ids
 
 
 def test_plugin_provider_derives_ownership_and_rejects_duplicate_ids():

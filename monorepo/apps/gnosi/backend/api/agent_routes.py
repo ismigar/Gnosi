@@ -57,6 +57,10 @@ from backend.config.app_config import load_params
 from backend.utils.errors import safe_error_detail
 from backend.services.workspace_service import require_role, WorkspaceContext
 from backend.services.context_vars import get_active_vault_path
+from backend.services.capability_audit import (
+    list_capability_events,
+    record_capability_event,
+)
 
 cfg = load_params()
 
@@ -783,14 +787,44 @@ async def _execute_governed_tool(
         raise PermissionError("The current role cannot execute this tool.")
 
     call_arguments = dict(arguments.get("tool_arguments") or {})
-    if callable(getattr(handler, "ainvoke", None)):
-        result = await handler.ainvoke(call_arguments)
-    elif callable(getattr(handler, "invoke", None)):
-        result = await asyncio.to_thread(handler.invoke, call_arguments)
-    elif asyncio.iscoroutinefunction(handler):
-        result = await handler(**call_arguments)
-    else:
-        result = await asyncio.to_thread(handler, **call_arguments)
+    started = time.monotonic()
+    effects = [
+        str(getattr(effect, "value", effect))
+        for effect in (getattr(descriptor, "effects", None) or [])
+    ]
+    try:
+        if callable(getattr(handler, "ainvoke", None)):
+            result = await handler.ainvoke(call_arguments)
+        elif callable(getattr(handler, "invoke", None)):
+            result = await asyncio.to_thread(handler.invoke, call_arguments)
+        elif asyncio.iscoroutinefunction(handler):
+            result = await handler(**call_arguments)
+        else:
+            result = await asyncio.to_thread(handler, **call_arguments)
+    except Exception as error:
+        await asyncio.to_thread(
+            record_capability_event,
+            scope,
+            tool_id=tool_id,
+            tool_name=tool_name,
+            effects=effects,
+            status="failed",
+            argument_keys=list(call_arguments),
+            error_code=type(error).__name__,
+            duration_ms=int((time.monotonic() - started) * 1000),
+        )
+        raise
+    await asyncio.to_thread(
+        record_capability_event,
+        scope,
+        tool_id=tool_id,
+        tool_name=tool_name,
+        effects=effects,
+        status="completed",
+        argument_keys=list(call_arguments),
+        result_kind=type(result).__name__,
+        duration_ms=int((time.monotonic() - started) * 1000),
+    )
     if isinstance(result, dict):
         return result
     if isinstance(result, str):
@@ -868,6 +902,30 @@ async def list_agent_confirmations(
     )
     records = await asyncio.to_thread(list_confirmations, scope)
     return {"confirmations": records}
+
+
+@router.get("/chat/capability-audit")
+async def list_agent_capability_audit(
+    agent_id: str = Query(..., max_length=128),
+    session_id: str = Query(..., max_length=128),
+    limit: int = Query(100, ge=1, le=500),
+    tool_id: Optional[str] = Query(default=None, max_length=256),
+    status: Optional[str] = Query(default=None, max_length=64),
+    workspace_context: WorkspaceContext = Depends(require_role("editor")),
+):
+    """Return metadata-only governed tool events for one exact chat scope."""
+    scope = _action_scope(
+        ActionConfirmationRequest(agent_id=agent_id, session_id=session_id),
+        workspace_context,
+    )
+    records = await asyncio.to_thread(
+        list_capability_events,
+        scope,
+        limit=limit,
+        tool_id=tool_id,
+        status=status,
+    )
+    return {"events": records}
 
 
 @router.get("/chat/confirmations/{action_id}")

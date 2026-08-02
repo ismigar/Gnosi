@@ -159,6 +159,11 @@ export default function AgentContextSources({ value, onChange }) {
         mail: t('settings.ai.context_internal_mail', 'Mail'),
         calendar: t('settings.ai.context_internal_calendar', 'Calendars'),
         contacts: t('settings.ai.context_internal_contacts', 'Contacts'),
+        planning: t('settings.ai.context_internal_planning', 'Planning'),
+        references: t('settings.ai.context_internal_references', 'References'),
+        social: t('settings.ai.context_internal_social', 'Social'),
+        meetings: t('settings.ai.context_internal_meetings', 'Meetings'),
+        notion: t('settings.ai.context_internal_notion', 'Notion'),
     }[sourceId] || fallback || sourceId);
     const selectedValues = (event) => Array.from(event.target.selectedOptions, option => option.value);
     const setScope = (patch) => updateRef(editingRef.id, {
@@ -457,6 +462,99 @@ export default function AgentContextSources({ value, onChange }) {
                                 {t('settings.ai.context_contact_types', 'Contact types')}
                                 <select multiple className="gnosi-input" value={editingRef.scope?.types || []} onChange={event => setScope({ types: selectedValues(event) })} style={{ width: '100%', minHeight: '76px', marginTop: '5px' }}>
                                     {(editingDescriptor.options?.types || []).map(type => <option key={type} value={type}>{type}</option>)}
+                                </select>
+                            </label>
+                        </div>
+                    )}
+
+                    {editingRef.ref === 'planning' && (
+                        <>
+                            <label style={{ fontSize: '0.78rem' }}>
+                                {t('settings.ai.context_planning_entities', 'Planning entities')}
+                                <select multiple className="gnosi-input" value={editingRef.scope?.entity_types || []} onChange={event => setScope({ entity_types: selectedValues(event) })} style={{ width: '100%', minHeight: '92px', marginTop: '5px' }}>
+                                    {(editingDescriptor.options?.entity_types || []).map(type => <option key={type} value={type}>{type}</option>)}
+                                </select>
+                            </label>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                                <label style={{ fontSize: '0.78rem' }}>
+                                    {t('settings.ai.context_planning_projects', 'Projects')}
+                                    <select multiple className="gnosi-input" value={editingRef.scope?.project_ids || []} onChange={event => setScope({ project_ids: selectedValues(event) })} style={{ width: '100%', minHeight: '76px', marginTop: '5px' }}>
+                                        {(editingDescriptor.options?.projects || []).map(project => <option key={project.id} value={project.id}>{project.name}</option>)}
+                                    </select>
+                                </label>
+                                <label style={{ fontSize: '0.78rem' }}>
+                                    {t('settings.ai.context_planning_resources', 'Resources')}
+                                    <select multiple className="gnosi-input" value={editingRef.scope?.resource_ids || []} onChange={event => setScope({ resource_ids: selectedValues(event) })} style={{ width: '100%', minHeight: '76px', marginTop: '5px' }}>
+                                        {(editingDescriptor.options?.resources || []).map(resource => <option key={resource.id} value={resource.id}>{resource.name}</option>)}
+                                    </select>
+                                </label>
+                            </div>
+                            <label style={{ fontSize: '0.82rem' }}>
+                                <input type="checkbox" checked={!!editingRef.scope?.include_inactive} onChange={event => setScope({ include_inactive: event.target.checked })} />{' '}
+                                {t('settings.ai.context_planning_inactive', 'Include inactive resources')}
+                            </label>
+                        </>
+                    )}
+
+                    {editingRef.ref === 'references' && (
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                            <label style={{ fontSize: '0.78rem' }}>
+                                {t('settings.ai.context_reference_types', 'Reference types')}
+                                <select multiple className="gnosi-input" value={editingRef.scope?.item_types || []} onChange={event => setScope({ item_types: selectedValues(event) })} style={{ width: '100%', minHeight: '76px', marginTop: '5px' }}>
+                                    {(editingDescriptor.options?.item_types || []).map(type => <option key={type} value={type}>{type}</option>)}
+                                </select>
+                            </label>
+                            <label style={{ fontSize: '0.78rem' }}>
+                                {t('settings.ai.context_reference_languages', 'Languages')}
+                                <select multiple className="gnosi-input" value={editingRef.scope?.languages || []} onChange={event => setScope({ languages: selectedValues(event) })} style={{ width: '100%', minHeight: '76px', marginTop: '5px' }}>
+                                    {(editingDescriptor.options?.languages || []).map(language => <option key={language} value={language}>{language}</option>)}
+                                </select>
+                            </label>
+                        </div>
+                    )}
+
+                    {editingRef.ref === 'social' && (
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                            <label style={{ fontSize: '0.78rem' }}>
+                                {t('settings.ai.context_social_networks', 'Networks')}
+                                <select multiple className="gnosi-input" value={editingRef.scope?.networks || []} onChange={event => setScope({ networks: selectedValues(event) })} style={{ width: '100%', minHeight: '76px', marginTop: '5px' }}>
+                                    {(editingDescriptor.options?.networks || []).map(network => <option key={network} value={network}>{network}</option>)}
+                                </select>
+                            </label>
+                            <label style={{ fontSize: '0.78rem' }}>
+                                {t('settings.ai.context_social_statuses', 'Publication statuses')}
+                                <select multiple className="gnosi-input" value={editingRef.scope?.statuses || []} onChange={event => setScope({ statuses: selectedValues(event) })} style={{ width: '100%', minHeight: '76px', marginTop: '5px' }}>
+                                    {(editingDescriptor.options?.statuses || []).map(status => <option key={status} value={status}>{status}</option>)}
+                                </select>
+                            </label>
+                        </div>
+                    )}
+
+                    {editingRef.ref === 'meetings' && (
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                            <label style={{ fontSize: '0.78rem' }}>
+                                {t('settings.ai.context_date_from', 'From')}
+                                <input type="date" className="gnosi-input" value={(editingRef.scope?.date_from || '').slice(0, 10)} onChange={event => setScope({ date_from: event.target.value })} style={{ width: '100%', marginTop: '5px' }} />
+                            </label>
+                            <label style={{ fontSize: '0.78rem' }}>
+                                {t('settings.ai.context_date_to', 'To')}
+                                <input type="date" className="gnosi-input" value={(editingRef.scope?.date_to || '').slice(0, 10)} onChange={event => setScope({ date_to: event.target.value })} style={{ width: '100%', marginTop: '5px' }} />
+                            </label>
+                        </div>
+                    )}
+
+                    {editingRef.ref === 'notion' && (
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                            <label style={{ fontSize: '0.78rem' }}>
+                                {t('settings.ai.context_notion_types', 'Object types')}
+                                <select multiple className="gnosi-input" value={editingRef.scope?.object_types || []} onChange={event => setScope({ object_types: selectedValues(event) })} style={{ width: '100%', minHeight: '76px', marginTop: '5px' }}>
+                                    {(editingDescriptor.options?.object_types || []).map(type => <option key={type} value={type}>{type}</option>)}
+                                </select>
+                            </label>
+                            <label style={{ fontSize: '0.78rem' }}>
+                                {t('settings.ai.context_notion_databases', 'Databases')}
+                                <select multiple className="gnosi-input" value={editingRef.scope?.database_ids || []} onChange={event => setScope({ database_ids: selectedValues(event) })} style={{ width: '100%', minHeight: '76px', marginTop: '5px' }}>
+                                    {(editingDescriptor.options?.databases || []).map(database => <option key={database.id} value={database.id}>{database.name}</option>)}
                                 </select>
                             </label>
                         </div>

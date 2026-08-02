@@ -26,6 +26,7 @@ from backend.agent.action_confirmations import (
     get_confirmation_status,
     heartbeat_confirmation,
     list_confirmations,
+    list_workspace_confirmations,
     maintain_confirmation_store,
     request_confirmation,
 )
@@ -97,6 +98,54 @@ def test_scope_mismatch_fails_without_consuming_action():
         pending["confirmation_id"],
         _scope(),
     )["action"] == "empty_trash"
+
+
+def test_workspace_queue_exposes_only_routing_metadata_for_current_user():
+    pending = _prepare()
+    with confirmation_context(**_scope(session_id="automation:daily:run-1")):
+        request_confirmation(
+            "send_mail",
+            {"body": "private body", "to": ["person@example.test"]},
+            title_key="chat.confirmations.actions.send_mail.title",
+            summary_key="chat.confirmations.actions.send_mail.summary",
+        )
+
+    records = list_workspace_confirmations(_scope())
+    assert len(records) == 2
+    assert {record["session_id"] for record in records} == {
+        "session-a", "automation:daily:run-1",
+    }
+    assert records[0]["agent_id"] == "brain"
+    assert "arguments" not in records[0]
+    assert "private body" not in json.dumps(records)
+    assert list_workspace_confirmations(_scope(user_id="other")) == []
+    assert pending["confirmation_id"] in {
+        record["confirmation_id"] for record in records
+    }
+
+
+def test_automation_governed_confirmation_remains_actionable_for_one_day():
+    descriptor = SimpleNamespace(
+        id="core.tool.publish",
+        name="Publish",
+        effects=["external_write"],
+        confirmation="always",
+        model_dump=lambda **_kwargs: {
+            "id": "core.tool.publish",
+            "name": "Publish",
+            "effects": ["external_write"],
+            "confirmation": "always",
+        },
+    )
+    with confirmation_context(**_scope(session_id="automation-daily")):
+        raw = action_confirmations.request_governed_tool_confirmation(
+            descriptor=descriptor,
+            tool_name="publish_social_posts",
+            tool_arguments={"posts": {"network": "bounded text"}},
+            active_skill_ids=["core.gnosi-social-publishing"],
+        )
+    event = json.loads(raw)
+    assert event["expires_at"] - time.time() > 23 * 60 * 60
 
 
 def test_cancel_is_scope_bound_and_not_replayable():
