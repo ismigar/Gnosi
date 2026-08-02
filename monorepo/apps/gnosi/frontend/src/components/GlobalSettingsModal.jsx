@@ -568,6 +568,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [generalSection, setGeneralSection] = useState('system');
     const [mailSection, setMailSection] = useState('accounts');
     const [graphSection, setGraphSection] = useState('engine');
+    const [socialSection, setSocialSection] = useState('networks');
     const [isAdvancedOpen, setIsAdvancedOpen] = useState(
         () => ['api', 'plugins'].includes(initialTab)
     );
@@ -3392,7 +3393,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             {activeTab === 'social' && (
                                 <>
                                     <SettingsSectionTabs
-                                        ariaLabel={t('settings.tabs.social')}
+                                        ariaLabel={tn('social.sections_label')}
                                         activeId={socialSection}
                                         onChange={setSocialSection}
                                         items={[
@@ -4369,7 +4370,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
                             {/* NOTION IMPORT */}
                             {activeTab === 'notion' && (
-                                <NotionImportSettings />
+                                <Section title={t('settings.tabs.notion')} icon={Database}>
+                                    <NotionImportSettings />
+                                </Section>
                             )}
 
                             {/* PLUGINS */}
