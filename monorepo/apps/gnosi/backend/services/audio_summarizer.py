@@ -33,12 +33,19 @@ MAX_SNIPPET_CHARS = 500  # Content chars per article
 MAX_BATCH_CHARS = 20000  # ~5k input tokens per batch
 MAX_BATCHES = 5  # Max batches (avoid >5 min wait)
 
-SYSTEM_PROMPT = (
+SYSTEM_PROMPT_TEMPLATE = (
     "You are an intelligent podcast assistant. "
     "Write exclusively the text that will be read literally out loud, "
     "without adding notes, section titles, or meta-comments. "
-    "Language: English."
+    "Language: {language_name}."
 )
+
+PODCAST_LANGUAGES = {
+    "ca": "Catalan",
+    "en": "English",
+    "es": "Spanish",
+    "fr": "French",
+}
 
 
 def _build_batches(articles):
@@ -87,6 +94,24 @@ def _podcast_model_selection(settings):
             "Choose the model again in Settings → Reader."
         )
     return provider, model
+
+
+def _podcast_language_selection(settings):
+    """Return the supported interface language used for script and speech."""
+    from backend.config.app_config import normalize_interface_language
+
+    language_code = normalize_interface_language(
+        settings.get("language") if isinstance(settings, dict) else None
+    )
+    return language_code, PODCAST_LANGUAGES[language_code]
+
+
+def _resolve_podcast_language():
+    """Resolve the current interface language for a new podcast generation."""
+    from backend.config.app_config import load_params
+
+    cfg = load_params(strict_env=False)
+    return _podcast_language_selection(cfg.settings)
 
 
 def _resolve_podcast_llm():
@@ -143,7 +168,15 @@ def _resolve_podcast_llm():
     return llm, provider, model
 
 
-def _summarize_batch(llm, batch_texts, batch_num, total_batches, provider, model):
+def _summarize_batch(
+    llm,
+    batch_texts,
+    batch_num,
+    total_batches,
+    provider,
+    model,
+    language_name,
+):
     """Send one article batch to the configured LLM and return its script."""
     joined = "\n".join(batch_texts)
     num_articles = len(batch_texts)
@@ -165,7 +198,9 @@ def _summarize_batch(llm, batch_texts, batch_num, total_batches, provider, model
         )
 
     response = llm.invoke([
-        SystemMessage(content=SYSTEM_PROMPT),
+        SystemMessage(
+            content=SYSTEM_PROMPT_TEMPLATE.format(language_name=language_name)
+        ),
         HumanMessage(content=user_prompt),
     ])
     content = getattr(response, "content", "") or ""
@@ -199,7 +234,7 @@ def _split_into_sentences(text):
     return result
 
 
-def _generate_tts_by_sentences(text, output_path):
+def _generate_tts_by_sentences(text, output_path, language_code):
     """
     Generate TTS audio sentence by sentence to avoid mid-sentence pauses.
     """
@@ -211,7 +246,7 @@ def _generate_tts_by_sentences(text, output_path):
             if not sentence.strip():
                 continue
             try:
-                tts = gTTS(text=sentence, lang="en", slow=False)
+                tts = gTTS(text=sentence, lang=language_code, slow=False)
                 buf = io.BytesIO()
                 tts.write_to_fp(buf)
                 buf.seek(0)
@@ -277,6 +312,7 @@ def generate_daily_podcast():
 
         # 3. Resolve the model from the latest Settings state.
         llm, provider, model = _resolve_podcast_llm()
+        language_code, language_name = _resolve_podcast_language()
         model_label = f"{provider}/{model}"
         all_summaries = []
 
@@ -301,6 +337,7 @@ def generate_daily_podcast():
                     total_batches,
                     provider,
                     model,
+                    language_name,
                 )
                 all_summaries.append(summary)
                 log.info(f"Batch {batch_num} completed ({len(summary)} chars).")
@@ -330,7 +367,7 @@ def generate_daily_podcast():
 
         log.info(f"Generating TTS audio at {audio_path}...")
         try:
-            _generate_tts_by_sentences(full_script, audio_path)
+            _generate_tts_by_sentences(full_script, audio_path, language_code)
             log.info(f"Podcast generated successfully: {audio_filename}")
             generation_status["result_filename"] = audio_filename
             generation_status["progress"] = "Completed!"

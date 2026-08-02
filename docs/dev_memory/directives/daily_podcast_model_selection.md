@@ -29,6 +29,8 @@ hard-coded Groq client.
 - Both manual and scheduled generation must continue to call the same service.
 - Remove provider-specific rate-limit sleeps. Provider throttling must not be
   encoded as a fixed Groq free-tier delay.
+- Resolve `settings.language` at the start of every generation and use the same
+  supported locale for both the LLM script instruction and gTTS synthesis.
 
 ## Settings UI
 
@@ -48,6 +50,9 @@ hard-coded Groq client.
   missing, or cannot be instantiated. Report an actionable generation error.
 - Do not couple text-model selection to gTTS voice settings; they are separate
   concerns.
+- Do not hard-code English independently in either the script prompt or gTTS.
+  A mismatch creates translated scripts with the wrong voice pronunciation;
+  use the configured interface locale for both stages.
 - Tests that replace `load_params` must import `agent.factory` first because the
   factory still resolves its internal base directory from configuration at
   module import time. Replacing configuration before that import produces a
