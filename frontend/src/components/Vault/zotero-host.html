@@ -92,6 +92,59 @@
         };
 
         let reader = null;
+        let navigationSequence = 0;
+
+        function highlightQuery(text) {
+            const normalized = String(text || '').replace(/\s+/g, ' ').trim();
+            if (normalized.length <= 48) return normalized;
+            const shortened = normalized.slice(0, 48);
+            const lastSpace = shortened.lastIndexOf(' ');
+            return lastSpace > 24 ? shortened.slice(0, lastSpace) : shortened;
+        }
+
+        async function navigateToLocation(location) {
+            if (!reader || !location) return;
+            try {
+                if (location.pageNumber) {
+                    await reader.navigate({ pageNumber: String(location.pageNumber) });
+                }
+                const query = highlightQuery(location.highlightText);
+                if (query) {
+                    const findState = {
+                        ...(reader._state?.primaryViewFindState || {}),
+                        active: true,
+                        query,
+                        highlightAll: false,
+                        caseSensitive: false,
+                        entireWord: false,
+                        index: null,
+                        result: null,
+                    };
+                    if (reader._handleFindStateChange) {
+                        reader._handleFindStateChange(true, findState);
+                    } else if (reader.setFindState) {
+                        await reader.setFindState(findState);
+                    }
+                }
+            } catch (err) {
+                console.warn('Citation navigation failed', err);
+            }
+        }
+
+        function scheduleNavigation(location) {
+            const sequence = ++navigationSequence;
+            if (!location) return;
+            const run = () => {
+                if (sequence === navigationSequence) void navigateToLocation(location);
+            };
+            run();
+            for (const delay of [500, 1500, 4000]) setTimeout(run, delay);
+            if (reader?.initializedPromise) {
+                reader.initializedPromise.then(run).catch((err) => {
+                    console.warn('Reader initialization failed', err);
+                });
+            }
+        }
 
         async function waitForCreateReader(timeoutMs = 15000) {
             const t0 = Date.now();
@@ -225,18 +278,8 @@
                     onSetFindState: () => {},
                 });
 
-                if (reader && reader.initializedPromise) {
-                    await reader.initializedPromise;
-                }
+                scheduleNavigation(location);
                 post({ type: 'ready' });
-                // NotebookLM-style deep link: if the parent asked to open at a
-                // specific location (e.g. a citation's page), jump there once the
-                // reader is initialized. `reader.navigate` accepts {pageNumber}
-                // (1-based, string), {annotationID}, or a position.
-                if (location) {
-                    try { reader.navigate && reader.navigate(location, { behavior: 'auto' }); }
-                    catch (e) { console.warn('navigate on init failed', e); }
-                }
             } catch (err) {
                 showError('Init error: ' + (err && err.message ? err.message : String(err)));
             }
@@ -253,10 +296,7 @@
             if (data.type === 'init') {
                 init(data.payload || {});
             } else if (data.type === 'navigate' && reader) {
-                // Jump to a location in an already-open document (a citation
-                // clicked while the reader tab was already showing this PDF).
-                try { reader.navigate && reader.navigate(data.location || {}, { behavior: 'smooth' }); }
-                catch (err) { console.warn('navigate failed', err); }
+                scheduleNavigation(data.location || null);
             } else if (data.type === 'set-annotations' && reader) {
                 try { reader.setAnnotations && reader.setAnnotations(data.annotations || []); }
                 catch (err) { console.warn('set-annotations failed', err); }

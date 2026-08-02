@@ -4,6 +4,7 @@
  */
 
 import { normalizeManagedBlockSpacing } from './managedMarkdownUtils';
+import { citationSentinelToHref, protectCitationMarkdownLinks } from '../../lib/citationDeepLink';
 
 // Sentinel for file:// links inside the editor.
 //
@@ -1041,7 +1042,7 @@ const inlineContentToMarkdown = (content, { escape = true, atLineStart = false }
             // The internal sentinel is deserialized to file:// before writing
             // on disk, so external readers (Obsidian, etc.) understand
             // the original local link.
-            const safeHref = sentinelToFileUrl(rawHref);
+            const safeHref = citationSentinelToHref(sentinelToFileUrl(rawHref));
             // CommonMark: if the URL has spaces or unbalanced parentheses, it must
             // be wrapped with <...>. Without this, [text](file:///foo bar.docx)
             // breaks at the first space and the link becomes unusable.
@@ -1235,6 +1236,7 @@ const parsePlainMarkdownBlock = async (text, editor) => {
             new RegExp(`\\]\\((<?)${escapeRe(CORRUPTED_FILE_PROTOCOL_SENTINEL)}`, 'g'),
             `]($1${FILE_PROTOCOL_SENTINEL}`,
         );
+    protectedText = protectCitationMarkdownLinks(protectedText);
 
     // Sanitizes URLs in markdown links `[text](url)`. Markdown-it only
     // accepts URLs with spaces if they are wrapped in `<...>`. Moreover, the extension

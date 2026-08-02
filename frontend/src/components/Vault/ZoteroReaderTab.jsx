@@ -6,7 +6,7 @@ import { toast } from '../../lib/toast';
 import { getLocaleMeta } from '../../locales/registry';
 import { uiLangToZoteroLocale } from './zoteroLocale';
 
-const HOST_URL = '/zotero-reader/host.html';
+const HOST_URL = '/zotero-reader/host.html?v=20260802-citation-highlights-2';
 
 const toFilesystemPath = (src) => {
     if (!src) return '';

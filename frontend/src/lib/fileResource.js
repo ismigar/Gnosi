@@ -513,7 +513,8 @@ export function openFileResource(target, { title, navigate, location, t = (k, o)
 // VaultTable's hasOpenableResource). Values may be strings, arrays, or
 // `[[Title|id]]`-decorated; we pick the first that looks like a document.
 const DOC_ATTACHMENT_KEYS = [
-    'files', 'Files', 'Fitxers', 'Adjunts', 'attachments', 'adjuntos',
+    'files', 'Files', 'Fitxers', 'Arxiu/s', 'Arxiu', 'Archivo/s', 'Archivo',
+    'Adjunts', 'attachments', 'adjuntos',
     "Ruta de l'arxiu", 'ruta_arxiu', 'file_path', 'path', 'URL', 'url',
 ];
 
@@ -584,7 +585,6 @@ export async function openCitation(resourceId, page, {
     citation = {},
     t = (k, o) => (o?.defaultValue ?? k),
 } = {}) {
-    const location = page ? { pageNumber: String(page) } : null;
     let evidence = null;
     if (citation.snapshot && citation.segment) {
         try {
@@ -605,6 +605,17 @@ export async function openCitation(resourceId, page, {
             const kind = evidence?.kind || citation.kind || '';
             let src = evidence?.source_url || findCitationAttachment(meta, kind);
             if (src) {
+                const evidencePage = evidence?.segment?.locator?.page;
+                const pageNumber = evidencePage || page;
+                const highlightText = String(
+                    citation.highlightText || evidence?.segment?.text || '',
+                ).trim();
+                const location = pageNumber || highlightText
+                    ? {
+                        ...(pageNumber ? { pageNumber: String(pageNumber) } : {}),
+                        ...(highlightText ? { highlightText } : {}),
+                    }
+                    : null;
                 src = withMediaTimestamp(src, citation.start ?? evidence?.segment?.locator?.start);
                 openFileResource(src, { location, navigate, t });
                 return evidence;
