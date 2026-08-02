@@ -318,6 +318,15 @@ overwrite user-edited instructions.
 - Do not run an ad-hoc script below `pipeline/sandbox` without the Gnosi app root on
   `PYTHONPATH`. Python otherwise exposes the script directory but not the sibling `backend`
   package; run it with the app root as the working import path.
+- Do not make backend tests depend on files inside an uninitialized frontend vendor
+  submodule. GitHub Actions checks out the main repository without submodules, so such
+  fixtures disappear in CI; generate the smallest portable fixture inside the test instead.
+- Do not interpret `PermissionError: [Errno 1]` from a localhost socket-bind test as an
+  application failure inside the restricted local sandbox. The sandbox blocks the bind;
+  run the full backend suite with the approved unsandboxed test command.
+- Do not reuse `GNOSI_LOCAL_DATA` between complete backend-suite runs. Tests persist
+  management accounts there and a later run can enable authentication unexpectedly; create
+  a fresh temporary vault and local-data directory for each CI-equivalent run.
 - OneDrive files can be dataless. Always materialize attachments through the existing
   provider/warmup path before extraction.
 - On the current native Mac, FFmpeg, faster-whisper, yt-dlp, Tesseract, and the official
