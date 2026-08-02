@@ -43,5 +43,16 @@ jobs:
       - name: Validate traceability and links
         run: python pipeline/skills/technical_documentation/scripts/validate.py
 
-      - name: Build portal with strict warnings
+      - name: Verify localized mirrors
+        env:
+          PYTHONPATH: .
+        run: python pipeline/skills/technical_documentation/scripts/localize.py --check
+
+      - name: Build English portal with strict warnings
         run: mkdocs build --strict
+
+      - name: Build Catalan portal with strict warnings
+        run: mkdocs build --strict --config-file mkdocs-ca.yml
+
+      - name: Build Spanish portal with strict warnings
+        run: mkdocs build --strict --config-file mkdocs-es.yml
