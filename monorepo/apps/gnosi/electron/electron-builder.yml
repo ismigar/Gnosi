@@ -29,6 +29,10 @@ mac:
       arch:
         - x64
         - arm64
+    - target: zip
+      arch:
+        - x64
+        - arm64
   artifactName: ${productName}-${version}-${arch}.${ext}
 
 linux:
@@ -58,7 +62,7 @@ nsis:
 publish:
   provider: github
   owner: ismigar
-  repo: projectes
+  repo: Gnosi
   releaseType: release
 
 electronDownload:

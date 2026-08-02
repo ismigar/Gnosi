@@ -39,6 +39,7 @@ import { useFileLinkInterceptor } from './hooks/useFileLinkInterceptor';
 import { useAuth } from './context/AuthContext';
 import { LoginPage } from './components/Auth/LoginPage';
 import { GraphLoadingState } from './components/GraphLoadingState';
+import { DesktopUpdateNotice } from './components/DesktopUpdateNotice';
 
 // Fallback while the chunk for a lazy route is downloading. Discreet and centered,
 // reusing the auth bootstrap's style so there's no visual jump.
@@ -156,6 +157,7 @@ function App() {
       </div>
       {/* Toasts use the registered global notification layer. */}
       <Toaster position="bottom-right" containerStyle={{ zIndex: 'var(--z-toast)' }} />
+      <DesktopUpdateNotice />
       <CommandPalette />
       <PageOutline />
       <AgentChat storageIdentity={user?.id || 'personal'} />
