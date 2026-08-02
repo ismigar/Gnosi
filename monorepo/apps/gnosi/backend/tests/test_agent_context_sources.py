@@ -8,6 +8,7 @@ material and is therefore prompt-injectable.
 import pytest
 
 from backend.agent.agent_context import (
+    build_context_tool_descriptors,
     build_context_tools,
     describe_context_refs,
     excerpt_around,
@@ -53,6 +54,42 @@ def test_an_unattached_source_id_is_refused():
     out = read.invoke({"source_id": "../../.env_shared"})
     assert "is not an attached source" in out
     assert "ctx-1" in out  # tells the model what it may actually read
+
+
+def test_one_source_search_refuses_unattached_ids(monkeypatch):
+    tools = {tool.name: tool for tool in build_context_tools([
+        {"id": "one", "type": "page", "ref": "p1", "label": "One"},
+        {"id": "two", "type": "page", "ref": "p2", "label": "Two"},
+    ])}
+    out = tools["search_context_source"].invoke({
+        "source_id": "missing",
+        "query": "quarterly evidence",
+    })
+    assert "is not an attached source" in out
+    assert "one" in out and "two" in out
+
+
+def test_dynamic_context_tools_have_governed_read_descriptors():
+    refs = [{
+        "id": "mail-source",
+        "type": "internal",
+        "ref": "mail",
+        "label": "Mail",
+        "scope": {"accounts": [], "folder": "INBOX"},
+    }]
+    tools = build_context_tools(refs)
+    descriptors = build_context_tool_descriptors(refs, tools)
+
+    assert [descriptor.handler_ref for descriptor in descriptors] == [
+        f"runtime-context:{tool.name}" for tool in tools
+    ]
+    assert all(descriptor.confirmation.value == "none" for descriptor in descriptors)
+    assert all(
+        {effect.value for effect in descriptor.effects}
+        == {"read", "personal_data"}
+        for descriptor in descriptors
+    )
+    assert all(descriptor.output_schema == {"type": "string"} for descriptor in descriptors)
 
 
 def test_scoring_ignores_short_noise_words():

@@ -1,4 +1,4 @@
-import React, { useEffect, Suspense, lazy } from 'react';
+import React, { useEffect, useMemo, useState, Suspense, lazy } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AppSidebar } from './components/AppSidebar';
@@ -71,6 +71,7 @@ function App() {
   const location = useLocation();
   const { effectiveTheme } = useTheme();
   const { user, gnosiMode, requireAuth, loading } = useAuth();
+  const [moduleContextOverride, setModuleContextOverride] = useState(null);
   // Captures clicks on file:// everywhere and redirects them to the system shell
   // via the backend, instead of letting Chrome open blank tabs.
   useFileLinkInterceptor();
@@ -88,6 +89,29 @@ function App() {
     const pageScroller = document.getElementById('page-content-scroll');
     if (pageScroller) pageScroller.scrollTop = 0;
   }, [location.pathname]);
+
+  const defaultModuleContextRefs = useMemo(() => {
+    const byRoute = {
+      '/reader': [{ id: 'route-reader', type: 'internal', ref: 'reader', label: t('reader_title'), scope: { unread_only: true } }],
+      '/mail': [{ id: 'route-mail', type: 'internal', ref: 'mail', label: t('sidebar.mail', 'Mail'), scope: {} }],
+      '/calendar': [{ id: 'route-calendar', type: 'internal', ref: 'calendar', label: t('sidebar.calendar', 'Calendars'), scope: {} }],
+      '/contacts': [{ id: 'route-contacts', type: 'internal', ref: 'contacts', label: t('sidebar.contacts', 'Contacts'), scope: {} }],
+    };
+    return byRoute[location.pathname] || [];
+  }, [location.pathname, t]);
+  const moduleContextRefs = moduleContextOverride?.locationKey === location.key
+    ? moduleContextOverride.refs
+    : defaultModuleContextRefs;
+
+  useEffect(() => {
+    const updateModuleContext = (event) => {
+      if (Array.isArray(event.detail)) {
+        setModuleContextOverride({ locationKey: location.key, refs: event.detail });
+      }
+    };
+    window.addEventListener('gnosi:module-context', updateModuleContext);
+    return () => window.removeEventListener('gnosi:module-context', updateModuleContext);
+  }, [location.key]);
 
   // Bootstrap: we wait to know the mode and whether there's a session before deciding.
   if (loading) {
@@ -160,7 +184,7 @@ function App() {
       <DesktopUpdateNotice />
       <CommandPalette />
       <PageOutline />
-      <AgentChat storageIdentity={user?.id || 'personal'} />
+      <AgentChat storageIdentity={user?.id || 'personal'} contextRefs={moduleContextRefs} />
       <MeetingReminderWatcher />
       <MeetingRecorder />
     </div>
