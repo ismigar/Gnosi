@@ -28,7 +28,16 @@ except Exception:  # allows importing the pure helpers without langchain (tests)
 
 log = logging.getLogger(__name__)
 
-VALID_TYPES = {"file", "page", "table", "database", "vault", "url", "source"}
+VALID_TYPES = {
+    "file",
+    "page",
+    "table",
+    "database",
+    "vault",
+    "url",
+    "source",
+    "internal",
+}
 
 # Above this many rows a table's inventory carries only its schema and count;
 # reading the rows themselves is what `search_context` is for.
@@ -40,13 +49,13 @@ MAX_SEARCH_HITS = 8
 # ===========================================================================
 # PURE HELPERS (no backend) — testable without a vault
 # ===========================================================================
-def normalize_refs(raw: Any) -> List[Dict[str, str]]:
+def normalize_refs(raw: Any) -> List[Dict[str, Any]]:
     """Keeps only well-formed refs, de-duplicated by (type, ref).
 
     Configuration is hand-editable YAML, so a malformed entry must degrade to
     "this source is ignored", never to a crash at graph build time.
     """
-    out: List[Dict[str, str]] = []
+    out: List[Dict[str, Any]] = []
     seen = set()
     for item in raw or []:
         if not isinstance(item, dict):
@@ -59,16 +68,27 @@ def normalize_refs(raw: Any) -> List[Dict[str, str]]:
         if key in seen:
             continue
         seen.add(key)
-        out.append({
+        normalized = {
             "id": str(item.get("id") or f"{rtype}:{ref}"),
             "type": rtype,
             "ref": ref,
             "label": str(item.get("label") or ref),
-        })
+        }
+        if rtype == "internal":
+            try:
+                from backend.agent.internal_sources import normalize_internal_scope
+
+                normalized["scope"] = normalize_internal_scope(
+                    ref,
+                    item.get("scope"),
+                )
+            except (TypeError, ValueError):
+                continue
+        out.append(normalized)
     return out
 
 
-def describe_context_refs(refs: List[Dict[str, str]]) -> str:
+def describe_context_refs(refs: List[Dict[str, Any]]) -> str:
     """Builds the prompt block: the inventory plus how to read it."""
     refs = normalize_refs(refs)
     if not refs:
@@ -81,6 +101,7 @@ def describe_context_refs(refs: List[Dict[str, str]]) -> str:
         "vault": "entire vault",
         "url": "web page",
         "source": "searchable external source",
+        "internal": "scoped Gnosi data source",
     }
     lines = [
         "CONTEXT SOURCES ATTACHED by the user to this agent:",
@@ -91,6 +112,8 @@ def describe_context_refs(refs: List[Dict[str, str]]) -> str:
             # The inventory id and the source id differ; saying so avoids the model
             # passing "ctx-boe" where the tool expects "boe" (and vice versa).
             line += f" — source_id: {r['ref']}"
+        elif r["type"] == "internal":
+            line += f" — internal_source_id: {r['ref']}"
         lines.append(line)
     lines.append(
         "\nYou do NOT have these sources' content in the conversation, only the inventory. "
@@ -106,6 +129,13 @@ def describe_context_refs(refs: List[Dict[str, str]]) -> str:
             "come from search and must never be invented. Use read_external_source "
             "to read a specific document. If a claim cannot be verified, say so "
             "instead of answering from memory."
+        )
+    if any(r["type"] == "internal" for r in refs):
+        lines.append(
+            "Internal Gnosi sources are live, scoped data rather than prompt text. "
+            "Use search_context for bounded discovery and read_context_record for "
+            "an exact record id returned by search. Never invent record ids or imply "
+            "that a read changed application data."
         )
     return "\n".join(lines)
 
@@ -229,7 +259,7 @@ def _describe_table(table: dict, *, with_rows: bool = True) -> str:
 # ===========================================================================
 # PER-SOURCE EXPANSION
 # ===========================================================================
-def _read_source(ref: Dict[str, str]) -> str:
+def _read_source(ref: Dict[str, Any]) -> str:
     rtype, target = ref["type"], ref["ref"]
 
     if rtype == "file":
@@ -274,6 +304,15 @@ def _read_source(ref: Dict[str, str]) -> str:
             f"with `read_external_source('{target}', '<reference>')`."
         )
 
+    if rtype == "internal":
+        from backend.agent.internal_sources import describe_internal_source
+        from backend.agent.web_context import wrap_untrusted
+
+        return wrap_untrusted(
+            f"Gnosi {ref['label']} inventory",
+            describe_internal_source(target, ref.get("scope") or {}),
+        )
+
     return f"Unknown source type: {rtype}"
 
 
@@ -315,6 +354,7 @@ def build_context_tools(raw_refs: Any) -> List[Any]:
     from backend.agent.web_context import fetch_url_text, wrap_untrusted
     by_id = {r["id"]: r for r in refs}
     external_ids = [r["ref"] for r in refs if r["type"] == "source"]
+    internal_refs = [r for r in refs if r["type"] == "internal"]
 
     def list_context_sources() -> str:
         """Lists the context sources attached to this agent, with their ids and types."""
@@ -384,6 +424,27 @@ def build_context_tools(raw_refs: Any) -> List[Any]:
         for _, source, excerpt in scored[:MAX_SEARCH_HITS]:
             out.append(f"\n— {source}:\n{excerpt}")
 
+        for ref in internal_refs:
+            from backend.agent.internal_sources import search_internal_source
+
+            try:
+                content = search_internal_source(
+                    ref["ref"],
+                    ref.get("scope") or {},
+                    query,
+                )
+                source_label = f"Gnosi {ref['label']} search results"
+                out.append(
+                    f"\n— Gnosi {ref['label']}:\n"
+                    f"{wrap_untrusted(source_label, content)}"
+                )
+            except Exception as exc:  # noqa: BLE001
+                log.warning("Internal source %s search failed: %s", ref["ref"], exc)
+                out.append(
+                    f"\n— Gnosi {ref['label']}:\n"
+                    f"The source could not be searched: {exc}"
+                )
+
         # External sources answer the query themselves (their own search API);
         # they are appended whole instead of being scored against local text.
         for ref in refs:
@@ -438,6 +499,38 @@ def build_context_tools(raw_refs: Any) -> List[Any]:
             log.exception("Failed to read %s from the external source %s", reference, source_id)
             return f"Error reading «{reference}» from {source.LABEL}: {exc}"
 
+    def read_context_record(source_id: str, record_id: str) -> str:
+        """Reads one exact record from an attached internal Gnosi source.
+
+        Both identifiers must come from list_context_sources or search_context.
+        The stored source scope is re-applied before the record is returned.
+        """
+        ref = by_id.get(str(source_id).strip())
+        if not ref or ref["type"] != "internal":
+            available = ", ".join(item["id"] for item in internal_refs) or "(none)"
+            return (
+                f"«{source_id}» is not an attached internal source. "
+                f"Available: {available}"
+            )
+        try:
+            from backend.agent.internal_sources import read_internal_record
+            from backend.agent.web_context import wrap_untrusted
+
+            body = read_internal_record(
+                ref["ref"],
+                ref.get("scope") or {},
+                record_id,
+            )
+            return wrap_untrusted(f"Gnosi {ref['label']} record {record_id}", body)
+        except KeyError:
+            return (
+                f"Record «{record_id}» does not exist inside the attached "
+                f"source scope. Search {ref['label']} again and use an exact id."
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Internal source %s read failed: %s", ref["ref"], exc)
+            return f"Error reading record «{record_id}» from {ref['label']}: {exc}"
+
     tools = [
         StructuredTool.from_function(list_context_sources),
         StructuredTool.from_function(read_context_source),
@@ -445,4 +538,6 @@ def build_context_tools(raw_refs: Any) -> List[Any]:
     ]
     if external_ids:
         tools.append(StructuredTool.from_function(read_external_source))
+    if internal_refs:
+        tools.append(StructuredTool.from_function(read_context_record))
     return tools

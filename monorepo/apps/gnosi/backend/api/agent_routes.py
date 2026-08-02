@@ -99,6 +99,27 @@ class AttachmentRef(BaseModel):
     type: str = Field(default="", max_length=128)
     path: str = Field(max_length=512)
 
+
+class TurnContextRef(BaseModel):
+    """One read-only internal source supplied by trusted module UI state."""
+
+    id: str = Field(max_length=128)
+    type: str = Field(default="internal", max_length=32)
+    ref: str = Field(max_length=64)
+    label: Optional[str] = Field(default=None, max_length=256)
+    scope: Dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def validate_internal_source(self):
+        from backend.agent.internal_sources import normalize_internal_scope
+
+        if self.type.strip().lower() != "internal":
+            raise ValueError("Turn context accepts internal Gnosi sources only.")
+        self.type = "internal"
+        self.ref = self.ref.strip().lower()
+        self.scope = normalize_internal_scope(self.ref, self.scope)
+        return self
+
 class ChatRequest(BaseModel):
     message: str = Field(max_length=100_000)
     agent_id: str = "gnosy" # Default agent
@@ -110,6 +131,7 @@ class ChatRequest(BaseModel):
     mentions: List[MentionRef] = Field(default_factory=list, max_length=20)
     attachments: List[AttachmentRef] = Field(default_factory=list, max_length=8)
     active_skill_ids: Optional[List[str]] = Field(default=None, max_length=64)
+    context_refs: List[TurnContextRef] = Field(default_factory=list, max_length=8)
 
     @model_validator(mode="before")
     @classmethod
@@ -491,6 +513,7 @@ async def get_agent_workflow(
     vault_scope: str = "",
     vault_path: Optional[Path] = None,
     active_skill_ids: Optional[List[str]] = None,
+    turn_context_refs: Optional[List[Dict[str, Any]]] = None,
 ):
     """
     Helper to get or build the agent workflow for a specific ID.
@@ -524,6 +547,14 @@ async def get_agent_workflow(
         vault_path=vault_path,
         active_skill_ids=active_skill_ids,
     )
+    if turn_context_refs:
+        from backend.agent.agent_context import normalize_refs
+
+        agent_data = dict(agent_data or {})
+        agent_data["context_refs"] = normalize_refs([
+            *(agent_data.get("context_refs") or []),
+            *turn_context_refs,
+        ])
     runtime_active_ids = list(
         getattr(runtime_capabilities, "active_skill_ids", ()) or ()
     )
@@ -1172,6 +1203,16 @@ async def list_context_sources():
     return list_sources()
 
 
+@router.get("/agent/internal-sources")
+async def list_internal_context_sources(
+    workspace_context: WorkspaceContext = Depends(require_role("viewer")),
+):
+    """List scoped first-party Gnosi sources available in this workspace."""
+    from backend.agent.internal_sources import internal_source_catalog
+
+    return internal_source_catalog(workspace_context.workspace_id)
+
+
 @router.post("/chat")
 async def chat_endpoint(
     request: Request,
@@ -1230,6 +1271,10 @@ async def chat_endpoint(
             vault_scope=vault_scope,
             vault_path=vault,
             active_skill_ids=requested_skill_ids,
+            turn_context_refs=[
+                item.model_dump(mode="python")
+                for item in chat_req.context_refs
+            ],
         )
 
         authorized_tool_names = _explicit_brain_write_tool_names(
