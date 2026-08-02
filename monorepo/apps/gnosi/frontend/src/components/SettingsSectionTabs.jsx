@@ -1,4 +1,5 @@
 import React from 'react';
+import './AI/AIResourcesSettings.css';
 
 export function SettingsSectionTabs({ ariaLabel, items, activeId, onChange }) {
     return (
