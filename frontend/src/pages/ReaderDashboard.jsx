@@ -2,13 +2,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import { toast } from '../lib/toast';
-import { Play, RotateCw, Check, Headphones, ArrowLeft, Loader, BookOpen, ExternalLink, ChevronDown, ChevronRight, Inbox, Menu, X, History } from 'lucide-react';
+import { Play, RotateCw, Check, Headphones, ArrowLeft, Loader, BookOpen, ExternalLink, ChevronDown, ChevronRight, Inbox, Menu, X, History, Sparkles, Square } from 'lucide-react';
 import { AppHeader } from '../components/AppHeader';
 import { getIntlLocale } from '../locales/registry';
 
 const API_BASE = '/api';
-const MAX_UNREAD_ARTICLES_FETCH_LIMIT = 10000;
-
 // Google's favicon service: covers all public domains, returns a 32px PNG
 // with sane fallbacks. Trade-off: each source URL leaks once to Google when
 // the column renders. Acceptable here because the user already pulls these
@@ -143,7 +141,7 @@ const ReaderDashboard = () => {
     const locale = getIntlLocale(i18n.resolvedLanguage || i18n.language);
 
     const [displayArticles, setDisplayArticles] = useState([]);
-    const [unreadArticles, setUnreadArticles] = useState([]);
+    const [unreadInventory, setUnreadInventory] = useState({ count: 0, feeds: [] });
     const [selectedArticle, setSelectedArticle] = useState(null);
     const [articlesLoading, setArticlesLoading] = useState(true);
     const [syncing, setSyncing] = useState(false);
@@ -156,18 +154,44 @@ const ReaderDashboard = () => {
     const [collapsedCategories, setCollapsedCategories] = useState(() => new Set());
     const [mobileChannelsOpen, setMobileChannelsOpen] = useState(false);
     const [podcastProgress, setPodcastProgress] = useState('');
+    const [showAnalysis, setShowAnalysis] = useState(false);
+    const [analysisScopeInventory, setAnalysisScopeInventory] = useState({ count: 0 });
+    const [analysisJob, setAnalysisJob] = useState(null);
+    const [analysisResult, setAnalysisResult] = useState(null);
+    const [analysisStarting, setAnalysisStarting] = useState(false);
 
     const pollingRef = React.useRef(null);
+    const analysisPollingRef = React.useRef(null);
 
     useEffect(() => {
         fetchSources();
         fetchUnreadCounts();
         checkPodcast();
+        loadLatestAnalysis();
+        const articleId = new URLSearchParams(window.location.search).get('article');
+        if (articleId) openEvidenceArticle(articleId);
     }, []);
 
     useEffect(() => {
         fetchDisplayArticles();
+        fetchAnalysisScopeInventory();
     }, [selectedSourceId, showUnreadOnly]);
+
+    useEffect(() => {
+        const selected = sources.find(source => source.id === selectedSourceId);
+        window.dispatchEvent(new CustomEvent('gnosi:module-context', {
+            detail: [{
+                id: 'route-reader',
+                type: 'internal',
+                ref: 'reader',
+                label: selected?.name || t('reader_title'),
+                scope: {
+                    unread_only: showUnreadOnly,
+                    source_ids: selectedSourceId ? [selectedSourceId] : [],
+                },
+            }],
+        }));
+    }, [selectedSourceId, showUnreadOnly, sources, t]);
 
     const fetchSources = async () => {
         try {
@@ -194,10 +218,114 @@ const ReaderDashboard = () => {
 
     const fetchUnreadCounts = async () => {
         try {
-            const res = await axios.get(`${API_BASE}/reader/articles?unread_only=true&limit=${MAX_UNREAD_ARTICLES_FETCH_LIMIT}`);
-            setUnreadArticles(res.data || []);
+            const res = await axios.get(`${API_BASE}/reader/inventory?unread_only=true`);
+            setUnreadInventory(res.data || { count: 0, feeds: [] });
         } catch (error) {
             console.error("Error fetching unread counts:", error);
+        }
+    };
+
+    const fetchAnalysisScopeInventory = async () => {
+        try {
+            const params = new URLSearchParams({ unread_only: String(showUnreadOnly) });
+            if (selectedSourceId) params.append('source_id', String(selectedSourceId));
+            const res = await axios.get(`${API_BASE}/reader/inventory?${params.toString()}`);
+            setAnalysisScopeInventory(res.data || { count: 0 });
+        } catch (error) {
+            console.error('Error fetching Reader analysis scope:', error);
+        }
+    };
+
+    const loadAnalysisResult = async (jobId) => {
+        const response = await axios.get(`${API_BASE}/reader/analysis/${jobId}/result`);
+        setAnalysisResult(response.data);
+    };
+
+    const trackAnalysis = (jobId) => {
+        if (analysisPollingRef.current) clearInterval(analysisPollingRef.current);
+        analysisPollingRef.current = setInterval(async () => {
+            try {
+                const response = await axios.get(`${API_BASE}/reader/analysis/${jobId}`);
+                const job = response.data;
+                setAnalysisJob(job);
+                if (['completed', 'failed', 'cancelled', 'interrupted'].includes(job.state)) {
+                    clearInterval(analysisPollingRef.current);
+                    analysisPollingRef.current = null;
+                    if (job.state === 'completed') await loadAnalysisResult(jobId);
+                }
+            } catch (error) {
+                console.error('Could not poll Reader analysis', error);
+            }
+        }, 2000);
+    };
+
+    const loadLatestAnalysis = async () => {
+        try {
+            const response = await axios.get(`${API_BASE}/reader/analysis?limit=1`);
+            const latest = response.data?.[0];
+            if (!latest) return;
+            setAnalysisJob(latest);
+            if (latest.state === 'completed') await loadAnalysisResult(latest.job_id);
+            if (['queued', 'snapshotting', 'mapping', 'reducing'].includes(latest.state)) {
+                trackAnalysis(latest.job_id);
+            }
+        } catch (error) {
+            console.debug('No previous Reader analysis could be loaded', error?.message);
+        }
+    };
+
+    const startTopicAnalysis = async () => {
+        setAnalysisStarting(true);
+        setAnalysisResult(null);
+        try {
+            const language = {
+                ca: 'Catalan', en: 'English', es: 'Spanish', fr: 'French',
+            }[(i18n.resolvedLanguage || i18n.language || 'ca').split('-')[0]] || 'Catalan';
+            const response = await axios.post(`${API_BASE}/reader/analysis`, {
+                unread_only: showUnreadOnly,
+                source_ids: selectedSourceId ? [selectedSourceId] : [],
+                language,
+            });
+            setAnalysisJob(response.data);
+            trackAnalysis(response.data.job_id);
+        } catch (error) {
+            console.error('Could not start Reader analysis', error);
+            toast.error(t('reader_analysis_start_error', 'The analysis could not be started.'));
+        } finally {
+            setAnalysisStarting(false);
+        }
+    };
+
+    const resumeTopicAnalysis = async () => {
+        if (!analysisJob?.job_id) return;
+        try {
+            const response = await axios.post(`${API_BASE}/reader/analysis/${analysisJob.job_id}/resume`);
+            setAnalysisJob(response.data);
+            trackAnalysis(analysisJob.job_id);
+        } catch (error) {
+            console.error('Could not resume Reader analysis', error);
+            toast.error(t('reader_analysis_resume_error', 'The analysis could not be resumed.'));
+        }
+    };
+
+    const cancelTopicAnalysis = async () => {
+        if (!analysisJob?.job_id) return;
+        try {
+            const response = await axios.post(`${API_BASE}/reader/analysis/${analysisJob.job_id}/cancel`);
+            setAnalysisJob(response.data);
+        } catch (error) {
+            console.error('Could not cancel Reader analysis', error);
+        }
+    };
+
+    const openEvidenceArticle = async (articleId) => {
+        try {
+            const response = await axios.get(`${API_BASE}/reader/articles/${articleId}`);
+            setSelectedArticle(response.data);
+            setShowAnalysis(false);
+        } catch (error) {
+            console.error('Could not open Reader evidence article', error);
+            toast.error(t('reader_analysis_evidence_error', 'The evidence article is no longer available.'));
         }
     };
 
@@ -218,6 +346,8 @@ const ReaderDashboard = () => {
 
     const markAsRead = async (id, e) => {
         if (e) e.stopPropagation();
+        const sourceId = displayArticles.find(article => article.id === id)?.source_id
+            || (selectedArticle?.id === id ? selectedArticle.source_id : null);
         try {
             await axios.patch(`${API_BASE}/reader/articles/${id}/read?read=true`);
             setDisplayArticles((prev) => (
@@ -225,7 +355,15 @@ const ReaderDashboard = () => {
                     ? prev.filter((a) => a.id !== id)
                     : prev.map((a) => (a.id === id ? { ...a, is_read: true } : a))
             ));
-            setUnreadArticles((prev) => prev.filter((a) => a.id !== id));
+            setUnreadInventory(prev => ({
+                ...prev,
+                count: Math.max(0, (prev.count || 0) - 1),
+                feeds: (prev.feeds || []).map(feed => (
+                    feed.id === sourceId
+                        ? { ...feed, count: Math.max(0, (feed.count || 0) - 1) }
+                        : feed
+                )),
+            }));
             if (selectedArticle?.id === id) {
                 setSelectedArticle(showUnreadOnly ? null : { ...selectedArticle, is_read: true });
             }
@@ -274,6 +412,7 @@ const ReaderDashboard = () => {
     useEffect(() => {
         return () => {
             if (pollingRef.current) clearInterval(pollingRef.current);
+            if (analysisPollingRef.current) clearInterval(analysisPollingRef.current);
         };
     }, []);
 
@@ -333,12 +472,12 @@ const ReaderDashboard = () => {
 
     const articleCountsBySource = useMemo(() => {
         const counts = new Map();
-        for (const a of unreadArticles) {
-            if (!a.source_id) continue;
-            counts.set(a.source_id, (counts.get(a.source_id) || 0) + 1);
+        for (const feed of unreadInventory.feeds || []) {
+            if (!feed.id) continue;
+            counts.set(feed.id, feed.count || 0);
         }
         return counts;
-    }, [unreadArticles]);
+    }, [unreadInventory]);
 
     const sourcesByCategory = useMemo(() => {
         const grouped = new Map();
@@ -396,7 +535,7 @@ const ReaderDashboard = () => {
     }, [displayArticles, t, i18n.resolvedLanguage]);
 
     return (
-        <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-[var(--bg-primary)] font-sans text-[var(--text-primary)]">
+        <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-[var(--bg-primary)] font-sans text-[var(--text-primary)]">
             <AppHeader icon={BookOpen} title={t('reader_title')}>
                 <button
                     onClick={() => setMobileChannelsOpen(true)}
@@ -405,6 +544,14 @@ const ReaderDashboard = () => {
                     className="md:hidden p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
                 >
                     <Menu size={16} />
+                </button>
+                <button
+                    onClick={() => setShowAnalysis(true)}
+                    title={t('reader_analysis_open', 'Topic evolution')}
+                    aria-label={t('reader_analysis_open', 'Topic evolution')}
+                    className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-[var(--text-primary)] transition-colors"
+                >
+                    <Sparkles size={16} />
                 </button>
                 <button
                     onClick={handleSyncAll}
@@ -416,6 +563,96 @@ const ReaderDashboard = () => {
                     <RotateCw size={16} className={syncing ? "animate-spin" : ""} />
                 </button>
             </AppHeader>
+
+            {showAnalysis && (
+                <div className="fixed inset-0 z-[80] flex justify-end bg-black/35" onClick={() => setShowAnalysis(false)}>
+                    <section
+                        className="h-full w-full max-w-2xl overflow-y-auto border-l border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-2xl"
+                        onClick={event => event.stopPropagation()}
+                        aria-label={t('reader_analysis_title', 'Topic evolution analysis')}
+                    >
+                        <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[var(--border-primary)] bg-[var(--bg-primary)] px-6 py-5">
+                            <div>
+                                <h2 className="text-lg font-semibold">{t('reader_analysis_title', 'Topic evolution analysis')}</h2>
+                                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                    {selectedSource
+                                        ? t('reader_analysis_scope_source', '{{source}} · {{count}} articles', { source: selectedSource.name, count: analysisScopeInventory.count || 0 })
+                                        : t('reader_analysis_scope_all', 'All feeds · {{count}} articles', { count: analysisScopeInventory.count || 0 })}
+                                </p>
+                            </div>
+                            <button onClick={() => setShowAnalysis(false)} aria-label={t('common.close', 'Close')} className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200">
+                                <X size={18} />
+                            </button>
+                        </header>
+
+                        <div className="space-y-5 px-6 py-6">
+                            {!analysisJob && (
+                                <div className="rounded-xl border border-[var(--border-primary)] bg-[var(--bg-secondary)] p-5">
+                                    <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">
+                                        {t('reader_analysis_desc', 'Gnosi creates an immutable snapshot, processes every selected article in checkpoints, and produces a cited evolution for each topic. You can leave this page and resume after a restart.')}
+                                    </p>
+                                    <button onClick={startTopicAnalysis} disabled={analysisStarting} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[var(--gnosi-blue)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+                                        {analysisStarting ? <Loader size={15} className="animate-spin" /> : <Sparkles size={15} />}
+                                        {t('reader_analysis_start', 'Analyze selected articles')}
+                                    </button>
+                                </div>
+                            )}
+
+                            {analysisJob && (
+                                <div className="rounded-xl border border-[var(--border-primary)] p-4">
+                                    <div className="flex items-center justify-between gap-3 text-sm">
+                                        <span className="font-medium">{t(`reader_analysis_state_${analysisJob.state}`, analysisJob.state)}</span>
+                                        <span className="tabular-nums text-slate-500">{analysisJob.progress || 0}%</span>
+                                    </div>
+                                    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                                        <div className="h-full rounded-full bg-[var(--gnosi-blue)] transition-all" style={{ width: `${analysisJob.progress || 0}%` }} />
+                                    </div>
+                                    <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+                                        {t('reader_analysis_progress', '{{processed}} of {{total}} articles processed', { processed: analysisJob.processed_articles || 0, total: analysisJob.total_articles || 0 })}
+                                    </p>
+                                    {analysisJob.error && <p className="mt-3 text-xs text-red-600 dark:text-red-400">{analysisJob.error}</p>}
+                                    <div className="mt-4 flex flex-wrap gap-2">
+                                        {['queued', 'snapshotting', 'mapping', 'reducing'].includes(analysisJob.state) && (
+                                            <button onClick={cancelTopicAnalysis} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-primary)] px-3 py-1.5 text-xs">
+                                                <Square size={11} /> {t('common.cancel', 'Cancel')}
+                                            </button>
+                                        )}
+                                        {['interrupted', 'failed'].includes(analysisJob.state) && (
+                                            <button onClick={resumeTopicAnalysis} className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--gnosi-blue)] px-3 py-1.5 text-xs text-white">
+                                                <RotateCw size={12} /> {t('reader_analysis_resume', 'Resume from checkpoints')}
+                                            </button>
+                                        )}
+                                        {['completed', 'cancelled', 'failed'].includes(analysisJob.state) && (
+                                            <button onClick={() => { setAnalysisJob(null); setAnalysisResult(null); }} className="rounded-lg border border-[var(--border-primary)] px-3 py-1.5 text-xs">
+                                                {t('reader_analysis_new', 'New analysis')}
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {analysisResult?.topics?.map(topic => (
+                                <article key={topic.topic} className="rounded-xl border border-[var(--border-primary)] p-5">
+                                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                                        <h3 className="text-base font-semibold">{topic.topic}</h3>
+                                        <span className="text-xs text-slate-500">{t('reader_analysis_topic_count', '{{count}} articles', { count: topic.article_count || 0 })}</span>
+                                    </div>
+                                    <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700 dark:text-slate-200">{topic.evolution}</p>
+                                    {(topic.article_ids || []).length > 0 && (
+                                        <div className="mt-4 flex flex-wrap gap-2">
+                                            {(topic.article_ids || []).slice(0, 20).map(articleId => (
+                                                <button key={articleId} onClick={() => openEvidenceArticle(articleId)} className="rounded-full border border-[var(--border-primary)] px-2.5 py-1 text-xs text-[var(--gnosi-blue)] hover:bg-[var(--bg-secondary)]">
+                                                    {t('reader_analysis_evidence', 'Article #{{id}}', { id: articleId })}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </article>
+                            ))}
+                        </div>
+                    </section>
+                </div>
+            )}
 
             <div className="flex flex-1 overflow-hidden relative">
                 {/* Mobile overlay */}
@@ -459,7 +696,7 @@ const ReaderDashboard = () => {
                                 <Inbox size={14} className="flex-shrink-0 text-slate-400" />
                                 <span className="truncate">{t('reader_all')}</span>
                             </span>
-                            <span className="text-[11px] text-slate-400 tabular-nums flex-shrink-0">{unreadArticles.length}</span>
+                            <span className="text-[11px] text-slate-400 tabular-nums flex-shrink-0">{unreadInventory.count || 0}</span>
                         </button>
 
                         {sourcesByCategory.map((group) => {

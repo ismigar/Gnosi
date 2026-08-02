@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DynamicIcon, iconNames } from 'lucide-react/dynamic';
-import { Send, X, Paperclip, Minimize2, Maximize2, Bot, Brain, Sparkles, Plus, AtSign, Archive, PanelBottomClose, Copy, Reply, RotateCcw, Pencil, ThumbsUp, ThumbsDown, Info, Bookmark, Undo2 } from 'lucide-react';
+import { Send, X, Paperclip, Minimize2, Maximize2, Bot, Brain, Sparkles, Plus, AtSign, Archive, PanelBottomClose, Copy, Reply, RotateCcw, Pencil, ThumbsUp, ThumbsDown, Info, Bookmark, Undo2, Blocks } from 'lucide-react';
 import { useConfigChanged } from '../lib/configEvents';
 import { announceFloatingPanelOpen, useExclusiveFloatingPanel } from '../hooks/useExclusiveFloatingPanel';
 import { useFloatingActionDock } from '../hooks/useFloatingActionDock';
@@ -14,6 +14,7 @@ import {
 } from './agentConfirmationUtils';
 import { chatScrollDeltaForComposerKey } from './agentChatKeyboardUtils';
 import { selectedMentionsInText, visibleMentionToken } from './agentChatMentionUtils';
+import { toast } from '../lib/toast';
 
 const CHAT_SESSIONS_KEY = 'agent_chat_sessions_v2';
 const CHAT_ACTIVE_SESSION_KEY = 'agent_chat_active_session_id_v2';
@@ -115,7 +116,7 @@ const deleteSessionCheckpoint = async (session) => {
     return true;
 };
 
-const AgentChat = ({ storageIdentity = '' }) => {
+const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
     const { t } = useTranslation();
     const defaultSessionTitle = t('chat.default_session_title', 'New conversation');
     const [isOpen, setIsOpen] = useState(false);
@@ -1205,6 +1206,7 @@ const AgentChat = ({ storageIdentity = '' }) => {
                     llm_mode: 'agent_default',
                     mentions,
                     attachments: attachmentsPayload,
+                    context_refs: contextRefs,
                 }),
                 signal: controller.signal,
             });
@@ -1772,6 +1774,17 @@ const AgentChat = ({ storageIdentity = '' }) => {
                                     <Send size={18} />
                                 </button>
                             </form>
+
+                            {contextRefs.length > 0 && (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
+                                    {contextRefs.map(ref => (
+                                        <span key={ref.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', borderRadius: '999px', border: '1px solid var(--settings-border, #e5e7eb)', padding: '3px 8px', fontSize: '0.68rem', color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg, #f3f4f6)' }}>
+                                            <Blocks size={11} />
+                                            {t('chat.current_source_context', '{{source}} context', { source: ref.label })}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
 
                             {attachments.length > 0 && (
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>

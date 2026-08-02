@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Database, FileText, Paperclip, Layers, Globe, Landmark, X, Plus, Loader2 } from 'lucide-react';
+import { Database, FileText, Paperclip, Layers, Globe, Landmark, X, Plus, Loader2, Blocks, SlidersHorizontal } from 'lucide-react';
 import axios from 'axios';
 import { toast } from '../lib/toast';
 
@@ -25,6 +25,7 @@ const KIND_ICON = {
     file: Paperclip,
     url: Globe,
     source: Landmark,
+    internal: Blocks,
 };
 
 const newRefId = () => `ctx-${Math.random().toString(36).slice(2, 10)}`;
@@ -38,6 +39,8 @@ export default function AgentContextSources({ value, onChange }) {
     const [tables, setTables] = useState(null);
     const [pages, setPages] = useState(null);
     const [externalSources, setExternalSources] = useState(null);
+    const [internalSources, setInternalSources] = useState(null);
+    const [editingRefId, setEditingRefId] = useState(null);
     // Inline URL field: a window.prompt cannot be styled, validated or tested.
     const [urlDraft, setUrlDraft] = useState(null);
     const [uploading, setUploading] = useState(false);
@@ -68,19 +71,35 @@ export default function AgentContextSources({ value, onChange }) {
                     setExternalSources([]);
                 });
         }
-    }, [picking, tables, pages, externalSources]);
+        if ((picking === 'internal' || refs.some(ref => ref.type === 'internal')) && internalSources === null) {
+            axios.get('/api/agent/internal-sources')
+                .then(res => setInternalSources(res.data || []))
+                .catch(err => {
+                    console.error('Could not load the Gnosi source catalogue', err);
+                    setInternalSources([]);
+                });
+        }
+    }, [picking, tables, pages, externalSources, internalSources, refs]);
 
-    const addRef = (type, ref, label) => {
+    const addRef = (type, ref, label, extras = {}) => {
         if (refs.some(r => r.type === type && r.ref === ref)) {
             toast(t('settings.ai.context_already_added', "That source is already in the context."));
             return;
         }
-        onChange([...refs, { id: newRefId(), type, ref, label }]);
+        const id = newRefId();
+        onChange([...refs, { id, type, ref, label, ...extras }]);
         setPicking(null);
         setQuery('');
+        if (type === 'internal') setEditingRefId(id);
     };
 
-    const removeRef = (id) => onChange(refs.filter(r => r.id !== id));
+    const removeRef = (id) => {
+        onChange(refs.filter(r => r.id !== id));
+        if (editingRefId === id) setEditingRefId(null);
+    };
+    const updateRef = (id, patch) => onChange(refs.map(ref => (
+        ref.id === id ? { ...ref, ...patch } : ref
+    )));
 
     const handleUpload = async (event) => {
         const file = event.target.files?.[0];
@@ -118,14 +137,33 @@ export default function AgentContextSources({ value, onChange }) {
     };
 
     const options = useMemo(() => {
-        const source = picking === 'table' ? tables : picking === 'source' ? externalSources : pages;
+        const source = picking === 'table'
+            ? tables
+            : picking === 'source'
+                ? externalSources
+                : picking === 'internal'
+                    ? internalSources
+                    : pages;
         if (!source) return null;
         const needle = query.trim().toLowerCase();
         const list = needle
             ? source.filter(item => String(item.title || item.name || '').toLowerCase().includes(needle))
             : source;
         return list.slice(0, 50);
-    }, [picking, tables, pages, externalSources, query]);
+    }, [picking, tables, pages, externalSources, internalSources, query]);
+
+    const editingRef = refs.find(ref => ref.id === editingRefId && ref.type === 'internal');
+    const editingDescriptor = internalSources?.find(source => source.id === editingRef?.ref);
+    const internalLabel = (sourceId, fallback) => ({
+        reader: t('settings.ai.context_internal_reader', 'Reader'),
+        mail: t('settings.ai.context_internal_mail', 'Mail'),
+        calendar: t('settings.ai.context_internal_calendar', 'Calendars'),
+        contacts: t('settings.ai.context_internal_contacts', 'Contacts'),
+    }[sourceId] || fallback || sourceId);
+    const selectedValues = (event) => Array.from(event.target.selectedOptions, option => option.value);
+    const setScope = (patch) => updateRef(editingRef.id, {
+        scope: { ...(editingRef.scope || {}), ...patch },
+    });
 
     const addBtnStyle = {
         display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px',
@@ -149,6 +187,15 @@ export default function AgentContextSources({ value, onChange }) {
                             }}>
                                 <Icon size={14} />
                                 {ref.label}
+                                {ref.type === 'internal' && (
+                                    <button
+                                        onClick={() => setEditingRefId(editingRefId === ref.id ? null : ref.id)}
+                                        aria-label={t('settings.ai.context_configure_source', 'Configure source scope')}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', color: 'var(--text-tertiary)' }}
+                                    >
+                                        <SlidersHorizontal size={13} />
+                                    </button>
+                                )}
                                 <button
                                     onClick={() => removeRef(ref.id)}
                                     aria-label={t('settings.ai.context_remove_source', "Remove from context")}
@@ -184,6 +231,9 @@ export default function AgentContextSources({ value, onChange }) {
                 </button>
                 <button style={addBtnStyle} onClick={() => { setUrlDraft(null); setPicking(picking === 'source' ? null : 'source'); setQuery(''); }}>
                     <Landmark size={14} /> {t('settings.ai.context_add_external', "External source")}
+                </button>
+                <button style={addBtnStyle} onClick={() => { setUrlDraft(null); setPicking(picking === 'internal' ? null : 'internal'); setQuery(''); }}>
+                    <Blocks size={14} /> {t('settings.ai.context_add_internal', 'Gnosi source')}
                 </button>
                 <input
                     ref={fileInputRef}
@@ -235,11 +285,18 @@ export default function AgentContextSources({ value, onChange }) {
                             </span>
                         )}
                         {options?.map(item => {
-                            const label = item.title || item.name || item.label || item.id;
+                            const label = picking === 'internal'
+                                ? internalLabel(item.id, item.name)
+                                : item.title || item.name || item.label || item.id;
                             return (
                                 <button
                                     key={item.id}
-                                    onClick={() => addRef(picking, item.id, label)}
+                                    onClick={() => addRef(
+                                        picking,
+                                        item.id,
+                                        label,
+                                        picking === 'internal' ? { scope: item.scope || {} } : {},
+                                    )}
                                     style={{
                                         textAlign: 'left', padding: '8px 10px', borderRadius: '10px',
                                         border: 'none', background: 'none', cursor: 'pointer',
@@ -253,6 +310,135 @@ export default function AgentContextSources({ value, onChange }) {
                             );
                         })}
                     </div>
+                </div>
+            )}
+
+            {editingRef && editingDescriptor && (
+                <div style={{
+                    border: '1px solid var(--settings-border)', borderRadius: '14px',
+                    padding: '14px', display: 'grid', gap: '12px',
+                    background: 'var(--settings-bg)',
+                }}>
+                    <div>
+                        <strong style={{ fontSize: '0.88rem' }}>
+                            {t('settings.ai.context_scope_title', '{{source}} scope', { source: internalLabel(editingRef.ref, editingRef.label) })}
+                        </strong>
+                        <p style={{ margin: '4px 0 0', color: 'var(--text-tertiary)', fontSize: '0.78rem' }}>
+                            {t('settings.ai.context_scope_desc', 'The agent can only search and read records inside this scope. Actions are governed separately.')}
+                        </p>
+                    </div>
+
+                    {editingRef.ref === 'reader' && (
+                        <>
+                            <label style={{ fontSize: '0.82rem' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={editingRef.scope?.unread_only !== false}
+                                    onChange={event => setScope({ unread_only: event.target.checked })}
+                                />{' '}{t('settings.ai.context_reader_unread', 'Unread articles only')}
+                            </label>
+                            <label style={{ fontSize: '0.78rem' }}>
+                                {t('settings.ai.context_reader_feeds', 'Feeds')}
+                                <select
+                                    multiple
+                                    className="gnosi-input"
+                                    value={(editingRef.scope?.source_ids || []).map(String)}
+                                    onChange={event => setScope({ source_ids: selectedValues(event).map(Number) })}
+                                    style={{ width: '100%', minHeight: '96px', marginTop: '5px' }}
+                                >
+                                    {(editingDescriptor.options?.sources || []).map(source => (
+                                        <option key={source.id} value={source.id}>{source.name}</option>
+                                    ))}
+                                </select>
+                            </label>
+                            <label style={{ fontSize: '0.78rem' }}>
+                                {t('settings.ai.context_categories', 'Categories')}
+                                <select
+                                    multiple
+                                    className="gnosi-input"
+                                    value={editingRef.scope?.categories || []}
+                                    onChange={event => setScope({ categories: selectedValues(event) })}
+                                    style={{ width: '100%', minHeight: '76px', marginTop: '5px' }}
+                                >
+                                    {(editingDescriptor.options?.categories || []).map(category => (
+                                        <option key={category} value={category}>{category}</option>
+                                    ))}
+                                </select>
+                            </label>
+                            <label style={{ fontSize: '0.82rem' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={!!editingRef.scope?.include_full_content}
+                                    onChange={event => setScope({ include_full_content: event.target.checked })}
+                                />{' '}{t('settings.ai.context_full_content', 'Include full article bodies in exact reads')}
+                            </label>
+                        </>
+                    )}
+
+                    {(editingRef.ref === 'mail' || editingRef.ref === 'calendar') && (
+                        <label style={{ fontSize: '0.78rem' }}>
+                            {t('settings.ai.context_accounts', 'Accounts')}
+                            <select
+                                multiple
+                                className="gnosi-input"
+                                value={editingRef.scope?.accounts || []}
+                                onChange={event => setScope({ accounts: selectedValues(event) })}
+                                style={{ width: '100%', minHeight: '76px', marginTop: '5px' }}
+                            >
+                                {(editingDescriptor.options?.accounts || []).map(account => (
+                                    <option key={account} value={account}>{account}</option>
+                                ))}
+                            </select>
+                        </label>
+                    )}
+
+                    {editingRef.ref === 'mail' && (
+                        <label style={{ fontSize: '0.78rem' }}>
+                            {t('settings.ai.context_mail_folder', 'Folder')}
+                            <input
+                                className="gnosi-input"
+                                value={editingRef.scope?.folder || 'INBOX'}
+                                onChange={event => setScope({ folder: event.target.value })}
+                                style={{ width: '100%', marginTop: '5px' }}
+                            />
+                        </label>
+                    )}
+
+                    {editingRef.ref === 'calendar' && (
+                        <>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                                <label style={{ fontSize: '0.78rem' }}>
+                                    {t('settings.ai.context_date_from', 'From')}
+                                    <input type="date" className="gnosi-input" value={(editingRef.scope?.date_from || '').slice(0, 10)} onChange={event => setScope({ date_from: event.target.value })} style={{ width: '100%', marginTop: '5px' }} />
+                                </label>
+                                <label style={{ fontSize: '0.78rem' }}>
+                                    {t('settings.ai.context_date_to', 'To')}
+                                    <input type="date" className="gnosi-input" value={(editingRef.scope?.date_to || '').slice(0, 10)} onChange={event => setScope({ date_to: event.target.value })} style={{ width: '100%', marginTop: '5px' }} />
+                                </label>
+                            </div>
+                            <label style={{ fontSize: '0.82rem' }}>
+                                <input type="checkbox" checked={editingRef.scope?.include_vault !== false} onChange={event => setScope({ include_vault: event.target.checked })} />{' '}
+                                {t('settings.ai.context_calendar_vault', 'Include Vault calendar events')}
+                            </label>
+                        </>
+                    )}
+
+                    {editingRef.ref === 'contacts' && (
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                            <label style={{ fontSize: '0.78rem' }}>
+                                {t('settings.ai.context_contact_sources', 'Contact sources')}
+                                <select multiple className="gnosi-input" value={editingRef.scope?.sources || []} onChange={event => setScope({ sources: selectedValues(event) })} style={{ width: '100%', minHeight: '76px', marginTop: '5px' }}>
+                                    {(editingDescriptor.options?.sources || []).map(source => <option key={source} value={source}>{source}</option>)}
+                                </select>
+                            </label>
+                            <label style={{ fontSize: '0.78rem' }}>
+                                {t('settings.ai.context_contact_types', 'Contact types')}
+                                <select multiple className="gnosi-input" value={editingRef.scope?.types || []} onChange={event => setScope({ types: selectedValues(event) })} style={{ width: '100%', minHeight: '76px', marginTop: '5px' }}>
+                                    {(editingDescriptor.options?.types || []).map(type => <option key={type} value={type}>{type}</option>)}
+                                </select>
+                            </label>
+                        </div>
+                    )}
                 </div>
             )}
         </div>

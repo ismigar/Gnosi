@@ -8,6 +8,11 @@ from backend.agent.gnosi_tools import (
     EXPLICIT_WRITE_TOOLS,
     READ_TOOLS,
 )
+from backend.agent.reader_tools import (
+    READER_AI_TOOLS,
+    READER_READ_TOOLS,
+    READER_WRITE_TOOLS,
+)
 from backend.agent.system_tools import READ_ONLY_SYSTEM_TOOLS, save_memory
 from backend.agent.vault_tools import (
     VAULT_KNOWLEDGE_TOOLS,
@@ -32,6 +37,7 @@ CORE_GNOSI_DOMAIN_SKILLS = (
     "core.gnosi-mail",
     "core.gnosi-calendar",
     "core.gnosi-contacts",
+    "core.gnosi-reader",
     "core.gnosi-memory",
 )
 
@@ -60,6 +66,8 @@ def _tool_id(name: str) -> str:
 
 
 def _domain(name: str) -> str:
+    if "reader" in name:
+        return "reader"
     if "mail" in name or name in {"archive_mail", "move_mail"}:
         return "mail"
     if "calendar" in name or name == "invite_attendees":
@@ -89,12 +97,13 @@ def _read_extras() -> Iterable[Any]:
 def core_gnosi_registrations() -> Tuple[Tuple[ToolDescriptor, Any], ...]:
     """Return immutable descriptors paired with their in-process adapters."""
     registrations = []
-    read_handlers = [*READ_TOOLS, *_read_extras()]
+    read_handlers = [*READ_TOOLS, *READER_READ_TOOLS, *_read_extras()]
     explicit_handlers = [
         *EXPLICIT_WRITE_TOOLS,
         create_page,
         summarize_to_cornell,
         save_memory,
+        *READER_WRITE_TOOLS,
     ]
     confirmed_handlers = list(CONFIRMED_WRITE_TOOLS)
 
@@ -134,6 +143,26 @@ def core_gnosi_registrations() -> Tuple[Tuple[ToolDescriptor, Any], ...]:
                     f"{getattr(handler, '__module__', 'backend.agent')}.{name}"
                 ),
                 metadata={"domain": _domain(name)},
+            ),
+            handler,
+        ))
+
+    for handler in READER_AI_TOOLS:
+        name = _tool_name(handler)
+        registrations.append((
+            ToolDescriptor(
+                id=_tool_id(name),
+                name=name.replace("_", " ").title(),
+                description=str(getattr(handler, "description", "") or ""),
+                origin=ORIGIN,
+                input_schema=_input_schema(handler),
+                effects=[ToolEffect.LOCAL_WRITE, ToolEffect.AI_COST],
+                minimum_role="editor",
+                confirmation=ConfirmationPolicy.EXPLICIT_REQUEST,
+                handler_ref=(
+                    f"{getattr(handler, '__module__', 'backend.agent')}.{name}"
+                ),
+                metadata={"domain": "reader"},
             ),
             handler,
         ))
@@ -186,6 +215,7 @@ def core_gnosi_skill_descriptors(
         "mail": [],
         "calendar": [],
         "contacts": [],
+        "reader": [],
         "memory": [],
     }
     for descriptor, _handler in registrations:
@@ -197,6 +227,7 @@ def core_gnosi_skill_descriptors(
         "mail": "Gnosi Mail",
         "calendar": "Gnosi Calendar",
         "contacts": "Gnosi Contacts",
+        "reader": "Gnosi Reader",
         "memory": "Gnosi Memory",
     }
     instructions = {
@@ -216,6 +247,11 @@ def core_gnosi_skill_descriptors(
         "contacts": (
             "Use only contacts in the authenticated workspace and preserve "
             "their exact IDs."
+        ),
+        "reader": (
+            "Search and read only the selected Reader scope. For large topic "
+            "evolution requests, inspect the exact inventory first and start "
+            "the durable analysis only after an explicit current-turn request."
         ),
         "memory": (
             "Read sovereign memory when relevant and save long-term memory only "

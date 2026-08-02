@@ -1,7 +1,9 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
+
+from pydantic import BaseModel, Field
 
 from backend.data.db import get_db
 from backend.models import reader as models
@@ -10,12 +12,35 @@ import os
 import xml.etree.ElementTree as ET
 from fastapi.responses import FileResponse
 from backend.services.workspace_service import get_workspace_context, require_role
+from backend.services.context_vars import get_active_vault_path
 
 log = logging.getLogger(__name__)
 ALLOWED_SSL_MODES = ("starttls", "ssl", "none")
 
 # Tables and models are now managed automatically per vault in db.py
 router = APIRouter(prefix="/api/reader", tags=["reader"], dependencies=[Depends(get_workspace_context)])
+
+
+class ReaderAnalysisRequest(BaseModel):
+    """Validated scope and output preferences for a durable Reader analysis."""
+
+    unread_only: bool = True
+    source_ids: List[int] = Field(default_factory=list, max_length=50)
+    categories: List[str] = Field(default_factory=list, max_length=50)
+    date_from: str = Field(default="", max_length=64)
+    date_to: str = Field(default="", max_length=64)
+    language: str = Field(default="Catalan", max_length=64)
+    guidance: str = Field(default="", max_length=2_000)
+
+    def source_scope(self) -> Dict[str, Any]:
+        return {
+            "unread_only": self.unread_only,
+            "source_ids": self.source_ids,
+            "categories": self.categories,
+            "date_from": self.date_from,
+            "date_to": self.date_to,
+            "include_full_content": True,
+        }
 
 # -- Feed Sources --
 
@@ -278,6 +303,103 @@ def sync_newsletter_account(background_tasks: BackgroundTasks):
 
 # -- Articles --
 
+
+@router.get("/inventory")
+def get_reader_inventory(
+    unread_only: bool = True,
+    source_id: Optional[List[int]] = Query(default=None),
+    category: Optional[List[str]] = Query(default=None),
+    date_from: str = "",
+    date_to: str = "",
+):
+    """Return exact Reader counts and source breakdown without fetching rows."""
+    from backend.agent.internal_sources import _reader_inventory, normalize_internal_scope
+
+    scope = normalize_internal_scope("reader", {
+        "unread_only": unread_only,
+        "source_ids": source_id or [],
+        "categories": category or [],
+        "date_from": date_from,
+        "date_to": date_to,
+    })
+    return _reader_inventory(scope)
+
+
+@router.post(
+    "/analysis",
+    dependencies=[Depends(require_role("editor"))],
+)
+def start_reader_analysis(payload: ReaderAnalysisRequest):
+    """Snapshot the selected Reader corpus and start durable topic analysis."""
+    from backend.services.reader_analysis import start_analysis
+
+    return start_analysis(
+        get_active_vault_path(),
+        payload.source_scope(),
+        language=payload.language,
+        guidance=payload.guidance,
+    )
+
+
+@router.get("/analysis")
+def list_reader_analyses(limit: int = Query(default=20, ge=1, le=100)):
+    """List recent durable Reader analyses in the active vault."""
+    from backend.services.reader_analysis import list_analyses
+
+    return list_analyses(get_active_vault_path(), limit=limit)
+
+
+@router.get("/analysis/{job_id}")
+def get_reader_analysis_status(job_id: str):
+    """Return progress for one analysis job in the active vault."""
+    from backend.services.reader_analysis import get_status
+
+    try:
+        return get_status(get_active_vault_path(), job_id)
+    except (KeyError, ValueError) as error:
+        raise HTTPException(status_code=404, detail="Reader analysis job not found.") from error
+
+
+@router.get("/analysis/{job_id}/result")
+def get_reader_analysis_result(job_id: str):
+    """Return the structured cited result for one completed analysis."""
+    from backend.services.reader_analysis import read_result
+
+    try:
+        return read_result(get_active_vault_path(), job_id)
+    except (KeyError, ValueError) as error:
+        raise HTTPException(status_code=404, detail="Reader analysis job not found.") from error
+    except RuntimeError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@router.post(
+    "/analysis/{job_id}/resume",
+    dependencies=[Depends(require_role("editor"))],
+)
+def resume_reader_analysis(job_id: str):
+    """Resume a durable job from completed checkpoints."""
+    from backend.services.reader_analysis import resume_analysis
+
+    try:
+        return resume_analysis(get_active_vault_path(), job_id)
+    except (KeyError, ValueError) as error:
+        raise HTTPException(status_code=404, detail="Reader analysis job not found.") from error
+
+
+@router.post(
+    "/analysis/{job_id}/cancel",
+    dependencies=[Depends(require_role("editor"))],
+)
+def cancel_reader_analysis(job_id: str):
+    """Request cooperative cancellation of a running analysis."""
+    from backend.services.reader_analysis import cancel_analysis
+
+    try:
+        return cancel_analysis(get_active_vault_path(), job_id)
+    except (KeyError, ValueError) as error:
+        raise HTTPException(status_code=404, detail="Reader analysis job not found.") from error
+
 @router.get("/articles", response_model=List[models.ArticleResponse])
 def get_articles(
     unread_only: bool = True,
@@ -472,6 +594,24 @@ def trigger_backfill_extract():
 def get_backfill_extract_status():
     """Poll the backfill progress. Safe to call any time."""
     return backfill_status
+
+
+@router.get("/articles/{article_id}", response_model=models.ArticleResponse)
+def get_article(article_id: int, db: Session = Depends(get_db)):
+    """Read one exact Reader article for evidence links and deep linking."""
+    from sqlalchemy.orm import joinedload
+
+    article = (
+        db.query(models.Article)
+        .options(joinedload(models.Article.source))
+        .filter(models.Article.id == article_id)
+        .first()
+    )
+    if not article:
+        raise HTTPException(status_code=404, detail="Article not found")
+    result = models.ArticleResponse.model_validate(article)
+    result.source_name = article.source.name if article.source else None
+    return result
 
 
 # -- Podcast --
