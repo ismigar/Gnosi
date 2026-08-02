@@ -29,8 +29,10 @@ hard-coded Groq client.
 - Both manual and scheduled generation must continue to call the same service.
 - Remove provider-specific rate-limit sleeps. Provider throttling must not be
   encoded as a fixed Groq free-tier delay.
-- Resolve `settings.language` at the start of every generation and use the same
-  supported locale for both the LLM script instruction and gTTS synthesis.
+- Resolve the interface language fresh for every generation and use the same
+  normalized language for both the LLM script prompt and gTTS. The supported
+  podcast languages are Catalan, English, Spanish, and French, matching the
+  application locale registry.
 
 ## Settings UI
 
@@ -49,10 +51,14 @@ hard-coded Groq client.
 - Do not fall back silently when an explicitly selected route is disabled,
   missing, or cannot be instantiated. Report an actionable generation error.
 - Do not couple text-model selection to gTTS voice settings; they are separate
-  concerns.
-- Do not hard-code English independently in either the script prompt or gTTS.
-  A mismatch creates translated scripts with the wrong voice pronunciation;
-  use the configured interface locale for both stages.
+  configuration concerns, but both the script and speech must use the current
+  interface language unless a dedicated podcast-language setting is introduced.
+- Do not persist a duplicate podcast language while the product contract is
+  "follow the interface". Resolve and normalize `settings.language` when the
+  generation starts so a language change does not require a backend restart.
+- Do not assume Catalan when the stored language is empty or invalid: the
+  central interface-language normalizer falls back to English. Reuse that
+  normalizer so podcast behavior stays aligned with the rest of Gnosi.
 - Tests that replace `load_params` must import `agent.factory` first because the
   factory still resolves its internal base directory from configuration at
   module import time. Replacing configuration before that import produces a
@@ -69,7 +75,8 @@ hard-coded Groq client.
 ## Verification
 
 1. Unit-test default and explicit route resolution, disabled-route rejection,
-   LangChain invocation, and usage recording.
+   language normalization, LangChain invocation, gTTS language selection, and
+   usage recording.
 2. Test the Settings model-option normalization and persisted unavailable route.
 3. Run backend targeted tests and frontend unit tests.
 4. Run the frontend production build.

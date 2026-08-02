@@ -169,6 +169,15 @@ product completeness.
 - Do not count `__pycache__`, bytecode, dependency, vendor, or build artifacts
   matched by broad domain globs. Local caches make coverage output differ from
   a clean CI checkout; apply the owned-file filter before counting matches.
+- Do not treat suffixed desktop runtime directories such as `.venv-python` or
+  `dist-python` as owned source. Exact `.venv` and `dist` exclusions do not
+  match them, which inflates Python tests, Electron files, and coverage only on
+  machines that have packaged the desktop application.
+- Do not inventory local logs, browser authentication state, desktop
+  `python-build` output, private-skill secret directories, packaged `.oxt`
+  extensions, or local integration configuration. These ignored files make
+  locally generated catalogs diverge from clean CI and can expose the existence
+  of private configuration paths; exclude them at the shared owned-file boundary.
 - Do not hand-merge conflicts under `docs/engineering/generated/`. Complete the
   source merge first, run the catalog generator on the combined tree, and stage
   its deterministic output as the conflict resolution.
