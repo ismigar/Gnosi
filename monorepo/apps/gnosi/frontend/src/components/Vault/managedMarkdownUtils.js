@@ -43,3 +43,31 @@ export const normalizeManagedBlockSpacing = (markdown) => {
 
     return normalized.join('\n');
 };
+
+/**
+ * Removes internal LLM Wiki boundary markers from rendered previews while
+ * preserving the Markdown between them. Marker examples inside code fences
+ * remain visible because they are document content rather than metadata.
+ */
+export const stripManagedBlockMarkers = (markdown) => {
+    if (typeof markdown !== 'string' || !markdown.includes('<!-- gnosi:llm-wiki:')) {
+        return markdown;
+    }
+
+    const visibleLines = [];
+    let inFence = false;
+
+    markdown.split('\n').forEach((line) => {
+        if (FENCE_RE.test(line)) {
+            inFence = !inFence;
+            visibleLines.push(line);
+            return;
+        }
+        if (!inFence && (MANAGED_START_RE.test(line) || MANAGED_END_RE.test(line))) {
+            return;
+        }
+        visibleLines.push(line);
+    });
+
+    return visibleLines.join('\n');
+};

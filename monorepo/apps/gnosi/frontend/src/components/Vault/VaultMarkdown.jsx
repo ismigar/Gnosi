@@ -69,7 +69,16 @@ export function RetryableImage({ src, title, onClick }) {
  *  - onActivate: optional callback when clicking an image (typically opens the page).
  *  - imageTitle: fallback title/alt for the images.
  */
-export function VaultMarkdown({ md, onActivate, imageTitle = '', vaultId }) {
+export function VaultMarkdown({
+    md,
+    onActivate,
+    imageTitle = '',
+    vaultId,
+    idToTitle,
+    onOpenInCurrentTab,
+    onOpenInNewTab,
+    onOpenParallel,
+}) {
     const { t } = useTranslation();
     const [evidence, setEvidence] = useState(null);
     const [evidenceLoading, setEvidenceLoading] = useState(false);
@@ -128,7 +137,16 @@ export function VaultMarkdown({ md, onActivate, imageTitle = '', vaultId }) {
                         const text = React.Children.toArray(children)
                             .map(c => (typeof c === 'string' ? c : (c?.props?.children || '')))
                             .join('') || target;
-                        return <WikilinkInline title={text} target={target} />;
+                        return (
+                            <WikilinkInline
+                                title={text}
+                                target={target}
+                                idToTitle={idToTitle}
+                                onOpenInCurrentTab={onOpenInCurrentTab}
+                                onOpenInNewTab={onOpenInNewTab}
+                                onOpenParallel={onOpenParallel}
+                            />
+                        );
                     }
                     // Citation links open the source and a persisted evidence
                     // paragraph/timestamp drawer.

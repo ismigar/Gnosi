@@ -28,6 +28,7 @@ Each view must display a header or toolbar containing:
 - **Dates**: Date sorting must account for ISO formats and missing values (keeping empties at the end).
 - **Relations**: Relation filtering must allow the special value `{{self}}` to filter notes that link to the current page (Backlinks).
 - **Visual Consistency**: Embedded views must have the same appearance and functionality as full-screen views in the Dashboard.
+- **Gallery document previews**: Content previews must use the shared Vault Markdown renderer inside an independently scrollable card surface. Do not reduce Markdown to plain text with regular expressions; that exposes managed comments, breaks wikilinks, and removes navigation. Content and property cards must keep their controls interactive without triggering the card-level open action, and must expose a compact control for opening the record in a separate browser tab.
 
 ## Validation
 Before considering a view complete, verify:
