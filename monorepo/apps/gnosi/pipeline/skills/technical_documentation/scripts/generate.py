@@ -1130,7 +1130,9 @@ def matches_for_globs(app_root: Path, patterns: list[str]) -> list[Path]:
     """Resolve application-relative glob patterns with stable de-duplication."""
     matches: set[Path] = set()
     for pattern in patterns:
-        matches.update(path for path in app_root.glob(pattern) if path.is_file())
+        matches.update(
+            path for path in app_root.glob(pattern) if is_owned_inventory_file(path)
+        )
     return sorted(matches)
 
 
