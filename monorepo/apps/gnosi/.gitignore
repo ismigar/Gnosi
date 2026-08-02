@@ -25,6 +25,7 @@ frontend/certs/
 
 # Outputs
 out/markdown_backup/
+site/
 .env.example
 
 # Security & storage
