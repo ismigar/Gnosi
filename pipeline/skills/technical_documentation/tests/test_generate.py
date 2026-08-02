@@ -11,9 +11,12 @@ from pipeline.skills.technical_documentation.scripts.generate import (
     build_data_model_catalog,
     declares_router,
     format_environment_default,
+    frontend_files,
+    is_owned_inventory_file,
     join_url_paths,
     matches_for_globs,
     parse_route_module,
+    python_files,
 )
 
 
@@ -103,3 +106,41 @@ def test_coverage_globs_exclude_cache_artifacts(tmp_path: Path) -> None:
     cache.write_bytes(b"local-only bytecode")
 
     assert matches_for_globs(tmp_path, ["integrations/**/*"]) == [source]
+
+
+def test_owned_source_discovery_excludes_suffixed_runtime_artifacts(
+    tmp_path: Path,
+) -> None:
+    """Packaged Python runtimes and desktop builds are never owned source."""
+    owned_python = tmp_path / "backend" / "service.py"
+    runtime_python = tmp_path / "electron" / ".venv-python" / "test_vendor.py"
+    owned_frontend = tmp_path / "electron" / "main.js"
+    packaged_frontend = tmp_path / "electron" / "dist-python" / "bundle.js"
+    for path in (owned_python, runtime_python, owned_frontend, packaged_frontend):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("VALUE = 1\n", encoding="utf-8")
+
+    assert python_files(tmp_path) == [owned_python]
+    assert frontend_files(tmp_path / "electron") == [owned_frontend]
+    assert is_owned_inventory_file(owned_python)
+    assert not is_owned_inventory_file(runtime_python)
+    assert not is_owned_inventory_file(packaged_frontend)
+
+
+def test_inventory_excludes_local_state_and_packaging_outputs(tmp_path: Path) -> None:
+    """Local secrets, auth state, logs, and packaging output are not source."""
+    owned_source = tmp_path / "integrations" / "adapter.py"
+    local_files = [
+        tmp_path / "backend" / "data" / "logs" / "runtime.log",
+        tmp_path / "e2e" / "tests" / ".auth" / "state.json",
+        tmp_path / "electron" / "python-build" / "backend.spec",
+        tmp_path / "pipeline" / "private_skills" / "secrets" / "config.json",
+        tmp_path / "pipeline" / "skills" / "zotero_sync" / "zotero_db_config.json",
+        tmp_path / "integrations" / "libreoffice-cite" / "gnosi-cite.oxt",
+    ]
+    for path in [owned_source, *local_files]:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("local fixture\n", encoding="utf-8")
+
+    assert is_owned_inventory_file(owned_source)
+    assert all(not is_owned_inventory_file(path) for path in local_files)
