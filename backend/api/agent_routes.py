@@ -57,6 +57,10 @@ from backend.config.app_config import load_params
 from backend.utils.errors import safe_error_detail
 from backend.services.workspace_service import require_role, WorkspaceContext
 from backend.services.context_vars import get_active_vault_path
+from backend.services.capability_audit import (
+    list_capability_events,
+    record_capability_event,
+)
 
 cfg = load_params()
 
@@ -99,6 +103,27 @@ class AttachmentRef(BaseModel):
     type: str = Field(default="", max_length=128)
     path: str = Field(max_length=512)
 
+
+class TurnContextRef(BaseModel):
+    """One read-only internal source supplied by trusted module UI state."""
+
+    id: str = Field(max_length=128)
+    type: str = Field(default="internal", max_length=32)
+    ref: str = Field(max_length=64)
+    label: Optional[str] = Field(default=None, max_length=256)
+    scope: Dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def validate_internal_source(self):
+        from backend.agent.internal_sources import normalize_internal_scope
+
+        if self.type.strip().lower() != "internal":
+            raise ValueError("Turn context accepts internal Gnosi sources only.")
+        self.type = "internal"
+        self.ref = self.ref.strip().lower()
+        self.scope = normalize_internal_scope(self.ref, self.scope)
+        return self
+
 class ChatRequest(BaseModel):
     message: str = Field(max_length=100_000)
     agent_id: str = "gnosy" # Default agent
@@ -110,6 +135,7 @@ class ChatRequest(BaseModel):
     mentions: List[MentionRef] = Field(default_factory=list, max_length=20)
     attachments: List[AttachmentRef] = Field(default_factory=list, max_length=8)
     active_skill_ids: Optional[List[str]] = Field(default=None, max_length=64)
+    context_refs: List[TurnContextRef] = Field(default_factory=list, max_length=8)
 
     @model_validator(mode="before")
     @classmethod
@@ -491,6 +517,7 @@ async def get_agent_workflow(
     vault_scope: str = "",
     vault_path: Optional[Path] = None,
     active_skill_ids: Optional[List[str]] = None,
+    turn_context_refs: Optional[List[Dict[str, Any]]] = None,
 ):
     """
     Helper to get or build the agent workflow for a specific ID.
@@ -524,6 +551,14 @@ async def get_agent_workflow(
         vault_path=vault_path,
         active_skill_ids=active_skill_ids,
     )
+    if turn_context_refs:
+        from backend.agent.agent_context import merge_context_refs
+
+        agent_data = dict(agent_data or {})
+        agent_data["context_refs"] = merge_context_refs(
+            agent_data.get("context_refs") or [],
+            turn_context_refs,
+        )
     runtime_active_ids = list(
         getattr(runtime_capabilities, "active_skill_ids", ()) or ()
     )
@@ -752,14 +787,44 @@ async def _execute_governed_tool(
         raise PermissionError("The current role cannot execute this tool.")
 
     call_arguments = dict(arguments.get("tool_arguments") or {})
-    if callable(getattr(handler, "ainvoke", None)):
-        result = await handler.ainvoke(call_arguments)
-    elif callable(getattr(handler, "invoke", None)):
-        result = await asyncio.to_thread(handler.invoke, call_arguments)
-    elif asyncio.iscoroutinefunction(handler):
-        result = await handler(**call_arguments)
-    else:
-        result = await asyncio.to_thread(handler, **call_arguments)
+    started = time.monotonic()
+    effects = [
+        str(getattr(effect, "value", effect))
+        for effect in (getattr(descriptor, "effects", None) or [])
+    ]
+    try:
+        if callable(getattr(handler, "ainvoke", None)):
+            result = await handler.ainvoke(call_arguments)
+        elif callable(getattr(handler, "invoke", None)):
+            result = await asyncio.to_thread(handler.invoke, call_arguments)
+        elif asyncio.iscoroutinefunction(handler):
+            result = await handler(**call_arguments)
+        else:
+            result = await asyncio.to_thread(handler, **call_arguments)
+    except Exception as error:
+        await asyncio.to_thread(
+            record_capability_event,
+            scope,
+            tool_id=tool_id,
+            tool_name=tool_name,
+            effects=effects,
+            status="failed",
+            argument_keys=list(call_arguments),
+            error_code=type(error).__name__,
+            duration_ms=int((time.monotonic() - started) * 1000),
+        )
+        raise
+    await asyncio.to_thread(
+        record_capability_event,
+        scope,
+        tool_id=tool_id,
+        tool_name=tool_name,
+        effects=effects,
+        status="completed",
+        argument_keys=list(call_arguments),
+        result_kind=type(result).__name__,
+        duration_ms=int((time.monotonic() - started) * 1000),
+    )
     if isinstance(result, dict):
         return result
     if isinstance(result, str):
@@ -837,6 +902,30 @@ async def list_agent_confirmations(
     )
     records = await asyncio.to_thread(list_confirmations, scope)
     return {"confirmations": records}
+
+
+@router.get("/chat/capability-audit")
+async def list_agent_capability_audit(
+    agent_id: str = Query(..., max_length=128),
+    session_id: str = Query(..., max_length=128),
+    limit: int = Query(100, ge=1, le=500),
+    tool_id: Optional[str] = Query(default=None, max_length=256),
+    status: Optional[str] = Query(default=None, max_length=64),
+    workspace_context: WorkspaceContext = Depends(require_role("editor")),
+):
+    """Return metadata-only governed tool events for one exact chat scope."""
+    scope = _action_scope(
+        ActionConfirmationRequest(agent_id=agent_id, session_id=session_id),
+        workspace_context,
+    )
+    records = await asyncio.to_thread(
+        list_capability_events,
+        scope,
+        limit=limit,
+        tool_id=tool_id,
+        status=status,
+    )
+    return {"events": records}
 
 
 @router.get("/chat/confirmations/{action_id}")
@@ -1172,6 +1261,16 @@ async def list_context_sources():
     return list_sources()
 
 
+@router.get("/agent/internal-sources")
+async def list_internal_context_sources(
+    workspace_context: WorkspaceContext = Depends(require_role("viewer")),
+):
+    """List scoped first-party Gnosi sources available in this workspace."""
+    from backend.agent.internal_sources import internal_source_catalog
+
+    return internal_source_catalog(workspace_context.workspace_id)
+
+
 @router.post("/chat")
 async def chat_endpoint(
     request: Request,
@@ -1230,6 +1329,10 @@ async def chat_endpoint(
             vault_scope=vault_scope,
             vault_path=vault,
             active_skill_ids=requested_skill_ids,
+            turn_context_refs=[
+                item.model_dump(mode="python")
+                for item in chat_req.context_refs
+            ],
         )
 
         authorized_tool_names = _explicit_brain_write_tool_names(

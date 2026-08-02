@@ -489,6 +489,35 @@ def _register_builtin_gnosi_catalog() -> None:
         _TOOL_CATALOG.register_core(descriptor, handler)
     for descriptor in core_gnosi_skill_descriptors(registrations):
         _SKILL_CATALOG.register_core(descriptor)
+    capability_platform_names = {
+        "batch_mail_action",
+        "calendar_free_busy",
+        "delete_calendar_event",
+        "extract_reader_article",
+        "find_duplicate_contacts",
+        "generate_reader_podcast",
+        "list_mail_folders",
+        "mark_mail_read",
+        "mark_reader_article_read",
+        "merge_contacts",
+        "move_vault_page",
+        "query_vault_table",
+        "read_calendar_event",
+        "read_contact",
+        "read_mail_message",
+        "read_mail_thread",
+        "read_vault_table_schema",
+        "reader_podcast_status",
+        "reply_mail_message",
+        "rename_vault_page",
+        "rsvp_calendar_event",
+        "save_reader_article_to_vault",
+        "snooze_mail_message",
+        "star_mail_message",
+        "update_calendar_event",
+        "update_contact",
+        "list_vault_tables",
+    }
     _SKILL_CATALOG.register_core(
         SkillDescriptor(
             id="core.legacy-default-v1",
@@ -502,7 +531,12 @@ def _register_builtin_gnosi_catalog() -> None:
             kind=SkillKind.AGENT,
             activation=SkillActivation.ALWAYS,
             tool_ids=sorted(
-                descriptor.id for descriptor, _handler in registrations
+                descriptor.id
+                for descriptor, _handler in registrations
+                if descriptor.metadata.get("domain")
+                in {"vault", "mail", "calendar", "contacts", "reader", "memory"}
+                and str(descriptor.handler_ref or "").rsplit(".", 1)[-1]
+                not in capability_platform_names
             ),
             instructions="Use the legacy Gnosi agent capability bundle.",
             metadata={"legacy_bundle": True},

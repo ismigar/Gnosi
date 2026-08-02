@@ -4,6 +4,7 @@ import re
 import json
 from typing import Annotated, Any, Iterable, TypedDict, List, Sequence, Optional
 import logging
+import time
 from langchain_core.messages import BaseMessage, SystemMessage, ToolMessage
 from langgraph.graph import StateGraph, END, START
 from langgraph.prebuilt import ToolNode
@@ -50,12 +51,18 @@ from backend.agent.gnosi_tools import (
 )
 from backend.agent.action_confirmations import (
     confirmation_event,
+    current_confirmation_scope,
     request_governed_tool_confirmation,
 )
-from backend.agent.agent_context import build_context_tools, describe_context_refs
+from backend.agent.agent_context import (
+    build_context_tool_descriptors,
+    build_context_tools,
+    describe_context_refs,
+)
 from backend.agent.tools import get_mcp_tools
 from backend.config.app_config import load_params
 from backend.security.ai_credentials import resolve_provider_api_key
+from backend.services.capability_audit import record_capability_event
 
 cfg = load_params(strict_env=False)
 BASE_DIR = cfg.paths.get("PROJECT_DIR") or Path(__file__).resolve().parent.parent.parent
@@ -904,7 +911,24 @@ def _tool_policy_wrapper(tool_policies: Any):
         current_role = str(state.get("current_user_role") or "viewer").lower()
         required_role = str(policy.get("minimum_role") or "viewer").lower()
         role_weights = {"viewer": 0, "editor": 1, "admin": 2, "owner": 3}
+        def audit(status: str, *, result_kind: str = "none", error_code: str = "", duration_ms: int = 0) -> None:
+            try:
+                scope = current_confirmation_scope()
+                record_capability_event(
+                    scope,
+                    tool_id=str(policy.get("id") or tool_name),
+                    tool_name=tool_name,
+                    effects=list(policy.get("effects") or []),
+                    status=status,
+                    argument_keys=list((tool_call.get("args") or {}).keys()),
+                    result_kind=result_kind,
+                    error_code=error_code,
+                    duration_ms=duration_ms,
+                )
+            except Exception:
+                log.exception("Failed to write capability audit metadata.")
         if role_weights.get(current_role, -1) < role_weights.get(required_role, 0):
+            audit("denied", error_code="insufficient_role")
             return ToolMessage(
                 content=(
                     "Tool execution denied: "
@@ -918,6 +942,7 @@ def _tool_policy_wrapper(tool_policies: Any):
         if confirmation == "always":
             if policy.get("prepares_confirmation"):
                 if tool_name not in _turn_authorized_tool_names(request.state):
+                    audit("denied", error_code="explicit_authorization_required")
                     return ToolMessage(
                         content=(
                             "Tool execution denied: the current user turn did not "
@@ -927,7 +952,14 @@ def _tool_policy_wrapper(tool_policies: Any):
                         tool_call_id=str(tool_call.get("id") or ""),
                         status="error",
                     )
-                return execute(request)
+                started = time.monotonic()
+                result = execute(request)
+                audit(
+                    "completed" if getattr(result, "status", "success") != "error" else "failed",
+                    result_kind=type(result).__name__,
+                    duration_ms=int((time.monotonic() - started) * 1000),
+                )
+                return result
             try:
                 content = request_governed_tool_confirmation(
                     descriptor=policy.get("_descriptor"),
@@ -938,12 +970,14 @@ def _tool_policy_wrapper(tool_policies: Any):
                     ),
                 )
             except Exception as error:
+                audit("failed", error_code=type(error).__name__)
                 return ToolMessage(
                     content=f"Tool confirmation preparation failed: {error}",
                     name=tool_name,
                     tool_call_id=str(tool_call.get("id") or ""),
                     status="error",
                 )
+            audit("approval_required", result_kind="confirmation")
             return ToolMessage(
                 content=content,
                 name=tool_name,
@@ -953,6 +987,7 @@ def _tool_policy_wrapper(tool_policies: Any):
         if confirmation not in {"", "never", "none"} and (
             tool_name not in _turn_authorized_tool_names(request.state)
         ):
+            audit("denied", error_code="explicit_authorization_required")
             return ToolMessage(
                 content=(
                     "Tool execution denied: the current user turn did not "
@@ -962,7 +997,22 @@ def _tool_policy_wrapper(tool_policies: Any):
                 tool_call_id=str(tool_call.get("id") or ""),
                 status="error",
             )
-        return execute(request)
+        started = time.monotonic()
+        try:
+            result = execute(request)
+        except Exception as error:
+            audit(
+                "failed",
+                error_code=type(error).__name__,
+                duration_ms=int((time.monotonic() - started) * 1000),
+            )
+            raise
+        audit(
+            "completed" if getattr(result, "status", "success") != "error" else "failed",
+            result_kind=type(result).__name__,
+            duration_ms=int((time.monotonic() - started) * 1000),
+        )
+        return result
 
     return enforce_policy
 
@@ -1556,6 +1606,23 @@ async def create_agent_workflow(
     # Tools scoped to the sources the user attached to THIS agent. They close over
     # its refs, so an agent can never read another agent's context.
     context_tools = build_context_tools(context_refs)
+    context_descriptors = build_context_tool_descriptors(
+        context_refs,
+        context_tools,
+    )
+    for context_tool, descriptor in zip(context_tools, context_descriptors):
+        effects = _descriptor_effects(descriptor)
+        runtime_tool_metadata.append({
+            "id": descriptor.id,
+            "name": _tool_name(context_tool),
+            "effects": list(effects),
+            "skill_ids": [],
+            "minimum_role": descriptor.minimum_role,
+            "confirmation": descriptor.confirmation.value,
+            "prepares_confirmation": False,
+            "dynamic_context": True,
+            "_descriptor": descriptor,
+        })
     legacy_vault_tools = (
         [
             item

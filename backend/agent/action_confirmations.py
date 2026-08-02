@@ -18,6 +18,7 @@ from backend.config.app_config import load_params
 
 
 CONFIRMATION_TTL_SECONDS = 10 * 60
+AUTOMATION_CONFIRMATION_TTL_SECONDS = 24 * 60 * 60
 EXECUTION_LEASE_SECONDS = 15 * 60
 TERMINAL_RETENTION_SECONDS = 7 * 24 * 60 * 60
 MAX_ACTION_ARGUMENT_BYTES = 64 * 1024
@@ -341,6 +342,7 @@ def request_confirmation(
     summary_key: str,
     details: Optional[Dict[str, Any]] = None,
     destructive: bool = True,
+    ttl_seconds: int = CONFIRMATION_TTL_SECONDS,
 ) -> str:
     """Persist a pending action and return its complete bounded stream marker."""
     scope = current_confirmation_scope()
@@ -351,6 +353,7 @@ def request_confirmation(
         raise ValueError("The pending action arguments exceed the safety limit.")
 
     now = time.time()
+    safe_ttl = max(60, min(int(ttl_seconds), 7 * 24 * 60 * 60))
     action_id = uuid.uuid4().hex
     preview = {
         "title_key": str(title_key)[:200],
@@ -363,7 +366,7 @@ def request_confirmation(
         "confirmation_id": action_id,
         "action": action,
         **preview,
-        "expires_at": now + CONFIRMATION_TTL_SECONDS,
+        "expires_at": now + safe_ttl,
     }
     encoded_event = _encoded_json(event)
     if len(encoded_event.encode("utf-8")) > MAX_CONFIRMATION_EVENT_BYTES:
@@ -391,7 +394,7 @@ def request_confirmation(
                 scope["session_id"],
                 scope["role"],
                 now,
-                now + CONFIRMATION_TTL_SECONDS,
+                now + safe_ttl,
             ),
         )
     return encoded_event
@@ -405,6 +408,7 @@ def request_governed_tool_confirmation(
     active_skill_ids: Iterable[str],
 ) -> str:
     """Prepare an exact confirmation for a non-native governed tool call."""
+    scope = current_confirmation_scope()
     effects = [
         str(getattr(effect, "value", effect))
         for effect in (getattr(descriptor, "effects", None) or [])
@@ -435,6 +439,11 @@ def request_governed_tool_confirmation(
         },
         destructive=bool(
             {"destructive", "code_execution"}.intersection(effects)
+        ),
+        ttl_seconds=(
+            AUTOMATION_CONFIRMATION_TTL_SECONDS
+            if scope["session_id"].startswith("automation-")
+            else CONFIRMATION_TTL_SECONDS
         ),
     )
 
@@ -552,6 +561,51 @@ def list_confirmations(
             ),
         ).fetchall()
     return [_public_record(row) for row in rows]
+
+
+def list_workspace_confirmations(
+    scope: Dict[str, str],
+    *,
+    statuses: Iterable[str] = ("pending", "executing"),
+) -> list[Dict[str, Any]]:
+    """List actionable confirmations for the current user and Vault.
+
+    Agent and session identifiers are exposed only here so the settings UI can
+    route an automation-created approval through the existing exact-scope
+    confirm/cancel endpoints. Stored action arguments remain private.
+    """
+    normalized = _normalized_scope({
+        **scope,
+        "agent_id": scope.get("agent_id") or "workspace-approval-list",
+        "session_id": scope.get("session_id") or "workspace-approval-list",
+    })
+    normalized_statuses = tuple(dict.fromkeys(str(value) for value in statuses))
+    if not normalized_statuses:
+        return []
+    placeholders = ",".join("?" for _ in normalized_statuses)
+    with _database_connection() as connection:
+        rows = connection.execute(
+            f"""
+            SELECT * FROM pending_agent_actions
+            WHERE vault_scope = ? AND workspace_id = ? AND user_id = ?
+              AND status IN ({placeholders})
+            ORDER BY created_at ASC
+            LIMIT 100
+            """,
+            (
+                normalized["vault_scope"],
+                normalized["workspace_id"],
+                normalized["user_id"],
+                *normalized_statuses,
+            ),
+        ).fetchall()
+    records = []
+    for row in rows:
+        record = _public_record(row)
+        record["agent_id"] = row["agent_id"]
+        record["session_id"] = row["session_id"]
+        records.append(record)
+    return records
 
 
 def maintain_confirmation_store() -> None:
