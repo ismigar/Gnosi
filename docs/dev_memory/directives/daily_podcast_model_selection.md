@@ -54,6 +54,12 @@ hard-coded Groq client.
   test-only incomplete `Config` object failure unrelated to podcast routing.
 - Preserve the existing article filtering, batching, prompts, MP3 naming,
   manual endpoint, scheduler task, and generation lock.
+- Do not generate audio in the runtime `paths.AUDIO` directory while the Reader
+  serves files from the active vault: this makes successful generations
+  invisible to the UI. Generation, metadata, and streaming must share the
+  active vault's `data/podcasts` directory.
+- Capture and restore the active-vault context inside the background generation
+  thread. Context variables do not propagate automatically to new threads.
 
 ## Verification
 
