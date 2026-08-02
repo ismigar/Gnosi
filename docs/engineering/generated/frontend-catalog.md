@@ -32,7 +32,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `application root` | 3 | 272 | 0 |
-| `components` | 180 | 72445 | 188 |
+| `components` | 181 | 72660 | 188 |
 | `context` | 1 | 177 | 6 |
 | `hooks` | 16 | 1228 | 7 |
 | `lib` | 15 | 1885 | 6 |
@@ -53,8 +53,9 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Source | Lines | Export signals | Literal API paths |
 | --- | ---: | --- | --- |
-| [`frontend/src/components/AI/AIOperationsSettings.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AI/AIOperationsSettings.jsx) | 239 | `AutomationsSettingsPanel`, `OperationsHistoryPanel` | — |
-| [`frontend/src/components/AI/AIResourcesSettings.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AI/AIResourcesSettings.jsx) | 894 | `AgentSkillsField`, `SkillEditor`, `SkillsSettingsPanel`, `ToolsSettingsPanel` | — |
+| [`frontend/src/components/AI/AIOperationsSettings.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AI/AIOperationsSettings.jsx) | 264 | `AutomationsSettingsPanel`, `OperationsHistoryPanel` | — |
+| [`frontend/src/components/AI/AIResourcesSettings.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AI/AIResourcesSettings.jsx) | 883 | `AgentSkillsField`, `SkillEditor`, `SkillsSettingsPanel`, `ToolsSettingsPanel` | — |
+| [`frontend/src/components/AI/aiResourceI18n.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AI/aiResourceI18n.js) | 201 | `domainLabel`, `localizedResourceSearchText`, `operationStatusLabel`, `resourceDomain`, `resourceRoleLabel`, `resourceStatusLabel`, `skillDisplayDescription`, `skillDisplayInstructions`, `skillDisplayName`, `toolDisplayDescription`, `toolDisplayName` | — |
 | [`frontend/src/components/AI/aiSettingsUtils.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AI/aiSettingsUtils.js) | 238 | `agentSkillWarnings`, `catalogRows`, `cloneSkillPayload`, `groupEnabledModelRoutes`, `modelRouteKey`, `modelToolCompatibility`, `normalizeSkill`, `normalizeTool`, `parseModelRouteKey`, `requiredSkillIdsForAgent`, `skillEffects`, `skillPayload` | — |
 | [`frontend/src/components/AI/useAIResources.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AI/useAIResources.js) | 303 | `useAIResources` | `/api/ai/approvals`, `/api/ai/automations`, `/api/ai/capability-audit`, `/api/ai/jobs`, `/api/ai/skills`, `/api/ai/tools` |
 | [`frontend/src/components/AIModelComparisonModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AIModelComparisonModal.jsx) | 847 | `AIModelComparisonModal` | `/api/ai/model-catalog`, `/api/ai/model-comparison`, `/api/ai/models`, `/api/ai/providers/artificial_analysis/credentials` |

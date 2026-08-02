@@ -1,8 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import { AlertTriangle, Check, Clock3, Loader2, Play, Plus, RefreshCw, ShieldCheck, Trash2, X } from 'lucide-react';
+import { AlertTriangle, Check, Clock3, Loader2, Play, Plus, ShieldCheck, Trash2, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { toast } from '../../lib/toast';
+import {
+    operationStatusLabel,
+    skillDisplayName,
+    toolDisplayName,
+} from './aiResourceI18n';
 
 const emptyDraft = {
     name: '',
@@ -21,6 +26,15 @@ const toDraft = automation => ({
     ...automation,
     ...(automation?.budgets || {}),
 });
+
+const findCatalogTool = (tools, value) => {
+    const normalized = String(value || '').replaceAll('_', '-');
+    return (tools || []).find(tool => (
+        tool.id === value
+        || tool.id.endsWith(`.${normalized}`)
+        || tool.id.endsWith(`-${normalized}`)
+    ));
+};
 
 export const AutomationsSettingsPanel = ({ resources, agents }) => {
     const { t } = useTranslation();
@@ -83,11 +97,8 @@ export const AutomationsSettingsPanel = ({ resources, agents }) => {
                 <span>{t('settings.ai.operations.governance_help')}</span>
             </div>
             <div className="ai-resources-toolbar">
-                <button type="button" className="btn-gnosi-primary" onClick={() => setDraft(toDraft())}>
+                <button type="button" className="btn-gnosi btn-gnosi-primary" onClick={() => setDraft(toDraft())}>
                     <Plus size={16} /> {t('settings.ai.operations.new_automation')}
-                </button>
-                <button type="button" className="ai-resource-icon-button" onClick={resources.reload} aria-label={t('settings.ai.resources.reload')}>
-                    <RefreshCw size={17} className={resources.loading ? 'animate-spin' : ''} />
                 </button>
             </div>
             {draft && (
@@ -108,7 +119,7 @@ export const AutomationsSettingsPanel = ({ resources, agents }) => {
                             <span>{t('settings.ai.operations.skill')}</span>
                             <select className="gnosi-select" value={draft.skill_id} onChange={event => update({ skill_id: event.target.value })}>
                                 <option value="">—</option>
-                                {skills.map(skill => <option key={skill.id} value={skill.id}>{skill.name}</option>)}
+                                {skills.map(skill => <option key={skill.id} value={skill.id}>{skillDisplayName(t, skill)}</option>)}
                             </select>
                         </label>
                         <label>
@@ -129,7 +140,7 @@ export const AutomationsSettingsPanel = ({ resources, agents }) => {
                     {!valid && <div className="ai-resource-validation"><AlertTriangle size={15} />{t('settings.ai.resources.required_fields')}</div>}
                     <div className="ai-resource-editor__actions">
                         <button type="button" className="btn-gnosi-secondary" onClick={() => setDraft(null)}>{t('common.cancel')}</button>
-                        <button type="button" className="btn-gnosi-primary" disabled={!valid || saving} onClick={save}>
+                        <button type="button" className="btn-gnosi btn-gnosi-primary" disabled={!valid || saving} onClick={save}>
                             {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} {t('common.save')}
                         </button>
                     </div>
@@ -146,7 +157,7 @@ export const AutomationsSettingsPanel = ({ resources, agents }) => {
                                 <span className="ai-resource-card__meta">
                                     <span>{t('settings.ai.operations.every_minutes', { count: automation.interval_minutes })}</span>
                                     <span>{automation.enabled ? t('settings.ai.operations.enabled') : t('settings.ai.operations.disabled')}</span>
-                                    <span>{automation.last_status}</span>
+                                    <span>{operationStatusLabel(t, automation.last_status)}</span>
                                 </span>
                             </span>
                         </button>
@@ -165,7 +176,7 @@ export const AutomationsSettingsPanel = ({ resources, agents }) => {
 };
 
 export const OperationsHistoryPanel = ({ resources }) => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const [resolvingId, setResolvingId] = useState('');
     const events = useMemo(() => resources.auditEvents.slice(0, 200), [resources.auditEvents]);
     const resolve = async (approval, decision) => {
@@ -182,11 +193,6 @@ export const OperationsHistoryPanel = ({ resources }) => {
     };
     return (
         <div className="ai-resources-panel">
-            <div className="ai-resources-toolbar">
-                <button type="button" className="ai-resource-icon-button" onClick={resources.reload} aria-label={t('settings.ai.resources.reload')}>
-                    <RefreshCw size={17} className={resources.loading ? 'animate-spin' : ''} />
-                </button>
-            </div>
             <h4>{t('settings.ai.operations.approvals_title')}</h4>
             <div className="ai-resource-list">
                 {resources.approvals.map(approval => (
@@ -194,8 +200,15 @@ export const OperationsHistoryPanel = ({ resources }) => {
                         <div className="ai-resource-card__main">
                             <ShieldCheck size={18} />
                             <span className="ai-resource-card__copy">
-                                <span className="ai-resource-card__heading"><strong>{approval.action}</strong><code>{approval.agent_id}</code></span>
-                                <span>{approval.details?.tool || approval.summary_key}</span>
+                                <span className="ai-resource-card__heading">
+                                    <strong>{t('settings.ai.operations.approval_requested')}</strong>
+                                    <code>{approval.agent_id}</code>
+                                </span>
+                                <span>
+                                    {findCatalogTool(resources.tools, approval.details?.tool)
+                                        ? toolDisplayName(t, findCatalogTool(resources.tools, approval.details.tool))
+                                        : t('settings.ai.operations.approval_summary')}
+                                </span>
                             </span>
                         </div>
                         <div className="ai-resource-card__actions">
@@ -214,7 +227,7 @@ export const OperationsHistoryPanel = ({ resources }) => {
                     <article key={job.job_id} className="ai-resource-card">
                         <div className="ai-resource-card__main">
                             <Clock3 size={18} />
-                            <span className="ai-resource-card__copy"><span className="ai-resource-card__heading"><strong>{job.job_id}</strong><code>{job.provider}</code></span><span>{job.status}</span></span>
+                            <span className="ai-resource-card__copy"><span className="ai-resource-card__heading"><strong>{job.job_id}</strong><code>{job.provider}</code></span><span>{operationStatusLabel(t, job.status)}</span></span>
                         </div>
                     </article>
                 ))}
@@ -226,8 +239,20 @@ export const OperationsHistoryPanel = ({ resources }) => {
                     <article key={event.id} className="ai-resource-card">
                         <div className="ai-resource-card__main">
                             <span className="ai-resource-card__copy">
-                                <span className="ai-resource-card__heading"><strong>{event.tool_name}</strong><code>{event.status}</code></span>
-                                <span className="ai-resource-card__meta"><span>{event.agent_id}</span><span>{event.duration_ms} ms</span><span>{new Date(event.created_at * 1000).toLocaleString()}</span></span>
+                                <span className="ai-resource-card__heading">
+                                    <strong>
+                                        {findCatalogTool(resources.tools, event.tool_name)
+                                            ? toolDisplayName(t, findCatalogTool(resources.tools, event.tool_name))
+                                            : t('settings.ai.operations.capability_event')}
+                                    </strong>
+                                    <code>{operationStatusLabel(t, event.status)}</code>
+                                </span>
+                                <span className="ai-resource-card__meta">
+                                    <span>{event.agent_id}</span>
+                                    <code>{event.tool_name}</code>
+                                    <span>{t('settings.ai.operations.duration_ms', { count: event.duration_ms })}</span>
+                                    <span>{new Date(event.created_at * 1000).toLocaleString(i18n?.resolvedLanguage || i18n?.language || 'en')}</span>
+                                </span>
                             </span>
                         </div>
                     </article>

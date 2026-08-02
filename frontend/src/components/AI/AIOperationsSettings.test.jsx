@@ -86,7 +86,7 @@ describe('AI governed operations settings', () => {
         }} />);
 
         expect(container.textContent).toContain('reader:job-1');
-        expect(container.textContent).toContain('search_reader_articles');
+        expect(container.textContent).toContain('settings.ai.operations.capability_event');
         expect(container.textContent).not.toContain('body_text');
     });
 

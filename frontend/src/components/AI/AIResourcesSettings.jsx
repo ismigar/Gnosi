@@ -17,7 +17,6 @@ import {
     Loader2,
     LockKeyhole,
     Plus,
-    RefreshCw,
     Search,
     ShieldAlert,
     Sparkles,
@@ -33,6 +32,16 @@ import {
     requiredSkillIdsForAgent,
     skillEffects,
 } from './aiSettingsUtils';
+import {
+    localizedResourceSearchText,
+    resourceRoleLabel,
+    resourceStatusLabel,
+    skillDisplayDescription,
+    skillDisplayInstructions,
+    skillDisplayName,
+    toolDisplayDescription,
+    toolDisplayName,
+} from './aiResourceI18n';
 
 const EFFECT_ICONS = {
     read: Search,
@@ -62,10 +71,6 @@ const originLabel = (t, origin) => {
     });
 };
 
-const statusLabel = (t, status) => t(`settings.ai.resources.status_${status}`, {
-    defaultValue: status,
-});
-
 const EffectBadges = ({ effects }) => {
     const { t } = useTranslation();
     if (effects.length === 0) {
@@ -91,7 +96,7 @@ const ResourceState = ({ available, status }) => {
     return (
         <span className={`ai-resource-status ${available ? 'is-available' : 'is-unavailable'}`}>
             {available ? <Check size={13} /> : <CircleSlash2 size={13} />}
-            {statusLabel(t, status)}
+            {resourceStatusLabel(t, status)}
         </span>
     );
 };
@@ -133,8 +138,7 @@ export const SkillEditor = ({ skill = null, tools, onSave, onValidate, onCancel 
     const normalizedSearch = toolSearch.trim().toLowerCase();
     const visibleTools = tools.filter(tool => (
         !normalizedSearch
-        || tool.name.toLowerCase().includes(normalizedSearch)
-        || tool.id.toLowerCase().includes(normalizedSearch)
+        || localizedResourceSearchText(t, tool, 'tool').includes(normalizedSearch)
     ));
     const canSave = draft.name.trim() && draft.instructions.trim();
 
@@ -243,7 +247,7 @@ export const SkillEditor = ({ skill = null, tools, onSave, onValidate, onCancel 
                                 onChange={() => toggleTool(tool.id)}
                             />
                             <span className="ai-resource-tool-option__copy">
-                                <strong>{tool.name}</strong>
+                                <strong>{toolDisplayName(t, tool)}</strong>
                                 <code>{tool.id}</code>
                                 <EffectBadges effects={tool.effects} />
                             </span>
@@ -288,7 +292,7 @@ export const SkillEditor = ({ skill = null, tools, onSave, onValidate, onCancel 
                         {t('settings.ai.resources.validate')}
                     </button>
                 )}
-                <button type="button" className="btn-gnosi-primary" onClick={handleSave} disabled={!canSave || saving}>
+                <button type="button" className="btn-gnosi btn-gnosi-primary" onClick={handleSave} disabled={!canSave || saving}>
                     {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
                     {t('common.save')}
                 </button>
@@ -305,7 +309,7 @@ const SkillDetails = ({ skill, toolsById }) => {
             {skill.instructions && (
                 <div>
                     <strong>{t('settings.ai.resources.instructions')}</strong>
-                    <pre>{skill.instructions}</pre>
+                    <pre>{skillDisplayInstructions(t, skill)}</pre>
                 </div>
             )}
             <div>
@@ -357,10 +361,10 @@ const SkillCard = ({
                 {expanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
                 <span className="ai-resource-card__copy">
                     <span className="ai-resource-card__heading">
-                        <strong>{skill.name}</strong>
+                        <strong>{skillDisplayName(t, skill)}</strong>
                         <code>{skill.id}</code>
                     </span>
-                    <span>{skill.description || t('settings.ai.resources.no_description')}</span>
+                    <span>{skillDisplayDescription(t, skill) || t('settings.ai.resources.no_description')}</span>
                     <span className="ai-resource-card__meta">
                         <span>{originLabel(t, skill.origin)}</span>
                         <span>{t(`settings.ai.resources.activation_${skill.activation}`)}</span>
@@ -427,9 +431,7 @@ export const SkillsSettingsPanel = ({
         (origin === 'all' || skill.origin.type === origin)
         && (
             !normalizedSearch
-            || skill.name.toLowerCase().includes(normalizedSearch)
-            || skill.id.toLowerCase().includes(normalizedSearch)
-            || skill.description.toLowerCase().includes(normalizedSearch)
+            || localizedResourceSearchText(t, skill, 'skill').includes(normalizedSearch)
         )
     ));
 
@@ -527,7 +529,7 @@ export const SkillsSettingsPanel = ({
                 </select>
                 <button
                     type="button"
-                    className="btn-gnosi-primary"
+                    className="btn-gnosi btn-gnosi-primary"
                     onClick={() => {
                         setCreating(current => !current);
                         setEditing(null);
@@ -536,21 +538,15 @@ export const SkillsSettingsPanel = ({
                     {creating ? <ChevronDown size={16} /> : <Plus size={16} />}
                     {t('settings.ai.resources.new_skill')}
                 </button>
-                <button
-                    type="button"
-                    className="ai-resource-icon-button"
-                    onClick={resources.reload}
-                    aria-label={t('settings.ai.resources.reload')}
-                    title={t('settings.ai.resources.reload')}
-                >
-                    <RefreshCw size={17} className={resources.loading ? 'animate-spin' : ''} />
-                </button>
             </div>
 
             {resources.error && (
                 <div className="ai-resource-alert is-error">
                     <AlertTriangle size={17} />
                     <span>{t('settings.ai.resources.load_error')}: {resources.error}</span>
+                    <button type="button" className="btn-gnosi btn-gnosi-secondary" onClick={resources.reload}>
+                        {t('common.retry')}
+                    </button>
                 </div>
             )}
             {resources.issues?.length > 0 && (
@@ -667,9 +663,7 @@ export const ToolsSettingsPanel = ({ resources }) => {
         (status === 'all' || tool.status === status)
         && (
             !normalizedSearch
-            || tool.name.toLowerCase().includes(normalizedSearch)
-            || tool.id.toLowerCase().includes(normalizedSearch)
-            || tool.description.toLowerCase().includes(normalizedSearch)
+            || localizedResourceSearchText(t, tool, 'tool').includes(normalizedSearch)
         )
     ));
 
@@ -694,20 +688,14 @@ export const ToolsSettingsPanel = ({ resources }) => {
                     <option value="revoked">{t('settings.ai.resources.status_revoked')}</option>
                     <option value="unavailable">{t('settings.ai.resources.status_unavailable')}</option>
                 </select>
-                <button
-                    type="button"
-                    className="ai-resource-icon-button"
-                    onClick={resources.reload}
-                    aria-label={t('settings.ai.resources.reload')}
-                    title={t('settings.ai.resources.reload')}
-                >
-                    <RefreshCw size={17} className={resources.loading ? 'animate-spin' : ''} />
-                </button>
             </div>
             {resources.error && (
                 <div className="ai-resource-alert is-error">
                     <AlertTriangle size={17} />
                     <span>{t('settings.ai.resources.load_error')}: {resources.error}</span>
+                    <button type="button" className="btn-gnosi btn-gnosi-secondary" onClick={resources.reload}>
+                        {t('common.retry')}
+                    </button>
                 </div>
             )}
             <div className="ai-resource-list">
@@ -723,15 +711,15 @@ export const ToolsSettingsPanel = ({ resources }) => {
                                 {expanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
                                 <span className="ai-resource-card__copy">
                                     <span className="ai-resource-card__heading">
-                                        <strong>{tool.name}</strong>
+                                        <strong>{toolDisplayName(t, tool)}</strong>
                                         <code>{tool.id}</code>
                                     </span>
-                                    <span>{tool.description || t('settings.ai.resources.no_description')}</span>
+                                    <span>{toolDisplayDescription(t, tool) || t('settings.ai.resources.no_description')}</span>
                                     <span className="ai-resource-card__meta">
                                         <span>{originLabel(t, tool.origin)}</span>
                                         <span>{t('settings.ai.resources.version', { version: tool.version })}</span>
                                         {tool.minimumRole && (
-                                            <span>{t('settings.ai.resources.minimum_role', { role: tool.minimumRole })}</span>
+                                            <span>{t('settings.ai.resources.minimum_role', { role: resourceRoleLabel(t, tool.minimumRole) })}</span>
                                         )}
                                     </span>
                                     <EffectBadges effects={tool.effects} />
@@ -742,7 +730,7 @@ export const ToolsSettingsPanel = ({ resources }) => {
                                 <div className="ai-resource-details">
                                     <div>
                                         <strong>{t('settings.ai.resources.confirmation')}</strong>
-                                        <span>{statusLabel(t, tool.confirmation)}</span>
+                                        <span>{resourceStatusLabel(t, tool.confirmation)}</span>
                                     </div>
                                     <div>
                                         <strong>{t('settings.ai.resources.consuming_skills')}</strong>
@@ -755,7 +743,7 @@ export const ToolsSettingsPanel = ({ resources }) => {
                                     {tool.approvalStatus && (
                                         <div>
                                             <strong>{t('settings.ai.resources.approval')}</strong>
-                                            <span>{statusLabel(t, tool.approvalStatus)}</span>
+                                            <span>{resourceStatusLabel(t, tool.approvalStatus)}</span>
                                         </div>
                                     )}
                                     <JsonSchemaDetails
@@ -797,9 +785,7 @@ export const AgentSkillsField = ({
     );
     const visibleSkills = assignable.filter(skill => (
         !normalizedSearch
-        || skill.name.toLowerCase().includes(normalizedSearch)
-        || skill.id.toLowerCase().includes(normalizedSearch)
-        || skill.description.toLowerCase().includes(normalizedSearch)
+        || localizedResourceSearchText(t, skill, 'skill').includes(normalizedSearch)
     ));
     const knownIds = new Set(assignable.map(skill => skill.id));
     const missingIds = selectedIds.filter(id => !knownIds.has(id));
@@ -857,8 +843,8 @@ export const AgentSkillsField = ({
                                 onChange={() => toggleSkill(skill)}
                             />
                             <span className="ai-agent-skill__copy">
-                                <strong>{skill.name}</strong>
-                                <span>{skill.description || skill.id}</span>
+                                <strong>{skillDisplayName(t, skill)}</strong>
+                                <span>{skillDisplayDescription(t, skill) || skill.id}</span>
                                 <EffectBadges effects={skillEffects(skill, toolsById)} />
                             </span>
                             <span className="ai-agent-skill__meta">
@@ -884,7 +870,10 @@ export const AgentSkillsField = ({
                         {warning.type === 'model_tools'
                             ? t('settings.ai.resources.model_incompatible')
                             : t('settings.ai.resources.skills_unavailable', {
-                                skills: warning.skillNames.join(', '),
+                                skills: warning.skillNames.map(name => {
+                                    const skill = assignable.find(item => item.name === name);
+                                    return skill ? skillDisplayName(t, skill) : name;
+                                }).join(', '),
                             })}
                     </span>
                 </div>
