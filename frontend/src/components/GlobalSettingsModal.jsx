@@ -908,7 +908,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     ];
     const [socialNetworks, setSocialNetworks] = useState(SOCIAL_NETWORK_DEFAULTS);
     const [socialStreams, setSocialStreams] = useState([]);
-    const [socialSection, setSocialSection] = useState('networks');
     const [newStreamForm, setNewStreamForm] = useState({ id: '', title: '', icon: '📡', network: 'mastodon' });
     const [showAddStream, setShowAddStream] = useState(false);
 
