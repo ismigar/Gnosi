@@ -8,7 +8,8 @@ Gnosi is **free software under the AGPL-3.0-or-later**. By contributing, you agr
 
 - **Report bugs** — open an issue with steps to reproduce, what you expected, and what happened. Include your OS, whether you run via Docker or locally, and the relevant logs.
 - **Propose features** — open an issue describing the problem you're trying to solve before writing code. Gnosi is local-first and privacy-respecting; features that phone home or assume a central server are usually out of scope.
-- **Improve docs** — fixes to the README, [ARCHITECTURE.md](ARCHITECTURE.md), or this guide are very welcome.
+- **Improve docs** — fixes to the README, [ARCHITECTURE.md](ARCHITECTURE.md),
+  [engineering portal](docs/engineering/index.md), or this guide are very welcome.
 - **Send a pull request** — see [Commit & pull request process](#commit--pull-request-process) below.
 
 ## Repository layout
@@ -25,6 +26,17 @@ apps/gnosi/
 ```
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for how the pieces fit together and where to add new things.
+
+The detailed [engineering portal](docs/engineering/index.md) connects product
+domains to source, API operations, relational models, configuration, and tests.
+When a change alters one of those contracts, update the reviewed guide and run:
+
+```bash
+python pipeline/skills/technical_documentation/scripts/generate.py
+python pipeline/skills/technical_documentation/scripts/generate.py --check
+python pipeline/skills/technical_documentation/scripts/validate.py
+mkdocs build --strict
+```
 
 ## Development setup
 
