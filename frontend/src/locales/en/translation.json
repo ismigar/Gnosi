@@ -85,6 +85,7 @@
   "common": {
     "knowledge": "Knowledge",
     "vault_label": "Vault",
+    "gallery_content_preview": "Page content preview",
     "yes": "Yes",
     "status": {
       "saving": "Saving...",
