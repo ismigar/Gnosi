@@ -1,4 +1,5 @@
 const TOGGLE_STATE_PREFIX = 'gnosi.vault.toggle-expansion.';
+const TOGGLE_DOM_STATE_PREFIX = 'gnosi.vault.toggle-dom-expansion.';
 
 function contentSignature(content) {
     if (typeof content === 'string') return content.trim();
@@ -23,6 +24,10 @@ function toggleEntries(blocks, parentPath = '') {
 
 function pageStorageKey(pageId) {
     return `${TOGGLE_STATE_PREFIX}${pageId}`;
+}
+
+function domStorageKey(pageId) {
+    return `${TOGGLE_DOM_STATE_PREFIX}${pageId}`;
 }
 
 export function restoreToggleExpansionState(pageId, blocks, storage = window.localStorage) {
@@ -53,4 +58,31 @@ export function saveToggleExpansionState(pageId, blocks, storage = window.localS
     } catch {
         // Keep toggle controls usable when browser storage is unavailable.
     }
+}
+
+export function saveToggleDomExpansionState(pageId, root, storage = window.localStorage) {
+    if (!pageId || !root || !storage) return;
+    const state = Array.from(root.querySelectorAll('.bn-toggle-wrapper')).map(
+        (wrapper) => wrapper.getAttribute('data-show-children') === 'true',
+    );
+    try {
+        storage.setItem(domStorageKey(pageId), JSON.stringify(state));
+    } catch {
+        // Keep toggle controls usable when browser storage is unavailable.
+    }
+}
+
+export function restoreToggleDomExpansionState(pageId, root, storage = window.localStorage) {
+    if (!pageId || !root || !storage) return;
+    let state;
+    try {
+        state = JSON.parse(storage.getItem(domStorageKey(pageId)) || 'null');
+    } catch {
+        return;
+    }
+    if (!Array.isArray(state)) return;
+    Array.from(root.querySelectorAll('.bn-toggle-wrapper')).forEach((wrapper, index) => {
+        if (!state[index] || wrapper.getAttribute('data-show-children') === 'true') return;
+        wrapper.querySelector('.bn-toggle-button')?.click();
+    });
 }

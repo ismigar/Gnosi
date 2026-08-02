@@ -25,7 +25,7 @@ export function GalleryOpenButton({ pageId }) {
     );
 }
 
-export function GalleryContentPreview({ note, idToTitle = {}, onNoteSelect }) {
+export function GalleryContentPreview({ note, idToTitle = {}, onNoteSelect, onOpenParallel }) {
     const { t } = useTranslation();
     const previewRef = useRef(null);
     const fallbackMarkdown = getGalleryMarkdown(note);
@@ -92,8 +92,9 @@ export function GalleryContentPreview({ note, idToTitle = {}, onNoteSelect }) {
                     imageTitle={note?.title || ''}
                     idToTitle={idToTitle}
                     onActivate={() => onNoteSelect?.(note?.id)}
-                    onOpenInCurrentTab={onNoteSelect}
+                    onOpenInCurrentTab={onOpenParallel || onNoteSelect}
                     onOpenInNewTab={openGalleryPageWindow}
+                    onOpenParallel={onOpenParallel}
                 />
             ) : (
                 <div className="flex h-full items-center justify-center text-[var(--text-tertiary)] opacity-40">
