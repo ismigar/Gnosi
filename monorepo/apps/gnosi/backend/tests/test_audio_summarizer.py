@@ -31,12 +31,35 @@ def test_podcast_model_selection_requires_provider_and_model_together():
         )
 
 
-def test_podcast_language_selection_uses_interface_language():
-    assert audio_summarizer._podcast_language_selection({"language": "ca"}) == (
-        "ca",
-        "Catalan",
+@pytest.mark.parametrize(
+    ("settings", "expected"),
+    [
+        ({"language": "ca"}, ("ca", "Catalan")),
+        ({"language": "es"}, ("es", "Spanish")),
+        ({"language": "fr"}, ("fr", "French")),
+        ({"language": "en"}, ("en", "English")),
+        ({"language": "unsupported"}, ("en", "English")),
+        ({}, ("en", "English")),
+    ],
+)
+def test_podcast_language_selection_follows_normalized_interface_language(
+    settings, expected
+):
+    assert audio_summarizer._podcast_language_selection(settings) == expected
+
+
+def test_resolve_podcast_language_reads_current_settings_each_time(monkeypatch):
+    configs = iter([
+        _config(settings={"language": "ca"}),
+        _config(settings={"language": "fr"}),
+    ])
+    monkeypatch.setattr(
+        "backend.config.app_config.load_params",
+        lambda strict_env=False: next(configs),
     )
 
+    assert audio_summarizer._resolve_podcast_language() == ("ca", "Catalan")
+    assert audio_summarizer._resolve_podcast_language() == ("fr", "French")
 
 def test_resolve_podcast_llm_uses_default_model_when_route_is_empty(monkeypatch):
     expected_llm = FakeLlm()
@@ -159,22 +182,27 @@ def test_summarize_batch_uses_langchain_messages_and_records_usage(monkeypatch):
     )
 
     assert result == "Podcast script"
-    assert llm.messages[0].content.endswith("Language: Catalan.")
+    assert llm.messages[0].content == (
+        "You are an intelligent podcast assistant. "
+        "Write exclusively the text that will be read literally out loud, "
+        "without adding notes, section titles, or meta-comments. "
+        "Language: Catalan."
+    )
     assert "Structure the summary as a fluid 10-15 minute podcast script" in (
         llm.messages[1].content
     )
     assert recorded == [("groq", "llama-3.3-70b-versatile", 120, 30)]
 
 
-def test_tts_uses_selected_interface_language(monkeypatch, tmp_path):
-    observed_languages = []
+def test_generate_tts_uses_selected_language(monkeypatch, tmp_path):
+    observed = []
 
     class FakeTts:
         def __init__(self, text, lang, slow):
-            observed_languages.append(lang)
+            observed.append((text, lang, slow))
 
-        def write_to_fp(self, target):
-            target.write(b"audio")
+        def write_to_fp(self, buffer):
+            buffer.write(b"audio")
 
     monkeypatch.setattr(audio_summarizer, "gTTS", FakeTts)
     output_path = tmp_path / "podcast.mp3"
@@ -183,7 +211,10 @@ def test_tts_uses_selected_interface_language(monkeypatch, tmp_path):
         "Primera frase. Segona frase.", output_path, "ca"
     )
 
-    assert observed_languages == ["ca", "ca"]
+    assert observed == [
+        ("Primera frase.", "ca", False),
+        ("Segona frase.", "ca", False),
+    ]
     assert output_path.read_bytes() == b"audioaudio"
 
 

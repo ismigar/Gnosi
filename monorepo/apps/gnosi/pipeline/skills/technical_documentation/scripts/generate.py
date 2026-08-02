@@ -41,18 +41,27 @@ SECRET_NAME_RE = re.compile(
     r"(?:API_?KEY|BEARER|CREDENTIAL|PASSWORD|PRIVATE|SECRET|TOKEN)", re.IGNORECASE
 )
 EXCLUDED_FILE_PARTS = {
+    ".auth",
     ".git",
     ".mypy_cache",
     ".pytest_cache",
     ".venv",
+    ".venv-python",
     "__pycache__",
     "coverage",
     "dist",
+    "dist-python",
     "local_data",
+    "logs",
     "node_modules",
     "playwright-report",
+    "python-build",
+    "secrets",
     "test-results",
     "vendor",
+}
+EXCLUDED_FILE_NAMES = {
+    "zotero_db_config.json",
 }
 FRONTEND_ENV_RE = re.compile(r"\b(?:import\.meta|process)\.env\.([A-Z][A-Z0-9_]*)")
 FRONTEND_API_RE = re.compile(r"['\"](/api/[A-Za-z0-9_?&=./:{}*+%-]+)['\"]")
@@ -218,7 +227,7 @@ def python_files(root: Path, *, include_tests: bool = True) -> list[Path]:
     files: list[Path] = []
     for path in root.rglob("*.py"):
         parts = set(path.parts)
-        if parts.intersection({".venv", "__pycache__", "node_modules", "local_data"}):
+        if parts.intersection(EXCLUDED_FILE_PARTS):
             continue
         if not include_tests and ("tests" in parts or TEST_NAME_RE.match(path.name)):
             continue
@@ -233,7 +242,7 @@ def frontend_files(root: Path, *, include_tests: bool = True) -> list[Path]:
         if not path.is_file() or path.suffix not in SOURCE_SUFFIXES:
             continue
         parts = set(path.parts)
-        if parts.intersection({"node_modules", "vendor", "dist", "coverage"}):
+        if parts.intersection(EXCLUDED_FILE_PARTS):
             continue
         if not include_tests and TEST_NAME_RE.match(path.name):
             continue
@@ -243,11 +252,15 @@ def frontend_files(root: Path, *, include_tests: bool = True) -> list[Path]:
 
 def is_owned_inventory_file(path: Path) -> bool:
     """Return whether a file belongs in high-level owned-source counts."""
-    if not path.is_file() or path.name.startswith("."):
+    if (
+        not path.is_file()
+        or path.name.startswith(".")
+        or path.name in EXCLUDED_FILE_NAMES
+    ):
         return False
     if set(path.parts).intersection(EXCLUDED_FILE_PARTS):
         return False
-    return path.suffix not in {".pyc", ".pyo"}
+    return path.suffix not in {".oxt", ".pyc", ".pyo"}
 
 
 def parse_router_registration(server_path: Path) -> list[RouterRegistration]:
