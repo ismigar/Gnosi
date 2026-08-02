@@ -30,6 +30,9 @@ def test_pages_workflow_publishes_the_engineering_subdirectory():
     assert workflow["jobs"]["deploy"]["needs"] == "build"
 
     build_steps = workflow["jobs"]["build"]["steps"]
+    step_names = {step.get("name") for step in build_steps}
+    assert "Verify generated reference" not in step_names
+    assert "Validate traceability and links" in step_names
     upload_step = next(
         step for step in build_steps if step.get("uses", "").startswith(
             "actions/upload-pages-artifact@"
