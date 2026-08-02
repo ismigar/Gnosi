@@ -2324,6 +2324,7 @@
     "dashboards": "Tableaux de bord",
     "no_dashboard_pages": "Aucun tableau de bord",
     "nav_settings": "Paramètres",
+    "nav_documentation": "Documentation technique",
     "rename_db_title": "Renommer la base de données",
     "rename_table_title": "Renommer la table",
     "prompt_new_name_db": "Nouveau nom pour la base de données",

@@ -1,6 +1,6 @@
 site_name: Gnosi Engineering Documentation
 site_description: Architecture, implementation, operations, and source reference for Gnosi
-site_url: https://ismigar.github.io/Gnosi/engineering/
+site_url: https://gnosi.temenosismael.org/engineering/
 repo_url: https://github.com/ismigar/Gnosi
 repo_name: ismigar/Gnosi
 edit_uri: edit/main/apps/gnosi/docs/engineering/
