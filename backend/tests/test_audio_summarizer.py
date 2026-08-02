@@ -1,3 +1,4 @@
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -155,3 +156,33 @@ def test_summarize_batch_uses_langchain_messages_and_records_usage(monkeypatch):
         llm.messages[1].content
     )
     assert recorded == [("groq", "llama-3.3-70b-versatile", 120, 30)]
+
+
+def test_podcast_output_dir_is_inside_selected_vault(tmp_path):
+    assert audio_summarizer.get_podcast_output_dir(tmp_path) == (
+        Path(tmp_path) / "data" / "podcasts"
+    )
+
+
+def test_async_generation_preserves_selected_vault(monkeypatch, tmp_path):
+    observed_paths = []
+
+    def fake_generate():
+        from backend.services.context_vars import get_active_vault_path
+
+        observed_paths.append(get_active_vault_path())
+        audio_summarizer.generation_status["running"] = False
+
+    class ImmediateThread:
+        def __init__(self, target, daemon):
+            self.target = target
+
+        def start(self):
+            self.target()
+
+    audio_summarizer.generation_status["running"] = False
+    monkeypatch.setattr(audio_summarizer, "generate_daily_podcast", fake_generate)
+    monkeypatch.setattr(audio_summarizer.threading, "Thread", ImmediateThread)
+
+    assert audio_summarizer.start_generation_async(vault_path=tmp_path) is True
+    assert observed_paths == [Path(tmp_path)]

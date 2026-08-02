@@ -480,11 +480,12 @@ def get_backfill_extract_status():
 def trigger_podcast_generation():
     """Launches podcast generation in the background"""
     from backend.services.audio_summarizer import start_generation_async, generation_status
+    from backend.services.context_vars import get_active_vault_path
     
     if generation_status["running"]:
         return {"status": "already_running", "message": "A podcast is already being generated.", "progress": generation_status["progress"]}
     
-    started = start_generation_async()
+    started = start_generation_async(vault_path=get_active_vault_path())
     if not started:
         raise HTTPException(status_code=409, detail="Generation already in progress.")
     return {"status": "started", "message": "Generation started in the background."}
@@ -506,10 +507,9 @@ def get_podcast_info():
     import os
     from datetime import datetime
 
-    from backend.services.context_vars import get_active_vault_path
+    from backend.services.audio_summarizer import get_podcast_output_dir
 
-    # Podcast path within the active vault
-    pod_dir = get_active_vault_path() / "data" / "podcasts"
+    pod_dir = get_podcast_output_dir()
     pod_dir.mkdir(parents=True, exist_ok=True)
 
     files = [f for f in os.listdir(pod_dir) if f.endswith('.mp3')]
@@ -536,9 +536,9 @@ def get_podcast_info():
 @router.get("/podcast/latest")
 def get_latest_podcast():
     """Download/Stream the most recent podcast"""
-    from backend.services.context_vars import get_active_vault_path
+    from backend.services.audio_summarizer import get_podcast_output_dir
     
-    pod_dir = get_active_vault_path() / "data" / "podcasts"
+    pod_dir = get_podcast_output_dir()
     if not os.path.exists(pod_dir):
         raise HTTPException(status_code=404, detail="No podcasts available")
         
