@@ -3009,6 +3009,7 @@
   "reader_analysis_scope_source": "{{source}} · {{count}} articles",
   "reader_analysis_scope_all": "All feeds · {{count}} articles",
   "reader_analysis_desc": "Gnosi creates an immutable snapshot, processes every selected article in checkpoints, and produces a cited evolution for each topic. You can leave this page and resume after a restart.",
+  "reader_analysis_cost_notice": "This operation processes every selected article and may consume many AI model calls.",
   "reader_analysis_start": "Analyze selected articles",
   "reader_analysis_start_error": "The analysis could not be started.",
   "reader_analysis_resume_error": "The analysis could not be resumed.",

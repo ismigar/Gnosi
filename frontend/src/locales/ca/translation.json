@@ -3037,6 +3037,7 @@
   "reader_analysis_scope_source": "{{source}} · {{count}} articles",
   "reader_analysis_scope_all": "Tots els canals · {{count}} articles",
   "reader_analysis_desc": "Gnosi crea una instantània immutable, processa tots els articles seleccionats amb punts de control i genera una evolució citada per a cada tema. Pots sortir d’aquesta pàgina i reprendre-la després d’un reinici.",
+  "reader_analysis_cost_notice": "Aquesta operació processa tots els articles seleccionats i pot consumir moltes crides al model d’IA.",
   "reader_analysis_start": "Analitzar els articles seleccionats",
   "reader_analysis_start_error": "No s’ha pogut iniciar l’anàlisi.",
   "reader_analysis_resume_error": "No s’ha pogut reprendre l’anàlisi.",

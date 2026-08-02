@@ -591,6 +591,9 @@ const ReaderDashboard = () => {
                                     <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">
                                         {t('reader_analysis_desc', 'Gnosi creates an immutable snapshot, processes every selected article in checkpoints, and produces a cited evolution for each topic. You can leave this page and resume after a restart.')}
                                     </p>
+                                    <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+                                        {t('reader_analysis_cost_notice', 'This operation processes every selected article and may consume many AI model calls.')}
+                                    </p>
                                     <button onClick={startTopicAnalysis} disabled={analysisStarting} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[var(--gnosi-blue)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
                                         {analysisStarting ? <Loader size={15} className="animate-spin" /> : <Sparkles size={15} />}
                                         {t('reader_analysis_start', 'Analyze selected articles')}

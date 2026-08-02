@@ -2983,6 +2983,7 @@
   "reader_analysis_scope_source": "{{source}} · {{count}} artículos",
   "reader_analysis_scope_all": "Todos los canales · {{count}} artículos",
   "reader_analysis_desc": "Gnosi crea una instantánea inmutable, procesa todos los artículos seleccionados con puntos de control y genera una evolución citada para cada tema. Puedes salir de esta página y reanudarla después de un reinicio.",
+  "reader_analysis_cost_notice": "Esta operación procesa todos los artículos seleccionados y puede consumir muchas llamadas al modelo de IA.",
   "reader_analysis_start": "Analizar los artículos seleccionados",
   "reader_analysis_start_error": "No se ha podido iniciar el análisis.",
   "reader_analysis_resume_error": "No se ha podido reanudar el análisis.",
