@@ -34,6 +34,16 @@ def _apply_lazy_migrations(engine):
                 # already gates this branch.
                 conn.execute(text("ALTER TABLE articles ADD COLUMN full_content TEXT"))
 
+    if "pdf_annotations" in inspector.get_table_names():
+        cols = {c["name"] for c in inspector.get_columns("pdf_annotations")}
+        with engine.begin() as conn:
+            if "managed_key" not in cols:
+                conn.execute(text("ALTER TABLE pdf_annotations ADD COLUMN managed_key VARCHAR"))
+            conn.execute(text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS "
+                "ix_pdf_annotations_managed_key ON pdf_annotations (managed_key)"
+            ))
+
 
 class VaultNotConfiguredError(Exception):
     """Raised when no vault path has been configured by the user."""

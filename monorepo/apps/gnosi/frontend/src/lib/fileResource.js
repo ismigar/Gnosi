@@ -434,6 +434,27 @@ export function fileTargetKey(value) {
     return s.toLowerCase();
 }
 
+/** Stable identity shared by document tabs and standalone reader windows. */
+export function documentResourceKey(value) {
+    return fileTargetKey(value) || String(value || '').trim();
+}
+
+/** Integrated Vault tab id for a document, independent of equivalent URI forms. */
+export function documentTabId(value) {
+    return `pdf:${documentResourceKey(value)}`;
+}
+
+/** Stable browser browsing-context name for the standalone reader fallback. */
+export function documentWindowName(value) {
+    const key = documentResourceKey(value);
+    let hash = 2166136261;
+    for (let index = 0; index < key.length; index += 1) {
+        hash ^= key.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
+    }
+    return `gnosi-document-${(hash >>> 0).toString(36)}`;
+}
+
 async function copyPathToClipboard(target, t) {
     let plain = target;
     if (/^file:\/\//i.test(target)) {
@@ -486,7 +507,13 @@ export function openFileResource(target, { title, navigate, location, t = (k, o)
         const evt = new CustomEvent('gnosi:open-pdf', {
             // `location` (e.g. {pageNumber:'12'}) drives a NotebookLM-style jump
             // to the exact spot of a citation. Omitted → opens at the start.
-            detail: { src, title: title || filenameFromTarget(src), kind: docKind, location: location || null },
+            detail: {
+                src,
+                documentKey: documentResourceKey(src),
+                title: title || filenameFromTarget(src),
+                kind: docKind,
+                location: location || null,
+            },
             cancelable: true,
         });
         const handled = !window.dispatchEvent(evt);
@@ -494,7 +521,16 @@ export function openFileResource(target, { title, navigate, location, t = (k, o)
             const qs = new URLSearchParams({ src, kind: docKind });
             if (location?.pageNumber) qs.set('page', String(location.pageNumber));
             if (navigate) navigate(`/vault/pdf?${qs.toString()}`);
-            else window.open(`/vault/pdf?${qs.toString()}`, '_blank', 'noopener');
+            else {
+                const readerWindow = window.open(
+                    `/vault/pdf?${qs.toString()}`,
+                    documentWindowName(src),
+                );
+                if (readerWindow) {
+                    try { readerWindow.opener = null; } catch { /* browser-owned */ }
+                    readerWindow.focus?.();
+                }
+            }
         }
         return;
     }

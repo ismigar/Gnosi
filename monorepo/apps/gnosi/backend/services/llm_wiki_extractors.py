@@ -127,6 +127,12 @@ def extract_resource_sources(
                     raise ExtractionError(f"Attachment not found or outside configured roots: {value}")
                 _materialize(path)
                 extracted = _extract_path(path, input_order, label=Path(path).name)
+                # Keep the trusted resolved path only for this ingest process.
+                # Snapshot persistence intentionally excludes these private fields.
+                for origin in extracted:
+                    if origin.get("kind") == "pdf":
+                        origin["_annotation_source_uri"] = value
+                        origin["_annotation_pdf_path"] = str(path)
             origins.extend(extracted)
         except Exception as exc:  # noqa: BLE001
             message = f"{input_kind} {value}: {exc}"
