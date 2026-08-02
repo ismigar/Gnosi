@@ -158,6 +158,25 @@ The PDF path is implemented end-to-end. A rendered citation contains
 attachment and opens the vendored Zotero reader with `pageNumber`. The reader receives
 both initial location and later navigation messages.
 
+Editable BlockNote pages preserve citation deep links through an internal HTTPS
+sentinel because Tiptap rejects the custom `gnosi-cite:` protocol. Serialization restores
+the portable custom protocol exactly. A delegated capture-phase handler blocks
+ProseMirror's native link opening and resolves the trusted resource, snapshot, and segment
+through the existing evidence endpoint.
+
+PDF citation navigation sends both the page and the persisted evidence text to the
+vendored reader. The reader navigates to the page and uses its transient find highlight to
+mark the cited passage; this must not create or persist a user annotation. When exact text
+matching is unavailable, page navigation remains the deterministic fallback.
+For rendered reading-note quotations, the visible quotation text is the preferred search
+fragment because persisted evidence segments may cover an entire PDF page. The reader uses
+a short leading phrase that ends on a word boundary, avoiding punctuation and PDF text-layer
+normalization differences. Navigation is scheduled idempotently during reader creation,
+after initialization, and in bounded delayed retries because the vendored
+`initializedPromise` can remain pending after the PDF is already interactive. The iframe
+host URL is versioned whenever its message or navigation behavior changes so browser caches
+cannot keep an older host contract.
+
 ## 7. Managed indexes, search, and maintenance
 
 Only rows with an LLM Wiki role are managed. Managed blocks are delimited, so manual text
@@ -245,6 +264,16 @@ overwrite user-edited instructions.
   options or related rows.
 - Do not resume a plan when any origin hash changes; citations could point to another
   source version.
+- Do not pass `gnosi-cite:` directly to BlockNote/Tiptap. It removes unapproved protocols
+  and silently turns the locator into plain text; protect it with the citation HTTPS
+  sentinel and restore it only during Markdown serialization.
+- Do not trust a filesystem path embedded in a citation or create a persisted annotation
+  merely to show evidence. Resolve evidence by resource/snapshot/segment on the backend and
+  use the Zotero reader's transient navigation/find state.
+- Do not block citation navigation by awaiting the vendored reader's
+  `initializedPromise`; it can remain pending after rendering. Queue bounded, sequence-safe
+  navigation retries and prefer the rendered quotation over a page-sized evidence segment
+  for the transient find query.
 - Do not run semantic proposals on every ingest or scheduled maintenance.
 - Treat `.gnosi/llm_wiki_suggestions.json` as the canonical proposal queue. The
   `suggest_connections` scheduler, Brain inbox, and global graph must all use this queue;
