@@ -1,7 +1,8 @@
 # Directive: Context sources for Cognition agents
 
 **Status:** Phases 1–3 implemented: files, pages, tables/databases, vaults,
-URLs, and searchable external sources.
+URLs, and searchable external sources. Phase 4 implements whole-collection
+Reader context through the assistant.
 
 ## Problem
 
@@ -152,3 +153,61 @@ MCP tools). This is not a tool implementation defect: `search_context` and
 `read_external_source` work both directly and in a real chat turn. Agents with
 attached sources currently require a model with reliable native tool support.
 Failures now appear as readable messages instead of `Internal error [id]`.
+
+## Phase 4 — whole-collection Reader context
+
+The Reader route attaches the complete Reader collection to the current chat
+turn. The visible Reader filter is presentation state, not an authorization
+boundary: changing between pending and historical articles or selecting a feed
+must not make the assistant forget that other Reader records exist.
+
+Reader context exposes authoritative inventory, search, exact reads, and
+durable whole-corpus analysis. Its record contract includes article id, title,
+full available content, read state, source id and name, category, publication
+date, and URL. Inventory distinguishes read and unread counts and provides
+exact category and feed counts plus their breakdowns. Search accepts bounded,
+case-insensitive feed-name and category filters plus pagination, while every
+exact read reapplies the attached collection boundary.
+Exact article reads expose deterministic content offsets so the assistant can
+consume the complete available body in bounded chunks instead of truncating it.
+
+Context access is enforced at the graph boundary. On the first Brain step for
+a turn that has attached sources, bind only the attached-context tools and
+require one actual tool call. Later Brain steps may use the complete authorized
+tool set. A model must never be allowed to answer a source-dependent request
+without first inspecting an attached source merely because it chose a normal
+text completion.
+
+Ordinary questions use inventory, filtered search, pagination, and exact reads.
+Requests that explicitly analyse or summarize an entire Reader collection use
+a durable hierarchical job scoped to the attached collection. The job carries
+the user's bounded analysis request through both map and reduce stages, keeps
+article ids as evidence, segments oversized article bodies without discarding
+text, and reports status and results back through chat. The job remains
+model-costing and requires explicit current-turn wording.
+
+The separate Reader-header topic-evolution panel is removed. Whole-corpus
+analysis is a chat capability rather than a second user workflow. Existing
+durable storage and compatibility endpoints may remain as implementation
+infrastructure, but the Reader screen must not expose a competing analysis UI.
+
+### Phase 4 restrictions and edge cases
+
+- Do not copy the entire Reader collection into one provider prompt. Context
+  means authorized collection access; retrieval and hierarchical batching keep
+  each model call bounded.
+- Do not use the visible unread/source filter as the attached collection scope.
+  It prevents questions comparing read and unread records or multiple feeds.
+- Do not let structured filters expand a persistently restricted source. Every
+  requested filter is intersected with the server-normalized attached scope.
+- Do not count a Wiki, Vault, or unrelated tool call as inspection of Reader
+  context. The first source-dependent Brain step is restricted to the attached
+  context tools.
+- Do not start model-costing whole-corpus work for a vague conversational turn.
+  Require an affirmative current-turn request that names Reader articles or
+  news and an analysis, summary, comparison, classification, or trend action.
+- Do not drop read state, category, source, date, or URL from snapshots. Those
+  fields are part of the evidence the user expects the assistant to reason over.
+- Do not make the model count a bounded feed or category breakdown. Return
+  exact SQL aggregate counts alongside the arrays; manual counting produced a
+  wrong feed total during the first real Reader-chat validation.

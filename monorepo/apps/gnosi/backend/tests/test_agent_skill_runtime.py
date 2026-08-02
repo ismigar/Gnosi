@@ -17,13 +17,15 @@ class RecordingLlm:
 
     def __init__(self):
         self.bound_tool_names = []
+        self.binding_options = []
         self.system_prompts = []
 
-    def bind_tools(self, tools):
+    def bind_tools(self, tools, **kwargs):
         self.bound_tool_names.append([
             getattr(item, "name", "") or getattr(item, "__name__", "")
             for item in tools
         ])
+        self.binding_options.append(dict(kwargs))
         return self
 
     def invoke(self, messages):
@@ -125,6 +127,70 @@ def test_table_title_replacement_request_routes_to_brain():
     )
 
     assert factory._obvious_route(request) == "Brain"
+
+
+def test_reader_requests_select_the_required_first_context_operation():
+    assert factory._required_reader_context_tool(
+        "Quantes notícies llegides i pendents tinc per font?"
+    ) == "inspect_reader_context"
+    assert factory._required_reader_context_tool(
+        "Busca notícies sobre incendis"
+    ) == "search_reader_context"
+    assert factory._required_reader_context_tool(
+        "Quantes notícies hi ha sobre incendis?"
+    ) == "search_reader_context"
+    assert factory._required_reader_context_tool(
+        "Analitza totes les notícies per temes"
+    ) == "start_reader_context_analysis"
+    assert factory._required_reader_context_tool(
+        "Mostra el resultat abcdef0123456789abcdef0123456789"
+    ) == "read_reader_context_analysis"
+    assert factory._reader_context_analysis_requested(
+        "Compara totes les notícies del Reader per font"
+    )
+    assert not factory._reader_context_analysis_requested(
+        "Quantes notícies hi ha?"
+    )
+    job_id = "abcdef0123456789abcdef0123456789"
+    assert factory._latest_reader_analysis_job_id([
+        HumanMessage(content="Analitza totes les notícies"),
+        AIMessage(content=f"Anàlisi iniciada: {job_id}"),
+        HumanMessage(content="Com va l'anàlisi?"),
+    ]) == job_id
+    assert factory._required_reader_context_tool(
+        f"Com va l'anàlisi? {job_id}"
+    ) == "reader_context_analysis_status"
+
+
+def test_reader_context_builds_required_single_tool_bindings(monkeypatch):
+    llm = RecordingLlm()
+    _workflow(
+        monkeypatch,
+        _agent(context_refs=[{
+            "id": "route-reader",
+            "type": "internal",
+            "ref": "reader",
+            "label": "Reader",
+            "scope": {"read_status": "all", "unread_only": False},
+        }]),
+        _runtime(),
+        llm,
+    )
+
+    bindings = list(zip(llm.bound_tool_names, llm.binding_options))
+    required_singletons = {
+        names[0]
+        for names, options in bindings
+        if len(names) == 1 and options.get("tool_choice") == "required"
+    }
+    assert {
+        "inspect_reader_context",
+        "search_reader_context",
+        "read_reader_context_article",
+        "start_reader_context_analysis",
+        "reader_context_analysis_status",
+        "read_reader_context_analysis",
+    } <= required_singletons
 
 
 def test_tool_policy_enforces_role_and_always_confirmation():
