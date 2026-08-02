@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { openCitation } from './fileResource';
+import {
+    documentResourceKey,
+    documentTabId,
+    documentWindowName,
+    openCitation,
+    openFileResource,
+} from './fileResource';
 
 afterEach(() => {
     vi.unstubAllGlobals();
@@ -73,5 +79,32 @@ describe('openCitation', () => {
                 highlightText: 'Visible citation fallback.',
             },
         });
+    });
+});
+
+describe('document reader identity', () => {
+    it('uses one integrated tab for equivalent document URI forms', () => {
+        const fileUrl = 'file:///Users/first/Library/Research/Source.pdf';
+        const localPath = '/Users/second/Library/Research/Source.pdf';
+        const servedUrl = '/api/vault/library/Research/Source.pdf?vault=principal';
+
+        expect(documentResourceKey(fileUrl)).toBe('library/research/source.pdf');
+        expect(documentTabId(fileUrl)).toBe(documentTabId(localPath));
+        expect(documentTabId(localPath)).toBe(documentTabId(servedUrl));
+    });
+
+    it('reuses a stable standalone window for repeated opens of one document', () => {
+        const readerWindow = { focus: vi.fn(), opener: window };
+        const openMock = vi.fn(() => readerWindow);
+        vi.stubGlobal('open', openMock);
+
+        openFileResource('/tmp/repeated.pdf');
+        openFileResource('/tmp/repeated.pdf');
+
+        expect(openMock).toHaveBeenCalledTimes(2);
+        expect(openMock.mock.calls[0][1]).toBe(documentWindowName('/tmp/repeated.pdf'));
+        expect(openMock.mock.calls[1][1]).toBe(openMock.mock.calls[0][1]);
+        expect(readerWindow.focus).toHaveBeenCalledTimes(2);
+        expect(readerWindow.opener).toBeNull();
     });
 });

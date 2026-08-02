@@ -45,6 +45,10 @@ class PdfAnnotation(Base):
     # Free-form tags separated by commas. For a future version with
     # filters in the sidebar.
     tags = Column(String, nullable=True)
+    # Stable key for annotations owned by a deterministic subsystem. Manual
+    # reader annotations leave this null. LLM Wiki uses it to update or remove
+    # its own highlights on reprocess without touching user annotations.
+    managed_key = Column(String, unique=True, index=True, nullable=True)
 
     created_at = Column(
         DateTime(timezone=True),
