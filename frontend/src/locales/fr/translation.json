@@ -4756,5 +4756,16 @@
     "redo_success": "Relation supprimée à nouveau"
   },
   "reader_articles_pending_many": "{{count}} articles en attente",
-  "reader_sources_count_many": "{{count}} sources"
+  "reader_sources_count_many": "{{count}} sources",
+  "desktop_update": {
+    "aria_label": "Mise à jour de l’application",
+    "dismiss": "Ignorer l’avis de mise à jour",
+    "available_title": "Une nouvelle version de Gnosi est disponible",
+    "available_body": "La version {{version}} est prête à être téléchargée.",
+    "downloading_body": "Téléchargement de la version {{version}}… {{percent}} %",
+    "ready_title": "Mise à jour prête",
+    "ready_body": "Redémarrez Gnosi pour terminer l’installation de la version {{version}}.",
+    "download": "Télécharger la mise à jour",
+    "restart": "Redémarrer et installer"
+  }
 }
