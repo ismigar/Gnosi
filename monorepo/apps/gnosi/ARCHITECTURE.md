@@ -1,6 +1,10 @@
 # Architecture
 
-This document explains how Gnosi is put together so you can find your way around the codebase and make changes with confidence. For setup and conventions, see [CONTRIBUTING.md](CONTRIBUTING.md).
+This document is the concise architecture overview. The full, source-traceable
+engineering portal starts at [docs/engineering/index.md](docs/engineering/index.md)
+and includes domain flows, security, operations, tests, API routes, relational
+models, configuration, and module catalogs. For setup and conventions, see
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Design principles
 
