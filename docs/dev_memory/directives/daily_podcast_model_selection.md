@@ -66,6 +66,10 @@ hard-coded Groq client.
 - Do not write TTS output directly over the published MP3. Generate a `.part`
   file and replace the public file atomically only after successful, non-empty
   synthesis; otherwise restarts expose truncated audio as a finished episode.
+- Do not synthesize a long episode through hundreds of strictly serial network
+  calls. Use small bounded concurrency for independent sentences, preserve
+  result ordering, and keep each request isolated so one failure does not
+  corrupt the remaining audio.
 - Tests that replace `load_params` must import `agent.factory` first because the
   factory still resolves its internal base directory from configuration at
   module import time. Replacing configuration before that import produces a
