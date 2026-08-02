@@ -12,6 +12,7 @@ from sqlalchemy.orm import sessionmaker
 
 from backend.agent import internal_sources
 from backend.agent.agent_context import (
+    build_context_tool_descriptors,
     build_context_tools,
     merge_context_refs,
     normalize_refs,
@@ -28,15 +29,19 @@ def test_internal_scope_is_bounded_and_normalized():
     scope = internal_sources.normalize_internal_scope("reader", {
         "unread_only": False,
         "source_ids": [1, "2", -1, 1],
+        "source_names": ["Politics feed", "Politics feed"],
         "categories": ["Politics", "Politics", ""],
         "limit": 10_000,
         "date_from": "2026-01-01",
     })
 
     assert scope["unread_only"] is False
+    assert scope["read_status"] == "all"
     assert scope["source_ids"] == [1, 2]
+    assert scope["source_names"] == ["Politics feed"]
     assert scope["categories"] == ["Politics"]
     assert scope["limit"] == internal_sources.MAX_RESULT_ITEMS
+    assert scope["offset"] == 0
     assert scope["date_from"].startswith("2026-01-01T00:00:00")
 
     social = internal_sources.normalize_internal_scope("social", {
@@ -249,12 +254,167 @@ def test_reader_inventory_counts_filtered_rows_and_feed_breakdown(monkeypatch):
     inventory = internal_sources._reader_inventory(scope)
 
     assert inventory["count"] == 2
+    assert inventory["read_count"] == 1
+    assert inventory["unread_count"] == 1
+    assert inventory["feed_count"] == 1
+    assert inventory["category_count"] == 1
+    assert inventory["categories"] == [{"category": "Politics", "count": 2}]
+    assert "is_read" in inventory["record_fields"]
+    assert "source_id" in inventory["record_fields"]
     assert inventory["feeds"] == [{
         "id": politics_id,
         "name": "Politics feed",
         "category": "Politics",
         "count": 2,
     }]
+
+    page_scope = internal_sources.normalize_internal_scope("reader", {
+        "unread_only": False,
+        "read_status": "all",
+        "limit": 1,
+        "offset": 1,
+    })
+    page = internal_sources._reader_search(page_scope, "")
+    assert page["matching_count"] == 3
+    assert page["offset"] == 1
+    assert page["has_more"] is True
+    assert len(page["records"]) == 1
+    assert {
+        "id", "title", "content", "is_read", "source_id", "source",
+        "category", "published_at", "url",
+    } <= set(page["records"][0])
+
+    source_scope = internal_sources.normalize_internal_scope("reader", {
+        "unread_only": False,
+        "source_names": ["politics feed"],
+        "categories": ["politics"],
+    })
+    source_page = internal_sources._reader_search(source_scope, "")
+    assert source_page["matching_count"] == 2
+    assert {
+        record["source"] for record in source_page["records"]
+    } == {"Politics feed"}
+
+
+def test_reader_scope_intersection_cannot_expand_attached_collection():
+    attached = {
+        "read_status": "unread",
+        "source_ids": [7, 8],
+        "source_names": ["Politics feed", "Science feed"],
+        "categories": ["Politics"],
+        "date_from": "2026-01-01",
+        "date_to": "2026-01-31",
+    }
+    narrowed = internal_sources.intersect_reader_scope(attached, {
+        "read_status": "all",
+        "source_ids": [8],
+        "source_names": ["politics feed"],
+        "categories": ["politics"],
+        "date_from": "2026-01-10",
+        "limit": 5,
+        "offset": 2,
+    })
+
+    assert narrowed["read_status"] == "unread"
+    assert narrowed["source_ids"] == [8]
+    assert narrowed["source_names"] == ["Politics feed"]
+    assert narrowed["categories"] == ["Politics"]
+    assert narrowed["date_from"].startswith("2026-01-10")
+    assert narrowed["limit"] == 5
+    assert narrowed["offset"] == 2
+    assert internal_sources.reader_scope_contains(attached, narrowed)
+
+    with pytest.raises(ValueError):
+        internal_sources.intersect_reader_scope(attached, {"source_ids": [99]})
+    with pytest.raises(ValueError):
+        internal_sources.intersect_reader_scope(attached, {"read_status": "read"})
+    assert not internal_sources.reader_scope_contains(
+        attached,
+        {"read_status": "all", "source_ids": []},
+    )
+
+
+def test_reader_exact_content_can_be_consumed_without_truncation():
+    article = SimpleNamespace(
+        id=42,
+        title="Long article",
+        source_id=7,
+        source=SimpleNamespace(name="Example", category="Research"),
+        published_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        is_read=True,
+        url="https://example.test/42",
+        content="fallback",
+        full_content="A" * 40_000,
+    )
+
+    first = internal_sources._article_payload(
+        article,
+        full=True,
+        content_offset=0,
+        content_limit=16_000,
+    )
+    second = internal_sources._article_payload(
+        article,
+        full=True,
+        content_offset=first["next_content_offset"],
+        content_limit=32_000,
+    )
+
+    assert first["content_has_more"] is True
+    assert first["content_char_count"] == 40_000
+    assert second["content_has_more"] is False
+    assert first["content"] + second["content"] == article.full_content
+
+
+def test_reader_context_exposes_structured_collection_tools(monkeypatch):
+    refs = normalize_refs([{
+        "id": "reader-source",
+        "type": "internal",
+        "ref": "reader",
+        "label": "Reader",
+        "scope": {"read_status": "all", "unread_only": False},
+    }])
+    seen = {}
+
+    def fake_search(scope, query):
+        seen["scope"] = scope
+        return {"query": query, "records": [], "matching_count": 0}
+
+    monkeypatch.setattr(internal_sources, "_reader_search", fake_search)
+    tools = {tool.name: tool for tool in build_context_tools(refs)}
+    output = tools["search_reader_context"].invoke({
+        "query": "climate",
+        "read_status": "read",
+        "source_ids": [7],
+        "source_names": ["Politics feed"],
+        "categories": ["Politics"],
+        "limit": 5,
+        "offset": 10,
+    })
+
+    assert {
+        "inspect_reader_context",
+        "search_reader_context",
+        "read_reader_context_article",
+        "start_reader_context_analysis",
+        "reader_context_analysis_status",
+        "read_reader_context_analysis",
+    } <= set(tools)
+    assert "climate" in output
+    assert seen["scope"]["read_status"] == "read"
+    assert seen["scope"]["source_ids"] == [7]
+    assert seen["scope"]["source_names"] == ["Politics feed"]
+    assert seen["scope"]["categories"] == ["Politics"]
+    assert seen["scope"]["offset"] == 10
+
+    descriptors = {
+        descriptor.handler_ref: descriptor
+        for descriptor in build_context_tool_descriptors(refs, list(tools.values()))
+    }
+    start = descriptors["runtime-context:start_reader_context_analysis"]
+    assert start.effects == [ToolEffect.LOCAL_WRITE, ToolEffect.AI_COST]
+    assert start.minimum_role == "editor"
+    assert start.confirmation == ConfirmationPolicy.EXPLICIT_REQUEST
 
 
 def test_internal_context_tools_preserve_scope_and_exact_read(monkeypatch):
@@ -496,17 +656,22 @@ def test_reader_analysis_processes_snapshot_with_checkpoints(tmp_path, monkeypat
         {
             "id": str(index),
             "title": f"Article {index}",
+            "source_id": 7,
             "source": "Example",
             "category": "Politics" if index < 3 else "Science",
             "published_at": f"2026-01-0{index}T00:00:00+00:00",
             "url": f"https://example.test/{index}",
+            "is_read": index % 2 == 0,
             "content": f"Evidence {index}",
         }
         for index in range(1, 5)
     ]
     monkeypatch.setattr(reader_analysis, "_snapshot_articles", lambda _vault, _scope: rows)
 
+    prompts = []
+
     def model_call(prompt, _user_message):
+        prompts.append(prompt)
         if "BATCH ANALYSES" in prompt:
             supplied = json.loads(prompt.split("BATCH ANALYSES:\n", 1)[1])
             ids = [identifier for item in supplied for identifier in item["article_ids"]]
@@ -531,6 +696,7 @@ def test_reader_analysis_processes_snapshot_with_checkpoints(tmp_path, monkeypat
     job = reader_analysis.start_analysis(
         vault_path,
         {"unread_only": True},
+        guidance="Compare read state and source coverage",
         model_call=model_call,
         launch=False,
     )
@@ -546,12 +712,46 @@ def test_reader_analysis_processes_snapshot_with_checkpoints(tmp_path, monkeypat
     assert status["state"] == "completed"
     assert status["processed_articles"] == len(rows)
     assert result["article_count"] == len(rows)
+    assert result["request"] == "Compare read state and source coverage"
     assert {topic["topic"] for topic in result["topics"]} == {"Politics", "Science"}
     assert all(topic["article_ids"] for topic in result["topics"])
     assert len(checkpoints) == status["total_batches"]
     assert recent[0]["job_id"] == job["job_id"]
     assert "/reader?article=" in result["report_markdown"]
+    assert "# Reader analysis" in result["report_markdown"]
+    assert all(
+        "Compare read state and source coverage" in prompt
+        for prompt in prompts
+    )
+    assert any('"is_read": true' in prompt for prompt in prompts)
+    assert any('"source_id": 7' in prompt for prompt in prompts)
     assert reader_analysis._snapshot_path(vault_path, job["job_id"]).exists()
+
+
+def test_reader_analysis_segments_oversized_content_without_dropping_text():
+    content = "Long evidence. " * 8_000
+    row = {
+        "id": "long-1",
+        "title": "Long article",
+        "source_id": 7,
+        "source": "Example",
+        "category": "Research",
+        "published_at": "2026-01-01T00:00:00+00:00",
+        "url": "https://example.test/long",
+        "is_read": False,
+        "content": content,
+    }
+
+    batches = reader_analysis._build_batches([row])
+    parts = [article for batch in batches for article in batch["articles"]]
+
+    assert len(parts) > 1
+    assert "".join(part["content"] for part in parts) == content
+    assert {part["id"] for part in parts} == {"long-1"}
+    assert [part["content_part"] for part in parts] == list(
+        range(1, len(parts) + 1)
+    )
+    assert {part["content_parts"] for part in parts} == {len(parts)}
 
 
 def test_reader_analysis_recovers_when_interrupted_before_snapshot(

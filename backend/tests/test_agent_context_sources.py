@@ -92,6 +92,38 @@ def test_dynamic_context_tools_have_governed_read_descriptors():
     assert all(descriptor.output_schema == {"type": "string"} for descriptor in descriptors)
 
 
+def test_reader_analysis_context_tool_is_explicit_and_cost_governed():
+    refs = [{
+        "id": "reader-source",
+        "type": "internal",
+        "ref": "reader",
+        "label": "Reader",
+        "scope": {"read_status": "all", "unread_only": False},
+    }]
+    tools = build_context_tools(refs)
+    descriptors = {
+        tool.name: descriptor
+        for tool, descriptor in zip(
+            tools,
+            build_context_tool_descriptors(refs, tools),
+        )
+    }
+
+    start = descriptors["start_reader_context_analysis"]
+    assert {effect.value for effect in start.effects} == {"local_write", "ai_cost"}
+    assert start.minimum_role == "editor"
+    assert start.confirmation.value == "explicit_request"
+    for name in {
+        "inspect_reader_context",
+        "search_reader_context",
+        "read_reader_context_article",
+        "reader_context_analysis_status",
+        "read_reader_context_analysis",
+    }:
+        assert {effect.value for effect in descriptors[name].effects} == {"read"}
+        assert descriptors[name].confirmation.value == "none"
+
+
 def test_scoring_ignores_short_noise_words():
     assert score_text("pressupost", "El pressupost anual") > 0
     assert score_text("de la", "de la") == 0

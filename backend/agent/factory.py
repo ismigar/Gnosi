@@ -458,6 +458,9 @@ def _explicit_brain_write_tool_names(
     if _affirmative_pattern_present(text, memory_patterns):
         authorized.add("save_memory")
 
+    if _reader_context_analysis_requested(text):
+        authorized.add("start_reader_context_analysis")
+
     intent_patterns = {
         "create_table_row": (
             "crea una fila", "afegeix una fila", "create a row", "add a row",
@@ -589,6 +592,110 @@ def _explicit_brain_write_tool_names(
             authorized.add("update_page")
 
     return authorized
+
+
+def _reader_context_analysis_requested(message: str) -> bool:
+    """Recognize explicit whole-Reader analysis requests in supported languages."""
+    text = " ".join((message or "").strip().lower().split())
+    if not text:
+        return False
+    reader_terms = re.compile(
+        r"\b(?:lector|reader|not[ií]cies|noticias|news|articles?|art[ií]culos?|"
+        r"actualitat|actualidad|actualit[eé])\b",
+        re.IGNORECASE,
+    )
+    broad_terms = re.compile(
+        r"\b(?:tot(?:es|s)?|toda?s?|all|whole|entire|moltes?|much[oa]s?|many|"
+        r"pendents?|pendientes?|unread|per\s+temes?|por\s+temas?|by\s+topic|"
+        r"evoluci[oó]|evolution|[eé]volution|tend[eè]ncies|tendencias|trends?)\b",
+        re.IGNORECASE,
+    )
+    actions = (
+        "analitza", "analitza'm", "analitzar", "fes-me un resum", "resumeix",
+        "compara", "classifica", "troba tendències", "detecta tendències",
+        "analyze", "analyse", "summarize", "summarise", "compare", "classify",
+        "find trends", "analiza", "analizar", "resume", "resúmeme", "compara",
+        "clasifica", "encuentra tendencias", "analyse", "résume", "compare",
+        "classe", "trouve les tendances",
+    )
+    negated_or_meta = re.search(
+        r"\b(?:no|mai|nunca|never|not|don't|sense|sin|sans)\b"
+        r"|\b(?:com|cómo|how)\s+(?:puc|puedo|to|do|can)\b"
+        r"|^(?:explica|describe|tell me)\b",
+        text,
+        re.IGNORECASE,
+    )
+    return bool(
+        reader_terms.search(text)
+        and broad_terms.search(text)
+        and not negated_or_meta
+        and any(action in text for action in actions)
+    )
+
+
+def _context_tool_used_since_latest_user(
+    messages: Iterable[Any],
+    context_tool_names: set[str],
+) -> bool:
+    """Return whether the current human turn already inspected attached context."""
+    for message in reversed(list(messages)):
+        message_type = str(getattr(message, "type", "") or "")
+        if message_type == "human":
+            return False
+        if message_type == "tool" and str(getattr(message, "name", "") or "") in context_tool_names:
+            return True
+    return False
+
+
+def _latest_reader_analysis_job_id(messages: Iterable[Any]) -> str:
+    """Return the newest durable Reader job id visible in conversation history."""
+    for message in reversed(list(messages)):
+        matches = re.findall(
+            r"\b[a-f0-9]{32}\b",
+            str(getattr(message, "content", "") or "").lower(),
+        )
+        if matches:
+            return matches[-1]
+    return ""
+
+
+def _required_reader_context_tool(message: str) -> str:
+    """Choose the first mandatory Reader operation for the current request."""
+    text = " ".join((message or "").strip().lower().split())
+    job_id_present = bool(re.search(r"\b[a-f0-9]{32}\b", text))
+    if job_id_present and re.search(
+        r"\b(?:resultat|resultado|result|rapport|report|informe)\b",
+        text,
+    ):
+        return "read_reader_context_analysis"
+    if job_id_present and re.search(
+        r"\b(?:estat|estado|status|progr[eé]s|progreso|progress)\b"
+        r"|\b(?:com|c[oó]mo|how)\s+va\b|\bhow\s+is\s+it\s+going\b",
+        text,
+    ):
+        return "reader_context_analysis_status"
+    if _reader_context_analysis_requested(text):
+        return "start_reader_context_analysis"
+    if re.search(
+        r"\b(?:article|article|art[ií]culo|not[ií]cia|noticia|reader)\s*"
+        r"(?:#|n[uú]m(?:ero)?\.?\s*)?\d+\b",
+        text,
+    ):
+        return "read_reader_context_article"
+    if re.search(
+        r"\b(?:busca|cerca|troba|search|find|chercher|cherche|sobre|about|"
+        r"cont(?:é|iene|ains)|que\s+parlen|que\s+hablan)\b",
+        text,
+    ):
+        return "search_reader_context"
+    if re.search(
+        r"\b(?:quants?|quantes?|cu[aá]nt[oa]s?|how\s+many|combien|count|total|"
+        r"categories|categor[ií]as|fonts|fuentes|feeds|llegides|le[ií]das|read|"
+        r"pendents|pendientes|unread)\b",
+        text,
+    ):
+        return "inspect_reader_context"
+    return "search_reader_context"
 
 
 def _authorized_brain_write_tools(names: set[str]) -> List[Any]:
@@ -1612,7 +1719,7 @@ async def create_agent_workflow(
     )
     for context_tool, descriptor in zip(context_tools, context_descriptors):
         effects = _descriptor_effects(descriptor)
-        runtime_tool_metadata.append({
+        context_tool_metadata = {
             "id": descriptor.id,
             "name": _tool_name(context_tool),
             "effects": list(effects),
@@ -1622,7 +1729,18 @@ async def create_agent_workflow(
             "prepares_confirmation": False,
             "dynamic_context": True,
             "_descriptor": descriptor,
-        })
+        }
+        runtime_tool_metadata.append(context_tool_metadata)
+        tool_policies[context_tool_metadata["name"]] = dict(context_tool_metadata)
+        if (
+            any(effect in {
+                "local_write", "external_write", "destructive",
+                "code_execution", "ai_cost", "bulk_write",
+                "financial_cost", "data_egress",
+            } for effect in effects)
+            or context_tool_metadata["confirmation"] not in {"", "never", "none"}
+        ):
+            guarded_tool_names.add(context_tool_metadata["name"])
     legacy_vault_tools = (
         [
             item
@@ -1633,8 +1751,8 @@ async def create_agent_workflow(
         else []
     )
     brain_tools = (
-        runtime_tools
-        + context_tools
+        context_tools
+        + runtime_tools
         + legacy_vault_tools
         + memory_tools
         + (mcp_langchain_tools if legacy_bundle_active else [])
@@ -1665,6 +1783,12 @@ async def create_agent_workflow(
         ),
     )
     brain_llm = llm.bind_tools(brain_tools) if brain_tools else llm
+    context_tool_names = {_tool_name(item) for item in context_tools}
+    forced_context_llms = {
+        _tool_name(item): llm.bind_tools([item], tool_choice="required")
+        for item in context_tools
+        if _tool_name(item) in bound_tool_names
+    } if supports_tools else {}
 
     requested_active_skill_ids = {
         str(skill_id) for skill_id in (active_skill_ids or ()) if skill_id
@@ -1736,6 +1860,14 @@ async def create_agent_workflow(
 
     def brain_node(state: AgentState):
         messages = state["messages"]
+        latest_user = next(
+            (
+                str(message.content)
+                for message in reversed(messages)
+                if getattr(message, "type", "") == "human"
+            ),
+            "",
+        )
         current_authorized_names = _turn_authorized_tool_names(state)
         brain_system = (
             f"You are the Brain specialist for {agent_name} "
@@ -1823,7 +1955,37 @@ async def create_agent_workflow(
                 + ", ".join(rejected_mcp_names)
                 + ". Explain this limitation if the request depends on one of them."
             )
-        response = brain_llm.invoke(
+        selected_brain_llm = brain_llm
+        if context_tools and not _context_tool_used_since_latest_user(
+            messages,
+            context_tool_names,
+        ):
+            if any(
+                ref.get("type") == "internal" and ref.get("ref") == "reader"
+                for ref in context_refs
+            ):
+                reader_job_id = _latest_reader_analysis_job_id(messages)
+                routing_message = (
+                    f"{latest_user} {reader_job_id}"
+                    if reader_job_id and reader_job_id not in latest_user.lower()
+                    else latest_user
+                )
+                required_context_tool = _required_reader_context_tool(
+                    routing_message,
+                )
+            else:
+                required_context_tool = "search_context"
+            selected_brain_llm = forced_context_llms.get(
+                required_context_tool,
+                next(iter(forced_context_llms.values()), brain_llm),
+            )
+            brain_system += (
+                "\nThis answer depends on attached context. Your first response "
+                f"MUST call {required_context_tool} as an actual tool. Do not "
+                "answer, ask the user to attach data, or claim the source is "
+                "unavailable before that tool result is returned."
+            )
+        response = selected_brain_llm.invoke(
             [SystemMessage(content=brain_system)] + _bounded_model_messages(messages, message_budget_chars),
         )
         return {"messages": [response], "next": "supervisor"}

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import { toast } from '../lib/toast';
-import { Play, RotateCw, Check, Headphones, ArrowLeft, Loader, BookOpen, ExternalLink, ChevronDown, ChevronRight, Inbox, Menu, X, History, Sparkles, Square } from 'lucide-react';
+import { Play, RotateCw, Check, Headphones, ArrowLeft, Loader, BookOpen, ExternalLink, ChevronDown, ChevronRight, Inbox, Menu, X, History } from 'lucide-react';
 import { AppHeader } from '../components/AppHeader';
 import { getIntlLocale } from '../locales/registry';
 
@@ -154,44 +154,35 @@ const ReaderDashboard = () => {
     const [collapsedCategories, setCollapsedCategories] = useState(() => new Set());
     const [mobileChannelsOpen, setMobileChannelsOpen] = useState(false);
     const [podcastProgress, setPodcastProgress] = useState('');
-    const [showAnalysis, setShowAnalysis] = useState(false);
-    const [analysisScopeInventory, setAnalysisScopeInventory] = useState({ count: 0 });
-    const [analysisJob, setAnalysisJob] = useState(null);
-    const [analysisResult, setAnalysisResult] = useState(null);
-    const [analysisStarting, setAnalysisStarting] = useState(false);
-
     const pollingRef = React.useRef(null);
-    const analysisPollingRef = React.useRef(null);
 
     useEffect(() => {
         fetchSources();
         fetchUnreadCounts();
         checkPodcast();
-        loadLatestAnalysis();
         const articleId = new URLSearchParams(window.location.search).get('article');
         if (articleId) openEvidenceArticle(articleId);
     }, []);
 
     useEffect(() => {
         fetchDisplayArticles();
-        fetchAnalysisScopeInventory();
     }, [selectedSourceId, showUnreadOnly]);
 
     useEffect(() => {
-        const selected = sources.find(source => source.id === selectedSourceId);
         window.dispatchEvent(new CustomEvent('gnosi:module-context', {
             detail: [{
                 id: 'route-reader',
                 type: 'internal',
                 ref: 'reader',
-                label: selected?.name || t('reader_title'),
+                label: t('reader_title'),
                 scope: {
-                    unread_only: showUnreadOnly,
-                    source_ids: selectedSourceId ? [selectedSourceId] : [],
+                    unread_only: false,
+                    read_status: 'all',
+                    source_ids: [],
                 },
             }],
         }));
-    }, [selectedSourceId, showUnreadOnly, sources, t]);
+    }, [t]);
 
     const fetchSources = async () => {
         try {
@@ -225,104 +216,10 @@ const ReaderDashboard = () => {
         }
     };
 
-    const fetchAnalysisScopeInventory = async () => {
-        try {
-            const params = new URLSearchParams({ unread_only: String(showUnreadOnly) });
-            if (selectedSourceId) params.append('source_id', String(selectedSourceId));
-            const res = await axios.get(`${API_BASE}/reader/inventory?${params.toString()}`);
-            setAnalysisScopeInventory(res.data || { count: 0 });
-        } catch (error) {
-            console.error('Error fetching Reader analysis scope:', error);
-        }
-    };
-
-    const loadAnalysisResult = async (jobId) => {
-        const response = await axios.get(`${API_BASE}/reader/analysis/${jobId}/result`);
-        setAnalysisResult(response.data);
-    };
-
-    const trackAnalysis = (jobId) => {
-        if (analysisPollingRef.current) clearInterval(analysisPollingRef.current);
-        analysisPollingRef.current = setInterval(async () => {
-            try {
-                const response = await axios.get(`${API_BASE}/reader/analysis/${jobId}`);
-                const job = response.data;
-                setAnalysisJob(job);
-                if (['completed', 'failed', 'cancelled', 'interrupted'].includes(job.state)) {
-                    clearInterval(analysisPollingRef.current);
-                    analysisPollingRef.current = null;
-                    if (job.state === 'completed') await loadAnalysisResult(jobId);
-                }
-            } catch (error) {
-                console.error('Could not poll Reader analysis', error);
-            }
-        }, 2000);
-    };
-
-    const loadLatestAnalysis = async () => {
-        try {
-            const response = await axios.get(`${API_BASE}/reader/analysis?limit=1`);
-            const latest = response.data?.[0];
-            if (!latest) return;
-            setAnalysisJob(latest);
-            if (latest.state === 'completed') await loadAnalysisResult(latest.job_id);
-            if (['queued', 'snapshotting', 'mapping', 'reducing'].includes(latest.state)) {
-                trackAnalysis(latest.job_id);
-            }
-        } catch (error) {
-            console.debug('No previous Reader analysis could be loaded', error?.message);
-        }
-    };
-
-    const startTopicAnalysis = async () => {
-        setAnalysisStarting(true);
-        setAnalysisResult(null);
-        try {
-            const language = {
-                ca: 'Catalan', en: 'English', es: 'Spanish', fr: 'French',
-            }[(i18n.resolvedLanguage || i18n.language || 'ca').split('-')[0]] || 'Catalan';
-            const response = await axios.post(`${API_BASE}/reader/analysis`, {
-                unread_only: showUnreadOnly,
-                source_ids: selectedSourceId ? [selectedSourceId] : [],
-                language,
-            });
-            setAnalysisJob(response.data);
-            trackAnalysis(response.data.job_id);
-        } catch (error) {
-            console.error('Could not start Reader analysis', error);
-            toast.error(t('reader_analysis_start_error', 'The analysis could not be started.'));
-        } finally {
-            setAnalysisStarting(false);
-        }
-    };
-
-    const resumeTopicAnalysis = async () => {
-        if (!analysisJob?.job_id) return;
-        try {
-            const response = await axios.post(`${API_BASE}/reader/analysis/${analysisJob.job_id}/resume`);
-            setAnalysisJob(response.data);
-            trackAnalysis(analysisJob.job_id);
-        } catch (error) {
-            console.error('Could not resume Reader analysis', error);
-            toast.error(t('reader_analysis_resume_error', 'The analysis could not be resumed.'));
-        }
-    };
-
-    const cancelTopicAnalysis = async () => {
-        if (!analysisJob?.job_id) return;
-        try {
-            const response = await axios.post(`${API_BASE}/reader/analysis/${analysisJob.job_id}/cancel`);
-            setAnalysisJob(response.data);
-        } catch (error) {
-            console.error('Could not cancel Reader analysis', error);
-        }
-    };
-
     const openEvidenceArticle = async (articleId) => {
         try {
             const response = await axios.get(`${API_BASE}/reader/articles/${articleId}`);
             setSelectedArticle(response.data);
-            setShowAnalysis(false);
         } catch (error) {
             console.error('Could not open Reader evidence article', error);
             toast.error(t('reader_analysis_evidence_error', 'The evidence article is no longer available.'));
@@ -412,7 +309,6 @@ const ReaderDashboard = () => {
     useEffect(() => {
         return () => {
             if (pollingRef.current) clearInterval(pollingRef.current);
-            if (analysisPollingRef.current) clearInterval(analysisPollingRef.current);
         };
     }, []);
 
@@ -546,14 +442,6 @@ const ReaderDashboard = () => {
                     <Menu size={16} />
                 </button>
                 <button
-                    onClick={() => setShowAnalysis(true)}
-                    title={t('reader_analysis_open', 'Topic evolution')}
-                    aria-label={t('reader_analysis_open', 'Topic evolution')}
-                    className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-[var(--text-primary)] transition-colors"
-                >
-                    <Sparkles size={16} />
-                </button>
-                <button
                     onClick={handleSyncAll}
                     disabled={syncing}
                     title={t('reader_sync')}
@@ -563,99 +451,6 @@ const ReaderDashboard = () => {
                     <RotateCw size={16} className={syncing ? "animate-spin" : ""} />
                 </button>
             </AppHeader>
-
-            {showAnalysis && (
-                <div className="fixed inset-0 z-[80] flex justify-end bg-black/35" onClick={() => setShowAnalysis(false)}>
-                    <section
-                        className="h-full w-full max-w-2xl overflow-y-auto border-l border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-2xl"
-                        onClick={event => event.stopPropagation()}
-                        aria-label={t('reader_analysis_title', 'Topic evolution analysis')}
-                    >
-                        <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[var(--border-primary)] bg-[var(--bg-primary)] px-6 py-5">
-                            <div>
-                                <h2 className="text-lg font-semibold">{t('reader_analysis_title', 'Topic evolution analysis')}</h2>
-                                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                    {selectedSource
-                                        ? t('reader_analysis_scope_source', '{{source}} · {{count}} articles', { source: selectedSource.name, count: analysisScopeInventory.count || 0 })
-                                        : t('reader_analysis_scope_all', 'All feeds · {{count}} articles', { count: analysisScopeInventory.count || 0 })}
-                                </p>
-                            </div>
-                            <button onClick={() => setShowAnalysis(false)} aria-label={t('common.close', 'Close')} className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200">
-                                <X size={18} />
-                            </button>
-                        </header>
-
-                        <div className="space-y-5 px-6 py-6">
-                            {!analysisJob && (
-                                <div className="rounded-xl border border-[var(--border-primary)] bg-[var(--bg-secondary)] p-5">
-                                    <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">
-                                        {t('reader_analysis_desc', 'Gnosi creates an immutable snapshot, processes every selected article in checkpoints, and produces a cited evolution for each topic. You can leave this page and resume after a restart.')}
-                                    </p>
-                                    <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
-                                        {t('reader_analysis_cost_notice', 'This operation processes every selected article and may consume many AI model calls.')}
-                                    </p>
-                                    <button onClick={startTopicAnalysis} disabled={analysisStarting} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[var(--gnosi-blue)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
-                                        {analysisStarting ? <Loader size={15} className="animate-spin" /> : <Sparkles size={15} />}
-                                        {t('reader_analysis_start', 'Analyze selected articles')}
-                                    </button>
-                                </div>
-                            )}
-
-                            {analysisJob && (
-                                <div className="rounded-xl border border-[var(--border-primary)] p-4">
-                                    <div className="flex items-center justify-between gap-3 text-sm">
-                                        <span className="font-medium">{t(`reader_analysis_state_${analysisJob.state}`, analysisJob.state)}</span>
-                                        <span className="tabular-nums text-slate-500">{analysisJob.progress || 0}%</span>
-                                    </div>
-                                    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                                        <div className="h-full rounded-full bg-[var(--gnosi-blue)] transition-all" style={{ width: `${analysisJob.progress || 0}%` }} />
-                                    </div>
-                                    <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
-                                        {t('reader_analysis_progress', '{{processed}} of {{total}} articles processed', { processed: analysisJob.processed_articles || 0, total: analysisJob.total_articles || 0 })}
-                                    </p>
-                                    {analysisJob.error && <p className="mt-3 text-xs text-red-600 dark:text-red-400">{analysisJob.error}</p>}
-                                    <div className="mt-4 flex flex-wrap gap-2">
-                                        {['queued', 'snapshotting', 'mapping', 'reducing'].includes(analysisJob.state) && (
-                                            <button onClick={cancelTopicAnalysis} className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-primary)] px-3 py-1.5 text-xs">
-                                                <Square size={11} /> {t('common.cancel', 'Cancel')}
-                                            </button>
-                                        )}
-                                        {['interrupted', 'failed'].includes(analysisJob.state) && (
-                                            <button onClick={resumeTopicAnalysis} className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--gnosi-blue)] px-3 py-1.5 text-xs text-white">
-                                                <RotateCw size={12} /> {t('reader_analysis_resume', 'Resume from checkpoints')}
-                                            </button>
-                                        )}
-                                        {['completed', 'cancelled', 'failed'].includes(analysisJob.state) && (
-                                            <button onClick={() => { setAnalysisJob(null); setAnalysisResult(null); }} className="rounded-lg border border-[var(--border-primary)] px-3 py-1.5 text-xs">
-                                                {t('reader_analysis_new', 'New analysis')}
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-
-                            {analysisResult?.topics?.map(topic => (
-                                <article key={topic.topic} className="rounded-xl border border-[var(--border-primary)] p-5">
-                                    <div className="flex flex-wrap items-baseline justify-between gap-2">
-                                        <h3 className="text-base font-semibold">{topic.topic}</h3>
-                                        <span className="text-xs text-slate-500">{t('reader_analysis_topic_count', '{{count}} articles', { count: topic.article_count || 0 })}</span>
-                                    </div>
-                                    <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700 dark:text-slate-200">{topic.evolution}</p>
-                                    {(topic.article_ids || []).length > 0 && (
-                                        <div className="mt-4 flex flex-wrap gap-2">
-                                            {(topic.article_ids || []).slice(0, 20).map(articleId => (
-                                                <button key={articleId} onClick={() => openEvidenceArticle(articleId)} className="rounded-full border border-[var(--border-primary)] px-2.5 py-1 text-xs text-[var(--gnosi-blue)] hover:bg-[var(--bg-secondary)]">
-                                                    {t('reader_analysis_evidence', 'Article #{{id}}', { id: articleId })}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
-                                </article>
-                            ))}
-                        </div>
-                    </section>
-                </div>
-            )}
 
             <div className="flex flex-1 overflow-hidden relative">
                 {/* Mobile overlay */}
