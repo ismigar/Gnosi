@@ -169,6 +169,9 @@ product completeness.
 - Do not count `__pycache__`, bytecode, dependency, vendor, or build artifacts
   matched by broad domain globs. Local caches make coverage output differ from
   a clean CI checkout; apply the owned-file filter before counting matches.
+- Do not hand-merge conflicts under `docs/engineering/generated/`. Complete the
+  source merge first, run the catalog generator on the combined tree, and stage
+  its deterministic output as the conflict resolution.
 - Do not publish only `site/engineering/` while the configured canonical URL
   ends in `/engineering/`; doing so moves the portal to the repository root and
   makes the in-app link and canonical metadata disagree.

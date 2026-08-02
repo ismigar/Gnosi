@@ -6,9 +6,13 @@ import {
     ChevronRight,
     CircleSlash2,
     ClipboardCopy,
+    CloudDownload,
     Code2,
     Coins,
+    Bell,
+    BadgeDollarSign,
     ExternalLink,
+    Files,
     FilePenLine,
     Loader2,
     LockKeyhole,
@@ -18,6 +22,7 @@ import {
     ShieldAlert,
     Sparkles,
     Trash2,
+    UserRound,
     Wrench,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -36,6 +41,12 @@ const EFFECT_ICONS = {
     destructive: ShieldAlert,
     code_execution: Code2,
     ai_cost: Coins,
+    external_read: CloudDownload,
+    personal_data: UserRound,
+    data_egress: ExternalLink,
+    bulk_write: Files,
+    financial_cost: BadgeDollarSign,
+    notification: Bell,
 };
 
 const effectLabel = (t, effect) => t(`settings.ai.resources.effects.${effect}`, {

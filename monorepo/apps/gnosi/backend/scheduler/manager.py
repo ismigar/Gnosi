@@ -105,6 +105,12 @@ class SchedulerManager:
             # for actual meetings are sent by the service itself.
             "quiet": True,
         },
+        "run_capability_automations": {
+            "description": "Run due governed capability automations",
+            "default_interval": 1,
+            "default_enabled": True,
+            "quiet": True,
+        },
     }
 
     def __init__(self):
@@ -174,7 +180,7 @@ class SchedulerManager:
                     name=name,
                     description=config["description"],
                     interval_minutes=config["default_interval"],
-                    enabled=False,
+                    enabled=bool(config.get("default_enabled", False)),
                 )
                 updated = True
         return updated
@@ -249,7 +255,7 @@ class SchedulerManager:
                 name=name,
                 description=config["description"],
                 interval_minutes=config["default_interval"],
-                enabled=False,  # Disabled by default
+                enabled=bool(config.get("default_enabled", False)),
             )
         if persist:
             self._save_config()
@@ -577,6 +583,14 @@ class SchedulerManager:
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
                 return ex.submit(_runner).result()
 
+    def _task_run_capability_automations(self) -> Dict[str, Any]:
+        """Execute the bounded snapshot of due governed automations."""
+        import asyncio
+
+        from backend.services.capability_automations import run_due_automations
+
+        return asyncio.run(run_due_automations())
+
     def _execute_task(self, name: str) -> Dict[str, Any]:
         """Execute a specific task."""
         if name == "fetch_feeds":
@@ -609,6 +623,8 @@ class SchedulerManager:
             return self._task_materialize_view_snapshots()
         elif name == "meeting_reminders":
             return self._task_meeting_reminders()
+        elif name == "run_capability_automations":
+            return self._task_run_capability_automations()
 
         return {"error": f"Unknown task: {name}"}
 
