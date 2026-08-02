@@ -23,7 +23,7 @@ import {
 } from './relationItemUtils';
 import { GalleryContentPreview, GalleryOpenButton } from './GalleryCardPreview';
 
-export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onEditSchema, onCreateRecord, onDeleteSelected, onDeletePage, onUpdateNote, searchTerm: externalSearchTerm, registerNavApi, onExitTop, onExitBottom, onFocusShell }) {
+export function VaultGallery({ notes, onNoteSelect, onOpenParallel, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onEditSchema, onCreateRecord, onDeleteSelected, onDeletePage, onUpdateNote, searchTerm: externalSearchTerm, registerNavApi, onExitTop, onExitBottom, onFocusShell }) {
     const { t } = useTranslation();
     const localeSettings = useLocaleSettings();
     const [internalSearchTerm, setInternalSearchTerm] = useState('');
@@ -606,6 +606,7 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                                 note={note}
                                 idToTitle={idToTitle}
                                 onNoteSelect={onNoteSelect}
+                                onOpenParallel={onOpenParallel}
                             />
                         </div>
                     )}
