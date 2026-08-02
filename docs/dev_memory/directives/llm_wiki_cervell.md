@@ -166,8 +166,14 @@ through the existing evidence endpoint.
 
 PDF citation navigation sends both the page and the persisted evidence text to the
 vendored reader. The reader navigates to the page and uses its transient find highlight to
-mark the cited passage; this must not create or persist a user annotation. When exact text
-matching is unavailable, page navigation remains the deterministic fallback.
+mark the cited passage immediately. In addition, successful PDF ingestion persists one
+managed Zotero highlight for every grounded citation. The ingestion service resolves the
+verbatim quote against the PDF text layer, stores real PDF-coordinate rectangles, and uses
+a stable managed key so reprocessing updates rather than duplicates the annotation.
+Annotations whose managed citation disappears are removed, while manual annotations are
+never touched. When exact text matching is unavailable, page navigation remains the
+deterministic fallback and ingestion completes with a warning instead of creating an
+invisible annotation without geometry.
 For rendered reading-note quotations, the visible quotation text is the preferred search
 fragment because persisted evidence segments may cover an entire PDF page. The reader uses
 a short leading phrase that ends on a word boundary, avoiding punctuation and PDF text-layer
@@ -176,6 +182,12 @@ after initialization, and in bounded delayed retries because the vendored
 `initializedPromise` can remain pending after the PDF is already interactive. The iframe
 host URL is versioned whenever its message or navigation behavior changes so browser caches
 cannot keep an older host contract.
+
+Document tabs use a canonical source key rather than the raw URL. Reopening a citation for
+an already-open PDF focuses that existing tab, refreshes its persisted annotations, and
+navigates the existing reader to the new citation. Outside the Vault dashboard, the
+standalone fallback uses a stable named browsing context per document instead of opening an
+unbounded series of windows.
 
 ## 7. Managed indexes, search, and maintenance
 
@@ -267,9 +279,15 @@ overwrite user-edited instructions.
 - Do not pass `gnosi-cite:` directly to BlockNote/Tiptap. It removes unapproved protocols
   and silently turns the locator into plain text; protect it with the citation HTTPS
   sentinel and restore it only during Markdown serialization.
-- Do not trust a filesystem path embedded in a citation or create a persisted annotation
-  merely to show evidence. Resolve evidence by resource/snapshot/segment on the backend and
-  use the Zotero reader's transient navigation/find state.
+- Do not trust a filesystem path embedded in a citation. Resolve evidence by
+  resource/snapshot/segment on the backend. Persist managed highlights only during trusted
+  ingestion, from the already-resolved attachment path and verified verbatim citation.
+- Do not persist a PDF highlight without real rectangles. Text/page metadata alone appears
+  in the annotation list but cannot mark the page; resolve the quote through PDFium and keep
+  transient find navigation as the fallback.
+- Do not identify an open document tab by an unnormalized raw URL. Equivalent file URLs,
+  paths, and served asset URLs can otherwise create duplicate readers; use the canonical
+  document key and refresh the location plus annotations on reuse.
 - Do not block citation navigation by awaiting the vendored reader's
   `initializedPromise`; it can remain pending after rendering. Queue bounded, sequence-safe
   navigation retries and prefer the rendered quotation over a page-sized evidence segment
@@ -294,6 +312,12 @@ overwrite user-edited instructions.
   and the smoke container.
 - Native backend code reloads automatically. Python dependency changes require
   `launchctl kickstart -k gui/$UID/com.gnosi.backend-native`.
+- Do not run backend tests with Docker fallback paths in the native workspace. Without an
+  explicit native `GNOSI_LOCAL_DATA`, configuration can fall back to `/app/data` and fail
+  before the test body with a filesystem permission error; use the native runtime paths.
+- Do not run an ad-hoc script below `pipeline/sandbox` without the Gnosi app root on
+  `PYTHONPATH`. Python otherwise exposes the script directory but not the sibling `backend`
+  package; run it with the app root as the working import path.
 - OneDrive files can be dataless. Always materialize attachments through the existing
   provider/warmup path before extraction.
 - On the current native Mac, FFmpeg, faster-whisper, yt-dlp, Tesseract, and the official

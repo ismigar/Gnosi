@@ -109,6 +109,27 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp
     //    PATCH no POST.
     const zoteroToDbIdRef = useRef(new Map());
 
+    const fetchPersistedAnnotations = useCallback(async ({ signal } = {}) => {
+        if (!rawSrc) return [];
+        const res = await fetch(
+            `/api/vault/pdf-annotations?source_uri=${encodeURIComponent(rawSrc)}`,
+            { signal },
+        );
+        if (signal?.aborted) return null;
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (signal?.aborted) return null;
+        if (!Array.isArray(data)) return [];
+        const mapped = data.map(pdfAnnotationToZotero);
+        annotationsRef.current = mapped;
+        for (const annotation of mapped) {
+            if (typeof annotation.id === 'string' && annotation.id.startsWith('gnosi:')) {
+                zoteroToDbIdRef.current.set(annotation.id, Number(annotation.id.slice(6)));
+            }
+        }
+        return mapped;
+    }, [rawSrc]);
+
     // --- Register the PDF with the backend to get the servable URL ---
     useEffect(() => {
         let cancelled = false;
@@ -153,34 +174,21 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp
         zoteroToDbIdRef.current = new Map();
         initSentRef.current = false;
         if (!rawSrc) return undefined;
-        let cancelled = false;
+        const controller = new AbortController();
         setAnnotationsLoaded(false);
         (async () => {
             try {
-                const res = await fetch(`/api/vault/pdf-annotations?source_uri=${encodeURIComponent(rawSrc)}`);
-                if (cancelled) return;
-                if (res.ok) {
-                    const data = await res.json();
-                    if (!cancelled && Array.isArray(data)) {
-                        const mapped = data.map(pdfAnnotationToZotero);
-                        annotationsRef.current = mapped;
-                        // We populate the mapping: the persisted annotations already
-                        // have their dbId implicit in the Zotero id (`gnosi:N`).
-                        for (const a of mapped) {
-                            if (typeof a.id === 'string' && a.id.startsWith('gnosi:')) {
-                                zoteroToDbIdRef.current.set(a.id, Number(a.id.slice(6)));
-                            }
-                        }
-                    }
-                }
+                await fetchPersistedAnnotations({ signal: controller.signal });
             } catch (err) {
-                console.warn('zotero-reader: load annotations failed', err);
+                if (err?.name !== 'AbortError') {
+                    console.warn('zotero-reader: load annotations failed', err);
+                }
             } finally {
-                if (!cancelled) setAnnotationsLoaded(true);
+                if (!controller.signal.aborted) setAnnotationsLoaded(true);
             }
         })();
-        return () => { cancelled = true; };
-    }, [rawSrc]);
+        return () => controller.abort();
+    }, [rawSrc, fetchPersistedAnnotations]);
 
     // --- Send init to the iframe (ONLY ONCE) when everything is ready ---
     // Three signals must coincide: host-ready, pdfUrl loaded,
@@ -231,7 +239,26 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp
             type: 'navigate',
             location: locationProp,
         }, window.location.origin);
-    }, [locationProp, readerReady]);
+        // Processing may have created managed citation highlights after this
+        // reader was opened. Refresh additively before reusing the same tab so
+        // the persistent annotation appears without mounting a second iframe.
+        const controller = new AbortController();
+        void fetchPersistedAnnotations({ signal: controller.signal })
+            .then((annotations) => {
+                if (controller.signal.aborted || !annotations) return;
+                iframeWin.postMessage({
+                    target: 'zotero-reader',
+                    type: 'set-annotations',
+                    annotations,
+                }, window.location.origin);
+            })
+            .catch((err) => {
+                if (err?.name !== 'AbortError') {
+                    console.warn('zotero-reader: refresh annotations failed', err);
+                }
+            });
+        return () => controller.abort();
+    }, [locationProp, readerReady, fetchPersistedAnnotations]);
 
     // --- Listener for the iframe's postMessage ---
     // Origin guard: the handler must only accept messages that come

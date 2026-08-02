@@ -23,6 +23,7 @@ from backend.services import (
     llm_wiki_config,
     llm_wiki_extractors,
     llm_wiki_indices,
+    llm_wiki_pdf_annotations,
     llm_wiki_storage,
 )
 
@@ -818,6 +819,23 @@ def process_resource(
         config=config,
         source_dimensions=source_dimensions,
     )
+    try:
+        annotation_report = llm_wiki_pdf_annotations.sync_generated_pdf_annotations(
+            notes,
+            origins,
+            source_page_id,
+        )
+        warnings.extend(annotation_report.get("warnings") or [])
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("llm_wiki managed PDF annotations failed: %s", exc)
+        warnings.append(f"Managed PDF annotations could not be synchronized: {exc}")
+        annotation_report = {
+            "created": 0,
+            "updated": 0,
+            "removed": 0,
+            "matched": 0,
+            "requested": 0,
+        }
     model = next((str(item) for item in reversed(models) if item), "")
     report = {
         "source_kind": "+".join(dict.fromkeys(str(origin.get("kind")) for origin in origins)),
@@ -831,6 +849,7 @@ def process_resource(
         "summary": plan["summary"],
         "warnings": warnings,
         "managed_keys": [note["managed_key"] for note in notes],
+        "pdf_annotations": annotation_report,
     }
     manifest = llm_wiki_storage.load_manifest(source_table_id, source_page_id)
     manifest.update({

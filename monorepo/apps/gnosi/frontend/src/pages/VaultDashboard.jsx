@@ -41,6 +41,7 @@ import {
     RELATION_UNLINKED_EVENT,
     RELATION_VALUE_APPLIED_EVENT,
 } from '../components/Vault/relationItemUtils';
+import { documentTabId } from '../lib/fileResource';
 // The drawing editor (tldraw) is very heavy and is only used in 'drawing' mode:
 // we load it lazily so it doesn't end up in the Vault chunk.
 const TldrawEditor = lazy(() => import('../components/Vault/TldrawEditor'));
@@ -195,7 +196,6 @@ export default function VaultDashboard() {
     const TABLE_TAB_PREFIX = 'table:';
     // Stable prefix to identify a PDF/EPUB/snapshot tab. Reuses
     // the tab when the user clicks the same document twice.
-    const PDF_TAB_PREFIX = 'pdf:';
 
     const isAbortLikeError = useCallback((err) => {
         if (!err) return false;
@@ -1479,11 +1479,10 @@ export default function VaultDashboard() {
             const { src, title, kind, location } = e.detail || {};
             if (!src) return;
             e.preventDefault();
-            // PDF / EPUB / snapshot HTML share a tab prefix (see
-            // PDF_TAB_PREFIX) because conceptually they are "documents" of the
-            // Zotero reader. The `kind` field controls which specific viewer
-            // is initialized inside the iframe.
-            const id = `${PDF_TAB_PREFIX}${src}`;
+            // PDF / EPUB / snapshot HTML use one canonical tab id per source.
+            // The `kind` field controls which specific viewer is initialized
+            // inside the iframe.
+            const id = documentTabId(src);
             // We remember WHERE the document is opened from so the "Back" button of the
             // viewer (and closing the tab) can return there. Without this,
             // opening a PDF from a table would make it disappear with no way

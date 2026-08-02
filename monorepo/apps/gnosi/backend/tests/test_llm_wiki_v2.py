@@ -1004,6 +1004,18 @@ def test_matching_checkpoint_resumes_writing_without_another_llm_call(monkeypatc
             or {"created": [], "created_ids": [], "updated": ["Stored atomic idea"]}
         ),
     )
+    monkeypatch.setattr(
+        llm_wiki.llm_wiki_pdf_annotations,
+        "sync_generated_pdf_annotations",
+        lambda *_args, **_kwargs: {
+            "created": 0,
+            "updated": 0,
+            "removed": 0,
+            "matched": 0,
+            "requested": 0,
+            "warnings": [],
+        },
+    )
     monkeypatch.setattr(llm_wiki.llm_wiki_storage, "load_manifest", lambda *_args: {})
     monkeypatch.setattr(
         llm_wiki.llm_wiki_storage,
