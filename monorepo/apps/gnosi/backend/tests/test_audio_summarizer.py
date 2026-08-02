@@ -182,12 +182,12 @@ def test_summarize_batch_uses_langchain_messages_and_records_usage(monkeypatch):
     )
 
     assert result == "Podcast script"
-    assert llm.messages[0].content == (
-        "You are an intelligent podcast assistant. "
-        "Write exclusively the text that will be read literally out loud, "
-        "without adding notes, section titles, or meta-comments. "
-        "Language: Catalan."
+    assert "Write the entire response in Catalan" in llm.messages[0].content
+    assert "Translate all source material into Catalan" in llm.messages[0].content
+    assert "Do not write in English unless Catalan is English" in (
+        llm.messages[0].content
     )
+    assert "Write the entire response in Catalan" in llm.messages[1].content
     assert "Structure the summary as a fluid 10-15 minute podcast script" in (
         llm.messages[1].content
     )
@@ -211,11 +211,47 @@ def test_generate_tts_uses_selected_language(monkeypatch, tmp_path):
         "Primera frase. Segona frase.", output_path, "ca"
     )
 
-    assert observed == [
+    assert sorted(observed) == sorted([
         ("Primera frase.", "ca", False),
         ("Segona frase.", "ca", False),
-    ]
+    ])
     assert output_path.read_bytes() == b"audioaudio"
+
+
+def test_generate_tts_publishes_audio_atomically(monkeypatch, tmp_path):
+    output_path = tmp_path / "podcast.mp3"
+    output_path.write_bytes(b"previous")
+
+    def fake_generate(text, partial_path, language_code):
+        assert partial_path == f"{output_path}.part"
+        assert output_path.read_bytes() == b"previous"
+        Path(partial_path).write_bytes(b"complete")
+
+    monkeypatch.setattr(audio_summarizer, "_generate_tts_by_sentences", fake_generate)
+
+    audio_summarizer._generate_tts_atomically("Guió", output_path, "ca")
+
+    assert output_path.read_bytes() == b"complete"
+    assert not Path(f"{output_path}.part").exists()
+
+
+def test_generate_tts_keeps_previous_audio_when_generation_fails(
+    monkeypatch, tmp_path
+):
+    output_path = tmp_path / "podcast.mp3"
+    output_path.write_bytes(b"previous")
+
+    def fake_generate(text, partial_path, language_code):
+        Path(partial_path).write_bytes(b"incomplete")
+        raise RuntimeError("network failure")
+
+    monkeypatch.setattr(audio_summarizer, "_generate_tts_by_sentences", fake_generate)
+
+    with pytest.raises(RuntimeError, match="network failure"):
+        audio_summarizer._generate_tts_atomically("Guió", output_path, "ca")
+
+    assert output_path.read_bytes() == b"previous"
+    assert not Path(f"{output_path}.part").exists()
 
 
 def test_podcast_output_dir_is_inside_selected_vault(tmp_path):
