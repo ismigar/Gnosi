@@ -107,6 +107,7 @@ import { PageLinksGraph } from './PageLinksGraph';
 import { useFloatingActionDock } from '../../hooks/useFloatingActionDock';
 import { isManagedInternalMetadataKey } from './metadataVisibilityUtils';
 import { focusPropertyRow } from './propertyNavigationUtils';
+import { restoreToggleExpansionState, saveToggleExpansionState } from './toggleExpansionStateUtils';
 
 /**
  * Resolves the URI of the PDF associated with a Recursos page.
@@ -1575,6 +1576,7 @@ export function EditorInner({
 
                 if (parsedBlocks) {
                     const sanitized = sanitizeBlocks(parsedBlocks);
+                    restoreToggleExpansionState(currentNoteId, sanitized);
                     setBlocks(sanitized);
                     initializedNoteRef.current = currentNoteId;
 
@@ -1603,6 +1605,10 @@ export function EditorInner({
             cancelled = true;
         };
     }, [initialContent, noteFilename, editor, sanitizeBlocks]);
+
+    useEffect(() => () => {
+        saveToggleExpansionState(noteFilename, editor?.document);
+    }, [editor, noteFilename]);
 
     const [editorReady, setEditorReady] = useState(false);
     useEffect(() => { if (editor) { const timer = setTimeout(() => setEditorReady(true), 100); return () => clearTimeout(timer); } }, [editor]);
