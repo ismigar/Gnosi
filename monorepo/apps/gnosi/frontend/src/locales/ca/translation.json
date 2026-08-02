@@ -37,6 +37,7 @@
   "common": {
     "knowledge": "Coneixement",
     "vault_label": "Vault",
+    "gallery_content_preview": "Previsualització del contingut de la pàgina",
     "yes": "Sí",
     "loading": "Carregant...",
     "untitled": "Sense títol",
