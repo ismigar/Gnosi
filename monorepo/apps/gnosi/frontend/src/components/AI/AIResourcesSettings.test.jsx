@@ -69,7 +69,7 @@ describe('AI resource settings components', () => {
             />,
         );
 
-        expect(container.textContent).toContain('Process source');
+        expect(container.textContent).toContain('settings.ai.catalog.tool_name');
         expect(container.textContent).toContain('local write');
         expect(container.textContent).toContain('settings.ai.resources.status_available');
 
@@ -103,7 +103,7 @@ describe('AI resource settings components', () => {
             />,
         );
 
-        expect(container.textContent).toContain('Query Brain');
+        expect(container.textContent).toContain('settings.ai.catalog.tool_name');
         expect(container.textContent).toContain('plugin.disabled.missing');
         expect(container.textContent).toContain('settings.ai.resources.required');
         expect(container.textContent).toContain('settings.ai.resources.model_incompatible');

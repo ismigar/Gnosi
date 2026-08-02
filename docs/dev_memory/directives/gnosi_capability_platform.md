@@ -229,3 +229,51 @@
 - Browser E2E: alternate native backend/frontend loaded Settings, AI,
   Automations, and Runs & audit; the form, budgets, approval queue, durable jobs,
   and metadata-only audit were present and the browser console had zero errors.
+
+## 13. Settings Localization and Catalog Presentation
+
+- Keep canonical skill and tool names, descriptions, ids, statuses, and effect
+  values in English at the API boundary. They are technical contracts and audit
+  data, not localized persisted content.
+- Translate first-party catalog names and descriptions in the frontend through
+  stable keys derived from the complete resource id. User-created skill names,
+  descriptions, and instructions remain user-authored content and must never be
+  translated implicitly.
+- Translate dynamic status, role, action, job, and audit labels before rendering
+  them. Preserve their canonical values in code blocks and diagnostic details.
+- Search matches both localized presentation text and canonical ids/text so a
+  language switch does not make technical catalog entries undiscoverable.
+- Catalog data loads when Settings opens and mutations update local state.
+  Do not expose a permanent manual refresh button in every toolbar; it duplicates
+  normal synchronization and creates an unexplained icon. Errors may offer an
+  explicit localized retry action when recovery is needed.
+- Primary creation actions use the shared `btn-gnosi-primary` contract, including
+  its icon, text, spacing, focus, disabled, and responsive behavior. Do not add
+  per-screen inline button geometry.
+
+### Review restrictions and edge cases
+
+- Do not use a translated label as a resource id, API argument, stored value, or
+  audit key.
+- Do not translate plugin or MCP contribution prose unless that contribution
+  supplies its own localized metadata; fall back to the canonical provider text.
+- Do not let English inline defaults hide a missing key in one of the four locale
+  catalogs. Every bundled first-party presentation key exists in Catalan,
+  English, Spanish, and French.
+- Do not render raw enum values such as `completed`, `external_write`, or
+  `member` as visible labels when a governed translation namespace exists.
+
+### Implemented review validation
+
+- All six AI Settings tabs render localized navigation and presentation text;
+  first-party catalog cards were verified in Catalan, Spanish, and French, and
+  the interface was restored to Catalan after the test.
+- The shared primary-button contract was verified on the create-skill action:
+  flex layout, standard padding, bold label, 12-pixel radius, and no horizontal
+  overflow.
+- The skill and tool catalogs expose no normal-state refresh icon; all tested
+  tabs render without the removed icon and retain localized retry behavior for
+  load failures.
+- Focused AI Settings tests pass with 11 assertions, locale validation passes
+  for all four catalogs, the production build transforms 7,605 modules, and
+  browser inspection reports no console errors.
