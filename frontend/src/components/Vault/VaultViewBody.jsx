@@ -106,6 +106,7 @@ export function VaultViewBody({
                 onExitTop={onExitTop}
                 onExitBottom={onExitBottom}
                 onFocusShell={onFocusShell}
+                onOpenParallel={onOpenParallel}
             />
         );
     } else if (t === 'timeline') {

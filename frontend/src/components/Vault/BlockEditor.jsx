@@ -107,7 +107,12 @@ import { PageLinksGraph } from './PageLinksGraph';
 import { useFloatingActionDock } from '../../hooks/useFloatingActionDock';
 import { isManagedInternalMetadataKey } from './metadataVisibilityUtils';
 import { focusPropertyRow } from './propertyNavigationUtils';
-import { restoreToggleExpansionState, saveToggleExpansionState } from './toggleExpansionStateUtils';
+import {
+    restoreToggleDomExpansionState,
+    restoreToggleExpansionState,
+    saveToggleDomExpansionState,
+    saveToggleExpansionState,
+} from './toggleExpansionStateUtils';
 
 /**
  * Resolves the URI of the PDF associated with a Recursos page.
@@ -1606,12 +1611,49 @@ export function EditorInner({
         };
     }, [initialContent, noteFilename, editor, sanitizeBlocks]);
 
-    useEffect(() => () => {
-        saveToggleExpansionState(noteFilename, editor?.document);
-    }, [editor, noteFilename]);
-
     const [editorReady, setEditorReady] = useState(false);
     useEffect(() => { if (editor) { const timer = setTimeout(() => setEditorReady(true), 100); return () => clearTimeout(timer); } }, [editor]);
+
+    useEffect(() => () => {
+        saveToggleExpansionState(noteFilename, editor?.document);
+        saveToggleDomExpansionState(noteFilename, editorWrapperRef.current);
+    }, [editor, noteFilename]);
+
+    useEffect(() => {
+        const wrapper = editorWrapperRef.current;
+        if (!wrapper || !editor || !noteFilename) return undefined;
+        let timer = null;
+        const persistAfterToggle = (event) => {
+            if (!event.target.closest('.bn-toggle-button')) return;
+            timer = window.setTimeout(() => {
+                saveToggleExpansionState(noteFilename, editor.document);
+                saveToggleDomExpansionState(noteFilename, wrapper);
+            }, 0);
+        };
+        wrapper.addEventListener('click', persistAfterToggle);
+        return () => {
+            wrapper.removeEventListener('click', persistAfterToggle);
+            if (timer) window.clearTimeout(timer);
+        };
+    }, [editor, noteFilename]);
+
+    useEffect(() => {
+        const wrapper = editorWrapperRef.current;
+        if (!wrapper || !editor || !noteFilename) return undefined;
+        let timer = null;
+        const restore = () => {
+            if (timer) window.clearTimeout(timer);
+            timer = window.setTimeout(() => {
+                restoreToggleDomExpansionState(noteFilename, wrapper);
+            }, 150);
+        };
+        restore();
+        const unsubscribe = editor.onChange?.(restore);
+        return () => {
+            if (timer) window.clearTimeout(timer);
+            if (typeof unsubscribe === 'function') unsubscribe();
+        };
+    }, [editor, noteFilename, editorReady]);
 
     // Tinting of section headers on AREA pages (Formació→blue,
     // Recursos→gray, …). It's purely visual: it does NOT touch the note's content,
