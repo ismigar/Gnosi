@@ -174,6 +174,10 @@ configuration autosave.
 
 ## Edge cases
 
+- Do not reintroduce Settings section state while merging an older UI branch;
+  overlapping branches may already declare the same React state in a different
+  part of the component, which causes a duplicate-symbol production build
+  failure. Search the full component for the state pair and keep one declaration.
 - Invalid paths fall back to the project default and produce an English
   developer warning.
 - Do not enable unified autosave after only one Settings request completes:
