@@ -1,6 +1,7 @@
 """Managed PDF highlights created from grounded Brain citations."""
 from __future__ import annotations
 
+import ctypes
 import json
 from pathlib import Path
 
@@ -11,17 +12,46 @@ from backend.data.db import _apply_lazy_migrations
 from backend.models.pdf_annotation import PdfAnnotation
 from backend.services import llm_wiki_pdf_annotations
 
+_TEST_QUOTE = "Persistent citation highlights span multiple lines in this portable PDF fixture"
 
-def _demo_pdf() -> Path:
-    return (
-        Path(__file__).resolve().parents[2]
-        / "frontend"
-        / "vendor"
-        / "zotero-reader"
-        / "demo"
-        / "pdf"
-        / "demo.pdf"
-    )
+
+def _demo_pdf(tmp_path: Path) -> Path:
+    """Create a searchable two-line PDF without relying on vendor submodules."""
+    import pypdfium2
+    from pypdfium2 import raw as pdfium_c
+
+    pdf_path = tmp_path / "citation-fixture.pdf"
+    document = pypdfium2.PdfDocument.new()
+    page = document.new_page(612, 792)
+    try:
+        for text_value, y_position in (
+            ("Persistent citation highlights span multiple lines", 700),
+            ("in this portable PDF fixture", 680),
+        ):
+            text_object = pdfium_c.FPDFPageObj_NewTextObj(
+                document.raw,
+                b"Helvetica",
+                14,
+            )
+            encoded = (text_value + "\x00").encode("utf-16-le")
+            encoded_pointer = ctypes.cast(encoded, pdfium_c.FPDF_WIDESTRING)
+            assert pdfium_c.FPDFText_SetText(text_object, encoded_pointer)
+            pdfium_c.FPDFPageObj_Transform(
+                text_object,
+                1,
+                0,
+                0,
+                1,
+                72,
+                y_position,
+            )
+            assert pdfium_c.FPDFPage_InsertObject(page.raw, text_object)
+        assert pdfium_c.FPDFPage_GenerateContent(page.raw)
+        document.save(pdf_path)
+    finally:
+        page.close()
+        document.close()
+    return pdf_path
 
 
 def _session():
@@ -30,12 +60,12 @@ def _session():
     return sessionmaker(bind=engine)()
 
 
-def _origin() -> dict:
+def _origin(pdf_path: Path) -> dict:
     return {
         "kind": "pdf",
         "origin_id": "origin-1",
         "_annotation_source_uri": "file:///Library/demo.pdf",
-        "_annotation_pdf_path": str(_demo_pdf()),
+        "_annotation_pdf_path": str(pdf_path),
     }
 
 
@@ -43,14 +73,14 @@ def _citation() -> dict:
     return {
         "origin_id": "origin-1",
         "segment_id": "segment-1",
-        "quote": "Trace-based Just-in-Time Type Specialization for Dynamic Languages",
+        "quote": _TEST_QUOTE,
         "locator": {"page": 1, "paragraph": 1},
     }
 
 
-def test_pdfium_resolves_multiline_quote_to_real_pdf_rectangles():
+def test_pdfium_resolves_multiline_quote_to_real_pdf_rectangles(tmp_path: Path):
     position = llm_wiki_pdf_annotations._find_quote_position(  # noqa: SLF001
-        _demo_pdf(),
+        _demo_pdf(tmp_path),
         1,
         _citation()["quote"],
     )
@@ -62,8 +92,9 @@ def test_pdfium_resolves_multiline_quote_to_real_pdf_rectangles():
     assert position["sort_index"].startswith("00000|")
 
 
-def test_managed_highlights_are_idempotent_and_preserve_manual_annotations():
+def test_managed_highlights_are_idempotent_and_preserve_manual_annotations(tmp_path: Path):
     session = _session()
+    pdf_path = _demo_pdf(tmp_path)
     manual = PdfAnnotation(
         source_uri="file:///Library/demo.pdf",
         page=1,
@@ -77,13 +108,13 @@ def test_managed_highlights_are_idempotent_and_preserve_manual_annotations():
     notes = [{"citations": [_citation(), _citation()]}]
     first = llm_wiki_pdf_annotations.sync_generated_pdf_annotations(
         notes,
-        [_origin()],
+        [_origin(pdf_path)],
         "resource-1",
         session=session,
     )
     second = llm_wiki_pdf_annotations.sync_generated_pdf_annotations(
         notes,
-        [_origin()],
+        [_origin(pdf_path)],
         "resource-1",
         session=session,
     )
@@ -102,7 +133,7 @@ def test_managed_highlights_are_idempotent_and_preserve_manual_annotations():
 
     removed = llm_wiki_pdf_annotations.sync_generated_pdf_annotations(
         [],
-        [_origin()],
+        [_origin(pdf_path)],
         "resource-1",
         session=session,
     )
