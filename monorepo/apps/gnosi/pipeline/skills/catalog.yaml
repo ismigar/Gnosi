@@ -18,6 +18,7 @@ packages:
   scheduler: {kind: infrastructure}
   suggest_connections: {kind: action}
   team_manager: {kind: developer}
+  technical_documentation: {kind: developer}
   translate_page: {kind: action}
   translate_row: {kind: action}
   ui_stability: {kind: developer}

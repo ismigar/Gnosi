@@ -136,6 +136,10 @@ product completeness.
 - In an isolated worktree, do not link only `frontend/node_modules` before the
   required application build. npm workspaces resolve hoisted tools such as
   Vite from `monorepo/node_modules`; install or link dependencies at that root.
+- Do not add or move the documentation generator skill without updating
+  `pipeline/skills/catalog.yaml`. Every `pipeline/skills/*/SKILL.md` directory
+  requires an explicit non-runtime classification; use `kind: developer` for
+  this documentation procedure.
 - A missing doc-tool dependency is a failed documentation build, not permission
   to skip verification.
 
