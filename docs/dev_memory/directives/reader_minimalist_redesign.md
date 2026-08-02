@@ -45,8 +45,10 @@ Use separate requests for:
 
 This keeps source counts stable while users change filters.
 
-The feed-manager modal remains reachable. Preserve polling, synchronization,
-podcast generation, mark-as-read behavior, and all existing endpoints.
+Feed subscriptions are managed centrally in Settings → Reader. Do not restore
+an in-page feed-manager button or modal in the Reader dashboard; the duplicate
+entry point was non-functional. Preserve polling, synchronization, podcast
+generation, mark-as-read behavior, and all existing endpoints.
 
 ## OPML categories
 
@@ -80,7 +82,7 @@ not a valid target.
 2. Browser verifies source selection, temporal groups, pending/history toggle,
    correct counts, theme behavior, mobile drawer, podcast controls, and
    mark-as-read.
-3. Feed-manager modal opens.
+3. Subscription management remains available in Settings → Reader.
 4. RSS content stays sandboxed.
 5. English appears on a fresh profile and another language persists after user
    selection.
