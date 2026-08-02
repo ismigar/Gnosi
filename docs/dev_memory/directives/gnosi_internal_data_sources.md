@@ -119,6 +119,8 @@
 | 2026-08-02 | Background analysis lacked the active Vault context | Python context variables do not propagate into a new thread | Bind and reset `active_vault_path` inside the durable worker thread |
 | 2026-08-02 | Isolated-worktree tests tried to write `/app/data` | The test process inherited the deployment fallback without native local-data configuration | Set `GNOSI_LOCAL_DATA` to an explicit temporary native path for isolated tests |
 | 2026-08-02 | Internal search excerpts were bounded but not explicitly delimited | Reader and mail text can contain instructions aimed at the model | Wrap every internal inventory, search result, and exact record as untrusted data |
+| 2026-08-02 | A restart during Reader snapshotting could not actually resume | Snapshot creation happened synchronously before the durable worker and left no persisted corpus after an interruption | Queue immediately and let the resumable worker create or reconstruct the snapshot before mapping |
+| 2026-08-02 | A persistent Reader ref could hide the current page scope | Reference de-duplication retained the persistent source before the turn-scoped source | Merge turn references first so current-turn scope overrides the same persistent source without being saved |
 
 ## 7. Rationalizations
 
@@ -182,12 +184,17 @@
   effects and confirmation policy.
 - Long Reader analysis uses a snapshot-and-checkpoint pipeline rather than an
   oversized synchronous chat turn.
+- Snapshot creation runs inside the durable worker. A queued request returns
+  immediately, and resuming an interrupted pre-snapshot job safely creates the
+  first complete immutable snapshot before any model batch runs.
 
 ## 13. Validation Record
 
-- Exact native Reader inventory returned the full 17,368 unread records present
-  during validation, rather than the former 10,000-row UI ceiling.
-- Focused backend regression: 91 tests passed; one pre-existing FastAPI
+- Exact native Reader inventory returned the full live unread count during
+  validation, rather than the former capped UI total.
+- Focused backend regression: 96 tests passed, including Reader, Mail,
+  Calendar, Contacts, account/workspace containment, turn-scope precedence,
+  and pre-snapshot recovery; one pre-existing FastAPI
   deprecation warning remains outside this change.
 - Frontend source-picker component tests, touched-file ESLint, four-locale i18n
   validation, and the Vite production build passed.

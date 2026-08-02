@@ -548,13 +548,13 @@ async def get_agent_workflow(
         active_skill_ids=active_skill_ids,
     )
     if turn_context_refs:
-        from backend.agent.agent_context import normalize_refs
+        from backend.agent.agent_context import merge_context_refs
 
         agent_data = dict(agent_data or {})
-        agent_data["context_refs"] = normalize_refs([
-            *(agent_data.get("context_refs") or []),
-            *turn_context_refs,
-        ])
+        agent_data["context_refs"] = merge_context_refs(
+            agent_data.get("context_refs") or [],
+            turn_context_refs,
+        )
     runtime_active_ids = list(
         getattr(runtime_capabilities, "active_skill_ids", ()) or ()
     )

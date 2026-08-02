@@ -88,6 +88,17 @@ def normalize_refs(raw: Any) -> List[Dict[str, Any]]:
     return out
 
 
+def merge_context_refs(
+    persistent_refs: Any,
+    turn_refs: Any,
+) -> List[Dict[str, Any]]:
+    """Merge refs with current-turn scopes taking precedence by source."""
+    return normalize_refs([
+        *(turn_refs or []),
+        *(persistent_refs or []),
+    ])
+
+
 def describe_context_refs(refs: List[Dict[str, Any]]) -> str:
     """Builds the prompt block: the inventory plus how to read it."""
     refs = normalize_refs(refs)

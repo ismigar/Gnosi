@@ -1968,6 +1968,7 @@
   "reader_analysis_scope_source": "{{source}} · {{count}} articles",
   "reader_analysis_scope_all": "Tous les flux · {{count}} articles",
   "reader_analysis_desc": "Gnosi crée un instantané immuable, traite chaque article sélectionné avec des points de contrôle et produit une évolution citée pour chaque thème. Vous pouvez quitter cette page et reprendre après un redémarrage.",
+  "reader_analysis_cost_notice": "Cette opération traite tous les articles sélectionnés et peut consommer de nombreux appels au modèle d’IA.",
   "reader_analysis_start": "Analyser les articles sélectionnés",
   "reader_analysis_start_error": "L’analyse n’a pas pu démarrer.",
   "reader_analysis_resume_error": "L’analyse n’a pas pu reprendre.",

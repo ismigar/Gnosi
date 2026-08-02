@@ -365,6 +365,28 @@ export default function AgentContextSources({ value, onChange }) {
                                     ))}
                                 </select>
                             </label>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                                <label style={{ fontSize: '0.78rem' }}>
+                                    {t('settings.ai.context_date_from', 'From')}
+                                    <input
+                                        type="date"
+                                        className="gnosi-input"
+                                        value={(editingRef.scope?.date_from || '').slice(0, 10)}
+                                        onChange={event => setScope({ date_from: event.target.value })}
+                                        style={{ width: '100%', marginTop: '5px' }}
+                                    />
+                                </label>
+                                <label style={{ fontSize: '0.78rem' }}>
+                                    {t('settings.ai.context_date_to', 'To')}
+                                    <input
+                                        type="date"
+                                        className="gnosi-input"
+                                        value={(editingRef.scope?.date_to || '').slice(0, 10)}
+                                        onChange={event => setScope({ date_to: event.target.value })}
+                                        style={{ width: '100%', marginTop: '5px' }}
+                                    />
+                                </label>
+                            </div>
                             <label style={{ fontSize: '0.82rem' }}>
                                 <input
                                     type="checkbox"

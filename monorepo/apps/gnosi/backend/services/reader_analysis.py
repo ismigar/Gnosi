@@ -431,14 +431,38 @@ def _run_job(
         job = _update_job(
             vault_path,
             job_id,
-            state="mapping",
-            phase="mapping",
-            progress=2,
+            state="snapshotting",
+            phase="snapshotting",
+            progress=1,
             error=None,
         )
         snapshot = _load_json(_snapshot_path(vault_path, job_id))
         if not isinstance(snapshot, list):
-            raise RuntimeError("Reader analysis snapshot is missing or unreadable.")
+            snapshot = _snapshot_articles(vault_path, dict(job.get("scope") or {}))
+            snapshot_digest = _digest_snapshot(snapshot)
+            safe_write_json(_snapshot_path(vault_path, job_id), snapshot)
+        else:
+            snapshot_digest = str(job.get("snapshot_digest") or "")
+            if not snapshot_digest:
+                snapshot_digest = _digest_snapshot(snapshot)
+        job = _update_job(
+            vault_path,
+            job_id,
+            state="mapping",
+            phase="mapping",
+            progress=2,
+            total_articles=len(snapshot),
+            snapshot_digest=snapshot_digest,
+        )
+        if _cancel_requested(vault_path, job_id):
+            _update_job(
+                vault_path,
+                job_id,
+                state="cancelled",
+                phase="cancelled",
+                completed_at=_utc_now(),
+            )
+            return
         batches = _build_batches(snapshot)
         _update_job(vault_path, job_id, total_batches=len(batches))
         summaries: List[Dict[str, Any]] = []
@@ -553,14 +577,14 @@ def start_analysis(
     model_call: Optional[Callable[[str, str], str]] = None,
     launch: bool = True,
 ) -> Dict[str, Any]:
-    """Create an immutable Reader snapshot and start its durable analysis."""
+    """Queue a durable Reader analysis whose worker creates the snapshot."""
     scope = normalize_internal_scope("reader", raw_scope)
     scope["include_full_content"] = True
     job_id = uuid.uuid4().hex
     job = {
         "job_id": job_id,
-        "state": "snapshotting",
-        "phase": "snapshotting",
+        "state": "queued",
+        "phase": "queued",
         "progress": 0,
         "scope": scope,
         "language": str(language or "Catalan")[:64],
@@ -576,19 +600,7 @@ def start_analysis(
         "created_at": _utc_now(),
         "updated_at": _utc_now(),
     }
-    _save_job(vault_path, job)
-    rows = _snapshot_articles(Path(vault_path).resolve(), scope)
-    digest = _digest_snapshot(rows)
-    safe_write_json(_snapshot_path(vault_path, job_id), rows)
-    job = _update_job(
-        vault_path,
-        job_id,
-        state="queued",
-        phase="queued",
-        progress=1,
-        total_articles=len(rows),
-        snapshot_digest=digest,
-    )
+    job = _save_job(vault_path, job)
     if launch:
         _launch(vault_path, job_id, model_call=model_call or _default_model_call)
     return _public_job(job)

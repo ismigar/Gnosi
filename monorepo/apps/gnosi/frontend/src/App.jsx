@@ -99,19 +99,19 @@ function App() {
     };
     return byRoute[location.pathname] || [];
   }, [location.pathname, t]);
-  const moduleContextRefs = moduleContextOverride?.pathname === location.pathname
+  const moduleContextRefs = moduleContextOverride?.locationKey === location.key
     ? moduleContextOverride.refs
     : defaultModuleContextRefs;
 
   useEffect(() => {
     const updateModuleContext = (event) => {
       if (Array.isArray(event.detail)) {
-        setModuleContextOverride({ pathname: location.pathname, refs: event.detail });
+        setModuleContextOverride({ locationKey: location.key, refs: event.detail });
       }
     };
     window.addEventListener('gnosi:module-context', updateModuleContext);
     return () => window.removeEventListener('gnosi:module-context', updateModuleContext);
-  }, [location.pathname]);
+  }, [location.key]);
 
   // Bootstrap: we wait to know the mode and whether there's a session before deciding.
   if (loading) {

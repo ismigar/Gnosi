@@ -40,6 +40,8 @@ const sourceCatalogue = [{
         unread_only: true,
         source_ids: [],
         categories: [],
+        date_from: '',
+        date_to: '',
         include_full_content: false,
     },
     options: {
@@ -115,6 +117,7 @@ describe('AgentContextSources internal sources', () => {
         await act(async () => unread.dispatchEvent(new MouseEvent('click', { bubbles: true })));
 
         expect(container.textContent).toContain('Actions are governed separately.');
+        expect(container.querySelectorAll('input[type="date"]')).toHaveLength(2);
         expect(onChange).toHaveBeenCalledWith([expect.objectContaining({
             id: 'ctx-reader',
             scope: expect.objectContaining({ unread_only: false }),
