@@ -166,6 +166,9 @@ product completeness.
 - Do not let changes to the exported Pages workflow bypass private-repository
   documentation CI. Include its source path in the root documentation
   workflow's pull-request path filters.
+- Do not count `__pycache__`, bytecode, dependency, vendor, or build artifacts
+  matched by broad domain globs. Local caches make coverage output differ from
+  a clean CI checkout; apply the owned-file filter before counting matches.
 - Do not publish only `site/engineering/` while the configured canonical URL
   ends in `/engineering/`; doing so moves the portal to the repository root and
   makes the in-app link and canonical metadata disagree.
