@@ -16,6 +16,8 @@ DOCUMENTATION_CI_WORKFLOW = (
 )
 SIDEBAR_SOURCE = APP_ROOT / "frontend" / "src" / "components" / "AppSidebar.jsx"
 CANONICAL_URL = "https://gnosi.temenosismael.org/engineering/"
+ENGINEERING_CSS = APP_ROOT / "docs" / "engineering" / "assets" / "engineering.css"
+MERMAID_INIT = APP_ROOT / "docs" / "engineering" / "assets" / "mermaid-init.js"
 
 
 def test_pages_workflow_publishes_the_engineering_subdirectory():
@@ -48,6 +50,16 @@ def test_sidebar_uses_the_canonical_public_url():
 
     assert f"site_url: {CANONICAL_URL}" in mkdocs_config
     assert CANONICAL_URL in sidebar_source
+
+
+def test_engineering_portal_uses_gnosi_brand_tokens():
+    """The standalone portal keeps Gnosi's primary and muted visual language."""
+    css = ENGINEERING_CSS.read_text(encoding="utf-8")
+    mermaid = MERMAID_INIT.read_text(encoding="utf-8")
+
+    assert "--md-primary-fg-color: #3b82f6" in css
+    assert 'primaryColor: "#f3f4f6"' in mermaid
+    assert 'primaryColor: "#27272a"' in mermaid
 
 
 def test_private_ci_validates_public_workflow_changes():

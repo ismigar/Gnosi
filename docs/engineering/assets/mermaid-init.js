@@ -1,10 +1,30 @@
 (() => {
   if (typeof mermaid === "undefined") return;
 
+  const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const themeVariables = isDark
+    ? {
+        primaryColor: "#27272a",
+        primaryTextColor: "#f4f4f5",
+        primaryBorderColor: "#52525b",
+        lineColor: "#a1a1aa",
+        secondaryColor: "#18181b",
+        tertiaryColor: "#111113",
+      }
+    : {
+        primaryColor: "#f3f4f6",
+        primaryTextColor: "#111827",
+        primaryBorderColor: "#d1d5db",
+        lineColor: "#6b7280",
+        secondaryColor: "#f9fafb",
+        tertiaryColor: "#ffffff",
+      };
+
   mermaid.initialize({
     startOnLoad: false,
     securityLevel: "strict",
-    theme: window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "default",
+    theme: "base",
+    themeVariables,
   });
 
   const renderDiagrams = async () => {
