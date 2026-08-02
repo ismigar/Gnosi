@@ -3,6 +3,7 @@ import os
 import re
 import threading
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from gtts import gTTS
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -223,6 +224,15 @@ def _generate_tts_by_sentences(text, output_path):
     log.info(f"TTS completed: {os.path.getsize(output_path)} bytes")
 
 
+def get_podcast_output_dir(vault_path=None):
+    """Return the shared output directory used to generate and serve podcasts."""
+    if vault_path is None:
+        from backend.services.context_vars import get_active_vault_path
+
+        vault_path = get_active_vault_path()
+    return Path(vault_path) / "data" / "podcasts"
+
+
 def generate_daily_podcast():
     """
     Collect unread articles from the last 24 hours, generate a batched script
@@ -314,9 +324,7 @@ def generate_daily_podcast():
         # 5. Generate audio
         today_str = datetime.now().strftime("%Y_%m_%d")
         audio_filename = f"daily_podcast_{today_str}.mp3"
-        from backend.config.app_config import load_params
-
-        audio_output_dir = str(load_params(strict_env=False).paths["AUDIO"])
+        audio_output_dir = str(get_podcast_output_dir())
         os.makedirs(audio_output_dir, exist_ok=True)
         audio_path = os.path.join(audio_output_dir, audio_filename)
 
@@ -345,15 +353,26 @@ def generate_daily_podcast():
         generation_status["running"] = False
 
 
-def start_generation_async():
+def start_generation_async(vault_path=None):
     """Launches the generation in a background thread. Returns immediately."""
+    from backend.services.context_vars import active_vault_path, get_active_vault_path
+
     with _generation_lock:
         if generation_status["running"]:
             return False  # A generation is already in progress
         # Sets the flag INSIDE the lock so no one else passes the check before
         # the thread starts. The thread itself will overwrite the progress.
         generation_status["running"] = True
-    thread = threading.Thread(target=generate_daily_podcast, daemon=True)
+    selected_vault_path = Path(vault_path or get_active_vault_path())
+
+    def run_for_selected_vault():
+        token = active_vault_path.set(selected_vault_path)
+        try:
+            generate_daily_podcast()
+        finally:
+            active_vault_path.reset(token)
+
+    thread = threading.Thread(target=run_for_selected_vault, daemon=True)
     thread.start()
     return True
 
