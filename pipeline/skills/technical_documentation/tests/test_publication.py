@@ -7,8 +7,12 @@ import yaml
 
 APP_ROOT = Path(__file__).resolve().parents[4]
 PUBLIC_REPOSITORY_ROOT = APP_ROOT.parents[1]
+PRIVATE_REPOSITORY_ROOT = PUBLIC_REPOSITORY_ROOT.parent
 PAGES_WORKFLOW = (
     PUBLIC_REPOSITORY_ROOT / ".github" / "workflows" / "documentation-pages.yml"
+)
+DOCUMENTATION_CI_WORKFLOW = (
+    PRIVATE_REPOSITORY_ROOT / ".github" / "workflows" / "documentation.yml"
 )
 SIDEBAR_SOURCE = APP_ROOT / "frontend" / "src" / "components" / "AppSidebar.jsx"
 CANONICAL_URL = "https://gnosi.temenosismael.org/engineering/"
@@ -41,3 +45,10 @@ def test_sidebar_uses_the_canonical_public_url():
 
     assert f"site_url: {CANONICAL_URL}" in mkdocs_config
     assert CANONICAL_URL in sidebar_source
+
+
+def test_private_ci_validates_public_workflow_changes():
+    """Pages workflow edits must trigger the private documentation checks."""
+    private_workflow = DOCUMENTATION_CI_WORKFLOW.read_text(encoding="utf-8")
+
+    assert '"monorepo/.github/workflows/documentation-pages.yml"' in private_workflow
