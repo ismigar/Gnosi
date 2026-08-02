@@ -4202,7 +4202,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             <strong>{t('model_comparison.launch_title')}</strong>
                                             <span>{t('model_comparison.launch_description')}</span>
                                         </div>
-                                        <button type="button" className="btn-gnosi-primary" onClick={() => setIsModelComparisonOpen(true)}>
+                                        <button type="button" className="btn-gnosi btn-gnosi-primary" onClick={() => setIsModelComparisonOpen(true)}>
                                             <Activity size={18} />
                                             {t('model_comparison.open')}
                                         </button>
@@ -4216,7 +4216,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         icon={Bot}
                                         extra={
                                             <button
-                                                className="btn-gnosi-primary"
+                                                className="btn-gnosi btn-gnosi-primary"
                                                 onClick={() => setEditingAgent(current => current ? null : {})}
                                                 style={{
                                                     padding: '10px 20px', fontSize: '0.85rem', borderRadius: '14px',

@@ -46,6 +46,11 @@
     gap: 10px;
 }
 
+.ai-resources-toolbar > .btn-gnosi {
+    justify-self: start;
+    white-space: nowrap;
+}
+
 .ai-resource-search {
     position: relative;
     display: flex;
@@ -75,20 +80,6 @@
 .ai-resource-search input:focus {
     border-color: var(--gnosi-blue);
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
-}
-
-.ai-resource-icon-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    padding: 0;
-    border: 1px solid var(--settings-border);
-    border-radius: 12px;
-    background: var(--settings-bg);
-    color: var(--text-secondary);
-    cursor: pointer;
 }
 
 .ai-resource-list {
