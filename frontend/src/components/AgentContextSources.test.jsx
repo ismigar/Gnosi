@@ -48,6 +48,23 @@ const sourceCatalogue = [{
         sources: [{ id: 7, name: 'Policy feed', category: 'Politics' }],
         categories: ['Politics'],
     },
+}, {
+    id: 'planning',
+    name: 'Planning',
+    scope: { entity_types: [], project_ids: [], resource_ids: [], include_inactive: false },
+    options: {
+        entity_types: ['project', 'task', 'resource'],
+        projects: [{ id: 'p1', name: 'Launch' }],
+        resources: [{ id: 'r1', name: 'Ada' }],
+    },
+}, {
+    id: 'notion',
+    name: 'Notion',
+    scope: { object_types: [], database_ids: [] },
+    options: {
+        object_types: ['database', 'page'],
+        databases: [{ id: 'db1', name: 'Research' }],
+    },
 }];
 
 const mountedRoots = [];
@@ -122,5 +139,44 @@ describe('AgentContextSources internal sources', () => {
             id: 'ctx-reader',
             scope: expect.objectContaining({ unread_only: false }),
         })]);
+    });
+
+    it('renders server-provided Planning scope options', async () => {
+        axios.get.mockResolvedValue({ data: sourceCatalogue });
+        const value = [{
+            id: 'ctx-planning',
+            type: 'internal',
+            ref: 'planning',
+            label: 'Planning',
+            scope: { entity_types: [], project_ids: [], resource_ids: [] },
+        }];
+        const container = await render(<AgentContextSources value={value} onChange={vi.fn()} />);
+        await act(async () => Promise.resolve());
+        const configure = container.querySelector('button[aria-label="Configure source scope"]');
+        await act(async () => configure.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+
+        expect(container.textContent).toContain('Planning entities');
+        expect(container.textContent).toContain('Launch');
+        expect(container.textContent).toContain('Ada');
+        expect(container.querySelectorAll('select[multiple]')).toHaveLength(3);
+    });
+
+    it('renders connected Notion scope options', async () => {
+        axios.get.mockResolvedValue({ data: sourceCatalogue });
+        const value = [{
+            id: 'ctx-notion',
+            type: 'internal',
+            ref: 'notion',
+            label: 'Notion',
+            scope: { object_types: [], database_ids: [] },
+        }];
+        const container = await render(<AgentContextSources value={value} onChange={vi.fn()} />);
+        await act(async () => Promise.resolve());
+        const configure = container.querySelector('button[aria-label="Configure source scope"]');
+        await act(async () => configure.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+
+        expect(container.textContent).toContain('Object types');
+        expect(container.textContent).toContain('Research');
+        expect(container.querySelectorAll('select[multiple]')).toHaveLength(2);
     });
 });

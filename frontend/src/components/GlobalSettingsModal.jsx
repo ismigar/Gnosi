@@ -5,7 +5,8 @@ import {
     Check, FolderOpen, Database, Cpu, Zap, Settings as SettingsIcon,
     Sliders, Calendar, Mail, Trash2, Plus, Users, Rss, Share2, Inbox,
     ChevronRight, ChevronDown, Search, FileUp, Shield, Activity, Bot, FileText,
-    PenTool, Image, Paperclip, Eye, EyeOff, User, Languages, Loader2, Newspaper
+    PenTool, Image, Paperclip, Eye, EyeOff, User, Languages, Loader2, Newspaper,
+    Clock3, History
 } from 'lucide-react';
 import { useTranslation, Trans } from 'react-i18next';
 import { useModalKeyboard } from '../hooks/useModalKeyboard';
@@ -35,6 +36,10 @@ import {
     ToolsSettingsPanel,
 } from './AI/AIResourcesSettings';
 import { useAIResources } from './AI/useAIResources';
+import {
+    AutomationsSettingsPanel,
+    OperationsHistoryPanel,
+} from './AI/AIOperationsSettings';
 import { groupEnabledModelRoutes, parseModelRouteKey } from './AI/aiSettingsUtils';
 import { useModelReliability, findModelFault, MODEL_FAULT_REASONS } from '../lib/modelReliability';
 import { availableLocales, resolveLocale } from '../locales/registry';
@@ -4183,6 +4188,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             { id: 'agents', icon: Bot, label: t('settings.ai.resources.agents_tab') },
                                             { id: 'skills', icon: Zap, label: t('settings.ai.resources.skills_tab') },
                                             { id: 'tools', icon: Sliders, label: t('settings.ai.resources.tools_tab') },
+                                            { id: 'automations', icon: Clock3, label: t('settings.ai.operations.automations_tab') },
+                                            { id: 'operations', icon: History, label: t('settings.ai.operations.history_tab') },
                                         ]}
                                         onChange={sectionId => {
                                             setAiSection(sectionId);
@@ -4361,6 +4368,18 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                     {aiSection === 'tools' && (
                                         <Section title={t('settings.ai.resources.tools_title')} icon={Sliders}>
                                             <ToolsSettingsPanel resources={aiResources} />
+                                        </Section>
+                                    )}
+
+                                    {aiSection === 'automations' && (
+                                        <Section title={t('settings.ai.operations.automations_title')} icon={Clock3}>
+                                            <AutomationsSettingsPanel resources={aiResources} agents={draft.ai.agents} />
+                                        </Section>
+                                    )}
+
+                                    {aiSection === 'operations' && (
+                                        <Section title={t('settings.ai.operations.history_title')} icon={History}>
+                                            <OperationsHistoryPanel resources={aiResources} />
                                         </Section>
                                     )}
                                 </>
