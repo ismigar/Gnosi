@@ -31,6 +31,13 @@ def test_podcast_model_selection_requires_provider_and_model_together():
         )
 
 
+def test_podcast_language_selection_uses_interface_language():
+    assert audio_summarizer._podcast_language_selection({"language": "ca"}) == (
+        "ca",
+        "Catalan",
+    )
+
+
 def test_resolve_podcast_llm_uses_default_model_when_route_is_empty(monkeypatch):
     expected_llm = FakeLlm()
     monkeypatch.setattr(
@@ -148,14 +155,36 @@ def test_summarize_batch_uses_langchain_messages_and_records_usage(monkeypatch):
         1,
         "groq",
         "llama-3.3-70b-versatile",
+        "Catalan",
     )
 
     assert result == "Podcast script"
-    assert llm.messages[0].content == audio_summarizer.SYSTEM_PROMPT
+    assert llm.messages[0].content.endswith("Language: Catalan.")
     assert "Structure the summary as a fluid 10-15 minute podcast script" in (
         llm.messages[1].content
     )
     assert recorded == [("groq", "llama-3.3-70b-versatile", 120, 30)]
+
+
+def test_tts_uses_selected_interface_language(monkeypatch, tmp_path):
+    observed_languages = []
+
+    class FakeTts:
+        def __init__(self, text, lang, slow):
+            observed_languages.append(lang)
+
+        def write_to_fp(self, target):
+            target.write(b"audio")
+
+    monkeypatch.setattr(audio_summarizer, "gTTS", FakeTts)
+    output_path = tmp_path / "podcast.mp3"
+
+    audio_summarizer._generate_tts_by_sentences(
+        "Primera frase. Segona frase.", output_path, "ca"
+    )
+
+    assert observed_languages == ["ca", "ca"]
+    assert output_path.read_bytes() == b"audioaudio"
 
 
 def test_podcast_output_dir_is_inside_selected_vault(tmp_path):
