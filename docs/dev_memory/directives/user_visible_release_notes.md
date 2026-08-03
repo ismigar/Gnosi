@@ -26,6 +26,9 @@ version. Gnosi also presents the current version notes once after an upgrade and
 lets desktop users inspect notes before downloading an available update when
 the bundled catalog contains that version.
 
+Every history entry links to its versioned public GitHub release so web and
+self-hosted users can choose the appropriate macOS, Windows, or Linux artifact.
+
 Dismissal is stored locally per version. It must never prevent the permanent
 Control Center entry from reopening the history.
 
@@ -51,6 +54,8 @@ same catalog and must remain synchronized.
   catalog entry.
 - Do not add a release version without translations in Catalan, English,
   Spanish, and French.
+- Do not link release history to `releases/latest` because older entries must
+  keep pointing to their own immutable versioned artifacts.
 
 ## Verification checklist
 
