@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle2, Rocket, Sparkles, Wrench, X } from 'lucide-react';
+import { CheckCircle2, Download, Rocket, Sparkles, Wrench, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { RELEASES, RELEASE_NOTE_SECTIONS } from '../lib/releaseNotes';
@@ -9,6 +9,8 @@ const SECTION_ICONS = {
   improvements: Rocket,
   fixes: Wrench,
 };
+
+const PUBLIC_RELEASES_URL = 'https://github.com/ismigar/Gnosi/releases/tag';
 
 export function ReleaseNotesDialog({ open, onClose, initialVersion }) {
   const { t, i18n } = useTranslation();
@@ -65,12 +67,23 @@ export function ReleaseNotesDialog({ open, onClose, initialVersion }) {
                     {t(`release_notes.channel_${release.channel}`)}
                   </span>
                 </div>
-                <time className="mt-1 block text-xs text-[var(--text-tertiary)]" dateTime={release.date}>
-                  {t('release_notes.published_on', {
-                    date: new Intl.DateTimeFormat(i18n.resolvedLanguage || 'en', { dateStyle: 'long' })
-                      .format(new Date(`${release.date}T00:00:00`)),
-                  })}
-                </time>
+                <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <time className="text-xs text-[var(--text-tertiary)]" dateTime={release.date}>
+                    {t('release_notes.published_on', {
+                      date: new Intl.DateTimeFormat(i18n.resolvedLanguage || 'en', { dateStyle: 'long' })
+                        .format(new Date(`${release.date}T00:00:00`)),
+                    })}
+                  </time>
+                  <a
+                    href={`${PUBLIC_RELEASES_URL}/v${release.version}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--accent-primary)] hover:underline"
+                  >
+                    <Download size={14} aria-hidden="true" />
+                    {t('release_notes.download_version')}
+                  </a>
+                </div>
 
                 <div className="mt-4 grid gap-4 md:grid-cols-3">
                   {RELEASE_NOTE_SECTIONS.map((section) => {

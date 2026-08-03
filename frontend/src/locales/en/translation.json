@@ -4971,6 +4971,7 @@
     "close": "Close release notes",
     "open_aria": "Open release notes for version {{version}}",
     "published_on": "Published {{date}}",
+    "download_version": "Download this version",
     "channel_prerelease": "Release candidate",
     "channel_stable": "Stable",
     "section_highlights": "Highlights",
