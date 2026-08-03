@@ -16,6 +16,7 @@ See directive `agent_context_sources.md`.
 """
 from __future__ import annotations
 
+import json
 import logging
 import re
 from pathlib import Path
@@ -148,6 +149,22 @@ def describe_context_refs(refs: List[Dict[str, Any]]) -> str:
             "Use search_context for bounded discovery and read_context_record for "
             "an exact record id returned by search. Never invent record ids or imply "
             "that a read changed application data."
+        )
+    if any(
+        r["type"] == "internal" and r["ref"] == "reader"
+        for r in refs
+    ):
+        lines.append(
+            "The attached Reader source represents the complete authorized article "
+            "collection, including read state, feed, category, date, URL, and full "
+            "available article text. Use inspect_reader_context for exact totals and "
+            "schema, search_reader_context for structured filtered discovery, and "
+            "read_reader_context_article for exact full text. Follow search has_more "
+            "with additional offsets when a claim covers every match, and follow "
+            "content_has_more with next_content_offset until the required article "
+            "body is complete. For an explicit request "
+            "that analyses the whole collection, use start_reader_context_analysis; "
+            "then report its durable id and use the status/result tools on follow-up."
         )
     return "\n".join(lines)
 
@@ -367,6 +384,10 @@ def build_context_tools(raw_refs: Any) -> List[Any]:
     by_id = {r["id"]: r for r in refs}
     external_ids = [r["ref"] for r in refs if r["type"] == "source"]
     internal_refs = [r for r in refs if r["type"] == "internal"]
+    reader_ref = next(
+        (r for r in internal_refs if r["ref"] == "reader"),
+        None,
+    )
 
     def list_context_sources() -> str:
         """Lists the context sources attached to this agent, with their ids and types."""
@@ -564,6 +585,179 @@ def build_context_tools(raw_refs: Any) -> List[Any]:
             log.warning("Internal source %s read failed: %s", ref["ref"], exc)
             return f"Error reading record «{record_id}» from {ref['label']}: {exc}"
 
+    def _reader_scope(
+        *,
+        read_status: str = "all",
+        source_ids: Optional[List[int]] = None,
+        source_names: Optional[List[str]] = None,
+        categories: Optional[List[str]] = None,
+        date_from: str = "",
+        date_to: str = "",
+        limit: int = 12,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        from backend.agent.internal_sources import intersect_reader_scope
+
+        if reader_ref is None:
+            raise ValueError("Reader is not attached to this chat turn.")
+        return intersect_reader_scope(
+            reader_ref.get("scope") or {},
+            {
+                "read_status": read_status,
+                "source_ids": source_ids or [],
+                "source_names": source_names or [],
+                "categories": categories or [],
+                "date_from": date_from,
+                "date_to": date_to,
+                "limit": limit,
+                "offset": offset,
+            },
+        )
+
+    def inspect_reader_context() -> str:
+        """Return exact totals, read states, feeds, categories, dates, and fields."""
+        if reader_ref is None:
+            return "Reader is not attached to this chat turn."
+        from backend.agent.internal_sources import describe_internal_source
+
+        payload = describe_internal_source(
+            "reader",
+            reader_ref.get("scope") or {},
+        )
+        return wrap_untrusted("Gnosi Reader inventory", payload)
+
+    def search_reader_context(
+        query: str = "",
+        read_status: str = "all",
+        source_ids: Optional[List[int]] = None,
+        source_names: Optional[List[str]] = None,
+        categories: Optional[List[str]] = None,
+        date_from: str = "",
+        date_to: str = "",
+        limit: int = 12,
+        offset: int = 0,
+    ) -> str:
+        """Search attached Reader articles with metadata filters and pagination.
+
+        An empty query lists the newest matching records. read_status accepts
+        all, read, or unread. Source names and categories are case-insensitive.
+        Results include exact ids, read state, source, category, date, URL,
+        excerpts, total matches, and whether more pages exist.
+        """
+        from backend.agent.internal_sources import _reader_search
+
+        scope = _reader_scope(
+            read_status=read_status,
+            source_ids=source_ids,
+            source_names=source_names,
+            categories=categories,
+            date_from=date_from,
+            date_to=date_to,
+            limit=limit,
+            offset=offset,
+        )
+        payload = _reader_search(scope, query)
+        return wrap_untrusted(
+            "Gnosi Reader filtered search",
+            json.dumps(payload, ensure_ascii=False, default=str),
+        )
+
+    def read_reader_context_article(
+        article_id: str,
+        content_offset: int = 0,
+        content_limit: int = 16_000,
+    ) -> str:
+        """Read exact Reader metadata and one full-text chunk.
+
+        Start at offset zero. If content_has_more is true, call this tool again
+        with next_content_offset until the complete available article is read.
+        """
+        if reader_ref is None:
+            return "Reader is not attached to this chat turn."
+        from backend.agent.internal_sources import _reader_read
+
+        scope = _reader_scope()
+        payload = _reader_read(
+            scope,
+            article_id,
+            content_offset=content_offset,
+            content_limit=content_limit,
+        )
+        return wrap_untrusted(
+            f"Gnosi Reader article {article_id}",
+            json.dumps(payload, ensure_ascii=False, default=str),
+        )
+
+    def start_reader_context_analysis(
+        request: str,
+        language: str = "Catalan",
+        read_status: str = "all",
+        source_ids: Optional[List[int]] = None,
+        source_names: Optional[List[str]] = None,
+        categories: Optional[List[str]] = None,
+        date_from: str = "",
+        date_to: str = "",
+    ) -> str:
+        """Start an explicit durable analysis over the attached Reader collection.
+
+        Use this for collection-wide summaries, comparisons, classifications,
+        trends, or other requests that require processing more records than a
+        bounded search can return. The result keeps exact article ids as evidence.
+        """
+        from backend.services.context_vars import get_active_vault_path
+        from backend.services.reader_analysis import start_analysis
+
+        scope = _reader_scope(
+            read_status=read_status,
+            source_ids=source_ids,
+            source_names=source_names,
+            categories=categories,
+            date_from=date_from,
+            date_to=date_to,
+        )
+        payload = start_analysis(
+            get_active_vault_path(),
+            scope,
+            language=language,
+            guidance=request,
+        )
+        return json.dumps(payload, ensure_ascii=False, default=str)
+
+    def _reader_job(job_id: str, *, include_result: bool = False) -> Dict[str, Any]:
+        from backend.agent.internal_sources import reader_scope_contains
+        from backend.services.context_vars import get_active_vault_path
+        from backend.services.reader_analysis import get_status, read_result
+
+        status = get_status(get_active_vault_path(), job_id)
+        if reader_ref is None or not reader_scope_contains(
+            reader_ref.get("scope") or {},
+            status.get("scope") or {},
+        ):
+            raise PermissionError(
+                "The Reader analysis is outside the collection attached to this turn."
+            )
+        return read_result(get_active_vault_path(), job_id) if include_result else status
+
+    def reader_context_analysis_status(job_id: str) -> str:
+        """Return progress for a durable analysis of the attached Reader collection."""
+        return json.dumps(
+            _reader_job(job_id),
+            ensure_ascii=False,
+            default=str,
+        )
+
+    def read_reader_context_analysis(job_id: str) -> str:
+        """Read a completed attached-Reader analysis with article-id evidence."""
+        payload = _reader_job(job_id, include_result=True)
+        return wrap_untrusted(
+            f"Gnosi Reader analysis {job_id}",
+            json.dumps(
+                payload,
+                ensure_ascii=False,
+                default=str,
+            )[:120_000],
+        )
+
     tools = [
         StructuredTool.from_function(list_context_sources),
         StructuredTool.from_function(read_context_source),
@@ -574,6 +768,15 @@ def build_context_tools(raw_refs: Any) -> List[Any]:
         tools.append(StructuredTool.from_function(read_external_source))
     if internal_refs:
         tools.append(StructuredTool.from_function(read_context_record))
+    if reader_ref is not None:
+        tools.extend([
+            StructuredTool.from_function(inspect_reader_context),
+            StructuredTool.from_function(search_reader_context),
+            StructuredTool.from_function(read_reader_context_article),
+            StructuredTool.from_function(start_reader_context_analysis),
+            StructuredTool.from_function(reader_context_analysis_status),
+            StructuredTool.from_function(read_reader_context_analysis),
+        ])
     return tools
 
 
@@ -581,7 +784,7 @@ def build_context_tool_descriptors(
     raw_refs: Any,
     tools: Optional[List[Any]] = None,
 ) -> Tuple[Any, ...]:
-    """Build governed read-only descriptors for dynamic context tools."""
+    """Build governed descriptors for tools scoped to dynamic context refs."""
     refs = normalize_refs(raw_refs)
     if not refs:
         return ()
@@ -600,15 +803,15 @@ def build_context_tool_descriptors(
         ToolEffect,
     )
 
-    effects = [ToolEffect.READ]
+    read_effects = [ToolEffect.READ]
     if any(ref["type"] in {"url", "source"} for ref in refs):
-        effects.append(ToolEffect.EXTERNAL_READ)
+        read_effects.append(ToolEffect.EXTERNAL_READ)
     if any(
         ref["type"] == "internal"
         and ref["ref"] in {"mail", "calendar", "contacts", "meetings"}
         for ref in refs
     ):
-        effects.append(ToolEffect.PERSONAL_DATA)
+        read_effects.append(ToolEffect.PERSONAL_DATA)
 
     scope_fingerprint = hashlib.sha256(json.dumps(
         [
@@ -641,6 +844,12 @@ def build_context_tool_descriptors(
             else {"type": "object", "properties": {}}
         )
         input_schema.pop("title", None)
+        is_reader_analysis_start = name == "start_reader_context_analysis"
+        effects = (
+            [ToolEffect.LOCAL_WRITE, ToolEffect.AI_COST]
+            if is_reader_analysis_start
+            else list(read_effects)
+        )
         descriptors.append(ToolDescriptor(
             id=f"core.gnosi.context-{name.replace('_', '-')}",
             name=name.replace("_", " ").title(),
@@ -649,8 +858,12 @@ def build_context_tool_descriptors(
             input_schema=input_schema,
             output_schema={"type": "string"},
             effects=list(effects),
-            minimum_role="viewer",
-            confirmation=ConfirmationPolicy.NONE,
+            minimum_role="editor" if is_reader_analysis_start else "viewer",
+            confirmation=(
+                ConfirmationPolicy.EXPLICIT_REQUEST
+                if is_reader_analysis_start
+                else ConfirmationPolicy.NONE
+            ),
             handler_ref=f"runtime-context:{name}",
             metadata={
                 "dynamic_context": True,

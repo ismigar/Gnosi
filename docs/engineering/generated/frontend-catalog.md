@@ -37,7 +37,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `hooks` | 16 | 1228 | 7 |
 | `lib` | 15 | 1885 | 6 |
 | `locales` | 3 | 565 | 0 |
-| `pages` | 16 | 12131 | 51 |
+| `pages` | 16 | 11926 | 51 |
 | `plugins` | 4 | 528 | 5 |
 | `utils` | 14 | 1601 | 0 |
 
@@ -305,7 +305,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/pages/MediaCenter.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/MediaCenter.jsx) | 1622 | `MediaCenter`, `function` | `/api/vault/assets/upload`, `/api/vault/media`, `/api/vault/media/metadata`, `/api/vault/media/roots`, `/api/vault/media/tree`, `/api/vault/media/views` |
 | [`frontend/src/pages/PostHistory.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/PostHistory.jsx) | 135 | `PostHistory` | `/api/social/history` |
 | [`frontend/src/pages/ProjectPlanningPage.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/ProjectPlanningPage.jsx) | 103 | `ProjectPlanningPage`, `function` | `/api/planning/allocation`, `/api/planning/worklogs` |
-| [`frontend/src/pages/ReaderDashboard.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/ReaderDashboard.jsx) | 994 | `ReaderDashboard` | — |
+| [`frontend/src/pages/ReaderDashboard.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/ReaderDashboard.jsx) | 789 | `ReaderDashboard` | — |
 | [`frontend/src/pages/SchedulerPage.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/SchedulerPage.jsx) | 205 | `SchedulerPage` | `/api/schedulers` |
 | [`frontend/src/pages/SharedPage.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/SharedPage.jsx) | 77 | `SharedPage`, `function` | — |
 | [`frontend/src/pages/SocialDashboard.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/SocialDashboard.jsx) | 206 | `SocialDashboard` | `/api/social/streams` |

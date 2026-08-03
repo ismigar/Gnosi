@@ -12,7 +12,7 @@ Regenerar con `python pipeline/skills/technical_documentation/scripts/generate.p
 | --- | ---: | ---: |
 | Autor de la reproducción | 13 | 35 |
 | Vitest | 44 | 173 |
-| pytest | 174 | 1431 |
+| pytest | 174 | 1438 |
 
 ## Archivos
 
@@ -83,11 +83,11 @@ Regenerar con `python pipeline/skills/technical_documentation/scripts/generate.p
 | pytest | ["backend/tests/test_agente_acción_confirmations.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_action_confirmations.py) | 23 | Python AST |
 | pytest | ["backend/tests/test_agente_chat_modelo_selection.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_chat_model_selection.py) | 3 | Python AST |
 | pytest | ["backend/tests/test_agente_chat_safety.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_chat_safety.py) | 34 | Python AST |
-| pytest | ["backend/tests/test_agente_contexto_sources.py»](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_context_sources.py) | 18 | Python AST |
+| pytest | ["backend/tests/test_agente_contexto_sources.py»](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_context_sources.py) | 19 | Python AST |
 | pytest | ["backend/tests/test_agente_crear_página_contención.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_create_page_containment.py) | 4 | Python AST |
 | pytest | ["backend/tests/test_agente_debe decir_pdf_contención.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_read_pdf_containment.py) | 5 | Python AST |
 | pytest | ["backend/tests/test_agente_habilidad_catalog.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_skill_catalog.py) | 16 | Python AST |
-| pytest | ["backend/tests/test_agente_habilidad_runtime.py'](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_skill_runtime.py) | 12 | Python AST |
+| pytest | ["backend/tests/test_agente_habilidad_runtime.py'](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_skill_runtime.py) | 14 | Python AST |
 | pytest | ["backend/tests/test_agente_competencias_api.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_skills_api.py) | 2 | Python AST |
 | pytest | ["backend/tests/test_ai_modelo_Registro_api.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_ai_model_registry_api.py) | 3 | Python AST |
 | pytest | ["backend/tests/test_ai_timeout.py'](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_ai_timeout.py) | 6 | Python AST |
@@ -145,7 +145,7 @@ Regenerar con `python pipeline/skills/technical_documentation/scripts/generate.p
 | pytest | ["backend/tests/test_id_canonización.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_id_canonicalization.py) | 9 | Python AST |
 | pytest | ["backend/tests/test_importación_dedup.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_import_dedup.py) | 13 | Python AST |
 | pytest | ["backend/tests/test_inline_Comentarios_permisos.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_inline_comments_permissions.py) | 3 | Python AST |
-| pytest | ["backend/tests/test_interno_sources.py»](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_internal_sources.py) | 15 | Python AST |
+| pytest | ["backend/tests/test_interno_sources.py»](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_internal_sources.py) | 19 | Python AST |
 | pytest | ["backend/tests/test_Tema_tipo_normalización.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_item_type_normalization.py) | 23 | Python AST |
 | pytest | ["backend/tests/test_enlazable_páginas_excluir_basura.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_linkable_pages_exclude_trash.py) | 2 | Python AST |
 | pytest | ["backend/tests/test_llm_wiki_agent.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_llm_wiki_agent.py) | 11 | Python AST |

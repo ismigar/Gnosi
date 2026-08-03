@@ -22,7 +22,6 @@ from backend.utils.safe_io import safe_write_json, safe_write_text
 log = get_logger(__name__)
 
 JOB_ID_RE = re.compile(r"^[a-f0-9]{32}$")
-MAX_ARTICLE_CHARS = 2_000
 MAX_BATCH_CHARS = 36_000
 MAX_REDUCE_CHARS = 48_000
 MAX_GUIDANCE_CHARS = 2_000
@@ -127,7 +126,7 @@ def _article_text(article: Any) -> str:
 
     return _plain_text(
         article.full_content or article.content or "",
-        MAX_ARTICLE_CHARS,
+        None,
     )
 
 
@@ -146,10 +145,12 @@ def _snapshot_articles(vault_path: Path, scope: Dict[str, Any]) -> List[Dict[str
             {
                 "id": str(article.id),
                 "title": str(article.title or "")[:1_000],
+                "source_id": article.source_id,
                 "source": str(getattr(article.source, "name", "") or ""),
                 "category": str(getattr(article.source, "category", "") or "Uncategorized"),
                 "published_at": article.published_at.isoformat() if article.published_at else None,
                 "url": str(article.url or "")[:2_000],
+                "is_read": bool(article.is_read),
                 "content": _article_text(article),
             }
             for article in rows
@@ -175,7 +176,23 @@ def _topic_for(row: Dict[str, Any]) -> str:
 def _build_batches(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     grouped: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
     for row in rows:
-        grouped[_topic_for(row)].append(row)
+        metadata = {**row, "content": ""}
+        metadata_chars = len(json.dumps(metadata, ensure_ascii=False))
+        content_chars = max(4_000, MAX_BATCH_CHARS - metadata_chars - 1_000)
+        content = str(row.get("content") or "")
+        if len(content) <= content_chars:
+            grouped[_topic_for(row)].append(row)
+            continue
+        part_count = (len(content) + content_chars - 1) // content_chars
+        for part_index, offset in enumerate(range(0, len(content), content_chars)):
+            grouped[_topic_for(row)].append({
+                **row,
+                "content": content[offset:offset + content_chars],
+                "content_offset": offset,
+                "content_char_count": len(content),
+                "content_part": part_index + 1,
+                "content_parts": part_count,
+            })
 
     batches: List[Dict[str, Any]] = []
     for topic in sorted(grouped, key=str.casefold):
@@ -217,6 +234,7 @@ def _default_model_call(prompt: str, user_message: str) -> str:
 
 def _fallback_batch_summary(batch: Dict[str, Any]) -> Dict[str, Any]:
     articles = batch["articles"]
+    article_ids = list(dict.fromkeys(item["id"] for item in articles))
     first = articles[0]
     last = articles[-1]
     titles = [str(item.get("title") or "") for item in articles[:12]]
@@ -224,10 +242,11 @@ def _fallback_batch_summary(batch: Dict[str, Any]) -> Dict[str, Any]:
         "topic": batch["topic"],
         "period_start": first.get("published_at"),
         "period_end": last.get("published_at"),
-        "article_count": len(articles),
+        "article_count": len(article_ids),
         "summary": "; ".join(title for title in titles if title)[:4_000],
         "developments": [],
-        "article_ids": [item["id"] for item in articles[:20]],
+        "article_ids": article_ids[:20],
+        "_article_ids_all": article_ids,
         "fallback": True,
     }
 
@@ -241,23 +260,27 @@ def _map_batch(
 ) -> Dict[str, Any]:
     articles = batch["articles"]
     prompt = (
-        "You are analysing one chronological batch from a news collection. "
+        "You are analysing one chronological batch from a Reader collection "
+        "to answer the user's request. "
         f"Canonical topic: {batch['topic']}. Output language: {language}. "
         "Every supplied article belongs to this batch. Return only JSON with keys "
         "topic, period_start, period_end, article_count, summary, developments, "
         "and article_ids. developments must be a chronological list of concise "
         "changes, each with date, claim, and supporting article_ids. Do not invent "
         "facts or identifiers. Keep representative article_ids from the input."
+        " An article may span multiple content parts; integrate every supplied "
+        "part with the same id before drawing conclusions."
     )
     if guidance:
-        prompt += f"\nAnalysis guidance: {guidance}"
+        prompt += f"\nUSER READER REQUEST:\n{guidance}"
     prompt += "\nARTICLES:\n" + "\n".join(
         json.dumps(item, ensure_ascii=False) for item in articles
     )
-    parsed = _extract_json(model_call(prompt, "Analyse Reader topic evolution"))
+    parsed = _extract_json(model_call(prompt, "Analyse this Reader batch for the request"))
     if not parsed:
         return _fallback_batch_summary(batch)
-    allowed_ids = {item["id"] for item in articles}
+    all_article_ids = list(dict.fromkeys(item["id"] for item in articles))
+    allowed_ids = set(all_article_ids)
     ids = [
         str(value)
         for value in parsed.get("article_ids") or []
@@ -280,10 +303,11 @@ def _map_batch(
         "topic": batch["topic"],
         "period_start": articles[0].get("published_at"),
         "period_end": articles[-1].get("published_at"),
-        "article_count": len(articles),
+        "article_count": len(all_article_ids),
         "summary": str(parsed.get("summary") or "")[:6_000],
         "developments": developments[:30],
-        "article_ids": ids or [item["id"] for item in articles[:20]],
+        "article_ids": ids or all_article_ids[:20],
+        "_article_ids_all": all_article_ids,
         "fallback": False,
     }
 
@@ -293,22 +317,38 @@ def _reduce_once(
     summaries: List[Dict[str, Any]],
     *,
     language: str,
+    guidance: str,
     model_call: Callable[[str, str], str],
 ) -> Dict[str, Any]:
     allowed_ids = {
         str(identifier)
         for summary in summaries
-        for identifier in summary.get("article_ids") or []
+        for identifier in (
+            summary.get("_article_ids_all")
+            or summary.get("article_ids")
+            or []
+        )
     }
+    model_summaries = [
+        {
+            key: value
+            for key, value in summary.items()
+            if key != "_article_ids_all"
+        }
+        for summary in summaries
+    ]
     prompt = (
         f"Combine chronological batch analyses for the canonical news topic "
         f"{topic!r}. Output language: {language}. Return only JSON with keys "
         "topic, evolution, turning_points, and article_ids. Preserve chronology, "
-        "distinguish sustained trends from one-off events, and cite only supplied "
-        "article ids. Do not invent evidence.\nBATCH ANALYSES:\n"
-        + json.dumps(summaries, ensure_ascii=False)
+        "answer the user's Reader request, distinguish sustained trends from "
+        "one-off events when relevant, and cite only supplied article ids. Do "
+        "not invent evidence.\nUSER READER REQUEST:\n"
+        + (guidance or "Provide a faithful synthesis of the selected collection.")
+        + "\nBATCH ANALYSES:\n"
+        + json.dumps(model_summaries, ensure_ascii=False)
     )
-    parsed = _extract_json(model_call(prompt, "Reduce Reader topic timeline"))
+    parsed = _extract_json(model_call(prompt, "Synthesize this Reader topic for the request"))
     if not parsed:
         return {
             "topic": topic,
@@ -321,6 +361,7 @@ def _reduce_once(
                 for development in item.get("developments") or []
             ][:100],
             "article_ids": list(allowed_ids)[:100],
+            "_article_ids_all": sorted(allowed_ids),
             "fallback": True,
         }
     ids = [
@@ -333,6 +374,7 @@ def _reduce_once(
         "evolution": str(parsed.get("evolution") or "")[:12_000],
         "turning_points": list(parsed.get("turning_points") or [])[:100],
         "article_ids": ids or list(allowed_ids)[:100],
+        "_article_ids_all": sorted(allowed_ids),
         "fallback": False,
     }
 
@@ -342,6 +384,7 @@ def _reduce_topic(
     summaries: List[Dict[str, Any]],
     *,
     language: str,
+    guidance: str,
     model_call: Callable[[str, str], str],
 ) -> Dict[str, Any]:
     current: List[Dict[str, Any]] = summaries
@@ -356,6 +399,7 @@ def _reduce_topic(
                     topic,
                     chunk,
                     language=language,
+                    guidance=guidance,
                     model_call=model_call,
                 ))
                 chunk = []
@@ -367,6 +411,7 @@ def _reduce_topic(
                 topic,
                 chunk,
                 language=language,
+                guidance=guidance,
                 model_call=model_call,
             ))
         current = reduced
@@ -374,17 +419,29 @@ def _reduce_topic(
         topic,
         current,
         language=language,
+        guidance=guidance,
         model_call=model_call,
     )
-    result["article_count"] = sum(int(item.get("article_count") or 0) for item in summaries)
+    result["article_count"] = len({
+        str(identifier)
+        for summary in summaries
+        for identifier in (
+            summary.get("_article_ids_all")
+            or summary.get("article_ids")
+            or []
+        )
+    })
     result["period_start"] = summaries[0].get("period_start")
     result["period_end"] = summaries[-1].get("period_end")
+    result.pop("_article_ids_all", None)
     return result
 
 
 def _render_report(result: Dict[str, Any]) -> str:
     lines = [
-        "# Reader topic evolution",
+        "# Reader analysis",
+        "",
+        f"Request: {result.get('request') or 'General collection synthesis'}",
         "",
         f"Articles analysed: {result['article_count']}",
         f"Snapshot: `{result['snapshot_digest']}`",
@@ -487,7 +544,15 @@ def _run_job(
                 )
                 safe_write_json(checkpoint_path, summary)
             summaries.append(summary)
-            processed = sum(int(item.get("article_count") or 0) for item in summaries)
+            processed = len({
+                str(identifier)
+                for item in summaries
+                for identifier in (
+                    item.get("_article_ids_all")
+                    or item.get("article_ids")
+                    or []
+                )
+            })
             _update_job(
                 vault_path,
                 job_id,
@@ -505,6 +570,7 @@ def _run_job(
                 topic,
                 by_topic[topic],
                 language=str(job["language"]),
+                guidance=str(job.get("guidance") or ""),
                 model_call=model_call,
             )
             for topic in sorted(by_topic, key=str.casefold)
@@ -515,6 +581,7 @@ def _run_job(
             "snapshot_digest": job["snapshot_digest"],
             "language": job["language"],
             "scope": job["scope"],
+            "request": str(job.get("guidance") or ""),
             "topics": topics,
             "created_at": job["created_at"],
             "completed_at": _utc_now(),

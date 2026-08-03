@@ -10,7 +10,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 
 | Grup | Mòduls | Línies |
 | --- | ---: | ---: |
-| `agent` | 36 | 12536 |
+| `agent` | 36 | 13126 |
 | `api` | 35 | 34611 |
 | `application root` | 6 | 627 |
 | `config` | 8 | 846 |
@@ -20,12 +20,12 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `scheduler` | 2 | 949 |
 | `scripts` | 3 | 130 |
 | `security` | 3 | 735 |
-| `services` | 111 | 36283 |
+| `services` | 111 | 36350 |
 | `sh` | 1 | 69 |
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **227 mòduls** i **Línies font de 89118**.
+Total: **227 mòduls** i **Línies font de 89775**.
 
 ## agent
 
@@ -33,13 +33,13 @@ Total: **227 mòduls** i **Línies font de 89118**.
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | [backend/ agent/__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/__init__.py) | 0 | 0 | 0 | 0 | 0 | Sense documentació de mòduls |
 | [backend/ agent/ action_confirmacions.](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/action_confirmations.py) | 802 | 0 | 28 | 0 | 22 | Persistents, les confirmacions per als agents conseqüents. |
-| [backend/ agent/ agent_context.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/agent_context.py) | 662 | 0 | 19 | 0 | 10 | S'han adjuntat fonts de context per a un agent de Cognition. |
+| [backend/ agent/ agent_context.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/agent_context.py) | 875 | 0 | 19 | 0 | 10 | S'han adjuntat fonts de context per a un agent de Cognition. |
 | [backend/ agent/calendar_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/calendar_tools.py) | 125 | 0 | 6 | 5 | 5 | Adaptadors controlats per al calendari exacte llegeix i mutacions externes. |
 | [backend/ agent/ contact_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/contact_tools.py) | 157 | 0 | 6 | 0 | 4 | Adaptadors controlats per al manteniment del contacte local. |
 | [backend/ agent/ context_fonts/__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/context_sources/__init__.py) | 32 | 0 | 2 | 0 | 1 | El catàleg de grans fonts cercables que un agent pot adjuntar (fase 3). |
 | [backend/ agent/ context_fonts/boe.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/context_sources/boe.py) | 174 | 0 | 6 | 0 | 4 | BOE adapter: Cerca l'agent espanyol a través de la seva API oberta. |
 | [backend/agent/directive_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/directive_tools.py) | 90 | 0 | 4 | 0 | 4 | Sense documentació de mòduls |
-| [backend/ agent/ factory.py](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/factory.py) | 1931 | 1 | 31 | 1 | 29 | Sense documentació de mòduls |
+| [backend/ agent/ factory.py](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/factory.py) | 2093 | 1 | 35 | 1 | 33 | Sense documentació de mòduls |
 | [backend/agent/ Lesson Name_Eines/ eina__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/generated_tools/__init__.py) | 3 | 0 | 0 | 0 | 0 | Sense documentació de mòduls |
 | [backend/agent/ Lesson Name_Eines/creador.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/generated_tools/creator.py) | 226 | 0 | 4 | 0 | 4 | Creador d' eines: La meta- eina que permet a l' agent crear noves eines. |
 | [backend/agent/ Lesson Name_Eines/didary_run.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/generated_tools/dry_run.py) | 139 | 2 | 1 | 0 | 3 | Ajustament de la imatge: operacions externes de vista prèvia abans de l' execució. |
@@ -49,7 +49,7 @@ Total: **227 mòduls** i **Línies font de 89118**.
 | [backend/agent/ Lesson Name_Eines/ validador.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/generated_tools/validator.py) | 273 | 3 | 0 | 0 | 1 | Validador d' eines: Valida el codi d' eina per a la seguretat de lesson· les auto-sonàries. |
 | [backend/ agent/gnosi_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/gnosi_tools.py) | 2256 | 1 | 62 | 11 | 45 | Eina de xat per al Parlament Europeu es va reunir amb models de xat d'eines. |
 | [backend/agent/graph.pypypypyt](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/graph.py) | 47 | 1 | 1 | 0 | 1 | Sense documentació de mòduls |
-| [backend/ agent/ interior_fonts.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/internal_sources.py) | 1328 | 0 | 55 | 0 | 13 | Àmbits llegits per mòduls de dades de primera part Gnosi. |
+| [backend/ agent/ interior_fonts.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/internal_sources.py) | 1543 | 0 | 57 | 0 | 15 | Àmbits llegits per mòduls de dades de primera part Gnosi. |
 | [backend/ agent/ jobup_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/job_tools.py) | 83 | 0 | 7 | 0 | 6 | Eines coordinades per a llocs de treball amb capacitat de proveïdor. |
 | [backend/ agent/llm_wiki_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/llm_wiki_tools.py) | 120 | 0 | 4 | 0 | 4 | Naus de l'agent controlat pel connector de Wiki incorporat en LLLLLM. |
 | [backend/ agent/ mail_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/mail_tools.py) | 168 | 0 | 10 | 8 | 8 | Adaptadors controlats per al correu exacte llegeix i mutacions. |
@@ -279,7 +279,7 @@ Total: **227 mòduls** i **Línies font de 89118**.
 | [backend/ services/ plugin_sign.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/plugin_signing.py) | 148 | 0 | 8 | 0 | 6 | Signatura del connector i confiança (fase 3 del connector_sistema. md). |
 | [backend/ services/ plugin_sistema.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/plugin_system.py) | 396 | 1 | 12 | 0 | 11 | S' ha trobat el sistema de connectors Gnosi v2 pdfn, manifest i permisos. |
 | [backend/ services/project_Planificació.](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/project_planning.py) | 393 | 2 | 13 | 0 | 11 | Emmagatzematge d'aultes i càlculs purs per als recursos de planificació de projectes. |
-| [backend/ services/ reader_anàlisi.pypypypypypyty](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/reader_analysis.py) | 705 | 0 | 35 | 0 | 7 | Anàlisi jeràrquic durant grans col·leccions de lectors. |
+| [backend/ services/ reader_anàlisi.pypypypypypyty](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/reader_analysis.py) | 772 | 0 | 35 | 0 | 7 | Anàlisi jeràrquic durant grans col·leccions de lectors. |
 | [backend/ services/recursos_zotero_Mapat.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/recursos_zotero_mapping.py) | 71 | 0 | 1 | 0 | 1 | Mapatge bidireccional entre columnes repetides i camps Zotero. |
 | [backend/ services/references_taula_config.pypypypypyl](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/reference_table_config.py) | 63 | 0 | 2 | 0 | 2 | Emmagatzematge per a la designació de la taula de referències de la Viult. |
 | [backend/ services/references_io.py literalmentzy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/references_io.py) | 556 | 0 | 19 | 0 | 10 | Importa/Export BibTeX i RIS REUC són camps repetitius (Gnosi). |
