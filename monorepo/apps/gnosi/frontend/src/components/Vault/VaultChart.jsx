@@ -250,12 +250,10 @@ function PieChart({ data, total, donut }) {
     const cy = size / 2;
     const r = size / 2 - 8;
     const rInner = donut ? r * 0.55 : 0;
-    let angle = -Math.PI / 2;
-    const slices = data.map((d, i) => {
+    const { slices } = data.reduce((accumulator, d, i) => {
         const frac = d.value / total;
-        const a0 = angle;
-        const a1 = angle + frac * Math.PI * 2;
-        angle = a1;
+        const a0 = accumulator.angle;
+        const a1 = a0 + frac * Math.PI * 2;
         const large = a1 - a0 > Math.PI ? 1 : 0;
         const x0 = cx + r * Math.cos(a0); const y0 = cy + r * Math.sin(a0);
         const x1 = cx + r * Math.cos(a1); const y1 = cy + r * Math.sin(a1);
@@ -267,8 +265,11 @@ function PieChart({ data, total, donut }) {
         } else {
             path = `M ${cx} ${cy} L ${x0} ${y0} A ${r} ${r} 0 ${large} 1 ${x1} ${y1} Z`;
         }
-        return { path, color: PALETTE[i % PALETTE.length], d, frac };
-    });
+        return {
+            angle: a1,
+            slices: [...accumulator.slices, { path, color: PALETTE[i % PALETTE.length], d, frac }],
+        };
+    }, { angle: -Math.PI / 2, slices: [] });
     return (
         <div className="flex flex-wrap items-center gap-6">
             <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} role="img">

@@ -52,7 +52,7 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
         try {
             const r = await axios.get(`/api/workspaces/${workspaceId}/members`);
             setMembers(Array.isArray(r.data) ? r.data : []);
-        } catch (e) {
+        } catch (_error) {
             toast.error(t('workspace.members_fetch_failed', { defaultValue: "Error loading members" }));
         } finally {
             setLoading(false);
@@ -94,8 +94,8 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
             setNewEmail('');
             setShowAddForm(false);
             fetchMembers();
-        } catch (e) {
-            const msg = e?.response?.data?.detail || e?.message;
+        } catch (error) {
+            const msg = error?.response?.data?.detail || error?.message;
             toast.error(t('workspace.add_failed', { msg, defaultValue: 'Error: {{msg}}' }));
         }
     };
@@ -114,7 +114,7 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
         try {
             await axios.delete(`/api/workspaces/${workspaceId}/members/${userId}`);
             fetchMembers();
-        } catch (e) {
+        } catch (_error) {
             toast.error(t('workspace.remove_failed', { defaultValue: "Error removing member" }));
         }
     };
@@ -126,7 +126,7 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
                 permissions: { capabilities: ROLE_CAPABILITIES[newRoleValue] || ['read'] },
             });
             fetchMembers();
-        } catch (e) {
+        } catch (_error) {
             toast.error(t('workspace.role_update_failed', { defaultValue: "Error changing role" }));
         }
     };
@@ -143,7 +143,7 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
                 });
             }
             fetchVaultAccess(userId);
-        } catch (e) {
+        } catch (_error) {
             toast.error(t('workspace.vault_access_failed', { defaultValue: "Error changing Vault access" }));
         }
     };

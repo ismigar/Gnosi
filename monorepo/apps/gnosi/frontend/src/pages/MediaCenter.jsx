@@ -47,7 +47,7 @@ import {
 } from 'lucide-react';
 import { toast } from '../lib/toast';
 import { useTranslation } from 'react-i18next';
-import { motion, AnimatePresence } from 'framer-motion';
+import {  AnimatePresence } from 'framer-motion';
 
 const PERSPECTIVES = [ // We keep it for reference or inbox, but we prioritize albums
   { id: 'General', label: 'General', icon: FolderOpen, color: 'text-blue-500' },

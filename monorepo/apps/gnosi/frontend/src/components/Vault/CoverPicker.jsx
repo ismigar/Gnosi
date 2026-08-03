@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Image as ImageIcon, Link2, Upload, Search, X, Loader2 } from 'lucide-react';
 import axios from 'axios';

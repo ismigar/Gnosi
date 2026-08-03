@@ -39,7 +39,7 @@ export default function CalendarPage() {
     const [showLeftSidebar, setShowLeftSidebar] = useState(true);
     const [showRightSidebar, setShowRightSidebar] = useState(false);
     const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false);
-    const [partialData, setPartialData] = useState(false);
+    const [, setPartialData] = useState(false);
 
     // AI meeting notifier (agenda)
     const [remindersEnabled, setRemindersEnabled] = useState(false);
@@ -47,7 +47,7 @@ export default function CalendarPage() {
 
     // Event selection and editing state
     const [selectedEventId, setSelectedEventId] = useState(null); // ID of the selected event
-    const [isEditingEvent, setIsEditingEvent] = useState(false); // Whether it's in edit mode
+    const [, setIsEditingEvent] = useState(false); // Whether it's in edit mode
     const [selectedEvent, setSelectedEvent] = useState(null); // Event complet seleccionat
 
     // Side panel (replaces popup modal)
@@ -638,8 +638,8 @@ export default function CalendarPage() {
         }
     };
 
-    const executeModify = async (isSeries = false, isInstanceOnly = false, isFollowing = false) => {
-        const { id, patchData, action, instanceStart } = pendingModify;
+    const executeModify = async ( isInstanceOnly = false, isFollowing = false) => {
+        const { id, patchData, instanceStart } = pendingModify;
         if (!id || !patchData) return;
 
         const eventData = pages.find(p => p.id === id) || selectedEvent;

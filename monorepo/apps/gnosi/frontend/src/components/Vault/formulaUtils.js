@@ -18,7 +18,7 @@
  * @param {Object} options - Additional options
  * @returns {string|number|null}
  */
-export function evaluateFormula(formula, metadata = {}, title = '', options = {}) {
+export function evaluateFormula(formula, metadata = {}, title = '') {
     if (!formula || typeof formula !== 'string') return null;
 
     try {
@@ -87,7 +87,7 @@ export function evaluateFormula(formula, metadata = {}, title = '', options = {}
         // "NaN"/"Infinity".
         if (typeof result === 'number' && !Number.isFinite(result)) return null;
         return result ?? null;
-    } catch (e) {
+    } catch (_error) {
         return null;
     }
 }

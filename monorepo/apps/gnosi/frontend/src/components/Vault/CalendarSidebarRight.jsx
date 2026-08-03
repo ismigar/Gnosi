@@ -173,7 +173,7 @@ const DefaultContent = ({ searchQuery, onSearchChange, onToggleSidebar, onOpenSe
 };
 
 /* ─── Events form (create/edit) ─── */
-const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, onRsvp, userEmail = '', defaultCalendarId = '' }) => {
+const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, onRsvp, defaultCalendarId = '' }) => {
     const { t } = useTranslation();
     const titleRef = useRef(null);
 

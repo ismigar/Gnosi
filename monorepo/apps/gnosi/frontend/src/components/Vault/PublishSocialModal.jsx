@@ -71,7 +71,7 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
                     const d = res.data || {};
                     setSourceTitle(String(d.title || d.metadata?.title || recordMetadata?.title || '').trim());
                     setSourceContent(String(d.content || '').trim() || deriveContent(recordMetadata));
-                } catch (err) {
+                } catch (_error) {
                     setSourceContent(deriveContent(recordMetadata));
                 }
             }

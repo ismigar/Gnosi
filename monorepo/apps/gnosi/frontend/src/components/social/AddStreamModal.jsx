@@ -24,7 +24,7 @@ const AddStreamModal = ({ isOpen, onClose, onAdd }) => {
     const { t } = useTranslation();
     const [selectedNetwork, setSelectedNetwork] = useState(NETWORKS[0]);
     const [selectedType, setSelectedType] = useState(STREAM_TYPES[0]);
-    const [streamName, setStreamName] = useState('');
+    const [streamName] = useState('');
 
     const modalRef = useRef(null);
     const handleSubmitRef = React.useRef(null);

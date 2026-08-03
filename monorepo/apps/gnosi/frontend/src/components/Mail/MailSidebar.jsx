@@ -34,7 +34,7 @@ export default function MailSidebar({
     const [viewMenuId, setViewMenuId] = useState(null);
     const [showTags, setShowTags] = useState(true);
 
-    const { tags, createTag, deleteTag } = useMailTags();
+    const { tags } = useMailTags();
 
     const { views, createView, updateView, deleteView } = useMailViews();
 

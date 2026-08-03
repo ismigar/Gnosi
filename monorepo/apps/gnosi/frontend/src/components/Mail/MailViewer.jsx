@@ -315,7 +315,9 @@ function MailBody({ bodyHtml, bodyText, messageId, email, folder }) {
                 doc.querySelectorAll('a').forEach(a => { a.target = '_blank'; a.rel = 'noopener noreferrer'; });
                 const newH = Math.max(200, doc.documentElement.scrollHeight + 20);
                 setHeight(newH);
-            } catch {}
+            } catch {
+                // Cross-origin iframe bodies cannot be inspected.
+            }
         };
         iframe.addEventListener('load', onLoad);
         return () => iframe.removeEventListener('load', onLoad);
@@ -605,22 +607,14 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         .catch(() => {});
     };
 
-    const updateMetadata = (key, value) => {
-        if (!mailData?.id) return;
-        setMailData(prev => ({ ...prev, [key]: value }));
-        fetch(`/api/mail/messages/${mailData.id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ [key]: value })
-        }).catch(() => toast.error(t('mail.update_metadata_error', "Error updating metadata")));
-    };
+
 
     const detectFormLinks = (html, text) => {
         const patterns = [
             /https:\/\/forms\.gle\/[a-zA-Z0-9_-]+/g,
-            /https:\/\/docs\.google\.com\/forms\/[a-zA-Z0-9_\-\/]+/g,
-            /https:\/\/[a-zA-Z0-9-]+\.typeform\.com\/to\/[a-zA-Z0-9_\-]+/g,
-            /https:\/\/forms\.office\.com\/[a-zA-Z0-9_\-]+/g
+            /https:\/\/docs\.google\.com\/forms\/[a-zA-Z0-9_/-]+/g,
+            /https:\/\/[a-zA-Z0-9-]+\.typeform\.com\/to\/[a-zA-Z0-9_-]+/g,
+            /https:\/\/forms\.office\.com\/[a-zA-Z0-9_-]+/g
         ];
         const content = html || text || '';
         const found = [];
