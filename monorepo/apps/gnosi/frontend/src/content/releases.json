@@ -1,5 +1,22 @@
 [
   {
+    "version": "1.0.0-rc.2",
+    "date": "2026-08-03",
+    "channel": "prerelease",
+    "sections": {
+      "highlights": [
+        "release_notes.entries.v1_0_0_rc_2.highlights.desktop_branding"
+      ],
+      "improvements": [
+        "release_notes.entries.v1_0_0_rc_2.improvements.package_validation"
+      ],
+      "fixes": [
+        "release_notes.entries.v1_0_0_rc_2.fixes.macos_launch",
+        "release_notes.entries.v1_0_0_rc_2.fixes.packaged_frontend"
+      ]
+    }
+  },
+  {
     "version": "1.0.0-rc.1",
     "date": "2026-08-03",
     "channel": "prerelease",
