@@ -250,16 +250,22 @@ def write_locale_config(target: str) -> None:
 
 
 def generate_locale(
-    target: str, reviewed_only: bool = False, generated_only: bool = False
+    target: str,
+    reviewed_only: bool = False,
+    generated_only: bool = False,
+    selected_paths: set[Path] | None = None,
 ) -> None:
     """Generate all localized pages and copy static assets."""
     destination = LOCALES[target]["docs_root"]
-    partial = reviewed_only or generated_only
+    selected_paths = selected_paths or set()
+    partial = reviewed_only or generated_only or bool(selected_paths)
     if destination.exists() and not partial:
         shutil.rmtree(destination)
     translator = OfflineTranslator(target)
     for source in sorted(SOURCE_ROOT.rglob("*")):
         relative = source.relative_to(SOURCE_ROOT)
+        if selected_paths and relative not in selected_paths:
+            continue
         if reviewed_only and relative.parts[0] == "generated":
             continue
         if generated_only and relative.parts[0] != "generated":
@@ -299,9 +305,23 @@ def main() -> int:
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--reviewed-only", action="store_true")
     parser.add_argument("--generated-only", action="store_true")
+    parser.add_argument(
+        "--path",
+        action="append",
+        default=[],
+        help="Refresh one repository-relative documentation path; may be repeated.",
+    )
     args = parser.parse_args()
     if args.reviewed_only and args.generated_only:
         parser.error("--reviewed-only and --generated-only are mutually exclusive")
+    selected_paths: set[Path] = set()
+    for value in args.path:
+        path = Path(value)
+        if path.is_absolute() or ".." in path.parts:
+            parser.error(f"--path must stay below {SOURCE_ROOT.name}: {value}")
+        if not (SOURCE_ROOT / path).is_file():
+            parser.error(f"--path does not identify a source file: {value}")
+        selected_paths.add(path)
     targets = args.locale or sorted(LOCALES)
     if args.check:
         failures = {target: check_locale(target) for target in targets}
@@ -314,7 +334,12 @@ def main() -> int:
         return 0
     for target in targets:
         print(f"INFO: Generating {target} engineering documentation")
-        generate_locale(target, args.reviewed_only, args.generated_only)
+        generate_locale(
+            target,
+            args.reviewed_only,
+            args.generated_only,
+            selected_paths,
+        )
     return 0
 
 

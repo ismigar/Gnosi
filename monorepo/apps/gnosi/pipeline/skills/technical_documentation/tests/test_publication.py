@@ -18,6 +18,10 @@ SIDEBAR_SOURCE = APP_ROOT / "frontend" / "src" / "components" / "AppSidebar.jsx"
 CANONICAL_URL = "https://gnosi.temenosismael.org/engineering/"
 ENGINEERING_CSS = APP_ROOT / "docs" / "engineering" / "assets" / "engineering.css"
 MERMAID_INIT = APP_ROOT / "docs" / "engineering" / "assets" / "mermaid-init.js"
+LANGUAGE_SWITCHER = (
+    APP_ROOT / "docs" / "engineering" / "assets" / "language-switcher.js"
+)
+SITE_SHELL_TEMPLATE = APP_ROOT / "docs" / "engineering-overrides" / "main.html"
 
 
 def test_pages_workflow_publishes_the_engineering_subdirectory():
@@ -60,6 +64,25 @@ def test_engineering_portal_uses_gnosi_brand_tokens():
     assert "--md-primary-fg-color: #3b82f6" in css
     assert 'primaryColor: "#f3f4f6"' in mermaid
     assert 'primaryColor: "#27272a"' in mermaid
+
+
+def test_engineering_portal_reuses_the_localized_public_site_shell():
+    """Every locale must render the shared Gnosi header and footer override."""
+    template = SITE_SHELL_TEMPLATE.read_text(encoding="utf-8")
+    switcher = LANGUAGE_SWITCHER.read_text(encoding="utf-8")
+
+    for config_name in ("mkdocs.yml", "mkdocs-ca.yml", "mkdocs-es.yml"):
+        config = (APP_ROOT / config_name).read_text(encoding="utf-8")
+        assert "custom_dir: docs/engineering-overrides" in config
+
+    assert 'class="gnosi-site-header"' in template
+    assert 'class="gnosi-site-footer"' in template
+    assert '"en": {' in template
+    assert '"ca": {' in template
+    assert '"es": {' in template
+    assert "--gnosi-site-bg: #f6f3ec" in template
+    assert '"Iowan Old Style"' in template
+    assert '.gnosi-site-header__languages' in switcher
 
 
 def test_private_ci_validates_public_workflow_changes():
