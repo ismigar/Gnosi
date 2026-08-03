@@ -5009,6 +5009,44 @@
     "ready_title": "Actualización preparada",
     "ready_body": "Reinicia Gnosi para terminar de instalar la versión {{version}}.",
     "download": "Descargar actualización",
-    "restart": "Reiniciar e instalar"
+    "restart": "Reiniciar e instalar",
+    "whats_new": "Novedades"
+  },
+  "release_notes": {
+    "title": "Novedades de Gnosi",
+    "subtitle": "Descubre las funcionalidades, mejoras y correcciones incluidas en cada versión.",
+    "close": "Cerrar las notas de la versión",
+    "open_aria": "Abrir las notas de la versión {{version}}",
+    "published_on": "Publicada el {{date}}",
+    "channel_prerelease": "Versión candidata",
+    "channel_stable": "Estable",
+    "section_highlights": "Destacados",
+    "section_improvements": "Mejoras",
+    "section_fixes": "Correcciones",
+    "entries": {
+      "v1_0_0_rc_1": {
+        "highlights": {
+          "settings": "La configuración se organiza en secciones y pestañas más claras.",
+          "documentation": "Un nuevo portal de documentación de ingeniería facilita comprender y mantener el sistema."
+        },
+        "improvements": {
+          "graph": "El grafo de conocimiento tiene aristas más claras, mejor información de carga y relaciones enfocadas al pasar el cursor.",
+          "navigation": "La navegación del conocimiento y los controles de página son más coherentes y fáciles de identificar."
+        },
+        "fixes": {
+          "settings": "Se han corregido varias inconsistencias visuales de la configuración.",
+          "interface_state": "Los estados expandidos y seleccionados de la interfaz se conservan con mayor fiabilidad."
+        }
+      },
+      "v0_3_0_rc_1": {
+        "highlights": {
+          "desktop": "Primera versión candidata con paquetes de escritorio para macOS, Windows y Linux."
+        },
+        "improvements": {
+          "updates": "Incluye las bases de detección e instalación de actualizaciones de escritorio.",
+          "plugins": "Las versiones incluyen los paquetes oficiales de plugins y su índice de distribución."
+        }
+      }
+    }
   }
 }

@@ -216,6 +216,12 @@ jobs:
             --out artifacts/plugins
           ls -la artifacts/plugins/
 
+      - name: Render public release notes
+        run: |
+          node monorepo/apps/gnosi/frontend/scripts/release-notes.mjs \
+            --version "${{ github.ref_name }}" \
+            --output artifacts/release-notes.md
+
       # Publiquem al repo PÚBLIC Gnosi (Projectes és privat) amb el SYNC_PAT,
       # el mateix token que el sync fa servir per escriure a Gnosi. Per això no
       # cal cap permís especial sobre el GITHUB_TOKEN d'aquest repo.
@@ -233,17 +239,7 @@ jobs:
           prerelease: ${{ contains(github.ref_name, '-') }}
           # Les notes automàtiques no funcionen a Gnosi (història reescrita pel
           # sync orphan+force); posem instruccions d'instal·lació, més útils.
-          body: |
-            ## Gnosi ${{ github.ref_name }}
-
-            Download the file for your system:
-
-            - **macOS (Apple Silicon / M1+)** → `*-arm64.dmg`
-            - **macOS (Intel)** → `*-x64.dmg`
-            - **Windows** → `*-Setup.exe`
-            - **Linux** → `*-x86_64.AppImage` or `*-amd64.deb`
-
-            > The binaries are unsigned. On macOS: right-click the app → **Open**. On Windows: **More info → Run anyway**.
+          body_path: artifacts/release-notes.md
           files: |
             artifacts/*.dmg
             artifacts/*.zip
