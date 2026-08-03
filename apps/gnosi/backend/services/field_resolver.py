@@ -1,0 +1,211 @@
+"""
+Field resolution by immutable ID or name (compatibility layer).
+
+Each property of a registry table has an immutable 'id' with the format
+'fld_xxxxxxxx'. This module offers helpers to read/write page metadata
+independently of the name (which can change).
+
+Conventions:
+- A "ref" can be an id ('fld_*') or a field name (any string).
+- When reading metadata, if the ID key is present we prioritize it; otherwise, fall back to the name.
+
+PERSISTENCE BY NAME (2026-05): the `.md` file and API responses store keys
+by the field's **current name**, never by `fld_*` (which is opaque to a human). The id
+still exists in the schema (registry) as a reference for views/filters. For
+robustness against column renames, each property can have `aliases` (old
+names): the resolver matches by id, current name, or alias, and `to_storage_names` /
+`to_response_names` always rewrite to the current name. See the
+`docs/dev_memory/directives/vault_persist_by_name.md` directive.
+"""
+from typing import Any, Dict, List, Optional, Tuple
+
+
+def is_field_id(value: Any) -> bool:
+    return isinstance(value, str) and value.startswith("fld_") and len(value) == 12
+
+
+def get_property_by_id(table: Dict, field_id: str) -> Optional[Dict]:
+    if not table or not field_id:
+        return None
+    for p in table.get("properties", []) or []:
+        if p.get("id") == field_id:
+            return p
+    return None
+
+
+def get_property_by_name(table: Dict, name: str) -> Optional[Dict]:
+    """Matches by CURRENT name first; otherwise, by alias (old name)."""
+    if not table or not name:
+        return None
+    props = table.get("properties", []) or []
+    for p in props:
+        if p.get("name") == name:
+            return p
+    # Fallback: old name saved as an alias.
+    for p in props:
+        if name in (p.get("aliases") or []):
+            return p
+    return None
+
+
+def resolve_property(table: Dict, ref: str) -> Optional[Dict]:
+    """Resolves a ref (id, current name, or alias) to the full property."""
+    if not ref:
+        return None
+    if is_field_id(ref):
+        return get_property_by_id(table, ref)
+    return get_property_by_name(table, ref)
+
+
+def resolve_ref(table: Dict, ref: str) -> Tuple[Optional[str], Optional[str]]:
+    """Returns (id, name) for a given ref."""
+    prop = resolve_property(table, ref)
+    if not prop:
+        # It doesn't exist; we keep the ref in the field where it would make sense
+        if is_field_id(ref):
+            return ref, None
+        return None, ref
+    return prop.get("id"), prop.get("name")
+
+
+def get_meta_value(metadata: Dict, table: Dict, ref: str) -> Any:
+    """Reads metadata by ref (id or name). Prioritizes id, falls back to name."""
+    if not metadata:
+        return None
+    fid, fname = resolve_ref(table, ref)
+    if fid and fid in metadata:
+        return metadata[fid]
+    if fname and fname in metadata:
+        return metadata[fname]
+    return None
+
+
+def set_meta_value(metadata: Dict, table: Dict, ref: str, value: Any) -> Dict:
+    """
+        Writes metadata using id as the key whenever possible.
+    Removes the name-key if it was still present (lazy migration).
+    Mutates and returns metadata.
+    
+    """
+    if metadata is None:
+        metadata = {}
+    fid, fname = resolve_ref(table, ref)
+    if fid:
+        metadata[fid] = value
+        if fname and fname != fid and fname in metadata:
+            del metadata[fname]
+    elif fname:
+        metadata[fname] = value
+    return metadata
+
+
+def expand_metadata_for_response(metadata: Dict, table: Dict) -> Dict:
+    """
+        For API responses: if a key is a field_id and the corresponding property
+    exists in the schema, also add an entry with the current name
+    (without removing the id). This way the old frontend (which reads by name)
+    keeps working during the migration.
+    Returns a new dict (does not mutate).
+    
+    """
+    if not metadata or not table:
+        return dict(metadata or {})
+    properties = table.get("properties", []) or []
+    id_to_name = {p["id"]: p["name"] for p in properties if p.get("id") and p.get("name")}
+    out = dict(metadata)
+    for k, v in metadata.items():
+        if is_field_id(k) and k in id_to_name:
+            name = id_to_name[k]
+            if name not in out:
+                out[name] = v
+    return out
+
+
+def migrate_metadata_keys(metadata: Dict, table: Dict) -> Tuple[Dict, int]:
+    """
+        Rewrites all name → id keys whenever we find a match in the schema.
+    Returns (migrated_metadata, number_of_migrated_keys).
+    Does not touch keys that are already IDs or unknown keys (not in the schema).
+    
+    """
+    if not metadata or not table:
+        return metadata or {}, 0
+    properties = table.get("properties", []) or []
+    name_to_id = {p["name"]: p["id"] for p in properties if p.get("id") and p.get("name")}
+    migrated = 0
+    new_meta = {}
+    for k, v in metadata.items():
+        if k in name_to_id:
+            new_meta[name_to_id[k]] = v
+            migrated += 1
+        else:
+            new_meta[k] = v
+    return new_meta, migrated
+
+
+# Provenance priority when several keys point to the same column.
+_PRIO_CURRENT_NAME = 0
+_PRIO_FIELD_ID = 1
+_PRIO_ALIAS = 2
+
+
+def to_storage_names(metadata: Dict, table: Dict) -> Tuple[Dict, bool]:
+    """Rewrites ALL resolvable keys to the column's **current name**.
+
+    This is the canonical WRITE boundary (disk) and response boundary: it guarantees that a
+    `fld_*` or an old name (alias) is never persisted. Keys that don't resolve to
+    any property (genuine local properties) are kept intact.
+
+    Conflict (several keys → same column): priority order is
+    current name > id > alias.
+
+    Returns (new_metadata, has_changed). Does not mutate the input.
+    """
+    if not isinstance(metadata, dict) or not metadata or not table:
+        return (dict(metadata) if isinstance(metadata, dict) else {}), False
+
+    props = table.get("properties", []) or []
+    name_set = {p["name"] for p in props if p.get("name")}
+    id_to_name = {p["id"]: p["name"] for p in props if p.get("id") and p.get("name")}
+    alias_to_name: Dict[str, str] = {}
+    for p in props:
+        cname = p.get("name")
+        for a in (p.get("aliases") or []):
+            if a and a != cname and a not in name_set:
+                alias_to_name[a] = cname
+
+    chosen: Dict[str, Tuple[int, Any]] = {}  # current_name -> (priority, value)
+    passthrough: Dict[str, Any] = {}          # unresolvable keys (real locals)
+    order: List[Tuple[str, str]] = []         # order of first appearance
+
+    def consider(cname: str, prio: int, value: Any) -> None:
+        if cname not in chosen:
+            order.append(("col", cname))
+            chosen[cname] = (prio, value)
+        elif prio < chosen[cname][0]:
+            chosen[cname] = (prio, value)
+
+    for k, v in metadata.items():
+        if k in name_set:
+            consider(k, _PRIO_CURRENT_NAME, v)
+        elif k in id_to_name:
+            consider(id_to_name[k], _PRIO_FIELD_ID, v)
+        elif k in alias_to_name:
+            consider(alias_to_name[k], _PRIO_ALIAS, v)
+        elif k not in passthrough:
+            order.append(("raw", k))
+            passthrough[k] = v
+
+    out: Dict[str, Any] = {}
+    for kind, key in order:
+        out[key] = chosen[key][1] if kind == "col" else passthrough[key]
+
+    changed = list(out.items()) != list(metadata.items())
+    return out, changed
+
+
+def to_response_names(metadata: Dict, table: Dict) -> Dict:
+    """Version for API responses: keys resolved to the current name, without `fld_*`
+    or aliases. Does not mutate. Replaces `expand_metadata_for_response`."""
+    out, _ = to_storage_names(metadata, table)
+    return out

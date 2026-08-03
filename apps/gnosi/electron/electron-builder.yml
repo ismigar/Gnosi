@@ -1,0 +1,77 @@
+appId: com.gnosi.cervell-digital
+productName: Gnosi
+copyright: Copyright © 2026 Ismael Garcia Fernandez
+
+directories:
+  output: dist
+  buildResources: build
+
+afterPack: scripts/after-pack.cjs
+
+files:
+  - main.js
+  - preload.js
+
+extraResources:
+  - from: ../frontend/dist/
+    to: frontend/dist/
+    filter:
+      - "**/*"
+      - "!**/*.map"
+  - from: build/
+    to: build/
+    filter:
+      - "**/*"
+  - from: dist-python/
+    to: python
+    filter:
+      - "**/*"
+
+mac:
+  icon: build/icon.icns
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+    - target: zip
+      arch:
+        - x64
+        - arm64
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+linux:
+  icon: build/icon.png
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+  category: Office
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: ${productName}-${version}-Setup.${ext}
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+
+publish:
+  provider: github
+  owner: ismigar
+  repo: Gnosi
+  releaseType: release
+
+electronDownload:
+  mirror: https://npmmirror.com/mirrors/electron/

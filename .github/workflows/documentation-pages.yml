@@ -1,0 +1,84 @@
+name: Deploy engineering documentation
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/gnosi/docs/engineering/**"
+      - "apps/gnosi/docs/engineering-ca/**"
+      - "apps/gnosi/docs/engineering-es/**"
+      - "apps/gnosi/mkdocs.yml"
+      - "apps/gnosi/mkdocs-ca.yml"
+      - "apps/gnosi/mkdocs-es.yml"
+      - "apps/gnosi/requirements-docs.txt"
+      - "apps/gnosi/pipeline/skills/technical_documentation/**"
+      - ".github/workflows/documentation-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: engineering-documentation-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/gnosi
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: apps/gnosi/requirements-docs.txt
+
+      - name: Install documentation dependencies
+        run: python -m pip install -r requirements-docs.txt
+
+      - name: Validate traceability and links
+        run: python pipeline/skills/technical_documentation/scripts/validate.py
+
+      - name: Verify localized mirrors
+        env:
+          PYTHONPATH: .
+        run: python pipeline/skills/technical_documentation/scripts/localize.py --check
+
+      - name: Build English portal
+        run: mkdocs build --strict
+
+      - name: Build Catalan portal
+        run: mkdocs build --strict --config-file mkdocs-ca.yml
+
+      - name: Build Spanish portal
+        run: mkdocs build --strict --config-file mkdocs-es.yml
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: apps/gnosi/site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

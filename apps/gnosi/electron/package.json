@@ -1,0 +1,30 @@
+{
+  "name": "gnosi",
+  "version": "1.0.0-rc.2",
+  "description": "Gnosi — local-first, open-source knowledge workspace",
+  "homepage": "https://github.com/ismigar/Gnosi",
+  "main": "main.js",
+  "author": {
+    "name": "Ismael Garcia Fernandez",
+    "email": "ismigar@gmail.com"
+  },
+  "license": "MIT",
+  "scripts": {
+    "build:icons": "python3 scripts/generate-icons.py",
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "npm run build:python && electron-builder",
+    "build:python": "bash build-python.sh",
+    "build:mac": "npm run build:python && electron-builder --mac --publish never",
+    "build:linux": "npm run build:python && electron-builder --linux --publish never",
+    "build:win": "npm run build:python && electron-builder --win --publish never",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "dependencies": {
+    "electron-updater": "^6.1.7"
+  },
+  "devDependencies": {
+    "electron": "^28.1.0",
+    "electron-builder": "^24.9.1"
+  }
+}

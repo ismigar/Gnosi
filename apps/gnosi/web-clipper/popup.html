@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    /* The palette below is light-only, so pin the surface too: on a dark-themed
+       browser the popup rendered dark text on a dark background. */
+    body { font-family: -apple-system, system-ui, sans-serif; width: 320px; margin: 0; padding: 14px; color: #1f2430; background: #fff; color-scheme: light; }
+    h1 { font-size: 14px; margin: 0 0 10px; display: flex; align-items: center; gap: 6px; }
+    label { display: block; font-size: 11px; font-weight: 600; color: #6b7280; margin: 8px 0 3px; }
+    input, textarea { width: 100%; box-sizing: border-box; border: 1px solid #d1d5db; border-radius: 6px; padding: 6px 8px; font-size: 13px; }
+    textarea { resize: vertical; min-height: 48px; }
+    button { width: 100%; margin-top: 12px; padding: 9px; border: none; border-radius: 6px; background: #6366f1; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
+    button.secondary { background: #eef2ff; color: #4338ca; margin-top: 6px; }
+    button:disabled { opacity: .5; cursor: default; }
+    .row { display: flex; gap: 8px; }
+    .hint { font-size: 11px; color: #9ca3af; margin-top: 4px; }
+    #target { font-size: 11px; color: #6366f1; font-weight: 600; margin-bottom: 8px; min-height: 14px; }
+    #fields select[multiple] { min-height: 60px; }
+    #fields input[type="checkbox"] { width: auto; }
+    #status { font-size: 12px; margin-top: 10px; min-height: 16px; }
+    .ok { color: #16a34a; } .err { color: #dc2626; }
+    details { margin-top: 10px; } summary { font-size: 11px; color: #6b7280; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>📎 Save to Gnosi</h1>
+  <div id="target"></div>
+
+  <label>Tags (comma-separated)</label>
+  <input id="tags" placeholder="reading, web" />
+
+  <label>Note (optional — otherwise the page selection is used)</label>
+  <textarea id="note" placeholder="Comment or text…"></textarea>
+
+  <!-- Columns of the destination table, rendered from /api/public/clip/config -->
+  <div id="fields"></div>
+
+  <button id="clip">Save this page</button>
+  <button id="clipSelection" class="secondary">Save selection only</button>
+
+  <div id="status"></div>
+
+  <details>
+    <summary>Settings</summary>
+    <label>Gnosi backend URL</label>
+    <input id="backend" placeholder="https://localhost:5173" />
+    <div class="hint">The URL where Gnosi runs, either through the frontend proxy or directly on the backend.</div>
+    <label>Access token (PAT)</label>
+    <input id="token" type="password" placeholder="gnosi_pat_…" />
+    <div class="hint">Create one in Gnosi → Settings → API and tokens.</div>
+    <button id="save" class="secondary">Save settings</button>
+  </details>
+
+  <script src="popup.js"></script>
+</body>
+</html>
