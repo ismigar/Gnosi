@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useState } from 'react';
 import axios from 'axios';
 import { BookText, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -104,7 +104,13 @@ export function BibliographyBlock({ block, editor }) {
         try {
             unsub = editor.onChange ? editor.onChange(recollect) : undefined;
         } catch { /* ignore */ }
-        return () => { try { unsub && unsub(); } catch {} };
+        return () => {
+            try {
+                if (unsub) unsub();
+            } catch {
+                // The editor may already have disposed the subscription.
+            }
+        };
     }, [editor, version]);
 
     // Resolve + render. Triggered when keys, style, or locale change.

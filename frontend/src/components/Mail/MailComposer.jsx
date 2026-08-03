@@ -72,7 +72,7 @@ export default function MailComposer({
     const [showAvailability, setShowAvailability] = useState(false);
     const [showSnippets, setShowSnippets] = useState(false);
     const [calendarData, setCalendarData] = useState({ pages: [], integrations: {}, tables: [] });
-    const [calendarTitle, setCalendarTitle] = useState('');
+    const [, setCalendarTitle] = useState('');
     const editorRef = React.useRef(null);
     const draftIdRef = useRef(_draftId);
     const fileInputRef = useRef(null);

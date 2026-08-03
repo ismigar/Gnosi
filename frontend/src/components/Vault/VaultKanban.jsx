@@ -22,7 +22,7 @@ import {
 // system: writing to it would corrupt the frontmatter or have no effect).
 const NON_DRAGGABLE_GROUP_TYPES = new Set(['formula', 'rollup', 'virtual', 'button', 'created_time', 'last_edited_time', 'created_by', 'last_edited_by']);
 
-export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeView = {}, onUpdateView, onEditSchema, onCreateRecord, schema = {}, idToTitle = {}, onDeleteSelected, onDeletePage, onUpdateNote, searchTerm: externalSearchTerm }) {
+export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeView = {}, onEditSchema, onCreateRecord, schema = {}, idToTitle = {}, onDeleteSelected, onDeletePage, onUpdateNote, searchTerm: externalSearchTerm }) {
     const { t } = useTranslation();
     // Content preview when hovering over a card's title.
     const titlePreview = useTitlePreview({ onOpenPage: onNoteSelect });
@@ -81,7 +81,7 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
             : getSchemaFieldNames(schema).slice(0, 3));
     const cardColumns = cardProperties
         .map(prop => [prop, getFieldType(schema, prop)])
-        .filter(([key, type]) => type && type !== 'title');
+        .filter(([, type]) => type && type !== 'title');
 
     const normalizeKey = (k) => String(k).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/gi, '');
     const getCardValue = (note, key) => {

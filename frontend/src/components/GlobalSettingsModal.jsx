@@ -459,7 +459,7 @@ const AliasEditor = ({ aliases, onChange }) => {
     );
 };
 
-const AccountRow = ({ itemId, name, description, status, type, provider, onSync, onEdit, onDelete, onToggleEnabled, enabled = true, color = '#3b82f6', isSyncing = false, isEditing = false }) => {
+const AccountRow = ({ itemId, name, description, status, type, provider, onSync, onEdit, onDelete, onToggleEnabled, enabled = true, isSyncing = false, isEditing = false }) => {
     const { t } = useTranslation();
     const ta = (k, opts) => t('settings.accounts.' + k, opts);
     return (
@@ -518,7 +518,7 @@ const AccountRow = ({ itemId, name, description, status, type, provider, onSync,
     );
 };
 
-const SidebarItem = ({ id, icon: Icon, label, active, onClick }) => (
+const SidebarItem = ({  icon: Icon, label, active, onClick }) => (
     <button 
         className={`settings-sidebar__item ${active ? 'active' : ''}`} 
         onClick={onClick}
@@ -612,7 +612,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         [aiRegistry, podcastProvider, podcastModelId],
     );
     const [isSaving, setIsSaving] = useState(false);
-    const [saveStatus, setSaveStatus] = useState('');
 
     // Translate-row skill: DeepL key lives in the Keychain (`/api/credentials/`),
     // the Softcatalà URL in `.env_shared` (it's not secret). The bind is
@@ -803,7 +802,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
     const [pickerOpen, setPickerOpen] = useState(false);
     const [pickerField, setPickerField] = useState(null);
-    const [googleAuthConfigured, setGoogleAuthConfigured] = useState(false);
+    const [, setGoogleAuthConfigured] = useState(false);
     // True if /api/calendar/calendars returns the X-Calendar-Auth-Error header
     // (Google token expired/revoked) → we show a reconnection warning.
     const [googleCalAuthError, setGoogleCalAuthError] = useState(false);
@@ -1061,7 +1060,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const lastSavedData = useRef(null);
     // Ref to the modal panel (.settings-modal): delimits the keyboard focus-trap.
     const panelRef = useRef(null);
-    const [savingStatus, setSavingStatus] = useState('idle'); // 'idle' | 'saving' | 'saved' | 'error'
+    const [, setSavingStatus] = useState('idle'); // 'idle' | 'saving' | 'saved' | 'error'
     const [confirmConfig, setConfirmConfig] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} });
     const [isAddingTable, setIsAddingTable] = useState(false);
     const [editingTableColor, setEditingTableColor] = useState(null); // { id, name, color }
@@ -1111,8 +1110,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             if (res.data) {
                 setDraft(prev => ({ ...prev, identity: { ...prev.identity, ...res.data } }));
             }
-        } catch (err) {
-            console.error("Error loading identity:", err);
+        } catch (error) {
+            console.error("Error loading identity:", error);
         } finally {
             if (
                 hydrationGeneration === null
@@ -1178,8 +1177,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                     ? { ...s, deepl_has_value: true, deepl_input: '', saving_deepl: false, saved_deepl: true }
                     : { ...s, deepl_has_value: true, saving_deepl: false } // user kept typing: the next debounce will re-save
             ));
-        } catch (err) {
-            console.error('Error saving DeepL API key:', err);
+        } catch (error) {
+            console.error('Error saving DeepL API key:', error);
             toast.error(t('translate_settings.deepl_save_error', "No s'ha pogut desar la clau de DeepL."));
             setTranslateState(s => ({ ...s, saving_deepl: false }));
         }
@@ -1199,8 +1198,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         try {
             await axios.delete('/api/credentials/deepl_api_key');
             setTranslateState(s => ({ ...s, deepl_has_value: false, deepl_input: '', saving_deepl: false }));
-        } catch (err) {
-            console.error('Error deleting DeepL API key:', err);
+        } catch (error) {
+            console.error('Error deleting DeepL API key:', error);
             toast.error(t('translate_settings.deepl_delete_error', "No s'ha pogut eliminar la clau de DeepL."));
             setTranslateState(s => ({ ...s, saving_deepl: false }));
         }
@@ -1217,8 +1216,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             await axios.post('/api/env', { SOFTCATALA_API_URL: value });
             softcatalaBaselineRef.current = value;
             setTranslateState(s => ({ ...s, saving_softcatala: false, saved_softcatala: true }));
-        } catch (err) {
-            console.error('Error saving Softcatalà URL:', err);
+        } catch (error) {
+            console.error('Error saving Softcatalà URL:', error);
             toast.error(t('translate_settings.softcatala_save_error', "No s'ha pogut desar la URL de Softcatalà."));
             setTranslateState(s => ({ ...s, saving_softcatala: false }));
         }
@@ -1713,7 +1712,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             });
             const data = await res.json().catch(() => ({}));
             setNewsletterAccountStatus(data.message || data.detail || (res.ok ? '' : t('subs_news_status_test_error')));
-        } catch (err) {
+        } catch (_error) {
             setNewsletterAccountStatus(t('subs_news_status_test_error'));
         } finally {
             setNewsletterAccountTesting(false);
@@ -1728,7 +1727,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             const data = await res.json().catch(() => ({}));
             setNewsletterAccountStatus(data.message || (res.ok ? t('subs_news_status_sync_started') : t('subs_news_status_sync_error')));
             await loadNewsletterSources();
-        } catch (err) {
+        } catch (_error) {
             setNewsletterAccountStatus(t('subs_news_status_sync_conn_error'));
         } finally {
             setNewsletterAccountSyncing(false);
@@ -1737,7 +1736,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
 
     // -- UNIFIED SAVE LOGIC --
-    const triggerAutoSave = async (silent = true) => {
+    const triggerAutoSave = async () => {
         if (isSaving) return;
         
         const currentData = JSON.stringify({
@@ -1935,16 +1934,10 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             message: tn('accounts.delete_msg'),
             onConfirm: async () => {
                 const updatedIntegrations = { ...integrations };
-                let changed = false;
-
                 // Aggressive removal of ALL lists from the object
                 Object.keys(updatedIntegrations).forEach(key => {
                     if (Array.isArray(updatedIntegrations[key])) {
-                        const originalLen = updatedIntegrations[key].length;
                         updatedIntegrations[key] = updatedIntegrations[key].filter(a => (a.id !== accountId && a.email !== accountId));
-                        if (updatedIntegrations[key].length !== originalLen) {
-                            changed = true;
-                        }
                     }
                 });
 
@@ -2502,8 +2495,12 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             onChange={() => {
                                                 const next = !mailDarkBody;
                                                 setMailDarkBody(next);
-                                                try { localStorage.setItem('gnosi_mail_dark_body', next ? '1' : '0'); } catch {}
-                                                try { window.dispatchEvent(new Event('gnosi-mail-dark-body-changed')); } catch {}
+                                                try { localStorage.setItem('gnosi_mail_dark_body', next ? '1' : '0'); } catch {
+                                                    // Storage can be unavailable in restricted browser contexts.
+                                                }
+                                                try { window.dispatchEvent(new Event('gnosi-mail-dark-body-changed')); } catch {
+                                                    // The event target may be unavailable while the modal unmounts.
+                                                }
                                             }}
                                         />
                                     </div>

@@ -95,7 +95,7 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
 
         try {
             await axios.put('/api/vault/custom-icons', { icons: normalized });
-        } catch (error) {
+        } catch (_error) {
             // Keep local fallback if backend persistence fails.
         }
     };
@@ -114,7 +114,7 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
                 if (typeof window !== 'undefined') {
                     window.localStorage.setItem(CUSTOM_ICON_STORAGE_KEY, JSON.stringify(remoteIcons));
                 }
-            } catch (error) {
+            } catch (_error) {
                 // Silent fallback to local storage.
             } finally {
                 if (!cancelled) setHasLoadedRemoteIcons(true);

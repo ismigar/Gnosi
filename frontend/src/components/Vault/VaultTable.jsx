@@ -396,7 +396,7 @@ import { PublishSocialModal } from './PublishSocialModal';
 import { ProcessResourceModal } from './ProcessResourceModal';
 import axios from 'axios';
 import { toast } from '../../lib/toast';
-import { notifyError, logError } from '../../lib/notifyError';
+import { notifyError } from '../../lib/notifyError';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { asBool } from '../../utils/vaultFilters';
 import { usePlugins } from '../../plugins/usePlugins';
@@ -457,7 +457,7 @@ const InfiniteLoadSentinel = React.memo(function InfiniteLoadSentinel({ visibleC
 let _gridKeyboardOwner = null;
 let _gridInstanceSeq = 0;
 
-export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView, onUpdateView, isEmbedded = false, onEditSchema, isListView = false, onCreateRecord, onDeletePage, onDeleteSelected, onCellSaved, onUpdateFieldOptions, onOpenParallel, onTranslated, searchTerm: searchTermProp, onSearchChange, actionRules = null, maxHeight = null, registerNavApi = null, onExitTop = null, onExitBottom = null, onEscape = null }) {
+export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView, onUpdateView, isEmbedded = false, isListView = false, onCreateRecord, onDeletePage, onDeleteSelected, onCellSaved, onUpdateFieldOptions, onOpenParallel, onTranslated, searchTerm: searchTermProp, actionRules = null, maxHeight = null, registerNavApi = null, onExitTop = null, onExitBottom = null, onEscape = null }) {
     const { isEnabled: isPluginEnabled, getPluginSettings } = usePlugins();
     const projectPlanningEnabled = isPluginEnabled('project-planning');
     const projectPlanningSettings = getPluginSettings('project-planning');
@@ -658,7 +658,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
     const startX = useRef(0);
     const startWidth = useRef(0);
 
-    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [, setIsDropdownOpen] = useState(false);
     const [editingCell, setEditingCell] = useState(null); // { rowId, field, activeMetaKey }
     // ── Notion/Excel-style grid ───────────────────────────────────────
     // `activeCell` is the CURSOR (highlighted border) and is independent of
@@ -695,9 +695,9 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         return () => window.removeEventListener('keydown', onKey);
     }, [fileDeletePrompt, fileDeleteBusy]);
     const [aggregations, setAggregations] = useState({}); // { field: 'sum' | 'avg' | 'count' | 'none' }
-    const [internalSearchTerm, setInternalSearchTerm] = useState('');
+    const [internalSearchTerm] = useState('');
     const searchTerm = searchTermProp !== undefined ? searchTermProp : internalSearchTerm;
-    const setSearchTerm = onSearchChange || setInternalSearchTerm;
+
     const [expandedRows, setExpandedRows] = useState(new Set()); // IDs of expanded rows
     const [expandedGroups, setExpandedGroups] = useState(() => new Set()); // EXPANDED group keys (grouping); default: collapsed
     const [newSubitemTitle, setNewSubitemTitle] = useState(''); // title for the new inline subitem
@@ -1127,7 +1127,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         // new fields appear instantly.
         const baseFields = activeView?.visibleProperties?.length
             ? activeView.visibleProperties.map(key => [key, getFieldType(schema, key)]).filter(([key, type]) => key && type)
-            : getSchemaFieldEntries(schema).filter(([key, type]) => type !== 'title');
+            : getSchemaFieldEntries(schema).filter(([, type]) => type !== 'title');
 
         // The title is already rendered as a fixed column: no entry from
         // `visibleProperties` must show it again as a data column.
