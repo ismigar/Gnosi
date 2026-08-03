@@ -21,7 +21,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `integrations-plugins` | **covered** | [`Integrations and plugins`](../domains/integrations-plugins.md) | 46 | 6 | 3 |
 | `auth-workspaces-sharing` | **covered** | [`Authentication, workspaces, and sharing`](../domains/auth-workspaces-sharing.md) | 12 | 9 | 3 |
 | `automation-scheduling` | **covered** | [`Automation and scheduling`](../domains/automation-scheduling.md) | 6 | 1 | 3 |
-| `desktop-clients` | **covered** | [`Desktop and companion clients`](../domains/desktop-clients.md) | 38 | 1 | 3 |
+| `desktop-clients` | **covered** | [`Desktop and companion clients`](../domains/desktop-clients.md) | 41 | 1 | 3 |
 
 ## Platform foundation and runtime
 
