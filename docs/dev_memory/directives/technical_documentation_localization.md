@@ -34,6 +34,10 @@ and build all locale configurations with strict MkDocs warnings. Confirm in a
 browser that the header, language selector, internal links, and Mermaid
 diagrams render in each locale.
 
+For a focused generated-reference change, refresh only the affected mirror with
+`localize.py --path generated/<page>.md`. This keeps deterministic localized
+artifacts current without retranslating unrelated catalogs.
+
 ## Restrictions and edge cases
 
 - Do not translate source paths, endpoints, identifiers, code, URLs, or API
