@@ -1,0 +1,451 @@
+{% extends "base.html" %}
+
+{% set shell_copy = {
+  "en": {
+    "home_url": "https://gnosi.temenosismael.org/index.html",
+    "home_label": "Gnosi home",
+    "features": "Features",
+    "installation": "Installation",
+    "support": "Support",
+    "documentation": "Engineering docs",
+    "navigation": "Gnosi website navigation",
+    "project": "Project",
+    "issues": "Issues",
+    "support_project": "Support the project",
+    "author": "Author",
+    "projects": "Projects",
+    "legal": "Legal",
+    "privacy": "Privacy policy",
+    "license": "AGPL-3.0 license",
+    "tagline": "Your digital second brain. Local-first, open source and sovereign.",
+    "copyright": "Open-source project under the AGPL-3.0 license."
+  },
+  "ca": {
+    "home_url": "https://gnosi.temenosismael.org/index.ca.html",
+    "home_label": "Inici de Gnosi",
+    "features": "Funcionalitats",
+    "installation": "Instal·lació",
+    "support": "Col·labora",
+    "documentation": "Documentació tècnica",
+    "navigation": "Navegació del web de Gnosi",
+    "project": "Projecte",
+    "issues": "Incidències",
+    "support_project": "Col·labora amb el projecte",
+    "author": "Autor",
+    "projects": "Projectes",
+    "legal": "Legal",
+    "privacy": "Política de privacitat",
+    "license": "Llicència AGPL-3.0",
+    "tagline": "El teu segon cervell digital. Local-first, codi obert i sobirà.",
+    "copyright": "Projecte de codi obert sota la llicència AGPL-3.0."
+  },
+  "es": {
+    "home_url": "https://gnosi.temenosismael.org/index.es.html",
+    "home_label": "Inicio de Gnosi",
+    "features": "Funcionalidades",
+    "installation": "Instalación",
+    "support": "Colabora",
+    "documentation": "Documentación técnica",
+    "navigation": "Navegación del sitio web de Gnosi",
+    "project": "Proyecto",
+    "issues": "Incidencias",
+    "support_project": "Colabora con el proyecto",
+    "author": "Autor",
+    "projects": "Proyectos",
+    "legal": "Legal",
+    "privacy": "Política de privacidad",
+    "license": "Licencia AGPL-3.0",
+    "tagline": "Tu segundo cerebro digital. Local-first, código abierto y soberano.",
+    "copyright": "Proyecto de código abierto bajo la licencia AGPL-3.0."
+  }
+} %}
+{% set shell = shell_copy.get(config.theme.language, shell_copy["en"]) %}
+{% set landing_base = shell.home_url %}
+{% set documentation_url = "https://gnosi.temenosismael.org/engineering/" %}
+{% if config.theme.language == "ca" %}
+  {% set documentation_url = documentation_url ~ "ca/" %}
+{% elif config.theme.language == "es" %}
+  {% set documentation_url = documentation_url ~ "es/" %}
+{% endif %}
+
+{% block extrahead %}
+  {{ super() }}
+  <style>
+    :root {
+      --gnosi-site-header-height: 4rem;
+      --gnosi-site-bg: #f6f3ec;
+      --gnosi-site-accent-bg: #e7dcc8;
+      --gnosi-site-card: #fffdf8;
+      --gnosi-site-ink: #1e293b;
+      --gnosi-site-muted: #64748b;
+      --gnosi-site-line: #d6c9b3;
+      --gnosi-site-primary: #3b82f6;
+      --md-text-font: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", serif;
+      --md-code-font: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    [data-md-color-scheme="default"] {
+      --md-default-bg-color: var(--gnosi-site-bg);
+      --md-default-fg-color: var(--gnosi-site-ink);
+      --md-default-fg-color--light: var(--gnosi-site-muted);
+      --md-default-fg-color--lighter: #8290a3;
+      --md-default-fg-color--lightest: var(--gnosi-site-line);
+      --md-code-bg-color: var(--gnosi-site-card);
+      --md-code-fg-color: var(--gnosi-site-ink);
+      --md-typeset-a-color: var(--gnosi-site-primary);
+    }
+
+    body,
+    input {
+      font-family: var(--md-text-font);
+    }
+
+    .md-container,
+    .md-main {
+      background:
+        radial-gradient(circle at 85% 8%, rgb(231 220 200 / 45%) 0, transparent 34rem),
+        var(--gnosi-site-bg);
+    }
+
+    .md-typeset h1,
+    .md-typeset h2,
+    .md-typeset h3,
+    .md-typeset h4 {
+      color: var(--gnosi-site-ink);
+      font-family: var(--md-text-font);
+      letter-spacing: -0.018em;
+    }
+
+    .md-typeset h2 {
+      border-bottom: 1px solid var(--gnosi-site-line);
+      padding-bottom: 0.35rem;
+    }
+
+    .md-typeset table:not([class]) {
+      background: var(--gnosi-site-card);
+      border: 1px solid var(--gnosi-site-line);
+      border-radius: 0.5rem;
+      box-shadow: 0 0.45rem 1.5rem rgb(34 32 28 / 6%);
+      overflow: hidden;
+    }
+
+    .md-typeset table:not([class]) th {
+      background: var(--gnosi-site-accent-bg);
+      color: var(--gnosi-site-ink);
+    }
+
+    .md-typeset .admonition,
+    .md-typeset details {
+      background: var(--gnosi-site-card);
+      border-color: var(--gnosi-site-line);
+      box-shadow: 0 0.35rem 1.2rem rgb(34 32 28 / 6%);
+    }
+
+    .md-typeset code,
+    .md-typeset pre,
+    .md-typeset kbd {
+      font-family: var(--md-code-font);
+    }
+
+    .md-sidebar__scrollwrap,
+    .md-search__form {
+      background: transparent;
+    }
+
+    .gnosi-site-header {
+      background: rgb(246 243 236 / 96%);
+      border-bottom: 1px solid var(--gnosi-site-line);
+      color: var(--gnosi-site-ink);
+      height: var(--gnosi-site-header-height);
+      position: sticky;
+      top: 0;
+      z-index: 5;
+    }
+
+    .gnosi-site-header__inner {
+      align-items: center;
+      display: flex;
+      gap: 1.25rem;
+      height: 100%;
+      margin: 0 auto;
+      max-width: 68.75rem;
+      padding: 0 1.2rem;
+    }
+
+    .gnosi-site-header a,
+    .gnosi-site-footer a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .gnosi-site-header__brand {
+      align-items: center;
+      display: inline-flex;
+      flex: 0 0 auto;
+      gap: 0.55rem;
+      font-size: 1.05rem;
+      font-weight: 750;
+    }
+
+    .gnosi-site-header__mark {
+      align-items: center;
+      background: var(--gnosi-site-primary);
+      border-radius: 0.55rem;
+      color: #fff;
+      display: inline-flex;
+      font-size: 0.9rem;
+      height: 2rem;
+      justify-content: center;
+      width: 2rem;
+    }
+
+    .gnosi-site-header__nav {
+      align-items: center;
+      display: flex;
+      flex: 1 1 auto;
+      gap: clamp(0.7rem, 1.5vw, 1.55rem);
+      justify-content: center;
+      min-width: 0;
+    }
+
+    .gnosi-site-header__nav a {
+      color: var(--gnosi-site-muted);
+      flex: 0 0 auto;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 0.45rem 0;
+    }
+
+    .gnosi-site-header__nav a:hover,
+    .gnosi-site-header__nav a:focus-visible,
+    .gnosi-site-header__nav a[aria-current="page"] {
+      color: var(--gnosi-site-primary);
+    }
+
+    .gnosi-site-header__nav a[aria-current="page"] {
+      border-bottom: 2px solid var(--gnosi-site-primary);
+    }
+
+    .gnosi-site-header__languages {
+      align-items: center;
+      display: flex;
+      flex: 0 0 auto;
+      gap: 0.25rem;
+    }
+
+    .gnosi-site-header__languages > a,
+    .gnosi-site-header__languages > span {
+      border-radius: 0.35rem;
+      color: var(--gnosi-site-muted);
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 0.3rem 0.42rem;
+    }
+
+    .gnosi-site-header__languages > [aria-current="true"] {
+      background: var(--gnosi-site-primary);
+      color: #fff;
+    }
+
+    .md-header {
+      top: var(--gnosi-site-header-height);
+      z-index: 4;
+    }
+
+    .gnosi-language-switcher {
+      margin: 0;
+    }
+
+    .gnosi-language-switcher select {
+      background: var(--gnosi-site-card);
+      border-color: var(--gnosi-site-line);
+      color: var(--gnosi-site-ink);
+    }
+
+    .gnosi-site-footer {
+      background: var(--gnosi-site-accent-bg);
+      border-top: 1px solid var(--gnosi-site-line);
+      color: var(--gnosi-site-ink);
+      margin-top: 2.5rem;
+    }
+
+    .gnosi-site-footer__inner {
+      display: grid;
+      gap: 3rem;
+      grid-template-columns: minmax(14rem, 1.35fr) minmax(22rem, 2fr);
+      margin: 0 auto;
+      max-width: 68.75rem;
+      padding: 3rem 1.2rem 2rem;
+    }
+
+    .gnosi-site-footer__brand {
+      align-items: center;
+      display: flex;
+      gap: 0.55rem;
+      font-size: 1.05rem;
+      font-weight: 750;
+      margin-bottom: 0.75rem;
+    }
+
+    .gnosi-site-footer__tagline {
+      color: var(--gnosi-site-muted);
+      font-size: 0.75rem;
+      line-height: 1.55;
+      margin: 0;
+      max-width: 25rem;
+    }
+
+    .gnosi-site-footer__links {
+      display: grid;
+      gap: 2rem;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .gnosi-site-footer__column h2 {
+      font-size: 0.68rem;
+      letter-spacing: 0.08em;
+      margin: 0 0 0.75rem;
+      text-transform: uppercase;
+    }
+
+    .gnosi-site-footer__column a {
+      color: var(--gnosi-site-muted);
+      display: block;
+      font-size: 0.72rem;
+      margin-top: 0.55rem;
+    }
+
+    .gnosi-site-footer__column a:hover,
+    .gnosi-site-footer__column a:focus-visible {
+      color: var(--gnosi-site-primary);
+    }
+
+    .gnosi-site-footer__bottom {
+      border-top: 1px solid var(--gnosi-site-line);
+      color: var(--gnosi-site-muted);
+      font-size: 0.66rem;
+      padding: 1rem 1.2rem;
+      text-align: center;
+    }
+
+    @media (max-width: 60rem) {
+      .gnosi-site-header__inner {
+        gap: 0.75rem;
+      }
+
+      .gnosi-site-header__brand span:last-child {
+        display: none;
+      }
+
+      .gnosi-site-header__nav {
+        justify-content: flex-start;
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+
+      .gnosi-site-header__nav::-webkit-scrollbar {
+        display: none;
+      }
+    }
+
+    @media (max-width: 48rem) {
+      :root {
+        --gnosi-site-header-height: 6.25rem;
+      }
+
+      .gnosi-site-header__inner {
+        align-content: center;
+        flex-wrap: wrap;
+        padding-block: 0.55rem;
+      }
+
+      .gnosi-site-header__brand span:last-child {
+        display: inline;
+      }
+
+      .gnosi-site-header__languages {
+        margin-left: auto;
+      }
+
+      .gnosi-site-header__nav {
+        flex-basis: 100%;
+        order: 3;
+      }
+
+      .gnosi-site-footer__inner {
+        gap: 2rem;
+        grid-template-columns: 1fr;
+      }
+
+      .gnosi-site-footer__links {
+        gap: 1.5rem;
+      }
+    }
+
+    @media (max-width: 32rem) {
+      .gnosi-site-footer__links {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+{% endblock %}
+
+{% block header %}
+  <header class="gnosi-site-header">
+    <div class="gnosi-site-header__inner">
+      <a class="gnosi-site-header__brand" href="{{ landing_base }}" aria-label="{{ shell.home_label }}">
+        <span class="gnosi-site-header__mark" aria-hidden="true">G</span>
+        <span>Gnosi</span>
+      </a>
+      <nav class="gnosi-site-header__nav" aria-label="{{ shell.navigation }}">
+        <a href="{{ landing_base }}#funcionalidades">{{ shell.features }}</a>
+        <a href="{{ landing_base }}#ia">IA</a>
+        <a href="{{ landing_base }}#instalacion">{{ shell.installation }}</a>
+        <a href="{{ landing_base }}#colaborar">{{ shell.support }}</a>
+        <a href="{{ documentation_url }}" aria-current="page">{{ shell.documentation }}</a>
+        <a href="https://github.com/ismigar/Gnosi" target="_blank" rel="noopener noreferrer">GitHub</a>
+      </nav>
+      <div class="gnosi-site-header__languages" aria-label="Language">
+        {% if config.theme.language == "en" %}<span aria-current="true">EN</span>{% else %}<a href="https://gnosi.temenosismael.org/engineering/">EN</a>{% endif %}
+        {% if config.theme.language == "ca" %}<span aria-current="true">CA</span>{% else %}<a href="https://gnosi.temenosismael.org/engineering/ca/">CA</a>{% endif %}
+        {% if config.theme.language == "es" %}<span aria-current="true">ES</span>{% else %}<a href="https://gnosi.temenosismael.org/engineering/es/">ES</a>{% endif %}
+      </div>
+    </div>
+  </header>
+  {{ super() }}
+{% endblock %}
+
+{% block footer %}
+  {{ super() }}
+  <footer class="gnosi-site-footer">
+    <div class="gnosi-site-footer__inner">
+      <div>
+        <a class="gnosi-site-footer__brand" href="{{ landing_base }}">
+          <span class="gnosi-site-header__mark" aria-hidden="true">G</span>
+          <span>Gnosi</span>
+        </a>
+        <p class="gnosi-site-footer__tagline">{{ shell.tagline }}</p>
+      </div>
+      <div class="gnosi-site-footer__links">
+        <section class="gnosi-site-footer__column">
+          <h2>{{ shell.project }}</h2>
+          <a href="https://github.com/ismigar/Gnosi" target="_blank" rel="noopener noreferrer">GitHub</a>
+          <a href="{{ documentation_url }}">{{ shell.documentation }}</a>
+          <a href="https://github.com/ismigar/Gnosi/issues" target="_blank" rel="noopener noreferrer">{{ shell.issues }}</a>
+          <a href="{{ landing_base }}#colaborar">{{ shell.support_project }}</a>
+        </section>
+        <section class="gnosi-site-footer__column">
+          <h2>{{ shell.author }}</h2>
+          <a href="https://github.com/ismigar" target="_blank" rel="noopener noreferrer">GitHub</a>
+          <a href="https://ismigar.github.io/Projectes" target="_blank" rel="noopener noreferrer">{{ shell.projects }}</a>
+        </section>
+        <section class="gnosi-site-footer__column">
+          <h2>{{ shell.legal }}</h2>
+          <a href="https://gnosi.temenosismael.org/privacy.html">{{ shell.privacy }}</a>
+          <a href="https://github.com/ismigar/Gnosi/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">{{ shell.license }}</a>
+        </section>
+      </div>
+    </div>
+    <div class="gnosi-site-footer__bottom">© 2024–2026 Ismael Garcia Fernandez · {{ shell.copyright }}</div>
+  </footer>
+{% endblock %}
