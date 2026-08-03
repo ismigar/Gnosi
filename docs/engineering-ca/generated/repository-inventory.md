@@ -16,7 +16,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Fitxers de proves d' unitats per al Frontal | 38 |
 | Encaminadors d' API ràpids Registrat | 33 |
 | Executar contractes d' habilitat | 23 |
-| Directives del desenvolupament | 157 |
+| Directives del desenvolupament | 158 |
 
 ## Superfícies d' aplicació propis
 
