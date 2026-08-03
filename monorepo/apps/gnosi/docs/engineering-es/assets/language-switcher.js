@@ -35,7 +35,8 @@
   }
 
   function installSelector(locale) {
-    const header = document.querySelector(".md-header__inner");
+    const header = document.querySelector(".gnosi-site-header__languages")
+      || document.querySelector(".md-header__inner");
     if (!header || header.querySelector(".gnosi-language-switcher")) return;
     const label = document.createElement("label");
     label.className = "gnosi-language-switcher";
@@ -51,6 +52,9 @@
     });
     select.addEventListener("change", () => navigate(select.value));
     label.appendChild(select);
+    if (header.classList.contains("gnosi-site-header__languages")) {
+      header.replaceChildren();
+    }
     header.appendChild(label);
   }
 
@@ -61,5 +65,9 @@
     navigate(preferred);
     return;
   }
-  document.addEventListener("DOMContentLoaded", () => installSelector(route.locale));
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => installSelector(route.locale));
+  } else {
+    installSelector(route.locale);
+  }
 })();

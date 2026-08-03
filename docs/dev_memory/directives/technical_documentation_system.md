@@ -62,6 +62,13 @@ the system browser or a new browser tab, remains available in native, Docker,
 and Electron distributions, and uses localized labels from all four frontend
 catalogs. It never points to a development-only localhost address.
 
+The portal reuses Gnosi's public-site shell through one MkDocs theme override:
+the product header and menu sit above the technical header, and the public-site
+footer follows the documentation content. The shared template resolves English,
+Catalan, and Spanish labels from the active MkDocs locale. Keep this shell in a
+single override directory; do not fork its markup into the three documentation
+trees.
+
 ## Information architecture
 
 The portal uses progressive disclosure:
@@ -153,6 +160,10 @@ product completeness.
   removes or corrupts rendered diagrams. Disable `startOnLoad`, convert the
   MkDocs `pre.mermaid` wrapper to a plain text container, and run Mermaid once
   for each unprocessed diagram.
+- Do not embed the public landing page around the portal with an iframe. It
+  breaks document navigation, accessibility, canonical URLs, and responsive
+  layout. Extend the MkDocs Material template and keep its search, drawer, and
+  technical navigation intact below the global product header.
 - In an isolated worktree, do not link only `frontend/node_modules` before the
   required application build. npm workspaces resolve hoisted tools such as
   Vite from `monorepo/node_modules`; install or link dependencies at that root.
