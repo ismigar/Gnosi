@@ -5026,6 +5026,18 @@
     "section_improvements": "Améliorations",
     "section_fixes": "Corrections",
     "entries": {
+      "v1_0_0_rc_2": {
+        "highlights": {
+          "desktop_branding": "Les applications de bureau utilisent désormais l'icône officielle de Gnosi sur macOS, Windows et Linux."
+        },
+        "improvements": {
+          "package_validation": "Les builds de version vérifient la signature macOS, l'icône de l'application et l'interface intégrée avant d'envoyer les installateurs."
+        },
+        "fixes": {
+          "macos_launch": "Le paquet de l'application macOS est entièrement scellé afin que le système ne le signale plus comme endommagé.",
+          "packaged_frontend": "Les installateurs de bureau incluent et chargent désormais l'interface complète de Gnosi."
+        }
+      },
       "v1_0_0_rc_1": {
         "highlights": {
           "settings": "Les réglages sont organisés en sections et onglets plus clairs.",
