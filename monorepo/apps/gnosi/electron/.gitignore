@@ -5,7 +5,10 @@ node_modules/
 dist/
 dist-python/
 python-build/
-build/
+build/*
+!build/icon.icns
+!build/icon.ico
+!build/icon.png
 
 # Virtual environments
 .venv*/
