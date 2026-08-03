@@ -1,6 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Download, RefreshCw, X } from 'lucide-react';
+import { Download, RefreshCw, Sparkles, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+
+import { findRelease } from '../lib/releaseNotes';
+import { ReleaseNotesDialog } from './ReleaseNotesDialog';
 
 const INITIAL_STATE = { status: 'idle' };
 
@@ -8,6 +11,7 @@ export function DesktopUpdateNotice() {
     const { t } = useTranslation();
     const [update, setUpdate] = useState(INITIAL_STATE);
     const [dismissedVersion, setDismissedVersion] = useState(null);
+    const [releaseNotesOpen, setReleaseNotesOpen] = useState(false);
     const eventSequence = useRef(0);
 
     useEffect(() => {
@@ -35,7 +39,7 @@ export function DesktopUpdateNotice() {
     const isVisible = ['available', 'downloading', 'downloaded'].includes(update.status)
         && !(update.status === 'available' && dismissedVersion === version);
 
-    if (!isVisible) return null;
+    if (!isVisible && !releaseNotesOpen) return null;
 
     const percent = Math.max(0, Math.min(100, Math.round(update.percent || 0)));
 
@@ -48,7 +52,8 @@ export function DesktopUpdateNotice() {
     };
 
     return (
-        <aside
+        <>
+        {isVisible && <aside
             className="fixed right-5 top-5 z-[var(--z-toast)] w-[min(24rem,calc(100vw-2.5rem))] rounded-2xl border border-[var(--border-color)] bg-[var(--bg-primary)] p-4 text-[var(--text-primary)] shadow-2xl"
             role="status"
             aria-live="polite"
@@ -102,14 +107,26 @@ export function DesktopUpdateNotice() {
                     )}
 
                     {update.status === 'available' && (
-                        <button
-                            type="button"
-                            onClick={downloadUpdate}
-                            className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[var(--accent-primary)] px-3 py-2 text-xs font-semibold text-white hover:opacity-90"
-                        >
-                            <Download size={15} aria-hidden="true" />
-                            {t('desktop_update.download', 'Download update')}
-                        </button>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                            <button
+                                type="button"
+                                onClick={downloadUpdate}
+                                className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent-primary)] px-3 py-2 text-xs font-semibold text-white hover:opacity-90"
+                            >
+                                <Download size={15} aria-hidden="true" />
+                                {t('desktop_update.download', 'Download update')}
+                            </button>
+                            {findRelease(version) && (
+                                <button
+                                    type="button"
+                                    onClick={() => setReleaseNotesOpen(true)}
+                                    className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-primary)] px-3 py-2 text-xs font-semibold hover:bg-[var(--bg-secondary)]"
+                                >
+                                    <Sparkles size={15} aria-hidden="true" />
+                                    {t('desktop_update.whats_new', "What's new")}
+                                </button>
+                            )}
+                        </div>
                     )}
 
                     {update.status === 'downloaded' && (
@@ -124,6 +141,12 @@ export function DesktopUpdateNotice() {
                     )}
                 </div>
             </div>
-        </aside>
+        </aside>}
+        <ReleaseNotesDialog
+            open={releaseNotesOpen}
+            onClose={() => setReleaseNotesOpen(false)}
+            initialVersion={version}
+        />
+        </>
     );
 }

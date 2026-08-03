@@ -4962,6 +4962,44 @@
     "ready_title": "Update ready",
     "ready_body": "Restart Gnosi to finish installing version {{version}}.",
     "download": "Download update",
-    "restart": "Restart and install"
+    "restart": "Restart and install",
+    "whats_new": "What's new"
+  },
+  "release_notes": {
+    "title": "What's new in Gnosi",
+    "subtitle": "Discover the features, improvements and fixes included in each version.",
+    "close": "Close release notes",
+    "open_aria": "Open release notes for version {{version}}",
+    "published_on": "Published {{date}}",
+    "channel_prerelease": "Release candidate",
+    "channel_stable": "Stable",
+    "section_highlights": "Highlights",
+    "section_improvements": "Improvements",
+    "section_fixes": "Fixes",
+    "entries": {
+      "v1_0_0_rc_1": {
+        "highlights": {
+          "settings": "Settings are organized into clearer sections and tabs.",
+          "documentation": "A new engineering documentation portal makes the system easier to understand and maintain."
+        },
+        "improvements": {
+          "graph": "The knowledge graph has clearer edges, loading feedback and more focused hover relationships.",
+          "navigation": "Vault navigation and page controls are more consistent and easier to identify."
+        },
+        "fixes": {
+          "settings": "Several visual inconsistencies in Settings have been corrected.",
+          "interface_state": "Expanded and selected interface states are preserved more reliably."
+        }
+      },
+      "v0_3_0_rc_1": {
+        "highlights": {
+          "desktop": "First release candidate with desktop packages for macOS, Windows and Linux."
+        },
+        "improvements": {
+          "updates": "Desktop update detection and installation foundations are included.",
+          "plugins": "Official plugin packages and their distribution index are included with releases."
+        }
+      }
+    }
   }
 }
