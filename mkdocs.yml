@@ -101,6 +101,7 @@ markdown_extensions:
 extra_javascript:
   - https://unpkg.com/mermaid@11/dist/mermaid.min.js
   - assets/mermaid-init.js
+  - assets/language-switcher.js
 
 extra_css:
   - assets/engineering.css
