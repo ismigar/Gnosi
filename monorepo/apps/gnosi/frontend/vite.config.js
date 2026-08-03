@@ -151,6 +151,12 @@ export default defineConfig(({ mode }) => {
         ).version,
       ),
     },
+    optimizeDeps: {
+      // Gnosi has one application entry. Without this boundary Vite scans HTML
+      // fixtures inside the vendored Zotero Reader and tries to resolve the
+      // PDF.js build-only aliases as application dependencies.
+      entries: [path.join(rootDir, "index.html")],
+    },
     build: {
       // We separate large vendors into their own chunks because (1) the chunk
       // main doesn't grow unchecked and trigger the 500 kB warning, and

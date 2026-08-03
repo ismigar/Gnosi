@@ -16,6 +16,9 @@ unit tests fast without weakening production retry behavior.
 - Production retry delays protect remote integrations and must remain real.
   Tests that deliberately exercise an empty or failed fake response must stub
   the delay locally instead of waiting for production backoff intervals.
+- Vite dependency discovery must remain restricted to the Gnosi `index.html`
+  entry. Vendored readers contain HTML fixtures with build-only PDF.js aliases;
+  scanning the complete frontend tree makes clean native restarts fail.
 
 ## Verification
 
