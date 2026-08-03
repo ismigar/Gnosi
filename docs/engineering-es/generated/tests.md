@@ -12,7 +12,7 @@ Regenerar con `python pipeline/skills/technical_documentation/scripts/generate.p
 | --- | ---: | ---: |
 | Autor de la reproducción | 13 | 35 |
 | Vitest | 44 | 173 |
-| pytest | 174 | 1438 |
+| pytest | 174 | 1439 |
 
 ## Archivos
 
@@ -244,7 +244,7 @@ Regenerar con `python pipeline/skills/technical_documentation/scripts/generate.p
 | pytest | [Servidores mcp/proxy de drupal/prueba_proxy.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/mcp-servers/drupal-proxy/test_proxy.py) | 0 | Python AST |
 | pytest | [`pipeline/habilidades/técnicas_documentación/pruebas/pruebas_generate.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_generate.py) | 9 | Python AST |
 | pytest | [`pipeline/habilidades/técnicas_documentación/pruebas/pruebas_localize.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_localize.py) | 2 | Python AST |
-| pytest | [`pipeline/habilidades/técnicas_documentación/pruebas/pruebas_publicación.py»](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_publication.py) | 4 | Python AST |
+| pytest | [`pipeline/habilidades/técnicas_documentación/pruebas/pruebas_publicación.py»](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_publication.py) | 5 | Python AST |
 | pytest | [`pipeline/habilidades/técnicas_documentación/pruebas/pruebas_validate.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_validate.py) | 3 | Python AST |
 | pytest | [`pipeline/habilidades/traducción_página/scripts/test_marca de baja_segmentar.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/translate_page/scripts/test_markdown_segmenter.py) | 33 | Python AST |
 | pytest | [`prueba_ingestión.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/test_ingestion.py) | 0 | Python AST |

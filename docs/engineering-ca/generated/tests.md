@@ -12,7 +12,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | PlaywrightCity name (optional, probably does not need a translation) | 13 | 35 |
 | Vitest | 44 | 173 |
-| pytest | 174 | 1438 |
+| pytest | 174 | 1439 |
 
 ## Fitxers
 
@@ -244,7 +244,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [tsmcp- servidors/druupal- proxy/test_proxy.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/mcp-servers/drupal-proxy/test_proxy.py) | 0 | Python AST |
 | pytest | [POCRECER/ Escarpades/tical_documentation/tests/test_Genera.pypypypypyypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_generate.py) | 9 | Python AST |
 | pytest | [POCRECER/ Escarpades/tical_documentation/tests/test_localize.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_localize.py) | 2 | Python AST |
-| pytest | [POCRECER/ Escarpades/tical_documentation/tests/test_publicació.pypypypypypyn.](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_publication.py) | 4 | Python AST |
+| pytest | [POCRECER/ Escarpades/tical_documentation/tests/test_publicació.pypypypypypyn.](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_publication.py) | 5 | Python AST |
 | pytest | [POCRECER/ Escarpades/tical_documentation/tests/test_validant.pypy Tellico](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_validate.py) | 3 | Python AST |
 | pytest | [Backiete/ Escarills/ traduir_page/scripts/test_Baix_segmenter.](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/translate_page/scripts/test_markdown_segmenter.py) | 33 | Python AST |
 | pytest | [test_ingestió.](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/test_ingestion.py) | 0 | Python AST |
