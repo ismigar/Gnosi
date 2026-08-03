@@ -26,8 +26,10 @@ version. Gnosi also presents the current version notes once after an upgrade and
 lets desktop users inspect notes before downloading an available update when
 the bundled catalog contains that version.
 
-Every history entry links to its versioned public GitHub release so web and
-self-hosted users can choose the appropriate macOS, Windows, or Linux artifact.
+Every history entry with verified public artifacts links to its versioned
+GitHub release so web and self-hosted users can choose the appropriate macOS,
+Windows, or Linux artifact. Entries without a `downloadUrl` display a
+non-interactive unavailable state instead of deriving a potentially broken URL.
 
 Dismissal is stored locally per version. It must never prevent the permanent
 Control Center entry from reopening the history.
@@ -56,6 +58,9 @@ same catalog and must remain synchronized.
   Spanish, and French.
 - Do not link release history to `releases/latest` because older entries must
   keep pointing to their own immutable versioned artifacts.
+- Do not derive a release URL from the catalog version because notes can be
+  prepared before their tag and public release exist. Add `downloadUrl` only
+  after verifying the published release and its artifacts.
 
 ## Verification checklist
 

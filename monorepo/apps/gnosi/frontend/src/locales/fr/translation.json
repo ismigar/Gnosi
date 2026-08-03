@@ -5019,6 +5019,7 @@
     "open_aria": "Ouvrir les notes de la version {{version}}",
     "published_on": "Publiée le {{date}}",
     "download_version": "Télécharger cette version",
+    "download_unavailable": "Téléchargement pas encore disponible",
     "channel_prerelease": "Version candidate",
     "channel_stable": "Stable",
     "section_highlights": "Temps forts",

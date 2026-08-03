@@ -4972,6 +4972,7 @@
     "open_aria": "Open release notes for version {{version}}",
     "published_on": "Published {{date}}",
     "download_version": "Download this version",
+    "download_unavailable": "Download not available yet",
     "channel_prerelease": "Release candidate",
     "channel_stable": "Stable",
     "section_highlights": "Highlights",

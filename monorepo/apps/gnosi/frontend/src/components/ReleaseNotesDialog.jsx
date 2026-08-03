@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle2, Download, Rocket, Sparkles, Wrench, X } from 'lucide-react';
+import { CheckCircle2, Clock3, Download, Rocket, Sparkles, Wrench, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { RELEASES, RELEASE_NOTE_SECTIONS } from '../lib/releaseNotes';
@@ -9,8 +9,6 @@ const SECTION_ICONS = {
   improvements: Rocket,
   fixes: Wrench,
 };
-
-const PUBLIC_RELEASES_URL = 'https://github.com/ismigar/Gnosi/releases/tag';
 
 export function ReleaseNotesDialog({ open, onClose, initialVersion }) {
   const { t, i18n } = useTranslation();
@@ -74,15 +72,22 @@ export function ReleaseNotesDialog({ open, onClose, initialVersion }) {
                         .format(new Date(`${release.date}T00:00:00`)),
                     })}
                   </time>
-                  <a
-                    href={`${PUBLIC_RELEASES_URL}/v${release.version}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--accent-primary)] hover:underline"
-                  >
-                    <Download size={14} aria-hidden="true" />
-                    {t('release_notes.download_version')}
-                  </a>
+                  {release.downloadUrl ? (
+                    <a
+                      href={release.downloadUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--accent-primary)] hover:underline"
+                    >
+                      <Download size={14} aria-hidden="true" />
+                      {t('release_notes.download_version')}
+                    </a>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--text-tertiary)]">
+                      <Clock3 size={14} aria-hidden="true" />
+                      {t('release_notes.download_unavailable')}
+                    </span>
+                  )}
                 </div>
 
                 <div className="mt-4 grid gap-4 md:grid-cols-3">
