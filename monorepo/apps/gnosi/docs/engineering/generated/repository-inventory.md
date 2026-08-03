@@ -16,7 +16,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Frontend unit test files | 38 |
 | Registered FastAPI routers | 33 |
 | Runtime skill contracts | 23 |
-| Development-memory directives | 156 |
+| Development-memory directives | 157 |
 
 ## Owned application surfaces
 
@@ -24,7 +24,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | --- |
 | `backend/` | 402 | FastAPI, services, models, agents, scheduling, and storage adapters |
 | `frontend/src/` | 309 | React application, UI behavior, state, and browser integrations |
-| `pipeline/` | 94 | Reusable application skills and deterministic processing tools |
+| `pipeline/` | 96 | Reusable application skills and deterministic processing tools |
 | `electron/` | 9 | Desktop lifecycle, backend packaging, IPC, and updates |
 | `integrations/` | 12 | Office and external-system adapters |
 | `web-clipper/` | 11 | Browser extension capture surface |

@@ -6,7 +6,11 @@ on:
       - main
     paths:
       - "apps/gnosi/docs/engineering/**"
+      - "apps/gnosi/docs/engineering-ca/**"
+      - "apps/gnosi/docs/engineering-es/**"
       - "apps/gnosi/mkdocs.yml"
+      - "apps/gnosi/mkdocs-ca.yml"
+      - "apps/gnosi/mkdocs-es.yml"
       - "apps/gnosi/requirements-docs.txt"
       - "apps/gnosi/pipeline/skills/technical_documentation/**"
       - ".github/workflows/documentation-pages.yml"
@@ -45,8 +49,19 @@ jobs:
       - name: Validate traceability and links
         run: python pipeline/skills/technical_documentation/scripts/validate.py
 
-      - name: Build portal
+      - name: Verify localized mirrors
+        env:
+          PYTHONPATH: .
+        run: python pipeline/skills/technical_documentation/scripts/localize.py --check
+
+      - name: Build English portal
         run: mkdocs build --strict
+
+      - name: Build Catalan portal
+        run: mkdocs build --strict --config-file mkdocs-ca.yml
+
+      - name: Build Spanish portal
+        run: mkdocs build --strict --config-file mkdocs-es.yml
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v6
