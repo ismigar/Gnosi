@@ -17,6 +17,7 @@ from pipeline.skills.technical_documentation.scripts.generate import (
     matches_for_globs,
     parse_route_module,
     python_files,
+    safe_unparse,
 )
 
 
@@ -34,6 +35,13 @@ def test_secret_defaults_are_always_redacted() -> None:
     value = ast.Constant(value="visible-in-source-but-still-sensitive")
     assert format_environment_default("EXAMPLE_API_KEY", value) == "redacted"
     assert format_environment_default("EXAMPLE_TIMEOUT", ast.Constant(value="30")) == "'30'"
+
+
+def test_safe_unparse_normalizes_lambda_spacing() -> None:
+    """Generated expressions remain stable across supported Python versions."""
+    expression = ast.parse("lambda: value", mode="eval").body
+
+    assert safe_unparse(expression) == "lambda: value"
 
 
 def test_route_module_combines_all_prefixes(tmp_path: Path) -> None:
