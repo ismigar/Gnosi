@@ -54,6 +54,10 @@ function validate(releases, translations) {
     versions.add(release.version);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(release.date)) throw new Error(`Invalid release date: ${release.date}`);
     if (!['prerelease', 'stable'].includes(release.channel)) throw new Error(`Invalid release channel: ${release.channel}`);
+    if (release.downloadUrl !== undefined
+      && !/^https:\/\/github\.com\/ismigar\/Gnosi\/releases\/tag\/v[^/]+$/.test(release.downloadUrl)) {
+      throw new Error(`Invalid download URL for ${release.version}: ${release.downloadUrl}`);
+    }
     if (index > 0 && compareVersions(releases[index - 1].version, release.version) <= 0) {
       throw new Error('Release entries must be ordered newest first.');
     }
