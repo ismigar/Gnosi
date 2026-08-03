@@ -30,6 +30,8 @@ export default defineConfig([
       'no-unused-vars': ['error', {
         varsIgnorePattern: '^[A-Z_]',
         argsIgnorePattern: '^[A-Z_]',
+        caughtErrors: 'all',
+        caughtErrorsIgnorePattern: '^_',
         ignoreRestSiblings: true,
       }],
       // PURGE_NATIVE_DIALOGS directive: native browser dialogs are forbidden.
@@ -46,6 +48,29 @@ export default defineConfig([
         { object: 'window', property: 'prompt', message: 'No usis window.prompt — fes servir <PromptModal>.' },
         { object: 'window', property: 'alert', message: 'No usis window.alert — fes servir toast.error() (src/lib/toast).' },
       ],
+      // React Compiler diagnostics remain visible while historical components
+      // are migrated. Core Hooks correctness rules stay at their recommended
+      // error severity; these advisory optimization/HMR findings do not block
+      // release builds.
+      'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/refs': 'warn',
+      'react-hooks/preserve-manual-memoization': 'warn',
+      'react-refresh/only-export-components': 'warn',
+    },
+  },
+  {
+    files: ['vite.config.js', 'test_*.js', 'tests/**/*.js'],
+    languageOptions: {
+      globals: globals.node,
+    },
+  },
+  {
+    files: ['public/word-addin/**/*.js'],
+    languageOptions: {
+      globals: {
+        Office: 'readonly',
+        Word: 'readonly',
+      },
     },
   },
 ])

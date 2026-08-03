@@ -39,13 +39,14 @@ export function evaluateRollup(values = [], aggregation = 'count_all') {
             return numericValues.length ? Math.max(...numericValues) : null;
         case 'unique_count':
             return new Set(nonEmptyValues.map(v => String(v))).size;
-        case 'percent_checked':
+        case 'percent_checked': {
             if (!values.length) return '0%';
             // Parity with the 3 filter engines (asBool/_as_bool/_is_truthy_checkbox):
             // a checkbox stored as 'yes'/'sí'/'done'/'checked'/'completat'
             // also counts as checked, not just `true`/'true'/1.
             const checked = values.filter(asBool).length;
             return `${Math.round((checked / values.length) * 100)}%`;
+        }
         case 'earliest':
             return nonEmptyValues.length ? nonEmptyValues.sort()[0] : null;
         case 'latest':

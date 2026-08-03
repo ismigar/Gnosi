@@ -84,11 +84,6 @@ export const CalendarSidebarLeft = ({
     const monthName = currentDate.toLocaleString(i18n.resolvedLanguage || i18n.language || 'en', { month: 'long', year: 'numeric' });
     const capitalizedMonth = monthName.charAt(0).toUpperCase() + monthName.slice(1);
 
-    const getCalendarColor = (source, index) => {
-        const config = calendarConfigs.find(c => c.source === source);
-        return config?.color || 'var(--gnosi-primary)';
-    };
-
     const getCalendarName = (source) => {
         const config = calendarConfigs?.find(c => c.source === source);
         if (config?.name) return config.name;
@@ -181,7 +176,7 @@ export const CalendarSidebarLeft = ({
                                         {account}
                                     </div>
                                 )}
-                                {calendars.map(({ source, config }, subIndex) => {
+                                {calendars.map(({ source, config }) => {
                                     const isVisible = selectedCalendars.has(source);
                                     const color = config?.color || 'var(--gnosi-primary)';
                                     const isEditing = editingSource === source;
@@ -189,7 +184,7 @@ export const CalendarSidebarLeft = ({
 
                                     return (
                                         <div key={source} className={`flex items-center justify-between group rounded transition-colors mb-0.5 px-2 py-1.5 -mx-2 hover:bg-[var(--bg-secondary)] border border-transparent ${isEditing ? '!bg-[var(--bg-primary)] border-[var(--border-primary)] shadow-sm' : ''} ${!isVisible && !isEditing ? 'opacity-50' : ''}`}>
-                                            <div className="flex items-center gap-2.5 w-full" onClick={(e) => {
+                                            <div className="flex items-center gap-2.5 w-full" onClick={() => {
                                                 if (isEditing) return;
                                                 // If clicking the name area (not the color box specifically), just toggle
                                                 onToggleCalendar?.(source);

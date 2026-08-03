@@ -67,7 +67,7 @@ const DEFAULT_CONFIG = {
 const filterOutThread = (msgs, msgId, threadId) =>
     msgs.filter(m => m.id !== msgId && !(threadId && threadId !== msgId && m.thread_id === threadId));
 
-export default function MailList({ account, accounts = [], onSelectMail, folder, category, activeView, activeTagId, selectedMailId, isComposing = false, searchQuery = '', onMessagesLoaded, onMailRead, onBatchDone, showMailboxSidebar, onToggleMailboxSidebar, removedMailId, readMailId, listRefreshToken, onRecordAction }) {
+export default function MailList({ account, accounts = [], onSelectMail, folder, category, activeView, activeTagId, selectedMailId, isComposing = false, searchQuery = '', onMessagesLoaded, onBatchDone, showMailboxSidebar, onToggleMailboxSidebar, removedMailId, readMailId, listRefreshToken, onRecordAction }) {
     const { t, i18n } = useTranslation();
     const enabledAccounts = useMemo(() => accounts.filter(a => a.enabled !== false), [accounts]);
     const [messages, setMessages] = useState([]);

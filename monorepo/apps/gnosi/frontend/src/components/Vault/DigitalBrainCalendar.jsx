@@ -103,7 +103,6 @@ export const DigitalBrainCalendar = ({
     allNotes,
     searchQuery = '',
     selectedCalendars = EMPTY_SET,
-    selectedEventId,
     onNoteSelect,
     onEventEdit,
     onContextMenu,
@@ -232,7 +231,7 @@ export const DigitalBrainCalendar = ({
             }
 
             if (dateStr) {
-                const isExternal = metadata.source !== undefined && metadata.source !== 'Gnosi' && metadata.source !== 'Gnosi Vault';
+
                 // Defensive String(): a manual YAML frontmatter can give a
                 // number (e.g. `Data: 2026`) and `.includes` would crash on it.
                 const isAllDay = !String(dateStr).includes('T') || metadata.all_day;

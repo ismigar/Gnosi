@@ -19,7 +19,9 @@ export function useActiveVaultName() {
             const active = vaults.find(v => v.active);
             if (active?.name) {
                 setActiveVaultName(active.name);
-                try { localStorage.setItem('gnosi_active_vault_name', active.name); } catch {}
+                try { localStorage.setItem('gnosi_active_vault_name', active.name); } catch {
+                    // Storage can be unavailable in restricted browser contexts.
+                }
             }
         }).catch(() => {});
         return () => { mounted = false; };
@@ -33,7 +35,9 @@ export function useActiveVaultName() {
             const active = vaults.find(v => v.active);
             if (active?.name) {
                 setActiveVaultName(active.name);
-                try { localStorage.setItem('gnosi_active_vault_name', active.name); } catch {}
+                try { localStorage.setItem('gnosi_active_vault_name', active.name); } catch {
+                    // Storage can be unavailable in restricted browser contexts.
+                }
             }
         }).catch(() => {});
     });

@@ -282,7 +282,7 @@
                 document.activeElement.blur();
             }
             window.blur();
-        } catch (e) { /* no-op */ }
+        } catch (_error) { /* no-op */ }
     }
 
     async function insertCitation(item) {
@@ -325,7 +325,7 @@
                     try {
                         inserted.getRange(Word.RangeLocation.after).select();
                         await context.sync();
-                    } catch (selErr) { /* no-op */ }
+                    } catch (_selectionError) { /* no-op */ }
                     console.warn('CC wrap failed (text inserit igualment):', ccErr && ccErr.message);
                 }
             });

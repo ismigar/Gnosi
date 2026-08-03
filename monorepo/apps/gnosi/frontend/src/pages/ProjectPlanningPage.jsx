@@ -56,7 +56,7 @@ export default function ProjectPlanningPage() {
             setBaselines(baselineResponse.data.baselines || []);
             setWorklogs(worklogResponse.data.worklogs || []);
             setError('');
-        } catch (requestError) {
+        } catch (_error) {
             setError(t('planning_page.load_error', 'Could not load the project schedule.'));
         } finally {
             setLoading(false);

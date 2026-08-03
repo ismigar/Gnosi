@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { GraphViewer } from '../GraphViewer';
 import { Loader2, Settings2, Maximize2, ZoomIn, ZoomOut, Target, AlertTriangle } from 'lucide-react';
-import { matchesFilters, matchesSearch } from '../../utils/vaultFilters';
+import { } from '../../utils/vaultFilters';
 import { useConfigChanged } from '../../lib/configEvents';
 
 /**
@@ -21,7 +21,7 @@ export function VaultGraph({
     const { t } = useTranslation();
     const [graphData, setGraphData] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [config, setConfig] = useState(null);
+    const [, setConfig] = useState(null);
     const viewerRef = useRef(null);
 
     // Load graph data and configuration. Defined outside the effect so the

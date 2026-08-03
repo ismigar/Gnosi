@@ -84,7 +84,7 @@ export const VaultDateProperty = ({
                 }
                 setInputValue(date.toLocaleString(dateLocale || 'en-US', options).replace(',', ''));
             }
-        } catch (e) {
+        } catch (_error) {
             setInputValue(value);
         }
     }, [value, type, dateLocale]);
@@ -144,7 +144,7 @@ export const VaultDateProperty = ({
                 } else {
                     hiddenInputRef.current.click();
                 }
-            } catch (e) {
+            } catch (_error) {
                 hiddenInputRef.current.focus();
             }
         }
@@ -524,7 +524,7 @@ export const VaultDateProperty = ({
                 type="text"
                 value={inputValue}
                 onChange={handleInputChange}
-                onFocus={(e) => {
+                onFocus={() => {
                     // Wait a moment so as not to interrupt focus if the user wants to type
                     // but allow it to open if it's an empty click
                     if (!inputValue) triggerPicker();

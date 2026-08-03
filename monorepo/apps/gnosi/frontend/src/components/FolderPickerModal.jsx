@@ -66,7 +66,7 @@ export function FolderPickerModal({ isOpen, onClose, onSelect, initialPath = '' 
                 setDisplayPath(data.display_path || data.current_path);
                 setDirectories(data.directories || []);
             }
-        } catch (err) {
+        } catch (_error) {
             setError(t('fs_picker.connection_error', "Connection error"));
         } finally {
             setLoading(false);
