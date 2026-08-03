@@ -1,5 +1,22 @@
 # Gnosi changelog
 
+## Gnosi 1.0.0-rc.2
+
+_2026-08-03 · Release candidate_
+
+### Highlights
+
+- Desktop applications now use the official Gnosi icon on macOS, Windows and Linux.
+
+### Improvements
+
+- Release builds verify the macOS signature, application icon and packaged interface before uploading installers.
+
+### Fixes
+
+- The macOS application bundle is fully sealed so the system no longer reports it as damaged.
+- Desktop installers now include and load the complete Gnosi interface.
+
 ## Gnosi 1.0.0-rc.1
 
 _2026-08-03 · Release candidate_

@@ -5026,6 +5026,18 @@
     "section_improvements": "Millores",
     "section_fixes": "Correccions",
     "entries": {
+      "v1_0_0_rc_2": {
+        "highlights": {
+          "desktop_branding": "Les aplicacions d'escriptori ara utilitzen la icona oficial de Gnosi a macOS, Windows i Linux."
+        },
+        "improvements": {
+          "package_validation": "Les compilacions de release verifiquen la signatura de macOS, la icona de l'aplicació i la interfície empaquetada abans de pujar els instal·ladors."
+        },
+        "fixes": {
+          "macos_launch": "El paquet de l'aplicació per a macOS queda completament segellat i el sistema ja no l'identifica com a malmès.",
+          "packaged_frontend": "Els instal·ladors d'escriptori ara inclouen i carreguen la interfície completa de Gnosi."
+        }
+      },
       "v1_0_0_rc_1": {
         "highlights": {
           "settings": "La configuració s'organitza en seccions i pestanyes més clares.",

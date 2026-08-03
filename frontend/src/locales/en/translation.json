@@ -4979,6 +4979,18 @@
     "section_improvements": "Improvements",
     "section_fixes": "Fixes",
     "entries": {
+      "v1_0_0_rc_2": {
+        "highlights": {
+          "desktop_branding": "Desktop applications now use the official Gnosi icon on macOS, Windows and Linux."
+        },
+        "improvements": {
+          "package_validation": "Release builds verify the macOS signature, application icon and packaged interface before uploading installers."
+        },
+        "fixes": {
+          "macos_launch": "The macOS application bundle is fully sealed so the system no longer reports it as damaged.",
+          "packaged_frontend": "Desktop installers now include and load the complete Gnosi interface."
+        }
+      },
       "v1_0_0_rc_1": {
         "highlights": {
           "settings": "Settings are organized into clearer sections and tabs.",

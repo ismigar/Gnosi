@@ -43,7 +43,12 @@ describe('ReleaseNotesDialog', () => {
   it('shows the requested version first and keeps the full history visible', async () => {
     await renderDialog({ initialVersion: '0.3.0-rc.1' });
     const headings = [...container.querySelectorAll('h3')].map((heading) => heading.textContent);
-    expect(headings).toEqual(['Gnosi 0.3.0-rc.1', 'Gnosi 1.0.0-rc.1']);
+    expect(headings).toEqual([
+      'Gnosi 0.3.0-rc.1',
+      ...RELEASES
+        .filter((release) => release.version !== '0.3.0-rc.1')
+        .map((release) => `Gnosi ${release.version}`),
+    ]);
   });
 
   it('closes from its accessible close button', async () => {
@@ -56,11 +61,11 @@ describe('ReleaseNotesDialog', () => {
   it('does not link versions without published downloads', async () => {
     await renderDialog();
     expect(container.querySelectorAll('a')).toHaveLength(0);
-    expect(container.textContent.match(/release_notes.download_unavailable/g)).toHaveLength(2);
+    expect(container.textContent.match(/release_notes.download_unavailable/g)).toHaveLength(RELEASES.length);
   });
 
   it('uses only the verified download URL stored in the release catalog', async () => {
-    RELEASES[0].downloadUrl = 'https://github.com/ismigar/Gnosi/releases/tag/v1.0.0-rc.1';
+    RELEASES[0].downloadUrl = 'https://github.com/ismigar/Gnosi/releases/tag/v1.0.0-rc.2';
     try {
       await renderDialog();
       expect(container.querySelector('a').href).toBe(RELEASES[0].downloadUrl);
