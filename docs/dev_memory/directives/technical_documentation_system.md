@@ -192,6 +192,9 @@ product completeness.
 - Do not hand-merge conflicts under `docs/engineering/generated/`. Complete the
   source merge first, run the catalog generator on the combined tree, and stage
   its deterministic output as the conflict resolution.
+- Do not preserve interpreter-specific whitespace from `ast.unparse`. Python
+  versions format lambda colons differently, which makes generated catalogs
+  stale across local and CI environments; normalize the rendered expression.
 - Do not publish only `site/engineering/` while the configured canonical URL
   ends in `/engineering/`; doing so moves the portal to the repository root and
   makes the in-app link and canonical metadata disagree.

@@ -28,13 +28,14 @@ prerelease suffix makes the GitHub release a prerelease automatically.
 
 1. Start from an up-to-date, clean branch based on `main`.
 2. Run the preparation script with the target version.
-3. Verify that both package manifests and the monorepo lockfile agree.
-4. Run lint, i18n validation, frontend unit tests, and the production build.
-5. Validate the native backend and frontend through the browser.
-6. Open and merge a focused pull request containing the version preparation.
-7. Create the matching annotated tag on the merged `main` commit and push it
+3. Add the matching user-visible release entry and regenerate the changelog.
+4. Verify that both package manifests and the monorepo lockfile agree.
+5. Run lint, i18n and release-note validation, frontend unit tests, and the production build.
+6. Validate the native backend and frontend through the browser.
+7. Open and merge a focused pull request containing the version preparation.
+8. Create the matching annotated tag on the merged `main` commit and push it
    through the SSH remote.
-8. Wait for all release jobs and inspect the generated draft before publishing
+9. Wait for all release jobs and inspect the generated draft before publishing
    it manually.
 
 ## Desktop update delivery
@@ -92,6 +93,8 @@ until a maintainer publishes them.
 
 - [ ] Frontend and Electron versions match the intended tag.
 - [ ] Monorepo lockfile contains the frontend version.
+- [ ] The release catalog contains the intended version in all four locales.
+- [ ] The generated changelog and public release notes match the catalog.
 - [ ] Frontend lint, unit tests, i18n validation, and build pass.
 - [ ] Native browser smoke test passes without blocking dialogs.
 - [ ] Backend tests pass in an isolated local-data directory.

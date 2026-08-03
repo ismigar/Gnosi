@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Clock3, History, Play, RefreshCw, Users, Shield, Save, Gauge, X, Bug, FileText, AlertTriangle, Activity, Cpu, Layers, Database, ShieldCheck, Clock, Book, ShieldAlert, Check, Loader2, Eye, Edit2, Trash2 } from 'lucide-react';
+import { Clock3, History, Play, RefreshCw, Users, Shield, Save, Gauge, X, Bug, FileText, AlertTriangle, Activity, Cpu, Layers, Database, ShieldCheck, Clock, Book, ShieldAlert, Check, Loader2, Eye, Edit2, Trash2, Sparkles } from 'lucide-react';
 import toast from '../lib/toast';
 import { AppHeader } from '../components/AppHeader';
 import { useApi } from '../hooks/use-api';
@@ -10,6 +10,7 @@ import { APP_VERSION } from '../lib/version';
 import ConfirmModal from '../components/ConfirmModal';
 import { DashboardPaginationControls } from '../components/DashboardPaginationControls';
 import { SettingsSectionTabs } from '../components/SettingsSectionTabs';
+import { ReleaseNotesDialog } from '../components/ReleaseNotesDialog';
 
 const ROLE_CAPABILITIES = {
     viewer: ['read'],
@@ -87,6 +88,7 @@ function Dashboard() {
     
     // New states for drill-down modals
     const [isToolsModalOpen, setIsToolsModalOpen] = useState(false);
+    const [isReleaseNotesOpen, setIsReleaseNotesOpen] = useState(false);
     
     const activeWorkspaceId = localStorage.getItem('gnosi_workspace_id') || 'personal';
 
@@ -563,11 +565,23 @@ function Dashboard() {
         <div className="h-full bg-[var(--bg-primary)] overflow-hidden flex flex-col">
             <AppHeader icon={Gauge} title={t('dashboard.control_center', 'Control Center')}>
                 <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)] bg-[var(--bg-tertiary)] px-2 py-1 rounded-md border border-[var(--border-primary)]">
+                    <button
+                        type="button"
+                        onClick={() => setIsReleaseNotesOpen(true)}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border-primary)] bg-[var(--bg-tertiary)] px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
+                        aria-label={t('release_notes.open_aria', { version: APP_VERSION })}
+                    >
+                        <Sparkles size={12} aria-hidden="true" />
                         v{APP_VERSION}
-                    </span>
+                    </button>
                 </div>
             </AppHeader>
+
+            <ReleaseNotesDialog
+                open={isReleaseNotesOpen}
+                onClose={() => setIsReleaseNotesOpen(false)}
+                initialVersion={APP_VERSION}
+            />
 
             <div className="flex-1 overflow-y-auto">
                 <div className="home-page animate-in fade-in duration-700 !text-left !items-start" style={{ minHeight: 'unset', paddingTop: '2rem' }}>
