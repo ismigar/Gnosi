@@ -32,7 +32,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `application root` | 3 | 274 | 0 |
-| `components` | 183 | 72828 | 188 |
+| `components` | 183 | 72841 | 188 |
 | `context` | 1 | 177 | 6 |
 | `hooks` | 16 | 1228 | 7 |
 | `lib` | 16 | 1898 | 6 |
@@ -103,7 +103,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/PageOutline.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/PageOutline.jsx) | 282 | `PageOutline`, `function` | — |
 | [`frontend/src/components/PluginsSettings.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/PluginsSettings.jsx) | 2115 | `PluginsSettings` | `/api/planning/assignments`, `/api/planning/calendars`, `/api/planning/calendars/project-default`, `/api/planning/leveling/proposal`, `/api/planning/resources`, `/api/planning/state`, `/api/vault/llm-wiki/brain/create`, `/api/vault/llm-wiki/config`, `/api/vault/llm-wiki/maintenance?semantic=false`, `/api/vault/llm-wiki/maintenance?semantic=true`, `/api/vault/llm-wiki/suggestions`, `/api/vault/plugins/catalog`, `/api/vault/plugins/catalog/install`, `/api/vault/plugins/catalog/list`, `/api/vault/plugins/install`, `/api/vault/plugins/installed`, `/api/vault/plugins/registry-url`, `/api/vault/plugins/trust`, `/api/vault/tables` |
 | [`frontend/src/components/PromptModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/PromptModal.jsx) | 153 | `PromptModal` | — |
-| [`frontend/src/components/ReleaseNotesDialog.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/ReleaseNotesDialog.jsx) | 100 | `ReleaseNotesDialog` | — |
+| [`frontend/src/components/ReleaseNotesDialog.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/ReleaseNotesDialog.jsx) | 113 | `ReleaseNotesDialog` | — |
 | [`frontend/src/components/ReleaseNotesWelcome.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/ReleaseNotesWelcome.jsx) | 30 | `ReleaseNotesWelcome` | — |
 | [`frontend/src/components/SettingsSectionTabs.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/SettingsSectionTabs.jsx) | 21 | `SettingsSectionTabs` | — |
 | [`frontend/src/components/Sidebar.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Sidebar.jsx) | 247 | `Sidebar` | — |
