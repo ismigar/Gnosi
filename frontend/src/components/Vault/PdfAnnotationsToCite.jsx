@@ -81,7 +81,7 @@ export function PdfAnnotationsToCite({ sourceUri, citationKey, readOnly = false 
             toast.success(t('pdf_quotes.copied', {
                 defaultValue: "Quote copied to the clipboard. Paste it into the document.",
             }));
-        } catch (err) {
+        } catch (_error) {
             toast.error(t('pdf_quotes.copy_failed', { defaultValue: "Error copying the quote" }));
         }
     }, [citationKey, t]);

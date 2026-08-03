@@ -26,7 +26,9 @@ export default function VaultSwitcher() {
             setVaults(list);
             const active = list.find(v => v.active);
             if (active?.name) {
-                try { localStorage.setItem('gnosi_active_vault_name', active.name); } catch {}
+                try { localStorage.setItem('gnosi_active_vault_name', active.name); } catch {
+                    // Storage can be unavailable in restricted browser contexts.
+                }
             }
         } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
     };

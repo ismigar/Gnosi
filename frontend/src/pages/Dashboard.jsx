@@ -25,11 +25,11 @@ function Dashboard() {
     const { isDark } = useTheme();
     const [userRole, setUserRole] = useState(initialRole);
     const isAdmin = userRole === 'admin' || userRole === 'owner';
-    
+
     const [approvedTools, setApprovedTools] = useState([]);
     const [pendingTools, setPendingTools] = useState([]);
-    
-    const [approvedLoading, setApprovedLoading] = useState(true);
+
+    const [, setApprovedLoading] = useState(true);
     const [analytics, setAnalytics] = useState(null);
     const [schedulers, setSchedulers] = useState([]);
     const [notifications, setNotifications] = useState([]);
@@ -99,8 +99,8 @@ function Dashboard() {
             if (config.settings && config.settings.gnosi_mode) {
                 setGnosiMode(config.settings.gnosi_mode);
             }
-        } catch (e) {
-            console.error("Error fetching config", e);
+        } catch (error) {
+            console.error("Error fetching config", error);
         }
     }, [apiFetch]);
 
@@ -111,8 +111,8 @@ function Dashboard() {
         try {
             const data = await apiFetch('/api/tools/pending');
             setPendingTools(data);
-        } catch (e) {
-            console.error("Error fetching pending tools", e);
+        } catch (error) {
+            console.error("Error fetching pending tools", error);
         }
     }, [apiFetch]);
 
@@ -130,8 +130,8 @@ function Dashboard() {
         try {
             const data = await apiFetch('/api/schedulers');
             setSchedulers(Array.isArray(data) ? data : []);
-        } catch (e) {
-            console.error("Error fetching schedulers", e);
+        } catch (error) {
+            console.error("Error fetching schedulers", error);
         } finally {
             if (!silent) setSchedulerLoading(false);
         }
@@ -143,8 +143,8 @@ function Dashboard() {
             const data = await apiFetch('/api/analytics/directives');
             const mature = (data.directives || []).filter(d => d.path.includes('pipeline/skills/') && d.path.endsWith('SKILL.md'));
             setApprovedTools(mature);
-        } catch (e) {
-            console.error("Error fetching approved tools", e);
+        } catch (error) {
+            console.error("Error fetching approved tools", error);
         } finally {
             setApprovedLoading(false);
         }
@@ -227,7 +227,7 @@ function Dashboard() {
             const data = await apiFetch(`/api/analytics/directives/content?path=${encodeURIComponent(directive.path)}`);
             setEditorContent(data.content);
             setEditingDirective(directive);
-        } catch (e) {
+        } catch (_error) {
             toast.error(t('dashboard.directive_load_error'));
         }
     }, [apiFetch, t]);
@@ -248,7 +248,7 @@ function Dashboard() {
             fetchDirectives(directivesPage);
             fetchApprovedTools();
             fetchAnalytics();
-        } catch (e) {
+        } catch (_error) {
             toast.error(t('dashboard.directive_save_error'));
         } finally {
             setIsEditorSaving(false);
@@ -270,7 +270,7 @@ function Dashboard() {
             fetchDirectives(directivesPage);
             fetchApprovedTools();
             fetchAnalytics();
-        } catch (e) {
+        } catch (_error) {
             toast.error(isSkill ? t('dashboard.skill_delete_error') : t('dashboard.directive_delete_error'));
         }
     };
@@ -283,7 +283,7 @@ function Dashboard() {
             await apiFetch('/api/schedulers/history', { method: 'DELETE' });
             toast.success(t('dashboard.history_purged'));
             fetchTaskHistory(0);
-        } catch (e) {
+        } catch (_error) {
             toast.error(t('dashboard.history_purge_error'));
         }
     };
@@ -296,7 +296,7 @@ function Dashboard() {
             await apiFetch('/api/system/notifications', { method: 'DELETE' });
             toast.success(t('dashboard.logs_purged'));
             fetchNotifications(0);
-        } catch (e) {
+        } catch (_error) {
             toast.error(t('dashboard.logs_purge_error'));
         }
     };
@@ -459,18 +459,6 @@ function Dashboard() {
             fetchMemberVaultAccess(selectedMember.user_id);
         }
     }, [isPermissionsModalOpen, selectedMember, fetchMemberVaultAccess]);
-
-    const updateMemberRole = async (userId, newRole) => {
-        try {
-            await apiFetch(`/api/workspaces/${activeWorkspaceId}/members/${userId}/role`, {
-                method: 'PUT',
-                body: JSON.stringify({ role: newRole, permissions: ROLE_CAPABILITIES[newRole] })
-            });
-            fetchMembers();
-        } catch (e) {
-            console.error("Error updating role", e);
-        }
-    };
 
     const updateScheduler = async (task, overrides) => {
         try {

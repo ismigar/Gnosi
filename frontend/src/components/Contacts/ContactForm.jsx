@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { User, Mail, Phone, MapPin, Building2, Briefcase, Tag, X, Save, ArrowLeft, Plus, Trash2, Globe, ChevronLeft, Star, Search } from 'lucide-react';
 import { isGmail, getGoogleAvatarUrl } from '../../utils/avatar-utils';
 
-export default function ContactForm({ contact, onSave, onCancel, onBack, contactAccounts = [], defaultAccount }) {
+export default function ContactForm({ contact, onSave, onCancel, onBack, contactAccounts = [] }) {
     const { t } = useTranslation();
     const [formData, setFormData] = useState({
         name: '',
