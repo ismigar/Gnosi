@@ -85,6 +85,13 @@ def test_api_catalog_is_deterministic() -> None:
     assert "`/api/health`" in first
 
 
+def test_safe_unparse_normalizes_lambda_spacing() -> None:
+    """AST formatting differences between Python versions cannot stale pages."""
+    expression = ast.parse("lambda value: value", mode="eval").body
+
+    assert safe_unparse(expression) == "lambda value: value"
+
+
 def test_only_real_router_modules_are_classified(tmp_path: Path) -> None:
     """Auxiliary files under backend/api are not reported as unmounted routers."""
     router = tmp_path / "router.py"

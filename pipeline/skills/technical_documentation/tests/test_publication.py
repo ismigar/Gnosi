@@ -75,26 +75,33 @@ def test_engineering_portal_reuses_the_localized_public_site_shell():
         config = (APP_ROOT / config_name).read_text(encoding="utf-8")
         assert "custom_dir: docs/engineering-overrides" in config
 
-    assert 'class="gnosi-site-header"' in template
-    assert 'class="gnosi-site-footer"' in template
+    assert 'href="/shell.css"' in template
+    assert 'src="/navigation.js"' in template
+    assert 'class="navbar"' in template
+    assert 'class="gnosi-shell-footer"' in template
+    assert 'class="brand-logo"' in template
+    assert 'class="lang-switch"' in template
     assert '"en": {' in template
     assert '"ca": {' in template
     assert '"es": {' in template
-    assert "--gnosi-site-bg: #f6f3ec" in template
-    assert '"Iowan Old Style"' in template
-    assert '.gnosi-site-header__languages' in switcher
+    assert "--gnosi-shell-bg, #f6f3ec" in template
+    assert "--gnosi-shell-width, 1100px" in template
+    assert 'document.querySelector(".lang-switch")' in switcher
+    assert "replaceChildren" not in switcher
 
 
 def test_engineering_portal_keeps_wide_content_and_navigation_responsive():
     """Compact layouts keep navigation reachable and wide content contained."""
     template = SITE_SHELL_TEMPLATE.read_text(encoding="utf-8")
 
-    assert "min-height: 2.75rem" in template
-    assert "min-width: 2.75rem" in template
+    assert 'class="nav-toggle"' in template
+    assert 'aria-controls="site-navigation"' in template
+    assert 'class="active" href="{{ documentation_url }}" aria-current="page"' in template
     assert "overscroll-behavior-inline: contain" in template
     assert ".md-typeset__table" in template
     assert ".md-typeset .mermaid" in template
-    assert "--gnosi-site-header-height: 7rem" in template
+    assert "max-width: var(--gnosi-shell-width, 1100px)" in template
+    assert "top: var(--gnosi-shell-height, 66px)" in template
     assert "@media (prefers-reduced-motion: reduce)" in template
 
 

@@ -11,8 +11,8 @@ Regenerar con `python pipeline/skills/technical_documentation/scripts/generate.p
 | Runner | Archivos | Señales de ensayo |
 | --- | ---: | ---: |
 | Autor de la reproducción | 13 | 35 |
-| Vitest | 44 | 173 |
-| pytest | 174 | 1439 |
+| Vitest | 45 | 175 |
+| pytest | 174 | 1442 |
 
 ## Archivos
 
@@ -41,6 +41,7 @@ Regenerar con `python pipeline/skills/technical_documentation/scripts/generate.p
 | Vitest | [`frontend/src/components/AppSidebar.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AppSidebar.test.jsx) | 1 | estimación de la llamada-patrón |
 | Vitest | [`frontend/src/components/DesktopUpdateNotice.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/DesktopUpdateNotice.test.jsx) | 2 | estimación de la llamada-patrón |
 | Vitest | [`frontend/src/components/GraphLoadingState.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/GraphLoadingState.test.jsx) | 2 | estimación de la llamada-patrón |
+| Vitest | [`frontend/src/components/ReleaseNotesDialog.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/ReleaseNotesDialog.test.jsx) | 2 | estimación de la llamada-patrón |
 | Vitest | [`frontend/src/components/SettingsSectionTabs.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/SettingsSectionTabs.test.jsx) | 1 | estimación de la llamada-patrón |
 | Vitest | [`frontend/src/components/Vault/GalleryCardPreview.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/GalleryCardPreview.test.jsx) | 3 | estimación de la llamada-patrón |
 | Vitest | [`frontend/src/components/Vault/PageLinksGraph.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PageLinksGraph.test.js) | 5 | estimación de la llamada-patrón |
@@ -242,9 +243,9 @@ Regenerar con `python pipeline/skills/technical_documentation/scripts/generate.p
 | pytest | ["backend/tests/test_zotero_a_Recursos_mapper.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_zotero_to_recursos_mapper.py) | 15 | Python AST |
 | pytest | ["integraciones/libreoffice-cite/pruebas/pruebas_doc_traversal.py'](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/integrations/libreoffice-cite/tests/test_doc_traversal.py) | 9 | Python AST |
 | pytest | [Servidores mcp/proxy de drupal/prueba_proxy.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/mcp-servers/drupal-proxy/test_proxy.py) | 0 | Python AST |
-| pytest | [`pipeline/habilidades/técnicas_documentación/pruebas/pruebas_generate.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_generate.py) | 9 | Python AST |
+| pytest | [`pipeline/habilidades/técnicas_documentación/pruebas/pruebas_generate.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_generate.py) | 11 | Python AST |
 | pytest | [`pipeline/habilidades/técnicas_documentación/pruebas/pruebas_localize.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_localize.py) | 2 | Python AST |
-| pytest | [`pipeline/habilidades/técnicas_documentación/pruebas/pruebas_publicación.py»](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_publication.py) | 5 | Python AST |
+| pytest | [`pipeline/habilidades/técnicas_documentación/pruebas/pruebas_publicación.py»](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_publication.py) | 6 | Python AST |
 | pytest | [`pipeline/habilidades/técnicas_documentación/pruebas/pruebas_validate.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_validate.py) | 3 | Python AST |
 | pytest | [`pipeline/habilidades/traducción_página/scripts/test_marca de baja_segmentar.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/translate_page/scripts/test_markdown_segmenter.py) | 33 | Python AST |
 | pytest | [`prueba_ingestión.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/test_ingestion.py) | 0 | Python AST |
