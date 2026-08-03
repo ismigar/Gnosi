@@ -80,6 +80,19 @@ until a maintainer publishes them.
   mandatory release-workflow gates.
 - Do not treat sandbox socket or Chromium launch restrictions as passing tests;
   rerun the affected gates in GitHub Actions before publishing.
+- Do not omit explicit Electron desktop icons. Without generated ICNS, ICO, and
+  PNG resources, electron-builder falls back to Electron branding. Generate all
+  formats from the canonical Gnosi application artwork before packaging.
+- Do not distribute an unsealed macOS application bundle. Disabling certificate
+  discovery without a replacement signature causes Gatekeeper to report the app
+  as damaged. Until Developer ID signing and notarization are configured, apply
+  a complete ad-hoc signature and require `codesign --verify --deep --strict` on
+  every generated DMG before uploading it.
+- Do not reference the sibling frontend build as if it were inside the Electron
+  project. electron-builder silently skips the missing path and produces an app
+  that cannot load its renderer. Copy the sibling `frontend/dist` directory into
+  application resources and load it through `process.resourcesPath`; assert that
+  its `index.html` exists inside every inspected macOS package.
 
 ## Error protocol and learning
 
@@ -88,6 +101,8 @@ until a maintainer publishes them.
 | 2026-08-01 | Frontend and Electron both remained at `0.2.0` after extensive development | The existing release script updated only Electron and the documented shared bump script did not exist | Keep the two manifests and monorepo lockfile synchronized in the release script |
 | 2026-08-01 | Local installer validation could not complete | Packaging creates a clean Python environment and requires network downloads | Use the release runner as the authoritative cross-platform packaging gate |
 | 2026-08-01 | The Control Center still displayed `v0.2.0` after the manifests changed | Vite had injected the package version at its previous startup | Restart the native frontend and confirm the version visually |
+| 2026-08-03 | The RC used Electron branding and macOS reported the app as damaged | Desktop icons were absent and certificate discovery was disabled without sealing the bundle | Generate explicit cross-platform icons, ad-hoc sign the complete macOS bundle, and verify every DMG in CI |
+| 2026-08-03 | The packaged app omitted the frontend bundle | The file pattern targeted `electron/frontend/dist`, but the build lives in the sibling `frontend/dist` directory | Package the sibling build as an extra resource, load it through `process.resourcesPath`, and assert the packaged index exists |
 
 ## Verification checklist
 
@@ -100,3 +115,5 @@ until a maintainer publishes them.
 - [ ] Backend tests pass in an isolated local-data directory.
 - [ ] macOS, Linux, and Windows release jobs pass.
 - [ ] Draft artifacts have the expected names and architectures.
+- [ ] Installed desktop applications display the canonical Gnosi icon.
+- [ ] Every macOS DMG contains a bundle that passes strict deep code-signature verification.

@@ -53,12 +53,25 @@ jobs:
 
       - name: Build Electron app (macOS ARM64)
         env:
-          # No Apple Developer cert in CI; tell electron-builder not to
-          # auto-discover identities so it produces an unsigned DMG cleanly.
+          # The afterPack hook seals the complete bundle deterministically.
+          # Do not auto-select unrelated local or development identities.
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: |
           cd monorepo/apps/gnosi/electron
           npm run build:mac
+
+      - name: Verify macOS application signatures
+        run: |
+          cd monorepo/apps/gnosi/electron
+          for dmg in dist/*.dmg; do
+            mount_dir="$(mktemp -d)"
+            hdiutil attach -readonly -nobrowse -mountpoint "$mount_dir" "$dmg"
+            codesign --verify --deep --strict --verbose=2 "$mount_dir/Gnosi.app"
+            test -f "$mount_dir/Gnosi.app/Contents/Resources/icon.icns"
+            test -f "$mount_dir/Gnosi.app/Contents/Resources/frontend/dist/index.html"
+            hdiutil detach "$mount_dir"
+            rmdir "$mount_dir"
+          done
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v7

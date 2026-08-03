@@ -204,7 +204,7 @@ function createWindow() {
     mainWindow.loadURL(`http://localhost:${FRONTEND_PORT}`);
     mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(path.join(__dirname, 'frontend/dist/index.html'));
+    mainWindow.loadFile(path.join(process.resourcesPath, 'frontend/dist/index.html'));
   }
   
   mainWindow.once('ready-to-show', () => {
