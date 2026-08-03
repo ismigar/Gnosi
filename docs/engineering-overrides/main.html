@@ -100,6 +100,35 @@
       font-family: var(--md-text-font);
     }
 
+    body {
+      overflow-wrap: anywhere;
+    }
+
+    .md-content,
+    .md-content__inner,
+    .md-typeset,
+    .md-typeset__table,
+    .highlight {
+      min-width: 0;
+    }
+
+    .md-typeset img,
+    .md-typeset video,
+    .md-typeset iframe,
+    .md-typeset svg {
+      height: auto;
+      max-width: 100%;
+    }
+
+    .md-typeset__table,
+    .md-typeset pre,
+    .md-typeset .highlight,
+    .md-typeset .mermaid {
+      max-width: 100%;
+      overflow-x: auto;
+      overscroll-behavior-inline: contain;
+    }
+
     .md-container,
     .md-main {
       background:
@@ -185,6 +214,7 @@
       gap: 0.55rem;
       font-size: 1.05rem;
       font-weight: 750;
+      min-height: 2.75rem;
     }
 
     .gnosi-site-header__mark {
@@ -209,11 +239,14 @@
     }
 
     .gnosi-site-header__nav a {
+      align-items: center;
       color: var(--gnosi-site-muted);
+      display: inline-flex;
       flex: 0 0 auto;
       font-size: 0.72rem;
       font-weight: 600;
-      padding: 0.45rem 0;
+      min-height: 2.75rem;
+      padding: 0.45rem 0.25rem;
     }
 
     .gnosi-site-header__nav a:hover,
@@ -235,11 +268,16 @@
 
     .gnosi-site-header__languages > a,
     .gnosi-site-header__languages > span {
+      align-items: center;
       border-radius: 0.35rem;
       color: var(--gnosi-site-muted);
+      display: inline-flex;
       font-size: 0.65rem;
       font-weight: 700;
-      padding: 0.3rem 0.42rem;
+      justify-content: center;
+      min-height: 2.75rem;
+      min-width: 2.75rem;
+      padding: 0.3rem;
     }
 
     .gnosi-site-header__languages > [aria-current="true"] {
@@ -285,6 +323,7 @@
       font-size: 1.05rem;
       font-weight: 750;
       margin-bottom: 0.75rem;
+      min-height: 2.75rem;
     }
 
     .gnosi-site-footer__tagline {
@@ -309,10 +348,11 @@
     }
 
     .gnosi-site-footer__column a {
+      align-items: center;
       color: var(--gnosi-site-muted);
-      display: block;
+      display: flex;
       font-size: 0.72rem;
-      margin-top: 0.55rem;
+      min-height: 2.75rem;
     }
 
     .gnosi-site-footer__column a:hover,
@@ -340,7 +380,13 @@
       .gnosi-site-header__nav {
         justify-content: flex-start;
         overflow-x: auto;
+        overscroll-behavior-inline: contain;
+        scroll-snap-type: inline proximity;
         scrollbar-width: none;
+      }
+
+      .gnosi-site-header__nav a {
+        scroll-snap-align: start;
       }
 
       .gnosi-site-header__nav::-webkit-scrollbar {
@@ -350,7 +396,7 @@
 
     @media (max-width: 48rem) {
       :root {
-        --gnosi-site-header-height: 6.25rem;
+        --gnosi-site-header-height: 7rem;
       }
 
       .gnosi-site-header__inner {
@@ -372,6 +418,15 @@
         order: 3;
       }
 
+      .md-content__inner {
+        margin-inline: 0;
+      }
+
+      .md-typeset table:not([class]) th,
+      .md-typeset table:not([class]) td {
+        min-width: 8rem;
+      }
+
       .gnosi-site-footer__inner {
         gap: 2rem;
         grid-template-columns: 1fr;
@@ -383,8 +438,29 @@
     }
 
     @media (max-width: 32rem) {
+      .gnosi-site-header__inner {
+        padding-inline: 0.8rem;
+      }
+
+      .gnosi-site-header__brand {
+        gap: 0.4rem;
+      }
+
+      .gnosi-site-header__languages {
+        gap: 0.1rem;
+      }
+
       .gnosi-site-footer__links {
         grid-template-columns: 1fr;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
       }
     }
   </style>

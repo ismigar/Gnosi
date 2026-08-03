@@ -85,6 +85,19 @@ def test_engineering_portal_reuses_the_localized_public_site_shell():
     assert '.gnosi-site-header__languages' in switcher
 
 
+def test_engineering_portal_keeps_wide_content_and_navigation_responsive():
+    """Compact layouts keep navigation reachable and wide content contained."""
+    template = SITE_SHELL_TEMPLATE.read_text(encoding="utf-8")
+
+    assert "min-height: 2.75rem" in template
+    assert "min-width: 2.75rem" in template
+    assert "overscroll-behavior-inline: contain" in template
+    assert ".md-typeset__table" in template
+    assert ".md-typeset .mermaid" in template
+    assert "--gnosi-site-header-height: 7rem" in template
+    assert "@media (prefers-reduced-motion: reduce)" in template
+
+
 def test_private_ci_validates_public_workflow_changes():
     """Pages workflow edits must trigger the private documentation checks."""
     private_workflow = DOCUMENTATION_CI_WORKFLOW.read_text(encoding="utf-8")
