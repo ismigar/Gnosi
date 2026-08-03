@@ -16,7 +16,7 @@ Regenerar con `python pipeline/skills/technical_documentation/scripts/generate.p
 | Archivos de prueba de la unidad de interfaz | 38 |
 | Enrutadores FastAPI registrados | 33 |
 | Contratos de capacitación en tiempo de ejecución | 23 |
-| Directivas sobre el desarrollo y la memoria | 157 |
+| Directivas sobre el desarrollo y la memoria | 158 |
 
 ## Superficies de aplicación propias
 

@@ -11,8 +11,8 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | ExecutadorComment | Fitxers | Comprova els senyals |
 | --- | ---: | ---: |
 | PlaywrightCity name (optional, probably does not need a translation) | 13 | 35 |
-| Vitest | 44 | 173 |
-| pytest | 174 | 1439 |
+| Vitest | 45 | 175 |
+| pytest | 174 | 1442 |
 
 ## Fitxers
 
@@ -41,6 +41,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [frontdlead/src/ components/AppSidbar.test.jsx danka](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AppSidebar.test.jsx) | 1 | Estimació del patró de crida |
 | Vitest | [frontdlead/src/ components/DesktopAttleNoice.test.jsx danka](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/DesktopUpdateNotice.test.jsx) | 2 | Estimació del patró de crida |
 | Vitest | [frontend/src/ components/GraphLaadSte.test.jsx=jsx=\\\\ {@} Name](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/GraphLoadingState.test.jsx) | 2 | Estimació del patró de crida |
+| Vitest | [frontend/src/ components/RelaseNotesDialog.test.jsx=jsx 2001- {@}](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/ReleaseNotesDialog.test.jsx) | 2 | Estimació del patró de crida |
 | Vitest | [frontdlead/src/ components/ArranjamentSectionTabs.test.jsxKDEDIR](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/SettingsSectionTabs.test.jsx) | 1 | Estimació del patró de crida |
 | Vitest | [frontdlead/src/ components/ Vulta/GaddryCardPreview.test.jsx=8)](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/GalleryCardPreview.test.jsx) | 3 | Estimació del patró de crida |
 | Vitest | [frontdlead/src/ components/ Vulta/PageLinksGraph.test.jsKDE](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PageLinksGraph.test.js) | 5 | Estimació del patró de crida |
@@ -242,9 +243,9 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [backend/tests/test_zotero_a_es repeteix_mapper.pypypypypypypypypypypypypypypypypypypypypypypypypypypypypypypypypypper.](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_zotero_to_recursos_mapper.py) | 15 | Python AST |
 | pytest | [Integració de les interfícies d' oficina/libre " ite " itcan "_Doc_traversal.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/integrations/libreoffice-cite/tests/test_doc_traversal.py) | 9 | Python AST |
 | pytest | [tsmcp- servidors/druupal- proxy/test_proxy.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/mcp-servers/drupal-proxy/test_proxy.py) | 0 | Python AST |
-| pytest | [POCRECER/ Escarpades/tical_documentation/tests/test_Genera.pypypypypyypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_generate.py) | 9 | Python AST |
+| pytest | [POCRECER/ Escarpades/tical_documentation/tests/test_Genera.pypypypypyypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_generate.py) | 11 | Python AST |
 | pytest | [POCRECER/ Escarpades/tical_documentation/tests/test_localize.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_localize.py) | 2 | Python AST |
-| pytest | [POCRECER/ Escarpades/tical_documentation/tests/test_publicació.pypypypypypyn.](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_publication.py) | 5 | Python AST |
+| pytest | [POCRECER/ Escarpades/tical_documentation/tests/test_publicació.pypypypypypyn.](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_publication.py) | 6 | Python AST |
 | pytest | [POCRECER/ Escarpades/tical_documentation/tests/test_validant.pypy Tellico](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_validate.py) | 3 | Python AST |
 | pytest | [Backiete/ Escarills/ traduir_page/scripts/test_Baix_segmenter.](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/translate_page/scripts/test_markdown_segmenter.py) | 33 | Python AST |
 | pytest | [test_ingestió.](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/test_ingestion.py) | 0 | Python AST |
