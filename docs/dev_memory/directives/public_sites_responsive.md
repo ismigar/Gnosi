@@ -29,6 +29,19 @@ mobile, tablet, and desktop widths while preserving one shared visual system.
 
 ## Implementation rules
 
+- Treat `shell.css` and `navigation.js` at the public-site root as the canonical
+  product shell. The landing pages load them locally and the MkDocs override
+  loads the same published root files through `/shell.css` and
+  `/navigation.js`.
+- Keep the header and footer markup contract identical in both surfaces:
+  `navbar`, `nav-container`, `brand`, `brand-logo`, `nav-links`, `lang-switch`,
+  and `gnosi-shell-footer`.
+- Keep the language order fixed as EN, CA, ES. Mark the current language with
+  `active` and `aria-current="true"`; preserve the current documentation route
+  when switching languages.
+- Use the shared 1100 pixel width token for the product shell and the MkDocs
+  grid. Mark the active product section with the shared `active` and
+  `aria-current="page"` contract.
 - Use a real navigation button with `aria-expanded` and `aria-controls` on the
   landing site. Close the menu after navigation, on Escape, and after returning
   to a desktop viewport.
@@ -56,3 +69,9 @@ mobile, tablet, and desktop widths while preserving one shared visual system.
   that owns wide content.
 - Do not shrink controls below 44 pixels to make a header fit.
 - Do not duplicate locale-specific responsive CSS.
+- Do not recreate the product header, logo, language selector, active-state
+  rules, width, or global footer inside the MkDocs override. That causes the
+  public site and documentation to drift; extend the shared shell instead.
+- Do not leave generated AST expressions dependent on Python's formatter.
+  Python versions vary around `lambda :`; normalize that output before checking
+  generated-page freshness.
