@@ -51,4 +51,13 @@ describe('ReleaseNotesDialog', () => {
     await act(async () => container.querySelector('button[aria-label="release_notes.close"]').click());
     expect(onClose).toHaveBeenCalledOnce();
   });
+
+  it('links every version to its public release downloads', async () => {
+    await renderDialog();
+    const links = [...container.querySelectorAll('a')].map((link) => link.href);
+    expect(links).toEqual([
+      'https://github.com/ismigar/Gnosi/releases/tag/v1.0.0-rc.1',
+      'https://github.com/ismigar/Gnosi/releases/tag/v0.3.0-rc.1',
+    ]);
+  });
 });
