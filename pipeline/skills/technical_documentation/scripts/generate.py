@@ -176,6 +176,7 @@ def safe_unparse(node: ast.AST | None, limit: int = 90) -> str:
     except (AttributeError, ValueError):
         return "dynamic"
     value = " ".join(value.split())
+    value = re.sub(r"\blambda\s+:", "lambda:", value)
     return value if len(value) <= limit else f"{value[: limit - 1]}…"
 
 

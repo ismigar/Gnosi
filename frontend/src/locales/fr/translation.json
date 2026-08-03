@@ -5009,6 +5009,44 @@
     "ready_title": "Mise à jour prête",
     "ready_body": "Redémarrez Gnosi pour terminer l’installation de la version {{version}}.",
     "download": "Télécharger la mise à jour",
-    "restart": "Redémarrer et installer"
+    "restart": "Redémarrer et installer",
+    "whats_new": "Nouveautés"
+  },
+  "release_notes": {
+    "title": "Nouveautés de Gnosi",
+    "subtitle": "Découvrez les fonctionnalités, améliorations et corrections incluses dans chaque version.",
+    "close": "Fermer les notes de version",
+    "open_aria": "Ouvrir les notes de la version {{version}}",
+    "published_on": "Publiée le {{date}}",
+    "channel_prerelease": "Version candidate",
+    "channel_stable": "Stable",
+    "section_highlights": "Temps forts",
+    "section_improvements": "Améliorations",
+    "section_fixes": "Corrections",
+    "entries": {
+      "v1_0_0_rc_1": {
+        "highlights": {
+          "settings": "Les réglages sont organisés en sections et onglets plus clairs.",
+          "documentation": "Un nouveau portail de documentation d'ingénierie facilite la compréhension et la maintenance du système."
+        },
+        "improvements": {
+          "graph": "Le graphe de connaissances offre des arêtes plus claires, un meilleur suivi du chargement et des relations plus ciblées au survol.",
+          "navigation": "La navigation dans les connaissances et les contrôles de page sont plus cohérents et faciles à identifier."
+        },
+        "fixes": {
+          "settings": "Plusieurs incohérences visuelles des réglages ont été corrigées.",
+          "interface_state": "Les états développés et sélectionnés de l'interface sont conservés de manière plus fiable."
+        }
+      },
+      "v0_3_0_rc_1": {
+        "highlights": {
+          "desktop": "Première version candidate avec des paquets de bureau pour macOS, Windows et Linux."
+        },
+        "improvements": {
+          "updates": "Les bases de la détection et de l'installation des mises à jour de bureau sont incluses.",
+          "plugins": "Les versions incluent les paquets officiels des plugins et leur index de distribution."
+        }
+      }
+    }
   }
 }

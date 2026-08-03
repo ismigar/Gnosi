@@ -5009,6 +5009,44 @@
     "ready_title": "Actualització preparada",
     "ready_body": "Reinicia Gnosi per acabar d'instal·lar la versió {{version}}.",
     "download": "Descarrega l'actualització",
-    "restart": "Reinicia i instal·la"
+    "restart": "Reinicia i instal·la",
+    "whats_new": "Novetats"
+  },
+  "release_notes": {
+    "title": "Novetats de Gnosi",
+    "subtitle": "Descobreix les funcionalitats, millores i correccions incloses en cada versió.",
+    "close": "Tanca les notes de la versió",
+    "open_aria": "Obre les notes de la versió {{version}}",
+    "published_on": "Publicada el {{date}}",
+    "channel_prerelease": "Versió candidata",
+    "channel_stable": "Estable",
+    "section_highlights": "Destacats",
+    "section_improvements": "Millores",
+    "section_fixes": "Correccions",
+    "entries": {
+      "v1_0_0_rc_1": {
+        "highlights": {
+          "settings": "La configuració s'organitza en seccions i pestanyes més clares.",
+          "documentation": "Un nou portal de documentació d'enginyeria facilita entendre i mantenir el sistema."
+        },
+        "improvements": {
+          "graph": "El graf de coneixement té arestes més clares, millor informació de càrrega i relacions enfocades en passar-hi el cursor.",
+          "navigation": "La navegació del coneixement i els controls de pàgina són més coherents i fàcils d'identificar."
+        },
+        "fixes": {
+          "settings": "S'han corregit diverses inconsistències visuals de la configuració.",
+          "interface_state": "Els estats expandits i seleccionats de la interfície es conserven amb més fiabilitat."
+        }
+      },
+      "v0_3_0_rc_1": {
+        "highlights": {
+          "desktop": "Primera versió candidata amb paquets d'escriptori per a macOS, Windows i Linux."
+        },
+        "improvements": {
+          "updates": "Inclou les bases de detecció i instal·lació d'actualitzacions d'escriptori.",
+          "plugins": "Les versions inclouen els paquets oficials de plugins i el seu índex de distribució."
+        }
+      }
+    }
   }
 }
