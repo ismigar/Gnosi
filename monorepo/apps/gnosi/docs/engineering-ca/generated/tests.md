@@ -12,7 +12,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: | ---: |
 | PlaywrightCity name (optional, probably does not need a translation) | 13 | 35 |
 | Vitest | 44 | 173 |
-| pytest | 174 | 1431 |
+| pytest | 174 | 1438 |
 
 ## Fitxers
 
@@ -83,11 +83,11 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [backend/tests/test_agent_acció_confirmacions.](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_action_confirmations.py) | 23 | Python AST |
 | pytest | [backend/tests/test_agent_xat_model_selection.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_chat_model_selection.py) | 3 | Python AST |
 | pytest | [backend/tests/test_agent_xat_safety.pypy McCyrthon](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_chat_safety.py) | 34 | Python AST |
-| pytest | [backend/tests/test_agent_context_fonts.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_context_sources.py) | 18 | Python AST |
+| pytest | [backend/tests/test_agent_context_fonts.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_context_sources.py) | 19 | Python AST |
 | pytest | [backend/tests/test_agent_crea_pàgina_De contenidor.pynton](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_create_page_containment.py) | 4 | Python AST |
 | pytest | [backend/tests/test_agent_lectura_pdf_De contenidor.pynton](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_read_pdf_containment.py) | 5 | Python AST |
 | pytest | [backend/tests/test_agent_habilitat_catàleg.pypypypypypyyluxembourg_ cantons. kgm](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_skill_catalog.py) | 16 | Python AST |
-| pytest | [backend/tests/test_agent_habilitat_Temps d' execució.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_skill_runtime.py) | 12 | Python AST |
+| pytest | [backend/tests/test_agent_habilitat_Temps d' execució.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_skill_runtime.py) | 14 | Python AST |
 | pytest | [backend/tests/test_agent_habilitats_api.py literalment wolthon](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_skills_api.py) | 2 | Python AST |
 | pytest | [backend/tests/test_aiunit description in lists_model_registre_api.py literalment wolthon](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_ai_model_registry_api.py) | 3 | Python AST |
 | pytest | [backend/tests/test_aiunit description in lists_Temps d' espera.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_ai_timeout.py) | 6 | Python AST |
@@ -145,7 +145,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [backend/tests/test_id_canònica.](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_id_canonicalization.py) | 9 | Python AST |
 | pytest | [backend/tests/test_import_dedup.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_import_dedup.py) | 13 | Python AST |
 | pytest | [backend/tests/test_inserida_comentaris_Permisos.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_inline_comments_permissions.py) | 3 | Python AST |
-| pytest | [backend/tests/test_interna_fonts.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_internal_sources.py) | 15 | Python AST |
+| pytest | [backend/tests/test_interna_fonts.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_internal_sources.py) | 19 | Python AST |
 | pytest | [backend/tests/test_element_tipus_normalització.pypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_item_type_normalization.py) | 23 | Python AST |
 | pytest | [backend/tests/test_enllaçable_pàgines_Exclosiona_paperera.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_linkable_pages_exclude_trash.py) | 2 | Python AST |
 | pytest | [backend/tests/test_Llmunit description in lists_wiki_Agent.pypypypypyton](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_llm_wiki_agent.py) | 11 | Python AST |

@@ -10,7 +10,7 @@ Regenerar con `python pipeline/skills/technical_documentation/scripts/generate.p
 
 | Grupo | Módulos | Líneas |
 | --- | ---: | ---: |
-| `agent` | 36 | 12536 |
+| `agent` | 36 | 13126 |
 | `api` | 35 | 34611 |
 | `application root` | 6 | 627 |
 | `config` | 8 | 846 |
@@ -20,12 +20,12 @@ Regenerar con `python pipeline/skills/technical_documentation/scripts/generate.p
 | `scheduler` | 2 | 949 |
 | `scripts` | 3 | 130 |
 | `security` | 3 | 735 |
-| `services` | 111 | 36283 |
+| `services` | 111 | 36350 |
 | `sh` | 1 | 69 |
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **227 módulos** y **89118 líneas de origen**.
+Total: **227 módulos** y **89775 líneas de origen**.
 
 ## agente
 
@@ -33,13 +33,13 @@ Total: **227 módulos** y **89118 líneas de origen**.
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | ["backend/agent/__init__.py»](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/__init__.py) | 0 | 0 | 0 | 0 | 0 | Sin docstring de módulo |
 | ["backend/agente/acción_confirmations.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/action_confirmations.py) | 802 | 0 | 28 | 0 | 22 | Confirmaciones persistentes y con alcance limitado para las acciones de agentes consecuentes. |
-| ["backend/agente/agente"_context.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/agent_context.py) | 662 | 0 | 19 | 0 | 10 | Se adjuntan fuentes de contexto para un agente de cognición. |
+| ["backend/agente/agente"_context.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/agent_context.py) | 875 | 0 | 19 | 0 | 10 | Se adjuntan fuentes de contexto para un agente de cognición. |
 | ["backend/agente/calendario"_tools.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/calendar_tools.py) | 125 | 0 | 6 | 5 | 5 | Adaptadores administrados para lecturas exactas del calendario y mutaciones externas. |
 | ["backend/agente/contacto"_tools.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/contact_tools.py) | 157 | 0 | 6 | 0 | 4 | Adaptadores administrados para el mantenimiento de contactos locales. |
 | [«backend/agent/context»_fuentes/__init__.py»](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/context_sources/__init__.py) | 32 | 0 | 2 | 0 | 1 | Catálogo de grandes fuentes de búsqueda que un agente puede adjuntar (fase 3). |
 | [«backend/agent/context»_fuentes/boe.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/context_sources/boe.py) | 174 | 0 | 6 | 0 | 4 | Adaptador BOE: busca en el boletín oficial español a través de su API abierta. |
 | ["backend/agente/directive"_tools.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/directive_tools.py) | 90 | 0 | 4 | 0 | 4 | Sin docstring de módulo |
-| [`backend/agent/factory.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/factory.py) | 1931 | 1 | 31 | 1 | 29 | Sin docstring de módulo |
+| [`backend/agent/factory.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/factory.py) | 2093 | 1 | 35 | 1 | 33 | Sin docstring de módulo |
 | ["backend/agente/generado_herramientas/__init__.py»](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/generated_tools/__init__.py) | 3 | 0 | 0 | 0 | 0 | Sin docstring de módulo |
 | ["backend/agente/generado_herramientas/creator.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/generated_tools/creator.py) | 226 | 0 | 4 | 0 | 4 | Tool Creator: La meta-herramienta que permite al agente crear nuevas herramientas. |
 | ["backend/agente/generado_herramientas/seco_run.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/generated_tools/dry_run.py) | 139 | 2 | 1 | 0 | 3 | Envoltorio Dry-Run: Vista previa de las operaciones externas antes de la ejecución. |
@@ -49,7 +49,7 @@ Total: **227 módulos** y **89118 líneas de origen**.
 | ["backend/agente/generado_herramientas/validador.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/generated_tools/validator.py) | 273 | 3 | 0 | 0 | 1 | Validador de herramientas: Valida código de herramienta autogenerado para seguridad. |
 | ["backend/agent/gnosi_tools.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/gnosi_tools.py) | 2256 | 1 | 62 | 11 | 45 | Herramientas Gnosi de primera clase estables expuestas a modelos de chat con capacidad para herramientas. |
 | [`backend/agent/graph.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/graph.py) | 47 | 1 | 1 | 0 | 1 | Sin docstring de módulo |
-| ["backend/agente/interno_sources.py»](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/internal_sources.py) | 1328 | 0 | 55 | 0 | 13 | Adaptadores de lectura con alcance para módulos de datos Gnosi de primera clase. |
+| ["backend/agente/interno_sources.py»](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/internal_sources.py) | 1543 | 0 | 57 | 0 | 15 | Adaptadores de lectura con alcance para módulos de datos Gnosi de primera clase. |
 | ["backend/agente/trabajo"_tools.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/job_tools.py) | 83 | 0 | 7 | 0 | 6 | Herramientas administradas para trabajos de capacidad duradera neutrales para proveedores. |
 | ["backend/agent/llm_wiki_tools.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/llm_wiki_tools.py) | 120 | 0 | 4 | 0 | 4 | Adaptadores de agente gobernados para el plugin de Wiki LLM integrado. |
 | ["backend/agente/mail_tools.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/mail_tools.py) | 168 | 0 | 10 | 8 | 8 | Adaptadores administrados para lecturas exactas de correo y mutaciones. |
@@ -279,7 +279,7 @@ Total: **227 módulos** y **89118 líneas de origen**.
 | ["backend/servicios/plugin_firmando.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/plugin_signing.py) | 148 | 0 | 8 | 0 | 6 | Firma de complementos y confianza (fase 3 del complemento_system.md). |
 | ["backend/servicios/plugin_system.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/plugin_system.py) | 396 | 1 | 12 | 0 | 11 | Sistema de complemento de Gnosi v2 — descubrimiento, manifiesto y permisos. |
 | ["backend/servicios/proyecto_planning.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/project_planning.py) | 393 | 2 | 13 | 0 | 11 | Almacenamiento con cobertura de bóveda y cálculos puros para los recursos de planificación de proyectos. |
-| ["backend/services/reader"_ansything.py»](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/reader_analysis.py) | 705 | 0 | 35 | 0 | 7 | Análisis jerárquico duradero para colecciones de lectores grandes. |
+| ["backend/services/reader"_ansything.py»](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/reader_analysis.py) | 772 | 0 | 35 | 0 | 7 | Análisis jerárquico duradero para colecciones de lectores grandes. |
 | ["backend/servicios/recursos"_zotero_mapping.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/recursos_zotero_mapping.py) | 71 | 0 | 1 | 0 | 1 | Cartografía bidireccional entre columnas de Recursos y campos Zotero. |
 | ["backend/servicios/referencia_Cuadro_config.py»](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/reference_table_config.py) | 63 | 0 | 2 | 0 | 2 | Almacenamiento para la designación de la "Tabla de referencias" de la bóveda. |
 | ["backend/servicios/referencias_io.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/references_io.py) | 556 | 0 | 19 | 0 | 10 | Importar/Exportar BibTeX y RIS ↔ Recursos (Gnosi). |

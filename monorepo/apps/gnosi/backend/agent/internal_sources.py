@@ -34,9 +34,11 @@ INTERNAL_SOURCE_IDS = frozenset({
 MAX_SCOPE_ITEMS = 50
 MAX_RESULT_ITEMS = 50
 DEFAULT_RESULT_ITEMS = 12
+MAX_RESULT_OFFSET = 100_000
 MAX_EXCERPT_CHARS = 1_200
 MAX_RECORD_CHARS = 16_000
 MAX_CALENDAR_DAYS = 366
+READER_READ_STATUSES = frozenset({"all", "read", "unread"})
 
 
 def _bounded_strings(value: Any, *, lower: bool = False) -> List[str]:
@@ -102,14 +104,26 @@ def normalize_internal_scope(source_id: str, raw_scope: Any) -> Dict[str, Any]:
     limit = max(1, min(int(scope.get("limit") or DEFAULT_RESULT_ITEMS), MAX_RESULT_ITEMS))
 
     if source_id == "reader":
+        read_status = str(scope.get("read_status") or "").strip().lower()
+        if read_status not in READER_READ_STATUSES:
+            read_status = "unread" if bool(scope.get("unread_only", True)) else "all"
+        try:
+            offset = int(scope.get("offset") or 0)
+        except (TypeError, ValueError):
+            offset = 0
         return {
-            "unread_only": bool(scope.get("unread_only", True)),
+            # Keep unread_only for compatibility with existing API payloads and
+            # persisted jobs while read_status represents all three states.
+            "unread_only": read_status == "unread",
+            "read_status": read_status,
             "source_ids": _bounded_ints(scope.get("source_ids")),
+            "source_names": _bounded_strings(scope.get("source_names")),
             "categories": _bounded_strings(scope.get("categories")),
             "date_from": _iso_datetime(scope.get("date_from")),
             "date_to": _iso_datetime(scope.get("date_to")),
             "include_full_content": bool(scope.get("include_full_content", False)),
             "limit": limit,
+            "offset": max(0, min(offset, MAX_RESULT_OFFSET)),
         }
     if source_id == "mail":
         return {
@@ -251,14 +265,26 @@ def _apply_reader_scope(
 ):
     from backend.models.reader import Article, FeedSource
 
-    if scope["unread_only"]:
+    read_status = str(scope.get("read_status") or "").strip().lower()
+    if not read_status:
+        read_status = "unread" if scope.get("unread_only") else "all"
+    if read_status == "unread":
         query = query.filter(Article.is_read.is_(False))
+    elif read_status == "read":
+        query = query.filter(Article.is_read.is_(True))
     if scope["source_ids"]:
         query = query.filter(Article.source_id.in_(scope["source_ids"]))
-    if scope["categories"]:
+    if scope.get("categories") or scope.get("source_names"):
         if not feed_source_joined:
             query = query.join(FeedSource, Article.source_id == FeedSource.id)
-        query = query.filter(FeedSource.category.in_(scope["categories"]))
+    if scope.get("categories"):
+        query = query.filter(func.lower(FeedSource.category).in_([
+            str(value).lower() for value in scope["categories"]
+        ]))
+    if scope.get("source_names"):
+        query = query.filter(func.lower(FeedSource.name).in_([
+            str(value).lower() for value in scope["source_names"]
+        ]))
     if scope["date_from"]:
         query = query.filter(Article.published_at >= datetime.fromisoformat(scope["date_from"]))
     if scope["date_to"]:
@@ -266,19 +292,116 @@ def _apply_reader_scope(
     return query
 
 
+def intersect_reader_scope(base_scope: Any, requested_scope: Any) -> Dict[str, Any]:
+    """Intersect model-requested Reader filters with an attached source scope."""
+    base = normalize_internal_scope("reader", base_scope)
+    requested_raw = requested_scope if isinstance(requested_scope, dict) else {}
+    requested = normalize_internal_scope("reader", {
+        **requested_raw,
+        "read_status": requested_raw.get("read_status") or "all",
+        "unread_only": False,
+    })
+
+    if (
+        base["read_status"] != "all"
+        and requested["read_status"] != "all"
+        and base["read_status"] != requested["read_status"]
+    ):
+        raise ValueError("The requested read state is outside the attached Reader scope.")
+    read_status = (
+        requested["read_status"]
+        if base["read_status"] == "all"
+        else base["read_status"]
+    )
+
+    def intersect_values(base_values, requested_values, *, casefold=False):
+        if not base_values:
+            return list(requested_values)
+        if not requested_values:
+            return list(base_values)
+        if casefold:
+            requested_keys = {str(value).casefold() for value in requested_values}
+            intersection = [
+                value for value in base_values
+                if str(value).casefold() in requested_keys
+            ]
+        else:
+            requested_set = set(requested_values)
+            intersection = [value for value in base_values if value in requested_set]
+        if not intersection:
+            raise ValueError("The requested filter is outside the attached Reader scope.")
+        return intersection
+
+    date_from = max(
+        (value for value in (base["date_from"], requested["date_from"]) if value),
+        default="",
+    )
+    date_to = min(
+        (value for value in (base["date_to"], requested["date_to"]) if value),
+        default="",
+    )
+    if date_from and date_to and date_from > date_to:
+        raise ValueError("The requested dates are outside the attached Reader scope.")
+
+    return normalize_internal_scope("reader", {
+        "read_status": read_status,
+        "source_ids": intersect_values(base["source_ids"], requested["source_ids"]),
+        "source_names": intersect_values(
+            base["source_names"],
+            requested["source_names"],
+            casefold=True,
+        ),
+        "categories": intersect_values(
+            base["categories"],
+            requested["categories"],
+            casefold=True,
+        ),
+        "date_from": date_from,
+        "date_to": date_to,
+        "include_full_content": bool(requested["include_full_content"]),
+        "limit": requested["limit"],
+        "offset": requested["offset"],
+    })
+
+
+def reader_scope_contains(base_scope: Any, candidate_scope: Any) -> bool:
+    """Return whether a persisted Reader job remains inside an attached scope."""
+    candidate = normalize_internal_scope("reader", candidate_scope)
+    try:
+        intersection = intersect_reader_scope(base_scope, candidate)
+    except ValueError:
+        return False
+    comparable_keys = (
+        "read_status", "source_ids", "source_names", "categories",
+        "date_from", "date_to",
+    )
+    return all(intersection[key] == candidate[key] for key in comparable_keys)
+
+
 _TAG_RE = re.compile(r"<[^>]+>")
 _SPACE_RE = re.compile(r"\s+")
 
 
-def _plain_text(value: Any, limit: int) -> str:
+def _plain_text(value: Any, limit: Optional[int]) -> str:
     text = unescape(_TAG_RE.sub(" ", str(value or "")))
-    return _SPACE_RE.sub(" ", text).strip()[:limit]
+    normalized = _SPACE_RE.sub(" ", text).strip()
+    return normalized[:limit] if limit is not None else normalized
 
 
-def _article_payload(article: Any, *, full: bool = False) -> Dict[str, Any]:
+def _article_payload(
+    article: Any,
+    *,
+    full: bool = False,
+    content_offset: int = 0,
+    content_limit: int = MAX_RECORD_CHARS,
+) -> Dict[str, Any]:
     source = getattr(article, "source", None)
     body = article.full_content if full and article.full_content else article.content
-    return {
+    content = _plain_text(body, None)
+    offset = max(0, int(content_offset or 0)) if full else 0
+    limit = max(1, min(int(content_limit or MAX_RECORD_CHARS), 32_000))
+    chunk = content[offset:offset + limit]
+    payload = {
         "id": str(article.id),
         "title": str(article.title or ""),
         "source_id": article.source_id,
@@ -287,8 +410,21 @@ def _article_payload(article: Any, *, full: bool = False) -> Dict[str, Any]:
         "published_at": article.published_at.isoformat() if article.published_at else None,
         "is_read": bool(article.is_read),
         "url": str(article.url or ""),
-        "content": _plain_text(body, MAX_RECORD_CHARS if full else MAX_EXCERPT_CHARS),
+        "content": chunk if full else content[:MAX_EXCERPT_CHARS],
     }
+    if full:
+        payload.update({
+            "content_char_count": len(content),
+            "content_offset": offset,
+            "content_limit": limit,
+            "content_has_more": offset + len(chunk) < len(content),
+            "next_content_offset": (
+                offset + len(chunk)
+                if offset + len(chunk) < len(content)
+                else None
+            ),
+        })
+    return payload
 
 
 def _reader_inventory(scope: Dict[str, Any]) -> Dict[str, Any]:
@@ -298,6 +434,22 @@ def _reader_inventory(scope: Dict[str, Any]) -> Dict[str, Any]:
     try:
         base = _apply_reader_scope(db.query(Article), scope)
         count = int(base.with_entities(func.count(Article.id)).scalar() or 0)
+        read_count = int(
+            base.filter(Article.is_read.is_(True))
+            .with_entities(func.count(Article.id))
+            .scalar()
+            or 0
+        )
+        unread_count = int(
+            base.filter(Article.is_read.is_(False))
+            .with_entities(func.count(Article.id))
+            .scalar()
+            or 0
+        )
+        feed_count = int(
+            base.with_entities(func.count(func.distinct(Article.source_id))).scalar()
+            or 0
+        )
         oldest, newest = base.with_entities(
             func.min(Article.published_at), func.max(Article.published_at)
         ).one()
@@ -317,12 +469,51 @@ def _reader_inventory(scope: Dict[str, Any]) -> Dict[str, Any]:
                 FeedSource.id, FeedSource.name, FeedSource.category
             ).order_by(func.count(Article.id).desc()).limit(100)
         ]
+        category_label = func.coalesce(
+            func.nullif(FeedSource.category, ""),
+            "Uncategorized",
+        )
+        category_query = _apply_reader_scope(
+            db.query(
+                category_label,
+                func.count(Article.id),
+            ).join(Article, Article.source_id == FeedSource.id),
+            scope,
+            feed_source_joined=True,
+        )
+        categories = [
+            {
+                "category": str(row[0] or "Uncategorized"),
+                "count": int(row[1]),
+            }
+            for row in category_query.group_by(category_label)
+            .order_by(func.count(Article.id).desc())
+            .limit(100)
+        ]
+        category_count_query = _apply_reader_scope(
+            db.query(func.count(func.distinct(category_label))).join(
+                Article,
+                Article.source_id == FeedSource.id,
+            ),
+            scope,
+            feed_source_joined=True,
+        )
+        category_count = int(category_count_query.scalar() or 0)
         return {
             "source": "reader",
             "count": count,
+            "read_count": read_count,
+            "unread_count": unread_count,
+            "feed_count": feed_count,
+            "category_count": category_count,
             "oldest": oldest.isoformat() if oldest else None,
             "newest": newest.isoformat() if newest else None,
             "feeds": sources,
+            "categories": categories,
+            "record_fields": [
+                "id", "title", "content", "is_read", "source_id", "source",
+                "category", "published_at", "url",
+            ],
             "scope": scope,
         }
     finally:
@@ -346,10 +537,23 @@ def _reader_search(scope: Dict[str, Any], query_text: str) -> Dict[str, Any]:
                 Article.content.ilike(pattern),
                 Article.full_content.ilike(pattern),
             ))
-        rows = query.order_by(Article.published_at.desc()).limit(scope["limit"]).all()
+        matching_count = int(
+            query.with_entities(func.count(Article.id)).scalar()
+            or 0
+        )
+        rows = (
+            query.order_by(Article.published_at.desc(), Article.id.desc())
+            .offset(scope["offset"])
+            .limit(scope["limit"])
+            .all()
+        )
         return {
             "source": "reader",
             "query": term,
+            "matching_count": matching_count,
+            "offset": scope["offset"],
+            "limit": scope["limit"],
+            "has_more": scope["offset"] + len(rows) < matching_count,
             "records": [
                 _article_payload(row, full=scope["include_full_content"])
                 for row in rows
@@ -359,7 +563,13 @@ def _reader_search(scope: Dict[str, Any], query_text: str) -> Dict[str, Any]:
         db.close()
 
 
-def _reader_read(scope: Dict[str, Any], record_id: str) -> Dict[str, Any]:
+def _reader_read(
+    scope: Dict[str, Any],
+    record_id: str,
+    *,
+    content_offset: int = 0,
+    content_limit: int = MAX_RECORD_CHARS,
+) -> Dict[str, Any]:
     from sqlalchemy.orm import joinedload
 
     from backend.models.reader import Article
@@ -376,7 +586,12 @@ def _reader_read(scope: Dict[str, Any], record_id: str) -> Dict[str, Any]:
         article = _apply_reader_scope(query, scope).first()
         if not article:
             raise KeyError(record_id)
-        return _article_payload(article, full=True)
+        return _article_payload(
+            article,
+            full=True,
+            content_offset=content_offset,
+            content_limit=content_limit,
+        )
     finally:
         db.close()
 
