@@ -2,6 +2,7 @@ import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { RELEASES } from '../lib/releaseNotes';
 import { ReleaseNotesDialog } from './ReleaseNotesDialog';
 
 vi.mock('react-i18next', () => ({
@@ -52,12 +53,19 @@ describe('ReleaseNotesDialog', () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it('links every version to its public release downloads', async () => {
+  it('does not link versions without published downloads', async () => {
     await renderDialog();
-    const links = [...container.querySelectorAll('a')].map((link) => link.href);
-    expect(links).toEqual([
-      'https://github.com/ismigar/Gnosi/releases/tag/v1.0.0-rc.1',
-      'https://github.com/ismigar/Gnosi/releases/tag/v0.3.0-rc.1',
-    ]);
+    expect(container.querySelectorAll('a')).toHaveLength(0);
+    expect(container.textContent.match(/release_notes.download_unavailable/g)).toHaveLength(2);
+  });
+
+  it('uses only the verified download URL stored in the release catalog', async () => {
+    RELEASES[0].downloadUrl = 'https://github.com/ismigar/Gnosi/releases/tag/v1.0.0-rc.1';
+    try {
+      await renderDialog();
+      expect(container.querySelector('a').href).toBe(RELEASES[0].downloadUrl);
+    } finally {
+      delete RELEASES[0].downloadUrl;
+    }
   });
 });

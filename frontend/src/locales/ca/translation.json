@@ -5019,6 +5019,7 @@
     "open_aria": "Obre les notes de la versió {{version}}",
     "published_on": "Publicada el {{date}}",
     "download_version": "Descarrega aquesta versió",
+    "download_unavailable": "Descàrrega encara no disponible",
     "channel_prerelease": "Versió candidata",
     "channel_stable": "Estable",
     "section_highlights": "Destacats",
