@@ -6,13 +6,18 @@ directories:
   output: dist
   buildResources: build
 
+afterPack: scripts/after-pack.cjs
+
 files:
   - main.js
   - preload.js
-  - frontend/dist/**/*
-  - "!frontend/dist/**/*.map"
 
 extraResources:
+  - from: ../frontend/dist/
+    to: frontend/dist/
+    filter:
+      - "**/*"
+      - "!**/*.map"
   - from: build/
     to: build/
     filter:
@@ -23,6 +28,7 @@ extraResources:
       - "**/*"
 
 mac:
+  icon: build/icon.icns
   category: public.app-category.productivity
   target:
     - target: dmg
@@ -36,6 +42,7 @@ mac:
   artifactName: ${productName}-${version}-${arch}.${ext}
 
 linux:
+  icon: build/icon.png
   target:
     - target: AppImage
       arch:
@@ -47,6 +54,7 @@ linux:
   artifactName: ${productName}-${version}-${arch}.${ext}
 
 win:
+  icon: build/icon.ico
   target:
     - target: nsis
       arch:
