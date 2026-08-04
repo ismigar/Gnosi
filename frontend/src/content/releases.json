@@ -3,6 +3,7 @@
     "version": "1.0.0-rc.2",
     "date": "2026-08-03",
     "channel": "prerelease",
+    "downloadUrl": "https://github.com/ismigar/Gnosi/releases/tag/v1.0.0-rc.2",
     "sections": {
       "highlights": [
         "release_notes.entries.v1_0_0_rc_2.highlights.desktop_branding"
@@ -20,6 +21,7 @@
     "version": "1.0.0-rc.1",
     "date": "2026-08-03",
     "channel": "prerelease",
+    "downloadUrl": "https://github.com/ismigar/Gnosi/releases/tag/v1.0.0-rc.1",
     "sections": {
       "highlights": [
         "release_notes.entries.v1_0_0_rc_1.highlights.settings",
@@ -39,6 +41,7 @@
     "version": "0.3.0-rc.1",
     "date": "2026-08-01",
     "channel": "prerelease",
+    "downloadUrl": "https://github.com/ismigar/Gnosi/releases/tag/v0.3.0-rc.1",
     "sections": {
       "highlights": [
         "release_notes.entries.v0_3_0_rc_1.highlights.desktop"
