@@ -18,14 +18,21 @@
  * valid session cookie, trusts it over this identity.
  */
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { ensureBackendOrigin } from '../lib/electron';
 
-function buildWsUrl(pageId) {
-    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+async function buildWsUrl(pageId) {
+    // In the Electron shell the `app://` scheme does not intercept WebSocket
+    // upgrades, so connect directly to the backend host instead of relying on
+    // window.location.host (which is empty under `app://`).
+    const backendOrigin = await ensureBackendOrigin();
+    const base = backendOrigin || window.location.origin;
+    const proto = base.startsWith('https') ? 'wss' : 'ws';
+    const host = backendOrigin ? backendOrigin.replace(/^https?:\/\//, '') : window.location.host;
     const params = new URLSearchParams({
         user_id: localStorage.getItem('gnosi_user_id') || 'anon',
         name: localStorage.getItem('gnosi_user_email') || 'Anònim',
     });
-    return `${proto}://${window.location.host}/api/vault/collab/${encodeURIComponent(pageId)}?${params.toString()}`;
+    return `${proto}://${host}/api/vault/collab/${encodeURIComponent(pageId)}?${params.toString()}`;
 }
 
 export function useCollaboration(pageId) {
@@ -64,10 +71,10 @@ export function useCollaboration(pageId) {
         let closed = false;
         let retryTimer = null;
 
-        const connect = () => {
+        const connect = async () => {
             let ws;
             try {
-                ws = new WebSocket(buildWsUrl(pageId));
+                ws = new WebSocket(await buildWsUrl(pageId));
             } catch {
                 return; // Invalid URL or WS unavailable
             }

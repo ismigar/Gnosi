@@ -8,9 +8,24 @@ directories:
 
 afterPack: scripts/after-pack.cjs
 
+# Branded DMG installer: clean light background with the centered Gnosi logo,
+# so the mounted volume matches the app identity instead of the generic
+# electron-builder artwork. The retina PNG is downscaled to @1x automatically.
+dmg:
+  background: build/dmg-background.png
+  title: ${productName}
+  iconSize: 128
+  window:
+    width: 540
+    height: 380
+
 files:
   - main.js
   - preload.js
+  # Runtime dependencies used by main.js (electron-log drives the auto-updater
+  # logger; electron-updater is the updater itself). electron-builder follows
+  # package.json dependencies, so only production deps land in the asar.
+  - node_modules/**/*
 
 extraResources:
   - from: ../frontend/dist/
@@ -22,6 +37,12 @@ extraResources:
     to: build/
     filter:
       - "**/*"
+      # Icon and DMG-background assets are build-time inputs consumed by
+      # electron-builder itself; they are not needed inside the packaged app.
+      - "!icon.icns"
+      - "!icon.ico"
+      - "!icon.png"
+      - "!dmg-background.png"
   - from: dist-python/
     to: python
     filter:
