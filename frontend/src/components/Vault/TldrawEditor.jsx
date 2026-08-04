@@ -145,8 +145,8 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
                 // store/document/session keys it does nothing (silent no-op) — this is the case
                 // of legacy .excalidraw.json drawings. We validate before calling it.
                 const isPlainObject = data && typeof data === 'object' && !Array.isArray(data);
-                // {} is the initial data the dashboard uses to create a new drawing
-                const isEmptyInitial = isPlainObject && Object.keys(data).length === 0;
+                // {} or falsy/non-object is the initial data the dashboard uses to create a new drawing
+                const isEmptyInitial = !data || typeof data !== 'object' || Object.keys(data).length === 0;
                 const isTldrawSnapshot = isPlainObject &&
                     ('store' in data || 'document' in data || 'session' in data);
 
