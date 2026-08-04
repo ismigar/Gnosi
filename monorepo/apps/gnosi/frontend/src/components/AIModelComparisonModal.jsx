@@ -198,7 +198,18 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
         const normalizedQuery = query.trim().toLocaleLowerCase();
         const priceLimit = maxPrice === '' ? Number.POSITIVE_INFINITY : parseNumber(maxPrice);
         const contextFloor = minContext === '' ? 0 : parseNumber(minContext) * 1000;
-        return [...(feed?.models || [])]
+        // Defensive dedup: a stale 24h cache may still hold duplicate rows until
+        // it refreshes. Keep the first occurrence, keyed by id/slug/name.
+        const deduped = [...(feed?.models || [])].reduce((acc, model) => {
+            const key = model.id || model.slug || model.name;
+            if (!key) {
+                acc.set(Symbol(), model);
+            } else if (!acc.has(key)) {
+                acc.set(key, model);
+            }
+            return acc;
+        }, new Map());
+        return Array.from(deduped.values())
             .filter((model) => (
                 (!normalizedQuery || `${model.name} ${model.creator}`.toLocaleLowerCase().includes(normalizedQuery))
                 && (profile === 'all' || model.profile === profile)

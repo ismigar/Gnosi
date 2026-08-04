@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 13 | 35 |
 | Vitest | 45 | 177 |
-| pytest | 174 | 1442 |
+| pytest | 174 | 1443 |
 
 ## Files
 
@@ -94,7 +94,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_ai_timeout.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_ai_timeout.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_app_config_language.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_app_config_language.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_article_extractor_excerpt.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_article_extractor_excerpt.py) | 4 | Python AST |
-| pytest | [`backend/tests/test_artificial_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_artificial_analysis.py) | 14 | Python AST |
+| pytest | [`backend/tests/test_artificial_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_artificial_analysis.py) | 15 | Python AST |
 | pytest | [`backend/tests/test_attachment_name_numbering.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_attachment_name_numbering.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_audio_summarizer.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_audio_summarizer.py) | 12 | Python AST |
 | pytest | [`backend/tests/test_auth_account_settings.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_auth_account_settings.py) | 9 | Python AST |

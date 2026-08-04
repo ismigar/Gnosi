@@ -295,8 +295,18 @@ def build_comparison_payload(
     """Normalize API rows, enrich known metadata, and assign one recommended role."""
     enrichment = _catalog_enrichment_index(catalog or {})
     models: List[Dict[str, Any]] = []
+    seen: set = set()
 
     for row in rows:
+        # Dedup by normalized id/slug/name: keep the first (most complete) entry.
+        # Mirrors build_catalog_fallback_payload; pagination overlap or upstream
+        # id/slug/name variation can otherwise yield the same model twice.
+        dedup_key = _normalize_name(
+            str(row.get("id") or row.get("slug") or row.get("name") or "")
+        )
+        if not dedup_key or dedup_key in seen:
+            continue
+        seen.add(dedup_key)
         pricing = row.get("pricing") or {}
         performance = row.get("performance") or {}
         evaluations = row.get("evaluations") or {}
