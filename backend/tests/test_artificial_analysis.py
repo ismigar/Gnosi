@@ -47,6 +47,25 @@ def test_build_payload_includes_every_row_and_assigns_frontier_profile():
     assert payload["intelligence_index_version"] == 4.1
 
 
+def test_build_payload_deduplicates_same_model_across_rows():
+    """Pagination overlap or upstream id/slug variation must not duplicate a model."""
+    first = _row(1, "Twin Model", 30, 80, None, None)
+    first["context_window_tokens"] = 200_000
+    second = _row(1, "Twin Model", 30, 80, 1, 3)
+    second["context_window_tokens"] = None
+
+    payload = aa.build_comparison_payload([first, second])
+
+    assert payload["count"] == 1
+    assert len(payload["models"]) == 1
+    model = payload["models"][0]
+    # First occurrence wins; later rows do not override populated fields.
+    assert model["id"] == "id-1"
+    assert model["name"] == "Twin Model"
+    assert model["context_window"] == 200_000
+    assert model["input_price"] is None  # not backfilled from the duplicate row
+
+
 def test_profile_intervals_cut_off_models_above_and_below():
     rows = [
         _row(index, f"Model {index}", index * 10, 50, 1, 2)
