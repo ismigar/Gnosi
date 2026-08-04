@@ -138,6 +138,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
 
         const controller = new AbortController();
         let retries = 0;
+        const MAX_RETRIES = 5; // Enough to survive a backend restart (~15s backoff)
 
         const fetchDrawing = () => {
             axios.get(`/api/vault/drawings/${drawingId}`, { signal: controller.signal })
@@ -178,10 +179,12 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
                     if (err?.response?.status === 404) {
                         // The drawing doesn't exist yet → new empty whiteboard (can be saved)
                         setLoadState('ready');
-                    } else if (retries < 2) {
-                        // Retry transient proxy/network hiccup before showing error
+                    } else if (retries < MAX_RETRIES) {
+                        // Exponential backoff: 500ms → 1s → 2s → 4s → 8s
+                        // Survives backend restarts (uvicorn --reload takes ~10-40s)
+                        const delay = 500 * Math.pow(2, retries);
                         retries++;
-                        setTimeout(fetchDrawing, 500);
+                        setTimeout(fetchDrawing, delay);
                     } else {
                         // 500, network, OneDrive online-only file... the drawing
                         // exists but we couldn't read it: we block saving.
