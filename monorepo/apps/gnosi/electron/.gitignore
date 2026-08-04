@@ -9,6 +9,7 @@ build/*
 !build/icon.icns
 !build/icon.ico
 !build/icon.png
+!build/dmg-background.png
 
 # Virtual environments
 .venv*/

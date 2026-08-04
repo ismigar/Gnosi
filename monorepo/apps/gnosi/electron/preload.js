@@ -3,6 +3,9 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   getBackendStatus: () => ipcRenderer.invoke('get-backend-status'),
+  // Backend base URL for the collaboration WebSocket (see main.js IPC). HTTP
+  // calls stay relative and go through the `app://` proxy handler.
+  getBackendURL: () => ipcRenderer.invoke('get-backend-url'),
   getUpdateStatus: () => ipcRenderer.invoke('get-update-status'),
   downloadUpdate: () => ipcRenderer.invoke('download-update'),
   installUpdate: () => ipcRenderer.invoke('install-update'),

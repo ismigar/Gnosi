@@ -22,7 +22,8 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: '20'
-          # Cache disabled: monorepo/apps/gnosi/electron has no committed lockfile yet.
+          cache: 'npm'
+          cache-dependency-path: monorepo/apps/gnosi/electron/package-lock.json
 
       - name: Install npm dependencies
         run: |
@@ -94,7 +95,8 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: '20'
-          # Cache disabled: monorepo/apps/gnosi/electron has no committed lockfile yet.
+          cache: 'npm'
+          cache-dependency-path: monorepo/apps/gnosi/electron/package-lock.json
 
       - name: Setup Python
         uses: actions/setup-python@v7
@@ -148,7 +150,8 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: '20'
-          # Cache disabled: monorepo/apps/gnosi/electron has no committed lockfile yet.
+          cache: 'npm'
+          cache-dependency-path: monorepo/apps/gnosi/electron/package-lock.json
 
       - name: Setup Python
         uses: actions/setup-python@v7

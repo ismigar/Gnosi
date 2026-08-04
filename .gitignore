@@ -36,6 +36,7 @@ monorepo/apps/gnosi/electron/build/*
 !monorepo/apps/gnosi/electron/build/icon.icns
 !monorepo/apps/gnosi/electron/build/icon.ico
 !monorepo/apps/gnosi/electron/build/icon.png
+!monorepo/apps/gnosi/electron/build/dmg-background.png
 dist/
 coverage/
 

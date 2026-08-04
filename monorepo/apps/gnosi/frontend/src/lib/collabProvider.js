@@ -9,6 +9,7 @@
  */
 import * as Y from 'yjs';
 import { Awareness, encodeAwarenessUpdate, applyAwarenessUpdate } from 'y-protocols/awareness';
+import { ensureBackendOrigin } from './electron';
 
 function toBase64(uint8) {
     let binary = '';
@@ -23,13 +24,20 @@ function fromBase64(b64) {
     return arr;
 }
 
-function buildWsUrl(pageId) {
-    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+async function buildWsUrl(pageId) {
+    // In the Electron shell the `app://` scheme does not intercept WebSocket
+    // upgrades, so connect directly to the backend host instead of relying on
+    // window.location.host (which is empty under `app://`).
+    const backendOrigin = await ensureBackendOrigin();
+    const proto = backendOrigin
+        ? (backendOrigin.startsWith('https') ? 'wss' : 'ws')
+        : (window.location.protocol === 'https:' ? 'wss' : 'ws');
+    const host = backendOrigin ? backendOrigin.replace(/^https?:\/\//, '') : window.location.host;
     const params = new URLSearchParams({
         user_id: localStorage.getItem('gnosi_user_id') || 'anon',
         name: localStorage.getItem('gnosi_user_email') || 'Anònim',
     });
-    return `${proto}://${window.location.host}/api/vault/collab/${encodeURIComponent(pageId)}?${params.toString()}`;
+    return `${proto}://${host}/api/vault/collab/${encodeURIComponent(pageId)}?${params.toString()}`;
 }
 
 /**
@@ -73,10 +81,10 @@ export class GnosiCollabProvider {
         }
     }
 
-    _connect() {
+    async _connect() {
         let ws;
         try {
-            ws = new WebSocket(buildWsUrl(this.pageId));
+            ws = new WebSocket(await buildWsUrl(this.pageId));
         } catch {
             return;
         }
