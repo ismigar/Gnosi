@@ -58,26 +58,19 @@ describe('ReleaseNotesDialog', () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it('links versions with published downloads and renders fallback when unavailable', async () => {
+  it('does not render download links when downloadUrl is omitted', async () => {
     await renderDialog();
-    expect(container.querySelectorAll('a')).toHaveLength(RELEASES.length);
-
-    const originalUrl = RELEASES[0].downloadUrl;
-    delete RELEASES[0].downloadUrl;
-    try {
-      await renderDialog();
-      expect(container.querySelectorAll('a')).toHaveLength(RELEASES.length - 1);
-      expect(container.textContent.match(/release_notes.download_unavailable/g)).toHaveLength(1);
-    } finally {
-      RELEASES[0].downloadUrl = originalUrl;
-    }
+    expect(container.querySelectorAll('a')).toHaveLength(0);
   });
 
-  it('uses only the verified download URL stored in the release catalog', async () => {
-    await renderDialog();
-    const links = [...container.querySelectorAll('a')];
-    RELEASES.forEach((release, index) => {
-      expect(links[index].href).toBe(release.downloadUrl);
-    });
+  it('renders download links only when downloadUrl is provided', async () => {
+    RELEASES[0].downloadUrl = 'https://github.com/ismigar/Gnosi/releases/tag/v1.0.0-rc.2';
+    try {
+      await renderDialog();
+      expect(container.querySelectorAll('a')).toHaveLength(1);
+      expect(container.querySelector('a').href).toBe(RELEASES[0].downloadUrl);
+    } finally {
+      delete RELEASES[0].downloadUrl;
+    }
   });
 });
