@@ -51,6 +51,11 @@ extraResources:
 mac:
   icon: build/icon.icns
   category: public.app-category.productivity
+  # The PyInstaller Python.framework has an ambiguous bundle type that breaks
+  # electron-builder's internal --deep signing. We exclude it here and seal it
+  # ad-hoc in after-pack.cjs (signing Versions/Current, the unambiguous form).
+  signIgnore:
+    - Contents/Resources/python/_internal/Python.framework
   target:
     - target: dmg
       arch:
