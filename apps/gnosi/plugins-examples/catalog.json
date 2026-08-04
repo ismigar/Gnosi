@@ -1,0 +1,32 @@
+[
+  {
+    "id": "hello-command",
+    "name": "Hola, comanda",
+    "description": "Exemple mínim de plugin de UI: registra una comanda a la paleta que escriu a la consola.",
+    "icon": "Puzzle",
+    "author": "Gnosi",
+    "permissions": ["ui:command"],
+    "source": "bundled",
+    "path": "hello-command"
+  },
+  {
+    "id": "clone-logger",
+    "name": "Registre de clons",
+    "description": "Exemple de plugin de dades: reacciona a clone:finished i deixa constància del nombre de pàgines clonades.",
+    "icon": "Puzzle",
+    "author": "Gnosi",
+    "permissions": ["vault:read"],
+    "source": "bundled",
+    "path": "clone-logger"
+  },
+  {
+    "id": "vault-stats",
+    "name": "Estadístiques del vault",
+    "description": "Comanda a la paleta que compta taules i files del vault i desa l'últim recompte a la seva configuració. Exercita listTables + queryDB + settings.",
+    "icon": "Puzzle",
+    "author": "Gnosi",
+    "permissions": ["ui:command", "vault:read", "settings"],
+    "source": "bundled",
+    "path": "vault-stats"
+  }
+]

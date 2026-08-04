@@ -1,0 +1,606 @@
+/* GlobalSettingsModal.css */
+
+.settings-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(12px);
+    z-index: var(--z-modal);
+    display: none;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.3s ease;
+}
+
+.settings-overlay.active {
+    display: flex;
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.settings-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.95);
+    width: 95vw;
+    max-width: 1240px;
+    height: 88vh;
+    background: var(--settings-bg);
+    border-radius: 40px;
+    z-index: var(--z-modal);
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.15);
+    border: 1px solid var(--settings-border);
+    backdrop-filter: blur(40px);
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.settings-modal.active {
+    display: flex;
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.settings-inner {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+}
+
+/* Sidebar */
+.settings-sidebar {
+    width: 280px;
+    min-height: 0;
+    background: var(--settings-sidebar-bg);
+    border-inline-end: 1px solid var(--settings-border);
+    padding: 40px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    outline: none;
+}
+
+.settings-sidebar-header {
+    padding: 0 10px 32px 10px;
+}
+
+.settings-sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.settings-brand-icon-wrap {
+    width: 36px;
+    height: 36px;
+    background: var(--gnosi-blue);
+    color: white;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+}
+
+.settings-sidebar-title {
+    font-size: 1.5rem;
+    font-weight: 800;
+    margin: 0;
+    color: var(--text-primary);
+    letter-spacing: -0.03em;
+}
+
+.settings-sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.settings-sidebar-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.settings-sidebar-group__title {
+    margin: 0 10px 5px;
+}
+
+.settings-sidebar-group__toggle {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    margin: 0 10px 5px;
+    padding: 0;
+    text-align: start;
+}
+
+.settings-sidebar-group__toggle:hover,
+.settings-sidebar-group__toggle:focus-visible {
+    color: var(--text-primary);
+}
+
+.settings-sidebar-group__content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* Main Content */
+.settings-main {
+    flex: 1;
+    min-height: 0;
+    padding: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: var(--settings-bg);
+    position: relative;
+    /* No `scroll-behavior: smooth`: it makes every programmatic scroll an
+       animation, so jumping to a section lands late and `scrollTop` reads the
+       old value right after being set. Section changes should land at once. */
+    outline: none;
+}
+
+.settings-content-wrap {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 80px 40px;
+}
+
+/* Close Button Positioning */
+.settings-close-btn {
+    position: absolute;
+    top: 32px;
+    inset-inline-end: 32px;
+    z-index: 100;
+}
+
+/* Section Styling */
+.settings-section {
+    margin-bottom: 64px;
+}
+
+.settings-section-title-wrap {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+}
+
+.settings-section-icon-wrap {
+    color: var(--gnosi-blue);
+    display: flex;
+    padding: 10px;
+    background: rgba(59, 130, 246, 0.08);
+    border-radius: 14px;
+}
+
+.settings-section-title {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+}
+
+.settings-configurable-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--settings-configurable-gap, 12px);
+}
+
+.settings-filter-tabs {
+    display: flex;
+    gap: 6px;
+    margin: -6px 0 14px;
+}
+
+.settings-filter-tabs button {
+    padding: 6px 11px;
+    border: 1px solid var(--settings-border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.settings-filter-tabs button.is-active {
+    border-color: var(--gnosi-blue);
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--gnosi-blue);
+}
+
+.social-network-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.social-network-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    min-height: 50px;
+    padding: 10px 14px;
+    border: 1px solid var(--settings-border);
+    border-radius: 14px 14px 6px 6px;
+    background: var(--settings-sidebar-bg);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font: inherit;
+    font-weight: 700;
+    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s, color 0.2s;
+}
+
+.social-network-tab:hover,
+.social-network-tab:focus-visible {
+    border-color: var(--gnosi-blue);
+    color: var(--text-primary);
+    outline: none;
+}
+
+.social-network-tab:focus-visible {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+.social-network-tab.is-enabled {
+    background: color-mix(in srgb, var(--gnosi-blue) 12%, var(--settings-sidebar-bg));
+    border-color: var(--gnosi-blue);
+    color: var(--text-primary);
+}
+
+.social-network-tab .gnosi-toggle {
+    margin-left: 3px;
+}
+
+.social-network-tab__fallback {
+    font-size: 1.4rem;
+}
+
+.settings-configurable-item {
+    border-radius: 24px;
+    background: var(--settings-sidebar-bg) !important;
+    transition: all 0.2s !important;
+}
+
+.settings-configurable-item.is-editing {
+    border-color: var(--gnosi-blue) !important;
+    border-bottom-width: 0 !important;
+    border-radius: 24px 24px 0 0 !important;
+}
+
+.settings-configurable-item.is-editing:hover,
+.settings-plugin-item.is-expanded:hover {
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* Match the AI agent-list affordance across configurable Settings rows. */
+.settings-configurable-item:hover:not(.is-editing),
+.settings-plugin-item:hover:not(.is-expanded),
+.settings-hover-card:hover {
+    transform: scale(1.01) translateY(-2px);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+    border-color: rgba(59, 130, 246, 0.3) !important;
+}
+
+.settings-hover-card {
+    transition: all 0.2s !important;
+}
+
+.settings-hover-card.is-selected:hover {
+    border-color: var(--gnosi-blue) !important;
+}
+
+.settings-configurable-item.is-editing + [data-settings-editor-anchor-for] {
+    margin-top: calc(-1 * var(--settings-configurable-gap, 12px));
+}
+
+.settings-inline-editor {
+    box-sizing: border-box;
+    padding: 28px;
+    border: 1px solid var(--gnosi-blue);
+    border-radius: 24px;
+    background: var(--bg-primary);
+}
+
+.settings-inline-editor.is-create {
+    margin-bottom: 32px;
+}
+
+.settings-inline-editor.is-attached {
+    border-top: 0;
+    border-radius: 0 0 24px 24px;
+    background: var(--bg-primary);
+}
+
+.settings-inline-editor-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    color: var(--gnosi-blue);
+    font-size: 0.85rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.settings-inline-editor-heading,
+.ai-agent-form-title {
+    margin: 0 0 30px;
+    font-size: 1.4rem;
+    font-weight: 900;
+}
+
+.settings-inline-editor-compact {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 20px;
+    background: var(--settings-bg);
+}
+
+.ai-agent-form.is-attached {
+    background: var(--bg-primary);
+}
+
+.settings-inline-editor-compact .settings-inline-editor-heading {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.settings-plugin-item.is-expanded {
+    border-color: var(--gnosi-blue) !important;
+}
+
+.settings-plugin-item {
+    transition: all 0.2s;
+}
+
+/* Form Controls */
+.settings-form-group {
+    margin-bottom: 28px;
+}
+
+.settings-label {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+    margin-inline-start: 2px;
+}
+
+.settings-desc {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    opacity: 0.7;
+    margin-top: -2px;
+    margin-bottom: 12px;
+    line-height: 1.5;
+    margin-inline-start: 2px;
+}
+
+/* Account Cards */
+.account-row {
+    background: var(--settings-sidebar-bg) !important;
+    border: 1px solid var(--settings-border) !important;
+    padding: 20px 24px !important;
+    border-radius: 24px !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.account-row:hover {
+    border-color: var(--gnosi-blue) !important;
+    box-shadow: 0 12px 30px -10px rgba(59, 130, 246, 0.15) !important;
+    transform: translateY(-2px) !important;
+}
+
+.account-row.is-editing:hover {
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+/* Segmented Control */
+.segmented-control {
+    background: var(--bg-secondary) !important;
+    padding: 4px !important;
+    border-radius: 16px !important;
+    border: 1px solid var(--settings-border) !important;
+}
+
+.segmented-control button {
+    border-radius: 12px !important;
+    font-weight: 700 !important;
+}
+
+/* Sidebar Item Improvements */
+.settings-sidebar__item {
+    padding: 12px 16px !important;
+    border-radius: 14px !important;
+    font-weight: 700 !important;
+    font-size: 0.92rem !important;
+    gap: 12px !important;
+}
+
+.settings-sidebar__item.active {
+    background: var(--gnosi-blue) !important;
+    color: white !important;
+    box-shadow: 0 8px 16px -4px rgba(59, 130, 246, 0.3) !important;
+}
+
+.settings-sidebar__item.active svg {
+    opacity: 1 !important;
+}
+
+/* Hover temàtic per a les files/botons del FolderPickerModal.
+   Substitueix `hover:bg-zinc-800` (fons fosc fix que trencava el mode clar)
+   per un hover que segueix el tema actiu. */
+.folder-picker-item:hover {
+    background: var(--sidebar-item-hover) !important;
+}
+
+.ai-comparison-launcher {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 22px;
+    margin-bottom: 40px;
+    padding: 22px 24px;
+    border: 1px solid rgba(59, 130, 246, 0.24);
+    border-radius: 22px;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(139, 92, 246, 0.05));
+}
+
+.ai-comparison-launcher strong,
+.ai-comparison-launcher span {
+    display: block;
+}
+
+.ai-comparison-launcher strong {
+    margin-bottom: 5px;
+    font-size: 1rem;
+    color: var(--text-primary);
+}
+
+.ai-comparison-launcher span {
+    max-width: 520px;
+    color: var(--text-secondary);
+    font-size: 0.84rem;
+    line-height: 1.5;
+}
+
+.ai-comparison-launcher button {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    flex-shrink: 0;
+    padding: 11px 17px;
+    border-radius: 14px;
+}
+
+
+@media (max-width: 640px) {
+    .ai-comparison-launcher {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .ai-comparison-launcher button {
+        justify-content: center;
+    }
+}
+
+@media (max-width: 768px) {
+    .settings-overlay {
+        height: 100dvh;
+        backdrop-filter: blur(6px);
+    }
+
+    .settings-modal {
+        width: calc(100vw - 12px);
+        height: calc(100dvh - 12px);
+        max-height: none;
+        border-radius: 20px;
+        box-shadow: 0 20px 60px rgba(15, 23, 42, 0.22);
+    }
+
+    .settings-inner {
+        flex-direction: column;
+    }
+
+    .settings-sidebar {
+        width: 100%;
+        flex: 0 0 auto;
+        gap: 10px;
+        padding: 14px 54px 10px 14px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        border-inline-end: 0;
+        border-bottom: 1px solid var(--settings-border);
+    }
+
+    .settings-sidebar-header {
+        padding: 0;
+    }
+
+    .settings-sidebar-brand {
+        gap: 9px;
+    }
+
+    .settings-sidebar-title {
+        font-size: 1.05rem;
+    }
+
+    .settings-sidebar-nav {
+        width: max-content;
+        flex-direction: row;
+        gap: 6px;
+    }
+
+    .settings-sidebar-group,
+    .settings-sidebar-group__content {
+        flex-direction: row;
+        gap: 6px;
+    }
+
+    .settings-sidebar-group__title {
+        display: none;
+    }
+
+    .settings-sidebar-group__toggle {
+        min-height: var(--control-height-touch);
+        margin: 0;
+        padding: 0 12px;
+        border: 1px solid var(--settings-border);
+        border-radius: 12px;
+        background: var(--settings-bg);
+    }
+
+    .settings-sidebar__item {
+        min-height: var(--control-height-touch);
+        padding: 9px 13px !important;
+        white-space: nowrap;
+    }
+
+    .settings-main {
+        min-height: 0;
+    }
+
+    .settings-content-wrap {
+        max-width: none;
+        padding: 28px 16px 48px;
+    }
+
+    .settings-close-btn {
+        top: 12px;
+        inset-inline-end: 12px;
+    }
+
+    .account-row {
+        padding: 16px !important;
+        border-radius: 16px !important;
+    }
+}
