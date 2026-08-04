@@ -6,7 +6,7 @@ intentionally minimal — just the centered mark on a soft light background, in
 the style of Notion/Slack installers. electron-builder positions the app and
 Applications icons over this on mount.
 
-Run locally with the project venv::
+Run locally with the project venv (cairosvg + fonttools + Pillow)::
 
     python electron/scripts/generate-dmg-background.py
 """
