@@ -28,12 +28,18 @@ const parseNumber = (value) => {
     return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
 };
 
+const isFiniteMetric = (value) => value != null
+    && Number.isFinite(Number(value))
+    && Number(value) >= 0;
+
 const formatMetric = (value, digits = 1) => (
-    value == null ? '—' : Number(value).toLocaleString(undefined, { maximumFractionDigits: digits })
+    isFiniteMetric(value)
+        ? Number(value).toLocaleString(undefined, { maximumFractionDigits: digits })
+        : '—'
 );
 
 const formatContext = (value) => {
-    if (!value) return '—';
+    if (!isFiniteMetric(value)) return '—';
     if (value >= 1_000_000) return `${formatMetric(value / 1_000_000, 1)}M`;
     return `${formatMetric(value / 1000, 0)}K`;
 };
@@ -248,7 +254,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
         return sort.direction === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />;
     };
     const monthlyCost = (model) => {
-        if (model.input_price == null || model.output_price == null) return null;
+        if (!isFiniteMetric(model.input_price) || !isFiniteMetric(model.output_price)) return null;
         return (
             (parseNumber(inputTokens) / 1000000) * model.input_price
             + (parseNumber(outputTokens) / 1000000) * model.output_price
@@ -257,6 +263,13 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
     const metricSourceTitle = (model, field) => {
         const source = model.metric_sources?.[field];
         return source ? t(`model_comparison.metric_sources.${source}`) : undefined;
+    };
+    // Discrete inline marker for values filled from the 24h cache, so stale
+    // metrics are visible without hovering. Non-cached metrics render nothing.
+    const cachedMarker = (model, field) => {
+        if (model.metric_sources?.[field] !== 'artificial_analysis_cache') return null;
+        const title = t('model_comparison.metric_sources.artificial_analysis_cache');
+        return <span className="metric-cached-marker" title={title} aria-label={title}>·</span>;
     };
     const feedModels = feed?.models || [];
     const metricAvailability = {
@@ -788,14 +801,14 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                                                                 ))}
                                                             </div>
                                                         </td>
-                                                        {metricAvailability.intelligence && <td>{formatMetric(model.intelligence)}</td>}
-                                                        {metricAvailability.coding && <td>{formatMetric(model.coding)}</td>}
-                                                        {metricAvailability.agentic && <td>{formatMetric(model.agentic)}</td>}
-                                                        <td title={metricSourceTitle(model, 'input_price')}>{model.input_price == null ? '—' : `$${formatMetric(model.input_price, 3)}`}</td>
-                                                        <td title={metricSourceTitle(model, 'output_price')}>{model.output_price == null ? '—' : `$${formatMetric(model.output_price, 3)}`}</td>
-                                                        <td title={metricSourceTitle(model, 'context_window')}>{formatContext(model.context_window)}</td>
-                                                        {metricAvailability.speed && <td>{model.speed == null ? '—' : `${formatMetric(model.speed)} t/s`}</td>}
-                                                        {metricAvailability.latency && <td>{model.latency == null ? '—' : `${formatMetric(model.latency, 2)} s`}</td>}
+                                                        {metricAvailability.intelligence && <td title={metricSourceTitle(model, 'intelligence')}>{formatMetric(model.intelligence)}{cachedMarker(model, 'intelligence')}</td>}
+                                                        {metricAvailability.coding && <td title={metricSourceTitle(model, 'coding')}>{formatMetric(model.coding)}{cachedMarker(model, 'coding')}</td>}
+                                                        {metricAvailability.agentic && <td title={metricSourceTitle(model, 'agentic')}>{formatMetric(model.agentic)}{cachedMarker(model, 'agentic')}</td>}
+                                                        <td title={metricSourceTitle(model, 'input_price')}>{model.input_price == null ? '—' : `$${formatMetric(model.input_price, 3)}`}{cachedMarker(model, 'input_price')}</td>
+                                                        <td title={metricSourceTitle(model, 'output_price')}>{model.output_price == null ? '—' : `$${formatMetric(model.output_price, 3)}`}{cachedMarker(model, 'output_price')}</td>
+                                                        <td title={metricSourceTitle(model, 'context_window')}>{formatContext(model.context_window)}{cachedMarker(model, 'context_window')}</td>
+                                                        {metricAvailability.speed && <td title={metricSourceTitle(model, 'speed')}>{isFiniteMetric(model.speed) ? `${formatMetric(model.speed)} t/s` : '—'}{cachedMarker(model, 'speed')}</td>}
+                                                        {metricAvailability.latency && <td title={metricSourceTitle(model, 'latency')}>{isFiniteMetric(model.latency) ? `${formatMetric(model.latency, 2)} s` : '—'}{cachedMarker(model, 'latency')}</td>}
                                                         {metricAvailability.profile && <td><span className={`model-profile-badge ${model.profile}`}>{PROFILE_ICONS[model.profile]} {t(`model_comparison.profiles.${model.profile}`)}</span></td>}
                                                         <td><strong>{cost == null ? '—' : `$${formatMetric(cost, 2)}`}</strong></td>
                                                         <td className="model-comparison-sticky-end">

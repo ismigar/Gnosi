@@ -47,6 +47,105 @@ def test_build_payload_includes_every_row_and_assigns_frontier_profile():
     assert payload["intelligence_index_version"] == 4.1
 
 
+def test_number_rejects_non_finite_and_negative_sentinels():
+    """NaN/Infinity/negatives must fall back to models.dev, not render as $NaN."""
+    assert aa._number(float("nan")) is None
+    assert aa._number(float("inf")) is None
+    assert aa._number(float("-inf")) is None
+    assert aa._number(-5) is None
+    assert aa._number("-0.1") is None
+    # Legitimate values pass through, including a genuinely free model.
+    assert aa._number(0) == 0.0
+    assert aa._number("1.5") == 1.5
+    assert aa._number(None) is None
+    assert aa._number("not-a-number") is None
+
+
+def test_build_payload_prefers_creator_matched_catalog_entry():
+    """Enrichment must pick the canonical host, not a reseller with more context."""
+    row = {
+        "id": "claude-id",
+        "slug": "claude-3-5-sonnet",
+        "name": "Claude 3.5 Sonnet",
+        "model_creator": {"name": "Anthropic"},
+        "evaluations": {"artificial_analysis_intelligence_index": 50},
+    }
+    catalog = {"providers": [
+        {
+            "id": "digitalocean",
+            "name": "DigitalOcean",
+            "is_local": False,
+            "models": [{
+                "id": "anthropic-claude-3-5-sonnet",
+                "name": "Claude 3.5 Sonnet",
+                "context_window": 2_000_000,  # larger — would win on context alone
+                "cost_in": 5,
+                "cost_out": 25,
+            }],
+        },
+        {
+            "id": "anthropic",
+            "name": "Anthropic",
+            "is_local": False,
+            "models": [{
+                "id": "claude-3-5-sonnet",
+                "name": "Claude 3.5 Sonnet",
+                "context_window": 200_000,
+                "cost_in": 3,
+                "cost_out": 15,
+            }],
+        },
+    ]}
+    model = aa.build_comparison_payload([row], catalog)["models"][0]
+    # Anthropic wins over DigitalOcean despite the smaller window.
+    assert model["context_window"] == 200_000
+    assert model["input_price"] == 3
+    assert model["output_price"] == 15
+    assert any(r["provider"] == "anthropic" for r in model["routes"])
+
+
+def test_build_payload_falls_back_to_max_context_when_creator_unknown():
+    """When no provider matches the creator, the legacy max-context rule applies."""
+    row = {
+        "id": "mystery-id",
+        "slug": "mystery-model",
+        "name": "Mystery Model",
+        "model_creator": {"name": "Unknown Labs"},
+        "evaluations": {"artificial_analysis_intelligence_index": 50},
+    }
+    catalog = {"providers": [
+        {
+            "id": "host-a",
+            "name": "Host A",
+            "is_local": False,
+            "models": [{
+                "id": "mystery-model",
+                "name": "Mystery Model",
+                "context_window": 100_000,
+            }],
+        },
+        {
+            "id": "host-b",
+            "name": "Host B",
+            "is_local": False,
+            "models": [{
+                "id": "mystery-model",
+                "name": "Mystery Model",
+                "context_window": 300_000,
+            }],
+        },
+    ]}
+    model = aa.build_comparison_payload([row], catalog)["models"][0]
+    assert model["context_window"] == 300_000
+
+
+def test_build_payload_no_longer_emits_end_to_end():
+    """end_to_end is computed but never displayed; drop it from the payload."""
+    row = _row(1, "Any Model", 25, 50, 1, 2)
+    model = aa.build_comparison_payload([row])["models"][0]
+    assert "end_to_end" not in model
+
+
 def test_build_payload_deduplicates_same_model_across_rows():
     """Pagination overlap or upstream id/slug variation must not duplicate a model."""
     first = _row(1, "Twin Model", 30, 80, None, None)
