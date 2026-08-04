@@ -156,7 +156,14 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
                     return;
                 }
                 try {
-                    if (isTldrawSnapshot) loadSnapshot(store, data);
+                    if (isTldrawSnapshot) {
+                        const snapshotToLoad = data.store
+                            ? data
+                            : (data.document?.store
+                                ? { store: data.document.store, schema: data.document.schema }
+                                : (data.document ? { store: data.document, schema: data.schema } : data));
+                        loadSnapshot(store, snapshotToLoad);
+                    }
                     setLoadState('ready');
                 } catch (e) {
                     console.error("Error applying drawing snapshot:", e);
