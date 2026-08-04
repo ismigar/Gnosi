@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from bisect import bisect_left, bisect_right
 import json
+import math
 import os
 import re
 from datetime import datetime, timezone
@@ -38,7 +39,6 @@ _PRESERVED_METRIC_FIELDS = (
     "context_window",
     "speed",
     "latency",
-    "end_to_end",
     "intelligence",
     "coding",
     "agentic",
@@ -122,9 +122,18 @@ class ArtificialAnalysisError(RuntimeError):
 
 
 def _number(value: Any) -> Optional[float]:
+    """Coerce to float, rejecting non-finite or negative sentinels.
+
+    NaN/Infinity (Python's json reads the bare ``NaN``/``Infinity`` literals)
+    and negative values are treated as missing so the models.dev fallback can
+    engage instead of rendering ``$NaN`` or ``$-5``. Zero is preserved because
+    genuinely free models report a real price of 0.
+    """
     try:
         result = float(value)
     except (TypeError, ValueError):
+        return None
+    if not math.isfinite(result) or result < 0:
         return None
     return result
 
@@ -144,22 +153,32 @@ def _supported_modes(*values: Any) -> List[str]:
     return sorted(modes or {"text"})
 
 
-def _catalog_enrichment_index(catalog: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
-    """Index metadata and usable router routes by normalized model id/name."""
-    index: Dict[str, Dict[str, Any]] = {}
+def _catalog_enrichment_index(catalog: Dict[str, Any]) -> Dict[str, List[Dict[str, Any]]]:
+    """Index metadata and usable router routes by normalized model id/name.
+
+    Each normalized name maps to a list of per-provider entries (a model can be
+    listed by its canonical host and several resellers). Keeping entries separate
+    — instead of collapsing them by max context_window — lets the caller pick the
+    canonical host when the AA model creator is known, avoiding enrichment from a
+    third-party whose pricing/window may differ.
+    """
+    index: Dict[str, List[Dict[str, Any]]] = {}
     for provider in catalog.get("providers") or []:
         for model in provider.get("models") or []:
-            candidate = {
+            provider_id = str(provider.get("id") or "")
+            entry = {
+                "provider_id": provider_id,
                 "context_window": int(model.get("context_window") or 0),
                 "input_price": _number(model.get("cost_in")),
                 "output_price": _number(model.get("cost_out")),
                 "tags": list(model.get("tags") or []),
                 "modes": _supported_modes(model.get("modes")),
                 "release_date": model.get("release_date") or "",
+                "routes": [],
             }
             route = {
-                "provider": str(provider.get("id") or ""),
-                "provider_name": str(provider.get("name") or provider.get("id") or ""),
+                "provider": provider_id,
+                "provider_name": str(provider.get("name") or provider_id),
                 "model_id": str(model.get("id") or ""),
                 "model_name": str(model.get("name") or model.get("id") or ""),
                 "is_local": bool(provider.get("is_local")),
@@ -173,31 +192,70 @@ def _catalog_enrichment_index(catalog: Dict[str, Any]) -> Dict[str, Dict[str, An
                 key = _normalize_name(str(raw_key or ""))
                 if not key:
                     continue
-                current = index.get(key)
-                if current is None:
-                    current = {**candidate, "routes": []}
-                    index[key] = current
-                elif candidate["context_window"] > current["context_window"]:
-                    current.update(candidate)
-                route_key = (route["provider"], route["model_id"])
-                if route["provider"] and route["model_id"] and not any(
-                    (item["provider"], item["model_id"]) == route_key
-                    for item in current["routes"]
+                bucket = index.setdefault(key, [])
+                existing = next(
+                    (item for item in bucket if item["provider_id"] == provider_id),
+                    None,
+                )
+                if existing is None:
+                    bucket.append(entry)
+                    existing = entry
+                if (
+                    route["provider"]
+                    and route["model_id"]
+                    and not any(
+                        (item["provider"], item["model_id"]) == (route["provider"], route["model_id"])
+                        for item in existing["routes"]
+                    )
                 ):
-                    current["routes"].append(route)
+                    existing["routes"].append(route)
     return index
+
+
+def _provider_matches_creator(provider_id: str, creator: str) -> bool:
+    """Return True when a catalog provider id plausibly owns the AA creator.
+
+    Used to avoid matching a model against a third-party host's catalog entry
+    (e.g. AA creator "Anthropic" should not enrich from DigitalOcean's listing).
+    Comparison is normalized; "anthropic" matches both "Anthropic" and the
+    common alias "anthropic" while "mistral" matches "mistralai".
+    """
+    provider = _normalize_name(provider_id)
+    owner = _normalize_name(creator)
+    if not provider or not owner:
+        return False
+    return owner == provider or provider.startswith(owner) or owner in provider
 
 
 def _matching_enrichment_entries(
     model: Dict[str, Any],
-    enrichment: Dict[str, Dict[str, Any]],
+    enrichment: Dict[str, List[Dict[str, Any]]],
 ) -> List[Dict[str, Any]]:
-    """Return distinct catalog entries matching a comparison model."""
+    """Return distinct catalog entries matching a comparison model, creator first.
+
+    The enrichment index holds one entry per provider that lists the model; this
+    flattens the buckets for the matching slug/name and orders the canonical host
+    (the one matching the AA creator) first so the caller can prefer it.
+    """
+    creator_name = str((model.get("model_creator") or {}).get("name") or "")
+    seen_ids: set = set()
     matches: List[Dict[str, Any]] = []
     for raw_key in (model.get("slug"), model.get("name")):
-        entry = enrichment.get(_normalize_name(str(raw_key or "")))
-        if entry is not None and entry not in matches:
+        bucket = enrichment.get(_normalize_name(str(raw_key or "")))
+        if not bucket:
+            continue
+        for entry in bucket:
+            entry_id = (entry.get("provider_id"), entry.get("context_window"))
+            if entry_id in seen_ids:
+                continue
+            seen_ids.add(entry_id)
             matches.append(entry)
+    if creator_name and matches:
+        matches.sort(
+            key=lambda entry: not _provider_matches_creator(
+                entry.get("provider_id") or "", creator_name
+            )
+        )
     return matches
 
 
@@ -311,10 +369,18 @@ def build_comparison_payload(
         performance = row.get("performance") or {}
         evaluations = row.get("evaluations") or {}
         creator = row.get("model_creator") or {}
+        creator_name = str(creator.get("name") or "")
         matched_entries = _matching_enrichment_entries(row, enrichment)
+        # _matching_enrichment_entries orders creator-matched providers first;
+        # pick the first, breaking ties toward the larger context window. If no
+        # provider matches the creator, the list is unchanged and max-context
+        # (the legacy behavior) decides.
         match = max(
             matched_entries,
-            key=lambda item: item.get("context_window") or 0,
+            key=lambda item: (
+                _provider_matches_creator(item.get("provider_id") or "", creator_name),
+                item.get("context_window") or 0,
+            ),
             default={},
         )
         routes = []
@@ -348,7 +414,6 @@ def build_comparison_payload(
             "context_window": context_window or None,
             "speed": _number(performance.get("median_output_tokens_per_second")),
             "latency": _number(performance.get("median_time_to_first_token_seconds")),
-            "end_to_end": _number(performance.get("median_end_to_end_response_time_seconds")),
             "intelligence": _number(evaluations.get("artificial_analysis_intelligence_index")),
             "coding": _number(evaluations.get("artificial_analysis_coding_index")),
             "agentic": _number(evaluations.get("artificial_analysis_agentic_index")),
