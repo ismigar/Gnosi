@@ -137,51 +137,61 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
         if (!drawingId) return; // without an id there's no persistence (initial 'ready' state)
 
         const controller = new AbortController();
-        axios.get(`/api/vault/drawings/${drawingId}`, { signal: controller.signal })
-            .then(res => {
-                if (controller.signal.aborted) return;
-                const data = res.data;
-                // loadSnapshot does NOT validate the format: with an object lacking
-                // store/document/session keys it does nothing (silent no-op) — this is the case
-                // of legacy .excalidraw.json drawings. We validate before calling it.
-                const isPlainObject = data && typeof data === 'object' && !Array.isArray(data);
-                // {} or falsy/non-object is the initial data the dashboard uses to create a new drawing
-                const isEmptyInitial = !data || typeof data !== 'object' || Object.keys(data).length === 0;
-                const isTldrawSnapshot = isPlainObject &&
-                    ('store' in data || 'document' in data || 'session' in data);
+        let retries = 0;
 
-                if (!isEmptyInitial && !isTldrawSnapshot) {
-                    console.error(`Drawing ${drawingId} has a format incompatible with tldraw (legacy .excalidraw?)`);
-                    setLoadState('incompatible');
-                    return;
-                }
-                try {
-                    if (isTldrawSnapshot) {
-                        const snapshotToLoad = data.store
-                            ? data
-                            : (data.document?.store
-                                ? { store: data.document.store, schema: data.document.schema }
-                                : (data.document ? { store: data.document, schema: data.schema } : data));
-                        loadSnapshot(store, snapshotToLoad);
+        const fetchDrawing = () => {
+            axios.get(`/api/vault/drawings/${drawingId}`, { signal: controller.signal })
+                .then(res => {
+                    if (controller.signal.aborted) return;
+                    const data = res.data;
+                    // loadSnapshot does NOT validate the format: with an object lacking
+                    // store/document/session keys it does nothing (silent no-op) — this is the case
+                    // of legacy .excalidraw.json drawings. We validate before calling it.
+                    const isPlainObject = data && typeof data === 'object' && !Array.isArray(data);
+                    // {} or falsy/non-object is the initial data the dashboard uses to create a new drawing
+                    const isEmptyInitial = !data || typeof data !== 'object' || Object.keys(data).length === 0;
+                    const isTldrawSnapshot = isPlainObject &&
+                        ('store' in data || 'document' in data || 'session' in data);
+
+                    if (!isEmptyInitial && !isTldrawSnapshot) {
+                        console.error(`Drawing ${drawingId} has a format incompatible with tldraw (legacy .excalidraw?)`);
+                        setLoadState('incompatible');
+                        return;
                     }
-                    setLoadState('ready');
-                } catch (e) {
-                    console.error("Error applying drawing snapshot:", e);
-                    setLoadState('incompatible');
-                }
-            })
-            .catch((err) => {
-                if (controller.signal.aborted || err?.name === 'CanceledError' || axios.isCancel?.(err)) return;
-                if (err?.response?.status === 404) {
-                    // The drawing doesn't exist yet → new empty whiteboard (can be saved)
-                    setLoadState('ready');
-                } else {
-                    // 500, network, OneDrive online-only file... the drawing
-                    // exists but we couldn't read it: we block saving.
-                    console.error("Error loading drawing:", err);
-                    setLoadState('error');
-                }
-            });
+                    try {
+                        if (isTldrawSnapshot) {
+                            const snapshotToLoad = data.store
+                                ? data
+                                : (data.document?.store
+                                    ? { store: data.document.store, schema: data.document.schema }
+                                    : (data.document ? { store: data.document, schema: data.schema } : data));
+                            loadSnapshot(store, snapshotToLoad);
+                        }
+                        setLoadState('ready');
+                    } catch (e) {
+                        console.error("Error applying drawing snapshot:", e);
+                        setLoadState('incompatible');
+                    }
+                })
+                .catch((err) => {
+                    if (controller.signal.aborted || err?.name === 'CanceledError' || axios.isCancel?.(err)) return;
+                    if (err?.response?.status === 404) {
+                        // The drawing doesn't exist yet → new empty whiteboard (can be saved)
+                        setLoadState('ready');
+                    } else if (retries < 2) {
+                        // Retry transient proxy/network hiccup before showing error
+                        retries++;
+                        setTimeout(fetchDrawing, 500);
+                    } else {
+                        // 500, network, OneDrive online-only file... the drawing
+                        // exists but we couldn't read it: we block saving.
+                        console.error("Error loading drawing:", err);
+                        setLoadState('error');
+                    }
+                });
+        };
+
+        fetchDrawing();
 
         return () => {
             controller.abort();
