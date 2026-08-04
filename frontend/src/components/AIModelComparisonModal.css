@@ -101,6 +101,7 @@
 .model-availability-toggle:disabled { cursor: wait; opacity: .62; }
 .model-availability-toggle svg { position: absolute; inset: 3px auto auto 11px; }
 .model-profile-badge { display: inline-flex; align-items: center; padding: 6px 9px; border-radius: 999px; background: var(--settings-sidebar-bg); font-weight: 800; }
+.metric-cached-marker { margin-left: 2px; color: var(--text-secondary); font-weight: 700; cursor: help; }
 .model-comparison-empty { padding: 48px; text-align: center; color: var(--text-secondary); }
 .model-comparison-note { margin: 12px 2px 0; color: var(--text-secondary); font-size: .75rem; }
 .model-comparison-note a { color: var(--gnosi-blue); font-weight: 700; text-decoration: none; }
