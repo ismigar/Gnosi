@@ -26,6 +26,13 @@ mobile, tablet, and desktop widths while preserving one shared visual system.
   than widening the page.
 - English, Catalan, and Spanish landing pages share identical structural
   behavior and localized accessible names.
+- A landing-page pull request that changes one localized HTML entry point must
+  update all three entry points in the same change set.
+- A functional Gnosi source change must update reviewed or generated public
+  engineering Markdown; locale verification then requires Catalan and Spanish
+  mirrors before merge.
+- A synchronized documentation change on public `main` triggers the Pages
+  workflow automatically; manual dispatch remains a recovery path only.
 
 ## Implementation rules
 
@@ -56,6 +63,8 @@ mobile, tablet, and desktop widths while preserving one shared visual system.
 
 - Static contract tests cover the three localized landing pages and the shared
   documentation override.
+- CI compares the landing-page semantic structure and changed locale files.
+- CI compares functional implementation paths with public documentation paths.
 - Strict English, Catalan, and Spanish MkDocs builds pass.
 - Browser checks run at 390 by 844, 768 by 1024, and 1280 by 720 for the landing
   page and documentation portal.

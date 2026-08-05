@@ -136,6 +136,12 @@ product completeness.
 6. Record new restrictions or incidents in the relevant directive and promote
    stable knowledge into the public domain guide.
 
+Pull-request CI also compares the changed implementation paths with the public
+English engineering tree. Backend, frontend, desktop, integration, native
+runtime, and Docker behavior cannot merge without a reviewed or generated
+Markdown update. The locale mirror check then blocks the same change until the
+Catalan and Spanish portals match the English source tree.
+
 ## Restrictions and edge cases
 
 - Do not treat Markdown file count as documentation coverage. Coverage requires

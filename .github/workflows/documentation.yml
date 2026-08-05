@@ -22,6 +22,8 @@ jobs:
         working-directory: monorepo/apps/gnosi
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v7
         with:
@@ -36,6 +38,11 @@ jobs:
         env:
           PYTHONPATH: .
         run: pytest pipeline/skills/technical_documentation/tests -q
+
+      - name: Require documentation for functional changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: python pipeline/skills/technical_documentation/scripts/check_change_impact.py --base-ref "$BASE_SHA"
 
       - name: Verify generated reference
         run: python pipeline/skills/technical_documentation/scripts/generate.py --check
