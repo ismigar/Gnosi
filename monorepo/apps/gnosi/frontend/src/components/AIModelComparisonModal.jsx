@@ -73,9 +73,11 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
     const [fallbackNoticeDismissed, setFallbackNoticeDismissed] = useState(false);
     const [tableScrollWidth, setTableScrollWidth] = useState(0);
     const [tableViewportWidth, setTableViewportWidth] = useState(0);
+    const [filterHeight, setFilterHeight] = useState(0);
     const bodyRef = React.useRef(null);
     const tableWrapRef = React.useRef(null);
     const scrollbarRef = React.useRef(null);
+    const toolbarRef = React.useRef(null);
 
     useEffect(() => {
         if (!isOpen) return undefined;
@@ -120,6 +122,19 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
         observer.observe(tableWrap);
         return () => observer.disconnect();
     }, [feed, isOpen]);
+
+    // Track the sticky filter bar height so the table header and controls can
+    // offset themselves below it without hardcoding a magic number. The toolbar
+    // wraps onto multiple rows at narrow widths, so its height is not constant.
+    useEffect(() => {
+        if (!isOpen || !toolbarRef.current) return undefined;
+        const toolbar = toolbarRef.current;
+        const updateHeight = () => setFilterHeight(toolbar.offsetHeight);
+        updateHeight();
+        const observer = new ResizeObserver(updateHeight);
+        observer.observe(toolbar);
+        return () => observer.disconnect();
+    }, [isOpen, feed]);
 
     useEffect(() => {
         if (!isOpen) return undefined;
@@ -595,7 +610,13 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                     </button>
                 </header>
 
-                <div className="model-comparison-body" ref={bodyRef} tabIndex={0} aria-label={t('model_comparison.keyboard_scroll_hint')}>
+                <div
+                    className="model-comparison-body"
+                    ref={bodyRef}
+                    tabIndex={0}
+                    aria-label={t('model_comparison.keyboard_scroll_hint')}
+                    style={{ '--filter-sticky-height': `${filterHeight}px` }}
+                >
                     {loading && (
                         <div className="model-comparison-status" role="status">
                             <Loader2 className="animate-spin" size={28} />
@@ -685,7 +706,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                                 </div>
                             )}
 
-                            <div className="model-comparison-toolbar">
+                            <div className="model-comparison-toolbar" ref={toolbarRef}>
                                 <label className="model-search">
                                     <Search size={18} />
                                     <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('model_comparison.search')} />
