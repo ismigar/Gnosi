@@ -75,7 +75,7 @@
     "remark-math": "^6.0.0",
     "rrule": "^2.8.1",
     "sigma": "^3.0.2",
-    "tldraw": "^3.15.6",
+    "tldraw": "^5.2.5",
     "uuid": "^11.1.0"
   },
   "devDependencies": {
