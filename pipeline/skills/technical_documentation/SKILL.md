@@ -18,6 +18,7 @@ reading local secrets.
 - Domain coverage configuration: `domains.json`.
 - Generator: `scripts/generate.py`.
 - Validator: `scripts/validate.py`.
+- Functional change gate: `scripts/check_change_impact.py`.
 - Portal configuration: `mkdocs.yml` at the application root.
 - Development rules and incident memory:
   `docs/dev_memory/directives/technical_documentation_system.md` at the private
@@ -34,6 +35,7 @@ Run from `monorepo/apps/gnosi/`:
 python pipeline/skills/technical_documentation/scripts/generate.py
 python pipeline/skills/technical_documentation/scripts/generate.py --check
 python pipeline/skills/technical_documentation/scripts/validate.py
+python pipeline/skills/technical_documentation/scripts/check_change_impact.py --base-ref <base-commit>
 mkdocs build --strict
 ```
 
@@ -63,6 +65,11 @@ location.
 4. Confirm that the coverage page reports `covered` and that every pattern is
    accurate.
 5. Run validation and the strict MkDocs build.
+
+Every pull request that changes shipped backend, frontend, integration,
+desktop, or deployment behavior must also change at least one public English
+engineering Markdown page. The locale mirror check then requires Catalan and
+Spanish parity before the pull request can merge.
 
 ## Restrictions and edge cases
 

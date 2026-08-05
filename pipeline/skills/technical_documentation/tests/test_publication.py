@@ -27,6 +27,11 @@ SITE_SHELL_TEMPLATE = APP_ROOT / "docs" / "engineering-overrides" / "main.html"
 def test_pages_workflow_publishes_the_engineering_subdirectory():
     """The synchronized public workflow must preserve the canonical URL path."""
     workflow = yaml.safe_load(PAGES_WORKFLOW.read_text(encoding="utf-8"))
+    workflow_source = PAGES_WORKFLOW.read_text(encoding="utf-8")
+
+    assert "  push:" in workflow_source
+    assert '      - "apps/gnosi/docs/engineering/**"' in workflow_source
+    assert "  workflow_dispatch:" in workflow_source
 
     assert workflow["permissions"] == {
         "contents": "read",
@@ -110,3 +115,5 @@ def test_private_ci_validates_public_workflow_changes():
     private_workflow = DOCUMENTATION_CI_WORKFLOW.read_text(encoding="utf-8")
 
     assert '"monorepo/.github/workflows/documentation-pages.yml"' in private_workflow
+    assert "check_change_impact.py" in private_workflow
+    assert "fetch-depth: 0" in private_workflow
