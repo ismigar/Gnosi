@@ -104,6 +104,90 @@ def test_build_payload_prefers_creator_matched_catalog_entry():
     assert any(r["provider"] == "anthropic" for r in model["routes"])
 
 
+def test_build_payload_resolves_effort_suffix_to_base_model():
+    """AA appends effort suffixes (-high/-xhigh/-max) the catalog lacks."""
+    row = {
+        "id": "opus-5-xhigh",
+        "slug": "claude-opus-5-xhigh",
+        "name": "Claude Opus 5 (Xhigh)",
+        "model_creator": {"name": "Anthropic"},
+        "evaluations": {"artificial_analysis_intelligence_index": 70},
+    }
+    catalog = {"providers": [{
+        "id": "anthropic",
+        "name": "Anthropic",
+        "is_local": False,
+        "models": [{
+            "id": "claude-opus-5",
+            "name": "Claude Opus 5",
+            "context_window": 1_000_000,
+        }],
+    }]}
+    model = aa.build_comparison_payload([row], catalog)["models"][0]
+    assert model["context_window"] == 1_000_000
+    assert model["metric_sources"]["context_window"] == "models_dev"
+
+
+def test_build_payload_resolves_composite_date_and_effort_suffix():
+    """Composite suffix 'deepseek-v4-flash-0420-high' reduces to base."""
+    row = {
+        "id": "ds-flash-high",
+        "slug": "deepseek-v4-flash-0420-high",
+        "name": "DeepSeek V4 Flash (Reasoning, High Effort)",
+        "model_creator": {"name": "DeepSeek"},
+        "evaluations": {"artificial_analysis_intelligence_index": 40},
+    }
+    catalog = {"providers": [{
+        "id": "deepseek",
+        "name": "DeepSeek",
+        "is_local": False,
+        "models": [{
+            "id": "deepseek-v4-flash",
+            "name": "DeepSeek V4 Flash",
+            "context_window": 1_050_000,
+        }],
+    }]}
+    model = aa.build_comparison_payload([row], catalog)["models"][0]
+    assert model["context_window"] == 1_050_000
+
+
+def test_build_payload_resolves_thinking_variant_suffix():
+    """'-thinking' suffix is stripped so the base model resolves."""
+    row = {
+        "id": "opus-45-thinking",
+        "slug": "claude-opus-4-5-thinking",
+        "name": "Claude Opus 4.5 (Reasoning)",
+        "model_creator": {"name": "Anthropic"},
+        "evaluations": {"artificial_analysis_intelligence_index": 65},
+    }
+    catalog = {"providers": [{
+        "id": "anthropic",
+        "name": "Anthropic",
+        "is_local": False,
+        "models": [{
+            "id": "claude-opus-4-5",
+            "name": "Claude Opus 4.5",
+            "context_window": 200_000,
+        }],
+    }]}
+    model = aa.build_comparison_payload([row], catalog)["models"][0]
+    assert model["context_window"] == 200_000
+
+
+def test_build_payload_leaves_context_null_when_base_not_in_catalog():
+    """Models with no catalog entry at all stay null (no false positives)."""
+    row = {
+        "id": "mystery-0714",
+        "slug": "mystery-0714",
+        "name": "Mystery Model (Beta)",
+        "model_creator": {"name": "Unknown Labs"},
+        "evaluations": {"artificial_analysis_intelligence_index": 30},
+    }
+    catalog = {"providers": []}
+    model = aa.build_comparison_payload([row], catalog)["models"][0]
+    assert model["context_window"] is None
+
+
 def test_build_payload_falls_back_to_max_context_when_creator_unknown():
     """When no provider matches the creator, the legacy max-context rule applies."""
     row = {
