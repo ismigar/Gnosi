@@ -227,6 +227,51 @@ def _provider_matches_creator(provider_id: str, creator: str) -> bool:
     return owner == provider or provider.startswith(owner) or owner in provider
 
 
+# Suffixes Artificial Analysis appends to model slugs that models.dev catalog
+# usually lists under the bare base name. Stripped iteratively so composite
+# suffixes (e.g. "deepseek-v4-flash-0420-high") reduce to the catalog entry.
+_EFFORT_SUFFIX_PATTERNS = (
+    re.compile(r"-(xhigh|high|medium|low|max|min|nano|mini|small|large)$", re.I),
+    re.compile(r"-(adaptive|thinking|reasoning|non-reasoning|instruct|chat|base|omni)$", re.I),
+    re.compile(r"-(effort|max-effort|high-effort|medium-effort|low-effort)$", re.I),
+    re.compile(r"-\d{3,4}$"),  # compact date like 0420
+    re.compile(r"-\d{2}-\d{2}$"),  # MM-DD
+    re.compile(r"-20\d{2}-\d{2}-\d{2}$"),
+    re.compile(r"-(may|jan|apr|mar|feb|jun|jul|aug|sep|oct|nov|dec)['']?2?5?$", re.I),
+    re.compile(r"-(alpha|beta|exp|experimental|preview|latest|canary|stable)$", re.I),
+    re.compile(r"-(minimal|maximal)$", re.I),
+    re.compile(r"-(build|v\d+)$", re.I),
+)
+
+
+def _slug_candidate_bases(slug: str) -> List[str]:
+    """Yield slug variants with known effort/variant suffixes stripped.
+
+    The original slug is yielded first (exact match preferred), then progressively
+    stripped forms. A model like ``deepseek-v4-flash-0420-high`` yields:
+    ``deepseek-v4-flash-0420-high``, ``deepseek-v4-flash-0420``, ``deepseek-v4-flash``.
+    Deduplication keeps the iteration bounded.
+    """
+    candidates: List[str] = []
+    seen: set = set()
+    current = slug
+    if current:
+        candidates.append(current)
+        seen.add(current)
+    changed = True
+    while changed:
+        changed = False
+        for pattern in _EFFORT_SUFFIX_PATTERNS:
+            new = pattern.sub("", current)
+            if new != current and new and new not in seen:
+                seen.add(new)
+                candidates.append(new)
+                current = new
+                changed = True
+                break
+    return candidates
+
+
 def _matching_enrichment_entries(
     model: Dict[str, Any],
     enrichment: Dict[str, List[Dict[str, Any]]],
@@ -235,21 +280,24 @@ def _matching_enrichment_entries(
 
     The enrichment index holds one entry per provider that lists the model; this
     flattens the buckets for the matching slug/name and orders the canonical host
-    (the one matching the AA creator) first so the caller can prefer it.
+    (the one matching the AA creator) first so the caller can prefer it. Suffixes
+    AA appends for effort/variant (e.g. ``-high``, ``-thinking``, ``-0420``) are
+    stripped iteratively so a model listed under its base name still resolves.
     """
     creator_name = str((model.get("model_creator") or {}).get("name") or "")
     seen_ids: set = set()
     matches: List[Dict[str, Any]] = []
     for raw_key in (model.get("slug"), model.get("name")):
-        bucket = enrichment.get(_normalize_name(str(raw_key or "")))
-        if not bucket:
-            continue
-        for entry in bucket:
-            entry_id = (entry.get("provider_id"), entry.get("context_window"))
-            if entry_id in seen_ids:
+        for candidate in _slug_candidate_bases(str(raw_key or "")):
+            bucket = enrichment.get(_normalize_name(candidate))
+            if not bucket:
                 continue
-            seen_ids.add(entry_id)
-            matches.append(entry)
+            for entry in bucket:
+                entry_id = (entry.get("provider_id"), entry.get("context_window"))
+                if entry_id in seen_ids:
+                    continue
+                seen_ids.add(entry_id)
+                matches.append(entry)
     if creator_name and matches:
         matches.sort(
             key=lambda entry: not _provider_matches_creator(
