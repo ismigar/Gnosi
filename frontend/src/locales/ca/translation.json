@@ -4064,6 +4064,7 @@
     }
   },
   "model_comparison": {
+    "show_incomplete": "Mostrar models sense dades",
     "launch_title": "Compara i configura models d’IA",
     "launch_description": "Activa o desactiva models directament des de la comparativa. L’assistent et demanarà el proveïdor, si l’execució és local o remota i la clau API només quan calgui.",
     "open": "Comparar i configurar",
@@ -4166,7 +4167,7 @@
       "activate": "Activa el model"
     },
     "profiles": { "worker": "Peó", "administrative": "Administratiu", "documentalist": "Documentalista", "allrounder": "Totterreny", "expert": "Perit / Director", "unrated": "Sense puntuació" },
-    "columns": { "model": "Model", "creator": "Creador", "provider": "Proveïdor", "modes": "Modes compatibles", "intelligence": "Intel·ligència", "coding": "Codi", "agentic": "Agents", "input_price": "Entrada $/1M", "output_price": "Sortida $/1M", "context": "Context", "speed": "Velocitat", "latency": "Latència", "uptime": "Disponibilitat", "profile": "Ús recomanat", "quantization": "Quantització", "monthly_cost": "Est. $/mes", "available": "Disponible" }
+    "columns": { "model": "Model", "creator": "Creador", "provider": "Proveïdor", "modes": "Modes compatibles", "intelligence": "Intel·ligència", "coding": "Codi", "agentic": "Agents", "input_price": "Entrada {{symbol}}/1M", "output_price": "Sortida {{symbol}}/1M", "context": "Context", "speed": "Velocitat", "latency": "Latència", "uptime": "Disponibilitat", "profile": "Ús recomanat", "quantization": "Quantització", "monthly_cost": "Est. {{symbol}}/mes", "available": "Disponible" }
   },
   "tags": {
     "empty": "Encara no hi ha etiquetes. Afegeix-ne via la propietat «tags».",

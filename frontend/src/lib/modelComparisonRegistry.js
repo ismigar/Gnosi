@@ -8,10 +8,10 @@ export function registryEntryMatchesModel(entry, comparisonModel) {
 
     const registryModel = normalize(entry?.model_id);
     if (!registryModel) return false;
-    return [comparisonModel?.slug, comparisonModel?.name]
+    return [comparisonModel?.slug, comparisonModel?.name, comparisonModel?.id]
         .map(normalize)
         .filter(Boolean)
-        .includes(registryModel);
+        .some((comp) => comp === registryModel || registryModel.includes(comp) || comp.includes(registryModel));
 }
 
 export function matchingRegistryIndexes(models, comparisonModel) {

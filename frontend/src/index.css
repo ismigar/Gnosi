@@ -232,11 +232,6 @@ textarea,
   text-transform: uppercase;
 }
 
-button.gnosi-sidebar-section-title:hover,
-button.gnosi-sidebar-section-title:focus-visible {
-  color: var(--text-primary);
-}
-
 .gnosi-app-shell {
   display: flex;
   width: 100%;
@@ -399,6 +394,15 @@ button.gnosi-sidebar-section-title:focus-visible {
   height: var(--control-height-sm);
   align-items: center;
   justify-content: center;
+  border-radius: var(--radius-md);
+  color: var(--text-tertiary);
+  transition: all 0.2s ease;
+}
+
+.vault-summary-chevron:hover,
+.vault-view-action:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 .vault-new-split {
@@ -438,9 +442,14 @@ button.gnosi-sidebar-section-title:focus-visible {
   border-inline-start: 1px solid rgba(255, 255, 255, 0.28);
 }
 
-.vault-new-split button:hover,
-.vault-new-split button:focus-visible {
-  background: rgba(255, 255, 255, 0.14);
+.vault-new-split__create:hover,
+.vault-new-split__menu:hover,
+.vault-new-split__create:hover span,
+.vault-new-split__create:hover svg,
+.vault-new-split__menu:hover svg {
+  font-weight: 800 !important;
+  letter-spacing: 0.3px !important;
+  stroke-width: 2.5px !important;
 }
 
 .vault-new-split button:focus-visible,
@@ -635,12 +644,6 @@ button.gnosi-sidebar-section-title:focus-visible {
   color: var(--text-secondary);
   font-size: 0.75rem;
   text-align: left;
-}
-
-.vault-view-tools-row:hover,
-.vault-view-preset-row:hover {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
 }
 
 .vault-view-preset-row > :first-child {
@@ -881,6 +884,13 @@ html[data-vault-text="large"] .vault-page-editor {
   color: var(--text-secondary);
   font-size: 0.6875rem;
   font-weight: 650;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.vault-feed-preferences-trigger:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 .vault-feed-preferences {
@@ -974,12 +984,6 @@ html[data-vault-text="large"] .vault-page-editor {
   color: var(--text-secondary);
 }
 
-.vault-shell__checkout-warning button:hover,
-.vault-shell__checkout-warning button:focus-visible {
-  background: color-mix(in srgb, var(--status-warning) 18%, transparent);
-  color: var(--text-primary);
-}
-
 .vault-shell__drawer-close {
   display: none;
 }
@@ -1004,14 +1008,6 @@ html[data-vault-text="large"] .vault-page-editor {
   opacity: 1;
 }
 
-.vault-sidebar-icon-action:hover,
-.vault-sidebar-icon-action:focus-visible,
-.vault-view-toolbar button:hover,
-.vault-view-toolbar button:focus-visible {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-}
-
 .gnosi-floating-action {
   position: fixed;
   right: max(16px, env(safe-area-inset-right));
@@ -1019,11 +1015,6 @@ html[data-vault-text="large"] .vault-page-editor {
   width: var(--floating-action-size);
   height: var(--floating-action-size);
   opacity: 0.9;
-}
-
-.gnosi-floating-action:hover,
-.gnosi-floating-action:focus-visible {
-  opacity: 1;
 }
 
 .gnosi-floating-action--chat {
@@ -1378,12 +1369,6 @@ body[data-gnosi-floating-panel] .gnosi-floating-dock-toggle {
   transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
-.gnosi-icon-button:hover {
-  border-color: var(--border-primary);
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-}
-
 .gnosi-icon-button:focus-visible,
 .gnosi-button:focus-visible {
   outline: none;
@@ -1407,20 +1392,10 @@ body[data-gnosi-floating-panel] .gnosi-floating-dock-toggle {
   transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
 
-.gnosi-button:hover {
-  border-color: color-mix(in srgb, var(--gnosi-primary) 38%, var(--border-primary));
-  background: var(--bg-secondary);
-}
-
 .gnosi-button--primary {
   border-color: var(--gnosi-primary);
   background: var(--gnosi-primary);
   color: #fff;
-}
-
-.gnosi-button--primary:hover {
-  border-color: color-mix(in srgb, var(--gnosi-primary) 82%, #000);
-  background: color-mix(in srgb, var(--gnosi-primary) 88%, #000);
 }
 
 .gnosi-panel {
@@ -1530,12 +1505,6 @@ body[data-gnosi-floating-panel] .gnosi-floating-dock-toggle {
     opacity: 0.8;
 }
 
-.settings-sidebar__item:hover {
-    background: var(--sidebar-item-hover) !important;
-    opacity: 1;
-    transform: translateX(2px);
-}
-
 .settings-sidebar__item.active {
     background: var(--settings-sidebar-active) !important;
     color: var(--settings-sidebar-active-text) !important;
@@ -1628,14 +1597,6 @@ body[data-gnosi-floating-panel] .gnosi-floating-dock-toggle {
     flex-shrink: 0;
 }
 
-.gnosi-close-btn:hover {
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-    transform: scale(1.05);
-    border-color: var(--gnosi-blue);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
 .gnosi-close-btn:active {
     transform: scale(0.95);
 }
@@ -1705,11 +1666,6 @@ body[data-gnosi-floating-panel] .gnosi-floating-dock-toggle {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.app-sidebar__logo:hover {
-  transform: scale(1.08) rotate(-5deg);
-  box-shadow: 0 8px 24px rgba(0, 102, 255, 0.5);
-}
-
 .app-sidebar__nav {
   flex: 1;
   display: flex;
@@ -1733,11 +1689,6 @@ body[data-gnosi-floating-panel] .gnosi-floating-dock-toggle {
   background: none;
   border: none;
   text-decoration: none;
-}
-
-.app-sidebar__item:hover {
-  background-color: var(--sidebar-item-hover);
-  color: var(--text-primary);
 }
 
 .app-sidebar__item--active {
@@ -1943,12 +1894,6 @@ button:hover > .row-action-tooltip {
     height: var(--control-height-touch);
     border-radius: var(--radius-md);
     color: var(--text-secondary);
-  }
-
-  .vault-shell__drawer-close:hover,
-  .vault-shell__drawer-close:focus-visible {
-    background: var(--bg-secondary);
-    color: var(--text-primary);
   }
 
   .vault-sidebar__identity {
@@ -2537,14 +2482,6 @@ button:hover > .row-action-tooltip {
   backdrop-filter: blur(10px);
 }
 
-.home-card:hover,
-.home-card:focus-visible {
-  transform: translateY(-3px);
-  background: rgba(var(--gnosi-primary-rgb), 0.06);
-  border-color: rgba(var(--gnosi-primary-rgb), 0.3);
-  box-shadow: var(--shadow-raised);
-}
-
 .home-card:focus-visible {
   outline: 2px solid var(--gnosi-primary);
   outline-offset: 2px;
@@ -2560,13 +2497,6 @@ button:hover > .row-action-tooltip {
   background: rgba(255, 255, 255, 0.05);
   margin-bottom: 0.5rem;
   transition: all 0.3s ease;
-}
-
-.home-card:hover .home-card__icon-wrap,
-.home-card:focus-visible .home-card__icon-wrap {
-  transform: scale(1.1);
-  background: var(--gnosi-primary);
-  color: #fff;
 }
 
 .home-card__title {
@@ -2617,12 +2547,6 @@ button:hover > .row-action-tooltip {
   }
 }
 
-.home-card:hover .home-card__arrow,
-.home-card:focus-visible .home-card__arrow {
-  opacity: 1;
-  transform: translateX(8px);
-}
-
 @media (prefers-reduced-motion: reduce) {
   .vault-feed,
   .vault-view-skeleton,
@@ -2636,18 +2560,6 @@ button:hover > .row-action-tooltip {
   .home-card__icon-wrap,
   .home-card__arrow {
     transition: none;
-  }
-  .home-card:hover,
-  .home-card:focus-visible {
-    transform: none;
-  }
-  .home-card:hover .home-card__icon-wrap,
-  .home-card:focus-visible .home-card__icon-wrap {
-    transform: none;
-  }
-  .home-card:hover .home-card__arrow,
-  .home-card:focus-visible .home-card__arrow {
-    transform: none;
   }
 }
 
@@ -2686,20 +2598,25 @@ button:hover > .row-action-tooltip {
   box-shadow: 0 4px 12px rgba(var(--gnosi-primary-rgb), 0.25);
 }
 
-.btn-gnosi-primary:hover {
-  filter: brightness(1.1);
-  box-shadow: 0 6px 16px rgba(var(--gnosi-primary-rgb), 0.35);
+.btn-primary:hover,
+.btn-gnosi-primary:hover,
+.btn-gnosi-primary7:hover,
+.btn-primary:hover span,
+.btn-gnosi-primary:hover span,
+.btn-gnosi-primary7:hover span,
+.btn-primary:hover svg,
+.btn-gnosi-primary:hover svg,
+.btn-gnosi-primary7:hover svg {
+  font-weight: 800 !important;
+  letter-spacing: 0.3px !important;
+  stroke-width: 2.5px !important;
+  transform: scale(1.02);
 }
 
 .btn-gnosi-danger {
   background-color: #ef4444;
   color: white !important;
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
-}
-
-.btn-gnosi-danger:hover {
-  filter: brightness(1.1);
-  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.35);
 }
 
 .btn {
@@ -2729,11 +2646,6 @@ button:hover > .row-action-tooltip {
   box-shadow: 0 4px 12px rgba(var(--gnosi-primary-rgb), 0.25);
 }
 
-.btn-gnosi-primary7:hover {
-  filter: brightness(1.1);
-  box-shadow: 0 6px 16px rgba(var(--gnosi-primary-rgb), 0.35);
-}
-
 /* AI Settings Premium Styles */
 .ai-provider-grid {
   display: grid;
@@ -2753,13 +2665,6 @@ button:hover > .row-action-tooltip {
   display: flex;
   flex-direction: column;
   gap: 12px;
-}
-
-.provider-card:hover {
-  background: var(--provider-card-hover);
-  border-color: rgba(var(--gnosi-primary-rgb), 0.3);
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.2);
 }
 
 .provider-card__header {
@@ -2932,12 +2837,6 @@ button:hover > .row-action-tooltip {
     to { transform: rotate(360deg); }
 }
 
-.hover-scale:hover {
-    transform: scale(1.01) translateY(-2px);
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
-    border-color: rgba(59, 130, 246, 0.3);
-}
-
 .account-row button.icon-btn {
     opacity: 0.5;
     transition: all 0.2s;
@@ -2956,10 +2855,6 @@ button:hover > .row-action-tooltip {
     font-weight: 700;
     cursor: pointer;
     transition: all 0.2s;
-}
-
-.btn-gnosi-secondary:hover {
-    background: var(--settings-border);
 }
 
 /* Feedback d'enfocament per teclat (a11y): mirall del hover amb un anell

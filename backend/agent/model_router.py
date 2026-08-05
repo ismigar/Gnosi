@@ -182,6 +182,8 @@ def route_model(
     # Spend cap reached → only zero-cost models survive; with none available
     # the caller degrades gracefully (503 on one-shot endpoints).
     if over_cap:
+        if budget.get("enforce_block"):
+            return {"provider": None, "model_id": None, "reason": "budget_exhausted"}
         free = [m for m in candidates if _is_free(m)]
         if not free:
             return {"provider": None, "model_id": None, "reason": "budget_exhausted"}
