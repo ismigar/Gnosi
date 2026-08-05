@@ -383,13 +383,32 @@ def _recommended_profile(
 ) -> str:
     """Assign one closed task-profile band from benchmark percentile."""
     intelligence = model.get("intelligence")
-    if intelligence is None or not ordered_intelligence:
-        return "unrated"
-    percentile = _intelligence_percentile(intelligence, ordered_intelligence)
-    for profile, ceiling in _PROFILE_PERCENTILE_CEILINGS:
-        if percentile < ceiling:
-            return profile
-    return "expert"
+    if intelligence is not None and ordered_intelligence:
+        percentile = _intelligence_percentile(intelligence, ordered_intelligence)
+        for profile, ceiling in _PROFILE_PERCENTILE_CEILINGS:
+            if percentile < ceiling:
+                return profile
+        return "expert"
+
+    coding = model.get("coding")
+    if coding is not None:
+        if coding > 70:
+            return "expert"
+        elif coding > 50:
+            return "allrounder"
+        elif coding > 30:
+            return "administrative"
+        return "worker"
+
+    tags = set(model.get("tags") or [])
+    if "code" in tags:
+        return "expert"
+    if "long" in tags or "vision" in tags or "tools" in tags:
+        return "allrounder"
+    if "fast" in tags:
+        return "worker"
+
+    return "unrated"
 
 
 def build_comparison_payload(

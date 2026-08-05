@@ -27,6 +27,8 @@ import { WorkspaceMembersPanel } from './Workspace/WorkspaceMembersPanel';
 import ApiTokensSettings from './ApiTokensSettings';
 import { PluginsSettings } from './PluginsSettings';
 import AIModelComparisonModal from './AIModelComparisonModal';
+import AIUsageHistoryModal from './AIUsageHistoryModal';
+import { registryEntryMatchesModel } from '../lib/modelComparisonRegistry';
 import NotionImportSettings from './NotionImportSettings';
 import VaultSwitcher from './VaultSwitcher';
 import AgentContextSources from './AgentContextSources';
@@ -48,6 +50,14 @@ import { SettingsSectionTabs } from './SettingsSectionTabs';
 import { SocialNetworkIcon, isKnownSocialNetwork } from './social/SocialNetworkIcon';
 import './GlobalSettingsModal.css';
 import './AI/AIResourcesSettings.css';
+
+const formatCost = (value, symbol, decimals = 2) => {
+    const num = Number(value);
+    const formatted = Number.isFinite(num) 
+        ? num.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) 
+        : '0.00';
+    return symbol === '€' ? `${formatted} ${symbol}` : `${symbol}${formatted}`;
+};
 
 const CURRENCIES = ['EUR (€)', 'USD ($)', 'GBP (£)', 'JPY (¥)', 'CHF (₣)'];
 const DECIMAL_SYMBOLS = [',', '.'];
@@ -602,6 +612,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     // user activated through the comparison workflow. Agent creation chooses
     // from this, NOT the full catalog: an agent runs on a configured model.
     const [aiRegistry, setAiRegistry] = useState([]);
+    const [aiUsage, setAiUsage] = useState(null);
+    const [isUsageHistoryOpen, setIsUsageHistoryOpen] = useState(false);
+    const [monthlyCostCap, setMonthlyCostCap] = useState('');
+    const [enforceBlock, setEnforceBlock] = useState(false);
+    const [savingBudget, setSavingBudget] = useState(false);
     const podcastProvider = draft.settings?.reader?.podcast?.provider || '';
     const podcastModelId = draft.settings?.reader?.podcast?.model || '';
     const podcastModelRoutes = useMemo(
@@ -1518,16 +1533,129 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         // Feeds the agent-creation model dropdown. Only enabled rows: a disabled
         // model in the registry is not a valid target for a new agent.
         try {
-            const res = await fetch('/api/ai/models');
-            if (res.ok) {
-                const payload = await res.json();
-                setAiRegistry(
-                    (payload?.configured_models || []).filter(
-                        modelEntry => modelEntry?.enabled === true,
-                    ),
-                );
+            const [modelsRes, catalogRes, comparisonRes, usageRes] = await Promise.all([
+                fetch('/api/ai/models'),
+                fetch('/api/ai/model-catalog'),
+                fetch('/api/ai/model-comparison'),
+                fetch('/api/ai/usage')
+            ]);
+            
+            if (modelsRes.ok) {
+                const payload = await modelsRes.json();
+                let comparisonModels = [];
+                if (comparisonRes.ok) {
+                    const comparisonPayload = await comparisonRes.json();
+                    comparisonModels = comparisonPayload.models || [];
+                }
+
+                let usageModels = [];
+                if (usageRes.ok) {
+                    const usageData = await usageRes.json();
+                    setAiUsage(usageData);
+                    setMonthlyCostCap(usageData?.cap_ccy !== null && usageData?.cap_ccy !== undefined ? usageData.cap_ccy : (usageData?.budget?.monthly_cost_cap ?? ''));
+                    setEnforceBlock(Boolean(usageData?.budget?.enforce_block));
+                    usageModels = usageData?.per_model || [];
+                }
+
+                const configuredMap = new Map();
+                for (const modelEntry of (payload?.configured_models || [])) {
+                    if (modelEntry?.model_id) {
+                        configuredMap.set(`${modelEntry.provider}:${modelEntry.model_id}`, modelEntry);
+                    }
+                }
+
+                for (const u of usageModels) {
+                    const key = `${u.provider}:${u.model_id}`;
+                    if (!configuredMap.has(key) && (u.in > 0 || u.out > 0 || u.cost_usd > 0)) {
+                        configuredMap.set(key, {
+                            provider: u.provider,
+                            model_id: u.model_id,
+                            enabled: false,
+                            cost_in: 0,
+                            cost_out: 0,
+                        });
+                    }
+                }
+
+                const configured = [];
+                for (const configuredModel of configuredMap.values()) {
+                    const matched = comparisonModels.find(cm => registryEntryMatchesModel(configuredModel, cm));
+                    const costIn = (matched && matched.input_price !== undefined && matched.input_price !== null)
+                        ? Number(matched.input_price)
+                        : Number(configuredModel.cost_in || 0);
+                    const costOut = (matched && matched.output_price !== undefined && matched.output_price !== null)
+                        ? Number(matched.output_price)
+                        : Number(configuredModel.cost_out || 0);
+                    const isFree = Boolean(configuredModel.is_local) || Boolean(matched?.is_free) || (costIn === 0 && costOut === 0);
+
+                    const usage = usageModels.find(
+                        u => u.provider === configuredModel.provider && u.model_id === configuredModel.model_id
+                    );
+                    const hasUsage = usage && (usage.in > 0 || usage.out > 0 || usage.cost_usd > 0);
+
+                    if (configuredModel.enabled !== false || hasUsage) {
+                        configured.push({
+                            ...configuredModel,
+                            name: matched?.name || configuredModel.model_id,
+                            creator: matched?.creator || configuredModel.provider || '',
+                            profile: matched?.profile || 'unrated',
+                            cost_in: costIn,
+                            cost_out: costOut,
+                            is_free: isFree,
+                        });
+                    }
+                }
+                
+                setAiRegistry(configured);
             }
         } catch (err) { console.error("Error loading AI model registry:", err); }
+    };
+
+    const saveAiBudget = async (newCap, newEnforceBlock) => {
+        setSavingBudget(true);
+        try {
+            const modelsRes = await fetch('/api/ai/models');
+            let currentModels = [];
+            let currentBudget = {};
+            if (modelsRes.ok) {
+                const payload = await modelsRes.json();
+                currentModels = (payload?.configured_models || []).map(m => ({
+                    provider: m.provider,
+                    model_id: m.model_id,
+                    enabled: m.enabled !== false,
+                    is_local: Boolean(m.is_local),
+                    priority: m.priority || 100,
+                }));
+                currentBudget = payload?.budget || {};
+            }
+            
+            const updatedBudget = {
+                ...currentBudget,
+                monthly_cost_cap: newCap !== '' ? parseFloat(newCap) : 0,
+                enforce_block: Boolean(newEnforceBlock)
+            };
+
+            const response = await fetch('/api/ai/models', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ models: currentModels, budget: updatedBudget }),
+            });
+
+            if (!response.ok) {
+                throw new Error('Save failed');
+            }
+
+            const uRes = await fetch('/api/ai/usage');
+            if (uRes.ok) setAiUsage(await uRes.json());
+            window.dispatchEvent(new CustomEvent('gnosi-ai-models-changed', {
+                detail: { source: 'budget-settings' },
+            }));
+        } catch (err) {
+            console.error('Error saving AI budget:', err);
+            toast.error(t('settings.ai.budget_save_error', 'Error en desar el límit de pressupost'));
+        } finally {
+            setSavingBudget(false);
+        }
     };
 
     useEffect(() => {
@@ -4205,6 +4333,221 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         </button>
                                     </div>}
 
+                                    {aiSection === 'models' && aiRegistry.length > 0 && (() => {
+                                        const curSymbol = aiUsage?.currency?.symbol || '€';
+                                        const curRate = aiUsage?.currency?.usd_rate || 0.86;
+                                        
+                                        const formatTokens = (val) => {
+                                            const num = Number(val || 0);
+                                            if (num <= 0) return '0';
+                                            if (num >= 1000000) return `${(num / 1000000).toFixed(2)}M`;
+                                            if (num >= 1000) return `${(num / 1000).toFixed(1)}k`;
+                                            return num.toLocaleString();
+                                        };
+
+                                        const activeModelsWithCosts = aiRegistry.map(model => {
+                                            const usage = (aiUsage?.per_model || []).find(
+                                                u => u.provider === model.provider && u.model_id === model.model_id
+                                            ) || { in: 0, out: 0, cost_usd: 0 };
+
+                                            const isFree = Boolean(model.is_local) || Boolean(model.is_free) || (parseFloat(model.cost_in || 0) === 0 && parseFloat(model.cost_out || 0) === 0);
+                                            const costInPer1M = isFree ? 0 : parseFloat(model.cost_in || 0);
+                                            const costOutPer1M = isFree ? 0 : parseFloat(model.cost_out || 0);
+
+                                            const inCostUsd = isFree ? 0 : (usage.in * costInPer1M) / 1000000;
+                                            const outCostUsd = isFree ? 0 : (usage.out * costOutPer1M) / 1000000;
+                                            const modelTotalCostUsd = isFree ? 0 : (inCostUsd + outCostUsd);
+
+                                            const inCostCcy = inCostUsd * curRate;
+                                            const outCostCcy = outCostUsd * curRate;
+                                            const modelTotalCostCcy = modelTotalCostUsd * curRate;
+
+                                            return {
+                                                ...model,
+                                                usage,
+                                                isFree,
+                                                inCostCcy,
+                                                outCostCcy,
+                                                modelTotalCostCcy
+                                            };
+                                        });
+
+                                        const totalActiveCost = activeModelsWithCosts.reduce((acc, m) => acc + m.modelTotalCostCcy, 0);
+
+                                        return (
+                                            <div style={{ marginTop: '20px' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                        <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                                                            <strong>{t('settings.ai.monthly_consumption', 'Consum mensual per model')}</strong>
+                                                        </h4>
+                                                        <button
+                                                            type="button"
+                                                            className="btn-gnosi-secondary"
+                                                            onClick={() => setIsUsageHistoryOpen(true)}
+                                                            style={{ fontSize: '0.78rem', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: '6px', borderRadius: '8px' }}
+                                                        >
+                                                            <History size={14} />
+                                                            {t('settings.ai.view_history', 'Històric de consum')}
+                                                        </button>
+                                                    </div>
+                                                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                                                        {t('settings.ai.monthly_total', 'Total consum mensual')}: <strong style={{ color: 'var(--text-primary)' }}>{formatCost(totalActiveCost, curSymbol, 2)}</strong>
+                                                    </span>
+                                                </div>
+
+                                                <div className="ai-resource-list" style={{ border: '1px solid var(--border-color)', borderRadius: '12px', overflow: 'hidden', gap: 0 }}>
+                                                    {activeModelsWithCosts.map((model, index) => (
+                                                        <article key={model.model_id} className="ai-resource-card" style={{ border: 'none', borderRadius: 0, borderBottom: index < activeModelsWithCosts.length - 1 ? '1px solid var(--border-color)' : 'none', marginBottom: 0 }}>
+                                                            <div className="ai-resource-card__main" style={{ padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                                                                <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                                                                    <Activity size={18} style={{ marginTop: '2px' }} />
+                                                                    <span className="ai-resource-card__copy">
+                                                                        <span className="ai-resource-card__heading">
+                                                                            <strong>{model.name || model.model_id}</strong>
+                                                                            {model.enabled === false && (
+                                                                                <span style={{ marginLeft: '6px', fontSize: '0.75rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                                                                                    ({t('settings.ai.disabled_badge', 'Inactiu')})
+                                                                                </span>
+                                                                            )}
+                                                                            {model.profile && (
+                                                                                <span className={`model-profile-badge ${model.profile}`} style={{ marginLeft: '10px', fontSize: '0.8rem', padding: '2px 8px', borderRadius: '10px', background: 'var(--bg-secondary)' }}>
+                                                                                    {{
+                                                                                        worker: '🟢',
+                                                                                        administrative: '🔵',
+                                                                                        documentalist: '📑',
+                                                                                        allrounder: '🟡',
+                                                                                        expert: '🟣',
+                                                                                        unrated: '⚪',
+                                                                                    }[model.profile] || '⚪'} {t(`model_comparison.profiles.${model.profile}`, model.profile)}
+                                                                                </span>
+                                                                            )}
+                                                                        </span>
+                                                                        <span className="ai-resource-card__meta">
+                                                                            {model.provider && <span style={{ textTransform: 'capitalize' }}>{model.provider}</span>}
+                                                                            <span>{model.model_id}</span>
+                                                                        </span>
+                                                                    </span>
+                                                                </div>
+
+                                                                <div style={{ textAlign: 'right', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                                                                    <div>
+                                                                        <span>{t('settings.ai.in_tokens', 'Entrada')}: <strong>{formatTokens(model.usage.in)}</strong> ({formatCost(model.inCostCcy, curSymbol, 2)})</span>
+                                                                        <span style={{ margin: '0 6px' }}>•</span>
+                                                                        <span>{t('settings.ai.out_tokens', 'Sortida')}: <strong>{formatTokens(model.usage.out)}</strong> ({formatCost(model.outCostCcy, curSymbol, 2)})</span>
+                                                                    </div>
+                                                                    <div style={{ marginTop: '3px' }}>
+                                                                        <strong style={{ color: 'var(--text-primary)', fontSize: '0.88rem' }}>
+                                                                            {t('settings.ai.model_total', 'Cost total')}: {formatCost(model.modelTotalCostCcy, curSymbol, 2)}
+                                                                        </strong>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </article>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+
+                                    {aiSection === 'models' && (
+                                        <div style={{ marginTop: '24px', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
+                                            <h4 style={{ marginBottom: '14px', fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                                                <strong>{t('settings.ai.budget_title', 'Control de despesa i consum')}</strong>
+                                            </h4>
+
+                                            {aiUsage && (
+                                                <div style={{
+                                                    background: 'var(--bg-secondary)',
+                                                    border: '1px solid var(--border-color)',
+                                                    borderRadius: '12px',
+                                                    padding: '16px',
+                                                    marginBottom: '16px'
+                                                }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                                        <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                                                            {t('settings.ai.current_consumption', 'Consum actual del mes')} ({aiUsage.period})
+                                                        </span>
+                                                        <strong style={{ fontSize: '0.95rem', color: aiUsage.over_cap ? 'var(--color-danger, #ef4444)' : 'var(--text-primary)' }}>
+                                                            {typeof aiUsage.spent_ccy === 'number' ? formatCost(aiUsage.spent_ccy, aiUsage.currency?.symbol || '€', 2) : `${aiUsage.spent_ccy || 0}`}
+                                                            {aiUsage.cap_ccy ? ` d'un límit de ${formatCost(aiUsage.cap_ccy, aiUsage.currency?.symbol || '€', 2)}` : ''}
+                                                        </strong>
+                                                    </div>
+
+                                                    {aiUsage.cap_ccy > 0 && (
+                                                        <div style={{ width: '100%', height: '8px', background: 'var(--border-color)', borderRadius: '4px', overflow: 'hidden' }}>
+                                                            <div style={{
+                                                                width: `${Math.min(100, Math.round((aiUsage.ratio || 0) * 100))}%`,
+                                                                height: '100%',
+                                                                background: aiUsage.over_cap
+                                                                    ? 'var(--color-danger, #ef4444)'
+                                                                    : (aiUsage.ratio > 0.8 ? 'var(--color-warning, #f59e0b)' : 'var(--color-primary, #3b82f6)'),
+                                                                transition: 'width 0.3s ease'
+                                                            }} />
+                                                        </div>
+                                                    )}
+
+                                                    {aiUsage.over_cap && (
+                                                        <div style={{ marginTop: '8px', fontSize: '0.8rem', color: 'var(--color-danger, #ef4444)', fontWeight: 600 }}>
+                                                            ⚠️ {t('settings.ai.budget_exceeded', 'S\'ha superat el límit mensual de cost!')}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                                <div>
+                                                    <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-primary)', marginBottom: '6px' }}>
+                                                        {t('settings.ai.monthly_cap_label', 'Topall mensual de cost (€ / $)')}
+                                                    </label>
+                                                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            min="0"
+                                                            placeholder="0.00 (Sense límit)"
+                                                            className="gnosi-input"
+                                                            style={{ width: '180px' }}
+                                                            value={monthlyCostCap}
+                                                            onChange={(e) => setMonthlyCostCap(e.target.value)}
+                                                            onBlur={() => saveAiBudget(monthlyCostCap, enforceBlock)}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter') {
+                                                                    e.target.blur();
+                                                                }
+                                                            }}
+                                                        />
+                                                        {savingBudget && (
+                                                            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                <Loader2 size={14} className="animate-spin" />
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted, #888)', marginTop: '4px', display: 'block' }}>
+                                                        {t('settings.ai.cap_help', 'Deixa a 0 o en blanc per no establir cap límit mensual.')}
+                                                    </span>
+                                                </div>
+
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                                                    <div>
+                                                        <strong style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                                                            {t('settings.ai.enforce_block_title', 'Bloquejar l\'accés en superar el límit')}
+                                                        </strong>
+                                                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                                            {t('settings.ai.enforce_block_desc', 'Quan es superi el topall mensual, es bloquejaran les peticions d\'IA.')}
+                                                        </span>
+                                                    </div>
+                                                    <GnosiToggle
+                                                        active={enforceBlock}
+                                                        onChange={(val) => {
+                                                            setEnforceBlock(val);
+                                                            saveAiBudget(monthlyCostCap, val);
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {aiSection === 'models' && <div style={{ height: '30px' }} />}
 
@@ -4518,6 +4861,12 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             <AIModelComparisonModal
                 isOpen={isModelComparisonOpen}
                 onClose={() => setIsModelComparisonOpen(false)}
+            />
+
+            <AIUsageHistoryModal
+                isOpen={isUsageHistoryOpen}
+                onClose={() => setIsUsageHistoryOpen(false)}
+                activeModels={aiRegistry}
             />
 
         </>

@@ -4841,6 +4841,7 @@
     }
   },
   "model_comparison": {
+    "show_incomplete": "Show models without data",
     "launch_title": "Compare and configure AI models",
     "launch_description": "Enable or disable models directly from the comparison. The assistant asks for the provider, local or remote execution, and an API key only when needed.",
     "open": "Compare and configure",
@@ -4941,7 +4942,7 @@
       "activate": "Enable model"
     },
     "profiles": { "worker": "Worker", "administrative": "Administrative", "documentalist": "Documentalist", "allrounder": "All-rounder", "expert": "Expert / Director", "unrated": "Unrated" },
-    "columns": { "model": "Model", "creator": "Creator", "provider": "Provider", "modes": "Supported modes", "intelligence": "Intelligence", "coding": "Coding", "agentic": "Agentic", "input_price": "Input $/1M", "output_price": "Output $/1M", "context": "Context", "speed": "Speed", "latency": "Latency", "uptime": "Uptime", "profile": "Recommended use", "quantization": "Quantization", "monthly_cost": "Est. $/month", "available": "Available" }
+    "columns": { "model": "Model", "creator": "Creator", "provider": "Provider", "modes": "Supported modes", "intelligence": "Intelligence", "coding": "Coding", "agentic": "Agentic", "input_price": "Input {{symbol}}/1M", "output_price": "Output {{symbol}}/1M", "context": "Context", "speed": "Speed", "latency": "Latency", "uptime": "Uptime", "profile": "Recommended use", "quantization": "Quantization", "monthly_cost": "Est. {{symbol}}/month", "available": "Available" }
   },
   "relation_item": {
     "open_new_tab": "Open in a new tab",

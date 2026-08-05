@@ -1771,6 +1771,10 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                 // view-id collisions.
                 if (onCellSaved) onCellSaved();
                 toast.success(t('table.record_created'));
+                const newId = res.data?.id;
+                if (newId && onNoteSelect) {
+                    onNoteSelect(newId);
+                }
             }
         } catch (error) {
             const errorMsg = error.response?.data?.detail || t('table.record_create_error');
