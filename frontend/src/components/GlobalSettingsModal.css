@@ -58,7 +58,7 @@
 
 /* Sidebar */
 .settings-sidebar {
-    width: 280px;
+    width: 295px;
     min-height: 0;
     background: var(--settings-sidebar-bg);
     border-inline-end: 1px solid var(--settings-border);
@@ -443,6 +443,7 @@
     font-weight: 700 !important;
     font-size: 0.92rem !important;
     gap: 12px !important;
+    white-space: nowrap !important;
 }
 
 .settings-sidebar__item.active {

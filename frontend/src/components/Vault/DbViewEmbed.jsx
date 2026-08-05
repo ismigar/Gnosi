@@ -228,10 +228,10 @@ function Heading({ level, children }) {
 /*  Action helpers (create / update property)                               */
 /* -------------------------------------------------------------------------- */
 
-async function createPageInTable({ tableId, title = 'Nou registre', extraMetadata = {} } = {}) {
+async function createPageInTable({ tableId, title = 'Nou registre', content = '', extraMetadata = {} } = {}) {
     const body = {
         title,
-        content: '',
+        content,
         metadata: { table_id: tableId, ...extraMetadata },
     };
     const res = await axios.post('/api/vault/pages', body);
@@ -1256,14 +1256,32 @@ export function DbViewEmbed({ block }) {
         }).filter(({ score }) => score > 0).sort((left, right) => right.score - left.score).map(({ record }) => record);
     }, [allRows, searchTerm]);
 
+    const isCreatingRef = useRef(false);
     const handleCreate = useCallback(async (extra = {}, template = null) => {
-        if (!tableId) return;
+        if (isCreatingRef.current || !tableId) return;
+        isCreatingRef.current = true;
         try {
-            const baseMeta = template?.metadata || {};
-            const title = template ? `Nou (${template.title || 'plantilla'})` : 'Nou registre';
+            let initialContent = '';
+            let baseMeta = template?.metadata || {};
+            let title = template ? `Nou (${template.title || 'plantilla'})` : 'Nou registre';
+
+            if (template?.id) {
+                try {
+                    const getRes = await axios.get(`/api/vault/pages/${template.id}`);
+                    if (getRes.data) {
+                        initialContent = getRes.data.content || '';
+                        if (getRes.data.title) title = getRes.data.title;
+                        baseMeta = { ...getRes.data.metadata, ...baseMeta };
+                    }
+                } catch (e) {
+                    console.warn('Failed to fetch template content', e);
+                }
+            }
+
             const created = await createPageInTable({
                 tableId,
                 title,
+                content: initialContent,
                 extraMetadata: {
                     ...baseMeta,
                     is_template: false,
@@ -1272,9 +1290,13 @@ export function DbViewEmbed({ block }) {
             });
             const newId = created?.id;
             reload();
-            if (newId) onOpenPage?.(newId);
+            if (newId) {
+                onOpenPage?.(newId);
+            }
         } catch (e) {
             console.warn('createPageInTable failed', e);
+        } finally {
+            isCreatingRef.current = false;
         }
     }, [tableId, onOpenPage, reload]);
 

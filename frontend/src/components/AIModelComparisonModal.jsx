@@ -44,6 +44,12 @@ const formatContext = (value) => {
     return `${formatMetric(value / 1000, 0)}K`;
 };
 
+const formatCost = (value, symbol, digits = 2) => {
+    if (!isFiniteMetric(value)) return '—';
+    const formatted = Number(value).toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
+    return symbol === '€' ? `${formatted} ${symbol}` : `${symbol}${formatted}`;
+};
+
 export function AIModelComparisonModal({ isOpen, onClose }) {
     const { t } = useTranslation();
     const [query, setQuery] = useState('');
@@ -54,6 +60,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
     const [showProfileHelp, setShowProfileHelp] = useState(false);
     const [maxPrice, setMaxPrice] = useState('');
     const [minContext, setMinContext] = useState('');
+    const [showIncomplete, setShowIncomplete] = useState(false);
     const [inputTokens, setInputTokens] = useState(5000000);
     const [outputTokens, setOutputTokens] = useState(1000000);
     const [sort, setSort] = useState({ key: 'intelligence', direction: 'desc' });
@@ -234,6 +241,14 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
             .filter((model) => (
                 (!normalizedQuery || `${model.name} ${model.creator}`.toLocaleLowerCase().includes(normalizedQuery))
                 && (profile === 'all' || model.profile === profile)
+                && (
+                    showIncomplete
+                    || (model.profile !== 'unrated' && model.coding != null && model.agentic != null && model.input_price != null && model.context_window != null)
+                    || profile === 'unrated'
+                    || normalizedQuery !== ''
+                    || maxPrice !== ''
+                    || minContext !== ''
+                )
                 && (!modes.length || modes.some((mode) => (model.modes || ['text']).includes(mode)))
                 && (
                     availability === 'all'
@@ -766,6 +781,10 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                                     <span>{t('model_comparison.min_context')}</span>
                                     <input type="number" min="0" value={minContext} onChange={(event) => setMinContext(event.target.value)} placeholder="100" />
                                 </label>
+                                <label className="model-show-incomplete-toggle">
+                                    <input type="checkbox" checked={showIncomplete} onChange={(event) => setShowIncomplete(event.target.checked)} />
+                                    <span>{t('model_comparison.show_incomplete')}</span>
+                                </label>
                             </div>
 
                             {showProfileHelp && (
@@ -792,13 +811,19 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                                 <table className="model-comparison-table" style={{ minWidth: `${tableMinWidth}px` }}>
                                     <thead><tr>
                                         {columns.map(([key, label]) => (
-                                            <th key={key} className={key === 'name' ? 'model-comparison-sticky-start' : ''}><button type="button" onClick={() => changeSort(key)}>{t(`model_comparison.columns.${label}`)} {sortIcon(key)}</button></th>
+                                            <th key={key} className={key === 'name' ? 'model-comparison-sticky-start' : ''}>
+                                                <button type="button" onClick={() => changeSort(key)}>
+                                                    {t(`model_comparison.columns.${label}`, { symbol: feed?.currency?.symbol || '$' })} {sortIcon(key)}
+                                                </button>
+                                            </th>
                                         ))}
-                                        <th>{t('model_comparison.columns.monthly_cost')}</th>
+                                        <th>{t('model_comparison.columns.monthly_cost', { symbol: feed?.currency?.symbol || '$' })}</th>
                                         <th className="model-comparison-sticky-end">{t('model_comparison.columns.available')}</th>
                                     </tr></thead>
                                     <tbody>
                                         {models.map((model) => {
+                                            const curSymbol = feed?.currency?.symbol || '$';
+                                            const curRate = feed?.currency?.usd_rate || 1.0;
                                             const cost = monthlyCost(model);
                                             const matchingIndexes = matchingRegistryIndexes(registry.models, model);
                                             const activeEntries = matchingIndexes
@@ -825,13 +850,13 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                                                         {metricAvailability.intelligence && <td title={metricSourceTitle(model, 'intelligence')}>{formatMetric(model.intelligence)}{cachedMarker(model, 'intelligence')}</td>}
                                                         {metricAvailability.coding && <td title={metricSourceTitle(model, 'coding')}>{formatMetric(model.coding)}{cachedMarker(model, 'coding')}</td>}
                                                         {metricAvailability.agentic && <td title={metricSourceTitle(model, 'agentic')}>{formatMetric(model.agentic)}{cachedMarker(model, 'agentic')}</td>}
-                                                        <td title={metricSourceTitle(model, 'input_price')}>{model.input_price == null ? '—' : `$${formatMetric(model.input_price, 3)}`}{cachedMarker(model, 'input_price')}</td>
-                                                        <td title={metricSourceTitle(model, 'output_price')}>{model.output_price == null ? '—' : `$${formatMetric(model.output_price, 3)}`}{cachedMarker(model, 'output_price')}</td>
+                                                        <td title={metricSourceTitle(model, 'input_price')}>{model.input_price == null ? '—' : formatCost(model.input_price * curRate, curSymbol, 2)}{cachedMarker(model, 'input_price')}</td>
+                                                        <td title={metricSourceTitle(model, 'output_price')}>{model.output_price == null ? '—' : formatCost(model.output_price * curRate, curSymbol, 2)}{cachedMarker(model, 'output_price')}</td>
                                                         <td title={metricSourceTitle(model, 'context_window')}>{formatContext(model.context_window)}{cachedMarker(model, 'context_window')}</td>
                                                         {metricAvailability.speed && <td title={metricSourceTitle(model, 'speed')}>{isFiniteMetric(model.speed) ? `${formatMetric(model.speed)} t/s` : '—'}{cachedMarker(model, 'speed')}</td>}
                                                         {metricAvailability.latency && <td title={metricSourceTitle(model, 'latency')}>{isFiniteMetric(model.latency) ? `${formatMetric(model.latency, 2)} s` : '—'}{cachedMarker(model, 'latency')}</td>}
                                                         {metricAvailability.profile && <td><span className={`model-profile-badge ${model.profile}`}>{PROFILE_ICONS[model.profile]} {t(`model_comparison.profiles.${model.profile}`)}</span></td>}
-                                                        <td><strong>{cost == null ? '—' : `$${formatMetric(cost, 2)}`}</strong></td>
+                                                        <td><strong>{cost == null ? '—' : formatCost(cost * curRate, curSymbol, 2)}</strong></td>
                                                         <td className="model-comparison-sticky-end">
                                                             <div className="model-availability-cell">
                                                                 <button

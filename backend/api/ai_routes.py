@@ -338,14 +338,17 @@ async def get_model_registry():
         load_registry,
         strip_legacy_registry_rows,
     )
+    from backend.services.fx_rates import parse_currency_code, rate_info
     cfg = load_params(strict_env=False)
     ai_cfg = dict(cfg.get("ai", {}) or {})
     configured_models = ai_cfg.get("models")
+    currency = rate_info(parse_currency_code((cfg.get("settings", {}) or {}).get("currency")))
     return {
         "models": await asyncio.to_thread(load_registry),
         "configured_models": strip_legacy_registry_rows(configured_models),
         "budget": dict(ai_cfg.get("budget") or {}),
         "default": DEFAULT_REGISTRY,
+        "currency": currency,
     }
 
 
@@ -405,9 +408,15 @@ async def get_model_comparison():
         ArtificialAnalysisError,
         fetch_all_models,
     )
+    from backend.services.fx_rates import parse_currency_code, rate_info
 
     try:
-        return await asyncio.to_thread(fetch_all_models)
+        res = await asyncio.to_thread(fetch_all_models)
+        cfg = load_params(strict_env=False)
+        currency = rate_info(parse_currency_code((cfg.get("settings", {}) or {}).get("currency")))
+        if isinstance(res, dict):
+            res["currency"] = currency
+        return res
     except ArtificialAnalysisError as exc:
         raise HTTPException(
             status_code=exc.status_code,
@@ -424,11 +433,59 @@ async def get_ai_usage():
     return await asyncio.to_thread(budget_status)
 
 
+@router.get("/usage/history")
+async def get_ai_usage_history():
+    """Returns all historical usage records grouped by period, provider, and model."""
+    from backend.agent.model_router import UsageStore, _normalize_usage_entry
+    from backend.config.app_config import load_params
+    from backend.services.fx_rates import parse_currency_code, rate_info, usd_to_currency
+
+    def _history():
+        store = UsageStore()
+        cfg = load_params(strict_env=False)
+        currency = rate_info(parse_currency_code((cfg.get("settings", {}) or {}).get("currency")))
+        periods = {}
+        for period_key, model_data in (store._data or {}).items():
+            if not isinstance(model_data, dict):
+                continue
+            period_rows = []
+            period_total_usd = 0.0
+            for key, val in model_data.items():
+                if ":" in key:
+                    provider, model_id = key.split(":", 1)
+                else:
+                    provider, model_id = "", key
+                norm = _normalize_usage_entry(val)
+                cost_ccy = usd_to_currency(norm["cost_usd"], currency["code"])
+                period_rows.append({
+                    "provider": provider,
+                    "model_id": model_id,
+                    "in": norm["in"],
+                    "out": norm["out"],
+                    "cost_usd": norm["cost_usd"],
+                    "cost_ccy": cost_ccy,
+                })
+                period_total_usd += norm["cost_usd"]
+            periods[period_key] = {
+                "period": period_key,
+                "total_usd": period_total_usd,
+                "total_ccy": usd_to_currency(period_total_usd, currency["code"]),
+                "models": period_rows,
+            }
+        return {
+            "currency": currency,
+            "periods": periods,
+        }
+
+    return await asyncio.to_thread(_history)
+
+
 def _sanitize_budget(raw: dict) -> dict:
     """Keep only known budget keys, safely typed; drop everything else."""
     budget: dict = {
         "prefer_local": bool(raw.get("prefer_local")),
         "prefer_local_below": int(raw.get("prefer_local_below") or 0),
+        "enforce_block": bool(raw.get("enforce_block")),
     }
     if raw.get("remaining_tokens") not in (None, ""):
         try:
@@ -472,11 +529,11 @@ async def set_model_registry(payload: ModelsPayload):
             "model_id": model_id,
             "is_local": bool(m.get("is_local", False)),
             "enabled": bool(m.get("enabled", True)),
-            "priority": int(m.get("priority", 100)),
-            "cost_in": rates["cost_in"] if rates else float(m.get("cost_in", 0) or 0),
-            "cost_out": rates["cost_out"] if rates else float(m.get("cost_out", 0) or 0),
-            "context_window": int(m.get("context_window", 8192) or 8192),
-            "quality": int(m.get("quality", 2) or 2),
+            "priority": int(m.get("priority") or 100),
+            "cost_in": rates["cost_in"] if rates else float(m.get("cost_in") or 0),
+            "cost_out": rates["cost_out"] if rates else float(m.get("cost_out") or 0),
+            "context_window": int(m.get("context_window") or 8192),
+            "quality": int(m.get("quality") or 2),
             "tags": [str(t) for t in (m.get("tags") or [])],
             **({"monthly_quota": int(m["monthly_quota"])} if m.get("monthly_quota") else {}),
             **({"endpoint": str(m["endpoint"])} if m.get("endpoint") else {}),

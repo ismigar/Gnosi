@@ -4064,6 +4064,7 @@
     }
   },
   "model_comparison": {
+    "show_incomplete": "Mostrar modelos sin datos",
     "launch_title": "Compara y configura modelos de IA",
     "launch_description": "Activa o desactiva modelos directamente desde la comparativa. El asistente te pedirá el proveedor, si la ejecución es local o remota y la clave API solo cuando sea necesario.",
     "open": "Comparar y configurar",
@@ -4166,7 +4167,7 @@
       "activate": "Activar modelo"
     },
     "profiles": { "worker": "Peón", "administrative": "Administrativo", "documentalist": "Documentalista", "allrounder": "Todoterreno", "expert": "Perito / Director", "unrated": "Sin puntuación" },
-    "columns": { "model": "Modelo", "creator": "Creador", "provider": "Proveedor", "modes": "Modos compatibles", "intelligence": "Inteligencia", "coding": "Código", "agentic": "Agentes", "input_price": "Entrada $/1M", "output_price": "Salida $/1M", "context": "Contexto", "speed": "Velocidad", "latency": "Latencia", "uptime": "Disponibilidad", "profile": "Uso recomendado", "quantization": "Cuantización", "monthly_cost": "Est. $/mes", "available": "Disponible" }
+    "columns": { "model": "Modelo", "creator": "Creador", "provider": "Proveedor", "modes": "Modos compatibles", "intelligence": "Inteligencia", "coding": "Código", "agentic": "Agentes", "input_price": "Entrada {{symbol}}/1M", "output_price": "Salida {{symbol}}/1M", "context": "Contexto", "speed": "Velocidad", "latency": "Latencia", "uptime": "Disponibilidad", "profile": "Uso recomendado", "quantization": "Cuantización", "monthly_cost": "Est. {{symbol}}/mes", "available": "Disponible" }
   },
   "tags": {
     "empty": "Aún no hay etiquetas. Añádelas mediante la propiedad «tags».",

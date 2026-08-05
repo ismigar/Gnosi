@@ -26,10 +26,10 @@
 .model-comparison-key-form input { box-sizing: border-box; width: 100%; min-height: 42px; padding: 9px 12px; border: 1px solid var(--settings-border); border-radius: 12px; background: var(--bg-primary); color: var(--text-primary); outline: none; }
 .model-comparison-key-form input:focus { border-color: var(--gnosi-blue); }
 .model-comparison-key-form button { flex-shrink: 0; }
-.model-comparison-toolbar { display: grid; grid-template-columns: minmax(250px, 2fr) repeat(5, minmax(145px, 1fr)); gap: 12px; position: sticky; top: 0; z-index: 9; margin: 0 -32px; padding: 14px 32px 12px; background: var(--settings-bg); border-bottom: 1px solid var(--settings-border); box-shadow: 0 12px 12px -12px rgba(0,0,0,.25); }
+.model-comparison-toolbar { display: grid; grid-template-columns: minmax(250px, 2fr) repeat(6, minmax(120px, 1fr)); gap: 12px; position: sticky; top: 0; z-index: 9; margin: 0 -32px; padding: 14px 32px 12px; background: var(--settings-bg); box-shadow: 0 -14px 0 var(--settings-bg); }
 .model-comparison-toolbar label, .model-cost-calculator label { display: flex; flex-direction: column; gap: 7px; color: var(--text-secondary); font-size: .76rem; font-weight: 800; }
 .model-modes-filter { position: relative; display: flex; flex-direction: column; gap: 7px; color: var(--text-secondary); font-size: .76rem; font-weight: 800; }
-.model-modes-filter > button { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 42px; padding: 9px 12px; border: 1px solid var(--settings-border); border-radius: 12px; background: var(--bg-primary); color: var(--text-primary); font: inherit; text-align: start; cursor: pointer; }
+.model-modes-filter > button { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 42px; padding: 9px 12px; border: 1px solid var(--settings-border); border-radius: 12px; background: var(--bg-primary); color: var(--text-primary); font: inherit; font-weight: normal; text-align: start; cursor: pointer; }
 .model-modes-filter > button:focus-visible { outline: none; border-color: var(--gnosi-blue); }
 .model-modes-menu { position: absolute; top: calc(100% + 5px); z-index: 20; display: grid; gap: 3px; width: 100%; min-width: 170px; padding: 6px; border: 1px solid var(--settings-border); border-radius: 12px; background: var(--settings-bg); box-shadow: 0 12px 30px rgba(0,0,0,.22); }
 .model-modes-filter label { display: inline-flex; flex-direction: row; align-items: center; gap: 7px; padding: 7px 8px; border-radius: 8px; cursor: pointer; }
@@ -51,7 +51,7 @@
 .model-profile-help-content article:last-child { grid-column: 1 / -1; }
 .model-profile-help-content h3 { margin: 0 0 8px; color: var(--text-primary); font-size: .88rem; }
 .model-profile-help-content p { margin: 5px 0 0; color: var(--text-secondary); font-size: .76rem; line-height: 1.45; }
-.model-comparison-toolbar input, .model-comparison-toolbar select, .model-cost-calculator input { box-sizing: border-box; width: 100%; min-height: 42px; padding: 9px 12px; border: 1px solid var(--settings-border); border-radius: 12px; background: var(--bg-primary); color: var(--text-primary); outline: none; }
+.model-comparison-toolbar input, .model-comparison-toolbar select, .model-cost-calculator input { box-sizing: border-box; width: 100%; min-height: 42px; padding: 9px 12px; border: 1px solid var(--settings-border); border-radius: 12px; background: var(--bg-primary); color: var(--text-primary); outline: none; font-weight: normal; }
 .model-comparison-toolbar input:focus, .model-comparison-toolbar select:focus, .model-cost-calculator input:focus { border-color: var(--gnosi-blue); }
 .model-modes-menu label { display: grid; grid-template-columns: 18px minmax(0, 1fr); align-items: center; min-height: 34px; box-sizing: border-box; }
 .model-modes-menu input[type="checkbox"] { box-sizing: border-box; width: 18px; height: 18px; min-height: 18px; padding: 0; border: 0; border-radius: 4px; background: transparent; }
@@ -62,6 +62,10 @@
 .model-frontier-toggle input { width: 16px; min-height: auto; accent-color: #8b5cf6; }
 .model-comparison-summary { display: flex; align-items: center; gap: 14px; min-height: 24px; margin: 12px 2px -6px; color: var(--text-secondary); font-size: .78rem; }
 .model-comparison-summary strong { color: var(--text-primary); }
+
+.model-show-incomplete-toggle { flex-direction: row !important; align-items: center !important; justify-content: center; min-height: 42px; padding: 0 8px; border: none; cursor: pointer; }
+.model-show-incomplete-toggle input[type="checkbox"] { width: 16px !important; min-height: auto !important; margin: 0 !important; accent-color: var(--gnosi-blue); flex: 0 0 16px; }
+.model-show-incomplete-toggle span { font-weight: 600 !important; line-height: 1.2; text-align: center; }
 .model-cost-calculator { display: grid; grid-template-columns: repeat(2, minmax(180px, 1fr)); align-items: end; gap: 12px; margin: 10px 0 8px; padding: 10px 12px; border: 1px solid rgba(59,130,246,.22); border-radius: 14px; background: rgba(59,130,246,.07); }
 .model-cost-title { align-self: center; display: flex; align-items: center; gap: 10px; color: var(--text-primary); }
 .model-cost-hint { grid-column: 1 / -1; margin: -2px 0 0; color: var(--text-secondary); font-size: .75rem; line-height: 1.45; }
