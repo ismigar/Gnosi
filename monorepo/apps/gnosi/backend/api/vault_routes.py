@@ -4161,6 +4161,7 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
 
     # Build the initial metadata.
     metadata = request.metadata.copy()
+    metadata["id"] = page_id
     metadata = normalize_metadata_ids(metadata)
     metadata = normalize_table_context(metadata)
     _table_for_meta = _table_by_id(get_table_id(metadata))
@@ -4295,6 +4296,10 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
         # creations (`create_page`) must also do so for consistency.
         _pages_cache_invalidate_all()
 
+        # Proactively add to the page index cache to prevent 404 errors
+        # when the frontend immediately fetches the new page by ID.
+        _add_page_to_index_cache(file_path)
+
         background_tasks.add_task(update_link_index_for_page, file_path)
 
         # Project planning owns derived schedules, not editable Markdown facts.
@@ -4303,7 +4308,6 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
         # when their source ETag still matches.
         try:
             from backend.services.planning_scheduler import enqueue_recalculation
-            from backend.services.context_vars import get_active_vault_path
             background_tasks.add_task(enqueue_recalculation, Path(get_active_vault_path()))
         except Exception as error:
             log.debug("Could not queue planning recalculation: %s", error)
@@ -10494,9 +10498,18 @@ async def save_page(
             safe_name = _safe_filename(request.title, target_dir)
             file_path = target_dir / f"{safe_name}.md"
     else:
-        # Ensure it's in the correct folder. All types are markdown now.
+        metadata["id"] = page_id
+        orig_file_path = file_path
         file_path = ensure_correct_page_location(file_path, metadata)
         file_path = _rename_page_file_to_match_title(file_path, request.title)
+        if file_path != orig_file_path:
+            _remove_page_from_index_cache(page_id, orig_file_path)
+            _add_page_to_index_cache(file_path)
+            with _page_index_lock:
+                from backend.services.context_vars import get_active_vault_path
+                v_r = get_active_vault_path()
+                if v_r:
+                    _page_id_to_path.setdefault(str(v_r), {})[page_id] = str(file_path)
 
     # Read previous metadata to detect manual overrides — off the event loop
     # so a slow OneDrive read doesn't block other concurrent requests.
@@ -10703,6 +10716,8 @@ async def patch_page(
             # empty via some error path, and the page ended up returning 500.
             metadata.pop("content_format", None)
 
+        metadata["id"] = page_id
+        orig_file_path = file_path
         # Move if type changes (template / non-template)
         file_path = ensure_correct_page_location(file_path, metadata)
         # NOTE: Do NOT call `_ensure_page_extension` for dashboards. The rule
@@ -10712,6 +10727,15 @@ async def patch_page(
         # legacy `.json`, but the renaming isn't forced here.
         if request.title is not None:
             file_path = _rename_page_file_to_match_title(file_path, request.title)
+
+        if file_path != orig_file_path:
+            _remove_page_from_index_cache(page_id, orig_file_path)
+            _add_page_to_index_cache(file_path)
+            with _page_index_lock:
+                from backend.services.context_vars import get_active_vault_path
+                v_r = get_active_vault_path()
+                if v_r:
+                    _page_id_to_path.setdefault(str(v_r), {})[page_id] = str(file_path)
 
         # Rule engine + asset persistence + writing. `original_metadata_snapshot`
         # captured at the start already saves a file read; the
@@ -11322,7 +11346,7 @@ def _add_page_to_index_cache(file_path: Path) -> None:
     _pages_cache_invalidate_all()
 
 
-@router.delete("/pages/{page_id}", dependencies=[Depends(require_role("admin"))])
+@router.delete("/pages/{page_id}", dependencies=[Depends(require_role("editor"))])
 async def delete_page(page_id: str):
     """Soft-delete: moves the page to `.trash/{page_id}/`.
 
@@ -11374,7 +11398,7 @@ async def delete_page(page_id: str):
 
 @router.post(
     "/pages/{page_id}/restore",
-    dependencies=[Depends(require_role("admin"))],
+    dependencies=[Depends(require_role("editor"))],
 )
 async def restore_page(page_id: str):
     """Restores a page from the trash to its `original_path`."""

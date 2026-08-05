@@ -1151,7 +1151,10 @@ export default function VaultDashboard() {
         });
     };
 
+    const isCreatingNoteRef = useRef(false);
     const handleAddNewNote = useCallback(async (tableId, templateId = null) => {
+        if (isCreatingNoteRef.current) return;
+        isCreatingNoteRef.current = true;
         try {
             const normalizedTemplateId = typeof templateId === 'string' ? templateId : null;
             let initialContent = "";
@@ -1197,12 +1200,26 @@ export default function VaultDashboard() {
                 metadata: initialMeta
             });
 
+            const newId = res.data?.id;
+            if (newId) {
+                const newPageObj = {
+                    id: newId,
+                    title: title,
+                    content: initialContent,
+                    metadata: initialMeta,
+                    last_modified: new Date().toISOString()
+                };
+                setPages(prev => [newPageObj, ...prev.filter(p => p.id !== newId)]);
+                setGlobalIndex(prev => ({ ...prev, [newId]: title }));
+                loadPage(newId);
+            }
             await fetchPages();
             toast.success(t('success.record_created'));
-            loadPage(res.data.id);
         } catch (err) {
             console.error("Error creating the record:", err);
             toast.error(t('errors.record_create'));
+        } finally {
+            isCreatingNoteRef.current = false;
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tableTemplates, fetchPages, loadPage]);
@@ -1881,6 +1898,9 @@ export default function VaultDashboard() {
                 // are "volatile" tabs that the session keeps in memory.
                 // They shouldn't be filtered because they're not part of the catalog.
                 if (tab.isPdf || tab.isDrawing) return true;
+                // Don't close active tabs or tabs with loaded content if they are not in existingPageIds yet
+                // (e.g. freshly created pages whose index/fetchPages is still propagating)
+                if (tab.id === activeTabId || tab.content !== undefined) return true;
                 return existingPageIds.has(tab.id);
             });
 
