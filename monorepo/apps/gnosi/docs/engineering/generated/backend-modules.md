@@ -10,8 +10,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Group | Modules | Lines |
 | --- | ---: | ---: |
-| `agent` | 36 | 13126 |
-| `api` | 35 | 34611 |
+| `agent` | 36 | 13128 |
+| `api` | 35 | 34692 |
 | `application root` | 6 | 627 |
 | `config` | 8 | 846 |
 | `data` | 2 | 295 |
@@ -20,12 +20,12 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `scheduler` | 2 | 949 |
 | `scripts` | 3 | 130 |
 | `security` | 3 | 735 |
-| `services` | 111 | 36473 |
+| `services` | 111 | 36492 |
 | `sh` | 1 | 69 |
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **227 modules** and **89898 source lines**.
+Total: **227 modules** and **90000 source lines**.
 
 ## agent
 
@@ -56,7 +56,7 @@ Total: **227 modules** and **89898 source lines**.
 | [`backend/agent/memory.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/memory.py) | 185 | 2 | 4 | 0 | 3 | No module docstring |
 | [`backend/agent/model_catalog.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/model_catalog.py) | 492 | 0 | 22 | 0 | 18 | Provider → model catalog for the model-comparison activation workflow. |
 | [`backend/agent/model_reliability.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/model_reliability.py) | 220 | 0 | 10 | 0 | 5 | Why a model call failed, recorded as evidence per provider:model. |
-| [`backend/agent/model_router.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/model_router.py) | 487 | 1 | 13 | 0 | 12 | Data-driven, budget-aware model router. |
+| [`backend/agent/model_router.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/model_router.py) | 489 | 1 | 13 | 0 | 12 | Data-driven, budget-aware model router. |
 | [`backend/agent/notion_tools.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/notion_tools.py) | 76 | 0 | 5 | 5 | 5 | Governed adapters for connected Notion discovery and exact cloning. |
 | [`backend/agent/planning_tools.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/planning_tools.py) | 167 | 0 | 13 | 12 | 12 | Governed tools over Gnosi's authoritative project-planning services. |
 | [`backend/agent/reader_tools.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/reader_tools.py) | 288 | 0 | 16 | 0 | 13 | Governed tools for inspecting and analysing Gnosi Reader content. |
@@ -75,7 +75,7 @@ Total: **227 modules** and **89898 source lines**.
 | [`backend/api/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/__init__.py) | 30 | 0 | 0 | 0 | 0 | No module docstring |
 | [`backend/api/agent_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py) | 1633 | 7 | 40 | 17 | 29 | No module docstring |
 | [`backend/api/agent_skills_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_skills_routes.py) | 635 | 4 | 28 | 0 | 9 | Settings APIs for governed agent skills and tools. |
-| [`backend/api/ai_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/ai_routes.py) | 690 | 6 | 16 | 12 | 13 | No module docstring |
+| [`backend/api/ai_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/ai_routes.py) | 747 | 6 | 17 | 13 | 14 | No module docstring |
 | [`backend/api/analytics_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/analytics_routes.py) | 376 | 0 | 12 | 7 | 12 | No module docstring |
 | [`backend/api/auth_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/auth_routes.py) | 365 | 5 | 11 | 0 | 11 | Auth endpoints — register / login / logout / me. |
 | [`backend/api/calendar_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/calendar_routes.py) | 776 | 0 | 28 | 18 | 21 | No module docstring |
@@ -102,7 +102,7 @@ Total: **227 modules** and **89898 source lines**.
 | [`backend/api/system_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/system_routes.py) | 673 | 4 | 14 | 9 | 13 | No module docstring |
 | [`backend/api/tools_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/tools_routes.py) | 164 | 3 | 6 | 5 | 6 | API Routes for Generated Tools Management. |
 | [`backend/api/vault_graph_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/vault_graph_routes.py) | 25 | 0 | 1 | 1 | 1 | No module docstring |
-| [`backend/api/vault_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/vault_routes.py) | 20067 | 29 | 557 | 185 | 455 | No module docstring |
+| [`backend/api/vault_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/vault_routes.py) | 20091 | 29 | 557 | 185 | 455 | No module docstring |
 | [`backend/api/vault_views_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/vault_views_routes.py) | 346 | 2 | 9 | 3 | 7 | vault_views_routes.py — API to manage per-page views. |
 | [`backend/api/vaults_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/vaults_routes.py) | 276 | 2 | 10 | 0 | 9 | Vaults API (personal multi-vault mode): list, create and choose vaults. |
 | [`backend/api/virtual_fields.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/virtual_fields.py) | 676 | 0 | 32 | 0 | 26 | Virtual fields: derived properties computed by the backend at read-time. |
@@ -197,7 +197,7 @@ Total: **227 modules** and **89898 source lines**.
 | [`backend/services/agent_skill_assignments.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/agent_skill_assignments.py) | 308 | 4 | 2 | 0 | 5 | Revision-aware agent skill assignments and legacy migration. |
 | [`backend/services/agent_skill_catalog.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/agent_skill_catalog.py) | 783 | 6 | 21 | 0 | 18 | Effective catalogs and runtime resolution for agent skills and tools. |
 | [`backend/services/article_extractor.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/article_extractor.py) | 137 | 0 | 2 | 0 | 2 | Full-text extraction for RSS articles whose feed only ships an excerpt. |
-| [`backend/services/artificial_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/artificial_analysis.py) | 649 | 1 | 19 | 0 | 16 | Artificial Analysis model-comparison feed. |
+| [`backend/services/artificial_analysis.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/artificial_analysis.py) | 668 | 1 | 19 | 0 | 16 | Artificial Analysis model-comparison feed. |
 | [`backend/services/audio_summarizer.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/audio_summarizer.py) | 456 | 1 | 13 | 0 | 14 | No module docstring |
 | [`backend/services/auth_public_surface.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/auth_public_surface.py) | 164 | 1 | 4 | 1 | 4 | The set of endpoints that must stay reachable without a session. |
 | [`backend/services/auth_service.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/auth_service.py) | 636 | 0 | 25 | 0 | 24 | Authentication service — JWT cookies + bcrypt password hashing. |
