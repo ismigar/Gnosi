@@ -24,7 +24,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | --- |
 | `backend/` | 402 | FastAPI, services, models, agents, scheduling, and storage adapters |
 | `frontend/src/` | 317 | React application, UI behavior, state, and browser integrations |
-| `pipeline/` | 96 | Reusable application skills and deterministic processing tools |
+| `pipeline/` | 98 | Reusable application skills and deterministic processing tools |
 | `electron/` | 18 | Desktop lifecycle, backend packaging, IPC, and updates |
 | `integrations/` | 12 | Office and external-system adapters |
 | `web-clipper/` | 11 | Browser extension capture surface |
