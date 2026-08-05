@@ -2663,10 +2663,23 @@ export function EditorInner({
             .trim();
     }, []);
 
+    // Tracks in-flight "create missing page" calls keyed by title so that a
+    // rapid second invocation (double-click on the suggestion) does not create
+    // a second page with the same title.
+    const creatingMissingPageRef = useRef({});
+
     const createMissingPageAndInsertLink = useCallback(async ({ rawTitle, tableId = null, mode = 'wiki', section = '' }) => {
         const safeTitle = normalizePendingLinkTitle(rawTitle);
         const safeSection = String(section || '').trim();
         if (!safeTitle) return;
+
+        // Guard against rapid double-invocation creating duplicate pages with
+        // the same title (e.g. user double-clicks the "create" suggestion).
+        // The key includes the title so two genuinely different missing links
+        // can still be created back-to-back.
+        const createKey = `create:${safeTitle}`;
+        if (creatingMissingPageRef.current[createKey]) return;
+        creatingMissingPageRef.current[createKey] = true;
 
         const baseMetadata = { title: safeTitle };
         if (tableId) {
@@ -2706,6 +2719,12 @@ export function EditorInner({
             }
         } catch (error) {
             notifyError('page-create', error, t('editor.page_create_error'));
+        } finally {
+            // Release the dedupe key after a short delay so a legitimately
+            // repeated creation (e.g. two different links resolved to the
+            // same missing title) is still possible, but an immediate
+            // double-fire is suppressed.
+            window.setTimeout(() => { delete creatingMissingPageRef.current[createKey]; }, 800);
         }
     }, [insertTransclusion, insertWikiLink, normalizePendingLinkTitle, onRefreshNotes, t]);
 
@@ -3958,38 +3977,74 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const contextValue = useMemo(() => ({ allTables, onEditSchema, onCreateRecord, onDeletePage, onOpenParallel, onOpenPage, onOpenInCurrentTab, onOpenInNewTab, idToTitle, registry: registry || { databases: [], tables: [], views: [] }, pageId: noteFilename, onOpenPageViewModal: openPageViewModalFromContext, onOpenViewConfig, viewSectionNonce }), [allTables, onEditSchema, onCreateRecord, onDeletePage, onOpenParallel, onOpenPage, onOpenInCurrentTab, onOpenInNewTab, idToTitle, registry, noteFilename, openPageViewModalFromContext, onOpenViewConfig, viewSectionNonce]);
     // Performs the actual PATCH. Don't call this directly from key-by-key
     // events — use handleSaveMetadata (debounced) or pass {immediate:true}.
+    //
+    // Coalesces overlapping PATCHes to the same page: while a save is in
+    // flight, any new request stores its snapshot in `pendingMetaRef` and
+    // returns immediately; when the in-flight call resolves, the latest
+    // pending snapshot is flushed in a single follow-up PATCH. Without this,
+    // rapid title typing fires several concurrent PATCHes that interleave
+    // badly (one renames `Old.md`→`New.md` while another still reads
+    // `Old.md` → 500 "Error desant markdown"). The backend now serializes
+    // writes per page_id too, but coalescing here keeps the UI to a single
+    // network round-trip per burst.
+    const metaSaveInFlightRef = useRef(null);
+    const pendingMetaRef = useRef(null);
+    const pendingRemoveKeysRef = useRef(null);
     const _doSaveMetadata = useCallback(async (currentMetadata, removeKeys = null) => {
         if (!noteFilename) return false;
-        setSaveStatus('saving');
-        try {
-            const data = {
-                title: currentMetadata?.title || t('editor.untitled'),
-                metadata: currentMetadata
-            };
-            // The PATCH merges on the backend; to REMOVE keys (properties
-            // local/ad-hoc) they must be sent explicitly.
-            if (removeKeys && removeKeys.length) data.remove_metadata_keys = removeKeys;
-            await axios.patch(`/api/vault/pages/${noteFilename}`, data);
-            setSaveStatus('saved');
-            // Notifies the parent so that `tabs[i].title` and the breadcrumb
-            // follow the rename. Without this, title changes via the
-            // properties panel or header input only propagated via
-            // `onRefreshNotes` (slow, full fetch); the tab would stay
-            // showing the old title until the next reload.
-            if (onUpdate) onUpdate(noteFilename, undefined, { title: data.title, metadata: data.metadata });
-            if (onRefreshNotes) onRefreshNotes();
-            setTimeout(() => setSaveStatus(prev => prev === 'saved' ? 'idle' : prev), 3000);
-            return true;
-        } catch (err) {
-            // Metadata-save failures used to be silent (console.error only).
-            // They mean a property edit, title rename, or icon/cover change
-            // didn't persist — important for the user to know. The UI error
-            // badge still shows; we add a deduplicated toast so the user
-            // doesn't think the change was saved.
-            notifyError('save-metadata', err, t('editor.markdown_save_error'));
-            setSaveStatus('error');
-            return false;
+        // If a save is already in flight, coalesce: keep only the most recent
+        // snapshot and let the running request finish first.
+        if (metaSaveInFlightRef.current) {
+            pendingMetaRef.current = currentMetadata;
+            pendingRemoveKeysRef.current = removeKeys;
+            return metaSaveInFlightRef.current;
         }
+        const runSave = async (meta, keys) => {
+            setSaveStatus('saving');
+            try {
+                const data = {
+                    title: meta?.title || t('editor.untitled'),
+                    metadata: meta
+                };
+                // The PATCH merges on the backend; to REMOVE keys (properties
+                // local/ad-hoc) they must be sent explicitly.
+                if (keys && keys.length) data.remove_metadata_keys = keys;
+                await axios.patch(`/api/vault/pages/${noteFilename}`, data);
+                setSaveStatus('saved');
+                // Notifies the parent so that `tabs[i].title` and the breadcrumb
+                // follow the rename. Without this, title changes via the
+                // properties panel or header input only propagated via
+                // `onRefreshNotes` (slow, full fetch); the tab would stay
+                // showing the old title until the next reload.
+                if (onUpdate) onUpdate(noteFilename, undefined, { title: data.title, metadata: data.metadata });
+                if (onRefreshNotes) onRefreshNotes();
+                setTimeout(() => setSaveStatus(prev => prev === 'saved' ? 'idle' : prev), 3000);
+                return true;
+            } catch (err) {
+                // Metadata-save failures used to be silent (console.error only).
+                // They mean a property edit, title rename, or icon/cover change
+                // didn't persist — important for the user to know. The UI error
+                // badge still shows; we add a deduplicated toast so the user
+                // doesn't think the change was saved.
+                notifyError('save-metadata', err, t('editor.markdown_save_error'));
+                setSaveStatus('error');
+                return false;
+            }
+        };
+        const promise = runSave(currentMetadata, removeKeys).finally(async () => {
+            // Flush the latest coalesced snapshot, if any, then clear state.
+            const pending = pendingMetaRef.current;
+            const pendingKeys = pendingRemoveKeysRef.current;
+            pendingMetaRef.current = null;
+            pendingRemoveKeysRef.current = null;
+            metaSaveInFlightRef.current = null;
+            if (pending) {
+                metaSaveInFlightRef.current = _doSaveMetadata(pending, pendingKeys);
+                await metaSaveInFlightRef.current;
+            }
+        });
+        metaSaveInFlightRef.current = promise;
+        return promise;
     }, [noteFilename, onUpdate, onRefreshNotes, t]);
 
     // Debounced metadata save. Without this, every keystroke on the title or

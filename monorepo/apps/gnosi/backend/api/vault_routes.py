@@ -481,6 +481,39 @@ _pages_resp_cache_lock = threading.Lock()
 _pages_resp_cache: Dict[str, tuple[float, List[Any]]] = {}
 _PAGES_RESP_CACHE_TTL = 1.5  # seconds
 
+# ── Per-page write serialization ─────────────────────────────────────
+# Without mutual exclusion keyed by `page_id`, two overlapping PATCHes to
+# the same page interleave badly: PATCH #1 renames `Old.md` → `New.md`
+# (title edit) and updates the in-memory path cache, while PATCH #2 —
+# already past its `find_page_path` call — tries `read_text`/`rename` on
+# the now-stale `Old.md` and raises FileNotFoundError → HTTP 500 → the
+# frontend shows "Error desant markdown". DELETE racing with PATCH can
+# also resolve a stale path (404). An asyncio.Lock per page_id forces the
+# second caller to wait until the first has finished its read + rename +
+# cache update, so `find_page_path` always returns the current path.
+_page_write_locks: Dict[str, asyncio.Lock] = {}
+_page_write_locks_guard = asyncio.Lock() if False else None  # set lazily at first use
+
+
+async def _get_page_write_lock(page_id: str) -> asyncio.Lock:
+    """Returns (creating if necessary) the asyncio.Lock for a given page_id.
+
+    A short critical section guards the dict itself; the returned lock is
+    then held by the caller for the whole write. Locks are never removed
+    (a page_id is stable for the page's lifetime and dict growth is
+    bounded by the number of pages).
+
+    """
+    global _page_write_locks_guard
+    if _page_write_locks_guard is None:
+        _page_write_locks_guard = asyncio.Lock()
+    async with _page_write_locks_guard:
+        lock = _page_write_locks.get(page_id)
+        if lock is None:
+            lock = asyncio.Lock()
+            _page_write_locks[page_id] = lock
+        return lock
+
 
 def _pages_cache_get(key: str) -> Optional[List[Any]]:
     """Return the list cached under `key` if the entry is still valid.
@@ -4242,9 +4275,42 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
 
     target_dir.mkdir(parents=True, exist_ok=True)
 
-    # All page types (including Dashboards) are markdown with
-    # frontmatter. The JSON was a legacy format that has already been removed.
-    file_path = _get_unique_filepath(target_dir, request.title, extension=".md")
+    # Defense in depth against duplicates: if the payload already carries a
+    # stable `metadata.id` (e.g. a "create missing page" retry, or a client
+    # retrying after a timeout) AND a page with that id already exists on
+    # disk, reuse it instead of minting a fresh UUID and writing a second
+    # file. This mirrors the canonical-id scan the PUT handler does. The
+    # common case (no explicit id) is unaffected — a fresh UUID is minted
+    # above and no scan runs.
+    requested_id = str(metadata.get("id") or "").strip()
+    existing_path_for_id: Optional[Path] = None
+    if requested_id and _canonicalize_id(requested_id):
+        canonical = _canonicalize_id(requested_id)
+        try:
+            for candidate in target_dir.iterdir():
+                if not candidate.is_file() or candidate.suffix != ".md":
+                    continue
+                try:
+                    raw_existing = candidate.read_text(encoding="utf-8")
+                    fm_existing, _ = parse_frontmatter(raw_existing, candidate)
+                    if _canonicalize_id(str(fm_existing.get("id", ""))) == canonical:
+                        existing_path_for_id = candidate
+                        break
+                except Exception:
+                    continue
+        except Exception:
+            existing_path_for_id = None
+    if existing_path_for_id is not None:
+        # Reuse the existing page: overwrite its id so frontmatter is consistent
+        # and skip allocating a new filename, which would otherwise produce a
+        # "{title} (2).md" duplicate.
+        page_id = str(metadata.get("id") or page_id)
+        file_path = existing_path_for_id
+        log.info(f"♻️ Reusing existing page for id {page_id}: {file_path}")
+    else:
+        # All page types (including Dashboards) are markdown with
+        # frontmatter. The JSON was a legacy format that has already been removed.
+        file_path = _get_unique_filepath(target_dir, request.title, extension=".md")
 
     log.info(f"Creating new page at: {file_path.absolute()}")
 
@@ -10429,189 +10495,190 @@ async def save_page(
                 },
             )
 
-    metadata = request.metadata.copy()
-    metadata = normalize_metadata_ids(metadata)
-    metadata = normalize_table_context(metadata)
-    _table_for_meta = _table_by_id(get_table_id(metadata))
-    if _table_for_meta:
-        metadata, _ = to_storage_names(metadata, _table_for_meta)
-    metadata["id"] = page_id
-    metadata["title"] = request.title
-    if request.parent_id is not None:
-        metadata["parent_id"] = request.parent_id
-
-    if request.is_database:
-        metadata["is_database"] = True
-    if metadata.get("is_dashboard") is True:
-        # Dashboards are markdown; the content_format=json flag was legacy.
-        metadata.pop("content_format", None)
-
-    is_template = metadata.get("is_template") is True
-    is_dashboard = metadata.get("is_dashboard") is True
-    if not file_path:
-        # If it doesn't exist, we create it in the correct folder according to metadata.
-        if is_template:
-            target_dir = get_p("PLANTILLES")
-        elif is_calendar_entry(metadata):
-            target_dir = get_p("CALENDAR")
-        elif is_dashboard:
-            target_dir = get_p("DASHBOARDS")
-        else:
-            table_folder = _resolve_table_folder_from_metadata(metadata)
-            target_dir = table_folder if table_folder else get_p("WIKI")
-
-        target_dir.mkdir(parents=True, exist_ok=True)
-        # Defense against duplicates: if the index cache did not have the page
-        # but the file DOES exist in the target directory (incomplete index
-        # due to Errno 35 'Resource deadlock' on OneDrive, etc.), we reuse
-        # that file instead of creating "{title} (2).md". Without this, every
-        # consecutive PUT would generate a new file and the page would appear
-        # duplicated in the sidebar with inconsistent states.
-        canonical = _canonicalize_id(page_id)
-        existing_local = None
-        try:
-            for candidate in target_dir.iterdir():
-                if not candidate.is_file() or candidate.suffix != ".md":
-                    continue
-                try:
-                    raw_existing = candidate.read_text(encoding="utf-8")
-                    fm_existing, _ = parse_frontmatter(raw_existing, candidate)
-                    if _canonicalize_id(str(fm_existing.get("id", ""))) == canonical:
-                        existing_local = candidate
-                        break
-                except Exception:
-                    continue
-        except Exception:
-            existing_local = None
-
-        if existing_local is not None:
-            file_path = existing_local
-            # Repopulates the cache so future calls don't redo
-            # this scan.
-            with _page_index_lock:
-                from backend.services.context_vars import get_active_vault_path
-                v_root = get_active_vault_path()
-                if v_root:
-                    _page_id_to_path.setdefault(str(v_root), {})[page_id] = str(file_path)
-            log.info(f"♻️ Reusing existing file for {page_id}: {file_path}")
-        else:
-            safe_name = _safe_filename(request.title, target_dir)
-            file_path = target_dir / f"{safe_name}.md"
-    else:
+    async with await _get_page_write_lock(page_id):
+        metadata = request.metadata.copy()
+        metadata = normalize_metadata_ids(metadata)
+        metadata = normalize_table_context(metadata)
+        _table_for_meta = _table_by_id(get_table_id(metadata))
+        if _table_for_meta:
+            metadata, _ = to_storage_names(metadata, _table_for_meta)
         metadata["id"] = page_id
-        orig_file_path = file_path
-        file_path = ensure_correct_page_location(file_path, metadata)
-        file_path = _rename_page_file_to_match_title(file_path, request.title)
-        if file_path != orig_file_path:
-            _remove_page_from_index_cache(page_id, orig_file_path)
-            _add_page_to_index_cache(file_path)
-            with _page_index_lock:
-                from backend.services.context_vars import get_active_vault_path
-                v_r = get_active_vault_path()
-                if v_r:
-                    _page_id_to_path.setdefault(str(v_r), {})[page_id] = str(file_path)
+        metadata["title"] = request.title
+        if request.parent_id is not None:
+            metadata["parent_id"] = request.parent_id
 
-    # Read previous metadata to detect manual overrides — off the event loop
-    # so a slow OneDrive read doesn't block other concurrent requests.
-    def _read_old_meta():
-        if not file_path or not file_path.exists():
-            return {}, ""
+        if request.is_database:
+            metadata["is_database"] = True
+        if metadata.get("is_dashboard") is True:
+            # Dashboards are markdown; the content_format=json flag was legacy.
+            metadata.pop("content_format", None)
+
+        is_template = metadata.get("is_template") is True
+        is_dashboard = metadata.get("is_dashboard") is True
+        if not file_path:
+            # If it doesn't exist, we create it in the correct folder according to metadata.
+            if is_template:
+                target_dir = get_p("PLANTILLES")
+            elif is_calendar_entry(metadata):
+                target_dir = get_p("CALENDAR")
+            elif is_dashboard:
+                target_dir = get_p("DASHBOARDS")
+            else:
+                table_folder = _resolve_table_folder_from_metadata(metadata)
+                target_dir = table_folder if table_folder else get_p("WIKI")
+
+            target_dir.mkdir(parents=True, exist_ok=True)
+            # Defense against duplicates: if the index cache did not have the page
+            # but the file DOES exist in the target directory (incomplete index
+            # due to Errno 35 'Resource deadlock' on OneDrive, etc.), we reuse
+            # that file instead of creating "{title} (2).md". Without this, every
+            # consecutive PUT would generate a new file and the page would appear
+            # duplicated in the sidebar with inconsistent states.
+            canonical = _canonicalize_id(page_id)
+            existing_local = None
+            try:
+                for candidate in target_dir.iterdir():
+                    if not candidate.is_file() or candidate.suffix != ".md":
+                        continue
+                    try:
+                        raw_existing = candidate.read_text(encoding="utf-8")
+                        fm_existing, _ = parse_frontmatter(raw_existing, candidate)
+                        if _canonicalize_id(str(fm_existing.get("id", ""))) == canonical:
+                            existing_local = candidate
+                            break
+                    except Exception:
+                        continue
+            except Exception:
+                existing_local = None
+
+            if existing_local is not None:
+                file_path = existing_local
+                # Repopulates the cache so future calls don't redo
+                # this scan.
+                with _page_index_lock:
+                    from backend.services.context_vars import get_active_vault_path
+                    v_root = get_active_vault_path()
+                    if v_root:
+                        _page_id_to_path.setdefault(str(v_root), {})[page_id] = str(file_path)
+                log.info(f"♻️ Reusing existing file for {page_id}: {file_path}")
+            else:
+                safe_name = _safe_filename(request.title, target_dir)
+                file_path = target_dir / f"{safe_name}.md"
+        else:
+            metadata["id"] = page_id
+            orig_file_path = file_path
+            file_path = ensure_correct_page_location(file_path, metadata)
+            file_path = _rename_page_file_to_match_title(file_path, request.title)
+            if file_path != orig_file_path:
+                _remove_page_from_index_cache(page_id, orig_file_path)
+                _add_page_to_index_cache(file_path)
+                with _page_index_lock:
+                    from backend.services.context_vars import get_active_vault_path
+                    v_r = get_active_vault_path()
+                    if v_r:
+                        _page_id_to_path.setdefault(str(v_r), {})[page_id] = str(file_path)
+
+        # Read previous metadata to detect manual overrides — off the event loop
+        # so a slow OneDrive read doesn't block other concurrent requests.
+        def _read_old_meta():
+            if not file_path or not file_path.exists():
+                return {}, ""
+            try:
+                raw_content = file_path.read_text(encoding="utf-8")
+                md, bd = parse_frontmatter(raw_content, file_path)
+                return md, bd
+            except Exception:
+                return {}, ""
+        old_metadata, old_body = await asyncio.to_thread(_read_old_meta)
+        # We capture the previous title to detect changes at the end and rewrite
+        # the wikilinks `[[Old Title]]` → `[[New Title]]`. PUT can receive both
+        # `request.title` as `metadata.title` (consolidated into `metadata`).
+        previous_title = str(old_metadata.get("title") or "").strip() if old_metadata else ""
+
+        # Apply automations and formulas (on the thread pool: CPU-heavy formulas /
+        # cross-record rollups read many files and would block the event loop).
         try:
-            raw_content = file_path.read_text(encoding="utf-8")
-            md, bd = parse_frontmatter(raw_content, file_path)
-            return md, bd
-        except Exception:
-            return {}, ""
-    old_metadata, old_body = await asyncio.to_thread(_read_old_meta)
-    # We capture the previous title to detect changes at the end and rewrite
-    # the wikilinks `[[Old Title]]` → `[[New Title]]`. PUT can receive both
-    # `request.title` as `metadata.title` (consolidated into `metadata`).
-    previous_title = str(old_metadata.get("title") or "").strip() if old_metadata else ""
-
-    # Apply automations and formulas (on the thread pool: CPU-heavy formulas /
-    # cross-record rollups read many files and would block the event loop).
-    try:
-        metadata = await asyncio.to_thread(
-            get_rule_engine().process_updates, page_id, old_metadata, metadata
-        )
-    except Exception as e:
-        log.error(f"Error processing automations for {page_id}: {e}")
-
-    # Authorship: stamps the last editor (and creator if the page is new).
-    _stamp_author(metadata, getattr(context, "user_id", None), is_create=not bool(old_metadata))
-
-    metadata = _persist_metadata_assets(metadata)
-
-    # Saving a resource from the browser must also guarantee its Citation Key —
-    # and keep a key edited in the properties panel unique (same guard as the
-    # grid PATCH; see `_dedupe_citation_key`).
-    metadata = _ensure_recursos_citation_key(metadata, _table_for_meta)
-    metadata = _dedupe_citation_key(metadata, page_id)
-
-    def _write_now():
-        # Both the version backup and the actual file write are real I/O on
-        # OneDrive — pushed onto a worker thread together so the request
-        # path stays unblocked. All page types (including Dashboards)
-        # are written as markdown with frontmatter.
-        if file_path and file_path.exists():
-            _create_page_version(page_id, file_path)
-        save_page_md(file_path, metadata, request.content)
-
-    try:
-        await asyncio.to_thread(_write_now)
-
-        # Refreshes the in-memory INDEX with the NEW metadata (id→path + the entry
-        # in full). Previously only the id→path map was updated, leaving the
-        # metadata of the STALE entry in `_page_index_entries` → `GET /pages` and
-        # `/by-table` served the OLD value until the rescan (cooldown 600s);
-        # reproduced: PUT of QAField old→NEW and by-table kept showing "old".
-        _refresh_page_index_entry(file_path, metadata, request.content)
-
-        # Invalidates the PageInfo TTL micro-cache (see PATCH for the rationale).
-        _pages_cache_invalidate_all()
-
-        background_tasks.add_task(update_link_index_for_page, file_path)
-
-        # If the title has changed, rewrites the literal-title wikilinks in
-        # the pages that reference this one. See rewrite_wikilinks_on_title_change.
-        new_title = str(metadata.get("title") or request.title or "").strip()
-        if previous_title and new_title and previous_title != new_title:
-            background_tasks.add_task(
-                rewrite_wikilinks_on_title_change,
-                page_id,
-                previous_title,
-                new_title,
+            metadata = await asyncio.to_thread(
+                get_rule_engine().process_updates, page_id, old_metadata, metadata
             )
+        except Exception as e:
+            log.error(f"Error processing automations for {page_id}: {e}")
 
-        table_id = get_table_id(metadata)
-        if table_id:
+        # Authorship: stamps the last editor (and creator if the page is new).
+        _stamp_author(metadata, getattr(context, "user_id", None), is_create=not bool(old_metadata))
+
+        metadata = _persist_metadata_assets(metadata)
+
+        # Saving a resource from the browser must also guarantee its Citation Key —
+        # and keep a key edited in the properties panel unique (same guard as the
+        # grid PATCH; see `_dedupe_citation_key`).
+        metadata = _ensure_recursos_citation_key(metadata, _table_for_meta)
+        metadata = _dedupe_citation_key(metadata, page_id)
+
+        def _write_now():
+            # Both the version backup and the actual file write are real I/O on
+            # OneDrive — pushed onto a worker thread together so the request
+            # path stays unblocked. All page types (including Dashboards)
+            # are written as markdown with frontmatter.
+            if file_path and file_path.exists():
+                _create_page_version(page_id, file_path)
+            save_page_md(file_path, metadata, request.content)
+
+        try:
+            await asyncio.to_thread(_write_now)
+
+            # Refreshes the in-memory INDEX with the NEW metadata (id→path + the entry
+            # in full). Previously only the id→path map was updated, leaving the
+            # metadata of the STALE entry in `_page_index_entries` → `GET /pages` and
+            # `/by-table` served the OLD value until the rescan (cooldown 600s);
+            # reproduced: PUT of QAField old→NEW and by-table kept showing "old".
+            _refresh_page_index_entry(file_path, metadata, request.content)
+
+            # Invalidates the PageInfo TTL micro-cache (see PATCH for the rationale).
+            _pages_cache_invalidate_all()
+
+            background_tasks.add_task(update_link_index_for_page, file_path)
+
+            # If the title has changed, rewrites the literal-title wikilinks in
+            # the pages that reference this one. See rewrite_wikilinks_on_title_change.
+            new_title = str(metadata.get("title") or request.title or "").strip()
+            if previous_title and new_title and previous_title != new_title:
+                background_tasks.add_task(
+                    rewrite_wikilinks_on_title_change,
+                    page_id,
+                    previous_title,
+                    new_title,
+                )
+
+            table_id = get_table_id(metadata)
+            if table_id:
+                background_tasks.add_task(
+                    _recompute_cross_record_formulas_for_table, table_id, page_id
+                )
+            sync_to_google_calendar_if_needed(metadata, background_tasks)
+            # If this page is an original with translations, flag them stale when the
+            # edit touched translatable content (background; cheap no-op otherwise).
             background_tasks.add_task(
-                _recompute_cross_record_formulas_for_table, table_id, page_id
+                _propagate_translation_staleness,
+                page_id, old_metadata, metadata, old_body, request.content,
             )
-        sync_to_google_calendar_if_needed(metadata, background_tasks)
-        # If this page is an original with translations, flag them stale when the
-        # edit touched translatable content (background; cheap no-op otherwise).
-        background_tasks.add_task(
-            _propagate_translation_staleness,
-            page_id, old_metadata, metadata, old_body, request.content,
-        )
-        rel_folder, resolved_table_id = _resolve_page_context_from_path(
-            metadata, file_path
-        )
-        return {
-            "status": "success",
-            "id": page_id,
-            "title": metadata.get("title", request.title),
-            "metadata": metadata,
-            "content": request.content,
-            "folder": rel_folder,
-            "resolved_table_id": resolved_table_id,
-            "etag": file_etag(file_path),  # New etag for next save's optimistic check
-            "message": "Page saved successfully",
-        }
-    except Exception as e:
-        log.error(f"Error saving page {page_id}: {e}")
-        raise HTTPException(status_code=500, detail="Error writing file to disk")
+            rel_folder, resolved_table_id = _resolve_page_context_from_path(
+                metadata, file_path
+            )
+            return {
+                "status": "success",
+                "id": page_id,
+                "title": metadata.get("title", request.title),
+                "metadata": metadata,
+                "content": request.content,
+                "folder": rel_folder,
+                "resolved_table_id": resolved_table_id,
+                "etag": file_etag(file_path),  # New etag for next save's optimistic check
+                "message": "Page saved successfully",
+            }
+        except Exception as e:
+            log.error(f"Error saving page {page_id}: {e}")
+            raise HTTPException(status_code=500, detail="Error writing file to disk")
 
 
 @router.patch("/pages/{page_id}", dependencies=[Depends(require_role("editor"))])
@@ -10627,289 +10694,297 @@ async def patch_page(
     expected_etag = request.expected_etag
     force = request.force
 
-    def _find_and_read():
-        fp = find_page_path(page_id)
-        if not fp:
-            return None, None, None, None, None
-        # Concurrency check before the read (same as before).
-        current = None
-        if expected_etag and not force:
-            current = file_etag(fp)
-            if current and current != expected_etag:
-                # We return the current_etag to the caller so it can generate the 409.
-                return fp, None, None, None, current
-        if _is_dashboard_file_path(fp):
-            md, bd = _read_dashboard_file(fp)
-            return fp, md, bd, None, current
-        raw_content = fp.read_text(encoding="utf-8")
-        md, bd = parse_frontmatter(raw_content, fp)
-        return fp, md, bd, raw_content, current
+    # Serialize writes/deletes per page_id: two overlapping PATCHes to the
+    # same page (e.g. rapid title typing) interleave — PATCH #1 renames
+    # `Old.md` → `New.md` and repoints the cache, PATCH #2 (already past
+    # its find_page_path) then reads/renames the stale `Old.md` and 500s.
+    # The lock forces PATCH #2 to wait until #1 has finished the rename +
+    # cache update, so find_page_path always returns the current path.
+    async with await _get_page_write_lock(page_id):
 
-    file_path, metadata, body, original_raw_content, current_etag = (
-        await asyncio.to_thread(_find_and_read)
-    )
-    if not file_path:
-        raise HTTPException(status_code=404, detail="Page not found")
-    if expected_etag and not force and current_etag and current_etag != expected_etag:
-        log.info(
-            f"⚠️ etag mismatch (PATCH) for {page_id}: "
-            f"expected={expected_etag} current={current_etag}"
+        def _find_and_read():
+            fp = find_page_path(page_id)
+            if not fp:
+                return None, None, None, None, None
+            # Concurrency check before the read (same as before).
+            current = None
+            if expected_etag and not force:
+                current = file_etag(fp)
+                if current and current != expected_etag:
+                    # We return the current_etag to the caller so it can generate the 409.
+                    return fp, None, None, None, current
+            if _is_dashboard_file_path(fp):
+                md, bd = _read_dashboard_file(fp)
+                return fp, md, bd, None, current
+            raw_content = fp.read_text(encoding="utf-8")
+            md, bd = parse_frontmatter(raw_content, fp)
+            return fp, md, bd, raw_content, current
+
+        file_path, metadata, body, original_raw_content, current_etag = (
+            await asyncio.to_thread(_find_and_read)
         )
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "error": "etag_mismatch",
-                "message": (
-                    "The file has changed since you opened it. Reload it or "
-                    "resend with force=true to overwrite it."
-                ),
-                "current_etag": current_etag,
-                "expected_etag": expected_etag,
-            },
-        )
+        if not file_path:
+            raise HTTPException(status_code=404, detail="Page not found")
+        if expected_etag and not force and current_etag and current_etag != expected_etag:
+            log.info(
+                f"⚠️ etag mismatch (PATCH) for {page_id}: "
+                f"expected={expected_etag} current={current_etag}"
+            )
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "error": "etag_mismatch",
+                    "message": (
+                        "The file has changed since you opened it. Reload it or "
+                        "resend with force=true to overwrite it."
+                    ),
+                    "current_etag": current_etag,
+                    "expected_etag": expected_etag,
+                },
+            )
 
-    try:
+        try:
 
-        # Snapshot of the original frontmatter BEFORE mutating anything. The RuleEngine
-        # needs to compare "what was in the file" with "what was requested
-        # change"; before, this snapshot was obtained by rereading the file
-        # a second time (`_read_original`), which paid for a read
-        # an extra round-trip to OneDrive (~100-300 ms) for each PATCH. The content of the
-        # file doesn't change between the first read and the rule engine — only
-        # potentially its path (rename/move) — so a `dict()`
-        # is equivalent and much cheaper.
-        original_metadata_snapshot = dict(metadata)
+            # Snapshot of the original frontmatter BEFORE mutating anything. The RuleEngine
+            # needs to compare "what was in the file" with "what was requested
+            # change"; before, this snapshot was obtained by rereading the file
+            # a second time (`_read_original`), which paid for a read
+            # an extra round-trip to OneDrive (~100-300 ms) for each PATCH. The content of the
+            # file doesn't change between the first read and the rule engine — only
+            # potentially its path (rename/move) — so a `dict()`
+            # is equivalent and much cheaper.
+            original_metadata_snapshot = dict(metadata)
 
-        # We capture the previous title BEFORE mutating `metadata`. If it changes, at the
-        # end of the PATCH we'll launch a background task that rewrites the
-        # wikilinks `[[Old Title]]` → `[[New Title]]` in all the pages
-        # that reference it.
-        previous_title = str(metadata.get("title") or "").strip()
+            # We capture the previous title BEFORE mutating `metadata`. If it changes, at the
+            # end of the PATCH we'll launch a background task that rewrites the
+            # wikilinks `[[Old Title]]` → `[[New Title]]` in all the pages
+            # that reference it.
+            previous_title = str(metadata.get("title") or "").strip()
 
-        if request.title is not None:
-            metadata["title"] = request.title
-        if request.parent_id is not None:
-            metadata["parent_id"] = request.parent_id
-        if request.is_database is not None:
-            metadata["is_database"] = request.is_database
-        if request.metadata is not None:
-            # Merge metadata
-            metadata.update(request.metadata)
-        # `metadata.update` cannot remove keys: to DELETE properties
-        # (e.g. local/ad-hoc fields from the panel) they must be removed here.
-        if request.remove_metadata_keys:
-            for _rk in request.remove_metadata_keys:
-                metadata.pop(_rk, None)
+            if request.title is not None:
+                metadata["title"] = request.title
+            if request.parent_id is not None:
+                metadata["parent_id"] = request.parent_id
+            if request.is_database is not None:
+                metadata["is_database"] = request.is_database
+            if request.metadata is not None:
+                # Merge metadata
+                metadata.update(request.metadata)
+            # `metadata.update` cannot remove keys: to DELETE properties
+            # (e.g. local/ad-hoc fields from the panel) they must be removed here.
+            if request.remove_metadata_keys:
+                for _rk in request.remove_metadata_keys:
+                    metadata.pop(_rk, None)
 
-        content = request.content if request.content is not None else body
+            content = request.content if request.content is not None else body
 
-        # Normalize legacy IDs.
-        metadata = normalize_metadata_ids(metadata)
-        metadata = normalize_table_context(metadata)
-        if metadata.get("is_dashboard") is True:
-            # Dashboards are markdown with frontmatter, like any other
-            # page; `content_format=json` was a legacy tag. If the
-            # current frontmatter still carries it, we remove it so it doesn't get written
-            # to disk. The reverse that used to be here (setting `content_format=json`
-            # and converting the file to `.json`) caused corruption: the PATCH
-            # renamed `Bitàcora.md` → `Bitàcora.json`, wrote a body
-            # empty via some error path, and the page ended up returning 500.
-            metadata.pop("content_format", None)
+            # Normalize legacy IDs.
+            metadata = normalize_metadata_ids(metadata)
+            metadata = normalize_table_context(metadata)
+            if metadata.get("is_dashboard") is True:
+                # Dashboards are markdown with frontmatter, like any other
+                # page; `content_format=json` was a legacy tag. If the
+                # current frontmatter still carries it, we remove it so it doesn't get written
+                # to disk. The reverse that used to be here (setting `content_format=json`
+                # and converting the file to `.json`) caused corruption: the PATCH
+                # renamed `Bitàcora.md` → `Bitàcora.json`, wrote a body
+                # empty via some error path, and the page ended up returning 500.
+                metadata.pop("content_format", None)
 
-        metadata["id"] = page_id
-        orig_file_path = file_path
-        # Move if type changes (template / non-template)
-        file_path = ensure_correct_page_location(file_path, metadata)
-        # NOTE: Do NOT call `_ensure_page_extension` for dashboards. The rule
-        # of the project is "pages (including dashboards) are always Markdown";
-        # changing the extension to `.json` when `is_dashboard=True` is the bug that
-        # broke Bitàcora. The function is kept in the code to still read
-        # legacy `.json`, but the renaming isn't forced here.
-        if request.title is not None:
-            file_path = _rename_page_file_to_match_title(file_path, request.title)
+            metadata["id"] = page_id
+            orig_file_path = file_path
+            # Move if type changes (template / non-template)
+            file_path = ensure_correct_page_location(file_path, metadata)
+            # NOTE: Do NOT call `_ensure_page_extension` for dashboards. The rule
+            # of the project is "pages (including dashboards) are always Markdown";
+            # changing the extension to `.json` when `is_dashboard=True` is the bug that
+            # broke Bitàcora. The function is kept in the code to still read
+            # legacy `.json`, but the renaming isn't forced here.
+            if request.title is not None:
+                file_path = _rename_page_file_to_match_title(file_path, request.title)
 
-        if file_path != orig_file_path:
-            _remove_page_from_index_cache(page_id, orig_file_path)
-            _add_page_to_index_cache(file_path)
-            with _page_index_lock:
+            if file_path != orig_file_path:
+                _remove_page_from_index_cache(page_id, orig_file_path)
+                _add_page_to_index_cache(file_path)
+                with _page_index_lock:
+                    from backend.services.context_vars import get_active_vault_path
+                    v_r = get_active_vault_path()
+                    if v_r:
+                        _page_id_to_path.setdefault(str(v_r), {})[page_id] = str(file_path)
+
+            # Rule engine + asset persistence + writing. `original_metadata_snapshot`
+            # captured at the start already saves a file read; the
+            # `process_updates` runs on the thread pool because it could invoke
+            # CPU-heavy formulas on tables with rules.
+            try:
+                metadata = await asyncio.to_thread(
+                    get_rule_engine().process_updates,
+                    page_id, original_metadata_snapshot, metadata,
+                )
+            except Exception as e:
+                log.error(f"Error processing automations for {page_id}: {e}")
+
+            # Authorship: stamps the last editor (created_* is preserved if already present).
+            _stamp_author(metadata, getattr(context, "user_id", None), is_create=False)
+
+            metadata = _persist_metadata_assets(metadata)
+
+            # Partial edits (e.g. filling in cells in the grid) must also
+            # leave the resource citable if it didn't already have a key — and a
+            # hand-typed key must not collide with another record's (the collision
+            # silently shadows one of the two in citeproc).
+            metadata = _ensure_recursos_citation_key(metadata)
+            metadata = _dedupe_citation_key(metadata, page_id)
+
+            # Snapshot of the relation fields (clean ids) BEFORE writing: `save_page_md`
+            # decorates in-place (id→[[Title|id]]), so we capture it now to propagate
+            # the inverse sync to the other side (background task, further below).
+            _rel_new_snapshot = dict(metadata)
+
+            def _write_now():
+                save_page_md(file_path, metadata, content)
+            await asyncio.to_thread(_write_now)
+
+            # Updates the `_page_index_entries` cache IMMEDIATELY with the new
+            # metadata. Without this, the next GET /api/vault/pages returns the
+            # cached (old) metadata and the frontend reverts the recent changes
+            # — bug visible when you change an icon/cover and the sidebar loses it
+            # after a fetchPages. We also invalidate the bodies cache and the
+            # iter_docs cache so /backlinks reflects the changes.
+            try:
                 from backend.services.context_vars import get_active_vault_path
-                v_r = get_active_vault_path()
-                if v_r:
-                    _page_id_to_path.setdefault(str(v_r), {})[page_id] = str(file_path)
+                v_path = get_active_vault_path()
+                if v_path:
+                    v_str = str(v_path)
+                    try:
+                        stat_result = file_path.stat()
+                        # We build the entry from the in-memory data without
+                        # re-read the file (`_build_page_cache_entry`
+                        # used to read frontmatter from disk — ~100-300 ms on OneDrive
+                        # for each PATCH).
+                        new_entry = _build_cache_entry_from_memory(
+                            file_path, stat_result, metadata, content or ""
+                        )
+                        with _page_index_lock:
+                            _page_index_entries.setdefault(v_str, {})[str(file_path)] = new_entry
+                            new_id = new_entry.get("id")
+                            if new_id:
+                                _page_id_to_path.setdefault(v_str, {})[new_id] = str(file_path)
+                            _bump_page_index_version(v_str)
+                        # PathResolver: in a RENAME (title) the file changes
+                        # path; without re-registering it, find_path (rule_engine) and
+                        # the file list from /unlinked-mentions pointed to the
+                        # old path until the full rescan (600s cooldown).
+                        path_resolver.add_file(v_path, new_id or page_id, file_path)
+                    except Exception as e:
+                        log.debug(f"Cache update after PATCH failed for {page_id}: {e}")
+                with _body_cache_lock:
+                    _body_cache.pop(str(file_path), None)
+                # Invalidates the PageInfo TTL micro-cache so that the next
+                # `/by-table` or `/pages` doesn't return the pre-PATCH version (~1.5 s
+                # stale state would be visible in the frontend on autosave).
+                _pages_cache_invalidate_all()
+                # The cite_key_index rebuilds itself on a page-COUNT change, so editing a
+                # `Citation Key` in place goes unnoticed: the picker and, above all,
+                # Word/LibreOffice keep resolving the OLD key (and the new one returns
+                # `resolved: false`) until an unrelated page is created or the backend
+                # restarts. Editing the key is exactly the "critical change" the
+                # heuristic can't see, so we invalidate explicitly.
+                if str(original_metadata_snapshot.get("Citation Key") or "") != str(metadata.get("Citation Key") or ""):
+                    _invalidate_cite_key_index()
+                # Surgical update of `_iter_docs_cache`: we do NOT invalidate
+                # the whole list. Invalidating it (the old `docs = None`) caused
+                # the next call to `/backlinks`, `/global-index` or
+                # `_rebuild_link_index` would traverse 3500+ OneDrive files
+                # (~138 s observed). Here we replace the specific entry in-place
+                # with the new content that we already have in memory.
+                with _iter_docs_lock:
+                    _dc_entry = _iter_docs_cache.get(v_str)
+                    docs = _dc_entry.get("docs") if _dc_entry else None
+                    if docs is not None:
+                        path_str = str(file_path)
+                        new_doc = (
+                            Path(path_str),
+                            dict(metadata),
+                            content if content is not None else "",
+                            _is_dashboard_file_path(file_path),
+                        )
+                        for i, doc in enumerate(docs):
+                            if str(doc[0]) == path_str:
+                                docs[i] = new_doc
+                                break
+                        else:
+                            docs.append(new_doc)
+            except Exception as e:
+                log.debug(f"Cache invalidation after PATCH failed: {e}")
 
-        # Rule engine + asset persistence + writing. `original_metadata_snapshot`
-        # captured at the start already saves a file read; the
-        # `process_updates` runs on the thread pool because it could invoke
-        # CPU-heavy formulas on tables with rules.
-        try:
-            metadata = await asyncio.to_thread(
-                get_rule_engine().process_updates,
-                page_id, original_metadata_snapshot, metadata,
+            # Background backup: versioning to `.history/` no longer blocks
+            # the response. If we have the original `raw_content` (markdown case),
+            # we write it directly with the "from_content" helper; for
+            # for dashboards we use the classic version that does `shutil.copy2` (fast
+            # because dashboard .json files are small).
+            if original_raw_content is not None:
+                background_tasks.add_task(
+                    _create_page_version_from_content, page_id, original_raw_content
+                )
+            else:
+                background_tasks.add_task(_create_page_version, page_id, file_path)
+
+            background_tasks.add_task(update_link_index_for_page, file_path)
+
+            # If the title has changed, rewrites the literal-title wikilinks
+            # in the pages that reference this one. update_link_index_for_page
+            # from the previous background task will update the modified sources.
+            new_title = str(metadata.get("title") or "").strip()
+            if previous_title and new_title and previous_title != new_title:
+                background_tasks.add_task(
+                    rewrite_wikilinks_on_title_change,
+                    page_id,
+                    previous_title,
+                    new_title,
+                )
+
+            table_id = get_table_id(metadata)
+            if table_id:
+                background_tasks.add_task(
+                    _recompute_cross_record_formulas_for_table, table_id, page_id
+                )
+            sync_to_google_calendar_if_needed(metadata, background_tasks)
+            # If this page is an original with translations, flag them stale when the
+            # edit touched translatable content (background; cheap no-op otherwise).
+            background_tasks.add_task(
+                _propagate_translation_staleness,
+                page_id, original_metadata_snapshot, metadata, body, content,
             )
+            # Bidirectional relation sync: propagates changes in the relation
+            # fields to the INVERSE field of the pages on the other side (or the views
+            # embedded ones, which filter by the inverse, come out empty). Background.
+            background_tasks.add_task(
+                _propagate_relation_inverse,
+                page_id, get_table_id(metadata),
+                dict(original_metadata_snapshot), _rel_new_snapshot,
+            )
+
+            rel_folder, resolved_table_id = _resolve_page_context_from_path(
+                metadata, file_path
+            )
+            return {
+                "status": "success",
+                "id": page_id,
+                "title": metadata.get("title", ""),
+                "metadata": metadata,
+                "content": content,
+                "folder": rel_folder,
+                "resolved_table_id": resolved_table_id,
+                "etag": file_etag(file_path),  # Echo back for next save
+                "message": "Page partially updated",
+            }
         except Exception as e:
-            log.error(f"Error processing automations for {page_id}: {e}")
-
-        # Authorship: stamps the last editor (created_* is preserved if already present).
-        _stamp_author(metadata, getattr(context, "user_id", None), is_create=False)
-
-        metadata = _persist_metadata_assets(metadata)
-
-        # Partial edits (e.g. filling in cells in the grid) must also
-        # leave the resource citable if it didn't already have a key — and a
-        # hand-typed key must not collide with another record's (the collision
-        # silently shadows one of the two in citeproc).
-        metadata = _ensure_recursos_citation_key(metadata)
-        metadata = _dedupe_citation_key(metadata, page_id)
-
-        # Snapshot of the relation fields (clean ids) BEFORE writing: `save_page_md`
-        # decorates in-place (id→[[Title|id]]), so we capture it now to propagate
-        # the inverse sync to the other side (background task, further below).
-        _rel_new_snapshot = dict(metadata)
-
-        def _write_now():
-            save_page_md(file_path, metadata, content)
-        await asyncio.to_thread(_write_now)
-
-        # Updates the `_page_index_entries` cache IMMEDIATELY with the new
-        # metadata. Without this, the next GET /api/vault/pages returns the
-        # cached (old) metadata and the frontend reverts the recent changes
-        # — bug visible when you change an icon/cover and the sidebar loses it
-        # after a fetchPages. We also invalidate the bodies cache and the
-        # iter_docs cache so /backlinks reflects the changes.
-        try:
-            from backend.services.context_vars import get_active_vault_path
-            v_path = get_active_vault_path()
-            if v_path:
-                v_str = str(v_path)
-                try:
-                    stat_result = file_path.stat()
-                    # We build the entry from the in-memory data without
-                    # re-read the file (`_build_page_cache_entry`
-                    # used to read frontmatter from disk — ~100-300 ms on OneDrive
-                    # for each PATCH).
-                    new_entry = _build_cache_entry_from_memory(
-                        file_path, stat_result, metadata, content or ""
-                    )
-                    with _page_index_lock:
-                        _page_index_entries.setdefault(v_str, {})[str(file_path)] = new_entry
-                        new_id = new_entry.get("id")
-                        if new_id:
-                            _page_id_to_path.setdefault(v_str, {})[new_id] = str(file_path)
-                        _bump_page_index_version(v_str)
-                    # PathResolver: in a RENAME (title) the file changes
-                    # path; without re-registering it, find_path (rule_engine) and
-                    # the file list from /unlinked-mentions pointed to the
-                    # old path until the full rescan (600s cooldown).
-                    path_resolver.add_file(v_path, new_id or page_id, file_path)
-                except Exception as e:
-                    log.debug(f"Cache update after PATCH failed for {page_id}: {e}")
-            with _body_cache_lock:
-                _body_cache.pop(str(file_path), None)
-            # Invalidates the PageInfo TTL micro-cache so that the next
-            # `/by-table` or `/pages` doesn't return the pre-PATCH version (~1.5 s
-            # stale state would be visible in the frontend on autosave).
-            _pages_cache_invalidate_all()
-            # The cite_key_index rebuilds itself on a page-COUNT change, so editing a
-            # `Citation Key` in place goes unnoticed: the picker and, above all,
-            # Word/LibreOffice keep resolving the OLD key (and the new one returns
-            # `resolved: false`) until an unrelated page is created or the backend
-            # restarts. Editing the key is exactly the "critical change" the
-            # heuristic can't see, so we invalidate explicitly.
-            if str(original_metadata_snapshot.get("Citation Key") or "") != str(metadata.get("Citation Key") or ""):
-                _invalidate_cite_key_index()
-            # Surgical update of `_iter_docs_cache`: we do NOT invalidate
-            # the whole list. Invalidating it (the old `docs = None`) caused
-            # the next call to `/backlinks`, `/global-index` or
-            # `_rebuild_link_index` would traverse 3500+ OneDrive files
-            # (~138 s observed). Here we replace the specific entry in-place
-            # with the new content that we already have in memory.
-            with _iter_docs_lock:
-                _dc_entry = _iter_docs_cache.get(v_str)
-                docs = _dc_entry.get("docs") if _dc_entry else None
-                if docs is not None:
-                    path_str = str(file_path)
-                    new_doc = (
-                        Path(path_str),
-                        dict(metadata),
-                        content if content is not None else "",
-                        _is_dashboard_file_path(file_path),
-                    )
-                    for i, doc in enumerate(docs):
-                        if str(doc[0]) == path_str:
-                            docs[i] = new_doc
-                            break
-                    else:
-                        docs.append(new_doc)
-        except Exception as e:
-            log.debug(f"Cache invalidation after PATCH failed: {e}")
-
-        # Background backup: versioning to `.history/` no longer blocks
-        # the response. If we have the original `raw_content` (markdown case),
-        # we write it directly with the "from_content" helper; for
-        # for dashboards we use the classic version that does `shutil.copy2` (fast
-        # because dashboard .json files are small).
-        if original_raw_content is not None:
-            background_tasks.add_task(
-                _create_page_version_from_content, page_id, original_raw_content
+            log.error(f"Error patching page {page_id}: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=safe_error_detail(e, f"PATCH /pages/{page_id}"),
             )
-        else:
-            background_tasks.add_task(_create_page_version, page_id, file_path)
-
-        background_tasks.add_task(update_link_index_for_page, file_path)
-
-        # If the title has changed, rewrites the literal-title wikilinks
-        # in the pages that reference this one. update_link_index_for_page
-        # from the previous background task will update the modified sources.
-        new_title = str(metadata.get("title") or "").strip()
-        if previous_title and new_title and previous_title != new_title:
-            background_tasks.add_task(
-                rewrite_wikilinks_on_title_change,
-                page_id,
-                previous_title,
-                new_title,
-            )
-
-        table_id = get_table_id(metadata)
-        if table_id:
-            background_tasks.add_task(
-                _recompute_cross_record_formulas_for_table, table_id, page_id
-            )
-        sync_to_google_calendar_if_needed(metadata, background_tasks)
-        # If this page is an original with translations, flag them stale when the
-        # edit touched translatable content (background; cheap no-op otherwise).
-        background_tasks.add_task(
-            _propagate_translation_staleness,
-            page_id, original_metadata_snapshot, metadata, body, content,
-        )
-        # Bidirectional relation sync: propagates changes in the relation
-        # fields to the INVERSE field of the pages on the other side (or the views
-        # embedded ones, which filter by the inverse, come out empty). Background.
-        background_tasks.add_task(
-            _propagate_relation_inverse,
-            page_id, get_table_id(metadata),
-            dict(original_metadata_snapshot), _rel_new_snapshot,
-        )
-
-        rel_folder, resolved_table_id = _resolve_page_context_from_path(
-            metadata, file_path
-        )
-        return {
-            "status": "success",
-            "id": page_id,
-            "title": metadata.get("title", ""),
-            "metadata": metadata,
-            "content": content,
-            "folder": rel_folder,
-            "resolved_table_id": resolved_table_id,
-            "etag": file_etag(file_path),  # Echo back for next save
-            "message": "Page partially updated",
-        }
-    except Exception as e:
-        log.error(f"Error patching page {page_id}: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=safe_error_detail(e, f"PATCH /pages/{page_id}"),
-        )
 
 
 # ---------------------------------------------------------------------------
@@ -11355,45 +11430,46 @@ async def delete_page(page_id: str):
     See `docs/dev_memory/directives/vault_trash.md`.
 
     """
-    page_id = _validate_safe_page_id(page_id)
-    file_path = await asyncio.to_thread(find_page_path, page_id)
-    if not file_path or not file_path.exists():
-        raise HTTPException(status_code=404, detail="Page not found")
+    async with await _get_page_write_lock(page_id):
+        page_id = _validate_safe_page_id(page_id)
+        file_path = await asyncio.to_thread(find_page_path, page_id)
+        if not file_path or not file_path.exists():
+            raise HTTPException(status_code=404, detail="Page not found")
 
-    try:
-        sidecar = await asyncio.to_thread(_move_page_to_trash, page_id, file_path)
-        await asyncio.to_thread(remove_from_link_index, page_id)
-        _remove_page_from_index_cache(page_id, file_path)
         try:
-            from backend.services import plugin_events
-            plugin_events.emit("page:deleted", {"page_id": page_id})
-        except Exception:  # noqa: BLE001
-            pass
-        deleted_at_iso = sidecar.get("deleted_at")
-        restorable_until = None
-        if deleted_at_iso:
+            sidecar = await asyncio.to_thread(_move_page_to_trash, page_id, file_path)
+            await asyncio.to_thread(remove_from_link_index, page_id)
+            _remove_page_from_index_cache(page_id, file_path)
             try:
-                restorable_until = (
-                    datetime.fromisoformat(deleted_at_iso)
-                    + timedelta(days=TRASH_RETENTION_DAYS)
-                ).isoformat()
-            except Exception:
+                from backend.services import plugin_events
+                plugin_events.emit("page:deleted", {"page_id": page_id})
+            except Exception:  # noqa: BLE001
                 pass
-        return {
-            "status": "soft_deleted",
-            "id": page_id,
-            "deleted_at": deleted_at_iso,
-            "title": sidecar.get("title"),
-            "original_path": sidecar.get("original_path"),
-            "retention_days": TRASH_RETENTION_DAYS,
-            "restorable_until": restorable_until,
-        }
-    except Exception as e:
-        log.error(f"Error soft-deleting page {page_id}: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=safe_error_detail(e, "DELETE /pages/{page_id}"),
-        )
+            deleted_at_iso = sidecar.get("deleted_at")
+            restorable_until = None
+            if deleted_at_iso:
+                try:
+                    restorable_until = (
+                        datetime.fromisoformat(deleted_at_iso)
+                        + timedelta(days=TRASH_RETENTION_DAYS)
+                    ).isoformat()
+                except Exception:
+                    pass
+            return {
+                "status": "soft_deleted",
+                "id": page_id,
+                "deleted_at": deleted_at_iso,
+                "title": sidecar.get("title"),
+                "original_path": sidecar.get("original_path"),
+                "retention_days": TRASH_RETENTION_DAYS,
+                "restorable_until": restorable_until,
+            }
+        except Exception as e:
+            log.error(f"Error soft-deleting page {page_id}: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=safe_error_detail(e, "DELETE /pages/{page_id}"),
+            )
 
 
 @router.post(
