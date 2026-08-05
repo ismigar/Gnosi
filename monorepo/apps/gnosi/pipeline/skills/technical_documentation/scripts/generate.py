@@ -120,6 +120,24 @@ def find_app_root(start: Path) -> Path:
     raise RuntimeError(f"Could not locate the Gnosi application root from {start}")
 
 
+def find_project_root(start: Path) -> Path:
+    """Return the repository root that owns ``docs/dev_memory/directives``.
+
+    The directive files live at the repository root, which may sit one or more
+    levels above the application root (e.g. ``monorepo/apps/gnosi`` in the
+    private repo vs. ``apps/gnosi`` in the public mirror). Walk upward from
+    ``start`` and return the first ancestor that contains the directives tree
+    instead of assuming a fixed nesting depth.
+    """
+    marker = Path("docs") / "dev_memory" / "directives"
+    for candidate in (start.resolve(), *start.resolve().parents):
+        if (candidate / marker).is_dir():
+            return candidate
+    raise RuntimeError(
+        f"Could not locate the project root containing {marker} from {start}"
+    )
+
+
 def relative_posix(path: Path, root: Path) -> str:
     """Return a stable repository-relative POSIX path."""
     return path.resolve().relative_to(root.resolve()).as_posix()
@@ -1176,6 +1194,14 @@ def build_coverage_catalog(app_root: Path, project_root: Path, domains_path: Pat
             for value in item["directives"]
         ]
         directives = [path for path in directive_paths if path.is_file()]
+        if item["directives"] and not directives:
+            log.warning(
+                "Domain %s declares %d directive(s) but none were found under "
+                "%s/docs/dev_memory/directives — check --project-root.",
+                domain_id,
+                len(item["directives"]),
+                project_root,
+            )
         status = "covered" if guide.is_file() and sources else "gap"
         guide_source = relative_posix(guide, app_root) if guide.is_file() else str(item["guide"])
         guide_link = f"[`{name}`](../{guide_source.removeprefix('docs/engineering/')})" if guide.is_file() else f"`{guide_source}`"
@@ -1336,6 +1362,14 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Override the auto-detected Gnosi application root.",
     )
     parser.add_argument(
+        "--project-root",
+        type=Path,
+        help=(
+            "Override the repository root that owns docs/dev_memory/directives. "
+            "Defaults to auto-detection from the script location."
+        ),
+    )
+    parser.add_argument(
         "--domains",
         type=Path,
         help="Override the curated domains JSON file.",
@@ -1347,7 +1381,7 @@ def main(argv: list[str] | None = None) -> int:
     """Generate or verify the engineering reference catalogs."""
     args = parse_args(argv or sys.argv[1:])
     app_root = (args.app_root or find_app_root(Path(__file__))).resolve()
-    project_root = app_root.parents[2]
+    project_root = (args.project_root or find_project_root(Path(__file__))).resolve()
     domains_path = (
         args.domains
         or app_root / "pipeline" / "skills" / "technical_documentation" / "domains.json"
