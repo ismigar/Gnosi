@@ -27,7 +27,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-import { VIEW_TYPES, getViewIcon, isMainView, isViewHidden } from './viewConstants';
+import { VIEW_TYPES, getViewIcon, isMainView, isViewHidden, isPageEmbedView } from './viewConstants';
 import { ReferenceImportExport } from './ReferenceImportExport';
 import { BrainInbox } from './BrainInbox';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
@@ -199,6 +199,14 @@ function SortableManageRow({ view, tableViews, isActive, onToggleHidden }) {
             <span className={`flex-1 min-w-0 truncate text-xs ${hidden ? 'text-[var(--text-tertiary)]' : 'text-[var(--text-primary)]'}`} title={view.name}>
                 {view.name}
             </span>
+            {isPageEmbedView(view) && (
+                <span
+                    className="shrink-0 text-[9px] px-1.5 py-0.5 rounded bg-[var(--bg-tertiary)] text-[var(--text-tertiary)] border border-[var(--border-primary)] font-normal ml-1"
+                    title={t('views_header.dashboard_view_badge_hint', "Embedded view from a page or dashboard")}
+                >
+                    {t('views_header.dashboard_view_badge', "Dashboard")}
+                </span>
+            )}
             {isPrimaryView ? (
                 <span
                     className="shrink-0 inline-flex items-center justify-center w-7 h-6 text-[var(--text-tertiary)]/70"

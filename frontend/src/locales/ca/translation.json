@@ -1115,6 +1115,8 @@
     "hide_view": "Amaga la vista",
     "show_view": "Mostra la vista",
     "drag_to_reorder": "Arrossega per reordenar",
+    "dashboard_view_badge": "Dashboard",
+    "dashboard_view_badge_hint": "Vista incrustada des d'un dashboard o pàgina",
     "view_settings": "Configuració de la vista",
     "create_in_column": "Crear a aquesta columna",
     "default_view_name": "Vista",

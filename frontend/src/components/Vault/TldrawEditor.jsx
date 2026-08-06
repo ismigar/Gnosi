@@ -611,7 +611,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
                             store={store}
                             shapeUtils={CANVAS_SHAPE_UTILS}
                             hideUi={false}
-                            inferDarkMode
+                            colorScheme="system"
                             onMount={(editor) => { editorRef.current = editor; }}
                         />
                     </CanvasPageContext.Provider>

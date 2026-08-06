@@ -1156,6 +1156,8 @@
     "hide_view": "Hide view",
     "show_view": "Show view",
     "drag_to_reorder": "Drag to reorder",
+    "dashboard_view_badge": "Dashboard",
+    "dashboard_view_badge_hint": "Embedded view from a page or dashboard",
     "view_settings": "View settings",
     "create_in_column": "Create in this column",
     "default_view_name": "View",
