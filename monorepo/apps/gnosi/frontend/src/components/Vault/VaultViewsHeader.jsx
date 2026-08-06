@@ -116,22 +116,26 @@ function SortableTab({ view, tableViews, isActive, onSelect, onAction }) {
             {showMenu && (
                 <div 
                     ref={menuRef}
-                    className="absolute top-full left-0 mt-1 w-44 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[var(--z-popover)] py-1 animate-in fade-in zoom-in-95 duration-100"
+                    className="absolute top-full left-0 mt-1 w-44 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[var(--z-popover)] py-1 animate-in fade-in zoom-in-95 duration-100 font-normal"
                 >
-                    <button 
-                        onClick={() => { setShowMenu(false); onAction?.(view, 'configure'); }}
-                        className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
-                    >
-                        <Settings size={13} />
-                        {t('views_header.configure')}
-                    </button>
-                    <button 
-                        onClick={() => { setShowMenu(false); onAction?.(view, 'rename'); }}
-                        className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
-                    >
-                        <Edit2 size={13} />
-                        {t('views_header.rename')}
-                    </button>
+                    {!isPrimaryView && (
+                        <>
+                            <button 
+                                onClick={() => { setShowMenu(false); onAction?.(view, 'configure'); }}
+                                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
+                            >
+                                <Settings size={13} />
+                                {t('views_header.configure')}
+                            </button>
+                            <button 
+                                onClick={() => { setShowMenu(false); onAction?.(view, 'rename'); }}
+                                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
+                            >
+                                <Edit2 size={13} />
+                                {t('views_header.rename')}
+                            </button>
+                        </>
+                    )}
                     <button 
                         onClick={() => { setShowMenu(false); onAction?.(view, 'duplicate'); }}
                         className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
@@ -263,29 +267,26 @@ function SortableManageRow({ view, tableViews, isActive, onToggleHidden, onActio
                         role="menu"
                         className="absolute right-0 top-full mt-1 w-44 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[var(--z-popover)] py-1 animate-in fade-in zoom-in-95 duration-100"
                     >
-                        {isPrimaryView ? (
-                            <div className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--text-tertiary)]/70 cursor-not-allowed">
-                                <Lock size={13} />
-                                {t('views_header.main_view_locked')}
-                            </div>
-                        ) : (
-                            <button
-                                role="menuitem"
-                                onClick={() => { setShowMenu(false); onAction?.(view, 'configure'); }}
-                                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
-                            >
-                                <Settings size={13} />
-                                {t('views_header.configure')}
-                            </button>
+                        {!isPrimaryView && (
+                            <>
+                                <button
+                                    role="menuitem"
+                                    onClick={() => { setShowMenu(false); onAction?.(view, 'configure'); }}
+                                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
+                                >
+                                    <Settings size={13} />
+                                    {t('views_header.configure')}
+                                </button>
+                                <button
+                                    role="menuitem"
+                                    onClick={() => { setShowMenu(false); onAction?.(view, 'rename'); }}
+                                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
+                                >
+                                    <Edit2 size={13} />
+                                    {t('views_header.rename')}
+                                </button>
+                            </>
                         )}
-                        <button
-                            role="menuitem"
-                            onClick={() => { setShowMenu(false); onAction?.(view, 'rename'); }}
-                            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
-                        >
-                            <Edit2 size={13} />
-                            {t('views_header.rename')}
-                        </button>
                         <button
                             role="menuitem"
                             onClick={() => { setShowMenu(false); onAction?.(view, 'duplicate'); }}
@@ -304,6 +305,140 @@ function SortableManageRow({ view, tableViews, isActive, onToggleHidden, onActio
                             <button
                                 role="menuitem"
                                 onClick={() => { setShowMenu(false); onAction?.(view, 'delete'); }}
+                                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--status-error)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
+                            >
+                                <Trash2 size={13} className="text-[var(--status-error)]" />
+                                {t('views_header.delete')}
+                            </button>
+                        )}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function OverflowViewRow({ view, tableViews, isActive, onSelect, onAction, onCloseOverflow }) {
+    const { t } = useTranslation();
+    const [showMenu, setShowMenu] = useState(false);
+    const menuRef = useRef(null);
+
+    const isPrimaryView = isMainView(view, tableViews);
+    const ViewIcon = getViewIcon(view.type);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (menuRef.current && !menuRef.current.contains(e.target)) {
+                setShowMenu(false);
+            }
+        };
+        if (showMenu) document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [showMenu]);
+
+    useModalKeyboard({ isOpen: showMenu, onClose: () => setShowMenu(false) });
+
+    return (
+        <div
+            className={`group/overflow-row relative flex items-center justify-between px-3 py-1.5 text-xs transition-colors ${isActive ? 'text-[var(--gnosi-blue)] bg-[var(--gnosi-blue)]/5 font-medium' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'}`}
+        >
+            <button 
+                type="button"
+                onClick={() => {
+                    onSelect?.(view.id);
+                    onCloseOverflow?.();
+                }}
+                className="flex items-center gap-2 flex-1 min-w-0 text-left"
+            >
+                <ViewIcon size={13} className="shrink-0" />
+                <span className="truncate flex-1 min-w-0" title={view.name}>{view.name}</span>
+                {isPrimaryView && (
+                    <span className="shrink-0 inline-flex items-center text-[9px] px-1.5 py-0.5 rounded border border-[var(--border-primary)] bg-[var(--bg-tertiary)] text-[var(--text-tertiary)]" title={t('views_header.main_view')} aria-label={t('views_header.main_view')}>
+                        <Lock size={9} />
+                    </span>
+                )}
+            </button>
+
+            {/* Contextual "..." menu button */}
+            <div className="relative shrink-0 ml-1">
+                <button
+                    type="button"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setShowMenu(!showMenu);
+                    }}
+                    className={`p-0.5 rounded hover:bg-[var(--bg-secondary)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors ${showMenu ? 'bg-[var(--bg-secondary)]' : ''}`}
+                    title={t('views_header.more_actions', "More actions")}
+                    aria-label={t('views_header.more_actions', "More actions")}
+                    aria-haspopup="menu"
+                    aria-expanded={showMenu}
+                >
+                    <MoreHorizontal size={13} />
+                </button>
+                {showMenu && (
+                    <div 
+                        ref={menuRef}
+                        role="menu"
+                        className="absolute right-0 top-full mt-1 w-44 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[var(--z-popover)] py-1 animate-in fade-in zoom-in-95 duration-100 font-normal"
+                    >
+                        {!isPrimaryView && (
+                            <>
+                                <button
+                                    role="menuitem"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setShowMenu(false);
+                                        onCloseOverflow?.();
+                                        onAction?.(view, 'configure');
+                                    }}
+                                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
+                                >
+                                    <Settings size={13} />
+                                    {t('views_header.configure')}
+                                </button>
+                                <button
+                                    role="menuitem"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setShowMenu(false);
+                                        onCloseOverflow?.();
+                                        onAction?.(view, 'rename');
+                                    }}
+                                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
+                                >
+                                    <Edit2 size={13} />
+                                    {t('views_header.rename')}
+                                </button>
+                            </>
+                        )}
+                        <button
+                            role="menuitem"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setShowMenu(false);
+                                onCloseOverflow?.();
+                                onAction?.(view, 'duplicate');
+                            }}
+                            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
+                        >
+                            <Copy size={13} />
+                            {t('views_header.duplicate')}
+                        </button>
+                        <div className="h-px bg-[var(--border-primary)] my-1 mx-2" />
+                        {isPrimaryView ? (
+                            <div className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--text-tertiary)]/70 cursor-not-allowed">
+                                <Lock size={13} />
+                                {t('views_header.main_view_locked')}
+                            </div>
+                        ) : (
+                            <button
+                                role="menuitem"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowMenu(false);
+                                    onCloseOverflow?.();
+                                    onAction?.(view, 'delete');
+                                }}
                                 className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--status-error)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
                             >
                                 <Trash2 size={13} className="text-[var(--status-error)]" />
@@ -608,32 +743,21 @@ export function VaultViewsHeader({
                                     {showOverflow && (
                                         <>
                                             <div className="fixed inset-0 z-40" onClick={() => setShowOverflow(false)}></div>
-                                            <div className="absolute top-full left-0 mt-1 w-52 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-50 py-1 animate-in fade-in zoom-in-95 duration-100">
+                                            <div className="absolute top-full left-0 mt-1 w-60 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-50 py-1 animate-in fade-in zoom-in-95 duration-100">
                                                 <div className="px-3 py-1.5 text-[10px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
                                                     {t('views_header.other_views')}
                                                 </div>
-                                                {displayViews.slice(visibleCount).map(view => {
-                                                    const Icon = getViewIcon(view.type);
-                                                    const primary = isMainView(view, views);
-                                                    return (
-                                                        <button 
-                                                            key={view.id}
-                                                            onClick={() => {
-                                                                onViewSelect(view.id);
-                                                                setShowOverflow(false);
-                                                            }}
-                                                            className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors text-left ${activeViewId === view.id ? 'text-[var(--gnosi-blue)] bg-[var(--gnosi-blue)]/5 font-medium' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'}`}
-                                                        >
-                                                            <Icon size={13} />
-                                                            <span className="truncate">{view.name}</span>
-                                                            {primary && (
-                                                                <span className="ml-auto inline-flex items-center text-[9px] px-1.5 py-0.5 rounded border border-[var(--border-primary)] bg-[var(--bg-tertiary)] text-[var(--text-tertiary)]" title={t('views_header.main_view')} aria-label={t('views_header.main_view')}>
-                                                                    <Lock size={9} />
-                                                                </span>
-                                                            )}
-                                                        </button>
-                                                    );
-                                                })}
+                                                {displayViews.slice(visibleCount).map(view => (
+                                                    <OverflowViewRow
+                                                        key={view.id}
+                                                        view={view}
+                                                        tableViews={views}
+                                                        isActive={activeViewId === view.id}
+                                                        onSelect={onViewSelect}
+                                                        onAction={handleViewAction}
+                                                        onCloseOverflow={() => setShowOverflow(false)}
+                                                    />
+                                                ))}
                                             </div>
                                         </>
                                     )}

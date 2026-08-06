@@ -17472,6 +17472,38 @@ async def get_view(view_id: str):
     return response_view
 
 
+@router.get("/views/{view_id}/usage")
+async def get_view_usage(view_id: str):
+    """Find all pages/notes in the vault where this view_id is embedded or referenced."""
+    pages = _get_pages_snapshot() or []
+    linked_pages = []
+    vid_str = str(view_id).strip()
+
+    for page in pages:
+        path_str = getattr(page, "path", None)
+        if not path_str:
+            continue
+        p = Path(path_str)
+        if not p.exists() or not p.is_file():
+            continue
+        try:
+            content = p.read_text(encoding="utf-8", errors="ignore")
+            if vid_str in content:
+                linked_pages.append({
+                    "id": getattr(page, "id", None) or p.stem,
+                    "title": getattr(page, "title", None) or p.stem,
+                    "path": str(p),
+                })
+        except Exception as err:
+            log.warning("Could not check view usage in %s: %s", p, err)
+
+    return {
+        "view_id": vid_str,
+        "count": len(linked_pages),
+        "pages": linked_pages,
+    }
+
+
 @router.delete("/views/{view_id}", dependencies=[Depends(require_role("editor"))])
 async def delete_view(view_id: str):
     with registry_mutation():

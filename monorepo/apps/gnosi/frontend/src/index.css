@@ -612,8 +612,8 @@ textarea,
 
 .vault-shortcut-grid {
   display: grid;
-  grid-template-columns: 2rem 1fr;
-  gap: 0.25rem 0.5rem;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 0.75rem;
   align-items: center;
   padding: 0.25rem 0.5rem 0.625rem;
   color: var(--text-secondary);
@@ -630,6 +630,7 @@ textarea,
   background: var(--bg-secondary);
   color: var(--text-primary);
   font-weight: 700;
+  padding: 0 0.4rem;
 }
 
 .vault-view-tools-row,

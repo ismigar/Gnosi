@@ -5,6 +5,7 @@ import { X, Eye, Filter, ArrowUpDown, SlidersHorizontal, Plus, Trash2, GripVerti
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import ConfirmModal from '../ConfirmModal';
 import { VIEW_TYPES } from './viewConstants';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import { discoverFieldNamesFromRecords } from './schemaUtils';
@@ -28,7 +29,9 @@ const FILTER_OPERATORS = [
     { value: 'is_empty', label: 'is empty' },
     { value: 'is_not_empty', label: 'is not empty' },
     { value: 'greater_than', label: 'greater than' },
+    { value: 'greater_than_or_equal', label: 'greater than or equal' },
     { value: 'less_than', label: 'less than' },
+    { value: 'less_than_or_equal', label: 'less than or equal' },
 ];
 
 // --- View-type-specific configuration options ---
@@ -601,6 +604,39 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     //              carries an inline copy of the filters/sorts/properties.
     const [editScope, setEditScope] = useState('shared');
     const [modalPinnedViewIds, setModalPinnedViewIds] = useState(new Set());
+    const [modalViewToDelete, setModalViewToDelete] = useState(null);
+    const [modalViewToDeleteUsage, setModalViewToDeleteUsage] = useState(null);
+
+    const requestDeleteViewFromModal = (v) => {
+        if (!v?.id || v.is_main || v.id === 'default') return;
+        setModalViewToDelete(v);
+        setModalViewToDeleteUsage(null);
+        apiFetch(`/api/vault/views/${encodeURIComponent(v.id)}/usage`)
+            .then(data => setModalViewToDeleteUsage(data))
+            .catch(() => {});
+    };
+
+    const confirmDeleteViewFromModal = async () => {
+        if (!modalViewToDelete?.id) return;
+        const vid = modalViewToDelete.id;
+        try {
+            await apiFetch(`/api/vault/views/${encodeURIComponent(vid)}`, { method: 'DELETE' });
+            setExistingViews(prev => prev.filter(x => x.id !== vid));
+            setModalPinnedViewIds(prev => {
+                const next = new Set(prev);
+                next.delete(vid);
+                return next;
+            });
+            if (selectedExistingViewId === vid) {
+                setSelectedExistingViewId('');
+            }
+        } catch (e) {
+            console.error('Failed to delete view from modal', e);
+        } finally {
+            setModalViewToDelete(null);
+            setModalViewToDeleteUsage(null);
+        }
+    };
 
     // --- Autosave (mode='table') + flush-on-close (mode='embed') ---
     // Mirrors the pattern in SchemaConfigModal: a debounced effect writes a
@@ -841,6 +877,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                     .then(v => {
                         if (cancelled || !v) return;
                         setSourceTableId(String(v.table_id || ''));
+                        setViewName(String(v.name || ''));
                         setViewType(String(v.type || 'table'));
                         setVisibleProperties(Array.isArray(v.visibleProperties) && v.visibleProperties.length ? v.visibleProperties : ['title']);
                         setFilterTree(treeFromSource(v));
@@ -1002,6 +1039,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         }
         const v = existingViews.find(x => x.id === selectedExistingViewId);
         if (!v) return;
+        setViewName(v.name || '');
         setVisibleProperties(Array.isArray(v.visibleProperties) && v.visibleProperties.length ? v.visibleProperties : ['title']);
         setViewType(v.type || 'table');
         setFilterTree(treeFromSource(v));
@@ -1942,31 +1980,48 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                         {existingViews.map(v => {
                                             const isChecked = modalPinnedViewIds.has(v.id);
                                             const isAnchor = v.id === selectedExistingViewId || (v.id === 'default' && !selectedExistingViewId);
+                                            const canDelete = !v.is_main && v.id !== 'default';
                                             return (
-                                                <label key={v.id} className="flex items-center gap-2 text-xs text-[var(--text-primary)] cursor-pointer select-none">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={isChecked || isAnchor}
-                                                        disabled={isAnchor}
-                                                        onChange={e => {
-                                                            const checked = e.target.checked;
-                                                            setModalPinnedViewIds(prev => {
-                                                                const next = new Set(prev);
-                                                                if (checked) {
-                                                                    next.add(v.id);
-                                                                } else {
-                                                                    next.delete(v.id);
-                                                                }
-                                                                return next;
-                                                            });
-                                                        }}
-                                                        className="rounded text-[var(--gnosi-primary)] focus:ring-[var(--gnosi-primary)]"
-                                                    />
-                                                    <span>{v.name || t('view.unnamed', "(unnamed)")}</span>
-                                                    {isAnchor && (
-                                                        <span className="text-[10px] text-[var(--text-tertiary)] italic">{t('view.anchor_view', "(anchor view)")}</span>
+                                                <div key={v.id} className="flex items-center justify-between gap-2 py-0.5">
+                                                    <label className="flex items-center gap-2 text-xs text-[var(--text-primary)] cursor-pointer select-none truncate min-w-0">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isChecked || isAnchor}
+                                                            disabled={isAnchor}
+                                                            onChange={e => {
+                                                                const checked = e.target.checked;
+                                                                setModalPinnedViewIds(prev => {
+                                                                    const next = new Set(prev);
+                                                                    if (checked) {
+                                                                        next.add(v.id);
+                                                                    } else {
+                                                                        next.delete(v.id);
+                                                                    }
+                                                                    return next;
+                                                                });
+                                                            }}
+                                                            className="rounded text-[var(--gnosi-primary)] focus:ring-[var(--gnosi-primary)] shrink-0"
+                                                        />
+                                                        <span className="truncate">{v.name || t('view.unnamed', "(unnamed)")}</span>
+                                                        {v.type && <span className="text-[10px] text-[var(--text-tertiary)] shrink-0">· {v.type}</span>}
+                                                        {isAnchor && (
+                                                            <span className="text-[10px] text-[var(--text-tertiary)] italic shrink-0">{t('view.anchor_view', "(anchor view)")}</span>
+                                                        )}
+                                                    </label>
+                                                    {canDelete && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                requestDeleteViewFromModal(v);
+                                                            }}
+                                                            className="shrink-0 p-1 text-[var(--text-tertiary)] hover:text-red-500 rounded transition-colors"
+                                                            title={t('views_header.delete', "Delete")}
+                                                        >
+                                                            <Trash2 size={13} />
+                                                        </button>
                                                     )}
-                                                </label>
+                                                </div>
                                             );
                                         })}
                                     </div>
@@ -1975,9 +2030,16 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
 
                             {selectedExistingViewId && viewUsage.count > 0 && (
                                 <div className="border-t border-[var(--border-primary)] pt-4">
-                                    <p className="text-xs font-semibold text-[var(--text-secondary)] mb-2">
+                                    <p className="text-xs font-semibold text-[var(--text-secondary)] mb-1">
                                         {t('view.usage_count', { count: viewUsage.count, defaultValue: "This view is already used on {{count}} pages." })}
                                     </p>
+                                    {viewUsage.pages?.length > 0 && (
+                                        <ul className="text-[11px] text-[var(--text-tertiary)] mb-2 pl-4 list-disc space-y-0.5 max-h-24 overflow-y-auto">
+                                            {viewUsage.pages.map((p) => (
+                                                <li key={p.id}>{p.title}</li>
+                                            ))}
+                                        </ul>
+                                    )}
                                     <p className="text-[11px] text-[var(--text-tertiary)] mb-3">
                                         {t('view.edit_scope_prompt', "If you modify the fields, choose how to apply it:")}
                                     </p>
@@ -2400,6 +2462,22 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                     </button>
                 </div>
             </div>
+            {modalViewToDelete && (
+                <ConfirmModal
+                    isOpen={!!modalViewToDelete}
+                    onClose={() => { setModalViewToDelete(null); setModalViewToDeleteUsage(null); }}
+                    onConfirm={confirmDeleteViewFromModal}
+                    title={t('views_header.delete_view_title', "Delete view")}
+                    message={
+                        modalViewToDeleteUsage && modalViewToDeleteUsage.count > 0
+                            ? `${t('views_header.delete_linked_view_confirm', { count: modalViewToDeleteUsage.count, name: modalViewToDelete.name || '', defaultValue: "Aquesta vista està enllaçada a {{count}} pàgina(es):" })}\n\n${modalViewToDeleteUsage.pages.map(p => `• ${p.title}`).join('\n')}\n\n${t('views_header.confirm_delete_anyway', { defaultValue: "Segur que la vols eliminar de totes maneres?" })}`
+                            : t('views_header.delete_view_confirm', "Delete the view \"{{name}}\" EVERYWHERE?", { name: modalViewToDelete.name || '' })
+                    }
+                    confirmText={t('common.delete', "Delete")}
+                    cancelText={t('common.cancel', "Cancel")}
+                    isDestructive
+                />
+            )}
         </div>
     );
 }

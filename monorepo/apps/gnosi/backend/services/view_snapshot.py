@@ -482,8 +482,9 @@ def apply_filter(meta: Dict[str, Any], page_id: Optional[str], f: Dict[str, Any]
     # For ISO dates, lexicographic order is chronological and matches JS
     # (ASCII), so filtering a date column by range works and is
     # consistent with matchesFilters / applyFilter.
-    if op in ("greater_than", "less_than"):
-        gt = op == "greater_than"
+    if op in ("greater_than", "greater_than_or_equal", "less_than", "less_than_or_equal"):
+        is_gt = op in ("greater_than", "greater_than_or_equal")
+        is_eq = op in ("greater_than_or_equal", "less_than_or_equal")
         target_num = bool(_FULL_NUMERIC_RE.match(target.strip()))
         for x in arr:
             x_stripped = x.strip()
@@ -492,20 +493,13 @@ def apply_filter(meta: Dict[str, Any], page_id: Optional[str], f: Dict[str, Any]
                 t = _parse_numeric_value(target)
                 if n is None or t is None:
                     continue
-                if (n > t) if gt else (n < t):
+                match = (n >= t if is_eq else n > t) if is_gt else (n <= t if is_eq else n < t)
+                if match:
                     return True
             elif not target_num or _ISO_DATE_RE.match(x_stripped):
-                # Lowercase STRING comparison when:
-                #  - the filter is NOT numeric (e.g. the target is a full date
-                #    "2024-01-15"), o
-                #  - the value is an ISO date and the target is a bare year/number
-                #    (e.g. `> 2020` on "2024-01-15"): ISO dates sort
-                #    chronologically in ASCII, the same in JS and Python.
-                # Arbitrary text ("foo") with a numeric target does NOT match (skip): without
-                # this, "foo" > "5" (string) incorrectly returned True. Parity
-                # with matchesFilters / DbViewEmbed.applyFilter (frontend).
                 xl = x.lower()
-                if (xl > target_l) if gt else (xl < target_l):
+                match = (xl >= target_l if is_eq else xl > target_l) if is_gt else (xl <= target_l if is_eq else xl < target_l)
+                if match:
                     return True
         return False
     return True

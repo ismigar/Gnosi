@@ -2425,6 +2425,8 @@
     "delete_everywhere": "Supprimer partout…",
     "delete_view_title": "Supprimer la vue",
     "delete_view_confirm": "Supprimer la vue « {{name}} » PARTOUT ? Elle disparaîtra de toutes les pages.",
+    "delete_linked_view_confirm": "Cette vue « {{name}} » est liée sur {{count}} page(s) :",
+    "confirm_delete_anyway": "Voulez-vous vraiment la supprimer malgré tout ?",
     "rename_view_title": "Renommer la vue",
     "new_view_name_label": "Nouveau nom de la vue",
     "configure": "Configurer",
@@ -2806,7 +2808,9 @@
     "op_is_empty": "est vide",
     "op_is_not_empty": "n'est pas vide",
     "op_greater_than": "supérieur à",
+    "op_greater_than_or_equal": "supérieur ou égal à",
     "op_less_than": "inférieur à",
+    "op_less_than_or_equal": "inférieur ou égal à",
     "tab_properties": "Champs",
     "tab_filters": "Filtres",
     "tab_sort": "Tri",
@@ -3764,7 +3768,9 @@
       "is_empty": "est vide",
       "is_not_empty": "n'est pas vide",
       "greater_than": "est supérieur à",
-      "less_than": "est inférieur à"
+      "greater_than_or_equal": "est supérieur ou égal à",
+      "less_than": "est inférieur à",
+      "less_than_or_equal": "est inférieur ou égal à"
     },
     "sort_directions": {
       "asc": "Croissant (A→Z)",
