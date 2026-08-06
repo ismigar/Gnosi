@@ -10,7 +10,7 @@ import {
     useSortable, arrayMove, sortableKeyboardCoordinates
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { FileText, Tag, Clock, Hash, CheckSquare, Calendar, Link as LinkIcon, Type, ArrowUp, ArrowDown, Settings, Settings2, Plus, ChevronDown, ChevronRight, ExternalLink, Search, X, Trash2, Filter, List, LayoutPanelLeft, Unlock, Columns2, Languages, Zap, Globe, Send, AlertTriangle, BrainCircuit } from 'lucide-react';
+import { FileText, Tag, Clock, Hash, CheckSquare, Calendar, Link as LinkIcon, Type, ArrowUp, ArrowDown, Settings, Settings2, Plus, ChevronDown, ChevronRight, ExternalLink, Search, X, Trash2, Filter, List, LayoutPanelLeft, Unlock, Columns2, Languages, Zap, Globe, Send, AlertTriangle, BrainCircuit, Loader2, Sparkles } from 'lucide-react';
 import { IconRenderer } from './IconRenderer';
 import { VaultDateProperty, parsePeriod, periodDaysInclusive } from './VaultDateProperty';
 import { withPeriodBoundaries } from '../../utils/projectPlanning';
@@ -768,6 +768,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
     // Pending action triggered by a `button`-type field. If it's set,
     // we show the modal corresponding to the action (currently only `translate_row`).
     const [pendingAction, setPendingAction] = useState(null);
+    const [executingButtonKey, setExecutingButtonKey] = useState(null);
     const dropdownRef = useRef(null);
     const subitemInputRef = useRef(null);
     const newRowInputRef = useRef(null);
@@ -2706,26 +2707,78 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         const isImageLikeField = isImageField(field, type);
 
         // Action button: the field has no value, always shows the button. Clicking it
-        // triggers the configured action (currently `translate_row`).
+        // triggers the configured action (translation, set_fields, ai_prompt, run_skill).
         if (type === 'button') {
             const cfg = getFieldConfig(schema, field) || {};
             const action = cfg.button_action || 'translate_row';
             const label = cfg.button_label?.trim() || (action === 'translate_row'
                 ? t('schema.button_label_translate', "Translate")
                 : field);
-            const Icon = action === 'translate_row' ? Languages : Zap;
+            const btnKey = `${noteId}_${field}`;
+            const isExecuting = executingButtonKey === btnKey;
+            const Icon = isExecuting ? Loader2 : (action === 'translate_row' ? Languages : (action === 'ai_prompt' ? Sparkles : Zap));
+
+            const handleButtonClick = async (e) => {
+                e.stopPropagation();
+                if (isExecuting) return;
+
+                if (action === 'translate_row' || action === 'sync_drupal' || action === 'publish_social' || action === 'process_resource') {
+                    setPendingAction({ noteId, field, fieldConfig: cfg, action });
+                    return;
+                }
+
+                if (action === 'set_fields') {
+                    const assignments = cfg.button_config?.assignments || [];
+                    if (assignments.length === 0) {
+                        toast.error(t('schema.no_assignments_error', "No field assignments configured for this button"));
+                        return;
+                    }
+                    const note = noteById.get(noteId);
+                    const metadata = note?.metadata || {};
+                    const title = note?.title || '';
+                    for (const assign of assignments) {
+                        if (!assign.field) continue;
+                        let val = assign.value || '';
+                        if (typeof val === 'string' && (val.includes('(') || val.includes('{') || val.includes('+'))) {
+                            const evaluated = evaluateFormula(val, metadata, title);
+                            if (evaluated !== null && evaluated !== undefined) val = evaluated;
+                        }
+                        await handleCellSave(noteId, assign.field, val, assign.field);
+                    }
+                    toast.success(t('schema.button_executed_success', "Acció executada correctament"));
+                    return;
+                }
+
+                if (action === 'ai_prompt' || action === 'run_skill') {
+                    setExecutingButtonKey(btnKey);
+                    try {
+                        const res = await axios.post('/api/vault/skills/execute-button-action', {
+                            note_id: noteId,
+                            button_action: action,
+                            button_config: cfg.button_config || {},
+                        });
+                        if (res.data?.status === 'ok') {
+                            toast.success(t('schema.button_executed_success', "Acció executada correctament"));
+                            onTranslated?.({});
+                        }
+                    } catch (err) {
+                        toast.error(err.response?.data?.detail || "Error executing action");
+                    } finally {
+                        setExecutingButtonKey(null);
+                    }
+                }
+            };
+
             return (
                 <button
                     type="button"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        setPendingAction({ noteId, field, fieldConfig: cfg, action });
-                    }}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] border border-[var(--gnosi-primary)]/30 hover:bg-[var(--gnosi-primary)]/20 transition-colors"
+                    disabled={isExecuting}
+                    onClick={handleButtonClick}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] border border-[var(--gnosi-primary)]/30 hover:bg-[var(--gnosi-primary)]/20 transition-colors disabled:opacity-50"
                     title={label}
                 >
-                    <Icon size={12} />
-                    {label}
+                    <Icon size={12} className={isExecuting ? "animate-spin" : ""} />
+                    {isExecuting ? t('schema.button_executing', "Executant...") : label}
                 </button>
             );
         }

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { toast } from '../../lib/toast';
-import { X, Plus, Trash2, Settings, GripVertical, Layers, Languages, Zap, Tag, Globe, Loader2, Link2, Send, AlertTriangle } from 'lucide-react';
+import { X, Plus, Trash2, Settings, GripVertical, Layers, Languages, Zap, Tag, Globe, Loader2, Link2, Send, AlertTriangle, Sparkles } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -59,6 +59,9 @@ const TRANSLATABLE_FIELD_TYPES = new Set([
 // also in the backend (skills) and, if needed, in the UI.
 const BUTTON_ACTIONS = [
     { id: 'translate_row', label_key: 'schema.button_action_translate_row', label_default: 'Traduir fila a subitems' },
+    { id: 'set_fields', label_key: 'schema.button_action_set_fields', label_default: 'Assignar valors a camps' },
+    { id: 'ai_prompt', label_key: 'schema.button_action_ai_prompt', label_default: 'Executar prompt IA' },
+    { id: 'run_skill', label_key: 'schema.button_action_run_skill', label_default: 'Executar Skill de Settings' },
 ];
 
 // Field types that have a fixed catalog of selectable options.
@@ -758,13 +761,27 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                 </div>
             )}
 
-            {/* Button: action + label config */}
+            {/* Button: action + label + custom config */}
             {field.type === 'button' && (
                 <div className="px-3 pb-3 pt-1 border-t border-[var(--border-primary)] bg-[var(--gnosi-primary)]/5 animate-in fade-in slide-in-from-top-1 duration-200">
-                    <div className="p-3 bg-[var(--bg-primary)] rounded-lg border border-[var(--gnosi-primary)]/20 shadow-inner space-y-2">
-                        <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1 flex items-center gap-1.5">
-                            <Zap size={12} /> {t('schema.button_action', "Button action")}
-                        </label>
+                    <div className="p-3 bg-[var(--bg-primary)] rounded-lg border border-[var(--gnosi-primary)]/20 shadow-inner space-y-3">
+                        <div className="flex items-center justify-between">
+                            <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold flex items-center gap-1.5">
+                                <Zap size={12} /> {t('schema.button_action', "Button action")}
+                            </label>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setAiActionModalFieldIndex(idx);
+                                    setAiActionPrompt('');
+                                }}
+                                className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded font-medium bg-gradient-to-r from-purple-500/10 to-indigo-500/10 text-purple-600 dark:text-purple-300 border border-purple-300/30 hover:from-purple-500/20 hover:to-indigo-500/20 transition-all shadow-sm"
+                            >
+                                <Sparkles size={12} />
+                                {t('schema.button_program_ai', "Programar amb IA ✨")}
+                            </button>
+                        </div>
+
                         <select
                             value={field.button_action || 'translate_row'}
                             onChange={(e) => handleUpdateField(idx, 'button_action', e.target.value)}
@@ -776,16 +793,133 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                                 </option>
                             ))}
                         </select>
-                        <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1 mt-2 block">
-                            {t('schema.button_label', "Button label")}
-                        </label>
-                        <input
-                            type="text"
-                            value={field.button_label || ''}
-                            onChange={(e) => handleUpdateField(idx, 'button_label', e.target.value)}
-                            placeholder={t('schema.button_label_placeholder', "e.g. Translate")}
-                            className="w-full text-sm border border-[var(--border-primary)] rounded-md p-1.5 focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 outline-none bg-[var(--bg-primary)] text-[var(--text-primary)]"
-                        />
+
+                        <div>
+                            <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold block mb-1">
+                                {t('schema.button_label', "Button label")}
+                            </label>
+                            <input
+                                type="text"
+                                value={field.button_label || ''}
+                                onChange={(e) => handleUpdateField(idx, 'button_label', e.target.value)}
+                                placeholder={t('schema.button_label_placeholder', "e.g. Translate")}
+                                className="w-full text-sm border border-[var(--border-primary)] rounded-md p-1.5 focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 outline-none bg-[var(--bg-primary)] text-[var(--text-primary)]"
+                            />
+                        </div>
+
+                        {/* Custom config for set_fields */}
+                        {field.button_action === 'set_fields' && (
+                            <div className="pt-2 border-t border-[var(--border-primary)]/50 space-y-2">
+                                <label className="text-xs font-semibold text-[var(--text-primary)] block">
+                                    {t('schema.button_set_fields_title', "Field assignments")}
+                                </label>
+                                {(field.button_config?.assignments || []).map((assign, aIdx) => (
+                                    <div key={aIdx} className="flex items-center gap-2">
+                                        <select
+                                            value={assign.field || ''}
+                                            onChange={(e) => {
+                                                const nextAssignments = [...(field.button_config?.assignments || [])];
+                                                nextAssignments[aIdx] = { ...nextAssignments[aIdx], field: e.target.value };
+                                                handleUpdateField(idx, 'button_config', { ...field.button_config, assignments: nextAssignments });
+                                            }}
+                                            className="w-1/2 text-xs border border-[var(--border-primary)] rounded p-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none"
+                                        >
+                                            <option value="">-- {t('schema.button_target_field', "Target field")} --</option>
+                                            {fields.filter(f => f.name !== field.name).map(f => (
+                                                <option key={f.id} value={f.name}>{f.name}</option>
+                                            ))}
+                                        </select>
+                                        <input
+                                            type="text"
+                                            value={assign.value || ''}
+                                            onChange={(e) => {
+                                                const nextAssignments = [...(field.button_config?.assignments || [])];
+                                                nextAssignments[aIdx] = { ...nextAssignments[aIdx], value: e.target.value };
+                                                handleUpdateField(idx, 'button_config', { ...field.button_config, assignments: nextAssignments });
+                                            }}
+                                            placeholder={t('schema.button_value_or_formula', "Value or formula")}
+                                            className="w-1/2 text-xs border border-[var(--border-primary)] rounded p-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const nextAssignments = (field.button_config?.assignments || []).filter((_, i) => i !== aIdx);
+                                                handleUpdateField(idx, 'button_config', { ...field.button_config, assignments: nextAssignments });
+                                            }}
+                                            className="p-1.5 text-red-500 hover:bg-red-500/10 rounded transition-colors"
+                                        >
+                                            <Trash2 size={13} />
+                                        </button>
+                                    </div>
+                                ))}
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const current = field.button_config?.assignments || [];
+                                        handleUpdateField(idx, 'button_config', {
+                                            ...field.button_config,
+                                            assignments: [...current, { field: '', value: '' }]
+                                        });
+                                    }}
+                                    className="text-xs text-[var(--gnosi-primary)] hover:underline inline-flex items-center gap-1 font-medium pt-1"
+                                >
+                                    <Plus size={12} /> {t('schema.button_add_field_assignment', "Add assignment")}
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Custom config for ai_prompt */}
+                        {field.button_action === 'ai_prompt' && (
+                            <div className="pt-2 border-t border-[var(--border-primary)]/50 space-y-2">
+                                <div>
+                                    <label className="text-xs font-semibold text-[var(--text-primary)] block mb-1">
+                                        {t('schema.button_ai_prompt_label', "AI Instruction (Prompt)")}
+                                    </label>
+                                    <textarea
+                                        rows={3}
+                                        value={field.button_config?.prompt || ''}
+                                        onChange={(e) => handleUpdateField(idx, 'button_config', { ...field.button_config, prompt: e.target.value })}
+                                        placeholder={t('schema.button_ai_prompt_placeholder', "e.g. Summarize the Description field in 2 sentences...")}
+                                        className="w-full text-xs border border-[var(--border-primary)] rounded p-2 bg-[var(--bg-primary)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 outline-none"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-semibold text-[var(--text-primary)] block mb-1">
+                                        {t('schema.button_target_field', "Target field")}
+                                    </label>
+                                    <select
+                                        value={field.button_config?.target_field || ''}
+                                        onChange={(e) => handleUpdateField(idx, 'button_config', { ...field.button_config, target_field: e.target.value })}
+                                        className="w-full text-xs border border-[var(--border-primary)] rounded p-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none"
+                                    >
+                                        <option value="">-- {t('schema.button_target_field', "Target field")} --</option>
+                                        {fields.filter(f => f.name !== field.name).map(f => (
+                                            <option key={f.id} value={f.name}>{f.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Custom config for run_skill */}
+                        {field.button_action === 'run_skill' && (
+                            <div className="pt-2 border-t border-[var(--border-primary)]/50 space-y-2">
+                                <label className="text-xs font-semibold text-[var(--text-primary)] block mb-1">
+                                    {t('schema.button_select_skill', "Select Skill")}
+                                </label>
+                                <select
+                                    value={field.button_config?.skill_id || ''}
+                                    onChange={(e) => handleUpdateField(idx, 'button_config', { ...field.button_config, skill_id: e.target.value })}
+                                    className="w-full text-xs border border-[var(--border-primary)] rounded p-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none"
+                                >
+                                    <option value="">-- {t('schema.button_select_skill', "Select Skill")} --</option>
+                                    {availableSkills.map(sk => (
+                                        <option key={sk.id || sk.name} value={sk.id || sk.name}>{sk.name || sk.id}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
                         <p className="text-[10px] text-[var(--text-secondary)]/70 px-1">
                             {t('schema.button_hint', "The button runs the selected action on the row and, for translation, creates one subitem per target language.")}
                         </p>
@@ -1105,6 +1239,43 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
     const [drupalLoading, setDrupalLoading] = useState(false);
     const [drupalError, setDrupalError] = useState('');
     const [matching, setMatching] = useState(false);
+    const [aiActionModalFieldIndex, setAiActionModalFieldIndex] = useState(null);
+    const [aiActionPrompt, setAiActionPrompt] = useState('');
+    const [aiActionLoading, setAiActionLoading] = useState(false);
+    const [availableSkills, setAvailableSkills] = useState([]);
+
+    useEffect(() => {
+        if (isOpen) {
+            axios.get('/api/skills').then(res => {
+                setAvailableSkills(res.data?.skills || res.data || []);
+            }).catch(() => {});
+        }
+    }, [isOpen]);
+
+    const handleGenerateAiAction = async () => {
+        if (!aiActionPrompt.trim() || aiActionModalFieldIndex === null) return;
+        setAiActionLoading(true);
+        try {
+            const res = await axios.post('/api/vault/skills/generate-button-action', {
+                prompt: aiActionPrompt,
+                fields: fields.map(f => ({ name: f.name, type: f.type }))
+            });
+            const result = res.data?.result || {};
+            const idx = aiActionModalFieldIndex;
+            const newFields = [...fields];
+            if (result.button_action) newFields[idx].button_action = result.button_action;
+            if (result.button_label) newFields[idx].button_label = result.button_label;
+            if (result.button_config) newFields[idx].button_config = result.button_config;
+            setFields(newFields);
+            toast.success(t('schema.button_program_success', "Acció programada correctament"));
+            setAiActionModalFieldIndex(null);
+            setAiActionPrompt('');
+        } catch (err) {
+            toast.error(err.response?.data?.detail || "Could not generate AI action");
+        } finally {
+            setAiActionLoading(false);
+        }
+    };
     // Initialization guard: we only want to sync local state with the
     // props when the modal opens. If the parent re-renders while it is open
     // (e.g. fetchRegistry after an unrelated action), the props
@@ -1666,7 +1837,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         'id', 'system', 'formula', 'compute', 'relationField', 'targetProperty',
         'aggregation', 'limit', 'fallbackValue', 'defaultFormula',
         'relation_database_id', 'cardinality', 'file_mode', 'storage_folder',
-        'name_pattern', 'button_action', 'button_label', 'format', 'options',
+        'name_pattern', 'button_action', 'button_label', 'button_config', 'format', 'options',
         'translatable', 'default_option', 'catalog_ref', 'duration_enabled',
         'predecessors_enabled', 'skip_non_working_days',
     ];
@@ -1731,6 +1902,9 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                 config.button_action = (f.button_action || 'translate_row').trim();
                 if (f.button_label?.trim()) {
                     config.button_label = f.button_label.trim();
+                }
+                if (f.button_config) {
+                    config.button_config = f.button_config;
                 }
             }
             if (f.type === 'period') {
@@ -2261,6 +2435,67 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             cancelText={t('common.cancel', "Cancel")}
             isDestructive={true}
         />
+
+        {/* AI Action Programmer Modal */}
+        {aiActionModalFieldIndex !== null && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+                <div className="w-full max-w-md bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-xl shadow-2xl overflow-hidden flex flex-col">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-primary)] bg-[var(--bg-secondary)]">
+                        <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400 font-semibold text-sm">
+                            <Sparkles size={16} />
+                            <span>{t('schema.button_ai_modal_title', "Program button action with AI")}</span>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setAiActionModalFieldIndex(null)}
+                            className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] p-1 rounded-md"
+                        >
+                            <X size={16} />
+                        </button>
+                    </div>
+                    <div className="p-4 space-y-3">
+                        <p className="text-xs text-[var(--text-secondary)]">
+                            {t('schema.button_ai_modal_desc', "Describe in natural language what action you want this button to perform.")}
+                        </p>
+                        <textarea
+                            rows={4}
+                            value={aiActionPrompt}
+                            onChange={(e) => setAiActionPrompt(e.target.value)}
+                            placeholder={t('schema.button_ai_modal_placeholder', "Type your request here...")}
+                            className="w-full text-xs p-2.5 border border-[var(--border-primary)] rounded-lg bg-[var(--bg-primary)] text-[var(--text-primary)] focus:ring-2 focus:ring-purple-500/20 outline-none resize-none"
+                            autoFocus
+                        />
+                    </div>
+                    <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-[var(--border-primary)] bg-[var(--bg-secondary)]">
+                        <button
+                            type="button"
+                            onClick={() => setAiActionModalFieldIndex(null)}
+                            className="px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] rounded-md transition-colors"
+                        >
+                            {t('common.cancel', "Cancel")}
+                        </button>
+                        <button
+                            type="button"
+                            disabled={!aiActionPrompt.trim() || aiActionLoading}
+                            onClick={handleGenerateAiAction}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50 transition-colors shadow-sm cursor-pointer"
+                        >
+                            {aiActionLoading ? (
+                                <>
+                                    <Loader2 size={12} className="animate-spin" />
+                                    <span>{t('schema.button_ai_generating', "Generant...")}</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Sparkles size={12} />
+                                    <span>{t('schema.button_program_ai', "Programar amb IA ✨")}</span>
+                                </>
+                            )}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
         </>,
         document.body
     );
