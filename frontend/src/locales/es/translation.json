@@ -1090,6 +1090,7 @@
   "views_header": {
     "main_view": "Vista principal",
     "main_view_locked": "Vista principal (bloqueada)",
+    "more_actions": "Más acciones",
     "configure": "Configurar",
     "rename": "Renombrar",
     "duplicate": "Duplicar",
@@ -3509,6 +3510,7 @@
     "error_no_table": "Hay que seleccionar una tabla origen",
     "error_no_fields": "Hace falta al menos un campo visible",
     "error_create": "Error desconocido al crear la vista",
+    "all_changes_saved": "Cambios guardados",
     "graph_title": "Grafo",
     "graph_via": "vía",
     "graph_no_relations": "(sin relaciones)",

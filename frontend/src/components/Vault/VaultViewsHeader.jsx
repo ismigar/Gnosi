@@ -161,12 +161,16 @@ function SortableTab({ view, tableViews, isActive, onSelect, onAction }) {
 }
 
 // Row of the "Manage views" panel: reorder handle + name + show/hide
-// toggle. The main view cannot be hidden (it stays locked).
-function SortableManageRow({ view, tableViews, isActive, onToggleHidden }) {
+// toggle + "..." contextual menu (configure/rename/duplicate/delete).
+// The main view cannot be hidden (it stays locked) nor configured.
+function SortableManageRow({ view, tableViews, isActive, onToggleHidden, onAction }) {
     const { t } = useTranslation();
     const {
         attributes, listeners, setNodeRef, transform, transition, isDragging
     } = useSortable({ id: view.id });
+
+    const [showMenu, setShowMenu] = useState(false);
+    const menuRef = useRef(null);
 
     const style = {
         transform: CSS.Transform.toString(transform),
@@ -177,6 +181,19 @@ function SortableManageRow({ view, tableViews, isActive, onToggleHidden }) {
 
     const isPrimaryView = isMainView(view, tableViews);
     const hidden = isViewHidden(view, tableViews);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (menuRef.current && !menuRef.current.contains(e.target)) {
+                setShowMenu(false);
+            }
+        };
+        if (showMenu) document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [showMenu]);
+
+    // Esc closes the row contextual menu.
+    useModalKeyboard({ isOpen: showMenu, onClose: () => setShowMenu(false) });
 
     return (
         <div
@@ -227,6 +244,75 @@ function SortableManageRow({ view, tableViews, isActive, onToggleHidden }) {
                     {hidden ? <EyeOff size={14} /> : <Eye size={14} />}
                 </button>
             )}
+            {/* Contextual "..." menu — same actions as the tab dropdown. */}
+            <div className="relative shrink-0">
+                <button
+                    type="button"
+                    onClick={() => setShowMenu(!showMenu)}
+                    className={`inline-flex items-center justify-center w-7 h-6 rounded text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors ${showMenu ? 'bg-[var(--bg-secondary)]' : ''}`}
+                    title={t('views_header.more_actions', "More actions")}
+                    aria-label={t('views_header.more_actions', "More actions")}
+                    aria-haspopup="menu"
+                    aria-expanded={showMenu}
+                >
+                    <MoreHorizontal size={14} />
+                </button>
+                {showMenu && (
+                    <div
+                        ref={menuRef}
+                        role="menu"
+                        className="absolute right-0 top-full mt-1 w-44 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[var(--z-popover)] py-1 animate-in fade-in zoom-in-95 duration-100"
+                    >
+                        {isPrimaryView ? (
+                            <div className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--text-tertiary)]/70 cursor-not-allowed">
+                                <Lock size={13} />
+                                {t('views_header.main_view_locked')}
+                            </div>
+                        ) : (
+                            <button
+                                role="menuitem"
+                                onClick={() => { setShowMenu(false); onAction?.(view, 'configure'); }}
+                                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
+                            >
+                                <Settings size={13} />
+                                {t('views_header.configure')}
+                            </button>
+                        )}
+                        <button
+                            role="menuitem"
+                            onClick={() => { setShowMenu(false); onAction?.(view, 'rename'); }}
+                            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
+                        >
+                            <Edit2 size={13} />
+                            {t('views_header.rename')}
+                        </button>
+                        <button
+                            role="menuitem"
+                            onClick={() => { setShowMenu(false); onAction?.(view, 'duplicate'); }}
+                            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
+                        >
+                            <Copy size={13} />
+                            {t('views_header.duplicate')}
+                        </button>
+                        <div className="h-px bg-[var(--border-primary)] my-1 mx-2" />
+                        {isPrimaryView ? (
+                            <div className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--text-tertiary)]/70 cursor-not-allowed">
+                                <Lock size={13} />
+                                {t('views_header.main_view_locked')}
+                            </div>
+                        ) : (
+                            <button
+                                role="menuitem"
+                                onClick={() => { setShowMenu(false); onAction?.(view, 'delete'); }}
+                                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-[var(--status-error)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
+                            >
+                                <Trash2 size={13} className="text-[var(--status-error)]" />
+                                {t('views_header.delete')}
+                            </button>
+                        )}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
@@ -314,7 +400,11 @@ export function VaultViewsHeader({
     // view is always there (isViewHidden leaves it out). The management panel
     // (the "+" button) still sees ALL views so they can be shown again.
     const tabViews = useMemo(
-        () => (views || []).filter(v => !isViewHidden(v, views)),
+        () => (views || [])
+            .filter(v => !isViewHidden(v, views))
+            // Stable sort: the main/primary view is always pinned first so it
+            // stays at the left of the tab strip regardless of registry order.
+            .sort((a, b) => (isMainView(b, views) ? 1 : 0) - (isMainView(a, views) ? 1 : 0)),
         [views]
     );
     const hideSingleViewTab = tabViews.length === 1;
@@ -418,7 +508,12 @@ export function VaultViewsHeader({
     };
 
     const handleViewAction = useCallback((view, action) => {
-        if (action === 'configure') onEditView?.(view);
+        if (action === 'configure') {
+            // The main view mirrors the field configuration and is not editable
+            // via the view modal (change fields from the schema config instead).
+            if (isMainView(view, views)) return;
+            onEditView?.(view);
+        }
         if (action === 'delete') {
             if (isMainView(view, views)) return;
             onDeleteView?.(view);
@@ -765,13 +860,17 @@ export function VaultViewsHeader({
                                 onDragEnd={handleManageDragEnd}
                             >
                                 <SortableContext items={views.map(v => v.id)} strategy={verticalListSortingStrategy}>
-                                    {views.map(view => (
+                                    {[...views]
+                                        // Main/primary view pinned at the top of the manage list.
+                                        .sort((a, b) => (isMainView(b, views) ? 1 : 0) - (isMainView(a, views) ? 1 : 0))
+                                        .map(view => (
                                         <SortableManageRow
                                             key={view.id}
                                             view={view}
                                             tableViews={views}
                                             isActive={activeViewId === view.id}
                                             onToggleHidden={(v, hidden) => onSetViewHidden?.(v, hidden)}
+                                            onAction={handleViewAction}
                                         />
                                     ))}
                                 </SortableContext>

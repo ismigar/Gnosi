@@ -931,16 +931,29 @@ export default function VaultDashboard() {
         }
     }, [fetchPages, t]);
 
+    // Canonical definition of a table's main view: type table, no filters,
+    // sorted by the canonical `title` field, and all of the table's fields
+    // visible. It mirrors the field configuration — the main view is how you
+    // browse the raw table, so it must show everything.
+    const buildMainViewBody = useCallback((tableId) => {
+        const table = registry.tables?.find(t => t.id === tableId);
+        const propNames = (table?.properties || []).map(p => p.name).filter(n => n !== 'title');
+        return {
+            name: MAIN_VIEW_NAME,
+            type: 'table',
+            sort: { field: 'title', direction: 'asc' },
+            filters: [],
+            visibleProperties: ['title', ...propNames],
+            is_main: true,
+        };
+    }, [registry.tables]);
+
     const ensureMainViewForTable = useCallback((tableViews = [], tableId = null) => {
         if (!Array.isArray(tableViews) || tableViews.length === 0) {
             return [{
                 id: 'default',
                 table_id: tableId,
-                name: MAIN_VIEW_NAME,
-                type: 'table',
-                sort: { field: 'last_modified', direction: 'desc' },
-                filters: [],
-                is_main: true,
+                ...buildMainViewBody(tableId),
             }];
         }
 
@@ -948,7 +961,36 @@ export default function VaultDashboard() {
             ...v,
             is_main: isMainView(v, tableViews),
         }));
-    }, []);
+    }, [buildMainViewBody]);
+
+    // One-time migration: when a table is opened, if its main view doesn't
+    // match the canonical definition (type=table, no filters, sort by title),
+    // rewrite it. `visibleProperties` is left untouched so a user who hid
+    // fields on the main view keeps that choice. Guarded by
+    // viewCreationInProgressRef to avoid concurrent migrations of the same
+    // table and skipped while the registry is still loading.
+    const migrateMainViewForTable = useCallback((tableId) => {
+        if (!tableId) return;
+        const tableViews = registry.views?.filter(v => v.table_id === tableId) || [];
+        const mainView = tableViews.find(v => isMainView(v, tableViews));
+        if (!mainView || mainView.id === 'default') return; // virtual, not persisted
+        const needsMigration =
+            mainView.type !== 'table' ||
+            (Array.isArray(mainView.filters) && mainView.filters.length > 0) ||
+            mainView.sort?.field !== 'title';
+        if (!needsMigration) return;
+        if (viewCreationInProgressRef.current.has(`migrate-${tableId}`)) return;
+        viewCreationInProgressRef.current.add(`migrate-${tableId}`);
+        axios.put(`/api/vault/views/${mainView.id}`, {
+            ...mainView,
+            type: 'table',
+            filters: [],
+            sort: { field: 'title', direction: 'asc' },
+        })
+            .then(() => fetchRegistry())
+            .catch(err => console.error("Error migrating main view:", err))
+            .finally(() => viewCreationInProgressRef.current.delete(`migrate-${tableId}`));
+    }, [registry.views, fetchRegistry]);
 
     const getTableViews = useCallback((tableId) => {
         const persisted = registry.views?.filter(v => v.table_id === tableId) || [];
@@ -1697,13 +1739,12 @@ export default function VaultDashboard() {
             axios.post(`/api/vault/views`, {
                 id: defaultId,
                 table_id: tableId,
-                name: MAIN_VIEW_NAME,
-                type: "table",
-                sort: { field: "last_modified", direction: "desc" },
-                filters: [],
-                is_main: true,
+                ...buildMainViewBody(tableId),
             }).then(() => fetchRegistry()).catch(err => console.error("Error auto-creating view:", err))
               .finally(() => viewCreationInProgressRef.current.delete(tableId));
+        } else if (!isRegistryLoading && Array.isArray(registry.views) && tableViews.length > 0) {
+            // Migrate an existing main view to the canonical definition.
+            migrateMainViewForTable(tableId);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pushToHistory, setActiveTableId, setViewMode, setActiveTabId, resolvePageTableId, getTableVisibleRecords, setTableNotes, pages, setTableTemplates, fetchPagesByTable, registry.tables, registry.views, getSchemaFromTableId, setViews, setActiveViewId, getPreferredInitialViewId, fetchRegistry, tabs, getTableIdFromTab, activeTableId]);
@@ -2149,13 +2190,11 @@ export default function VaultDashboard() {
                 axios.post(`/api/vault/views`, {
                     id: defaultId,
                     table_id: tableId,
-                    name: MAIN_VIEW_NAME,
-                    type: "table",
-                    sort: { field: "last_modified", direction: "desc" },
-                    filters: [],
-                    is_main: true,
+                    ...buildMainViewBody(tableId),
                 }).then(() => fetchRegistry()).catch(err => console.error("Error auto-creating view:", err))
                   .finally(() => viewCreationInProgressRef.current.delete(tableId));
+            } else if (!isRegistryLoading && Array.isArray(registry.views) && tableViews.length > 0) {
+                migrateMainViewForTable(tableId);
             }
         } catch (err) {
             console.error("Error opening the table:", err);
@@ -2261,11 +2300,11 @@ export default function VaultDashboard() {
                 if (isDefault) {
                     const newView = {
                         ...view,
+                        ...buildMainViewBody(view.table_id || activeTableId),
                         id: uuidv4(),
                         table_id: view.table_id || activeTableId,
                         name: title,
                         order: 0,
-                        is_main: true,
                     };
                     await axios.post('/api/vault/views', newView);
                     setActiveViewId(newView.id);
@@ -2294,11 +2333,7 @@ export default function VaultDashboard() {
                 await axios.post(`/api/vault/views`, {
                     id: uuidv4(),
                     table_id: tableRes.data.id,
-                    name: MAIN_VIEW_NAME,
-                    type: "table",
-                    sort: { field: "last_modified", direction: "desc" },
-                    filters: [],
-                    is_main: true,
+                    ...buildMainViewBody(tableRes.data.id),
                 });
                 await fetchRegistry();
                 toast.success(t('success.table_created', { name: title }));
@@ -3807,7 +3842,7 @@ export default function VaultDashboard() {
                             <div className="flex-1 overflow-hidden">
                                 {(() => {
                                     const displayViews = getTableViews(activeTableId);
-                                    const cv = displayViews.find(v => v.id === activeViewId) || displayViews[0] || { id: 'default', name: MAIN_VIEW_NAME, type: 'table', sort: { field: 'last_modified', direction: 'desc' }, is_main: true };
+                                    const cv = displayViews.find(v => v.id === activeViewId) || displayViews[0] || { id: 'default', name: MAIN_VIEW_NAME, type: 'table', sort: { field: 'title', direction: 'asc' }, filters: [], is_main: true };
 
                                     const onEditSchema = (type) => {
                                         if (type === 'filters' || type === 'sorts') {

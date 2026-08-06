@@ -53,11 +53,11 @@ const DATE_FIELD_TYPES = new Set(['date', 'datetime', 'period']);
 const NUMERIC_FIELD_TYPES = new Set(['number', 'formula', 'rollup', 'currency', 'percent']);
 
 const TABS = [
+    { id: 'general', icon: SlidersHorizontal, label: 'General' },
     { id: 'properties', icon: Eye, label: 'Fields' },
     { id: 'filters', icon: Filter, label: 'Filters' },
     { id: 'sort', icon: ArrowUpDown, label: 'Sort' },
     { id: 'grouping', icon: Layers, label: 'Grouping' },
-    { id: 'general', icon: SlidersHorizontal, label: 'General' },
 ];
 
 /**
@@ -586,7 +586,6 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     const [yField, setYField] = useState('');
     const [aggregation, setAggregation] = useState('count');
     const [saveToTableViews, setSaveToTableViews] = useState(true);
-    const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
     // Views saved on the selected table — the user can choose one when
     // stead of having to configure everything from scratch.
@@ -602,6 +601,29 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     //              carries an inline copy of the filters/sorts/properties.
     const [editScope, setEditScope] = useState('shared');
     const [modalPinnedViewIds, setModalPinnedViewIds] = useState(new Set());
+
+    // --- Autosave (mode='table') + flush-on-close (mode='embed') ---
+    // Mirrors the pattern in SchemaConfigModal: a debounced effect writes a
+    // `pendingSaveRef` closure, and the unmount cleanup flushes it so the last
+    // edit before closing (X/Esc/Tancar) is never lost.
+    // `createdViewIdRef` is essential for table mode: once the first autosave
+    // POSTs a new view, the id is fed back here so subsequent autosaves PUT
+    // instead of creating duplicates.
+    const createdViewIdRef = useRef(null);
+    const initializedRef = useRef(false);
+    const pendingSaveRef = useRef(null);
+    const skipNextAutosaveRef = useRef(false);
+    const lastSavedViewRef = useRef(null);
+    // Stable handle for close-with-flush: useModalKeyboard is called before
+    // closeWithFlush is defined, so we keep the latest closure in a ref.
+    const closeWithFlushRef = useRef(() => {});
+    // Stable handle for persistView: the autosave/flush effects run before the
+    // early `if (!isOpen) return null`, but persistView is defined after it, so
+    // the effects call this ref instead.
+    const persistViewRef = useRef(async () => null);
+    // 'idle' | 'saving' | 'saved' | 'error' — drives the footer status pill.
+    const [autosaveStatus, setAutosaveStatus] = useState('idle');
+    const [flushing, setFlushing] = useState(false);
 
     const selectedTable = useMemo(
         () => allTables.find(tbl => tbl.id === sourceTableId),
@@ -719,7 +741,16 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     };
 
     useEffect(() => {
-        if (!isOpen) return;
+        if (!isOpen) {
+            // Reset the autosave bookkeeping so a reopen starts clean.
+            initializedRef.current = false;
+            createdViewIdRef.current = null;
+            lastSavedViewRef.current = null;
+            pendingSaveRef.current = null;
+            skipNextAutosaveRef.current = false;
+            setAutosaveStatus('idle');
+            return;
+        }
         // TABLE mode: we configure a registry view directly (not an
         // embed). We pre-fill from `editingView` (or defaults if we're creating one).
         if (isTableMode) {
@@ -764,6 +795,10 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 setResultSnapshotLimit(500);
                 resetTypeOptions();
             }
+            // Initialization just wrote editing state: skip the first autosave
+            // tick so it isn't treated as a user change.
+            initializedRef.current = true;
+            skipNextAutosaveRef.current = true;
             return;
         }
         // EDIT mode: we prefill from the existing block's props.
@@ -801,6 +836,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 // (sourceTableId → existingViews → selectedExistingViewId) no
                 // end up clearing the selection before the view has been read.
                 let cancelled = false;
+                initializedRef.current = true; // async prefill below will re-arm skip
                 apiFetch(`/api/vault/views/${encodeURIComponent(vid)}`)
                     .then(v => {
                         if (cancelled || !v) return;
@@ -825,12 +861,16 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                             return [v, ...prev];
                         });
                         setSelectedExistingViewId(vid);
+                        // Async prefill finished: the state writes above would
+                        // otherwise look like a user edit and trigger autosave.
+                        skipNextAutosaveRef.current = true;
                     })
                     .catch(() => {
                         // If we fail, we leave the modal in create-new mode.
                         if (!cancelled) {
                             setSourceTableId(preselectedTableId || '');
                             setSelectedExistingViewId('');
+                            skipNextAutosaveRef.current = true;
                         }
                     });
                 return () => { cancelled = true; };
@@ -847,6 +887,8 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
             setResultSnapshotLimit(Number.isFinite(Number(inline?.resultSnapshotLimit)) ? Number(inline.resultSnapshotLimit) : 500);
             applyTypeOptions(inline);
             setExistingViews([]);
+            initializedRef.current = true;
+            skipNextAutosaveRef.current = true;
             return;
         }
         // CREATE mode: everything clean.
@@ -869,6 +911,8 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         setModalPinnedViewIds(new Set());
         resetTypeOptions();
         setError('');
+        initializedRef.current = true;
+        skipNextAutosaveRef.current = true;
     }, [isOpen, preselectedTableId, editingBlock, isTableMode, editingView, initialTab]);
 
     // When the source table changes, we load the views already saved for
@@ -975,6 +1019,9 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         // The virtual "Main Table" has no entry in the registry; we show it
         // as a "starting point" but we enable saving (it will be created as a
         // genuinely new view). The usage also doesn't make sense for 'default'.
+        // Pre-selecting an existing view overwrites editing state; skip the
+        // next autosave so it isn't mistaken for a user change.
+        skipNextAutosaveRef.current = true;
         if (selectedExistingViewId === 'default' || v.is_main) {
             setSaveToTableViews(true);
             setViewUsage({ count: 0, pages: [] });
@@ -1027,7 +1074,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     // overrides BlockNote's stopPropagation (TipTap/ProseMirror).
     useModalKeyboard({
         isOpen,
-        onClose: () => onClose(false),
+        onClose: () => closeWithFlushRef.current(),
         containerRef: panelRef,
         trapFocus: true,
     });
@@ -1060,6 +1107,45 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [tableFields, t]
     );
+
+    // Autosave (table mode only): after a change, wait 800ms of inactivity,
+    // validate, and persist. `pendingSaveRef` always holds the latest closure so
+    // the unmount cleanup can flush the last edit. Mirrors SchemaConfigModal.
+    // Must live before the `if (!isOpen) return null` (hooks can't be conditional),
+    // so it calls persistViewRef.current (assigned after the early return).
+    useEffect(() => {
+        if (!isOpen || !initializedRef.current || !isTableMode) return;
+        if (skipNextAutosaveRef.current) {
+            skipNextAutosaveRef.current = false;
+            return;
+        }
+        // Soft validation: pause autosave (no error banner) when the config is
+        // incomplete; the user can keep editing. persistView still hard-validates.
+        if (!sourceTableId || visibleProperties.length === 0) return;
+        const doSave = async () => {
+            setAutosaveStatus('saving');
+            try {
+                await persistViewRef.current({ closeAfter: false });
+                setAutosaveStatus('saved');
+            } catch {
+                setAutosaveStatus('error');
+            }
+        };
+        pendingSaveRef.current = doSave;
+        const handle = setTimeout(doSave, 800);
+        return () => clearTimeout(handle);
+    }, [isOpen, isTableMode, sourceTableId, viewName, viewType, filterTree, sorts,
+        visibleProperties, resultSnapshot, resultSnapshotLimit, cardSize, galleryPreview,
+        coverField, imageFit, groupBy, groupSort, groupSortDir, dateField, endDateField,
+        calendarView, colorField, rowHeight, chartType, xField, yField, aggregation]);
+
+    // Flush the pending save when the modal unmounts (e.g. closing right after
+    // an edit, inside the debounce window). Fire-and-forget: the request
+    // completes even if the component is gone. Without this the last change
+    // before closing would be cancelled by the clearTimeout above.
+    useEffect(() => {
+        return () => { pendingSaveRef.current?.(); };
+    }, []);
 
     // Keep every hook before the closed-state return. Embedded views mount this
     // modal closed and open it later; placing this memo after the return changes
@@ -1163,19 +1249,23 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         return extras;
     };
 
-    const handleSave = async () => {
+    // Persists the view (and, in embed mode, the page section). This is the
+    // single source of truth for saving — used by both the table-mode autosave
+    // (closeAfter=false) and the close-with-flush path (closeAfter=true).
+    // It NEVER calls onClose: the caller decides that. Returns the saved view
+    // (table mode) or section data (embed mode), or null on validation failure.
+    const persistView = async ({ closeAfter = false } = {}) => {
         if (!sourceTableId) {
             setError(t('view.error_no_table', "You must select a source table"));
             setActiveTab('general');
-            return;
+            return null;
         }
         if (visibleProperties.length === 0) {
             setError(t('view.error_no_fields', "At least one visible field is required"));
             setActiveTab('properties');
-            return;
+            return null;
         }
 
-        setSaving(true);
         setError('');
         try {
             // Sanitize the filter tree: drop rules without a field, null out the
@@ -1198,12 +1288,14 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
             const sortConfig = cleanSorts[0] || null;
 
             // TABLE mode: saves the registry view directly (creates or
-            // updates), without a section or block. Returns the saved view to the
-            // caller so it can refresh the registry and select it.
+            // updates), without a section or block. Runs on every autosave AND
+            // on close. The first POST's id is captured in createdViewIdRef so
+            // subsequent saves PUT (no duplicate views).
             if (isTableMode) {
+                const existingId = editingView?.id || createdViewIdRef.current;
                 const viewBody = {
                     ...(editingView || {}),
-                    id: editingView?.id,
+                    id: existingId,
                     table_id: sourceTableId,
                     name: (viewName || editingView?.name || 'Vista').trim(),
                     type: viewType,
@@ -1217,8 +1309,8 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                     ...buildViewExtras(),
                 };
                 let saved;
-                if (editingView?.id) {
-                    saved = await apiFetch(`/api/vault/views/${encodeURIComponent(editingView.id)}`, {
+                if (existingId) {
+                    saved = await apiFetch(`/api/vault/views/${encodeURIComponent(existingId)}`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(viewBody),
@@ -1229,16 +1321,24 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(viewBody),
                     });
+                    // Feed the new id back so the next autosave PUTs instead of
+                    // creating a duplicate.
+                    if (saved?.id) createdViewIdRef.current = saved.id;
                 }
                 // `saved` can be the created view (with a new id) or a status; in
                 // any case we return the body with the resulting id.
                 const savedView = {
                     ...viewBody,
-                    id: editingView?.id || saved?.id || viewBody.id,
+                    id: existingId || saved?.id || viewBody.id,
                 };
-                onClose(true, savedView);
-                return;
+                lastSavedViewRef.current = savedView;
+                return savedView;
             }
+
+            // EMBED mode: only persists when closing (flush-on-close). We don't
+            // write the section to the page on every autosave — that would insert
+            // it while the user is still configuring.
+            if (!closeAfter) return null;
 
             // 'default' is the virtual main view (not persisted): the
             // we treat it as if the user had chosen "Create new view" with
@@ -1383,7 +1483,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
 
             // We return enough info so the caller (BlockEditor) can insert
             // a dbViewEmbed block at the cursor with the full config.
-            onClose(true, {
+            return {
                 view_id: viewId,
                 heading: heading.trim(),
                 heading_level: headingLevel,
@@ -1393,13 +1493,38 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 filterTree: filterTreeBody,
                 sorts: cleanSorts,
                 visible_properties: visibleProperties,
-            });
+            };
         } catch (e) {
             setError(e?.message || t('view.error_create', "Unknown error creating the view"));
-        } finally {
-            setSaving(false);
+            throw e;
         }
     };
+
+    // Flush any pending edits then close. Used by the Tancar button, the X, and
+    // Esc. In table mode the autosave has usually already persisted; here we run
+    // a final flush for changes made inside the debounce window. In embed mode
+    // this is the only save path (flush-on-close).
+    const closeWithFlush = async () => {
+        if (flushing) return;
+        setFlushing(true);
+        // Clear a pending debounce so we don't double-save.
+        pendingSaveRef.current = null;
+        try {
+            const result = await persistView({ closeAfter: true });
+            // result is null only on validation failure → stay open so the user
+            // can fix it. Otherwise close and hand back the saved data.
+            if (result !== null) {
+                onClose(true, result);
+            }
+        } catch {
+            // Network/error already surfaced in the banner; stay open.
+            setAutosaveStatus('error');
+        } finally {
+            setFlushing(false);
+        }
+    };
+    closeWithFlushRef.current = closeWithFlush;
+    persistViewRef.current = persistView;
 
     // Schema fields suitable for each per-type control: grouping of
     // Kanban (fields with bounded values) and calendar/timeline time axis.
@@ -1433,7 +1558,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                 ? t('page_view.title_edit', "Edit database view")
                                 : t('page_view.title', "Add database view"))}
                     </h2>
-                    <button onClick={() => onClose(false)} className="gnosi-close-btn">
+                    <button onClick={() => closeWithFlushRef.current()} className="gnosi-close-btn">
                         <X size={16} />
                     </button>
                 </div>
@@ -1464,6 +1589,23 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 <div className="p-5 space-y-4 overflow-y-auto flex-1">
                     {activeTab === 'general' && (
                         <>
+                            {/* View name — first field in General, shown in both
+                                modes. In embed mode the name is only used when
+                                "saveToTableViews" is checked, but showing it here
+                                keeps the layout consistent and lets the user name
+                                the view before configuring the rest. */}
+                            <div>
+                                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                                    {t('view.view_name', "View name")}
+                                </label>
+                                <input
+                                    className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] focus:ring-1 focus:ring-[var(--gnosi-primary)] outline-none"
+                                    value={viewName}
+                                    onChange={e => setViewName(e.target.value)}
+                                    placeholder={t('view.view_name_ph', "e.g. By area")}
+                                />
+                            </div>
+
                             {!isTableMode && (
                                 <div>
                                     <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">{t('view.source_table', "Source table")}</label>
@@ -1880,20 +2022,6 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                 </div>
                             )}
 
-                            {isTableMode && (
-                                <div>
-                                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
-                                        {t('view.view_name', "View name")}
-                                    </label>
-                                    <input
-                                        className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] focus:ring-1 focus:ring-[var(--gnosi-primary)] outline-none"
-                                        value={viewName}
-                                        onChange={e => setViewName(e.target.value)}
-                                        placeholder={t('view.view_name_ph', "e.g. By area")}
-                                    />
-                                </div>
-                            )}
-
                             {!isTableMode && !selectedExistingViewId && (
                                 <div className="border-t border-[var(--border-primary)] pt-4 space-y-3">
                                     <label className="flex items-center gap-2 cursor-pointer">
@@ -1907,19 +2035,6 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                             {t('view.save_to_table', "Also save to the table's views")}
                                         </span>
                                     </label>
-                                    {saveToTableViews && (
-                                        <div className="ml-6">
-                                            <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
-                                                {t('view.view_name', "View name")}
-                                            </label>
-                                            <input
-                                                className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] focus:ring-1 focus:ring-[var(--gnosi-primary)] outline-none"
-                                                value={viewName}
-                                                onChange={e => setViewName(e.target.value)}
-                                                placeholder={t('view.view_name_ph2', "e.g. Key contacts")}
-                                            />
-                                        </div>
-                                    )}
                                 </div>
                             )}
 
@@ -2252,21 +2367,36 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                     )}
                 </div>
 
-                {/* Footer */}
-                <div className="px-5 py-4 border-t border-[var(--border-primary)] bg-[var(--bg-secondary)] flex justify-end gap-3 rounded-b-xl shrink-0">
+                {/* Footer — single Close button (autosave/flush handles persistence). */}
+                <div className="px-5 py-4 border-t border-[var(--border-primary)] bg-[var(--bg-secondary)] flex items-center justify-between gap-3 rounded-b-xl shrink-0">
+                    {/* Autosave status pill (table mode shows live state; embed mode
+                        only shows transient states during the flush). */}
+                    <div className="text-xs flex items-center gap-1.5 min-h-[1rem]">
+                        {(autosaveStatus === 'saving' || flushing) && (
+                            <span className="flex items-center gap-1.5 text-[var(--gnosi-primary)]">
+                                <span className="inline-block w-2 h-2 rounded-full bg-current animate-pulse" />
+                                {t('view.saving', "Saving…")}
+                            </span>
+                        )}
+                        {autosaveStatus === 'saved' && !flushing && (
+                            <span className="flex items-center gap-1.5 text-green-500">
+                                <span className="inline-block w-2 h-2 rounded-full bg-current" />
+                                {t('view.all_changes_saved', "All changes saved")}
+                            </span>
+                        )}
+                        {autosaveStatus === 'error' && !flushing && (
+                            <span className="flex items-center gap-1.5 text-red-500">
+                                <span className="inline-block w-2 h-2 rounded-full bg-current" />
+                                {t('view.error_create', "Unknown error creating the view")}
+                            </span>
+                        )}
+                    </div>
                     <button
-                        onClick={() => onClose(false)}
-                        disabled={saving}
-                        className="px-4 py-2 border border-[var(--border-primary)] rounded-lg text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-primary)] transition-colors"
-                    >
-                        {t('common.cancel', "Cancel")}
-                    </button>
-                    <button
-                        onClick={handleSave}
-                        disabled={saving}
+                        onClick={() => closeWithFlushRef.current()}
+                        disabled={flushing}
                         className="btn-gnosi btn-gnosi-primary px-6"
                     >
-                        {saving ? t('view.saving', "Saving…") : ((isTableMode ? editingView?.id : editingBlock) ? t('view.save_changes', "Save changes") : t('view.create_view', "Create view"))}
+                        {flushing ? t('view.saving', "Saving…") : t('common.close', "Close")}
                     </button>
                 </div>
             </div>
