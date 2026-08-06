@@ -2449,6 +2449,8 @@
     "new_template": "Nouveau modèle",
     "new_from_source": "Créer depuis une source…",
     "default_badge": "Déf.",
+    "dashboard_view_badge": "Tableau de bord",
+    "dashboard_view_badge_hint": "Vue intégrée depuis un tableau de bord ou une page",
     "new_options": "Options de création",
     "loading_view": "Chargement de la vue...",
     "active_filters_one": "{{count}} filtre",

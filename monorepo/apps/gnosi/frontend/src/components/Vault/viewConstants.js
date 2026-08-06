@@ -49,11 +49,15 @@ export const getViewIcon = (typeId) => {
     return view ? view.icon : Table;
 };
 
-// A view is hidden (not shown as a tab) if it has `hidden: true`.
+// A view is hidden (not shown as a tab) if it has `hidden: true` or if it is a page embed view by default.
 // The main view is NEVER hidden: at least one tab must always remain
 // accessible, and is the table's anchor.
-export const isViewHidden = (view, tableViews = []) =>
-    !!view?.hidden && !isMainView(view, tableViews);
+export const isViewHidden = (view, tableViews = []) => {
+    if (isMainView(view, tableViews)) return false;
+    if (typeof view?.hidden === 'boolean') return view.hidden;
+    if (isPageEmbedView(view)) return true;
+    return false;
+};
 
 // UUID version 5 (deterministic, `uuid5`) vs 4 (random, `uuid4`): the 13th digit
 // hex of the canonical format. Gnosi creates ALL table views with `uuid4`

@@ -954,15 +954,10 @@ export default function VaultDashboard() {
         const persisted = registry.views?.filter(v => v.table_id === tableId) || [];
         const localOnly = views.filter(v => v.table_id === tableId && !persisted.find(pv => pv.id === v.id));
         const allViews = [...persisted, ...localOnly];
-        // The contextual views of page embeds (one per section
-        // embedded; "Cervell digital" accumulated ~600 of them) aren't tabs of the
-        // dashboard: DbViewEmbed keeps reading them from the registry on its own.
-        // The EFFECTIVE main view is determined BEFORE filtering and does not
-        // is never excluded, because it can also carry the "this" filter (e.g. the
-        // main one of Tasques).
-        const mainView = allViews.find(v => isMainView(v, allViews));
-        const tabViews = allViews.filter(v => v === mainView || !isPageEmbedView(v));
-        return ensureMainViewForTable(tabViews, tableId);
+        // Returns all views (including embedded/dashboard ones). VaultViewsHeader filters
+        // visible tab strip views using isViewHidden, but keeps all views in the "+" management panel
+        // so users can manage and unhide dashboard views as table tabs.
+        return ensureMainViewForTable(allViews, tableId);
     }, [registry.views, views, ensureMainViewForTable]);
 
     const getPreferredInitialViewId = useCallback((tableViews = []) => {
@@ -1119,7 +1114,7 @@ export default function VaultDashboard() {
         }
         // If we hide the active view, we jump to the first visible one (or to the main one).
         if (hidden && activeViewId === viewId) {
-            const fallback = tableViews.find(v => v.id !== viewId && !v.hidden)
+            const fallback = tableViews.find(v => v.id !== viewId && !isViewHidden(v, tableViews))
                 || tableViews.find(v => isMainView(v, tableViews));
             if (fallback) setActiveViewId(fallback.id);
         }

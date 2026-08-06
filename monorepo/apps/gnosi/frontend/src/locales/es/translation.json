@@ -1115,6 +1115,8 @@
     "hide_view": "Ocultar la vista",
     "show_view": "Mostrar la vista",
     "drag_to_reorder": "Arrastra para reordenar",
+    "dashboard_view_badge": "Dashboard",
+    "dashboard_view_badge_hint": "Vista incrustada desde un panel o página",
     "view_settings": "Configuración de la vista",
     "create_in_column": "Crear en esta columna",
     "default_view_name": "Vista",

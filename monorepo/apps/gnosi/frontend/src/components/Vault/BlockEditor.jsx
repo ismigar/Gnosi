@@ -53,6 +53,7 @@ import { BlockNoteSchema, defaultBlockSpecs, defaultInlineContentSpecs, defaultS
 import { insertOrUpdateBlockForSlashMenu } from "@blocknote/core/extensions";
 import { BlockNoteView } from "@blocknote/mantine";
 import { withMultiColumn, multiColumnDropCursor } from "@blocknote/xl-multi-column";
+import { withCollaboration } from "@blocknote/core/yjs";
 import "@blocknote/mantine/style.css";
 import "@blocknote/core/fonts/inter.css";
 import "@blocknote/react/style.css";
@@ -1439,10 +1440,12 @@ export function EditorInner({
     // the editor is created exactly like before (no regression).
     const { collaboration, ready: collabReady } = useYjsCollaboration(noteFilename);
 
-    const editor = useCreateBlockNote({
+    // BlockNote 0.52 decoupled Yjs: the `collaboration` option must now be
+    // applied via withCollaboration() from @blocknote/core/yjs instead of being
+    // spread directly into the editor options. In personal mode we pass the
+    // plain options (initialContent); in org mode we wrap them.
+    const baseOptions = {
         schema,
-        // With active collaboration, the content comes from the Y.Doc (not initialContent).
-        ...(collaboration ? { collaboration } : { initialContent: blocks || undefined }),
         dropCursor: multiColumnDropCursor,
         // Drop INTO a collapsible heading. A ProseMirror view prop wins over
         // every plugin in `someProp`, so this runs before the multi-column drop
@@ -1462,9 +1465,15 @@ export function EditorInner({
             cellTextColor: true,
             headers: true,
         },
+    };
+    const editor = useCreateBlockNote(
+        // With active collaboration, the content comes from the Y.Doc (not initialContent).
+        collaboration
+            ? withCollaboration({ ...baseOptions, collaboration })
+            : { ...baseOptions, initialContent: blocks || undefined },
     // Deps: recreates the editor ONLY when collaboration activates (transition to
     // org mode). In personal mode `collabReady` never changes → no recreation.
-    }, [collabReady]);
+    [collabReady]);
     editorRef.current = editor;
 
     // Seeding initial content in collaboration: if the Yjs document is

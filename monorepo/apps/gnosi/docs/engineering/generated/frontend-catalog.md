@@ -32,7 +32,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `application root` | 3 | 274 | 0 |
-| `components` | 184 | 73651 | 192 |
+| `components` | 184 | 73664 | 192 |
 | `context` | 1 | 177 | 6 |
 | `hooks` | 16 | 1239 | 7 |
 | `lib` | 17 | 1959 | 6 |
@@ -112,7 +112,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Vault/AIGenerateModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/AIGenerateModal.jsx) | 241 | `AIGenerateModal`, `function` | `/api/ai/generate` |
 | [`frontend/src/components/Vault/AutoriaField.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/AutoriaField.jsx) | 186 | `AutoriaDisplay`, `AutoriaEditor` | — |
 | [`frontend/src/components/Vault/BibliographyBlock.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/BibliographyBlock.jsx) | 201 | `BibliographyBlock` | `/api/vault/resolve-by-citation-key` |
-| [`frontend/src/components/Vault/BlockEditor.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/BlockEditor.jsx) | 5597 | `BlockEditor`, `EditorInner` | `/api/contacts`, `/api/vault/assets/`, `/api/vault/assets/upload`, `/api/vault/backlinks`, `/api/vault/link-unlinked-mentions`, `/api/vault/outlinks`, `/api/vault/pages`, `/api/vault/unlinked-mentions` |
+| [`frontend/src/components/Vault/BlockEditor.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/BlockEditor.jsx) | 5606 | `BlockEditor`, `EditorInner` | `/api/contacts`, `/api/vault/assets/`, `/api/vault/assets/upload`, `/api/vault/backlinks`, `/api/vault/link-unlinked-mentions`, `/api/vault/outlinks`, `/api/vault/pages`, `/api/vault/unlinked-mentions` |
 | [`frontend/src/components/Vault/BrainInbox.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/BrainInbox.jsx) | 210 | `BrainInbox` | `/api/vault/llm-wiki/suggestions` |
 | [`frontend/src/components/Vault/CalendarContextMenu.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/CalendarContextMenu.jsx) | 68 | `CalendarContextMenu` | — |
 | [`frontend/src/components/Vault/CalendarSidebarLeft.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/CalendarSidebarLeft.jsx) | 315 | `CalendarSidebarLeft` | — |
@@ -196,7 +196,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Vault/ZoteroReaderTab.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/ZoteroReaderTab.jsx) | 580 | `ZoteroReaderPage`, `ZoteroReaderTab`, `detectKindFromSrc` | `/api/vault/local-file/register`, `/api/vault/open-local-path`, `/api/vault/pdf-annotations` |
 | [`frontend/src/components/Vault/areaHeadingColors.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/areaHeadingColors.js) | 60 | `areaHeadingColorKey`, `normalizeHeadingText` | — |
 | [`frontend/src/components/Vault/autoriaUtils.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/autoriaUtils.js) | 40 | `authorFullName`, `authorSortLabel`, `dedupeAuthors`, `emptyAuthor`, `sameAuthor` | — |
-| [`frontend/src/components/Vault/canvasPageCardShape.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/canvasPageCardShape.jsx) | 123 | `CanvasPageContext`, `PageCardShapeUtil` | — |
+| [`frontend/src/components/Vault/canvasPageCardShape.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/canvasPageCardShape.jsx) | 127 | `CanvasPageContext`, `PageCardShapeUtil` | — |
 | [`frontend/src/components/Vault/cellGridUtils.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/cellGridUtils.js) | 280 | `clampIndex`, `coerceValueForField`, `computePasteRect`, `isComputedType`, `isPasteableType`, `parseClipboardMatrix`, `rangeBetween`, `sameCellValue`, `serializeCellForClipboard` | — |
 | [`frontend/src/components/Vault/cslEngine.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/cslEngine.js) | 390 | `AVAILABLE_LOCALES`, `AVAILABLE_STYLES`, `fetchAvailableStyles`, `getEngine`, `invalidateAvailableStylesCache`, `recursosPageToCsl`, `renderBibliography`, `renderInlineCitation`, `resolveCslType` | `/api/vault/csl/styles` |
 | [`frontend/src/components/Vault/defaultFormulaUtils.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/defaultFormulaUtils.js) | 97 | `applyDefaultFormulasToMetadata` | — |

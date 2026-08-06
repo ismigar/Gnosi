@@ -113,8 +113,12 @@ export class PageCardShapeUtil extends BaseBoxShapeUtil {
         return <PageCardComponent shape={shape} />;
     }
 
-    indicator(shape) {
-        return <rect width={shape.props.w} height={shape.props.h} rx={10} />;
+    getIndicatorPath(shape) {
+        // v5: indicator() JSX → getIndicatorPath() returning a Path2D.
+        // roundRect matches the card's border radius (rx=10) used in component().
+        const path = new Path2D();
+        path.roundRect(0, 0, shape.props.w, shape.props.h, 10);
+        return path;
     }
 
     onResize(shape, info) {
