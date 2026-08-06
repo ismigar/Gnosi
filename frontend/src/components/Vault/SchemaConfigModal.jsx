@@ -486,7 +486,7 @@ function OptionsEditor({ options = [], onChange, fieldType = 'select', groups = 
 }
 
 // Child component for each draggable property
-function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveField, allTables = [], currentTableName = '', virtualComputers = [], enableTranslation = false, enableDrupalSync = false, drupalBundle = '', drupalFields = [], drupalFieldMapping = {}, setDrupalFieldMapping = () => {}, optionTools = null, projectPlanningEnabled = false }) {
+function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveField, allTables = [], currentTableName = '', virtualComputers = [], enableTranslation = false, enableDrupalSync = false, drupalBundle = '', drupalFields = [], drupalFieldMapping = {}, setDrupalFieldMapping = () => {}, optionTools = null, projectPlanningEnabled = false, setAiActionModalFieldIndex, availableSkills = [] }) {
     const { t } = useTranslation();
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.id });
 
@@ -825,7 +825,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                                             className="w-1/2 text-xs border border-[var(--border-primary)] rounded p-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none"
                                         >
                                             <option value="">-- {t('schema.button_target_field', "Target field")} --</option>
-                                            {fields.filter(f => f.name !== field.name).map(f => (
+                                            {allFields.filter(f => f.name !== field.name).map(f => (
                                                 <option key={f.id} value={f.name}>{f.name}</option>
                                             ))}
                                         </select>
@@ -893,7 +893,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                                         className="w-full text-xs border border-[var(--border-primary)] rounded p-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none"
                                     >
                                         <option value="">-- {t('schema.button_target_field', "Target field")} --</option>
-                                        {fields.filter(f => f.name !== field.name).map(f => (
+                                        {allFields.filter(f => f.name !== field.name).map(f => (
                                             <option key={f.id} value={f.name}>{f.name}</option>
                                         ))}
                                     </select>
@@ -2398,6 +2398,8 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                                         setDrupalFieldMapping={setDrupalFieldMapping}
                                         optionTools={optionTools}
                                         projectPlanningEnabled={projectPlanningEnabled}
+                                        setAiActionModalFieldIndex={setAiActionModalFieldIndex}
+                                        availableSkills={availableSkills}
                                     />
                                 ))}
                             </div>
