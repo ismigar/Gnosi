@@ -1064,7 +1064,9 @@
       "is_empty": "és buit",
       "is_not_empty": "no és buit",
       "greater_than": "és major que",
-      "less_than": "és menor que"
+      "greater_than_or_equal": "és major o igual que",
+      "less_than": "és menor que",
+      "less_than_or_equal": "és menor o igual que"
     },
     "sort_directions": {
       "asc": "Ascendent (A→Z)",
@@ -1128,6 +1130,8 @@
     "delete_everywhere": "Eliminar a tot arreu…",
     "delete_view_title": "Eliminar vista",
     "delete_view_confirm": "Eliminar la vista \"{{name}}\" a TOT arreu? Desapareixerà de totes les pàgines.",
+    "delete_linked_view_confirm": "Aquesta vista \"{{name}}\" està enllaçada a {{count}} pàgina(es):",
+    "confirm_delete_anyway": "Segur que la vols eliminar de totes maneres?",
     "rename_view_title": "Reanomenar vista",
     "new_view_name_label": "Nou nom de la vista",
     "new_options": "Opcions de creació",
@@ -3410,7 +3414,9 @@
     "op_is_empty": "és buit",
     "op_is_not_empty": "no és buit",
     "op_greater_than": "major que",
+    "op_greater_than_or_equal": "major o igual",
     "op_less_than": "menor que",
+    "op_less_than_or_equal": "menor o igual",
     "tab_properties": "Camps",
     "tab_filters": "Filtres",
     "tab_sort": "Ordenació",

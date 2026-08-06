@@ -27,6 +27,15 @@ describe('viewConstants', () => {
             expect(isMainView(tableViews[1], tableViews)).toBe(true);
             expect(isMainView(tableViews[0], tableViews)).toBe(false);
         });
+
+        it('identifies canonical default or explicit main view correctly', () => {
+            const tableViews = [
+                { id: 'default', name: 'Main Table' },
+                { id: 'v2', name: 'Custom View', type: 'board' },
+            ];
+            expect(isMainView(tableViews[0], tableViews)).toBe(true);
+            expect(isMainView(tableViews[1], tableViews)).toBe(false);
+        });
     });
 
     describe('isViewHidden', () => {

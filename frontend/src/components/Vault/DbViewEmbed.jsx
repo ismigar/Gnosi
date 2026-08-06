@@ -147,21 +147,24 @@ function applyFilter(row, pageId, f) {
     // For ISO dates, lexicographic order is chronological and matches between JS
     // and Python (ASCII), so the date-range filter works and is
     // consistent with the main view and the backend.
-    if (op === 'greater_than' || op === 'less_than') {
-        const gt = op === 'greater_than';
+    if (op === 'greater_than' || op === 'greater_than_or_equal' || op === 'less_than' || op === 'less_than_or_equal') {
+        const isGt = op === 'greater_than' || op === 'greater_than_or_equal';
+        const isEq = op === 'greater_than_or_equal' || op === 'less_than_or_equal';
         const targetNum = NUM_RE.test(target.trim());
         return arr.some((x, i) => {
             const xt = x.trim();
             if (targetNum && NUM_RE.test(xt)) {
                 const n = parseNumericValue(x), t = parseNumericValue(target);
-                return gt ? n > t : n < t;
+                if (isGt) return isEq ? n >= t : n > t;
+                return isEq ? n <= t : n < t;
             }
             // Numeric target (bare year) with a non-numeric value: only matches if the value
             // is an ISO date (lexicographic = chronological); arbitrary text ("foo")
             // does NOT match. Parity with vaultFilters (matchesFilters) and the backend.
             if (targetNum && !ISO_DATE_RE.test(xt)) return false;
             const xl = arrLower[i];
-            return gt ? xl > targetLower : xl < targetLower;
+            if (isGt) return isEq ? xl >= targetLower : xl > targetLower;
+            return isEq ? xl <= targetLower : xl < targetLower;
         });
     }
     return true;
@@ -439,14 +442,14 @@ function ViewActionsBar({
                         <div className="vault-view-tools-title">{t('views_header.shortcuts')}</div>
                         <div className="vault-shortcut-grid">
                             {[
-                                ['/', t('views_header.search_title')],
-                                ['F', t('views_header.view_settings')],
-                                ['N', t('views_header.new_action')],
-                                ['D', t('views_header.compact_density')],
-                                ['L', t('sidebar.locate_active_page')],
-                                ['?', t('views_header.tools_and_shortcuts')],
+                                ['Ctrl + /', t('views_header.search_title')],
+                                ['Ctrl + F', t('views_header.view_settings')],
+                                ['Ctrl + N', t('views_header.new_action')],
+                                ['Ctrl + D', t('views_header.compact_density')],
+                                ['Ctrl + L', t('sidebar.locate_active_page')],
+                                ['Ctrl + ?', t('views_header.tools_and_shortcuts')],
                             ].map(([key, label]) => (
-                                <React.Fragment key={key}><kbd>{key}</kbd><span>{label}</span></React.Fragment>
+                                <React.Fragment key={key}><kbd className="text-nowrap">{key}</kbd><span>{label}</span></React.Fragment>
                             ))}
                         </div>
                         {onToggleGroup && (
@@ -985,6 +988,7 @@ export function DbViewEmbed({ block }) {
     const [tabMenuFor, setTabMenuFor] = useState(null);     // id of the view with its (remove/delete) menu open
     const [menuUp, setMenuUp] = useState(false);            // open the dropdown upward if it doesn't fit below
     const [confirmDeleteView, setConfirmDeleteView] = useState(null); // view pending deletion everywhere (ConfirmModal)
+    const [deleteViewUsage, setDeleteViewUsage] = useState(null);
     const [renameView, setRenameView] = useState(null);     // view pending rename (PromptModal)
     // Decides the dropdown's direction based on the space below the trigger.
     const decideMenuDir = (e) => {
@@ -1322,28 +1326,40 @@ export function DbViewEmbed({ block }) {
         const handleShortcut = (event) => {
             const target = event.target;
             const embed = embedContainerRef.current;
-            if (
-                !embed?.contains(document.activeElement)
-                || event.metaKey
-                || event.ctrlKey
-                || event.altKey
-                || target?.isContentEditable
-                || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName)
-            ) return;
-            const key = event.key.toLowerCase();
-            if (key === '/') {
-                event.preventDefault();
-                setShowSearch(true);
-            } else if (key === 'f' && onOpenPageViewModal && tableId) {
-                event.preventDefault();
-                handleOpenConfig();
-            } else if (key === 'n' && tableId) {
-                event.preventDefault();
-                handleCreate();
-            } else if (key === 'd' && viewType === 'feed') {
-                event.preventDefault();
-                toggleFeedDensity();
-            } else if (key === 'l') {
+            const isInput = target?.isContentEditable
+                || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName);
+
+            if (isInput) return;
+            if (isInEditor && !embed?.contains(document.activeElement)) return;
+            if (!event.ctrlKey || event.metaKey || event.altKey) return;
+
+            const key = event.key ? event.key.toLowerCase() : '';
+            const code = event.code || '';
+
+            if (key === '/' || code === 'Slash') {
+                if (!event.shiftKey) {
+                    event.preventDefault();
+                    setShowSearch(true);
+                } else {
+                    event.preventDefault();
+                    window.dispatchEvent(new CustomEvent('gnosi:open-view-tools'));
+                }
+            } else if (key === 'f' || code === 'KeyF') {
+                if (onOpenPageViewModal && tableId) {
+                    event.preventDefault();
+                    handleOpenConfig();
+                }
+            } else if (key === 'n' || code === 'KeyN') {
+                if (tableId) {
+                    event.preventDefault();
+                    handleCreate();
+                }
+            } else if (key === 'd' || code === 'KeyD') {
+                if (viewType === 'feed') {
+                    event.preventDefault();
+                    toggleFeedDensity();
+                }
+            } else if (key === 'l' || code === 'KeyL') {
                 event.preventDefault();
                 window.dispatchEvent(new CustomEvent('gnosi:locate-active-page'));
             } else if (key === '?') {
@@ -1390,11 +1406,16 @@ export function DbViewEmbed({ block }) {
         if (!v?.id) return;
         if (tableViews.length <= 1) { toast.error(t('errors.delete_only_view', "Cannot delete the only view.")); return; }
         setConfirmDeleteView(v);
+        setDeleteViewUsage(null);
+        axios.get(`/api/vault/views/${encodeURIComponent(v.id)}/usage`)
+            .then(res => { if (res.data) setDeleteViewUsage(res.data); })
+            .catch(() => {});
     }, [tableViews, t]);
 
     const doDeleteView = useCallback(async () => {
         const v = confirmDeleteView;
         setConfirmDeleteView(null);
+        setDeleteViewUsage(null);
         if (!v?.id) return;
         try {
             await axios.delete(`/api/vault/views/${encodeURIComponent(v.id)}`);
@@ -1833,10 +1854,16 @@ export function DbViewEmbed({ block }) {
             {renderBody()}
             <ConfirmModal
                 isOpen={confirmDeleteView != null}
-                onClose={() => setConfirmDeleteView(null)}
+                onClose={() => { setConfirmDeleteView(null); setDeleteViewUsage(null); }}
                 onConfirm={doDeleteView}
                 title={t('views_header.delete_view_title', "Delete view")}
-                message={confirmDeleteView ? t('views_header.delete_view_confirm', "Delete the view \"{{name}}\" EVERYWHERE? It will disappear from all pages.", { name: confirmDeleteView.name || confirmDeleteView.heading || '' }) : ''}
+                message={
+                    confirmDeleteView
+                        ? deleteViewUsage && deleteViewUsage.count > 0
+                            ? `${t('views_header.delete_linked_view_confirm', { count: deleteViewUsage.count, name: confirmDeleteView.name || confirmDeleteView.heading || '', defaultValue: "Aquesta vista està enllaçada a {{count}} pàgina(es):" })}\n\n${deleteViewUsage.pages.map(p => `• ${p.title}`).join('\n')}\n\n${t('views_header.confirm_delete_anyway', { defaultValue: "Segur que la vols eliminar de totes maneres?" })}`
+                            : t('views_header.delete_view_confirm', "Delete the view \"{{name}}\" EVERYWHERE? It will disappear from all pages.", { name: confirmDeleteView.name || confirmDeleteView.heading || '' })
+                        : ''
+                }
                 confirmText={t('common.delete', "Delete")}
                 cancelText={t('common.cancel', "Cancel")}
                 isDestructive

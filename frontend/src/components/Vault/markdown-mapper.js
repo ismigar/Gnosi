@@ -126,7 +126,12 @@ export const blocksToRichMarkdown = (blocks, editor) => {
  * STRATEGY: Each top-level block ensures it has its own \n.
  */
 const blockToMarkdown = (block, editor, indentLevel = 0) => {
-    const indent = "  ".repeat(indentLevel);
+    // ATX headings in CommonMark MUST NOT be preceded by 4 or more spaces of indentation,
+    // otherwise CommonMark parsers (like markdown-it) parse them as Indented Code Blocks.
+    // We cap leading indentation to at most 1 indent (2 spaces) for headings.
+    const isHeadingBlock = block.type === "heading" || block.type === "heading1" || block.type === "heading2" || block.type === "heading3";
+    const effectiveIndentLevel = isHeadingBlock ? Math.min(indentLevel, 1) : indentLevel;
+    const indent = "  ".repeat(effectiveIndentLevel);
     let content = "";
 
     // Structural Directives (Gnosi)
@@ -256,8 +261,12 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
 
     // Standard type
     switch (block.type) {
-        case "heading": {
-            const level = "#".repeat(block.props.level || 1);
+        case "heading":
+        case "heading1":
+        case "heading2":
+        case "heading3": {
+            const rawLvl = block.type === "heading1" ? 1 : block.type === "heading2" ? 2 : block.type === "heading3" ? 3 : (block.props?.level || 1);
+            const level = "#".repeat(rawLvl);
             content = `${level} ${inlineContentToMarkdown(block.content)}`;
             break;
         }
@@ -813,6 +822,40 @@ const promoteToc = (blocks) => {
     });
 };
 
+// Converts any paragraph block starting with ATX heading syntax (`#`, `##`, `###`...)
+// (e.g. pasted markdown or un-promoted heading text) into a native `heading` block.
+const promoteHeadingParagraphs = (blocks) => {
+    if (!blocks || !Array.isArray(blocks)) return blocks;
+    return blocks.map(block => {
+        let newBlock = block;
+        if (newBlock?.children && Array.isArray(newBlock.children)) {
+            newBlock = { ...newBlock, children: promoteHeadingParagraphs(newBlock.children) };
+        }
+        if (newBlock?.type !== 'paragraph') return newBlock;
+        const content = Array.isArray(newBlock.content) ? newBlock.content : null;
+        if (!content || content.length === 0) return newBlock;
+        const first = content[0];
+        if (!first || first.type !== 'text' || typeof first.text !== 'string') return newBlock;
+
+        const m = first.text.match(/^(\s*)(?:\\)?(#{1,6})\s+(.*)$/s);
+        if (!m) return newBlock;
+
+        const level = m[2].length;
+        const headingText = m[3];
+        const newContent = [
+            { ...first, text: headingText },
+            ...content.slice(1),
+        ];
+
+        return {
+            ...newBlock,
+            type: 'heading',
+            props: { ...newBlock.props, level },
+            content: newContent,
+        };
+    });
+};
+
 // Replaces footnote markers (`[^id]`) inside text nodes with
 // inline `footnote` content, recovering the definition text from `defs`
 // (id→text map extracted before the parser, see richMarkdownToBlocks). The
@@ -880,9 +923,7 @@ const escapeLeadingBlockMarker = (line) => {
     const ws = m ? m[1] : "";
     let rest = m ? m[2] : line;
     if (!rest) return line;
-    if (/^#{1,6}(\s|$)/.test(rest)) {                       // ATX heading
-        rest = "\\" + rest;
-    } else if (rest[0] === ">") {                            // blockquote / callout
+    if (rest[0] === ">") {                            // blockquote / callout
         rest = "\\" + rest;
     } else if (/^[-+*]\s/.test(rest)) {                      // bullet list
         rest = "\\" + rest;
@@ -1226,7 +1267,26 @@ const parsePlainMarkdownBlock = async (text, editor) => {
     // optional `<`, file:// arrives intact at the Tiptap parser, which rejects it
     // as a disallowed scheme and silently discards the link; the round-trip
     // that follows writes the text without an href, losing the link.
-    let protectedText = text
+    // CommonMark parses any line with 4+ leading spaces as an Indented Code Block.
+    // If a heading was saved with 4+ spaces of indentation (e.g. inside a nested block),
+    // markdown-it would interpret it as code. Strip excess leading indentation from ATX headings.
+    let protectedText = text;
+    if (typeof protectedText === 'string' && protectedText.includes('#')) {
+        const lines = protectedText.split('\n');
+        let inFence = false;
+        protectedText = lines.map(line => {
+            if (/^\s*(```|~~~)/.test(line)) {
+                inFence = !inFence;
+                return line;
+            }
+            if (!inFence && /^\s{4,}#{1,6}\s/.test(line)) {
+                return line.replace(/^\s{4,}(#{1,6}\s)/, '  $1');
+            }
+            return line;
+        }).join('\n');
+    }
+
+    protectedText = protectedText
         .replace(/\]\((<?)file:\/\//g, `]($1${FILE_PROTOCOL_SENTINEL}`)
         .replace(
             new RegExp(`\\]\\((<?)${escapeRe(LEGACY_FILE_PROTOCOL_SENTINEL)}`, 'g'),
@@ -1685,8 +1745,10 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
 
     const parsed = await parseRecursive(lines);
     return promoteFootnotes(
-        promoteToc(
-            restoreImageCaptions(promoteCustomFences(promoteBibliographyBlocks(promoteLinkCards(promoteEmbedBlocks(parsed)))))
+        promoteHeadingParagraphs(
+            promoteToc(
+                restoreImageCaptions(promoteCustomFences(promoteBibliographyBlocks(promoteLinkCards(promoteEmbedBlocks(parsed)))))
+            )
         ),
         footnoteDefs,
     );

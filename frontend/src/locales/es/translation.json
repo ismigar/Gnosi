@@ -1070,7 +1070,9 @@
       "is_empty": "está vacío",
       "is_not_empty": "no está vacío",
       "greater_than": "es mayor que",
-      "less_than": "es menor que"
+      "greater_than_or_equal": "es mayor o igual que",
+      "less_than": "es menor que",
+      "less_than_or_equal": "es menor o igual que"
     },
     "sort_directions": {
       "asc": "Ascendente (A→Z)",
@@ -1128,6 +1130,8 @@
     "delete_everywhere": "Eliminar en todas partes…",
     "delete_view_title": "Eliminar vista",
     "delete_view_confirm": "¿Eliminar la vista \"{{name}}\" en TODAS partes? Desaparecerá de todas las páginas.",
+    "delete_linked_view_confirm": "Esta vista \"{{name}}\" está enlazada en {{count}} página(s):",
+    "confirm_delete_anyway": "¿Seguro que quieres eliminarla de todas formas?",
     "rename_view_title": "Renombrar vista",
     "new_view_name_label": "Nuevo nombre de la vista",
     "new_options": "Opciones de creación",
@@ -3356,7 +3360,9 @@
     "op_is_empty": "está vacío",
     "op_is_not_empty": "no está vacío",
     "op_greater_than": "mayor que",
+    "op_greater_than_or_equal": "mayor o igual",
     "op_less_than": "menor que",
+    "op_less_than_or_equal": "menor o igual",
     "tab_properties": "Campos",
     "tab_filters": "Filtros",
     "tab_sort": "Ordenación",

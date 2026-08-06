@@ -240,8 +240,12 @@ def map_simple_filter(flt: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         return {"field": prop, "operator": "not_equals", "value": _scalar(val)}
     if op.endswith("_is") or op in ("is", "equals", "equal"):
         return {"field": prop, "operator": "equals", "value": _scalar(val)}
+    if "greater_than_or_equal" in op or op.endswith("_on_or_after"):
+        return {"field": prop, "operator": "greater_than_or_equal", "value": _scalar(val)}
     if "greater" in op or op.endswith("_after"):
         return {"field": prop, "operator": "greater_than", "value": _scalar(val)}
+    if "less_than_or_equal" in op or op.endswith("_on_or_before"):
+        return {"field": prop, "operator": "less_than_or_equal", "value": _scalar(val)}
     if "less" in op or op.endswith("_before"):
         return {"field": prop, "operator": "less_than", "value": _scalar(val)}
     return None

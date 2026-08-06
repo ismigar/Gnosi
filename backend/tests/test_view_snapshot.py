@@ -70,6 +70,16 @@ def test_filter_contains_and_numeric():
     assert apply_filter({"n": "2"}, PAGE, {"field": "n", "operator": "greater_than", "value": "3"}) is False
 
 
+def test_filter_greater_less_than_or_equal():
+    assert apply_filter({"n": "5"}, PAGE, {"field": "n", "operator": "greater_than_or_equal", "value": "5"}) is True
+    assert apply_filter({"n": "6"}, PAGE, {"field": "n", "operator": "greater_than_or_equal", "value": "5"}) is True
+    assert apply_filter({"n": "4"}, PAGE, {"field": "n", "operator": "greater_than_or_equal", "value": "5"}) is False
+
+    assert apply_filter({"n": "5"}, PAGE, {"field": "n", "operator": "less_than_or_equal", "value": "5"}) is True
+    assert apply_filter({"n": "4"}, PAGE, {"field": "n", "operator": "less_than_or_equal", "value": "5"}) is True
+    assert apply_filter({"n": "6"}, PAGE, {"field": "n", "operator": "less_than_or_equal", "value": "5"}) is False
+
+
 def test_structured_period_filter_can_target_start_or_end():
     meta = {
         "Window": {

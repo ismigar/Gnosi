@@ -1105,7 +1105,9 @@
       "is_empty": "is empty",
       "is_not_empty": "is not empty",
       "greater_than": "is greater than",
-      "less_than": "is less than"
+      "greater_than_or_equal": "is greater than or equal to",
+      "less_than": "is less than",
+      "less_than_or_equal": "is less than or equal to"
     },
     "sort_directions": {
       "asc": "Ascending (A→Z)",
@@ -1169,6 +1171,8 @@
     "delete_everywhere": "Delete everywhere…",
     "delete_view_title": "Delete view",
     "delete_view_confirm": "Delete the view \"{{name}}\" EVERYWHERE? It will disappear from all pages.",
+    "delete_linked_view_confirm": "This view \"{{name}}\" is linked on {{count}} page(s):",
+    "confirm_delete_anyway": "Are you sure you want to delete it anyway?",
     "rename_view_title": "Rename view",
     "new_view_name_label": "New view name",
     "new_options": "Creation options",
@@ -3381,7 +3385,9 @@
     "op_is_empty": "is empty",
     "op_is_not_empty": "is not empty",
     "op_greater_than": "greater than",
+    "op_greater_than_or_equal": "greater than or equal",
     "op_less_than": "less than",
+    "op_less_than_or_equal": "less than or equal",
     "tab_properties": "Fields",
     "tab_filters": "Filters",
     "tab_sort": "Sorting",

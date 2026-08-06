@@ -83,6 +83,7 @@ export default function VaultDashboard() {
     const [loading, setLoading] = useState(true);
     const [isRegistryLoading, setIsRegistryLoading] = useState(true);
     const [viewToDelete, setViewToDelete] = useState(null);
+    const [viewToDeleteUsage, setViewToDeleteUsage] = useState(null);
     const [templateToDelete, setTemplateToDelete] = useState(null);
     const [promptModal, setPromptModal] = useState({ isOpen: false, defaultTitle: '', parentId: null, isDatabase: false, isDrawing: false, isDashboard: false, isView: false, isRename: false, isTemplate: false, targetView: null, viewType: null, inputValue: '', isLoading: false });
 
@@ -1098,6 +1099,12 @@ export default function VaultDashboard() {
             return;
         }
         setViewToDelete(view);
+        setViewToDeleteUsage(null);
+        axios.get(`/api/vault/views/${encodeURIComponent(view.id)}/usage`)
+            .then(res => {
+                if (res.data) setViewToDeleteUsage(res.data);
+            })
+            .catch(() => {});
     };
 
     const executeDeleteView = async () => {
@@ -1117,6 +1124,7 @@ export default function VaultDashboard() {
             toast.error(t('errors.delete_view'));
         } finally {
             setViewToDelete(null);
+            setViewToDeleteUsage(null);
         }
     };
 
@@ -4057,10 +4065,14 @@ export default function VaultDashboard() {
                 viewToDelete && (
                     <ConfirmModal
                         isOpen={!!viewToDelete}
-                        onClose={() => setViewToDelete(null)}
+                        onClose={() => { setViewToDelete(null); setViewToDeleteUsage(null); }}
                         onConfirm={executeDeleteView}
                         title={t('common.confirm_delete_view')}
-                        message={t('common.confirm_delete_view_msg', { name: viewToDelete.name })}
+                        message={
+                            viewToDeleteUsage && viewToDeleteUsage.count > 0
+                                ? `${t('views_header.delete_linked_view_confirm', { count: viewToDeleteUsage.count, name: viewToDelete.name, defaultValue: "Aquesta vista està enllaçada a {{count}} pàgina(es):" })}\n\n${viewToDeleteUsage.pages.map(p => `• ${p.title}`).join('\n')}\n\n${t('views_header.confirm_delete_anyway', { defaultValue: "Segur que la vols eliminar de totes maneres?" })}`
+                                : t('common.confirm_delete_view_msg', { name: viewToDelete.name })
+                        }
                         confirmText={t('common.delete')}
                         isDestructive={true}
                     />

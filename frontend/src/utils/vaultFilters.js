@@ -119,14 +119,18 @@ export function matchesRule(item, filter) {
         // lowercase STRING comparison. For ISO dates the
         // lexicographic order is chronological (parity with DbViewEmbed/backend).
         case 'greater_than':
-        case 'less_than': {
-            const gt = filter.operator === 'greater_than';
+        case 'greater_than_or_equal':
+        case 'less_than':
+        case 'less_than_or_equal': {
+            const isGt = filter.operator === 'greater_than' || filter.operator === 'greater_than_or_equal';
+            const isEq = filter.operator === 'greater_than_or_equal' || filter.operator === 'less_than_or_equal';
             const targetNum = NUM_RE.test(filterVal.trim());
             return arr.some((x, i) => {
                 const xt = x.trim();
                 if (targetNum && NUM_RE.test(xt)) {
                     const n1 = parseNumericValue(x), n2 = parseNumericValue(filterVal);
-                    return gt ? n1 > n2 : n1 < n2;
+                    if (isGt) return isEq ? n1 >= n2 : n1 > n2;
+                    return isEq ? n1 <= n2 : n1 < n2;
                 }
                 // Numeric target (bare year) with a value that is NOT numeric: it only
                 // matches if the value is an ISO date (`> 2020` against "2024-01-15",
@@ -134,7 +138,8 @@ export function matchesRule(item, filter) {
                 // a numeric threshold — it used to fall into this and diverge from the backend.
                 if (targetNum && !ISO_DATE_RE.test(xt)) return false;
                 const xl = arrLower[i];
-                return gt ? xl > filterVal : xl < filterVal;
+                if (isGt) return isEq ? xl >= filterVal : xl > filterVal;
+                return isEq ? xl <= filterVal : xl < filterVal;
             });
         }
         default: return true;
