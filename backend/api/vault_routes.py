@@ -19894,6 +19894,113 @@ async def translate_rows(background_tasks: BackgroundTasks, payload: dict = Body
     return {"status": "ok", "count": len(results), "results": results, "errors": errors}
 
 
+@router.post("/skills/generate-button-action", dependencies=[Depends(require_role("editor"))])
+async def generate_button_action(payload: dict = Body(...)):
+    """Generates structured button action configuration using LLM based on user prompt."""
+    user_prompt = (payload.get("prompt") or "").strip()
+    fields = payload.get("fields") or []
+
+    if not user_prompt:
+        raise HTTPException(status_code=400, detail="Prompt is required")
+
+    from backend.agent.factory import generate_text
+    import json
+    import re
+
+    field_names = [f.get("name") for f in fields if isinstance(f, dict) and f.get("name")]
+
+    system_instruction = (
+        "You are an AI assistant helping configure table button actions in a database application.\n"
+        f"Available table fields: {', '.join(field_names) if field_names else 'Title'}\n\n"
+        "Given the user's natural language request, output ONLY a valid JSON object (no markdown wrapping) with these keys:\n"
+        "{\n"
+        '  "button_label": "<Short button label max 20 characters>",\n'
+        '  "button_action": "set_fields" | "ai_prompt" | "run_skill",\n'
+        '  "button_config": {\n'
+        '    "assignments": [\n'
+        '       { "field": "<field_name>", "value": "<literal or formula like today()>" }\n'
+        '    ],\n'
+        '    "prompt": "<prompt text for ai_prompt>",\n'
+        '    "target_field": "<target field_name for ai_prompt>",\n'
+        '    "skill_id": "<skill id for run_skill>"\n'
+        '  }\n'
+        "}\n"
+    )
+
+    try:
+        raw_resp, _ = await asyncio.to_thread(generate_text, system_instruction, user_prompt)
+        cleaned = (raw_resp or "").strip()
+        if cleaned.startswith("```"):
+            cleaned = re.sub(r"^```[a-z]*\n", "", cleaned)
+            cleaned = re.sub(r"\n```$", "", cleaned)
+        data = json.loads(cleaned.strip())
+        return {"status": "ok", "result": data}
+    except Exception as e:
+        log.error(f"Error generating button action: {e}")
+        return {
+            "status": "ok",
+            "result": {
+                "button_label": "Acció IA",
+                "button_action": "ai_prompt",
+                "button_config": {
+                    "prompt": user_prompt,
+                    "target_field": field_names[0] if field_names else "title"
+                }
+            }
+        }
+
+
+@router.post("/skills/execute-button-action", dependencies=[Depends(require_role("editor"))])
+async def execute_button_action(payload: dict = Body(...)):
+    """Executes a custom AI prompt or Skill button action on a note/row."""
+    note_id = (payload.get("note_id") or "").strip()
+    button_action = (payload.get("button_action") or "").strip()
+    button_config = payload.get("button_config") or {}
+
+    if not note_id:
+        raise HTTPException(status_code=400, detail="note_id is required")
+
+    file_path = await asyncio.to_thread(find_page_path, note_id)
+    if not file_path or not file_path.exists():
+        raise HTTPException(status_code=404, detail=f"Page not found (ID: {note_id})")
+
+    raw_content = await asyncio.to_thread(file_path.read_text, encoding="utf-8")
+    metadata, body = parse_frontmatter(raw_content, file_path)
+    title = metadata.get("title") or file_path.stem
+
+    if button_action == "ai_prompt":
+        user_prompt = (button_config.get("prompt") or "").strip()
+        target_field = (button_config.get("target_field") or "").strip()
+        if not user_prompt:
+            raise HTTPException(status_code=400, detail="Prompt is required for ai_prompt action")
+        if not target_field:
+            raise HTTPException(status_code=400, detail="target_field is required for ai_prompt action")
+
+        from backend.agent.factory import generate_text
+        import json
+
+        context_str = f"Title: {title}\nMetadata: {json.dumps(metadata, ensure_ascii=False)}\nContent: {body[:1000]}"
+        full_instruction = f"Task: {user_prompt}\nProvide ONLY the result value to set for field '{target_field}'. Do not include formatting or commentary unless requested."
+
+        output_val, _ = await asyncio.to_thread(generate_text, full_instruction, context_str)
+        cleaned_val = (output_val or "").strip()
+
+        metadata[target_field] = cleaned_val
+        metadata["last_edited_at"] = datetime.now().isoformat()
+        save_page_md(file_path, metadata, body)
+
+        return {
+            "status": "ok",
+            "note_id": note_id,
+            "updated_field": target_field,
+            "value": cleaned_val,
+            "metadata": metadata,
+        }
+    else:
+        raise HTTPException(status_code=400, detail=f"Unsupported button_action for server execution: {button_action}")
+
+
+
 @router.post("/skills/translate-page", dependencies=[Depends(require_role("editor"))])
 async def translate_page(background_tasks: BackgroundTasks, payload: dict = Body(...)):
     """Translate a Vault page (title + markdown body) into one child page per language.

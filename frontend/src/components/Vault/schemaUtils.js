@@ -164,6 +164,7 @@ export function buildSchemaFromTableProperties(tableProperties = []) {
         if (prop.system === true) config.system = true;
         if (prop.button_action) config.button_action = prop.button_action;
         if (prop.button_label) config.button_label = prop.button_label;
+        if (prop.button_config) config.button_config = prop.button_config;
         if (prop.duration_enabled !== undefined) config.duration_enabled = prop.duration_enabled !== false;
         if (prop.predecessors_enabled !== undefined) config.predecessors_enabled = prop.predecessors_enabled !== false;
         if (prop.skip_non_working_days !== undefined) config.skip_non_working_days = prop.skip_non_working_days !== false;
