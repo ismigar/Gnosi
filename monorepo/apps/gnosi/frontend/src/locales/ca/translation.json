@@ -1090,6 +1090,7 @@
   "views_header": {
     "main_view": "Vista principal",
     "main_view_locked": "Vista principal (bloquejada)",
+    "more_actions": "Més accions",
     "configure": "Configurar",
     "rename": "Reanomenar",
     "duplicate": "Duplicar",
@@ -3563,6 +3564,7 @@
     "error_no_table": "Cal seleccionar una taula origen",
     "error_no_fields": "Cal almenys un camp visible",
     "error_create": "Error desconegut en crear la vista",
+    "all_changes_saved": "Canvis desats",
     "graph_title": "Graf",
     "graph_via": "via",
     "graph_no_relations": "(sense relacions)",

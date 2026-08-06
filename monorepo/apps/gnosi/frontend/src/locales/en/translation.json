@@ -1131,6 +1131,7 @@
   "views_header": {
     "main_view": "Main view",
     "main_view_locked": "Main view (locked)",
+    "more_actions": "More actions",
     "configure": "Configure",
     "rename": "Rename",
     "duplicate": "Duplicate",
@@ -3534,6 +3535,7 @@
     "error_no_table": "You must select a source table",
     "error_no_fields": "At least one visible field is required",
     "error_create": "Unknown error creating the view",
+    "all_changes_saved": "All changes saved",
     "graph_title": "Graph",
     "graph_via": "via",
     "graph_no_relations": "(no relations)",
