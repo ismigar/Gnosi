@@ -485,6 +485,150 @@ function OptionsEditor({ options = [], onChange, fieldType = 'select', groups = 
     );
 }
 
+const ASSIGNMENT_NUMERIC_TYPES = ['number', 'currency', 'percent', 'formula', 'rollup'];
+const ASSIGNMENT_DATE_TYPES = ['date', 'period'];
+const ASSIGNMENT_DATETIME_TYPES = ['datetime'];
+
+/**
+ * Value control for a `set_fields` assignment. Renders an input that matches
+ * the target field type (select/status → dropdown, multi_select → multi
+ * dropdown, checkbox → checkbox, number/currency/percent/formula/rollup →
+ * numeric input, date/datetime/period → date picker), mirroring the behavior
+ * of FilterValueControl in PageViewModal. A `custom` toggle (kept on the
+ * assignment object) falls back to a free-text input so the user can still
+ * type a formula or literal.
+ *
+ * @param {object}   props
+ * @param {string|string[]} props.value   Current value (string, or array for multi_select).
+ * @param {(v: any) => void} props.onChange  Reports the next value.
+ * @param {object}   [props.fieldMeta]       Target field meta: `{ type, options }` or undefined.
+ * @param {boolean}  [props.custom]          When true, forces a free-text input.
+ * @param {(c: boolean) => void} [props.onCustomChange] Reports the custom toggle.
+ */
+function AssignmentValueControl({ value, onChange, fieldMeta, custom, onCustomChange }) {
+    const { t } = useTranslation();
+    const cls = 'w-1/2 text-xs border border-[var(--border-primary)] rounded p-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none';
+
+    // Free-text (formula) mode always wins when enabled.
+    if (custom) {
+        return (
+            <div className="flex items-center gap-1 w-1/2">
+                <input
+                    type="text"
+                    value={value || ''}
+                    onChange={(e) => onChange(e.target.value)}
+                    placeholder={t('schema.button_value_or_formula', "Value or formula")}
+                    className={cls}
+                />
+                <button
+                    type="button"
+                    onClick={() => onCustomChange(false)}
+                    title={t('schema.button_value_type', "Use field-type input")}
+                    className="shrink-0 px-1.5 py-1.5 text-[10px] rounded border border-[var(--border-primary)] text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/10 transition-colors"
+                >
+                    {t('schema.button_value_type', "Type")}
+                </button>
+            </div>
+        );
+    }
+
+    const ftype = fieldMeta?.type;
+    const optionNames = normalizeOptions(fieldMeta?.options).map((o) => o.name);
+
+    if ((ftype === 'select' || ftype === 'status') && optionNames.length > 0) {
+        return (
+            <select
+                value={String(value || '')}
+                onChange={(e) => onChange(e.target.value)}
+                className={cls}
+            >
+                <option value="">{t('schema.button_value_pick', "Pick…")}</option>
+                {optionNames.map((name) => <option key={name} value={name}>{name}</option>)}
+            </select>
+        );
+    }
+
+    if (ftype === 'multi_select' && optionNames.length > 0) {
+        const selected = Array.isArray(value)
+            ? value.map(String)
+            : (value ? [String(value)] : []);
+        return (
+            <select
+                multiple
+                className={`${cls} h-20 w-1/2`}
+                value={selected}
+                onChange={(e) => onChange(Array.from(e.target.selectedOptions, (o) => o.value))}
+                aria-label={t('schema.button_value_pick', "Pick…")}
+            >
+                {optionNames.map((name) => <option key={name} value={name}>{name}</option>)}
+            </select>
+        );
+    }
+
+    if (ftype === 'checkbox') {
+        const checked = String(value) === 'true';
+        return (
+            <label className={`${cls} flex items-center gap-2 cursor-pointer`}>
+                <input
+                    type="checkbox"
+                    className="accent-[var(--gnosi-primary)] cursor-pointer"
+                    checked={checked}
+                    onChange={(e) => onChange(e.target.checked ? 'true' : 'false')}
+                />
+                <span className="text-[var(--text-secondary)]">
+                    {checked ? t('schema.button_value_checked', "Checked") : t('schema.button_value_unchecked', "Unchecked")}
+                </span>
+            </label>
+        );
+    }
+
+    if (ASSIGNMENT_NUMERIC_TYPES.includes(ftype)) {
+        return (
+            <input
+                type="number"
+                value={value || ''}
+                onChange={(e) => onChange(e.target.value)}
+                placeholder={t('schema.button_value_ph', "Value")}
+                className={cls}
+            />
+        );
+    }
+
+    if (ASSIGNMENT_DATETIME_TYPES.includes(ftype)) {
+        return (
+            <input
+                type="datetime-local"
+                value={value || ''}
+                onChange={(e) => onChange(e.target.value)}
+                className={cls}
+            />
+        );
+    }
+
+    if (ASSIGNMENT_DATE_TYPES.includes(ftype)) {
+        return (
+            <input
+                type="date"
+                value={value || ''}
+                onChange={(e) => onChange(e.target.value)}
+                className={cls}
+            />
+        );
+    }
+
+    // text / rich_text / url / email / relation / files / unknown → free text,
+    // with an explicit formula toggle in case the target type is option-like.
+    return (
+        <input
+            type="text"
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={t('schema.button_value_or_formula', "Value or formula")}
+            className={cls}
+        />
+    );
+}
+
 // Child component for each draggable property
 function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveField, allTables = [], currentTableName = '', virtualComputers = [], enableTranslation = false, enableDrupalSync = false, drupalBundle = '', drupalFields = [], drupalFieldMapping = {}, setDrupalFieldMapping = () => {}, optionTools = null, projectPlanningEnabled = false, setAiActionModalFieldIndex, availableSkills = [] }) {
     const { t } = useTranslation();
@@ -775,7 +919,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                                     setAiActionModalFieldIndex(idx);
                                     setAiActionPrompt('');
                                 }}
-                                className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded font-medium bg-gradient-to-r from-purple-500/10 to-indigo-500/10 text-purple-600 dark:text-purple-300 border border-purple-300/30 hover:from-purple-500/20 hover:to-indigo-500/20 transition-all shadow-sm"
+                                className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded font-medium bg-gradient-to-r from-[var(--gnosi-primary)]/10 to-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] dark:text-[var(--gnosi-primary)] border border-[var(--gnosi-primary)]/30 hover:from-[var(--gnosi-primary)]/20 hover:to-[var(--gnosi-primary)]/20 transition-all shadow-sm"
                             >
                                 <Sparkles size={12} />
                                 {t('schema.button_program_ai', "Programar amb IA ✨")}
@@ -813,45 +957,73 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                                 <label className="text-xs font-semibold text-[var(--text-primary)] block">
                                     {t('schema.button_set_fields_title', "Field assignments")}
                                 </label>
-                                {(field.button_config?.assignments || []).map((assign, aIdx) => (
-                                    <div key={aIdx} className="flex items-center gap-2">
-                                        <select
-                                            value={assign.field || ''}
-                                            onChange={(e) => {
-                                                const nextAssignments = [...(field.button_config?.assignments || [])];
-                                                nextAssignments[aIdx] = { ...nextAssignments[aIdx], field: e.target.value };
-                                                handleUpdateField(idx, 'button_config', { ...field.button_config, assignments: nextAssignments });
-                                            }}
-                                            className="w-1/2 text-xs border border-[var(--border-primary)] rounded p-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none"
-                                        >
-                                            <option value="">-- {t('schema.button_target_field', "Target field")} --</option>
-                                            {allFields.filter(f => f.name !== field.name).map(f => (
-                                                <option key={f.id} value={f.name}>{f.name}</option>
-                                            ))}
-                                        </select>
-                                        <input
-                                            type="text"
-                                            value={assign.value || ''}
-                                            onChange={(e) => {
-                                                const nextAssignments = [...(field.button_config?.assignments || [])];
-                                                nextAssignments[aIdx] = { ...nextAssignments[aIdx], value: e.target.value };
-                                                handleUpdateField(idx, 'button_config', { ...field.button_config, assignments: nextAssignments });
-                                            }}
-                                            placeholder={t('schema.button_value_or_formula', "Value or formula")}
-                                            className="w-1/2 text-xs border border-[var(--border-primary)] rounded p-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                const nextAssignments = (field.button_config?.assignments || []).filter((_, i) => i !== aIdx);
-                                                handleUpdateField(idx, 'button_config', { ...field.button_config, assignments: nextAssignments });
-                                            }}
-                                            className="p-1.5 text-red-500 hover:bg-red-500/10 rounded transition-colors"
-                                        >
-                                            <Trash2 size={13} />
-                                        </button>
-                                    </div>
-                                ))}
+                                {(field.button_config?.assignments || []).map((assign, aIdx) => {
+                                    const targetMeta = allFields.find(f => f.name === assign.field);
+                                    const targetIsMulti = targetMeta?.type === 'multi_select';
+                                    const usesTypedControl = !!targetMeta && ['select', 'status', 'multi_select', 'checkbox', 'date', 'datetime', 'period', 'number', 'currency', 'percent', 'formula', 'rollup'].includes(targetMeta.type);
+                                    const updateAssignment = (patch) => {
+                                        const nextAssignments = [...(field.button_config?.assignments || [])];
+                                        nextAssignments[aIdx] = { ...nextAssignments[aIdx], ...patch };
+                                        handleUpdateField(idx, 'button_config', { ...field.button_config, assignments: nextAssignments });
+                                    };
+                                    return (
+                                        <div key={aIdx} className="flex items-center gap-2">
+                                            <select
+                                                value={assign.field || ''}
+                                                onChange={(e) => {
+                                                    const pickedName = e.target.value;
+                                                    const pickedMeta = allFields.find(f => f.name === pickedName);
+                                                    // When switching to multi_select, coerce a string value
+                                                    // into an array so the multi-select renders correctly.
+                                                    let nextValue = assign.value;
+                                                    if (pickedMeta?.type === 'multi_select') {
+                                                        nextValue = Array.isArray(nextValue)
+                                                            ? nextValue
+                                                            : (nextValue ? [String(nextValue)] : []);
+                                                    } else if (Array.isArray(nextValue)) {
+                                                        nextValue = nextValue.join(', ');
+                                                    }
+                                                    updateAssignment({ field: pickedName, value: nextValue });
+                                                }}
+                                                className="w-1/2 text-xs border border-[var(--border-primary)] rounded p-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none"
+                                            >
+                                                <option value="">-- {t('schema.button_target_field', "Target field")} --</option>
+                                                {allFields.filter(f => f.name !== field.name).map(f => (
+                                                    <option key={f.id} value={f.name}>{f.name}</option>
+                                                ))}
+                                            </select>
+                                            <div className="flex items-center gap-1 w-1/2">
+                                                <AssignmentValueControl
+                                                    value={assign.value ?? (targetIsMulti ? [] : '')}
+                                                    fieldMeta={targetMeta}
+                                                    custom={assign.custom === true}
+                                                    onCustomChange={(c) => updateAssignment({ custom: c })}
+                                                    onChange={(v) => updateAssignment({ value: v })}
+                                                />
+                                                {usesTypedControl && assign.custom !== true && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => updateAssignment({ custom: true })}
+                                                        title={t('schema.button_value_custom', "Custom value / formula")}
+                                                        className="shrink-0 px-1.5 py-1.5 text-[10px] rounded border border-[var(--border-primary)] text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/10 transition-colors"
+                                                    >
+                                                        {t('schema.button_value_custom', "Custom")}
+                                                    </button>
+                                                )}
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const nextAssignments = (field.button_config?.assignments || []).filter((_, i) => i !== aIdx);
+                                                    handleUpdateField(idx, 'button_config', { ...field.button_config, assignments: nextAssignments });
+                                                }}
+                                                className="p-1.5 text-red-500 hover:bg-red-500/10 rounded transition-colors"
+                                            >
+                                                <Trash2 size={13} />
+                                            </button>
+                                        </div>
+                                    );
+                                })}
                                 <button
                                     type="button"
                                     onClick={() => {
@@ -1276,6 +1448,29 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             setAiActionLoading(false);
         }
     };
+
+    // The AI action modal renders in its own portal above this one, so it must
+    // ALSO push its own layer into the modal stack; otherwise Esc is captured
+    // by this modal's handler (still the top layer) and closes the whole dialog
+    // instead of just the AI modal. Capture phase on `window`, like useModalKeyboard.
+    useEffect(() => {
+        if (aiActionModalFieldIndex === null) return undefined;
+        const layer = pushModalLayer();
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape' && layer.isTop()) {
+                e.preventDefault();
+                e.stopPropagation();
+                setAiActionModalFieldIndex(null);
+                setAiActionPrompt('');
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown, true);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown, true);
+            layer.release();
+        };
+    }, [aiActionModalFieldIndex]);
+
     // Initialization guard: we only want to sync local state with the
     // props when the modal opens. If the parent re-renders while it is open
     // (e.g. fetchRegistry after an unrelated action), the props
@@ -2438,12 +2633,14 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             isDestructive={true}
         />
 
-        {/* AI Action Programmer Modal */}
-        {aiActionModalFieldIndex !== null && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+        {/* AI Action Programmer Modal — rendered through its OWN portal so it
+            stacks above this modal's backdrop (which creates its own stacking
+            context and would otherwise swallow the nested z-index). */}
+        {aiActionModalFieldIndex !== null && createPortal(
+            <div className="fixed inset-0 z-[10100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
                 <div className="w-full max-w-md bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-xl shadow-2xl overflow-hidden flex flex-col">
                     <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-primary)] bg-[var(--bg-secondary)]">
-                        <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400 font-semibold text-sm">
+                        <div className="flex items-center gap-2 text-[var(--gnosi-primary)] font-semibold text-sm">
                             <Sparkles size={16} />
                             <span>{t('schema.button_ai_modal_title', "Program button action with AI")}</span>
                         </div>
@@ -2464,7 +2661,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                             value={aiActionPrompt}
                             onChange={(e) => setAiActionPrompt(e.target.value)}
                             placeholder={t('schema.button_ai_modal_placeholder', "Type your request here...")}
-                            className="w-full text-xs p-2.5 border border-[var(--border-primary)] rounded-lg bg-[var(--bg-primary)] text-[var(--text-primary)] focus:ring-2 focus:ring-purple-500/20 outline-none resize-none"
+                            className="w-full text-xs p-2.5 border border-[var(--border-primary)] rounded-lg bg-[var(--bg-primary)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 outline-none resize-none"
                             autoFocus
                         />
                     </div>
@@ -2480,7 +2677,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                             type="button"
                             disabled={!aiActionPrompt.trim() || aiActionLoading}
                             onClick={handleGenerateAiAction}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50 transition-colors shadow-sm cursor-pointer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-[var(--gnosi-primary)] hover:opacity-90 text-white disabled:opacity-50 transition-colors shadow-sm cursor-pointer"
                         >
                             {aiActionLoading ? (
                                 <>
@@ -2496,7 +2693,8 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                         </button>
                     </div>
                 </div>
-            </div>
+            </div>,
+            document.body
         )}
         </>,
         document.body
