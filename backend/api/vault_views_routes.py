@@ -46,6 +46,10 @@ class ViewSection(BaseModel):
     source_table_id: str
     filter: Optional[ViewFilter] = None
     columns: List[str] = ["title"]
+    # Multi-table views: ordered joins to apply on top of `source_table_id`.
+    # Each item: { tableId, type: inner|left|right, leftField, rightField }.
+    # Optional (absent = single-table view, backward compatible).
+    joins: Optional[List[dict]] = None
 
     def model_post_init(self, _ctx) -> None:
         # Sanitize heading: line breaks split the final markdown and

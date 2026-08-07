@@ -51,6 +51,146 @@ const TldrawEditor = lazy(() => import('../components/Vault/TldrawEditor'));
 // `get_reference_table_id`. The frontend receives it via GET /api/vault/reference-table
 // (state `refTableId`), and all reference controls are based on it.
 
+function prepareDashboardViewContext(cv, table, allTables) {
+    if (!cv) return { mergedView: cv, mergedSchema: {} };
+    const rawVisible = cv.visibleProperties || cv.visible_properties || cv.columns || ['title'];
+    const stringColumns = Array.isArray(rawVisible) 
+        ? rawVisible.map(c => typeof c === 'string' ? c : (c?.fieldKey || 'title'))
+        : ['title'];
+    const mergedView = { ...cv, visibleProperties: stringColumns };
+
+    const props = [...(table?.properties || [])];
+    if (cv.joins && Array.isArray(cv.joins)) {
+        cv.joins.forEach(j => {
+            const jt = allTables?.find(t => String(t.id) === String(j.tableId));
+            if (jt && jt.properties) {
+                jt.properties.forEach(p => {
+                    if (!props.some(x => x.name === p.name)) props.push(p);
+                });
+            }
+        });
+    }
+    const mergedSchema = buildSchemaFromTableProperties(props);
+    return { mergedView, mergedSchema };
+}
+
+function _indexByField(rows, field) {
+    const idx = new Map();
+    for (const r of rows) {
+        const meta = r.metadata || {};
+        let val;
+        if (field === 'id') val = r.id;
+        else if (field === 'title') val = r.title || meta.title || meta.Nom || meta.Títol || meta.Name || meta.Título;
+        else val = meta[field];
+        if (val === null || val === undefined || val === '') continue;
+        const keys = Array.isArray(val) ? val.map(v => typeof v === 'object' && v !== null ? String(v.id || v.value || '') : String(v)).filter(v => v) : [String(val)];
+        for (const k of keys) {
+            if (!idx.has(k)) idx.set(k, []);
+            idx.get(k).push(r);
+        }
+    }
+    return idx;
+}
+
+function applyDashboardJoins(baseRows, joins, allPages, resolveTableId) {
+    if (!Array.isArray(joins) || joins.length === 0) return baseRows;
+    let acc = baseRows.map(r => ({ ...r, metadata: { ...(r.metadata || {}) } }));
+    console.log('[DashboardJoins] Start with', acc.length, 'base rows, joins:', joins);
+    for (const join of joins) {
+        const tid = join && join.tableId;
+        const lf = join && (join.leftField || join.field);
+        const rf = join && (join.rightField || join._indexByField);
+        const type = String((join && join.type) || 'inner').toLowerCase();
+        console.log(`[DashboardJoins] Processing join: tid=${tid}, lf=${lf}, rf=${rf}, type=${type}`);
+        if (!tid || !lf || !rf) continue;
+        const right = allPages.filter(p => resolveTableId(p) === tid);
+        console.log(`[DashboardJoins] Right table pages count: ${right.length}`);
+        const ridx = _indexByField(right, rf);
+        console.log(`[DashboardJoins] Right table index size: ${ridx.size}`);
+        console.log(`[DashboardJoins] Join ${type} on ${lf} = ${rf}. Right table ${tid} has ${right.length} rows.`);
+        console.log(`[DashboardJoins] Right index size:`, ridx.size, 'Sample keys:', Array.from(ridx.keys()).slice(0, 3));
+        const next = [];
+        if (type === 'right') {
+            const matched = new Set();
+            for (const a of acc) {
+                const meta = a.metadata || {};
+                let lv;
+                if (lf === 'id') lv = a.id;
+                else if (lf === 'title') lv = a.title || meta.title || meta.Nom || meta.Títol || meta.Name || meta.Título;
+                else lv = meta[lf];
+                const keys = Array.isArray(lv) ? lv.map(v => typeof v === 'object' && v !== null ? String(v.id || v.value || '') : String(v)).filter(v => v) : (lv !== '' && lv != null ? [String(lv)] : []);
+                for (const k of keys) {
+                    for (const rr of (ridx.get(k) || [])) {
+                        matched.add(String(rr.id));
+                        const merged = { ...a, metadata: { ...meta } };
+                        for (const [fk, fv] of Object.entries(rr.metadata || {})) {
+                            if (!(fk in merged.metadata)) merged.metadata[fk] = fv;
+                        }
+                        merged.metadata[`_join:${tid}`] = [rr.metadata || {}];
+                        next.push(merged);
+                    }
+                }
+            }
+            for (const rr of right) {
+                if (!matched.has(String(rr.id))) {
+                    const merged = { ...rr, metadata: { ...(rr.metadata || {}) } };
+                    merged.metadata[`_join:${tid}`] = [rr.metadata || {}];
+                    next.push(merged);
+                }
+            }
+        } else if (type === 'left') {
+            for (const a of acc) {
+                const meta = a.metadata || {};
+                let lv;
+                if (lf === 'id') lv = a.id;
+                else if (lf === 'title') lv = a.title || meta.title || meta.Nom || meta.Títol || meta.Name || meta.Título;
+                else lv = meta[lf];
+                const keys = Array.isArray(lv) ? lv.map(v => typeof v === 'object' && v !== null ? String(v.id || v.value || '') : String(v)).filter(v => v) : (lv !== '' && lv != null ? [String(lv)] : []);
+                let didMatch = false;
+                for (const k of keys) {
+                    for (const rr of (ridx.get(k) || [])) {
+                        didMatch = true;
+                        const merged = { ...a, metadata: { ...meta } };
+                        for (const [fk, fv] of Object.entries(rr.metadata || {})) {
+                            if (!(fk in merged.metadata)) merged.metadata[fk] = fv;
+                        }
+                        merged.metadata[`_join:${tid}`] = [rr.metadata || {}];
+                        next.push(merged);
+                    }
+                }
+                if (!didMatch) {
+                    const merged = { ...a, metadata: { ...meta } };
+                    merged.metadata[`_join:${tid}`] = [];
+                    next.push(merged);
+                }
+            }
+        } else {
+            // inner
+            for (const a of acc) {
+                const meta = a.metadata || {};
+                let lv;
+                if (lf === 'id') lv = a.id;
+                else if (lf === 'title') lv = a.title || meta.title || meta.Nom || meta.Títol || meta.Name || meta.Título;
+                else lv = meta[lf];
+                const keys = Array.isArray(lv) ? lv.map(v => typeof v === 'object' && v !== null ? String(v.id || v.value || '') : String(v)).filter(v => v) : (lv !== '' && lv != null ? [String(lv)] : []);
+                for (const k of keys) {
+                    for (const rr of (ridx.get(k) || [])) {
+                        const merged = { ...a, metadata: { ...meta } };
+                        for (const [fk, fv] of Object.entries(rr.metadata || {})) {
+                            if (!(fk in merged.metadata)) merged.metadata[fk] = fv;
+                        }
+                        merged.metadata[`_join:${tid}`] = [rr.metadata || {}];
+                        next.push(merged);
+                    }
+                }
+            }
+        }
+        console.log(`[DashboardJoins] After join, acc length: ${next.length}`);
+        acc = next;
+    }
+    return acc;
+}
+
 export default function VaultDashboard() {
     const { t } = useTranslation();
     const navigate = useNavigate();
@@ -1043,6 +1183,13 @@ export default function VaultDashboard() {
             // of the main views (e.g. those imported from Notion) when
             // first change of order or column width. Now every view
             // preserve and respect its configured fields.
+            let newVisible = updatedView.visibleProperties;
+            const originalView = registry.views?.find(v => v.id === updatedView.id);
+            if (newVisible && Array.isArray(newVisible) && newVisible.every(c => typeof c === 'string') && originalView && Array.isArray(originalView.visibleProperties) && originalView.visibleProperties.some(c => typeof c === 'object')) {
+                newVisible = newVisible.map(k => originalView.visibleProperties.find(c => c.fieldKey === k) || { tableId: tableId, fieldKey: k });
+                updatedView = { ...updatedView, visibleProperties: newVisible };
+            }
+
             const normalizedView = {
                 ...updatedView,
                 is_main: main,
@@ -3422,19 +3569,17 @@ export default function VaultDashboard() {
                                 }
                             };
 
-                            const body = (
-                                <VaultViewBody
-                                    type={cv.type}
-                                    notes={paneNotes}
-                                    templates={paneTemplates}
-                                    schema={paneSchema}
-                                    idToTitle={globalIndex}
-                                    allNotes={pages}
-                                    activeView={cv}
-                                    isEmbedded={false}
-                                    searchTerm={searchTerm}
-                                    actionRules={registry.tables?.find(x => x.id === tableId)?.action_rules}
-                                    onNoteSelect={loadPage}
+                                    const { mergedView, mergedSchema } = prepareDashboardViewContext(cv, table, registry.tables);
+                                    
+                                    const body = (
+                                        <VaultViewBody
+                                            type={mergedView.type}
+                                            notes={applyDashboardJoins(paneNotes, cv.joins, pages, resolvePageTableId)}
+                                            templates={paneTemplates}
+                                            schema={mergedSchema}
+                                            idToTitle={globalIndex}
+                                            allNotes={pages}
+                                            activeView={mergedView}
                                     onSearchChange={setSearchTerm}
                                     onUpdateView={handleUpdateView}
                                     onDeletePage={handleDeletePage}
@@ -3644,15 +3789,18 @@ export default function VaultDashboard() {
                             }
                         };
 
+                        const table = registry.tables?.find(t => t.id === tableId);
+                        const { mergedView, mergedSchema } = prepareDashboardViewContext(cv, table, registry.tables);
+                        
                         const body = (
                             <VaultViewBody
-                                type={cv.type}
-                                notes={paneNotes}
+                                type={mergedView.type}
+                                notes={applyDashboardJoins(paneNotes, cv.joins, pages, resolvePageTableId)}
                                 templates={paneTemplates}
-                                schema={paneSchema}
+                                schema={mergedSchema}
                                 idToTitle={globalIndex}
                                 allNotes={pages}
-                                activeView={cv}
+                                activeView={mergedView}
                                 isEmbedded={true}
                                 searchTerm={searchTerm}
                                 actionRules={registry.tables?.find(x => x.id === tableId)?.action_rules}
@@ -3809,7 +3957,7 @@ export default function VaultDashboard() {
                                     <VaultViewsHeader
                                         tableName={activeTable ? (activeTable.title || activeTable.name) : t('common.table')}
                                         recordCount={(tableNotes || []).length}
-                                        notes={tableNotes || []}
+                                        notes={(console.log('[DashboardJoins] Active view filters:', displayViews.find(v => v.id === activeViewId)?.filterTree, displayViews.find(v => v.id === activeViewId)?.filters), tableNotes || [])}
                                         referenceTableId={refTableId && refTableId === activeTableId ? activeTableId : undefined}
                                         brainTableId={brainTableId && brainTableId === activeTableId ? activeTableId : undefined}
                                         onReferencesImported={fetchPages}
@@ -3881,15 +4029,18 @@ export default function VaultDashboard() {
                                         );
                                     }
 
+                                    const table = registry.tables?.find(t => t.id === activeTableId);
+                                    const { mergedView, mergedSchema } = prepareDashboardViewContext(cv, table, registry.tables);
+
                                     const body = (
                                         <VaultViewBody
-                                            type={cv.type}
-                                            notes={tableNotes}
+                                            type={mergedView.type}
+                                            notes={applyDashboardJoins(tableNotes, cv.joins, pages, resolvePageTableId)}
                                             templates={tableTemplates}
-                                            schema={schema}
+                                            schema={mergedSchema}
                                             idToTitle={globalIndex}
                                             allNotes={pages}
-                                            activeView={cv}
+                                            activeView={mergedView}
                                             isEmbedded={false}
                                             searchTerm={searchTerm}
                                             actionRules={registry.tables?.find(x => x.id === activeTableId)?.action_rules}

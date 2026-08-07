@@ -708,3 +708,159 @@ def resolve_rows(
     ]
     sorts = view.get("sorts") or ([view["sort"]] if view.get("sort") else [])
     return multi_key_sort(filtered, sorts)
+
+
+def _row_lookup_by_field(rows: List[Dict[str, Any]], field: str) -> Dict[Any, List[Dict[str, Any]]]:
+    """Index `rows` by the value of `metadata[field]` (or `id` if `field == "id"`).
+    Returns a mapping `value -> [rows]` because a key may match several rows
+    (1:N). Values are coerced to strings for a stable, type-agnostic match."""
+    index: Dict[str, List[Dict[str, Any]]] = {}
+    for r in rows:
+        meta = r.get("metadata") or {}
+        if field == "id":
+            val = r.get("id")
+        elif field == "title":
+            val = r.get("title") or meta.get("title") or meta.get("Nom") or meta.get("Títol") or meta.get("Name") or meta.get("Título")
+        else:
+            val = meta.get(field)
+        if val is None or val == "":
+            continue
+        if isinstance(val, list):
+            keys = [str(v) for v in val if v not in (None, "")]
+        else:
+            keys = [str(val)]
+        for k in keys:
+            index.setdefault(k, []).append(r)
+    return index
+
+
+def apply_joins(
+    base_rows: List[Dict[str, Any]],
+    joins: List[Dict[str, Any]],
+    loader: Callable[[str], List[Dict[str, Any]]],
+) -> List[Dict[str, Any]]:
+    """Executes in-memory joins over `base_rows` following the order of `joins`.
+
+    Each join combines the current accumulated rows (initially the base table)
+    with the rows of ``join["tableId"]`` loaded via ``loader(tableId)``. The
+    join condition is ``left_row[join.leftField] == right_row[join.rightField]``
+    (in the corresponding metadata, or the row id for ``"id"``).
+
+    Supported types:
+      - ``inner``: keep only the accumulated rows that match at least one
+        right row.
+      - ``left``: keep ALL accumulated rows; if no match, the join's columns
+        are simply empty.
+      - ``right``: keep all rows from the right table (matched or not); for
+        unmatched right rows the base columns are empty.
+
+    The accumulated row carries, for each joined table, the right row's
+    ``metadata`` under the qualified key ``"_join:{tableId}"`` (a list, since a
+    single base row can match several right rows → fan-out). The base columns
+    (unqualified metadata) are preserved for compatibility with existing
+    filters/sorts that reference the base table. The result is the Cartesian
+    fan-out of all matched rows.
+
+    ``loader`` must return rows shaped like ``{id, title, metadata}``. Defensive:
+    if a join is malformed (no tableId / fields) it is ignored.
+    """
+    if not joins:
+        return list(base_rows)
+
+    accumulated = [dict(r) for r in base_rows]
+    for join in joins or []:
+        tid = str(join.get("tableId") or "").strip()
+        lfield = join.get("leftField")
+        rfield = join.get("rightField")
+        jtype = str(join.get("type") or "inner").strip().lower()
+        if not tid or not lfield or not rfield:
+            continue
+        if jtype not in ("inner", "left", "right"):
+            jtype = "inner"
+        try:
+            right_rows = loader(tid) or []
+        except Exception:
+            right_rows = []
+        right_index = _row_lookup_by_field(right_rows, rfield)
+
+        next_acc: List[Dict[str, Any]] = []
+        if jtype == "right":
+            # All right rows appear (matched or not). Base columns empty when
+            # there is no match.
+            matched_right_ids: set = set()
+            for acc in accumulated:
+                meta = acc.get("metadata") or {}
+                if lfield == "id":
+                    lval = acc.get("id")
+                elif lfield == "title":
+                    lval = acc.get("title") or meta.get("title") or meta.get("Nom") or meta.get("Títol") or meta.get("Name") or meta.get("Título")
+                else:
+                    lval = meta.get(lfield)
+                
+                lkeys = (
+                    [str(v) for v in lval if v not in (None, "")]
+                    if isinstance(lval, list)
+                    else ([str(lval)] if lval not in (None, "") else [])
+                )
+                for k in lkeys:
+                    for rr in right_index.get(k, []):
+                        rid = str(rr.get("id"))
+                        matched_right_ids.add(rid)
+                        merged = dict(acc)
+                        meta_merged = dict(merged.get("metadata") or {})
+                        # Copy the right row's columns into the base metadata
+                        # so that filters/sorts on the base view continue to
+                        # work transparently.
+                        for fk, fv in (rr.get("metadata") or {}).items():
+                            meta_merged.setdefault(fk, fv)
+                        meta_merged["_join:%s" % tid] = [rr.get("metadata") or {}]
+                        merged["metadata"] = meta_merged
+                        next_acc.append(merged)
+            # Unmatched right rows: empty base.
+            for rr in right_rows:
+                rid = str(rr.get("id"))
+                if rid in matched_right_ids:
+                    continue
+                merged = {"id": rr.get("id"), "title": rr.get("title"), "metadata": {"_join:%s" % tid: [rr.get("metadata") or {}]}}
+                next_acc.append(merged)
+            accumulated = next_acc
+            continue
+
+        for acc in accumulated:
+            meta = acc.get("metadata") or {}
+            if lfield == "id":
+                lval = acc.get("id")
+            elif lfield == "title":
+                lval = acc.get("title") or meta.get("title") or meta.get("Nom") or meta.get("Títol") or meta.get("Name") or meta.get("Título")
+            else:
+                lval = meta.get(lfield)
+            
+            lkeys = (
+                [str(v) for v in lval if v not in (None, "")]
+                if isinstance(lval, list)
+                else ([str(lval)] if lval not in (None, "") else [])
+            )
+            matches: List[Dict[str, Any]] = []
+            for k in lkeys:
+                matches.extend(right_index.get(k, []))
+            if not matches:
+                if jtype == "left":
+                    # Keep the base row, join columns empty.
+                    merged = dict(acc)
+                    meta_merged = dict(merged.get("metadata") or {})
+                    meta_merged["_join:%s" % tid] = []
+                    merged["metadata"] = meta_merged
+                    next_acc.append(merged)
+                # inner: discard.
+                continue
+            for rr in matches:
+                merged = dict(acc)
+                meta_merged = dict(merged.get("metadata") or {})
+                for fk, fv in (rr.get("metadata") or {}).items():
+                    meta_merged.setdefault(fk, fv)
+                meta_merged["_join:%s" % tid] = [rr.get("metadata") or {}]
+                merged["metadata"] = meta_merged
+                next_acc.append(merged)
+        accumulated = next_acc
+
+    return accumulated

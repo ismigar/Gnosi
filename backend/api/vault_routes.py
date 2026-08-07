@@ -81,6 +81,7 @@ from backend.services.relation_links import (
 )
 from backend.services.view_snapshot import (
     DEFAULT_MAX_ITEMS as _VIEW_SNAPSHOT_DEFAULT_LIMIT,
+    apply_joins,
     compact_view_fences,
     inject_view_snapshots,
     rematerialize_md,
@@ -1337,12 +1338,43 @@ def _link_index_unique_id_for_title(title: str) -> Optional[str]:
     return matches[0] if len(matches) == 1 else None
 
 
+def _load_table_rows(table_id: str) -> List[dict]:
+    """Loads the NON-template rows of `table_id` with metadata in RESPONSE names
+    (virtual fields injected). Reused by single-table and multi-table (join)
+    views so the join loader works on the same shape as the base rows."""
+    if not table_id:
+        return []
+    pages = _get_pages_for_table(table_id)
+    table_obj = _table_by_id(table_id)
+    try:
+        _vf_inject_for_table(
+            table_obj, pages,
+            _vf_page_loader,
+        )
+    except Exception as e:
+        log.debug(f"virtual fields injection (table {table_id}) failed: {e}")
+    rows: List[dict] = []
+    for p in pages:
+        meta = p.metadata or {}
+        if meta.get("is_template"):
+            continue
+        resp_meta = to_response_names(dict(meta), table_obj) if table_obj else dict(meta)
+        rows.append({"id": p.id, "title": p.title, "metadata": resp_meta})
+    return rows
+
+
 def _resolve_view_and_candidates(view_id: str, host_page_id: Optional[str]):
     """(view, files-candidates) for the `view_id` view: the NON-template pages of
     its table, with metadata in RESPONSE names (like `/pages/by-table`,
     so filters match against them). Filter+sort are applied by the caller (via the
     pure functions `resolve_row_ids` / `resolve_rows`). Returns `(None, [])` if it
-    cannot be resolved."""
+    cannot be resolved.
+
+    Multi-table views: if the view has a non-empty `joins` list, the base rows
+    are combined in-memory with the join tables (`apply_joins`), producing
+    composite rows whose `metadata` exposes both the base columns (unqualified,
+    for backward compatibility with filters/sorts) and the join columns under
+    the qualified key `_join:{tableId}`."""
     vid = str(view_id or "").strip()
     if not vid:
         return None, []
@@ -1354,24 +1386,13 @@ def _resolve_view_and_candidates(view_id: str, host_page_id: Optional[str]):
     table_id = view.get("table_id")
     if not table_id:
         return view, []
-    pages = _get_pages_for_table(table_id)
-    table_obj = _table_by_id(table_id)
-    # Injects virtual fields (e.g. «Progress») so that embedded views
-    # see them the same as the main table (filters/sort match against them).
-    try:
-        _vf_inject_for_table(
-            table_obj, pages,
-            _vf_page_loader,
-        )
-    except Exception as e:
-        log.debug(f"virtual fields injection (view {vid}) failed: {e}")
-    rows: List[dict] = []
-    for p in pages:
-        meta = p.metadata or {}
-        if meta.get("is_template"):
-            continue
-        resp_meta = to_response_names(dict(meta), table_obj) if table_obj else dict(meta)
-        rows.append({"id": p.id, "title": p.title, "metadata": resp_meta})
+    rows = _load_table_rows(table_id)
+    joins = view.get("joins")
+    if isinstance(joins, list) and joins:
+        try:
+            rows = apply_joins(rows, joins, _load_table_rows)
+        except Exception as e:
+            log.debug(f"apply_joins (view {vid}) failed: {e}")
     return view, rows
 
 
@@ -1407,17 +1428,43 @@ def _format_snapshot_cell(value: Any, ftype: Optional[str]) -> str:
     return (s[:200] + "…") if len(s) > 200 else s
 
 
+def _normalize_visible_properties(vis: Any, base_table_id: Optional[str]) -> List[dict]:
+    """Normalizes `visibleProperties` (which may be a list of strings or of
+    `{tableId, fieldKey, label}`) into a list of dicts `{tableId, fieldKey,
+    label?}`. Strings are treated as fields of the base table. `None`/empty
+    → `[{base, "title"}]`."""
+    if not vis:
+        return [{"tableId": base_table_id, "fieldKey": "title"}]
+    out = []
+    for entry in vis:
+        if isinstance(entry, str):
+            out.append({"tableId": base_table_id, "fieldKey": entry})
+        elif isinstance(entry, dict) and entry.get("fieldKey"):
+            out.append({
+                "tableId": entry.get("tableId") or base_table_id,
+                "fieldKey": entry.get("fieldKey"),
+                "label": entry.get("label"),
+            })
+    return out or [{"tableId": base_table_id, "fieldKey": "title"}]
+
+
 def _resolve_view_table(view_id: str, host_page_id: Optional[str]) -> Optional[dict]:
     """For `table`/`list` views: `{headers, rows}` with the actual data (title
     as a wikilink + visible columns). Returns `None` for other types (the
-    caller falls back to the wikilink list) or if it cannot be resolved."""
+    caller falls back to the wikilink list) or if it cannot be resolved.
+
+    Multi-table: the visible columns may belong to any of the join tables. For
+    each row, the value of a column `tableId.fieldKey` is read from the row's
+    base metadata (if it belongs to the base table) or from the joined row's
+    metadata under `_join:{tableId}`."""
     try:
         view, rows = _resolve_view_and_candidates(view_id, host_page_id)
         if not view:
             return None
         if str(view.get("type") or "table").lower() not in ("table", "list"):
             return None
-        table_obj = _table_by_id(view.get("table_id")) if view.get("table_id") else None
+        base_id = view.get("table_id")
+        table_obj = _table_by_id(base_id) if base_id else None
         props = (table_obj.get("properties") if table_obj else []) or []
         title_field = next((p.get("name") for p in props if p.get("type") == "title"), None)
         type_by_name = {p.get("name"): p.get("type") for p in props if p.get("name")}
@@ -1426,16 +1473,51 @@ def _resolve_view_table(view_id: str, host_page_id: Optional[str]) -> Optional[d
             return k == "title" or (title_field and k == title_field) or type_by_name.get(k) == "title"
 
         vis = view.get("visibleProperties") or view.get("visible_properties") or ["title"]
-        non_title = [k for k in vis if not _is_title_ref(k)]
-        headers = [title_field or "Títol"] + non_title
+        norm = _normalize_visible_properties(vis, base_id)
+        # The first column is always the canonical title (wikilink) of the base
+        # row; the title column is excluded from the explicit list, as before.
+        non_title = [c for c in norm if not (c.get("tableId") == base_id and _is_title_ref(c.get("fieldKey")))]
+
+        # Resolve table names for the headers (for disambiguation).
+        table_name_by_id: Dict[str, str] = {}
+        for c in non_title:
+            tid = c.get("tableId")
+            if tid and tid not in table_name_by_id:
+                tobj = _table_by_id(tid)
+                table_name_by_id[tid] = (tobj or {}).get("name") or tid
+
+        headers = [title_field or "Títol"]
+        for c in non_title:
+            label = c.get("label")
+            if label:
+                headers.append(label)
+            else:
+                tid = c.get("tableId")
+                fk = c.get("fieldKey")
+                # If several tables expose a field with the same key, prefix
+                # the header with the table name to disambiguate.
+                same_key = [x for x in non_title if x.get("fieldKey") == fk]
+                if tid and tid != base_id and len(same_key) > 1:
+                    headers.append(f"{table_name_by_id.get(tid, tid)} · {fk}")
+                else:
+                    headers.append(fk)
 
         ordered = resolve_rows(rows, view, host_page_id)
         out_rows = []
         for r in ordered:
             cells = [_decorate_relation_item(str(r.get("id")), _link_index_title_for, None)]
             meta = r.get("metadata") or {}
-            for k in non_title:
-                cells.append(_format_snapshot_cell(meta.get(k), type_by_name.get(k)))
+            for c in non_title:
+                tid = c.get("tableId")
+                fk = c.get("fieldKey")
+                if not tid or tid == base_id:
+                    cells.append(_format_snapshot_cell(meta.get(fk), type_by_name.get(fk)))
+                else:
+                    # Joined column: take the first match (fan-out rows are
+                    # already expanded, so the list has at most one element).
+                    joined_list = meta.get("_join:%s" % tid) or []
+                    joined_meta = joined_list[0] if joined_list else {}
+                    cells.append(_format_snapshot_cell(joined_meta.get(fk), None))
             out_rows.append(cells)
         return {"headers": headers, "rows": out_rows}
     except Exception as e:
@@ -15778,6 +15860,13 @@ def _load_registry_from_disk(registry_path, _ck: str, now: float):
         changed = True
         log.info("🧹 Removed legacy wiki table and its views from registry.")
 
+    # 1.6 Cleanup: fix views with null or empty IDs
+    for view in data.get("views", []):
+        if not view.get("id"):
+            view["id"] = str(uuid.uuid4())
+            changed = True
+            log.info(f"🧹 Assigned UUID to view with null/empty ID: {view.get('name')}")
+
     # 2. Sanitization and folder creation (only for tables not yet validated)
     for table in data.get("tables", []):
         folder_raw = table.get("folder") or table.get("name", "untitled_table")
@@ -17376,7 +17465,17 @@ async def list_views(table_id: Optional[str] = None):
     registry = load_registry()
     views = registry.get("views", [])
     if table_id:
-        views = [v for v in views if v.get("table_id") == table_id]
+        # A view belongs to a table if it is its base (`table_id`) OR if it
+        # appears in any of its joins. This way a multi-table view shows up in
+        # the list of every table it involves (consistent with the sidebar).
+        def _involves(v, tid):
+            if v.get("table_id") == tid:
+                return True
+            for j in (v.get("joins") or []):
+                if isinstance(j, dict) and j.get("tableId") == tid:
+                    return True
+            return False
+        views = [v for v in views if _involves(v, table_id)]
 
     # ensure new configuration fields have sensible defaults so frontend
     # can render older views without modifications.
@@ -17402,7 +17501,7 @@ async def list_views(table_id: Optional[str] = None):
 async def create_view(view: dict = Body(...)):
     with registry_mutation():
         registry = load_registry()
-        if "id" not in view:
+        if not view.get("id"):
             view["id"] = str(uuid.uuid4())
 
         existing_idx = next(

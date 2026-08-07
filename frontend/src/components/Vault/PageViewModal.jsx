@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { X, Eye, Filter, ArrowUpDown, SlidersHorizontal, Plus, Trash2, GripVertical, Layers } from 'lucide-react';
@@ -411,7 +411,7 @@ function FilterRuleRow({ rule, onChange, onRemove, ctx }) {
                 }}
             >
                 {tableFields.map(tf => (
-                    <option key={tf.name} value={tf.name}>{fieldLabel(tf.name)}</option>
+                    <option key={tf.name} value={tf.name}>{tf.displayName || fieldLabel(tf.name)}</option>
                 ))}
             </select>
             {meta?.type === 'period' && (
@@ -551,11 +551,21 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     const [sourceTableId, setSourceTableId] = useState(preselectedTableId);
     const [viewName, setViewName] = useState('');
     const [visibleProperties, setVisibleProperties] = useState([]);
+    // Multi-table joins on top of the base table (`sourceTableId`). Each item:
+    //   { tableId, type: 'inner'|'left'|'right', leftField, rightField }
+    // where `leftField` belongs to the last table in the chain (base, or the
+    // previously added join) and `rightField` belongs to `tableId`. When empty,
+    // the view behaves as a classic single-table view (full back-compat).
+    const [joins, setJoins] = useState([]);
     // User fields discovered in the records for tables WITHOUT a schema
     // registered (e.g. "Recursos", imported from the Notion clone: `properties`
     // empty but the records carry fields). Without this, the column selector
     // would only show the title. They are merged into `tableFields`.
     const [discoveredFields, setDiscoveredFields] = useState([]);
+    // Discovered fields per JOIN table (same purpose as `discoveredFields`, but
+    // keyed by table id so we can build the field picker for every table that
+    // participates in a multi-table view). `{ [tableId]: string[] }`.
+    const [discoveredByTable, setDiscoveredByTable] = useState({});
     const [viewType, setViewType] = useState('table');
     // Complex filter tree (root AND/OR group with nested rules/groups). The
     // legacy flat `filters` array is derived on save for back-compat.
@@ -704,11 +714,101 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         return props;
     }, [selectedTable, discoveredFields]);
 
+    // --- Multi-table helpers ----------------------------------------------
+    // Tables involved in this view: the base table followed by each join's
+    // target table, in chain order. Used to build the per-table field picker
+    // and to drive the joins UI.
+    const viewTables = useMemo(() => {
+        const ids = [sourceTableId, ...joins.map(j => j.tableId).filter(Boolean)];
+        return ids
+            .filter((id, i, arr) => id && arr.indexOf(id) === i) // dedupe, keep order
+            .map(id => allTables.find(t => t.id === id))
+            .filter(Boolean);
+    }, [sourceTableId, joins, allTables]);
+
+    // Is this view multi-table? Drives whether `visibleProperties` is stored
+    // in the composite form (`{ tableId, fieldKey }`) vs. plain strings.
+    const isMultiTable = joins.length > 0;
+
+    // Computes the field list for an arbitrary table (same merge logic as
+    // `tableFields`: schema properties, excluding duplicate title columns, plus
+    // discovered fields for tables without a schema). The base table reuses
+    // the cached `tableFields`/`discoveredFields`.
+    const fieldsForTable = useCallback((tid) => {
+        if (!tid) return [];
+        if (tid === sourceTableId) return tableFields;
+        const tbl = allTables.find(t => t.id === tid);
+        if (!tbl) return [];
+        const isTitleField = (p) => {
+            if (String(p.type || '').trim().toLowerCase() === 'title') return true;
+            const n = String(p.name || '').trim().toLowerCase();
+            return n === 'title' || n === 'títol' || n === 'titulo' || n === 'título' || n === 'titre';
+        };
+        const props = (tbl.properties || [])
+            .filter(p => !isTitleField(p))
+            .map(p => ({
+                name: p.name,
+                type: p.type,
+                relation_database_id: p.relation_database_id,
+                options: p.config?.options || p.options || [],
+            }));
+        props.unshift(
+            { name: 'id', type: 'text', label: 'ID (Identificador)' },
+            { name: 'title', type: 'title' }
+        );
+        const known = new Set(props.map(p => String(p.name || '').toLowerCase()));
+        for (const name of (discoveredByTable[tid] || [])) {
+            if (known.has(String(name).toLowerCase())) continue;
+            props.push({ name, type: 'text' });
+            known.add(String(name).toLowerCase());
+        }
+        return props;
+    }, [sourceTableId, tableFields, allTables, discoveredByTable]);
+
     const fieldMeta = useMemo(() => {
         const m = {};
-        tableFields.forEach(f => { m[f.name] = f; });
+        if (isMultiTable && viewTables.length > 0) {
+            viewTables.forEach(tbl => {
+                if (!tbl) return;
+                const fields = fieldsForTable(tbl.id);
+                fields.forEach(f => {
+                    if (!m[f.name]) m[f.name] = f;
+                });
+            });
+        } else {
+            tableFields.forEach(f => { m[f.name] = f; });
+        }
         return m;
-    }, [tableFields]);
+    }, [isMultiTable, viewTables, fieldsForTable, tableFields]);
+
+    // Normalizes `visibleProperties` (which may be a list of strings or of
+    // `{tableId, fieldKey, label}`) into the composite form. Strings are
+    // treated as fields of the base table.
+    const normalizeColumns = useCallback((cols) => {
+        if (!Array.isArray(cols) || !cols.length) {
+            return [{ tableId: sourceTableId, fieldKey: 'title' }];
+        }
+        return cols.map(c => {
+            if (typeof c === 'string') return { tableId: sourceTableId, fieldKey: c };
+            if (c && typeof c === 'object' && c.fieldKey) {
+                return { tableId: c.tableId || sourceTableId, fieldKey: c.fieldKey, label: c.label };
+            }
+            return null;
+        }).filter(Boolean);
+    }, [sourceTableId]);
+
+    // When the view is multi-table, `visibleProperties` is stored in composite
+    // form; when single-table, plain strings (full back-compat). This helper
+    // builds the value to persist from the current normalized state.
+    const visiblePropertiesToPersist = useMemo(() => {
+        if (!isMultiTable) {
+            // Single-table: plain strings of the base table (legacy form).
+            return normalizeColumns(visibleProperties)
+                .filter(c => c.tableId === sourceTableId)
+                .map(c => c.fieldKey);
+        }
+        return normalizeColumns(visibleProperties);
+    }, [isMultiTable, visibleProperties, sourceTableId, normalizeColumns]);
 
     // Cache of related table records for the filter dropdowns
     // for relation: { [tableId]: [{ value: id, label: title }] }. `undefined` =
@@ -785,6 +885,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
             pendingSaveRef.current = null;
             skipNextAutosaveRef.current = false;
             setAutosaveStatus('idle');
+            setJoins([]);
             return;
         }
         // TABLE mode: we configure a registry view directly (not an
@@ -808,6 +909,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                         ? editingView.visibleProperties
                         : ['title']
                 );
+                setJoins(Array.isArray(editingView.joins) ? editingView.joins : []);
                 setFilterTree(treeFromSource(editingView));
                 if (Array.isArray(editingView.sorts) && editingView.sorts.length) {
                     setSorts(editingView.sorts);
@@ -825,6 +927,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 setViewType('table');
                 setViewName('');
                 setVisibleProperties(['title']);
+                setJoins([]);
                 setFilterTree(emptyFilterTree());
                 setSorts([]);
                 setResultSnapshot(true);
@@ -880,6 +983,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                         setViewName(String(v.name || ''));
                         setViewType(String(v.type || 'table'));
                         setVisibleProperties(Array.isArray(v.visibleProperties) && v.visibleProperties.length ? v.visibleProperties : ['title']);
+                        setJoins(Array.isArray(v.joins) ? v.joins : []);
                         setFilterTree(treeFromSource(v));
                         setResultSnapshot(v.resultSnapshot !== false);
                         setResultSnapshotLimit(Number.isFinite(Number(v.resultSnapshotLimit)) ? Number(v.resultSnapshotLimit) : 500);
@@ -1012,22 +1116,53 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     // the user can select them (and so the sanitization effect doesn't remove them from
     // views that already use them). We only do this when needed: if the table already has
     // schema, there is nothing to discover.
+    // For multi-table views, we discover for EVERY involved table (base + joins)
+    // and keep the base one in `discoveredFields` (for `tableFields`) and the
+    // rest in `discoveredByTable`.
     useEffect(() => {
-        if (!sourceTableId || !selectedTable) { setDiscoveredFields([]); return; }
-        if (Array.isArray(selectedTable.properties) && selectedTable.properties.length > 0) {
-            setDiscoveredFields([]);
-            return;
-        }
-        let cancelled = false;
-        apiFetch(`/api/vault/pages?table_id=${encodeURIComponent(sourceTableId)}&limit=300`)
-            .then(data => {
-                if (cancelled) return;
-                const recs = Array.isArray(data) ? data : (data?.pages || data?.items || []);
-                setDiscoveredFields(discoverFieldNamesFromRecords(recs));
-            })
-            .catch(() => { if (!cancelled) setDiscoveredFields([]); });
-        return () => { cancelled = true; };
-    }, [sourceTableId, selectedTable, apiFetch]);
+        const discoverFor = (tid, hasSchema, setter) => {
+            if (!tid) { setter([]); return; }
+            if (hasSchema) { setter([]); return; }
+            let cancelled = false;
+            apiFetch(`/api/vault/pages?table_id=${encodeURIComponent(tid)}&limit=300`)
+                .then(data => {
+                    if (cancelled) return;
+                    const recs = Array.isArray(data) ? data : (data?.pages || data?.items || []);
+                    setter(discoverFieldNamesFromRecords(recs));
+                })
+                .catch(() => { if (!cancelled) setter([]); });
+            return () => { cancelled = true; };
+        };
+        const baseHasSchema = Array.isArray(selectedTable?.properties) && selectedTable.properties.length > 0;
+        const baseCleanup = discoverFor(sourceTableId, baseHasSchema, setDiscoveredFields);
+        // Joins: discover for each table that has no schema. Tables WITH schema
+        // get an empty entry so the picker knows there is nothing to discover.
+        const joinTableIds = joins.map(j => j.tableId).filter(Boolean);
+        const cleanups = [];
+        const next = { ...discoveredByTable };
+        let changed = false;
+        joinTableIds.forEach(tid => {
+            const tbl = allTables.find(t => t.id === tid);
+            const hasSchema = Array.isArray(tbl?.properties) && tbl.properties.length > 0;
+            if (hasSchema) {
+                if (next[tid] && next[tid].length) { next[tid] = []; changed = true; }
+                return;
+            }
+            if (next[tid] === undefined) {
+                next[tid] = []; changed = true;
+                const c = discoverFor(tid, false, (fields) => {
+                    setDiscoveredByTable(prev => ({ ...prev, [tid]: fields }));
+                });
+                if (c) cleanups.push(c);
+            }
+        });
+        // Drop entries for tables no longer in the joins.
+        Object.keys(next).forEach(tid => {
+            if (!joinTableIds.includes(tid)) { delete next[tid]; changed = true; }
+        });
+        if (changed) setDiscoveredByTable(next);
+        return () => { baseCleanup && baseCleanup(); cleanups.forEach(c => c && c()); };
+    }, [sourceTableId, selectedTable, joins, allTables, apiFetch]);
 
     // When the user selects an existing view, it pre-fills the fields with its
     // config and loads how many pages share it.
@@ -1041,6 +1176,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         if (!v) return;
         setViewName(v.name || '');
         setVisibleProperties(Array.isArray(v.visibleProperties) && v.visibleProperties.length ? v.visibleProperties : ['title']);
+        setJoins(Array.isArray(v.joins) ? v.joins : []);
         setViewType(v.type || 'table');
         setFilterTree(treeFromSource(v));
         setResultSnapshot(v.resultSnapshot !== false);
@@ -1091,6 +1227,9 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     // exist) and ensures the canonical `title` is always present: as in Notion,
     // the title column is the primary property, always visible, and cannot be
     // remove. If missing, it is placed at the front.
+    // For multi-table views, each entry may be `{ tableId, fieldKey }`; we keep
+    // only those whose (tableId, fieldKey) is still valid across ALL involved
+    // tables, and drop entries whose tableId is no longer part of the chain.
     useEffect(() => {
         if (!selectedTable) return;
         // Table without a registered schema and field discovery still pending:
@@ -1098,12 +1237,40 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         // which fields exist (fields arrive async via discoveredFields).
         const hasSchema = Array.isArray(selectedTable.properties) && selectedTable.properties.length > 0;
         if (!hasSchema && discoveredFields.length === 0) return;
-        const valid = new Set(tableFields.map(f => f.name));
+        const involvedIds = new Set([sourceTableId, ...joins.map(j => j.tableId).filter(Boolean)]);
         setVisibleProperties(prev => {
-            const filtered = prev.filter(n => valid.has(n));
-            return filtered.includes('title') ? filtered : ['title', ...filtered];
+            const next = [];
+            for (const entry of prev) {
+                // Composite form: validate (tableId, fieldKey) against the
+                // involved tables' fields.
+                if (entry && typeof entry === 'object' && entry.fieldKey) {
+                    const tid = entry.tableId || sourceTableId;
+                    if (!involvedIds.has(tid)) continue; // table removed
+                    const fields = fieldsForTable(tid);
+                    if (!fields.some(f => f.name === entry.fieldKey)) {
+                        // Field may still be pending discovery → keep it to avoid
+                        // wiping valid columns before discovery completes.
+                        const tbl = allTables.find(t => t.id === tid);
+                        const tHasSchema = Array.isArray(tbl?.properties) && tbl.properties.length > 0;
+                        const tDiscovered = tid === sourceTableId ? discoveredFields : (discoveredByTable[tid] || []);
+                        if (tHasSchema && tDiscovered.length === 0) continue; // really invalid
+                    }
+                    next.push(entry);
+                } else if (typeof entry === 'string') {
+                    // Legacy string form: validate against the base table.
+                    const valid = new Set(tableFields.map(f => f.name));
+                    if (valid.has(entry)) next.push(entry);
+                }
+            }
+            // Ensure the canonical title is present (base table).
+            const hasTitle = next.some(e =>
+                (typeof e === 'string' && e === 'title') ||
+                (e && typeof e === 'object' && e.fieldKey === 'title' && (e.tableId || sourceTableId) === sourceTableId)
+            );
+            if (!hasTitle) next.unshift('title');
+            return next;
         });
-    }, [sourceTableId, selectedTable, tableFields, discoveredFields]);
+    }, [sourceTableId, selectedTable, tableFields, discoveredFields, joins, fieldsForTable, discoveredByTable, allTables]);
 
     // Canonical keyboard logic: Esc closes, Tab does a focus-trap inside the panel, and
     // focus is restored on close. No onConfirm: this modal is a
@@ -1136,14 +1303,39 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         name === 'title' ? t('view.column_title', { defaultValue: "Title" }) : capitalizeFirst(name)
     );
 
+    const allTableFields = useMemo(() => {
+        if (!isMultiTable || viewTables.length <= 1) return tableFields;
+        const seen = new Set();
+        const result = [];
+        viewTables.forEach(tbl => {
+            if (!tbl) return;
+            const fields = fieldsForTable(tbl.id);
+            fields.forEach(f => {
+                const key = f.name;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    result.push({
+                        ...f,
+                        displayName: `${tbl.name} · ${fieldLabel(f.name)}`
+                    });
+                }
+            });
+        });
+        return result;
+    }, [isMultiTable, viewTables, tableFields, fieldsForTable, fieldLabel]);
+
     // Field pickers (filters, sorting, grouping, per-type controls) list the fields
     // alphabetically by their visible label: with dozens of properties the schema
     // order is unusable to find one. `tableFields` keeps its own order because it
     // also feeds the visible-columns list, where the order IS the user's column order.
     const sortedTableFields = useMemo(
-        () => [...tableFields].sort((a, b) => fieldLabel(a.name).localeCompare(fieldLabel(b.name), undefined, { sensitivity: 'base' })),
+        () => [...allTableFields].sort((a, b) => {
+            const labelA = a.displayName || fieldLabel(a.name);
+            const labelB = b.displayName || fieldLabel(b.name);
+            return labelA.localeCompare(labelB, undefined, { sensitivity: 'base' });
+        }),
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [tableFields, t]
+        [allTableFields, t, fieldLabel]
     );
 
     // Autosave (table mode only): after a change, wait 800ms of inactivity,
@@ -1190,21 +1382,41 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     // the hook order and crashes React with a black screen.
     if (!isOpen) return null;
 
-    const toggleProperty = (name) => {
-        // The `title` is the primary column (as in Notion): always visible, cannot
-        // be deselected.
-        if (name === 'title') return;
-        setVisibleProperties(prev =>
-            prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]
-        );
+    // Canonical key for a visible-property entry, regardless of whether it's
+    // stored as a string (`"title"`) or in composite form (`{tableId, fieldKey}`).
+    // Used to compare, dedupe and reorder entries across both forms.
+    const colKey = (entry) => {
+        if (entry && typeof entry === 'object' && entry.fieldKey) {
+            return `${entry.tableId || sourceTableId}::${entry.fieldKey}`;
+        }
+        return `${sourceTableId}::${entry}`;
     };
 
-    // Reorders a visible column by dragging it (ids = field names).
+    const toggleProperty = (tid, name) => {
+        // The base table's `title` is the primary column (as in Notion): always
+        // visible, cannot be deselected.
+        if ((!tid || tid === sourceTableId) && name === 'title') return;
+        const key = `${tid || sourceTableId}::${name}`;
+        setVisibleProperties(prev => {
+            const keys = new Set(prev.map(colKey));
+            if (keys.has(key)) {
+                return prev.filter(e => colKey(e) !== key);
+            }
+            // Add in the form that matches the current view (composite if
+            // multi-table, string if single-table and it's the base).
+            if (isMultiTable) {
+                return [...prev, { tableId: tid || sourceTableId, fieldKey: name }];
+            }
+            return [...prev, name];
+        });
+    };
+
+    // Reorders a visible column by dragging it (ids = canonical keys).
     const handleColumnDragEnd = ({ active, over }) => {
         if (!active || !over || active.id === over.id) return;
         setVisibleProperties(prev => {
-            const oldIndex = prev.indexOf(active.id);
-            const newIndex = prev.indexOf(over.id);
+            const oldIndex = prev.findIndex(e => colKey(e) === active.id);
+            const newIndex = prev.findIndex(e => colKey(e) === over.id);
             if (oldIndex === -1 || newIndex === -1) return prev;
             return arrayMove(prev, oldIndex, newIndex);
         });
@@ -1331,9 +1543,13 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
             // subsequent saves PUT (no duplicate views).
             if (isTableMode) {
                 const existingId = editingView?.id || createdViewIdRef.current;
+                // Persist joins only when present (absence = single-table view,
+                // fully backward compatible). `visiblePropertiesToPersist`
+                // switches between plain strings (single-table) and the
+                // composite `{tableId, fieldKey}` form (multi-table).
+                const joinsToPersist = isMultiTable ? joins : undefined;
                 const viewBody = {
                     ...(editingView || {}),
-                    id: existingId,
                     table_id: sourceTableId,
                     name: (viewName || editingView?.name || 'Vista').trim(),
                     type: viewType,
@@ -1341,11 +1557,21 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                     filterTree: filterTreeBody,
                     sort: sortConfig,
                     sorts: cleanSorts,
-                    visibleProperties,
+                    visibleProperties: visiblePropertiesToPersist,
                     resultSnapshot,
                     resultSnapshotLimit,
                     ...buildViewExtras(),
                 };
+                if (existingId) {
+                    viewBody.id = existingId;
+                }
+                if (joinsToPersist) {
+                    viewBody.joins = joinsToPersist;
+                } else {
+                    // Explicitly clear joins when the view is single-table, so a
+                    // view that was previously multi-table is cleaned up.
+                    delete viewBody.joins;
+                }
                 let saved;
                 if (existingId) {
                     saved = await apiFetch(`/api/vault/views/${encodeURIComponent(existingId)}`, {
@@ -1404,7 +1630,8 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                     type: viewType,
                     filterTree: cleanTree,
                     sorts: cleanSorts,
-                    visibleProperties,
+                    visibleProperties: visiblePropertiesToPersist,
+                    joins: isMultiTable ? joins : undefined,
                     resultSnapshot,
                     resultSnapshotLimit,
                     // Options by type (gallery: cardSize/galleryPreview; board:
@@ -1422,6 +1649,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                     filterTree: sanitizeFilterTree(treeFromSource(original || {})),
                     sorts: original?.sorts || (original?.sort ? [original.sort] : []),
                     visibleProperties: original?.visibleProperties || ['title'],
+                    joins: original?.joins || undefined,
                     resultSnapshot: original?.resultSnapshot !== false,
                     resultSnapshotLimit: Number.isFinite(Number(original?.resultSnapshotLimit)) ? Number(original.resultSnapshotLimit) : 500,
                     ...buildViewExtras(original || {}),
@@ -1436,12 +1664,13 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                         ...(original || {}),
                         id: selectedExistingViewId,
                         table_id: sourceTableId,
+                        ...(isMultiTable ? { joins } : {}),
                         type: viewType,
                         filters: cleanFilters,
                         filterTree: filterTreeBody,
                         sort: sortConfig,
                         sorts: cleanSorts,
-                        visibleProperties,
+                        visibleProperties: visiblePropertiesToPersist,
                         resultSnapshot,
                         resultSnapshotLimit,
                         ...buildViewExtras(),
@@ -1463,7 +1692,8 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                     filterTree: filterTreeBody,
                     sort: sortConfig,
                     sorts: cleanSorts,
-                    visibleProperties,
+                    visibleProperties: visiblePropertiesToPersist,
+                    ...(isMultiTable ? { joins } : {}),
                     resultSnapshot,
                     resultSnapshotLimit,
                     ...buildViewExtras(),
@@ -1495,11 +1725,12 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 filterTree: filterTreeBody,
                 sort: sortConfig,
                 sorts: cleanSorts,
-                visible_properties: visibleProperties,
+                visible_properties: visiblePropertiesToPersist,
                 view_type: viewType,
+                ...(isMultiTable ? { joins } : {}),
                 ...buildViewExtras(),
                 // Legacy: kept for sync_sections which still reads `columns`
-                columns: visibleProperties,
+                columns: visiblePropertiesToPersist,
             };
 
             // apiFetch returns PARSED JSON and throws on non-2xx, so there is no
@@ -1660,6 +1891,176 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                 </div>
                             )}
 
+                            {/* Multi-table joins. Visible in both modes (the base
+                                table is fixed in table mode but joins are still
+                                configurable). Each join chains a new table onto
+                                the previous one via a pair of fields. */}
+                            {sourceTableId && (
+                                <div>
+                                    <div className="flex items-center justify-between mb-1">
+                                        <label className="block text-xs font-semibold text-[var(--text-secondary)]">
+                                            {t('view.joins_section', "Tables and joins")}
+                                        </label>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                // Pick the first table not already in the chain.
+                                                const used = new Set([sourceTableId, ...joins.map(j => j.tableId)]);
+                                                const next = allTables.find(t => !used.has(t.id));
+                                                if (!next) return;
+                                                const prevTableId = joins.length ? joins[joins.length - 1].tableId : sourceTableId;
+                                                const prevFields = fieldsForTable(prevTableId);
+                                                const nextFields = fieldsForTable(next.id);
+                                                setJoins(prev => [...prev, {
+                                                    tableId: next.id,
+                                                    type: 'inner',
+                                                    leftField: prevFields[0]?.name || 'title',
+                                                    rightField: nextFields[0]?.name || 'title',
+                                                }]);
+                                            }}
+                                            className="btn btn-secondary flex items-center gap-1 text-xs"
+                                        >
+                                            <Plus size={12} />
+                                            {t('view.add_join', "Add table (join)")}
+                                        </button>
+                                    </div>
+                                    {joins.length === 0 ? (
+                                        <p className="text-xs text-[var(--text-tertiary)] italic">
+                                            {t('view.joins_empty', "Only the base table. Add a join to combine fields from multiple tables.")}
+                                        </p>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {joins.map((j, idx) => {
+                                                // The "left" side is the table explicitly selected, or the last table in the chain
+                                                // (base if no previous join).
+                                                const defaultLeftTableId = idx === 0 ? sourceTableId : joins[idx - 1].tableId;
+                                                const leftTableId = j.leftTableId || defaultLeftTableId;
+                                                const leftFields = fieldsForTable(leftTableId);
+                                                const rightFields = fieldsForTable(j.tableId);
+                                                
+                                                // Available tables for the left side are the source table and any previously joined tables
+                                                const availableLeftTables = [
+                                                    allTables.find(t => t.id === sourceTableId),
+                                                    ...joins.slice(0, idx).map(jj => allTables.find(t => t.id === jj.tableId))
+                                                ].filter(Boolean);
+                                                
+                                                const usedIds = new Set([sourceTableId, ...joins.map((jj, i) => i === idx ? '' : jj.tableId)]);
+                                                return (
+                                                    <div key={idx} className="rounded-lg border border-[var(--border-primary)] p-3 space-y-3 bg-[var(--bg-secondary)]">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] flex-1">
+                                                                {t('view.join_target_table', "Join table")} {idx + 1}
+                                                            </span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setJoins(prev => prev.filter((_, i) => i !== idx));
+                                                                }}
+                                                                className="text-[var(--text-tertiary)] hover:text-red-500 p-1"
+                                                                title={t('view.remove_join', "Remove join")}
+                                                            >
+                                                                <Trash2 size={13} />
+                                                            </button>
+                                                        </div>
+                                                        
+                                                        <div className="grid grid-cols-2 gap-4">
+                                                            {/* Esquerra */}
+                                                            <div className="space-y-2 border-r border-[var(--border-primary)] pr-4">
+                                                                <div>
+                                                                    <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1">
+                                                                        {t('view.join_left_table', "Left table")}
+                                                                    </label>
+                                                                    <select
+                                                                        className="w-full text-xs border border-[var(--border-primary)] rounded-lg px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                                                        value={leftTableId}
+                                                                        onChange={e => {
+                                                                            const newId = e.target.value;
+                                                                            const nf = fieldsForTable(newId);
+                                                                            setJoins(prev => prev.map((jj, i) => i === idx ? { ...jj, leftTableId: newId, leftField: nf[0]?.name || 'title' } : jj));
+                                                                        }}
+                                                                    >
+                                                                        {availableLeftTables.slice().sort((a,b) => a.name.localeCompare(b.name)).map(tbl => (
+                                                                            <option key={tbl.id} value={tbl.id}>{tbl.name}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                </div>
+                                                                <div>
+                                                                    <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1">
+                                                                        {t('view.join_left_field', "Left field")}
+                                                                    </label>
+                                                                    <select
+                                                                        className="w-full text-xs border border-[var(--border-primary)] rounded-lg px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                                                        value={j.leftField}
+                                                                        onChange={e => setJoins(prev => prev.map((jj, i) => i === idx ? { ...jj, leftField: e.target.value } : jj))}
+                                                                    >
+                                                                        {leftFields.slice().sort((a,b) => (a.label || a.name).localeCompare(b.label || b.name)).map(f => (
+                                                                            <option key={f.name} value={f.name}>{f.label || f.name}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                </div>
+                                                            </div>
+                                                            
+                                                            {/* Dreta */}
+                                                            <div className="space-y-2">
+                                                                <div>
+                                                                    <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1">
+                                                                        {t('view.join_right_table', "Right table")}
+                                                                    </label>
+                                                                    <select
+                                                                        className="w-full text-xs border border-[var(--border-primary)] rounded-lg px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                                                        value={j.tableId}
+                                                                        onChange={e => {
+                                                                            const newId = e.target.value;
+                                                                            const nf = fieldsForTable(newId);
+                                                                            setJoins(prev => prev.map((jj, i) => i === idx ? { ...jj, tableId: newId, rightField: nf[0]?.name || 'title' } : jj));
+                                                                        }}
+                                                                    >
+                                                                        {allTables.slice().sort((a,b) => a.name.localeCompare(b.name)).map(tbl => (
+                                                                            <option key={tbl.id} value={tbl.id} disabled={usedIds.has(tbl.id)}>
+                                                                                {tbl.name}
+                                                                            </option>
+                                                                        ))}
+                                                                    </select>
+                                                                </div>
+                                                                <div>
+                                                                    <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1">
+                                                                        {t('view.join_right_field', "Right field")}
+                                                                    </label>
+                                                                    <select
+                                                                        className="w-full text-xs border border-[var(--border-primary)] rounded-lg px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                                                        value={j.rightField}
+                                                                        onChange={e => setJoins(prev => prev.map((jj, i) => i === idx ? { ...jj, rightField: e.target.value } : jj))}
+                                                                    >
+                                                                        {rightFields.slice().sort((a,b) => (a.label || a.name).localeCompare(b.label || b.name)).map(f => (
+                                                                            <option key={f.name} value={f.name}>{f.label || f.name}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="pt-2 mt-2 border-t border-[var(--border-primary)]">
+                                                            <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1">
+                                                                {t('view.join_type', "Join type")}
+                                                            </label>
+                                                            <select
+                                                                className="w-full text-xs border border-[var(--border-primary)] rounded-lg px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                                                value={j.type}
+                                                                onChange={e => setJoins(prev => prev.map((jj, i) => i === idx ? { ...jj, type: e.target.value } : jj))}
+                                                            >
+                                                                <option value="inner">{t('view.join_inner', "Inner (intersection)")}</option>
+                                                                <option value="left">{t('view.join_left_type', "Left (keep all from left)")}</option>
+                                                                <option value="right">{t('view.join_right_type', "Right (keep all from right)")}</option>
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
                             <div>
                                 <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-2">{t('view.type_label', "View type")}</label>
                                 <div className="grid grid-cols-4 gap-2">
@@ -1805,7 +2206,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                 >
                                                     <option value="">{t('view.date_auto', "Automatic (first date field)")}</option>
                                                     {dateFieldOptions.map(f => (
-                                                        <option key={f.name} value={f.name}>{fieldLabel(f.name)}</option>
+                                                        <option key={f.name} value={f.name}>{f.displayName || fieldLabel(f.name)}</option>
                                                     ))}
                                                 </select>
                                             </div>
@@ -1837,7 +2238,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                         >
                                                             <option value="">{t('view.end_none', "None (one-day duration)")}</option>
                                                             {dateFieldOptions.map(f => (
-                                                                <option key={f.name} value={f.name}>{fieldLabel(f.name)}</option>
+                                                                <option key={f.name} value={f.name}>{f.displayName || fieldLabel(f.name)}</option>
                                                             ))}
                                                         </select>
                                                     </div>
@@ -1853,7 +2254,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                     >
                                                         <option value="">{t('view.color_single', "Single color (default)")}</option>
                                                         {groupFieldOptions.map(f => (
-                                                            <option key={f.name} value={f.name}>{fieldLabel(f.name)}</option>
+                                                            <option key={f.name} value={f.name}>{f.displayName || fieldLabel(f.name)}</option>
                                                         ))}
                                                     </select>
                                                     <p className="mt-1 text-[10px] text-[var(--text-tertiary)]">{t('view.color_hint', "Colors each bar by this field's value (uses its options' colors).")}</p>
@@ -1897,7 +2298,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                 >
                                                     <option value="">{t('view.pick_field', "— Pick a field —")}</option>
                                                     {sortedTableFields.map(f => (
-                                                        <option key={f.name} value={f.name}>{fieldLabel(f.name)}</option>
+                                                        <option key={f.name} value={f.name}>{f.displayName || fieldLabel(f.name)}</option>
                                                     ))}
                                                 </select>
                                             </div>
@@ -1925,7 +2326,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                     >
                                                         <option value="">{t('view.pick_numeric', "— Pick a numeric field —")}</option>
                                                         {numericFieldOptions.map(f => (
-                                                            <option key={f.name} value={f.name}>{fieldLabel(f.name)}</option>
+                                                            <option key={f.name} value={f.name}>{f.displayName || fieldLabel(f.name)}</option>
                                                         ))}
                                                     </select>
                                                     {numericFieldOptions.length === 0 && (
@@ -2156,67 +2557,96 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                             ) : (
                                 <div className="space-y-3 max-h-[44vh] overflow-y-auto">
                                     {(() => {
-                                        const selected = visibleProperties
-                                            .map(n => fieldMeta[n])
-                                            .filter(Boolean);
-                                        const available = sortedTableFields
-                                            .filter(f => !visibleProperties.includes(f.name));
+                                        // Normalize visible entries to composite form so the
+                                        // picker works uniformly across single/multi-table.
+                                        const norm = normalizeColumns(visibleProperties);
+                                        const selectedKeys = new Set(norm.map(colKey));
+                                        const isSelected = (tid, name) =>
+                                            selectedKeys.has(`${tid || sourceTableId}::${name}`);
+                                        // Build the meta lookup per involved table.
+                                        const metaFor = (tid) => {
+                                            const fields = fieldsForTable(tid);
+                                            const m = {};
+                                            fields.forEach(f => { m[f.name] = f; });
+                                            return m;
+                                        };
                                         return (
                                             <>
                                                 <div>
                                                     <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1 px-2">
                                                         {t('view.visible_columns', "Visible columns (order)")}
                                                     </p>
-                                                    {selected.length === 0 ? (
+                                                    {norm.length === 0 ? (
                                                         <p className="text-xs text-[var(--text-tertiary)] italic px-2 py-1">{t('view.no_columns', "No columns. Pick one below.")}</p>
                                                     ) : (
                                                         <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleColumnDragEnd}>
-                                                            <SortableContext items={selected.map(f => f.name)} strategy={verticalListSortingStrategy}>
-                                                                {selected.map(f => (
-                                                                    <SortableRow
-                                                                        key={f.name}
-                                                                        id={f.name}
-                                                                        className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[var(--bg-tertiary)]"
-                                                                    >
-                                                                        <span className="text-sm text-[var(--text-primary)] flex-1">{fieldLabel(f.name)}</span>
-                                                                        <span className="text-[10px] text-[var(--text-tertiary)] uppercase">{f.type || ''}</span>
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => toggleProperty(f.name)}
-                                                                            disabled={f.name === 'title'}
-                                                                            className="text-[var(--text-tertiary)] hover:text-red-500 p-1 disabled:opacity-25 disabled:hover:text-[var(--text-tertiary)] disabled:cursor-not-allowed"
-                                                                            title={f.name === 'title' ? t('view.title_always_visible', "The title is always visible") : t('view.remove', "Remove")}
+                                                            <SortableContext items={norm.map(colKey)} strategy={verticalListSortingStrategy}>
+                                                                {norm.map(c => {
+                                                                    const tid = c.tableId || sourceTableId;
+                                                                    const m = metaFor(tid);
+                                                                    const f = m[c.fieldKey] || { name: c.fieldKey, type: '' };
+                                                                    const isJoin = tid !== sourceTableId;
+                                                                    const tableName = allTables.find(t => t.id === tid)?.name;
+                                                                    return (
+                                                                        <SortableRow
+                                                                            key={colKey(c)}
+                                                                            id={colKey(c)}
+                                                                            className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[var(--bg-tertiary)]"
                                                                         >
-                                                                            <Trash2 size={13} />
-                                                                        </button>
-                                                                    </SortableRow>
-                                                                ))}
+                                                                            <span className="text-sm text-[var(--text-primary)] flex-1">
+                                                                                {isJoin && tableName ? (
+                                                                                    <span className="text-[10px] text-[var(--text-tertiary)] mr-1">{tableName} ·</span>
+                                                                                ) : null}
+                                                                                {f.displayName || fieldLabel(f.name)}
+                                                                            </span>
+                                                                            <span className="text-[10px] text-[var(--text-tertiary)] uppercase">{f.type || ''}</span>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => toggleProperty(tid, f.name)}
+                                                                                disabled={!isJoin && f.name === 'title'}
+                                                                                className="text-[var(--text-tertiary)] hover:text-red-500 p-1 disabled:opacity-25 disabled:hover:text-[var(--text-tertiary)] disabled:cursor-not-allowed"
+                                                                                title={!isJoin && f.name === 'title' ? t('view.title_always_visible', "The title is always visible") : t('view.remove', "Remove")}
+                                                                            >
+                                                                                <Trash2 size={13} />
+                                                                            </button>
+                                                                        </SortableRow>
+                                                                    );
+                                                                })}
                                                             </SortableContext>
                                                         </DndContext>
                                                     )}
                                                 </div>
-                                                {available.length > 0 && (
-                                                    <div>
-                                                        <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1 px-2">
-                                                            {t('view.available', "Available")}
-                                                        </p>
-                                                        {available.map(f => (
-                                                            <label
-                                                                key={f.name}
-                                                                className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[var(--bg-tertiary)] cursor-pointer"
-                                                            >
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={false}
-                                                                    onChange={() => toggleProperty(f.name)}
-                                                                    className="rounded border-[var(--border-primary)]"
-                                                                />
-                                                                <span className="text-sm text-[var(--text-primary)] flex-1">{fieldLabel(f.name)}</span>
-                                                                <span className="text-[10px] text-[var(--text-tertiary)] uppercase">{f.type || ''}</span>
-                                                            </label>
-                                                        ))}
-                                                    </div>
-                                                )}
+                                                {/* Available fields, grouped by table. In single-table views
+                                                    this renders a single group identical to the previous UI. */}
+                                                {viewTables.map(tbl => {
+                                                    const fields = fieldsForTable(tbl.id);
+                                                    const available = fields.filter(f => !isSelected(tbl.id, f.name));
+                                                    if (available.length === 0) return null;
+                                                    return (
+                                                        <div key={tbl.id}>
+                                                            <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1 px-2">
+                                                                {isMultiTable
+                                                                    ? t('view.fields_for_table', { table: tbl.name, defaultValue: "{{table}}" })
+                                                                    : t('view.available', "Available")}
+                                                            </p>
+                                                            {available.map(f => (
+                                                                <label
+                                                                    key={`${tbl.id}-${f.name}`}
+                                                                    className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[var(--bg-tertiary)] cursor-pointer"
+                                                                >
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={false}
+                                                                        onChange={() => toggleProperty(tbl.id, f.name)}
+                                                                        className="rounded border-[var(--border-primary)]"
+                                                                    />
+                                                                    <span className="text-sm text-[var(--text-primary)] flex-1">{f.displayName || fieldLabel(f.name)}</span>
+                                                                    <span className="text-[10px] text-[var(--text-tertiary)] uppercase">{f.type || ''}</span>
+                                                                </label>
+                                                            ))}
+                                                        </div>
+                                                    );
+                                                })}
                                             </>
                                         );
                                     })()}
@@ -2281,7 +2711,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                         onChange={e => updateSort(idx, { field: e.target.value })}
                                                     >
                                                         {sortedTableFields.map(tf => (
-                                                            <option key={tf.name} value={tf.name}>{fieldLabel(tf.name)}</option>
+                                                            <option key={tf.name} value={tf.name}>{tf.displayName || fieldLabel(tf.name)}</option>
                                                         ))}
                                                     </select>
                                                     <select

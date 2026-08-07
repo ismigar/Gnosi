@@ -507,12 +507,12 @@ const ASSIGNMENT_DATETIME_TYPES = ['datetime'];
  */
 function AssignmentValueControl({ value, onChange, fieldMeta, custom, onCustomChange }) {
     const { t } = useTranslation();
-    const cls = 'w-1/2 text-xs border border-[var(--border-primary)] rounded p-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none';
+    const cls = 'w-full text-xs border border-[var(--border-primary)] rounded p-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none';
 
     // Free-text (formula) mode always wins when enabled.
     if (custom) {
         return (
-            <div className="flex items-center gap-1 w-1/2">
+            <div className="flex items-center gap-1 w-full">
                 <input
                     type="text"
                     value={value || ''}
@@ -535,34 +535,38 @@ function AssignmentValueControl({ value, onChange, fieldMeta, custom, onCustomCh
     const ftype = fieldMeta?.type;
     const optionNames = normalizeOptions(fieldMeta?.options).map((o) => o.name);
 
-    if ((ftype === 'select' || ftype === 'status') && optionNames.length > 0) {
-        return (
-            <select
-                value={String(value || '')}
-                onChange={(e) => onChange(e.target.value)}
-                className={cls}
-            >
-                <option value="">{t('schema.button_value_pick', "Pick…")}</option>
-                {optionNames.map((name) => <option key={name} value={name}>{name}</option>)}
-            </select>
-        );
+    if (ftype === 'select' || ftype === 'status') {
+        if (optionNames.length > 0) {
+            return (
+                <select
+                    value={String(value || '')}
+                    onChange={(e) => onChange(e.target.value)}
+                    className={cls}
+                >
+                    <option value="">{t('schema.button_value_pick', "Pick…")}</option>
+                    {optionNames.map((name) => <option key={name} value={name}>{name}</option>)}
+                </select>
+            );
+        }
     }
 
-    if (ftype === 'multi_select' && optionNames.length > 0) {
-        const selected = Array.isArray(value)
-            ? value.map(String)
-            : (value ? [String(value)] : []);
-        return (
-            <select
-                multiple
-                className={`${cls} h-20 w-1/2`}
-                value={selected}
-                onChange={(e) => onChange(Array.from(e.target.selectedOptions, (o) => o.value))}
-                aria-label={t('schema.button_value_pick', "Pick…")}
-            >
-                {optionNames.map((name) => <option key={name} value={name}>{name}</option>)}
-            </select>
-        );
+    if (ftype === 'multi_select') {
+        if (optionNames.length > 0) {
+            const selected = Array.isArray(value)
+                ? value.map(String)
+                : (value ? [String(value)] : []);
+            return (
+                <select
+                    multiple
+                    className={`${cls} h-20`}
+                    value={selected}
+                    onChange={(e) => onChange(Array.from(e.target.selectedOptions, (o) => o.value))}
+                    aria-label={t('schema.button_value_pick', "Pick…")}
+                >
+                    {optionNames.map((name) => <option key={name} value={name}>{name}</option>)}
+                </select>
+            );
+        }
     }
 
     if (ftype === 'checkbox') {
@@ -595,24 +599,68 @@ function AssignmentValueControl({ value, onChange, fieldMeta, custom, onCustomCh
     }
 
     if (ASSIGNMENT_DATETIME_TYPES.includes(ftype)) {
+        const isFormula = typeof value === 'string' && (value.includes('(') || value.includes('{'));
+        if (isFormula) {
+            return (
+                <input
+                    type="text"
+                    value={value || ''}
+                    onChange={(e) => onChange(e.target.value)}
+                    placeholder="now()"
+                    className={cls}
+                />
+            );
+        }
         return (
-            <input
-                type="datetime-local"
-                value={value || ''}
-                onChange={(e) => onChange(e.target.value)}
-                className={cls}
-            />
+            <div className="flex items-center gap-1 w-full">
+                <input
+                    type="datetime-local"
+                    value={value || ''}
+                    onChange={(e) => onChange(e.target.value)}
+                    className={cls}
+                />
+                <button
+                    type="button"
+                    onClick={() => onChange('now()')}
+                    title="now()"
+                    className="shrink-0 px-1.5 py-1 text-[10px] rounded border border-[var(--border-primary)] text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/10"
+                >
+                    now()
+                </button>
+            </div>
         );
     }
 
     if (ASSIGNMENT_DATE_TYPES.includes(ftype)) {
+        const isFormula = typeof value === 'string' && (value.includes('(') || value.includes('{'));
+        if (isFormula) {
+            return (
+                <input
+                    type="text"
+                    value={value || ''}
+                    onChange={(e) => onChange(e.target.value)}
+                    placeholder="today()"
+                    className={cls}
+                />
+            );
+        }
         return (
-            <input
-                type="date"
-                value={value || ''}
-                onChange={(e) => onChange(e.target.value)}
-                className={cls}
-            />
+            <div className="flex items-center gap-1 w-full">
+                <input
+                    type="date"
+                    value={value || ''}
+                    onChange={(e) => onChange(e.target.value)}
+                    className={cls}
+                />
+                <button
+                    type="button"
+                    onClick={() => onChange('today()')}
+                    title="today()"
+                    className="shrink-0 px-1.5 py-1 text-[10px] rounded border border-[var(--border-primary)] text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/10"
+                >
+                    today()
+                </button>
+            </div>
         );
     }
 

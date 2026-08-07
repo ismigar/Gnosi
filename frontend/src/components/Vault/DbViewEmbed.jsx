@@ -637,6 +637,113 @@ function _byTableSet(tableId, value) {
     _byTableCache.set(tableId, { ts: Date.now(), value });
 }
 
+// --- Multi-table joins (client-side mirror of backend `apply_joins`) -------
+// Replicates the backend join so an embedded view can render columns from
+// joined tables without a round-trip per render. `loadTable(tid)` must return
+// the non-template rows of `tid` (same shape as `/pages/by-table/{tid}`).
+// Each join combines the accumulated rows with the join table on
+// `leftRow[leftField] == rightRow[rightField]`. Supported types: inner/left/right.
+function _indexByField(rows, field) {
+    const idx = new Map();
+    for (const r of rows) {
+        const meta = r.metadata || {};
+        let val;
+        if (field === 'id') val = r.id;
+        else if (field === 'title') val = r.title || meta.title || meta.Nom || meta.Títol || meta.Name || meta.Título;
+        else val = meta[field];
+        if (val === null || val === undefined || val === '') continue;
+        const keys = Array.isArray(val) ? val.map(v => String(v)).filter(v => v) : [String(val)];
+        for (const k of keys) {
+            if (!idx.has(k)) idx.set(k, []);
+            idx.get(k).push(r);
+        }
+    }
+    return idx;
+}
+async function applyClientJoins(baseRows, joins, loadTable) {
+    if (!Array.isArray(joins) || joins.length === 0) return baseRows;
+    let acc = baseRows.map(r => ({ ...r, metadata: { ...(r.metadata || {}) } }));
+    for (const join of joins) {
+        const tid = join && join.tableId;
+        const lf = join && join.leftField;
+        const rf = join && join.rightField;
+        const type = String((join && join.type) || 'inner').toLowerCase();
+        if (!tid || !lf || !rf) continue;
+        const right = await loadTable(tid);
+        const ridx = _indexByField(right, rf);
+        const next = [];
+        if (type === 'right') {
+            const matched = new Set();
+            for (const a of acc) {
+                const meta = a.metadata || {};
+                let lv;
+                if (lf === 'id') lv = a.id;
+                else if (lf === 'title') lv = a.title || meta.title || meta.Nom || meta.Títol || meta.Name || meta.Título;
+                else lv = meta[lf];
+                const keys = Array.isArray(lv) ? lv.map(v => String(v)).filter(v => v) : (lv !== '' && lv != null ? [String(lv)] : []);
+                for (const k of keys) {
+                    for (const rr of (ridx.get(k) || [])) {
+                        matched.add(String(rr.id));
+                        const merged = { ...a, metadata: { ...meta } };
+                        for (const [fk, fv] of Object.entries(rr.metadata || {})) {
+                            if (!(fk in merged.metadata)) merged.metadata[fk] = fv;
+                        }
+                        merged.metadata[`_join:${tid}`] = [rr.metadata || {}];
+                        next.push(merged);
+                    }
+                }
+            }
+            for (const rr of right) {
+                if (matched.has(String(rr.id))) continue;
+                next.push({ id: rr.id, title: rr.title, metadata: { [`_join:${tid}`]: [rr.metadata || {}] } });
+            }
+            acc = next;
+            continue;
+        }
+        for (const a of acc) {
+            const meta = a.metadata || {};
+            let lv;
+            if (lf === 'id') lv = a.id;
+            else if (lf === 'title') lv = a.title || meta.title || meta.Nom || meta.Títol || meta.Name || meta.Título;
+            else lv = meta[lf];
+            const keys = Array.isArray(lv) ? lv.map(v => String(v)).filter(v => v) : (lv !== '' && lv != null ? [String(lv)] : []);
+            const matches = [];
+            for (const k of keys) matches.push(...(ridx.get(k) || []));
+            if (matches.length === 0) {
+                if (type === 'left') {
+                    next.push({ ...a, metadata: { ...meta, [`_join:${tid}`]: [] } });
+                }
+                continue;
+            }
+            for (const rr of matches) {
+                const merged = { ...a, metadata: { ...meta } };
+                for (const [fk, fv] of Object.entries(rr.metadata || {})) {
+                    if (!(fk in merged.metadata)) merged.metadata[fk] = fv;
+                }
+                merged.metadata[`_join:${tid}`] = [rr.metadata || {}];
+                next.push(merged);
+            }
+        }
+        acc = next;
+    }
+    return acc;
+}
+
+// Normalizes `visibleProperties` (strings or `{tableId, fieldKey, label}`) into
+// the composite form, treating strings as fields of the base table.
+function normalizeVisibleColumns(cols, baseTableId) {
+    if (!Array.isArray(cols) || cols.length === 0) {
+        return [{ tableId: baseTableId, fieldKey: 'title' }];
+    }
+    return cols.map(c => {
+        if (typeof c === 'string') return { tableId: baseTableId, fieldKey: c };
+        if (c && typeof c === 'object' && c.fieldKey) {
+            return { tableId: c.tableId || baseTableId, fieldKey: c.fieldKey, label: c.label };
+        }
+        return null;
+    }).filter(Boolean);
+}
+
 /* -------------------------------------------------------------------------- */
 /*  Graph (force)                                                             */
 /* -------------------------------------------------------------------------- */
@@ -1091,7 +1198,30 @@ export function DbViewEmbed({ block }) {
                 // records to display. Templates never appear in the body
                 // of the view, even if they pass the filters.
                 const tpls = all.filter(p => p.metadata?.is_template === true);
-                const records = all.filter(p => !p.metadata?.is_template);
+                let records = all.filter(p => !p.metadata?.is_template);
+
+                // Multi-table: if the view (or the section) defines joins,
+                // expand the base rows with the joined tables' columns. The
+                // joined metadata is exposed both unqualified (so filters/sort
+                // on the base view keep working) and under `_join:{tableId}` for
+                // the joined columns.
+                const viewJoins = Array.isArray(section.joins) ? section.joins : null;
+                if (viewJoins && viewJoins.length > 0) {
+                    const loadJoined = async (tid) => {
+                        let rows = _byTableGet(tid);
+                        if (!rows) {
+                            const jr = await axios.get(`/api/vault/pages/by-table/${encodeURIComponent(tid)}`);
+                            rows = Array.isArray(jr.data) ? jr.data : [];
+                            _byTableSet(tid, rows);
+                        }
+                        return rows.filter(p => !p.metadata?.is_template);
+                    };
+                    try {
+                        records = await applyClientJoins(records, viewJoins, loadJoined);
+                    } catch (e) {
+                        console.warn('applyClientJoins failed', e);
+                    }
+                }
 
                 // The table's views (for the tabs and for the cardSize/
                 // galleryPreview from which embeddedView derives). They usually come from
@@ -1126,8 +1256,11 @@ export function DbViewEmbed({ block }) {
                     }
                     if (Array.isArray(anchorReg?.tabs)) pinned = [...pinned, ...anchorReg.tabs.map(String)];
                     setPinnedViewIds(new Set(pinned));
-                    // We guarantee the section's view is always there.
-                    const tv = registryViews.filter(v => String(v.table_id) === String(tableId));
+                    // We guarantee the section's view is always there. A view
+                    // belongs to the table if it is its base OR if it joins it.
+                    const involves = (v) => String(v.table_id) === String(tableId)
+                        || (Array.isArray(v.joins) && v.joins.some(j => String(j && j.tableId) === String(tableId)));
+                    const tv = registryViews.filter(involves);
                     const sectionAsView = {
                         id: section.view_id,
                         name: section.heading || t('views_header.default_view_name', "View"),
@@ -1201,6 +1334,20 @@ export function DbViewEmbed({ block }) {
     const columns = useMemo(
         () => effectiveView?.visibleProperties || effectiveView?.visible_properties || effectiveView?.columns || ['title'],
         [effectiveView],
+    );
+    // Normalize to composite form so we know which table each column belongs to
+    // (for joined columns and header disambiguation). `columnSpec` parallels the
+    // raw `columns` array (1:1, same order). Renderers still receive `columns`
+    // as plain field keys for backward compatibility; joined values are already
+    // merged into each row's metadata by `applyClientJoins`, so `metadata[key]`
+    // resolves transparently for non-colliding field names.
+    const columnSpec = useMemo(
+        () => normalizeVisibleColumns(columns, tableId),
+        [columns, tableId],
+    );
+    const columnsAsKeys = useMemo(
+        () => columnSpec.map(c => c.fieldKey),
+        [columnSpec],
     );
     const rawType = String(effectiveView?.view_type || effectiveView?.type || 'table').toLowerCase();
     const viewType = rawType === 'db_view' ? 'table' : rawType;
@@ -1383,7 +1530,8 @@ export function DbViewEmbed({ block }) {
         try {
             const res = await axios.get('/api/vault/views');
             const all = Array.isArray(res.data) ? res.data : (res.data?.views || []);
-            setTableViews(all.filter(v => String(v.table_id) === String(tableId)));
+            setTableViews(all.filter(v => String(v.table_id) === String(tableId)
+                || (Array.isArray(v.joins) && v.joins.some(j => String(j && j.tableId) === String(tableId)))));
         } catch { /* keep the current state */ }
     }, [tableId]);
 
@@ -1527,10 +1675,23 @@ export function DbViewEmbed({ block }) {
     // DEFINED BEFORE the early returns (loading/error) so as not to violate the
     // Rules of Hooks. The table and schema come from the context's registry.
     const table = (ctx.registry?.tables || ctx.allTables || []).find(t => String(t.id) === String(tableId)) || null;
-    const embeddedSchema = useMemo(
-        () => buildSchemaFromTableProperties(table?.properties || []),
-        [table],
-    );
+    const embeddedSchema = useMemo(() => {
+        const props = [...(table?.properties || [])];
+        if (effectiveView?.joins && Array.isArray(effectiveView.joins)) {
+            const allTbls = ctx.registry?.tables || ctx.allTables || [];
+            effectiveView.joins.forEach(j => {
+                const jt = allTbls.find(t => String(t.id) === String(j.tableId));
+                if (jt && jt.properties) {
+                    jt.properties.forEach(p => {
+                        if (!props.some(x => x.name === p.name)) {
+                            props.push(p);
+                        }
+                    });
+                }
+            });
+        }
+        return buildSchemaFromTableProperties(props);
+    }, [table, effectiveView?.joins, ctx.registry?.tables, ctx.allTables]);
     // The embedded section → the "view" model that VaultTable expects. The filters
     // (including `this` → pageId) and sorting are ALREADY applied to `rows`, so
     // we don't pass them again as filters (VaultTable doesn't know how to resolve `this`);
@@ -1542,7 +1703,7 @@ export function DbViewEmbed({ block }) {
         type: viewType === 'list' ? 'list' : 'table',
         filters: [],
         sort: (effectiveView?.sorts && effectiveView.sorts.length) ? effectiveView.sorts : (effectiveView?.sort ? [effectiveView.sort] : []),
-        visibleProperties: columns,
+        visibleProperties: columnsAsKeys,
         // Reflects the real signal: if the active tab is the MAIN view,
         // the table shows the entire live schema; otherwise, it respects visibleProperties.
         is_main: !!(effectiveView?.is_main || effectiveView?.is_default),
@@ -1597,7 +1758,7 @@ export function DbViewEmbed({ block }) {
         );
     }
 
-    const commonProps = { rows, columns, view, onOpenPage, onCreate: tableId ? handleCreate : null, blockId: block?.id };
+    const commonProps = { rows, columns: columnsAsKeys, view, onOpenPage, onCreate: tableId ? handleCreate : null, blockId: block?.id };
 
     // Shared callback adapters for ALL real view components
     // (table/list/kanban/gallery/timeline/feed/calendar).
@@ -1630,6 +1791,14 @@ export function DbViewEmbed({ block }) {
     const onUpdateViewAdapter = async (nextView) => {
         if (!pageId) return;
         const sorts = Array.isArray(nextView?.sort) ? nextView.sort : (nextView?.sort ? [nextView.sort] : []);
+        // Map updated string columns back to composite objects if the original view used them
+        let newVisible = nextView?.visibleProperties;
+        if (newVisible && Array.isArray(columns) && columns.some(c => typeof c === 'object')) {
+            newVisible = newVisible.map(k => columnSpec.find(c => c.fieldKey === k) || { tableId, fieldKey: k });
+        } else if (!newVisible) {
+            newVisible = columns;
+        }
+        
         // `columnWidths` is sent by VaultTable when resizing a column: without
         // persist it, the widths would revert on every reload (the
         // main view does save them via VaultDashboard).
@@ -1637,7 +1806,7 @@ export function DbViewEmbed({ block }) {
         if (isSection || !activeViewId) {
             // The active tab is the block's section → patch to the section.
             const next = await patchSectionConfig(pageId, view, {
-                visible_properties: nextView?.visibleProperties || columns,
+                visible_properties: newVisible,
                 sorts,
                 sort: sorts[0] || null,
                 group_by: nextView?.group_by ?? view?.group_by,
@@ -1650,7 +1819,7 @@ export function DbViewEmbed({ block }) {
             try {
                 await axios.put(`/api/vault/views/${encodeURIComponent(activeViewId)}`, {
                     ...current,
-                    visibleProperties: nextView?.visibleProperties || columns,
+                    visibleProperties: newVisible,
                     sorts,
                     sort: sorts[0] || null,
                     ...(nextView?.group_by !== undefined ? { group_by: nextView.group_by } : {}),
