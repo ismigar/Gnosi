@@ -968,9 +968,18 @@ export const VaultSidebar = ({
     const viewsByTable = useMemo(() => {
         const mapping = {};
         (views || []).forEach((view) => {
-            const tableId = view.table_id;
-            if (!mapping[tableId]) mapping[tableId] = [];
-            mapping[tableId].push(view);
+            // A view belongs to its base table AND to every table it joins
+            // (multi-table views). This way the view appears in the list of
+            // each involved table, matching the backend's `/views?table_id=`.
+            const ids = new Set([
+                view.table_id,
+                ...((Array.isArray(view.joins) ? view.joins : [])
+                    .map(j => j && j.tableId).filter(Boolean)),
+            ].filter(Boolean));
+            ids.forEach(tableId => {
+                if (!mapping[tableId]) mapping[tableId] = [];
+                mapping[tableId].push(view);
+            });
         });
         return mapping;
     }, [views]);
