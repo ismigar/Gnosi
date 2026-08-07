@@ -1496,21 +1496,21 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
     }, [getMetadataValueByNormalizedKey]);
 
     // ---- SAVE CELL + PROPAGATION TO PARENT ----
-    const handleCellSave = useCallback(async (noteId, field, newValue, originalMetaKey, skipPropagation = false) => {
+    const handleCellSave = useCallback(async (noteId, field, newValue, originalMetaKey, skipPropagation = false, additionalMetaUpdates = {}) => {
         setEditingCell(null);
         setEditInitial(null);
         const note = safeNotes.find(n => n.id === noteId);
         if (!note) return false;
 
         const currentValue = note.metadata?.[originalMetaKey];
-        if (sameCellValue(currentValue, newValue)) return true;
+        if (sameCellValue(currentValue, newValue) && Object.keys(additionalMetaUpdates).length === 0) return true;
 
         // 1. OPTIMISTIC: applies the change locally right away — the user
         //    sees the new value before the backend responds (~200-450 ms).
         setOptimisticPatches(prev => {
             const next = new Map(prev);
             const existing = next.get(noteId) || {};
-            next.set(noteId, { ...existing, [originalMetaKey]: newValue });
+            next.set(noteId, { ...existing, [originalMetaKey]: newValue, ...additionalMetaUpdates });
             return next;
         });
 
@@ -1526,7 +1526,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             // no two-device clobber protection and later editor saves 409'd.
             // axios rejects on non-2xx, so no manual response.ok check is needed.
             await axios.patch(`/api/vault/pages/${noteId}`, {
-                metadata: { [originalMetaKey]: newValue }
+                metadata: { [originalMetaKey]: newValue, ...additionalMetaUpdates }
             });
             // Propagate changes to parent if this is a child
             if (!skipPropagation) {
@@ -2881,6 +2881,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                 return (
                     <VaultDateProperty
                         value={value || ''}
+                        rruleValue={note?.metadata?.[`${originalMetaKey}_rrule`] || ''}
                         type={type}
                         fieldConfig={getFieldConfig(schema, field)}
                         fieldName={field}
@@ -2890,6 +2891,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                         planningSettings={projectPlanningSettings}
                         planningEnabled={projectPlanningEnabled}
                         onChange={(newVal) => handleCellSave(noteId, field, newVal, originalMetaKey)}
+                        onRruleChange={(newRrule) => handleCellSave(noteId, field, value || '', originalMetaKey, false, { [`${originalMetaKey}_rrule`]: newRrule })}
                     />
                 );
             }

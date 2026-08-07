@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Calendar as CalendarIcon, Clock, X } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, X, Repeat } from 'lucide-react';
 import { useLocaleSettings } from '../../hooks/useLocaleSettings';
+import { RecurrenceEditor } from './RecurrenceEditor';
 import {
     addWorkingDuration,
     dependencySuccessorIds,
@@ -42,6 +43,8 @@ const _toLocalDateStr = (date, type) => {
 export const VaultDateProperty = ({
     value,
     onChange,
+    rruleValue,
+    onRruleChange,
     type = 'date',
     fieldConfig = {},
     fieldName = '',
@@ -55,6 +58,7 @@ export const VaultDateProperty = ({
     const inputRef = useRef(null);
     const hiddenInputRef = useRef(null);
     const [inputValue, setInputValue] = useState('');
+    const [showRecurrence, setShowRecurrence] = useState(false);
     // The interface language to format the date shown in the input
     // (previously it was hardcoded to 'ca-ES', ignoring the user's preference).
     const { dateLocale } = useLocaleSettings();
@@ -543,11 +547,41 @@ export const VaultDateProperty = ({
                     e.stopPropagation();
                     triggerPicker();
                 }}
-                className="opacity-0 group-hover:opacity-100 p-1 text-[var(--text-tertiary)] hover:text-indigo-500 transition-all focus:opacity-100"
+                className="opacity-0 group-hover:opacity-100 p-1 text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)] transition-all focus:opacity-100 shrink-0"
                 title={t('vault_date.open_calendar', "Open calendar")}
             >
                 {type === 'datetime' ? <Clock size={12} /> : <CalendarIcon size={12} />}
             </button>
+
+            {onRruleChange && (
+                <>
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setShowRecurrence(!showRecurrence);
+                        }}
+                        className={`p-1 shrink-0 transition-all focus:opacity-100 ${rruleValue ? 'text-[var(--gnosi-primary)] opacity-100' : 'text-[var(--text-tertiary)] opacity-0 group-hover:opacity-100 hover:text-[var(--gnosi-primary)]'}`}
+                        title={t('vault_date.toggle_recurrence', "Repeat")}
+                    >
+                        <Repeat size={12} />
+                    </button>
+                    {showRecurrence && (
+                        <>
+                            <div className="fixed inset-0 z-[55]" onClick={(e) => { e.stopPropagation(); setShowRecurrence(false); }} />
+                            <div 
+                                className="absolute top-full right-0 mt-1 p-3 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[60] min-w-[280px]"
+                                onClick={e => e.stopPropagation()}
+                            >
+                                <RecurrenceEditor 
+                                    value={rruleValue} 
+                                    onChange={onRruleChange} 
+                                />
+                            </div>
+                        </>
+                    )}
+                </>
+            )}
 
             {/* Hidden input that actually holds the calendar */}
             <input
