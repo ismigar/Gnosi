@@ -98,6 +98,7 @@ import { PdfAnnotationsToCite } from './PdfAnnotationsToCite';
 import TableOfContentsBlock from './TableOfContentsBlock';
 import MermaidBlock from './MermaidBlock';
 import FootnoteInline from './FootnoteInline';
+import { VaultDateProperty } from './VaultDateProperty';
 import MentionInline from './MentionInline';
 import DateMentionInline from './DateMentionInline';
 import LinkCardBlock from './LinkCardBlock';
@@ -5160,7 +5161,20 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                             : formatDate(v, { dateFormat: pfmt.dateFormat, type: prop.type === 'datetime' ? 'datetime' : 'date', locale: pfmt.dateLocale });
                                                         return <span className="px-2 py-1 text-sm text-[var(--text-primary)] font-medium tabular-nums">{text}</span>;
                                                     }
-                                                    return <input disabled={!isEditor} type={prop.type === 'number' ? 'number' : (prop.type === 'date' ? 'date' : 'text')} value={v || ""} onChange={e => handleMetaChange(prop.name, e.target.value)} placeholder={t('common.empty')} className="w-full bg-transparent border-none rounded-lg px-2 py-1 text-sm text-[var(--text-primary)] outline-none hover:bg-[var(--bg-secondary)] focus:bg-[var(--bg-secondary)] transition-all placeholder:[var(--text-tertiary)]/20 font-medium h-7 disabled:cursor-not-allowed" />;
+                                                    if (prop.type === 'date' || prop.type === 'datetime') {
+                                                        return (
+                                                            <div className="w-full flex items-center group/date h-7">
+                                                                <VaultDateProperty
+                                                                    value={v || ""}
+                                                                    rruleValue={metadata[`${prop.name}_rrule`] || ''}
+                                                                    type={prop.type}
+                                                                    onChange={val => handleMetaChange(prop.name, val)}
+                                                                    onRruleChange={rrule => handleMetaChange(`${prop.name}_rrule`, rrule)}
+                                                                />
+                                                            </div>
+                                                        );
+                                                    }
+                                                    return <input disabled={!isEditor} type={prop.type === 'number' ? 'number' : 'text'} value={v || ""} onChange={e => handleMetaChange(prop.name, e.target.value)} placeholder={t('common.empty')} className="w-full bg-transparent border-none rounded-lg px-2 py-1 text-sm text-[var(--text-primary)] outline-none hover:bg-[var(--bg-secondary)] focus:bg-[var(--bg-secondary)] transition-all placeholder:[var(--text-tertiary)]/20 font-medium h-7 disabled:cursor-not-allowed" />;
                                                 })()}
                                                 {!currentTable && (
                                                     <button onClick={() => handleRemoveProperty(prop.name)} className="opacity-0 group-hover:opacity-100 p-1.5 text-[var(--text-tertiary)]/40 hover:text-[var(--status-error)] transition-all shrink-0" title={t('editor.remove_property')}><X size={14} /></button>
