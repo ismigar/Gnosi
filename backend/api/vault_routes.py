@@ -118,6 +118,10 @@ from backend.services.translation_helpers import (
 from backend.services import translation_index
 from backend.services import action_rules as action_rules_service
 from backend.services import option_catalogs as option_catalogs_service
+from backend.services.table_system_dates import (
+    ensure_system_date_properties,
+    stamp_system_dates,
+)
 
 
 def _table_by_id(table_id: str) -> Optional[dict]:
@@ -4282,6 +4286,7 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
     _table_for_meta = _table_by_id(get_table_id(metadata))
     if _table_for_meta:
         metadata, _ = to_storage_names(metadata, _table_for_meta)
+        stamp_system_dates(metadata, _table_for_meta, is_create=True)
         # Default option (config.default_option) for option fields: when
         # creating a record with the field empty, the default value is applied
         # from the catalog (for example, Status → Draft). Never overwrites a value that
@@ -10688,6 +10693,22 @@ async def save_page(
         _table_for_meta = _table_by_id(get_table_id(metadata))
         if _table_for_meta:
             metadata, _ = to_storage_names(metadata, _table_for_meta)
+            created_fallback = None
+            try:
+                if file_path and file_path.exists():
+                    created_fallback = datetime.fromtimestamp(
+                        getattr(file_path.stat(), "st_birthtime", 0)
+                        or file_path.stat().st_ctime,
+                        tz=timezone.utc,
+                    ).isoformat()
+            except OSError:
+                pass
+            stamp_system_dates(
+                metadata,
+                _table_for_meta,
+                is_create=not bool(file_path),
+                created_fallback=created_fallback,
+            )
         metadata["id"] = page_id
         metadata["title"] = request.title
         if request.parent_id is not None:
@@ -10967,6 +10988,24 @@ async def patch_page(
             # Normalize legacy IDs.
             metadata = normalize_metadata_ids(metadata)
             metadata = normalize_table_context(metadata)
+            table_for_meta = _table_by_id(get_table_id(metadata))
+            if table_for_meta:
+                metadata, _ = to_storage_names(metadata, table_for_meta)
+                created_fallback = None
+                try:
+                    stat_result = file_path.stat()
+                    created_fallback = datetime.fromtimestamp(
+                        getattr(stat_result, "st_birthtime", 0) or stat_result.st_ctime,
+                        tz=timezone.utc,
+                    ).isoformat()
+                except OSError:
+                    pass
+                stamp_system_dates(
+                    metadata,
+                    table_for_meta,
+                    is_create=False,
+                    created_fallback=created_fallback,
+                )
             if metadata.get("is_dashboard") is True:
                 # Dashboards are markdown with frontmatter, like any other
                 # page; `content_format=json` was a legacy tag. If the
@@ -16709,8 +16748,13 @@ def _reconcile_table_schema_revision(old_table: dict, incoming_table: dict) -> N
 
 def _create_table_locked(table: dict):
     registry = load_registry()
+    locale = table.pop("locale", None) or table.pop("language", None) or "ca"
     if "id" not in table:
         table["id"] = str(uuid.uuid4())
+
+    # Every table owns the two read-only audit fields. This is the single
+    # backend boundary used by the UI, imports, plugins, and internal services.
+    ensure_system_date_properties(table, locale)
 
     # Ensure and normalize the folder property. `sanitize_rel_folder` on top of the
     # path normalization: the name may come verbatim from the API payload (or from a
