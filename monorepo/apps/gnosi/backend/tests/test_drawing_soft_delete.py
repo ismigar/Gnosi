@@ -64,3 +64,32 @@ def test_delete_missing_drawing_404(vault):
     with pytest.raises(HTTPException) as e:
         asyncio.run(vr.delete_drawing("99999999-9999-4999-8999-999999999999"))
     assert e.value.status_code == 404
+
+
+def test_list_drawings_reads_tldraw_and_excalidraw(vault):
+    legacy_id = "22222222-3333-4444-8555-666666666666"
+    (vault["dib"] / f"{legacy_id}.excalidraw.json").write_text(
+        json.dumps({"metadata": {"title": "Legacy"}}),
+        encoding="utf-8",
+    )
+
+    drawings = asyncio.run(vr.list_drawings())
+
+    assert {drawing["id"] for drawing in drawings} == {DID, legacy_id}
+    assert next(d["title"] for d in drawings if d["id"] == DID) == "El meu croquis"
+    assert next(d["title"] for d in drawings if d["id"] == legacy_id) == "Legacy"
+
+
+def test_get_drawing_returns_inner_tldraw_data(vault):
+    data = asyncio.run(vr.get_drawing(DID))
+
+    assert data == {"document": {"x": 1}}
+
+
+def test_get_missing_drawing_404(vault):
+    from fastapi import HTTPException
+
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(vr.get_drawing("99999999-9999-4999-8999-999999999999"))
+
+    assert error.value.status_code == 404

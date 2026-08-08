@@ -224,9 +224,9 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
         // Only document changes made by the user: camera and selection are
         // scope 'session' and must not schedule any PUT.
         const unsub = store.listen(() => {
-            if (autosaveTimerRef.current) {
-                clearTimeout(autosaveTimerRef.current);
-            }
+            // Keep one pending save at a time so a stream of document changes
+            // cannot postpone persistence indefinitely.
+            if (autosaveTimerRef.current) return;
             autosaveTimerRef.current = setTimeout(() => {
                 autosaveTimerRef.current = null;
                 handleSave();
@@ -237,6 +237,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
             unsub();
             if (autosaveTimerRef.current) {
                 clearTimeout(autosaveTimerRef.current);
+                autosaveTimerRef.current = null;
             }
         };
     }, [drawingId, store, handleSave, loadState]);

@@ -38,6 +38,10 @@ unsupported objects without throwing.
 Listen only to user-originated document-scope changes. Camera and selection
 state must not trigger persistence.
 
+Keep at most one pending autosave timer. If an autosave effect is recreated,
+clear the timer and reset its ref to `null`; a stale timer handle would make
+later document changes look already scheduled and silently disable saving.
+
 Render the editor with `key={drawingId}` so every drawing receives its own
 store.
 
@@ -47,7 +51,10 @@ Before overwriting a drawing, copy the existing file to
 `.history/{id}/{timestamp}.tldraw.json`. Apply a ten-minute backup cooldown so a
 broken save loop cannot replace every good backup with empty versions.
 
-Run cloud filesystem reads and writes through `asyncio.to_thread`.
+Run cloud filesystem reads and writes through `asyncio.to_thread`, including
+drawing list and load endpoints. A synchronous `glob`, `stat`, or `read_text`
+can block the FastAPI event loop on an online-only OneDrive placeholder and
+make both existing and new drawings appear unable to open.
 
 The backend backup is defense in depth and remains necessary for older
 clients.
