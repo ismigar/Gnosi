@@ -1115,7 +1115,7 @@ export function EditorInner({
             }, { render: (props) => <InlineDatabase block={props.block} editor={props.editor} /> }),
             gnosi_view: createReactBlockSpec({
                 type: "gnosi_view",
-                propSchema: { view_id: { default: "" }, heading: { default: "" }, heading_level: { default: "1" } },
+                propSchema: { view_id: { default: "" }, heading: { default: "" }, heading_level: { default: "1" }, section: { default: "" } },
                 content: "none",
             }, { render: (props) => <DbViewEmbed block={props.block} /> }),
             transclusion: createReactBlockSpec({
@@ -2822,7 +2822,14 @@ export function EditorInner({
             view_id: String(sectionData.view_id || ''),
             heading: String(sectionData.heading || ''),
             heading_level: String(sectionData.heading_level || 1),
+            section: '',
         };
+        // If there is no view_id (e.g. fork mode or local view), store the entire
+        // config as an inline section JSON so the embed can render it locally.
+        if (!props.view_id) {
+            const { view_id, heading, heading_level, ...rest } = sectionData;
+            props.section = JSON.stringify(rest);
+        }
         try {
             if (editingBlock?.id) {
                 editor.updateBlock(editingBlock.id, { type: 'gnosi_view', props });

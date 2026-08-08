@@ -209,6 +209,13 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
             payload.heading = h;
             payload.heading_level = Number(block.props?.heading_level) || 1;
         }
+        if (!payload.view_id && block.props?.section) {
+            try {
+                Object.assign(payload, JSON.parse(block.props.section));
+            } catch (e) {
+                payload.section = block.props.section;
+            }
+        }
         return `\`\`\`gnosi-view\n${JSON.stringify(payload, null, 2)}\n\`\`\`\n`;
     }
 
@@ -799,6 +806,7 @@ const promoteCustomFences = (blocks) => {
                 view_id: String(payload.view_id || ''),
                 heading: String(payload.heading || ''),
                 heading_level: String(Number(payload.heading_level) || 1),
+                section: payload.view_id ? '' : JSON.stringify(payload),
             },
         };
     });

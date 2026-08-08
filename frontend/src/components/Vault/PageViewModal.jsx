@@ -1832,6 +1832,37 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                     </button>
                 </div>
 
+                {/* Existing View Dropdown - Moved to the top for better UX */}
+                {!isTableMode && sourceTableId && (
+                    <div className="px-5 py-4 border-b border-[var(--border-primary)] bg-[var(--bg-primary)] shrink-0">
+                        <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                            {t('view.existing_view', "Existing view")}
+                        </label>
+                        <select
+                            className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                            value={selectedExistingViewId}
+                            onChange={e => setSelectedExistingViewId(e.target.value)}
+                            disabled={loadingExistingViews}
+                        >
+                            <option value="">
+                                {loadingExistingViews
+                                    ? t('view.loading_views', "Loading views…")
+                                    : t('view.create_new_view', "— Create new view —")}
+                            </option>
+                            {existingViews.map(v => (
+                                <option key={v.id} value={v.id}>
+                                    {v.name || t('view.unnamed', "(unnamed)")} {v.type ? `· ${v.type}` : ''}
+                                </option>
+                            ))}
+                        </select>
+                        {selectedExistingViewId && (
+                            <p className="mt-1.5 text-[11px] text-[var(--text-tertiary)] leading-tight">
+                                {t('view.existing_hint', "You can review/override the fields in the Fields, Filters and Sorting tabs.")}
+                            </p>
+                        )}
+                    </div>
+                )}
+
                 {/* Tabs */}
                 <div className="flex border-b border-[var(--border-primary)] bg-[var(--bg-secondary)] shrink-0">
                     {TABS.map(tab => {
@@ -2342,35 +2373,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                 </div>
                             )}
 
-                            {!isTableMode && sourceTableId && (
-                                <div>
-                                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
-                                        {t('view.existing_view', "Existing view")}
-                                    </label>
-                                    <select
-                                        className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
-                                        value={selectedExistingViewId}
-                                        onChange={e => setSelectedExistingViewId(e.target.value)}
-                                        disabled={loadingExistingViews}
-                                    >
-                                        <option value="">
-                                            {loadingExistingViews
-                                                ? t('view.loading_views', "Loading views…")
-                                                : t('view.create_new_view', "— Create new view —")}
-                                        </option>
-                                        {existingViews.map(v => (
-                                            <option key={v.id} value={v.id}>
-                                                {v.name || t('view.unnamed', "(unnamed)")} {v.type ? `· ${v.type}` : ''}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    {selectedExistingViewId && (
-                                        <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">
-                                            {t('view.existing_hint', "You can review/override the fields in the Fields, Filters and Sorting tabs.")}
-                                        </p>
-                                    )}
-                                </div>
-                            )}
+
 
                             {!isTableMode && sourceTableId && existingViews.length > 0 && (
                                 <div className="border-t border-[var(--border-primary)] pt-4">
@@ -2888,7 +2891,13 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                         disabled={flushing}
                         className="btn-gnosi btn-gnosi-primary px-6"
                     >
-                        {flushing ? t('view.saving', "Saving…") : t('common.close', "Close")}
+                        {flushing ? t('view.saving', "Saving…") : (
+                            isTableMode
+                                ? t('common.close', "Close")
+                                : (selectedExistingViewId && selectedExistingViewId !== 'default'
+                                    ? t('common.insert', "Insert")
+                                    : t('view.create_view', "Create view"))
+                        )}
                     </button>
                 </div>
             </div>
