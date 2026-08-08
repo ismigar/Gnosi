@@ -178,6 +178,11 @@ environment-specific frontend assumptions.
   top margin inside the shared icon frame, avoiding a broader header geometry
   change. On pages without a cover, the entire icon frame also sits 8 pixels
   lower so it does not visually attach to the document-strip edge.
+- Bare pages without an icon reserve the cover-action row above the title
+  actions and the hover-revealed icon frame; never let “add icon” or “add
+  cover” controls overlap the title menu or title itself.
+- Destructive page actions remain available while the active tab is ahead of
+  the refreshed page index, but stay gated off for table and PDF tabs.
 - Embedded database actions share one toolbar. Do not leave the add-view action
   on a visually empty single-view row, and never nest an interactive element
   inside another button; use a semantic split-button group.

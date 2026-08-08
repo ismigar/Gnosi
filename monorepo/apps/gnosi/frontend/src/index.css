@@ -359,7 +359,9 @@ textarea,
 }
 
 .vault-page-overview--bare.vault-page-overview--without-icon {
-  padding-top: 0.75rem;
+  /* Bare pages keep cover actions above the title; reserve their row so it
+     cannot overlap the title actions or the hover-revealed icon frame below. */
+  padding-top: 5.75rem;
 }
 
 .vault-page-overview--bare > div:first-child {
@@ -2091,7 +2093,7 @@ button:hover > .row-action-tooltip {
   }
 
   .vault-page-overview--bare.vault-page-overview--without-icon {
-    padding-top: 0.5rem;
+    padding-top: 5.75rem;
   }
 
   .vault-page-overview,
