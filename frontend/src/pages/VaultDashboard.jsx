@@ -2702,6 +2702,27 @@ export default function VaultDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [fetchPages, fetchPagesByTable, activeTableId, handleTabClose]);
 
+    const handleApplyTemplate = useCallback(async (selectedIds, templateId, tableId) => {
+        const pageIds = [...selectedIds];
+        if (pageIds.length === 0 || !templateId) return;
+        try {
+            const response = await axios.post('/api/vault/bulk-apply-template', {
+                page_ids: pageIds,
+                template_id: templateId,
+            });
+            const updated = response.data?.updated || 0;
+            const failed = (response.data?.errors?.length || 0) + (response.data?.conflicts?.length || 0);
+            if (updated > 0) {
+                toast.success(t('bulk_actions.template_applied', { count: updated }));
+                await fetchPagesByTable(tableId);
+            }
+            if (failed > 0) toast.error(t('bulk_actions.template_apply_partial_error', { count: failed }));
+        } catch (error) {
+            console.error('Could not apply template to selected records:', error);
+            toast.error(t('bulk_actions.template_apply_error'));
+        }
+    }, [fetchPagesByTable, t]);
+
     const applyRelationHistoryValue = useCallback(async (operation, value) => {
         const applyLocalValue = (localValue) => {
             const patchPage = (page) => (
@@ -3584,6 +3605,7 @@ export default function VaultDashboard() {
                                     onUpdateView={handleUpdateView}
                                     onDeletePage={handleDeletePage}
                                     onDeleteSelected={handleDeleteSelected}
+                                    onApplyTemplate={(ids, templateId) => handleApplyTemplate(ids, templateId, tableId)}
                                     onEditSchema={onEditSchema}
                                     onOpenParallel={handleOpenParallel}
                                     onUpdateFieldOptions={handleAddSchemaOption}
@@ -3809,6 +3831,7 @@ export default function VaultDashboard() {
                                 onUpdateView={handleUpdateView}
                                 onDeletePage={handleDeletePage}
                                 onDeleteSelected={handleDeleteSelected}
+                                onApplyTemplate={(ids, templateId) => handleApplyTemplate(ids, templateId, tableId)}
                                 onEditSchema={onEditSchema}
                                 onOpenParallel={handleOpenParallel}
                                 onUpdateFieldOptions={handleAddSchemaOption}
@@ -4049,6 +4072,7 @@ export default function VaultDashboard() {
                                             onUpdateView={handleUpdateView}
                                             onDeletePage={handleDeletePage}
                                             onDeleteSelected={handleDeleteSelected}
+                                            onApplyTemplate={(ids, templateId) => handleApplyTemplate(ids, templateId, tableId)}
                                             onEditSchema={onEditSchema}
                                             onOpenParallel={handleOpenParallel}
                                             onUpdateFieldOptions={handleAddSchemaOption}

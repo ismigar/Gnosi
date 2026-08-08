@@ -23,7 +23,7 @@ import {
 } from './relationItemUtils';
 import { GalleryContentPreview, GalleryOpenButton } from './GalleryCardPreview';
 
-export function VaultGallery({ notes, onNoteSelect, onOpenParallel, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onEditSchema, onCreateRecord, onDeleteSelected, onDeletePage, onUpdateNote, searchTerm: externalSearchTerm, registerNavApi, onExitTop, onExitBottom, onFocusShell }) {
+export function VaultGallery({ notes, onNoteSelect, onOpenParallel, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onEditSchema, onCreateRecord, onDeleteSelected, onDeletePage, onApplyTemplate, templates = [], onUpdateNote, searchTerm: externalSearchTerm, registerNavApi, onExitTop, onExitBottom, onFocusShell }) {
     const { t } = useTranslation();
     const localeSettings = useLocaleSettings();
     const [internalSearchTerm, setInternalSearchTerm] = useState('');
@@ -671,6 +671,8 @@ export function VaultGallery({ notes, onNoteSelect, onOpenParallel, schema = {},
                     onSelectAll={() => selectAll(sortedAndFilteredNotes.map(n => n.id))}
                     onClearSelection={clearSelection}
                     onDeleteSelected={(onDeleteSelected || onDeletePage) ? handleBulkDelete : null}
+                    templates={templates}
+                    onApplyTemplate={onApplyTemplate ? (templateId) => { onApplyTemplate(new Set(selectedIds), templateId); clearSelection(); } : null}
                 />
             )}
 

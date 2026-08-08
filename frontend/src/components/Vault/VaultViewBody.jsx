@@ -42,6 +42,7 @@ export function VaultViewBody({
     onCreateRecord,
     onDeletePage,
     onDeleteSelected,
+    onApplyTemplate,
     onCellSaved,
     onTranslated,
     onUpdateFieldOptions,
@@ -70,6 +71,8 @@ export function VaultViewBody({
         onCreateRecord,
         onDeletePage,
         onDeleteSelected,
+        onApplyTemplate,
+        templates,
         onEditSchema,
         onUpdateView,
         onUpdateNote,
@@ -127,6 +130,8 @@ export function VaultViewBody({
                 onNoteSelect={onNoteSelect}
                 onDeletePage={onDeletePage}
                 onDeleteSelected={onDeleteSelected}
+                onApplyTemplate={onApplyTemplate}
+                templates={templates}
                 onUpdateNote={onUpdateNote}
                 onCreateRecord={onCreateRecord}
                 onOpenConfig={() => onEditSchema?.('filters')}
@@ -146,6 +151,8 @@ export function VaultViewBody({
                 onNoteSelect={onNoteSelect}
                 onDeletePage={onDeletePage}
                 onDeleteSelected={onDeleteSelected}
+                onApplyTemplate={onApplyTemplate}
+                templates={templates}
                 dateField={activeView?.dateField || ''}
                 endDateField={activeView?.endDateField || ''}
                 initialView={activeView?.calendarView || 'dayGridMonth'}

@@ -1802,6 +1802,13 @@ export function DbViewEmbed({ block }) {
                 reload();
             });
     };
+    const onApplyTemplateAdapter = async (ids, templateId) => {
+        await axios.post('/api/vault/bulk-apply-template', {
+            page_ids: [...ids],
+            template_id: templateId,
+        });
+        reload();
+    };
     const onUpdateViewAdapter = async (nextView) => {
         if (!pageId) return;
         const sorts = Array.isArray(nextView?.sort) ? nextView.sort : (nextView?.sort ? [nextView.sort] : []);
@@ -1864,6 +1871,7 @@ export function DbViewEmbed({ block }) {
         onCreateRecord: onCreateRecordAdapter,
         onDeletePage: onDeletePageAdapter,
         onDeleteSelected: onDeleteSelectedAdapter,
+        onApplyTemplate: onApplyTemplateAdapter,
         onEditSchema: onEditSchemaAdapter,
         onUpdateView: onUpdateViewAdapter,
         // Editor↔view keyboard navigation bridge. The table/list register the

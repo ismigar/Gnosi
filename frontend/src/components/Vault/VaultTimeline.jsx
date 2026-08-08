@@ -59,7 +59,7 @@ const resolveParentId = (note, schema, getEntriesFn) => {
     return null;
 };
 
-export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, idToTitle = {}, activeView = {}, onEditSchema, onCreateRecord, onDeleteSelected, onDeletePage, searchTerm: externalSearchTerm }) {
+export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, idToTitle = {}, activeView = {}, onEditSchema, onCreateRecord, onDeleteSelected, onDeletePage, onApplyTemplate, templates = [], searchTerm: externalSearchTerm }) {
     const { t } = useTranslation();
     const { isEnabled: isPluginEnabled, getPluginSettings } = usePlugins();
     const projectPlanningEnabled = isPluginEnabled('project-planning');
@@ -630,6 +630,8 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                     onSelectAll={() => selectAll(sortedAndFilteredNotes.map(n => n.id))}
                     onClearSelection={clearSelection}
                     onDeleteSelected={(onDeleteSelected || onDeletePage) ? handleBulkDelete : null}
+                    templates={templates}
+                    onApplyTemplate={onApplyTemplate ? (templateId) => { onApplyTemplate(new Set(selectedIds), templateId); clearSelection(); } : null}
                 />
             )}
 
