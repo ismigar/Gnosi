@@ -262,7 +262,8 @@ environment-specific frontend assumptions.
   scrolling must not toggle the page header.
 - Compact document-header Properties and Links buttons provide a hover/focus
   preview of their current content while retaining click-to-toggle panels and
-  keyboard-accessible names.
+  keyboard-accessible names; clicking either compact action also scrolls the
+  page scroller to the top so the opened panel is immediately visible.
 - Bare Vault hero actions sit outside the clipped cover surface and remain
   visible without requiring hover. Keep the icon below the shell header and
   reserve enough overview space to prevent it from touching the page title.
