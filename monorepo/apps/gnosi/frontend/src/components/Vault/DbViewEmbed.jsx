@@ -937,10 +937,10 @@ export function DbViewEmbed({ block }) {
     // and which one is active. By default, the block's section view.
     const [tableViews, setTableViews] = useState([]);
     const [activeViewId, setActiveViewId] = useState('');
-    const [loading, setLoading] = useState(() => Boolean(pageId && viewId));
+    const [loading, setLoading] = useState(() => Boolean(pageId && (viewId || block?.props?.section)));
     const [error, setError] = useState(() => {
         if (!pageId) return t('errors.no_active_page', "No active page to resolve the view.");
-        if (!viewId) return t('errors.view_missing_id', "View without view_id.");
+        if (!viewId && !block?.props?.section) return t('errors.view_missing_id', "View without view_id or inline config.");
         return '';
     });
     const [reloadKey, setReloadKey] = useState(0);
@@ -1129,17 +1129,20 @@ export function DbViewEmbed({ block }) {
     }, [view]);
 
     useEffect(() => {
-        if (!pageId || !viewId) return undefined;
+        const inlineSectionStr = block?.props?.section;
+        if (!pageId || (!viewId && !inlineSectionStr)) return undefined;
         let cancelled = false;
         const load = async () => {
             const startedAt = window.performance?.now?.() ?? Date.now();
             setError('');
             setLoading(true);
             try {
-                const viewsRes = await axios.get(`/api/pages/${encodeURIComponent(pageId)}/views`);
-                const sections = viewsRes.data?.sections || [];
-                let section = sections.find(s => s.view_id === viewId)
-                    || (headingProp ? sections.find(s => s.heading === headingProp) : null);
+                let section = null;
+                if (viewId) {
+                    const viewsRes = await axios.get(`/api/pages/${encodeURIComponent(pageId)}/views`);
+                    const sections = viewsRes.data?.sections || [];
+                    section = sections.find(s => s.view_id === viewId)
+                        || (headingProp ? sections.find(s => s.heading === headingProp) : null);
                 // Fallback: if this block has no registered section (e.g. because
                 // the PER HEADING section upsert has collided with another
                 // it's an embed without a heading on the same page), but the view DOES
@@ -1167,13 +1170,24 @@ export function DbViewEmbed({ block }) {
                         };
                     }
                 }
+                } else if (inlineSectionStr) {
+                    try {
+                        section = JSON.parse(inlineSectionStr);
+                    } catch {
+                        section = null;
+                    }
+                }
                 if (cancelled) return;
                 if (!section) {
                     if (!cancelled) {
                         setView(null);
                         setRawRecords([]);
                         setTemplates([]);
-                        setError(t('errors.view_not_found_registry', "View \"{{id}}...\" not found in the registry.", { id: viewId.slice(0, 8) }));
+                        if (viewId) {
+                            setError(t('errors.view_not_found_registry', "View \"{{id}}...\" not found in the registry.", { id: viewId.slice(0, 8) }));
+                        } else {
+                            setError(t('errors.view_not_found_registry', "Invalid inline view configuration.", { id: '' }));
+                        }
                         setLoading(false);
                     }
                     return;
@@ -1320,7 +1334,7 @@ export function DbViewEmbed({ block }) {
         // (BlockEditor): we re-trigger the load to read the updated section
         // (cardSize/galleryPreview/…), because editing only the size doesn't change
         // viewId/headingProp and the useEffect wouldn't re-trigger otherwise.
-    }, [viewId, pageId, headingProp, reloadKey, ctx.viewSectionNonce]);
+    }, [viewId, pageId, headingProp, reloadKey, ctx.viewSectionNonce, block?.props?.section]);
 
     const tableId = view?.source_table_id || view?.table_id;
 

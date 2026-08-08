@@ -5,7 +5,7 @@ import {
     Edit2, Copy, Trash2, Star, LayoutTemplate, SlidersHorizontal,
     ChevronDown, Filter, ArrowUpDown, Tag, Type, CheckSquare,
     Calendar, Layers, FileImage, Columns, List, BarChart2,
-    Globe, MapPin, AlignLeft, Lock, Eye, EyeOff, GripVertical
+    Globe, MapPin, AlignLeft, Lock, GripVertical
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { 
@@ -32,6 +32,7 @@ import { ReferenceImportExport } from './ReferenceImportExport';
 import { BrainInbox } from './BrainInbox';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import { viewMatchesFilters, isFilterGroup } from '../../utils/vaultFilters';
+import { getViewPopoverLayout } from './viewPopoverLayout';
 
 function SortableTab({ view, tableViews, isActive, onSelect, onAction }) {
     const { t } = useTranslation();
@@ -164,10 +165,9 @@ function SortableTab({ view, tableViews, isActive, onSelect, onAction }) {
     );
 }
 
-// Row of the "Manage views" panel: reorder handle + name + show/hide
-// toggle + "..." contextual menu (configure/rename/duplicate/delete).
-// The main view cannot be hidden (it stays locked) nor configured.
-function SortableManageRow({ view, tableViews, isActive, onToggleHidden, onAction }) {
+// Row of the "Manage views" panel: reorder handle + name + contextual menu.
+// Page-embed visibility is derived from view semantics and is not a table setting.
+function SortableManageRow({ view, tableViews, isActive, onAction }) {
     const { t } = useTranslation();
     const {
         attributes, listeners, setNodeRef, transform, transition, isDragging
@@ -217,17 +217,19 @@ function SortableManageRow({ view, tableViews, isActive, onToggleHidden, onActio
                 size: 14,
                 className: `shrink-0 ${hidden ? 'text-[var(--text-tertiary)]/60' : 'text-[var(--text-secondary)]'}`,
             })}
-            <span className={`flex-1 min-w-0 truncate text-xs ${hidden ? 'text-[var(--text-tertiary)]' : 'text-[var(--text-primary)]'}`} title={view.name}>
-                {view.name}
-            </span>
-            {isPageEmbedView(view) && (
-                <span
-                    className="shrink-0 text-[9px] px-1.5 py-0.5 rounded bg-[var(--bg-tertiary)] text-[var(--text-tertiary)] border border-[var(--border-primary)] font-normal ml-1"
-                    title={t('views_header.dashboard_view_badge_hint', "Embedded view from a page or dashboard")}
-                >
-                    {t('views_header.dashboard_view_badge', "Dashboard")}
+            <span className="flex-1 min-w-0 flex flex-col items-start gap-0.5 py-0.5">
+                <span className={`w-full text-xs leading-4 break-words line-clamp-2 ${hidden ? 'text-[var(--text-tertiary)]' : 'text-[var(--text-primary)]'}`} title={view.name}>
+                    {view.name}
                 </span>
-            )}
+                {isPageEmbedView(view) && (
+                    <span
+                        className="text-[9px] px-1.5 py-0.5 rounded bg-[var(--bg-tertiary)] text-[var(--text-tertiary)] border border-[var(--border-primary)] font-normal"
+                        title={t('views_header.dashboard_view_badge_hint', "Embedded view from a page or dashboard")}
+                    >
+                        {t('views_header.dashboard_view_badge', "Dashboard")}
+                    </span>
+                )}
+            </span>
             {isPrimaryView ? (
                 <span
                     className="shrink-0 inline-flex items-center justify-center w-7 h-6 text-[var(--text-tertiary)]/70"
@@ -236,18 +238,7 @@ function SortableManageRow({ view, tableViews, isActive, onToggleHidden, onActio
                 >
                     <Lock size={13} />
                 </span>
-            ) : (
-                <button
-                    type="button"
-                    onClick={() => onToggleHidden?.(view, !hidden)}
-                    className="shrink-0 inline-flex items-center justify-center w-7 h-6 rounded text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
-                    title={hidden ? t('views_header.show_view', "Show view") : t('views_header.hide_view', "Hide view")}
-                    aria-label={hidden ? t('views_header.show_view', "Show view") : t('views_header.hide_view', "Hide view")}
-                    aria-pressed={!hidden}
-                >
-                    {hidden ? <EyeOff size={14} /> : <Eye size={14} />}
-                </button>
-            )}
+            ) : null}
             {/* Contextual "..." menu — same actions as the tab dropdown. */}
             <div className="relative shrink-0">
                 <button
@@ -324,8 +315,6 @@ function OverflowViewRow({ view, tableViews, isActive, onSelect, onAction, onClo
     const menuRef = useRef(null);
 
     const isPrimaryView = isMainView(view, tableViews);
-    const ViewIcon = getViewIcon(view.type);
-
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (menuRef.current && !menuRef.current.contains(e.target)) {
@@ -350,7 +339,7 @@ function OverflowViewRow({ view, tableViews, isActive, onSelect, onAction, onClo
                 }}
                 className="flex items-center gap-2 flex-1 min-w-0 text-left"
             >
-                <ViewIcon size={13} className="shrink-0" />
+                {React.createElement(getViewIcon(view.type), { size: 13, className: 'shrink-0' })}
                 <span className="truncate flex-1 min-w-0" title={view.name}>{view.name}</span>
                 {isPrimaryView && (
                     <span className="shrink-0 inline-flex items-center text-[9px] px-1.5 py-0.5 rounded border border-[var(--border-primary)] bg-[var(--bg-tertiary)] text-[var(--text-tertiary)]" title={t('views_header.main_view')} aria-label={t('views_header.main_view')}>
@@ -465,7 +454,6 @@ export function VaultViewsHeader({
     onDeleteView,
     onReorderViews,
     onRenameView,
-    onSetViewHidden,
     onEditSchema,
     onCreateRecord,
     onCreateTemplate,
@@ -485,6 +473,7 @@ export function VaultViewsHeader({
     const { t } = useTranslation();
     const [showSearch, setShowSearch] = useState(false);
     const [isAddingView, setIsAddingView] = useState(false);
+    const [viewPopoverLayout, setViewPopoverLayout] = useState(null);
     const [showNewMenu, setShowNewMenu] = useState(false);
     // "..." submenu of a specific template inside the "+ New" menu.
     // Stores { id, tpl, top, right } (fixed coords computed from the "..." button).
@@ -531,9 +520,9 @@ export function VaultViewsHeader({
     }, [notes, activeView, hasActiveFilter, recordCount]);
     const isFilteredView = viewRecordCount !== recordCount;
 
-    // Views shown as tabs: all but the hidden ones. The main
-    // view is always there (isViewHidden leaves it out). The management panel
-    // (the "+" button) still sees ALL views so they can be shown again.
+    // Views shown as tabs: all but the semantically hidden ones. The main view
+    // is always there (isViewHidden leaves it out). The management panel still
+    // sees every view so embedded/dashboard views remain configurable.
     const tabViews = useMemo(
         () => (views || [])
             .filter(v => !isViewHidden(v, views))
@@ -553,6 +542,7 @@ export function VaultViewsHeader({
     const actionsRef = useRef(null);
     const searchRef = useRef(null);
     const newMenuRef = useRef(null);
+    const addViewButtonRef = useRef(null);
     const [visibleCount, setVisibleCount] = useState(views.length || 1);
     const [showOverflow, setShowOverflow] = useState(false);
 
@@ -576,6 +566,26 @@ export function VaultViewsHeader({
     useModalKeyboard({ isOpen: showNewMenu, onClose: closeNewMenus });
     useModalKeyboard({ isOpen: isAddingView, onClose: () => setIsAddingView(false) });
     useModalKeyboard({ isOpen: showOverflow, onClose: () => setShowOverflow(false) });
+
+    const updateViewPopoverLayout = useCallback(() => {
+        if (!addViewButtonRef.current) return;
+        setViewPopoverLayout(getViewPopoverLayout(
+            addViewButtonRef.current.getBoundingClientRect(),
+            window.innerWidth,
+            window.innerHeight
+        ));
+    }, []);
+
+    useEffect(() => {
+        if (!isAddingView) return undefined;
+        updateViewPopoverLayout();
+        window.addEventListener('resize', updateViewPopoverLayout);
+        window.addEventListener('scroll', updateViewPopoverLayout, true);
+        return () => {
+            window.removeEventListener('resize', updateViewPopoverLayout);
+            window.removeEventListener('scroll', updateViewPopoverLayout, true);
+        };
+    }, [isAddingView, updateViewPopoverLayout]);
 
     // Dynamic calculation of how many tabs fit
     useEffect(() => {
@@ -766,9 +776,20 @@ export function VaultViewsHeader({
 
                             {/* Add View button */}
                             <button
-                                onClick={() => setIsAddingView(!isAddingView)}
+                                ref={addViewButtonRef}
+                                type="button"
+                                onClick={() => {
+                                    if (isAddingView) {
+                                        setIsAddingView(false);
+                                        return;
+                                    }
+                                    updateViewPopoverLayout();
+                                    setIsAddingView(true);
+                                }}
                                 title={t('views_header.add_view')}
                                 aria-label={t('views_header.add_view')}
+                                aria-haspopup="dialog"
+                                aria-expanded={isAddingView}
                                 className="p-1 ml-1 mb-2 rounded text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors"
                             >
                                 <Plus size={16} />
@@ -967,17 +988,23 @@ export function VaultViewsHeader({
                 </div>
             </div>
 
-            {/* Views management panel ("+" button): show/hide and reorder
-                the existing ones, and create new ones. */}
-            {isAddingView && (
+            {/* View management panel ("+" button): reorder/configure existing
+                views and create new ones. It is portalled so header overflow and
+                transformed ancestors cannot detach or clip it. */}
+            {isAddingView && viewPopoverLayout && createPortal((
                 <>
                     <div className="fixed inset-0 z-[var(--z-overlay)]" onClick={() => setIsAddingView(false)} />
-                    <div className="absolute top-full left-10 mt-1 w-64 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[var(--z-popover)] py-1.5 animate-in slide-in-from-top-2 duration-200">
+                    <div
+                        role="dialog"
+                        aria-label={t('views_header.manage_views', "Views")}
+                        className="fixed flex flex-col overflow-y-auto bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[var(--z-popover)] py-1.5 animate-in fade-in zoom-in-95 duration-150"
+                        style={viewPopoverLayout}
+                    >
                         {/* Section: management of existing views */}
                         <div className="px-3 py-1 text-[10px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
                             {t('views_header.manage_views', "Views")}
                         </div>
-                        <div className="max-h-64 overflow-y-auto px-1">
+                        <div className="max-h-72 overflow-y-auto px-1">
                             <DndContext
                                 sensors={sensors}
                                 collisionDetection={closestCenter}
@@ -993,7 +1020,6 @@ export function VaultViewsHeader({
                                             view={view}
                                             tableViews={views}
                                             isActive={activeViewId === view.id}
-                                            onToggleHidden={(v, hidden) => onSetViewHidden?.(v, hidden)}
                                             onAction={handleViewAction}
                                         />
                                     ))}
@@ -1022,7 +1048,7 @@ export function VaultViewsHeader({
                         })}
                     </div>
                 </>
-            )}
+            ), document.body)}
         </div>
     );
 }

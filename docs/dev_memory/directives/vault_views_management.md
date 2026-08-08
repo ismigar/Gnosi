@@ -40,6 +40,15 @@ Before considering a view complete, verify:
 
 ## Edge cases and regressions
 
+- **The view picker is detached from its add button or extends past the viewport.**
+  Anchor the management popover to the add-view button's viewport rectangle,
+  clamp its horizontal position, flip it above the button when the space below
+  is insufficient, and bound its height with internal scrolling. Keep view
+  names in a flexible multi-line column so badges and actions do not reduce
+  them to an unreadable fragment. The table view manager does not expose a
+  show/hide toggle: page-embed visibility is derived from view semantics, not
+  configured as table chrome.
+
 - **Opening an embedded view configuration causes a black screen.** Do not place
   hooks such as `useMemo`, `useEffect`, or `useSensors` after the `if (!isOpen)
   return null` guard in `PageViewModal`. Embedded modals are mounted closed and
