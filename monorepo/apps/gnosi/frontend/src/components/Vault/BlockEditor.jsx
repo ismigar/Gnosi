@@ -3928,6 +3928,8 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         extractOutgoingPageLinks(initialContent, idToTitle, noteFilename)
     ));
     const [isPropertiesOpen, setIsPropertiesOpen] = useState(false);
+    const [compactPanelPreview, setCompactPanelPreview] = useState(null);
+    const compactPanelCloseTimerRef = useRef(null);
     // Property cursor (grid style): the name of the active property.
     // Clicking the name selects; ↑↓ navigate; ⌘C/⌘V copy/paste the value.
     const [activeProp, setActiveProp] = useState(null);
@@ -3958,6 +3960,24 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const [isHeaderHovered, setIsHeaderHovered] = useState(false);
     const [isPageHeaderCompact, setIsPageHeaderCompact] = useState(false);
     const [isFocusMode, setIsFocusMode] = useState(false);
+    const clearCompactPanelCloseTimer = useCallback(() => {
+        if (compactPanelCloseTimerRef.current) {
+            window.clearTimeout(compactPanelCloseTimerRef.current);
+            compactPanelCloseTimerRef.current = null;
+        }
+    }, []);
+    const openCompactPanelPreview = useCallback((panel) => {
+        clearCompactPanelCloseTimer();
+        setCompactPanelPreview(panel);
+    }, [clearCompactPanelCloseTimer]);
+    const scheduleCompactPanelPreviewClose = useCallback(() => {
+        clearCompactPanelCloseTimer();
+        compactPanelCloseTimerRef.current = window.setTimeout(() => {
+            setCompactPanelPreview(null);
+            compactPanelCloseTimerRef.current = null;
+        }, 120);
+    }, [clearCompactPanelCloseTimer]);
+    useEffect(() => () => clearCompactPanelCloseTimer(), [clearCompactPanelCloseTimer]);
     useEffect(() => {
         const hero = headerHoverRef.current;
         const content = contentRef.current;
@@ -4529,6 +4549,29 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         setLiveOutgoingLinks(extractOutgoingPageLinks(initialContent, idToTitle, noteFilename));
     }, [initialContent, idToTitle, noteFilename]);
     const outgoingLinks = liveOutgoingLinks;
+    const compactPropertyPreviewItems = useMemo(() => navProps.slice(0, 8).map((entry) => {
+        const rawValue = metadata[entry.name];
+        const value = rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue)
+            ? Object.values(rawValue).filter(Boolean).join(', ')
+            : serializeCellForClipboard(rawValue, entry.type, idToTitle || {});
+        return {
+            name: entry.name,
+            value: value || t('common.empty'),
+        };
+    }), [idToTitle, metadata, navProps, t]);
+    const compactLinkPreviewSections = useMemo(() => {
+        const toTitle = (item) => String(item?.title || item?.name || item?.text || item?.id || item || '').trim();
+        return [
+            { key: 'outgoing', label: t('editor.outgoing'), items: outgoingLinks },
+            { key: 'incoming', label: t('editor.incoming'), items: incomingLinks },
+            { key: 'relations', label: t('editor.relations'), items: relatedPages },
+            { key: 'pending', label: t('editor.pending'), items: unlinkedMentions },
+        ].map(section => ({
+            ...section,
+            count: section.items.length,
+            previewItems: section.items.slice(0, 4).map(toTitle).filter(Boolean),
+        }));
+    }, [incomingLinks, outgoingLinks, relatedPages, t, unlinkedMentions]);
 
     const openLinkedPage = useCallback((pageId) => {
         const safeId = String(pageId || '').trim();
@@ -4775,26 +4818,99 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                         <div className="vault-page-compact-header__actions">
                             {showKnowledgePanels && (
                                 <>
-                                    <button
-                                        type="button"
-                                        className="vault-page-compact-header__action"
-                                        onClick={() => setIsPropertiesOpen((current) => !current)}
-                                        title={t('editor.toggle_properties')}
-                                        aria-label={t('editor.toggle_properties')}
-                                        aria-expanded={isPropertiesOpen}
-                                    >
-                                        <Settings size={16} />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="vault-page-compact-header__action"
-                                        onClick={() => setIsLinksInfoOpen((current) => !current)}
-                                        title={t('editor.links_and_mentions')}
-                                        aria-label={t('editor.links_and_mentions')}
-                                        aria-expanded={isLinksInfoOpen}
-                                    >
-                                        <Link2 size={16} />
-                                    </button>
+                                    <div className="vault-page-compact-header__preview-anchor">
+                                        <button
+                                            type="button"
+                                            className="vault-page-compact-header__action"
+                                            onClick={() => setIsPropertiesOpen((current) => !current)}
+                                            onMouseEnter={() => openCompactPanelPreview('properties')}
+                                            onMouseLeave={scheduleCompactPanelPreviewClose}
+                                            onFocus={() => openCompactPanelPreview('properties')}
+                                            onBlur={scheduleCompactPanelPreviewClose}
+                                            title={t('editor.toggle_properties')}
+                                            aria-label={t('editor.toggle_properties')}
+                                            aria-describedby={compactPanelPreview === 'properties' ? 'vault-compact-properties-preview' : undefined}
+                                            aria-expanded={isPropertiesOpen}
+                                        >
+                                            <Settings size={16} />
+                                        </button>
+                                        {compactPanelPreview === 'properties' && (
+                                            <div
+                                                id="vault-compact-properties-preview"
+                                                role="tooltip"
+                                                className="vault-page-compact-header__preview"
+                                                onMouseEnter={() => openCompactPanelPreview('properties')}
+                                                onMouseLeave={scheduleCompactPanelPreviewClose}
+                                            >
+                                                <div className="vault-page-compact-header__preview-heading">
+                                                    <Settings size={14} />
+                                                    <span>{t('common.properties')}</span>
+                                                    <span className="vault-page-compact-header__preview-count">{properties.length + adhocProperties.length}</span>
+                                                </div>
+                                                {compactPropertyPreviewItems.length > 0 ? (
+                                                    <dl className="vault-page-compact-header__preview-list">
+                                                        {compactPropertyPreviewItems.map(item => (
+                                                            <div key={item.name} className="vault-page-compact-header__preview-row">
+                                                                <dt>{item.name}</dt>
+                                                                <dd title={item.value}>{item.value}</dd>
+                                                            </div>
+                                                        ))}
+                                                    </dl>
+                                                ) : (
+                                                    <p className="vault-page-compact-header__preview-empty">{t('common.empty')}</p>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="vault-page-compact-header__preview-anchor">
+                                        <button
+                                            type="button"
+                                            className="vault-page-compact-header__action"
+                                            onClick={() => setIsLinksInfoOpen((current) => !current)}
+                                            onMouseEnter={() => openCompactPanelPreview('links')}
+                                            onMouseLeave={scheduleCompactPanelPreviewClose}
+                                            onFocus={() => openCompactPanelPreview('links')}
+                                            onBlur={scheduleCompactPanelPreviewClose}
+                                            title={t('editor.links_and_mentions')}
+                                            aria-label={t('editor.links_and_mentions')}
+                                            aria-describedby={compactPanelPreview === 'links' ? 'vault-compact-links-preview' : undefined}
+                                            aria-expanded={isLinksInfoOpen}
+                                        >
+                                            <Link2 size={16} />
+                                        </button>
+                                        {compactPanelPreview === 'links' && (
+                                            <div
+                                                id="vault-compact-links-preview"
+                                                role="tooltip"
+                                                className="vault-page-compact-header__preview"
+                                                onMouseEnter={() => openCompactPanelPreview('links')}
+                                                onMouseLeave={scheduleCompactPanelPreviewClose}
+                                            >
+                                                <div className="vault-page-compact-header__preview-heading">
+                                                    <Link2 size={14} />
+                                                    <span>{t('editor.links_and_mentions')}</span>
+                                                </div>
+                                                <div className="vault-page-compact-header__preview-link-sections">
+                                                    {compactLinkPreviewSections.map(section => (
+                                                        <div key={section.key} className="vault-page-compact-header__preview-link-section">
+                                                            <div className="vault-page-compact-header__preview-link-label">
+                                                                <span>{section.label}</span>
+                                                                <span className="vault-page-compact-header__preview-count">{section.count}</span>
+                                                            </div>
+                                                            {section.previewItems.length > 0 && (
+                                                                <ul>
+                                                                    {section.previewItems.map((item, index) => <li key={`${section.key}-${item}-${index}`} title={item}>{item}</li>)}
+                                                                </ul>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                {compactLinkPreviewSections.every(section => section.count === 0) && (
+                                                    <p className="vault-page-compact-header__preview-empty">{t('editor.links_graph_empty')}</p>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
                                 </>
                             )}
                             <PageActionsBar
