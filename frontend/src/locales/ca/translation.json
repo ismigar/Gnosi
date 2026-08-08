@@ -3554,6 +3554,7 @@
     "loading_views": "Carregant vistes…",
     "create_new_view": "— Crear nova vista —",
     "existing_hint": "Pots revisar / sobreescriure els camps a les pestanyes Camps, Filtres i Ordenació.",
+    "existing_views_load_error": "No s'han pogut carregar les vistes existents. Pots crear-ne una de nova o tornar-ho a provar.",
     "pinned_tabs": "Mostrar pestanyes (vistes fixades a aquest bloc)",
     "anchor_view": "(vista àncora)",
     "usage_count_one": "Aquesta vista ja s'usa a {{count}} pàgina.",

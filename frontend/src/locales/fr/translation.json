@@ -2948,6 +2948,7 @@
     "loading_views": "Chargement des vues…",
     "create_new_view": "— Créer une nouvelle vue —",
     "existing_hint": "Vous pouvez réviser/écraser les champs dans les onglets Champs, Filtres et Tri.",
+    "existing_views_load_error": "Impossible de charger les vues existantes. Vous pouvez en créer une ou réessayer.",
     "pinned_tabs": "Afficher des onglets (vues épinglées à ce bloc)",
     "anchor_view": "(vue ancre)",
     "usage_count_one": "Cette vue est déjà utilisée sur {{count}} page.",

@@ -604,7 +604,9 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     // stead of having to configure everything from scratch.
     const [existingViews, setExistingViews] = useState([]);
     const [selectedExistingViewId, setSelectedExistingViewId] = useState('');
-    const [loadingExistingViews, setLoadingExistingViews] = useState(false);
+    const [existingViewsStatus, setExistingViewsStatus] = useState('idle');
+    const [existingViewsTableId, setExistingViewsTableId] = useState('');
+    const [existingViewsReloadKey, setExistingViewsReloadKey] = useState(0);
     // How many pages share the selected existing view — if > 1
     // (including this one), we warn the user before propagating changes.
     const [viewUsage, setViewUsage] = useState({ count: 0, pages: [] });
@@ -1047,6 +1049,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         setSaveToTableViews(true);
         setSelectedExistingViewId('');
         setExistingViews([]);
+        setExistingViewsStatus('loading');
         setViewUsage({ count: 0, pages: [] });
         setEditScope('shared');
         setModalPinnedViewIds(new Set());
@@ -1062,10 +1065,13 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         if (!sourceTableId) {
             setExistingViews([]);
             setSelectedExistingViewId('');
+            setExistingViewsStatus('idle');
+            setExistingViewsTableId('');
             return;
         }
         let cancelled = false;
-        setLoadingExistingViews(true);
+        setExistingViews([]);
+        setExistingViewsStatus('loading');
         apiFetch(`/api/vault/views?table_id=${encodeURIComponent(sourceTableId)}`)
             .then(data => {
                 if (cancelled) return;
@@ -1100,15 +1106,18 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                     if (!prev) return '';
                     return list.some(v => v.id === prev) ? prev : '';
                 });
+                setExistingViewsTableId(sourceTableId);
+                setExistingViewsStatus('ready');
             })
             .catch(() => {
-                if (!cancelled) setExistingViews([]);
-            })
-            .finally(() => {
-                if (!cancelled) setLoadingExistingViews(false);
+                if (!cancelled) {
+                    setExistingViews([]);
+                    setExistingViewsTableId(sourceTableId);
+                    setExistingViewsStatus('error');
+                }
             });
         return () => { cancelled = true; };
-    }, [sourceTableId, apiFetch]);
+    }, [sourceTableId, existingViewsReloadKey, apiFetch]);
 
     // Tables without a registered schema (`properties` empty, e.g. "Recursos"
     // imported from the Notion clone) do not expose any field in the column selector.
@@ -1810,6 +1819,11 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     // We don't close on click outside: with so many tabs it's easy to
     // accidentally click the overlay and lose the config. Closing only via X / Esc.
     const handleOverlayClick = () => {};
+    const existingViewsLoadError = existingViewsStatus === 'error' && existingViewsTableId === sourceTableId;
+    const isLoadingExistingViews = Boolean(sourceTableId) && (
+        existingViewsStatus === 'loading'
+        || (existingViewsTableId !== sourceTableId && !existingViewsLoadError)
+    );
 
     return (
         <div
@@ -1842,10 +1856,10 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                             className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
                             value={selectedExistingViewId}
                             onChange={e => setSelectedExistingViewId(e.target.value)}
-                            disabled={loadingExistingViews}
+                            disabled={isLoadingExistingViews}
                         >
                             <option value="">
-                                {loadingExistingViews
+                                {isLoadingExistingViews
                                     ? t('view.loading_views', "Loading views…")
                                     : t('view.create_new_view', "— Create new view —")}
                             </option>
@@ -1855,6 +1869,20 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                 </option>
                             ))}
                         </select>
+                        {existingViewsLoadError && (
+                            <div className="mt-2 flex items-center justify-between gap-3 rounded-md border border-[var(--status-error)]/30 bg-[var(--status-error)]/5 px-2.5 py-2">
+                                <p className="text-[11px] text-[var(--status-error)]">
+                                    {t('view.existing_views_load_error', "Couldn't load the existing views. You can create a new view or retry.")}
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={() => setExistingViewsReloadKey(key => key + 1)}
+                                    className="shrink-0 text-xs font-semibold text-[var(--gnosi-primary)] hover:underline"
+                                >
+                                    {t('common.retry', "Retry")}
+                                </button>
+                            </div>
+                        )}
                         {selectedExistingViewId && (
                             <p className="mt-1.5 text-[11px] text-[var(--text-tertiary)] leading-tight">
                                 {t('view.existing_hint', "You can review/override the fields in the Fields, Filters and Sorting tabs.")}
