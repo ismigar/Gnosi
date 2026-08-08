@@ -457,7 +457,7 @@ const InfiniteLoadSentinel = React.memo(function InfiniteLoadSentinel({ visibleC
 let _gridKeyboardOwner = null;
 let _gridInstanceSeq = 0;
 
-export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView, onUpdateView, isEmbedded = false, isListView = false, onCreateRecord, onDeletePage, onDeleteSelected, onCellSaved, onUpdateFieldOptions, onOpenParallel, onTranslated, searchTerm: searchTermProp, actionRules = null, maxHeight = null, registerNavApi = null, onExitTop = null, onExitBottom = null, onEscape = null }) {
+export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView, onUpdateView, isEmbedded = false, isListView = false, onCreateRecord, onDeletePage, onDeleteSelected, onApplyTemplate, templates = [], onCellSaved, onUpdateFieldOptions, onOpenParallel, onTranslated, searchTerm: searchTermProp, actionRules = null, maxHeight = null, registerNavApi = null, onExitTop = null, onExitBottom = null, onEscape = null }) {
     const { isEnabled: isPluginEnabled, getPluginSettings } = usePlugins();
     const projectPlanningEnabled = isPluginEnabled('project-planning');
     const projectPlanningSettings = getPluginSettings('project-planning');
@@ -878,6 +878,12 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             clearSelection();
         }
     }, [selectedIds, onDeleteSelected, onDeletePage, safeNotes, clearSelection]);
+
+    const handleApplyTemplate = useCallback((templateId) => {
+        if (!templateId || selectedIds.size === 0 || !onApplyTemplate) return;
+        onApplyTemplate(new Set(selectedIds), templateId);
+        clearSelection();
+    }, [selectedIds, onApplyTemplate, clearSelection]);
 
     useVaultSelectionShortcuts({
         selectedCount: selectedIds.size,
@@ -3842,6 +3848,8 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                         onSelectAll={() => selectAll(sortedNotes.map(n => n.id))}
                         onClearSelection={clearSelection}
                         onDeleteSelected={(onDeleteSelected || onDeletePage) ? handleBulkDelete : null}
+                        templates={templates}
+                        onApplyTemplate={onApplyTemplate ? handleApplyTemplate : null}
                     />
                 )}
 

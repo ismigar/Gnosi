@@ -382,7 +382,7 @@ function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSele
     );
 }
 
-export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onDeleteSelected, onDeletePage, onUpdateNote, onCreateRecord, onOpenConfig, onClearSearch, onSearchChange, searchTerm = '', density = 'comfortable', groupMode = 'none' }) {
+export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onDeleteSelected, onDeletePage, onApplyTemplate, templates = [], onUpdateNote, onCreateRecord, onOpenConfig, onClearSearch, onSearchChange, searchTerm = '', density = 'comfortable', groupMode = 'none' }) {
     const { t, i18n } = useTranslation();
     const localeSettings = useLocaleSettings();
     const preferenceKey = `gnosi.feed.preferences.${activeView?.id || 'default'}`;
@@ -832,6 +832,8 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
                     onSelectAll={() => selectAll(sortedNotes.map(n => n.id))}
                     onClearSelection={clearSelection}
                     onDeleteSelected={(onDeleteSelected || onDeletePage) ? handleBulkDelete : null}
+                    templates={templates}
+                    onApplyTemplate={onApplyTemplate ? (templateId) => { onApplyTemplate(new Set(selectedIds), templateId); clearSelection(); } : null}
                     extraActions={bulkSelectFields.length > 0 && <select className="min-h-8 rounded-md border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-2 text-xs text-[var(--text-secondary)]" defaultValue="" onChange={(event) => { const [field, value] = event.target.value.split('::'); if (field && value) applyBulkField(field, value, getFieldType(schema, field) === 'multi_select'); event.target.value = ''; }} aria-label={t('feed.apply_field_to_selection', 'Apply a field to the selection')}><option value="">{t('feed.batch_update', 'Update selected…')}</option>{bulkSelectFields.flatMap(([field]) => normalizeOptions(getFieldConfig(schema, field)?.options).map((option) => <option key={`${field}-${option.name}`} value={`${field}::${option.name}`}>{field}: {option.name}</option>))}</select>}
                     className="vault-feed-selection-bar sticky top-2 w-full max-w-3xl mb-4 shrink-0 bg-[var(--gnosi-primary)]/10 border border-[var(--gnosi-primary)]/20 rounded-lg px-4 py-2 flex items-center gap-3 text-sm z-30"
                 />

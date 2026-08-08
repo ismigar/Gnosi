@@ -8,7 +8,7 @@
  * export selection to BibTeX/RIS.
  */
 import React, { useState, useRef, useEffect } from 'react';
-import { Trash2, X, CheckSquare, Tag, Download, ChevronDown, Languages } from 'lucide-react';
+import { Trash2, X, CheckSquare, Tag, Download, ChevronDown, Languages, LayoutTemplate } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 /**
@@ -33,23 +33,28 @@ export function VaultBulkActionsBar({
     onChangeItemType,
     onExportSelection,
     onTranslateSelection,
+    templates = [],
+    onApplyTemplate,
     extraActions,
 }) {
     const { t } = useTranslation();
     const [typeMenuOpen, setTypeMenuOpen] = useState(false);
     const [exportMenuOpen, setExportMenuOpen] = useState(false);
+    const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
     const typeMenuRef = useRef(null);
     const exportMenuRef = useRef(null);
+    const templateMenuRef = useRef(null);
 
     // Closes dropdowns on outside click.
     useEffect(() => {
         const handler = (e) => {
             if (typeMenuRef.current && !typeMenuRef.current.contains(e.target)) setTypeMenuOpen(false);
             if (exportMenuRef.current && !exportMenuRef.current.contains(e.target)) setExportMenuOpen(false);
+            if (templateMenuRef.current && !templateMenuRef.current.contains(e.target)) setTemplateMenuOpen(false);
         };
-        if (typeMenuOpen || exportMenuOpen) document.addEventListener('mousedown', handler);
+        if (typeMenuOpen || exportMenuOpen || templateMenuOpen) document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
-    }, [typeMenuOpen, exportMenuOpen]);
+    }, [typeMenuOpen, exportMenuOpen, templateMenuOpen]);
 
     const count = selectedIds?.size ?? 0;
     if (count === 0) return null;
@@ -144,6 +149,33 @@ export function VaultBulkActionsBar({
                     <Languages size={13} />
                     {t('translate.submit', "Translate")}
                 </button>
+            )}
+
+            {onApplyTemplate && templates.length > 0 && (
+                <div className="relative" ref={templateMenuRef}>
+                    <button
+                        onClick={() => setTemplateMenuOpen((open) => !open)}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
+                        title={t('bulk_actions.apply_template_title', 'Apply template')}
+                    >
+                        <LayoutTemplate size={13} />
+                        {t('bulk_actions.apply_template', 'Apply template')}
+                        <ChevronDown size={11} />
+                    </button>
+                    {templateMenuOpen && (
+                        <div className="absolute bottom-full mb-1 left-0 min-w-[200px] max-h-[280px] overflow-y-auto rounded-md border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-lg py-1 z-50">
+                            {templates.map((template) => (
+                                <button
+                                    key={template.id}
+                                    onClick={() => { onApplyTemplate(template.id); setTemplateMenuOpen(false); }}
+                                    className="w-full text-left px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]"
+                                >
+                                    {template.title || t('common.untitled', 'Untitled')}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
             )}
 
             {extraActions}

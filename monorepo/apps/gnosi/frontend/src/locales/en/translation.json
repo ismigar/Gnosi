@@ -4773,6 +4773,13 @@
     "export_title": "Export selection",
     "export": "Export",
     "translate_title": "Translate selected",
+    "apply_template_title": "Apply a template to selected records",
+    "apply_template": "Apply template",
+    "template_applied_one": "Template applied to {{count}} record",
+    "template_applied_other": "Template applied to {{count}} records",
+    "template_apply_partial_error_one": "The template could not be applied to {{count}} record",
+    "template_apply_partial_error_other": "The template could not be applied to {{count}} records",
+    "template_apply_error": "Could not apply the template",
     "delete_title": "Delete selected",
     "deselect_title": "Deselect"
   },

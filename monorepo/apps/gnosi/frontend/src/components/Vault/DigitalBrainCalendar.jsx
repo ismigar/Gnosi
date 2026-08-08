@@ -117,6 +117,8 @@ export const DigitalBrainCalendar = ({
     onSelection,
     onDeleteSelected,
     onDeletePage,
+    onApplyTemplate,
+    templates = [],
     // Vault DB view: date field to use as start (and optional end), and
     // bypass the filter by source — the table view has no selector for
     // calendars, so without this the calendar would come out empty.
@@ -595,6 +597,8 @@ export const DigitalBrainCalendar = ({
                     onSelectAll={() => selectAll(allEventIds)}
                     onClearSelection={clearSelection}
                     onDeleteSelected={(onDeleteSelected || onDeletePage) ? handleBulkDelete : null}
+                    templates={templates}
+                    onApplyTemplate={onApplyTemplate ? (templateId) => { onApplyTemplate(new Set(selectedIds), templateId); clearSelection(); } : null}
                 />
             )}
 

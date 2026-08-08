@@ -22,7 +22,7 @@ import {
 // system: writing to it would corrupt the frontmatter or have no effect).
 const NON_DRAGGABLE_GROUP_TYPES = new Set(['formula', 'rollup', 'virtual', 'button', 'created_time', 'last_edited_time', 'created_by', 'last_edited_by']);
 
-export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeView = {}, onEditSchema, onCreateRecord, schema = {}, idToTitle = {}, onDeleteSelected, onDeletePage, onUpdateNote, searchTerm: externalSearchTerm }) {
+export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeView = {}, onEditSchema, onCreateRecord, schema = {}, idToTitle = {}, onDeleteSelected, onDeletePage, onApplyTemplate, templates = [], onUpdateNote, searchTerm: externalSearchTerm }) {
     const { t } = useTranslation();
     // Content preview when hovering over a card's title.
     const titlePreview = useTitlePreview({ onOpenPage: onNoteSelect });
@@ -299,6 +299,8 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
                     onSelectAll={() => selectAll(sortedAndFilteredNotes.map(n => n.id))}
                     onClearSelection={clearSelection}
                     onDeleteSelected={(onDeleteSelected || onDeletePage) ? handleBulkDelete : null}
+                    templates={templates}
+                    onApplyTemplate={onApplyTemplate ? (templateId) => { onApplyTemplate(new Set(selectedIds), templateId); clearSelection(); } : null}
                 />
             )}
 

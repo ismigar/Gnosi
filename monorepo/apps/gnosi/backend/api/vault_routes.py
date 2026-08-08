@@ -9745,6 +9745,110 @@ async def bulk_update_metadata(payload: dict = Body(...)):
     }
 
 
+@router.post("/bulk-apply-template", dependencies=[Depends(require_role("editor"))])
+async def bulk_apply_template(payload: dict = Body(...)):
+    """Apply a table template body and declared properties to selected rows."""
+    page_ids = payload.get("page_ids") or []
+    template_id = str(payload.get("template_id") or "").strip()
+    expected_etags = payload.get("expected_etags") or {}
+    if not isinstance(page_ids, list) or not page_ids:
+        raise HTTPException(status_code=400, detail="page_ids must be a non-empty list")
+    if not template_id:
+        raise HTTPException(status_code=400, detail="template_id is required")
+
+    def _read_template():
+        template_path = find_page_path(template_id)
+        if not template_path or not template_path.exists():
+            return None, None, None
+        raw = template_path.read_text(encoding="utf-8")
+        metadata, body = parse_frontmatter(raw, template_path)
+        return template_path, metadata, body or ""
+
+    try:
+        _template_path, template_metadata, template_body = await asyncio.to_thread(_read_template)
+    except (OSError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=f"Could not read template: {exc}") from exc
+    if not template_metadata:
+        raise HTTPException(status_code=404, detail="Template not found")
+    if template_metadata.get("is_template") is not True:
+        raise HTTPException(status_code=400, detail="Selected page is not a template")
+
+    table_id = get_table_id(template_metadata)
+    table = _table_by_id(table_id)
+    if not table:
+        raise HTTPException(status_code=400, detail="Template does not belong to a table")
+
+    # Each property can be stored by its name, id, or legacy alias. Copy only
+    # schema-declared values: frontmatter such as title, id, table context and
+    # sidecar flags must always remain specific to the target record.
+    property_keys = []
+    for prop in table.get("properties") or []:
+        keys = [prop.get("name"), prop.get("id"), *(prop.get("aliases") or [])]
+        keys = [str(key) for key in keys if key]
+        template_key = next((key for key in keys if key in template_metadata), None)
+        if template_key:
+            property_keys.append((keys, template_key))
+
+    updated, errors, skipped, conflicts = [], [], [], []
+
+    for page_id in dict.fromkeys(str(pid) for pid in page_ids if pid):
+        async with await _get_page_write_lock(page_id):
+            def _apply():
+                page_path = find_page_path(page_id)
+                if not page_path or not page_path.exists():
+                    return "error", "not_found"
+                expected_etag = expected_etags.get(page_id)
+                if expected_etag:
+                    current_etag = file_etag(page_path)
+                    if current_etag and current_etag != expected_etag:
+                        return "conflict", {
+                            "expected_etag": expected_etag,
+                            "current_etag": current_etag,
+                        }
+                raw = page_path.read_text(encoding="utf-8")
+                metadata, current_body = parse_frontmatter(raw, page_path)
+                if metadata.get("is_template") is True:
+                    return "error", "target_is_template"
+                if get_table_id(metadata) != table_id:
+                    return "error", "different_table"
+                next_metadata = dict(metadata)
+                for candidate_keys, template_key in property_keys:
+                    target_key = next((key for key in candidate_keys if key in metadata), template_key)
+                    next_metadata[target_key] = template_metadata[template_key]
+                if next_metadata == metadata and current_body == template_body:
+                    return "skip", None
+                save_page_md(page_path, next_metadata, template_body)
+                _refresh_page_index_entry(page_path, next_metadata, template_body)
+                with _body_cache_lock:
+                    _body_cache.pop(str(page_path), None)
+                return "ok", file_etag(page_path)
+
+            try:
+                result, info = await asyncio.to_thread(_apply)
+            except (OSError, ValueError) as exc:
+                result, info = "error", str(exc)
+        if result == "ok":
+            updated.append({"page_id": page_id, "etag": info})
+        elif result == "skip":
+            skipped.append(page_id)
+        elif result == "conflict":
+            conflicts.append({"page_id": page_id, **info})
+        else:
+            errors.append({"page_id": page_id, "error": info})
+
+    if updated:
+        _invalidate_cite_key_index()
+        _pages_cache_invalidate_all()
+    return {
+        "updated": len(updated),
+        "updated_ids": [item["page_id"] for item in updated],
+        "updated_with_etags": updated,
+        "skipped": skipped,
+        "conflicts": conflicts,
+        "errors": errors,
+    }
+
+
 @router.get("/csl/styles")
 async def list_csl_styles():
     """List of the CSL styles available in the catalog (frontend/public/csl/styles).
