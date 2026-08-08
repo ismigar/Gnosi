@@ -526,8 +526,61 @@ textarea,
   transition: opacity 160ms ease, transform 160ms ease;
 }
 
+.vault-page-compact-header__identity {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.vault-page-compact-header__icon,
+.vault-page-compact-header__action {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  transition: color 140ms ease, background-color 140ms ease;
+}
+
+.vault-page-compact-header__icon {
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 1px solid var(--border-primary);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+.vault-page-compact-header__action {
+  width: 2rem;
+  height: 2rem;
+}
+
+.vault-page-compact-header__icon:hover,
+.vault-page-compact-header__action:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.vault-page-compact-header__icon:focus-visible,
+.vault-page-compact-header__action:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.vault-page-compact-header__actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.125rem;
+}
+
 .vault-page-compact-header__title {
   min-width: 0;
+  flex: 1 1 auto;
   overflow: hidden;
   color: var(--text-primary);
   font-size: 0.875rem;
@@ -1943,6 +1996,16 @@ button:hover > .row-action-tooltip {
 
   .vault-page-cover-actions {
     right: 1rem !important;
+  }
+
+  .vault-page-compact-header {
+    gap: 0.25rem;
+    padding-inline: 0.5rem;
+  }
+
+  .vault-page-compact-header__action {
+    width: var(--control-height-touch);
+    height: var(--control-height-touch);
   }
 
   .vault-page-cover-action,

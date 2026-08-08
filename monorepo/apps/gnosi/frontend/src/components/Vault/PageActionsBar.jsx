@@ -115,8 +115,9 @@ function buildItems(pa, t) {
  *
  * @param {object|null} pageActions Handlers + flags (same shape passed to the old menu).
  * @param {number} containerWidth   Measured width of the editor content pane, in px.
+ * @param {boolean} compactHeader   Keep every page action in the overflow menu.
  */
-export function PageActionsBar({ pageActions, containerWidth, compactOverflowItems = [] }) {
+export function PageActionsBar({ pageActions, containerWidth, compactOverflowItems = [], compactHeader = false }) {
     const { t } = useTranslation();
     const isCompact = useMediaQuery('(max-width: 768px)');
     const [overflowOpen, setOverflowOpen] = useState(false);
@@ -128,6 +129,12 @@ export function PageActionsBar({ pageActions, containerWidth, compactOverflowIte
     const budget = inlineBudget(containerWidth);
 
     const { inline, overflow } = useMemo(() => {
+        if (compactHeader) {
+            return {
+                inline: [],
+                overflow: [...compactOverflowItems, ...items],
+            };
+        }
         if (isCompact) {
             const favorite = items.find(item => item.key === 'favorite');
             const secondaryItems = items.filter(item => item.key !== 'favorite');
@@ -151,7 +158,7 @@ export function PageActionsBar({ pageActions, containerWidth, compactOverflowIte
             inline: inlineItems,
             overflow: items.filter(item => !inlineKeys.has(item.key)),
         };
-    }, [budget, compactOverflowItems, isCompact, items]);
+    }, [budget, compactHeader, compactOverflowItems, isCompact, items]);
 
     // Close the overflow menu on outside click.
     useEffect(() => {
@@ -171,7 +178,7 @@ export function PageActionsBar({ pageActions, containerWidth, compactOverflowIte
     // Esc closes the overflow menu.
     useModalKeyboard({ isOpen: overflowOpen, onClose: () => setOverflowOpen(false) });
 
-    if (!items.length && (!isCompact || compactOverflowItems.length === 0)) return null;
+    if (!items.length && compactOverflowItems.length === 0) return null;
 
     // The menu only renders while there is something to overflow (guarded
     // below), so a pane that widens past the breakpoint hides it without any

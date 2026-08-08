@@ -254,6 +254,9 @@ environment-specific frontend assumptions.
   scroller and remain visible until the hero returns. Do not listen to every
   bubbling document scroll: nested database and picker scrolling must never
   hide the page header.
+- The compact Vault row keeps the page icon, a flex-truncated title, properties
+  and links toggles, and one overflow menu on the same line. Preserve 44-pixel
+  touch targets at mobile widths and keep secondary page actions in that menu.
 - Bare Vault hero actions sit outside the clipped cover surface and remain
   visible without requiring hover. Keep the icon below the shell header and
   reserve enough overview space to prevent it from touching the page title.
