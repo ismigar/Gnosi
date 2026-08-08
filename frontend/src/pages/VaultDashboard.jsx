@@ -3132,6 +3132,13 @@ export default function VaultDashboard() {
     const currentOpenPage = activeTabId ? pages.find(p => p.id === activeTabId) : null;
     const currentActiveTab = activeTabId ? tabs.find(t => t.id === activeTabId) : null;
     const canToggleCodeView = viewMode === 'editor' && Boolean(currentActiveTab && !currentActiveTab.isTable && !currentActiveTab.isPdf);
+    // The active tab can exist briefly before the pages index is refreshed.
+    // Keep page actions available during that window, but never expose page
+    // deletion for table or PDF tabs.
+    const canDeleteCurrentPage = viewMode === 'editor'
+        && Boolean(currentActiveTab?.id)
+        && !currentActiveTab.isTable
+        && !currentActiveTab.isPdf;
     const isCodeViewActive = canToggleCodeView ? Boolean(codeViewByTabId[currentActiveTab.id]) : false;
     // Translate page: only for editable markdown pages (not tables or PDFs).
     const canTranslatePage = viewMode === 'editor' && Boolean(currentOpenPage && currentActiveTab && !currentActiveTab.isTable && !currentActiveTab.isPdf);
@@ -3256,10 +3263,12 @@ export default function VaultDashboard() {
                 force: Boolean(llmWikiResourceProcessed) || llmWikiResourceRetryable,
             });
         },
-        canDeleteCurrentPage: Boolean(currentOpenPage),
+        canDeleteCurrentPage,
         onDeleteCurrentPage: () => {
-            if (!currentOpenPage) return;
-            handleDeletePage(currentOpenPage.id, currentOpenPage.title || t('common.untitled'));
+            if (!canDeleteCurrentPage) return;
+            const page = currentOpenPage || currentActiveTab;
+            if (!page) return;
+            handleDeletePage(page.id, page.title || t('common.untitled'));
         },
     };
 
