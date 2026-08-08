@@ -3977,6 +3977,23 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
             compactPanelCloseTimerRef.current = null;
         }, 120);
     }, [clearCompactPanelCloseTimer]);
+    const scrollPageToTop = useCallback(() => {
+        const scroller = getScrollableAncestor(contentRef.current);
+        if (!scroller) return;
+        if (typeof scroller.scrollTo === 'function') {
+            scroller.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+            scroller.scrollTop = 0;
+        }
+    }, []);
+    const toggleCompactPanel = useCallback((panel) => {
+        if (panel === 'properties') {
+            setIsPropertiesOpen((current) => !current);
+        } else {
+            setIsLinksInfoOpen((current) => !current);
+        }
+        scrollPageToTop();
+    }, [scrollPageToTop]);
     useEffect(() => () => clearCompactPanelCloseTimer(), [clearCompactPanelCloseTimer]);
     useEffect(() => {
         const hero = headerHoverRef.current;
@@ -4822,7 +4839,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                         <button
                                             type="button"
                                             className="vault-page-compact-header__action"
-                                            onClick={() => setIsPropertiesOpen((current) => !current)}
+                                            onClick={() => toggleCompactPanel('properties')}
                                             onMouseEnter={() => openCompactPanelPreview('properties')}
                                             onMouseLeave={scheduleCompactPanelPreviewClose}
                                             onFocus={() => openCompactPanelPreview('properties')}
@@ -4866,7 +4883,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                         <button
                                             type="button"
                                             className="vault-page-compact-header__action"
-                                            onClick={() => setIsLinksInfoOpen((current) => !current)}
+                                            onClick={() => toggleCompactPanel('links')}
                                             onMouseEnter={() => openCompactPanelPreview('links')}
                                             onMouseLeave={scheduleCompactPanelPreviewClose}
                                             onFocus={() => openCompactPanelPreview('links')}
