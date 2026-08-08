@@ -108,7 +108,7 @@ import SpellCheckLayer from './SpellCheckLayer';
 import AICorrectLayer from './AICorrectLayer';
 import { PageLinksGraph } from './PageLinksGraph';
 import { useFloatingActionDock } from '../../hooks/useFloatingActionDock';
-import { isManagedInternalMetadataKey } from './metadataVisibilityUtils';
+import { isManagedInternalMetadataKey, shouldShowKnowledgePanels } from './metadataVisibilityUtils';
 import { focusPropertyRow } from './propertyNavigationUtils';
 import {
     restoreToggleDomExpansionState,
@@ -3864,6 +3864,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
 
     const isEditable = !isViewer;
     const [metadata, setMetadata] = useState(initialMetadata);
+    const showKnowledgePanels = shouldShowKnowledgePanels(metadata);
     // Global format defaults (currency/number/date) for the display
     // in read mode for the properties (per-field override via config.format).
     const localeSettings = useLocaleSettings();
@@ -4564,7 +4565,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         const controller = new AbortController();
 
         const loadIncomingLinks = async () => {
-            if (!noteFilename) {
+            if (!noteFilename || !showKnowledgePanels) {
                 setIncomingLinks([]);
                 setRelatedPages([]);
                 return;
@@ -4633,13 +4634,13 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         return () => {
             controller.abort();
         };
-    }, [noteFilename, idToTitle]);
+    }, [noteFilename, idToTitle, showKnowledgePanels]);
 
     useEffect(() => {
         const controller = new AbortController();
 
         const loadUnlinkedMentions = async () => {
-            if (!noteFilename) {
+            if (!noteFilename || !showKnowledgePanels) {
                 setUnlinkedMentions([]);
                 return;
             }
@@ -4668,7 +4669,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         return () => {
             controller.abort();
         };
-    }, [noteFilename]);
+    }, [noteFilename, showKnowledgePanels]);
 
     const handleLinkMentions = useCallback(async (sourceId = '') => {
         if (!noteFilename) return;
@@ -4940,7 +4941,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                 <CollaborationPresence pageId={noteFilename} />
                             </div>
                         </div>
-                        <div
+                        {showKnowledgePanels && <div
                             className="vault-page-summary-grid items-start px-1 mb-1.5"
                             data-expanded={isPropertiesOpen || isLinksInfoOpen}
                         >
@@ -5504,7 +5505,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                     </div>
                                 )}
                             </div>
-                        </div>
+                        </div>}
                     </div>
                 </div>
                 <div className="vault-page-body relative min-h-[500px] px-12 pb-8">

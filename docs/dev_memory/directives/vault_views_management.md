@@ -62,6 +62,12 @@ Before considering a view complete, verify:
   a localized error with an explicit retry action; never silently present an
   empty list as if the table had no saved views.
 
+- **An empty embedded calendar shows only its toolbar.** The embedded calendar
+  has no parent height to inherit. Give its calendar container a minimum height
+  and let FullCalendar calculate its own height, so the month/week/day grid is
+  drawn even when there are no matching records. Keep the full calendar page on
+  its existing viewport-filling height.
+
 - **Reloading `/vault/table/:id` renders no columns.** Do not select the table
   from the URL until `registry.tables` contains its ID. An empty array is
   truthy, so checking only `registry.tables` runs too early.
