@@ -326,14 +326,11 @@ textarea,
 
 .vault-page-hero--bare .vault-page-cover {
   height: 0.75rem;
+  overflow: visible;
 }
 
 .vault-page-hero--bare .vault-page-icon {
-  bottom: -3rem;
-}
-
-.vault-page-hero--bare .vault-page-icon {
-  bottom: -3rem;
+  bottom: -4.75rem;
 }
 
 .vault-page-cover-actions {
@@ -341,7 +338,8 @@ textarea,
 }
 
 .vault-page-hero--bare .vault-page-cover-actions {
-  bottom: 0.125rem;
+  top: 0.75rem;
+  bottom: auto;
 }
 
 .vault-page-icon img {
@@ -353,7 +351,7 @@ textarea,
 }
 
 .vault-page-overview--bare.vault-page-overview--with-icon {
-  padding-top: 2.75rem;
+  padding-top: 5.75rem;
 }
 
 .vault-page-overview--without-icon {
@@ -526,12 +524,6 @@ textarea,
   box-shadow: var(--shadow-subtle);
   backdrop-filter: blur(12px);
   transition: opacity 160ms ease, transform 160ms ease;
-}
-
-.vault-page-compact-header.is-hidden {
-  pointer-events: none;
-  opacity: 0;
-  transform: translateY(-100%);
 }
 
 .vault-page-compact-header__title {
@@ -1933,7 +1925,7 @@ button:hover > .row-action-tooltip {
   }
 
   .vault-page-overview--bare.vault-page-overview--with-icon {
-    padding-top: 2.5rem;
+    padding-top: 5.75rem;
   }
 
   .vault-page-overview--bare.vault-page-overview--without-icon {
