@@ -192,7 +192,7 @@ function applyDashboardJoins(baseRows, joins, allPages, resolveTableId) {
 }
 
 export default function VaultDashboard() {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const navigate = useNavigate();
     const { "*": nestedPath } = useParams();
 
@@ -2483,6 +2483,7 @@ export default function VaultDashboard() {
                 const tableRes = await axios.post('/api/vault/tables', {
                     name: title,
                     database_id: databaseId,
+                    locale: i18n.resolvedLanguage || i18n.language,
                     properties: [{ name: "Status", type: "select" }]
                 });
                 await axios.post(`/api/vault/views`, {

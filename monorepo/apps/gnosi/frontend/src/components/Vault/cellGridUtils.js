@@ -12,7 +12,8 @@ import { parsePeriod, serializePeriod } from '../../utils/projectPlanning';
 
 /** Computed or action types: never edited or pasted. */
 export function isComputedType(type) {
-    return type === 'formula' || type === 'rollup' || type === 'virtual' || type === 'button';
+    return type === 'formula' || type === 'rollup' || type === 'virtual' || type === 'button'
+        || type === 'created_time' || type === 'last_edited_time';
 }
 
 /** True if a cell of this type can receive a paste. */
