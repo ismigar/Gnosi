@@ -250,9 +250,13 @@ environment-specific frontend assumptions.
 - Contextual single-key shortcuts ignore editable controls and modified key
   combinations. Keep `/`, `F`, `N`, `D`, and `L` scoped to the active embedded
   view so normal typing and application shortcuts are unaffected.
-- Compact page headers appear after the hero leaves the viewport, hide while
-  scrolling down, and return while scrolling up. Motion is disabled when
-  `prefers-reduced-motion` is active.
+- Compact page headers appear after the hero leaves its actual Vault document
+  scroller and remain visible until the hero returns. Do not listen to every
+  bubbling document scroll: nested database and picker scrolling must never
+  hide the page header.
+- Bare Vault hero actions sit outside the clipped cover surface and remain
+  visible without requiring hover. Keep the icon below the shell header and
+  reserve enough overview space to prevent it from touching the page title.
 - Visual regression coverage for Vault pages includes mobile, tablet, and
   desktop viewports in both color schemes. Mask live feed content so snapshots
   detect layout regressions without becoming unstable from user data.

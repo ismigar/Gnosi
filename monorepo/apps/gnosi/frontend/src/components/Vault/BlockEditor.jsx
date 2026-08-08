@@ -310,12 +310,13 @@ const normalizeLinkedPageRef = (rawRef) => {
     const source = String(rawRef || '').trim();
     if (!source) return '';
 
-    let decoded = source;
-    try {
-        decoded = decodeURIComponent(source);
-    } catch {
-        decoded = source;
-    }
+    const decoded = (() => {
+        try {
+            return decodeURIComponent(source);
+        } catch {
+            return source;
+        }
+    })();
 
     const withoutHash = decoded.split('#')[0].trim();
     if (!withoutHash) return '';
@@ -3956,35 +3957,26 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const registerEditorApi = useCallback((api) => { editorApiRef.current = api; }, []);
     const [isHeaderHovered, setIsHeaderHovered] = useState(false);
     const [isPageHeaderCompact, setIsPageHeaderCompact] = useState(false);
-    const [isCompactHeaderVisible, setIsCompactHeaderVisible] = useState(true);
     const [isFocusMode, setIsFocusMode] = useState(false);
-    const lastScrollTopRef = useRef(0);
     useEffect(() => {
         const hero = headerHoverRef.current;
         if (!hero || typeof IntersectionObserver !== 'function') return undefined;
+        let scrollRoot = hero.parentElement;
+        while (scrollRoot) {
+            const overflowY = window.getComputedStyle(scrollRoot).overflowY;
+            if (overflowY === 'auto' || overflowY === 'scroll') break;
+            scrollRoot = scrollRoot.parentElement;
+        }
         const observer = new IntersectionObserver(
             ([entry]) => {
                 const compact = !entry.isIntersecting && entry.boundingClientRect.bottom < 0;
                 setIsPageHeaderCompact(compact);
-                if (compact) setIsCompactHeaderVisible(true);
             },
-            { threshold: 0 },
+            { root: scrollRoot, threshold: 0 },
         );
         observer.observe(hero);
         return () => observer.disconnect();
     }, [noteFilename]);
-    useEffect(() => {
-        const handleScroll = (event) => {
-            const target = event.target === document ? document.scrollingElement : event.target;
-            if (!(target instanceof Element)) return;
-            const nextScrollTop = target.scrollTop;
-            const delta = nextScrollTop - lastScrollTopRef.current;
-            if (Math.abs(delta) > 6) setIsCompactHeaderVisible(delta < 0);
-            lastScrollTopRef.current = nextScrollTop;
-        };
-        document.addEventListener('scroll', handleScroll, true);
-        return () => document.removeEventListener('scroll', handleScroll, true);
-    }, []);
     useEffect(() => {
         const toggleFocusMode = () => setIsFocusMode((current) => !current);
         window.addEventListener('gnosi:toggle-focus-mode', toggleFocusMode);
@@ -4318,7 +4310,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
             raw = propClipboardRef.current.value;
         } else {
             let text = '';
-            try { text = await navigator.clipboard.readText(); } catch { text = ''; }
+            try { text = await navigator.clipboard.readText(); } catch { /* Keep the empty fallback. */ }
             const m = parseClipboardMatrix(text);
             raw = m[0]?.[0];
             if (raw === undefined) return;
@@ -4745,7 +4737,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         <div className={`vault-page-editor ${isFocusMode ? 'vault-page-editor--focus' : ''} w-full flex justify-center bg-[var(--bg-primary)] min-h-full transition-colors duration-300`}>
             <div ref={contentRef} className="max-w-7xl w-full flex flex-col min-h-full bg-[var(--bg-primary)] relative transition-colors duration-300">
                 {isPageHeaderCompact && (
-                    <div className={`vault-page-compact-header ${isCompactHeaderVisible ? '' : 'is-hidden'}`}>
+                    <div className="vault-page-compact-header">
                         <span className="vault-page-compact-header__title">{metadata.title || t('editor.untitled')}</span>
                         <PageActionsBar
                             pageActions={isActivePage ? pageActions : null}
@@ -4769,11 +4761,12 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                             />
                         )}
                         
-                        <div className={`vault-page-cover-actions absolute right-8 flex items-center gap-2 transition-opacity duration-200 ${isHeaderHovered ? 'opacity-100' : 'opacity-0'}`}>
+                        <div className={`vault-page-cover-actions absolute right-8 flex items-center gap-2 transition-opacity duration-200 ${!metadata.cover || isHeaderHovered ? 'opacity-100' : 'opacity-0'}`}>
                             {!metadata.icon && (
                                 <button 
                                     onClick={() => setIsIconPickerOpen(true)}
                                     className="vault-page-cover-action flex items-center gap-1.5 px-3 py-1.5 bg-[var(--bg-primary)]/80 hover:bg-[var(--bg-primary)] border border-[var(--border-primary)] shadow-sm backdrop-blur-md rounded-md text-xs font-semibold text-[var(--text-secondary)] transition-all"
+                                    aria-label={t('editor.add_icon')}
                                 >
                                     <Smile size={14} />
                                     {t('editor.add_icon')}
@@ -4783,6 +4776,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                 ref={coverTriggerRef}
                                 onClick={() => setIsCoverPickerOpen(true)}
                                 className="vault-page-cover-action flex items-center gap-1.5 px-3 py-1.5 bg-[var(--bg-primary)]/80 hover:bg-[var(--bg-primary)] border border-[var(--border-primary)] shadow-sm backdrop-blur-md rounded-md text-xs font-semibold text-[var(--text-secondary)] transition-all"
+                                aria-label={metadata.cover ? t('editor.change_cover') : t('editor.add_cover')}
                             >
                                 <LayoutPanelLeft size={14} />
                                 {metadata.cover ? t('editor.change_cover') : t('editor.add_cover')}
