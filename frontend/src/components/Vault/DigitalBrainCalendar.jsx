@@ -46,6 +46,7 @@ const exclusiveToInclusiveEnd = (end) => (_DAY_RE.test(String(end || '').trim())
 // caused an infinite re-render loop (CustomRenderingStore → setState) when
 // navigate ("Maximum update depth exceeded") and the view would fall into the boundary.
 const DB_VIEW_SWITCHER = [
+    { id: 'multiMonthYear', labelKey: 'calendar.view_year', fallback: 'Any' },
     { id: 'dayGridMonth', labelKey: 'calendar.view_month', fallback: 'Mes' },
     { id: 'timeGridWeek', labelKey: 'calendar.view_week', fallback: 'Setmana' },
     { id: 'timeGridDay', labelKey: 'calendar.view_day', fallback: 'Dia' },
@@ -641,7 +642,7 @@ export const DigitalBrainCalendar = ({
                     </div>
                 </div>
             )}
-            <div className="calendar-container flex-1">
+            <div className={`calendar-container flex-1 ${showHeaderToolbar ? 'min-h-[34rem]' : ''}`}>
                 <FullCalendar
                     ref={calRef}
                     plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, rrulePlugin, multiMonthPlugin]}
@@ -674,7 +675,7 @@ export const DigitalBrainCalendar = ({
                     eventDrop={handleEventDrop}
                     eventResize={handleEventResize}
                     eventDidMount={handleEventDidMount}
-                    height="100%"
+                    height={showHeaderToolbar ? 'auto' : '100%'}
                     eventTimeFormat={{
                         hour: '2-digit',
                         minute: '2-digit',
