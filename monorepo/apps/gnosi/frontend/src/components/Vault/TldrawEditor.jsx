@@ -120,6 +120,20 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [recognizing, setRecognizing] = useState(false);
     const [penOnly, setPenOnly] = useState(false);
+    const [supportsTouch, setSupportsTouch] = useState(false);
+
+    useEffect(() => {
+        const coarsePointerQuery = window.matchMedia('(pointer: coarse)');
+        const updateTouchSupport = () => {
+            setSupportsTouch(
+                navigator.maxTouchPoints > 0 || coarsePointerQuery.matches,
+            );
+        };
+
+        updateTouchSupport();
+        coarsePointerQuery.addEventListener?.('change', updateTouchSupport);
+        return () => coarsePointerQuery.removeEventListener?.('change', updateTouchSupport);
+    }, []);
 
     // Synchronous reset if the drawing changes without remounting (React
     // "adjusting state when props change"): no render can see 'ready'
@@ -557,7 +571,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
                             {recognizing ? t('tldraw.recognizing') : t('tldraw.to_text')}
                         </button>
                     )}
-                    {loadState === 'ready' && (
+                    {loadState === 'ready' && supportsTouch && (
                         <button
                             onClick={() => setPenOnly((v) => !v)}
                             aria-pressed={penOnly}
