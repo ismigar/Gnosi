@@ -3960,22 +3960,42 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const [isFocusMode, setIsFocusMode] = useState(false);
     useEffect(() => {
         const hero = headerHoverRef.current;
-        if (!hero || typeof IntersectionObserver !== 'function') return undefined;
+        const content = contentRef.current;
+        if (!hero || !content || typeof IntersectionObserver !== 'function') return undefined;
         let scrollRoot = hero.parentElement;
         while (scrollRoot) {
             const overflowY = window.getComputedStyle(scrollRoot).overflowY;
             if (overflowY === 'auto' || overflowY === 'scroll') break;
             scrollRoot = scrollRoot.parentElement;
         }
+        const hasScrolledTable = () => [...content.querySelectorAll('[data-vault-table-scroll]')]
+            .some((element) => element.scrollTop > 0);
+        const heroHasLeftDocumentScroller = () => {
+            const heroRect = hero.getBoundingClientRect();
+            const rootTop = scrollRoot?.getBoundingClientRect().top || 0;
+            return heroRect.bottom < rootTop;
+        };
+        const syncCompactHeader = () => {
+            setIsPageHeaderCompact(heroHasLeftDocumentScroller() || hasScrolledTable());
+        };
+        const handleNestedScroll = (event) => {
+            if (event.target instanceof HTMLElement && event.target.matches('[data-vault-table-scroll]')) {
+                syncCompactHeader();
+            }
+        };
         const observer = new IntersectionObserver(
-            ([entry]) => {
-                const compact = !entry.isIntersecting && entry.boundingClientRect.bottom < 0;
-                setIsPageHeaderCompact(compact);
-            },
+            () => syncCompactHeader(),
             { root: scrollRoot, threshold: 0 },
         );
         observer.observe(hero);
-        return () => observer.disconnect();
+        scrollRoot?.addEventListener('scroll', syncCompactHeader, { passive: true });
+        content.addEventListener('scroll', handleNestedScroll, { capture: true, passive: true });
+        syncCompactHeader();
+        return () => {
+            observer.disconnect();
+            scrollRoot?.removeEventListener('scroll', syncCompactHeader);
+            content.removeEventListener('scroll', handleNestedScroll, true);
+        };
     }, [noteFilename]);
     useEffect(() => {
         const toggleFocusMode = () => setIsFocusMode((current) => !current);

@@ -257,6 +257,9 @@ environment-specific frontend assumptions.
 - The compact Vault row keeps the page icon, a flex-truncated title, properties
   and links toggles, and one overflow menu on the same line. Preserve 44-pixel
   touch targets at mobile widths and keep secondary page actions in that menu.
+- On Dashboard table views, scrolling the table itself also promotes the
+  compact row so the page identity and menu remain available; unrelated picker
+  scrolling must not toggle the page header.
 - Bare Vault hero actions sit outside the clipped cover surface and remain
   visible without requiring hover. Keep the icon below the shell header and
   reserve enough overview space to prevent it from touching the page title.

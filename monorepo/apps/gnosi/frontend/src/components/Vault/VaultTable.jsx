@@ -3860,6 +3860,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                     `flex-1` is used to fill the parent's height. */}
                 <div
                     ref={tableContainerRef}
+                    data-vault-table-scroll
                     onPointerDownCapture={claimKeyboard}
                     style={maxHeight ? { maxHeight } : undefined}
                     className={`bg-[var(--bg-primary)] overflow-auto custom-scrollbar ${maxHeight ? '' : 'flex-1'} ${isEmbedded ? `${activeCell ? 'ring-1 ring-[var(--gnosi-primary)]/30' : ''} transition-all` : 'border-none shadow-none'} ${isListView ? 'border-none shadow-none' : ''}`}>
