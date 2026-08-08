@@ -29,3 +29,14 @@ Before delivering a UI change:
 - [ ] Keep persistent launchers and passive reminders below modal overlays.
 - [ ] Verify that `ConfirmModal` is visible on top of the new interface.
 - [ ] Ensure that background `blur` effects don't bleed into the wrong layer.
+
+## BlockNote Side Menu Above Embedded Views
+BlockNote's default side-menu controller places its floating wrapper at z-index
+20. Embedded database-view toolbars use z-index 25 so they remain sticky while
+their table scrolls. Therefore, when the BlockNote block menu opens downward
+beside an embedded view, the toolbar can paint over it.
+
+Configure the side-menu controller explicitly with
+`--z-popover`, rather than overriding BlockNote's generated wrapper through a
+structural CSS selector. This keeps the block menu above embedded tables while
+remaining below modal layers.

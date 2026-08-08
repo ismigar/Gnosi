@@ -45,6 +45,7 @@ import axios from 'axios';
 import {
     useCreateBlockNote,
     getDefaultReactSlashMenuItems,
+    SideMenuController,
     SuggestionMenuController,
     createReactBlockSpec,
     createReactInlineContentSpec,
@@ -3237,8 +3238,16 @@ export function EditorInner({
                 editor={editor}
                 editable={isEditable}
                 slashMenu={false}
+                sideMenu={false}
                 theme={effectiveTheme}
             >
+                <SideMenuController
+                    floatingUIOptions={{
+                        elementProps: {
+                            style: { zIndex: 'var(--z-popover)' },
+                        },
+                    }}
+                />
                 <SuggestionMenuController
                     triggerCharacter="/"
                     getItems={async (query) => {
