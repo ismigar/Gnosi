@@ -18,14 +18,15 @@ const STORAGE_STATE = path.resolve(__dirname, '../.auth/state.json');
 
 setup('seed workspace localStorage', async ({ page }) => {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
+  const testVaultId = process.env.GNOSI_TEST_VAULT_ID;
 
-  await page.evaluate(() => {
+  await page.evaluate((vaultId) => {
     localStorage.setItem('gnosi_workspace_id', 'personal');
     localStorage.setItem('gnosi_user_email', 'ismigar@gmail.com');
     localStorage.setItem('gnosi_role', 'admin');
-    const testVaultId = process.env.GNOSI_TEST_VAULT_ID;
-    if (testVaultId) localStorage.setItem('gnosi_active_vault', testVaultId);
-  });
+    localStorage.setItem('i18nextLng', 'ca');
+    if (vaultId) localStorage.setItem('gnosi_active_vault', vaultId);
+  }, testVaultId);
 
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});

@@ -17834,66 +17834,84 @@ async def get_schema(folder: str):
 @router.get("/drawings")
 async def list_drawings():
     """Lists all drawings in the vault (tldraw and excalidraw)."""
-    dib_path = get_p('DIBUIXOS')
-    dib_path.mkdir(parents=True, exist_ok=True)
-    drawings = []
-    seen_ids = set()
+    def _list() -> List[Dict[str, Any]]:
+        dib_path = get_p('DIBUIXOS')
+        dib_path.mkdir(parents=True, exist_ok=True)
+        drawings = []
+        seen_ids = set()
 
-    # First search for .tldraw.json files (new format)
-    for file_path in dib_path.glob("*.tldraw.json"):
-        drawing_id = file_path.stem.replace(".tldraw", "")
-        seen_ids.add(drawing_id)
-        stat = file_path.stat()
-        try:
-            data = json.loads(file_path.read_text(encoding="utf-8"))
-            # New format has { title, data, metadata }
-            title = data.get("title", drawing_id)
-            drawings.append(
-                {
-                    "id": drawing_id,
-                    "title": title,
-                    "last_modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
-                    "size": stat.st_size,
-                }
-            )
-        except Exception as e:
-            log.warning(f"Error reading drawing {file_path.name}: {e}")
+        # First search for .tldraw.json files (new format)
+        for file_path in dib_path.glob("*.tldraw.json"):
+            drawing_id = file_path.stem.replace(".tldraw", "")
+            seen_ids.add(drawing_id)
+            try:
+                stat = file_path.stat()
+                data = json.loads(file_path.read_text(encoding="utf-8"))
+                # New format has { title, data, metadata }
+                title = data.get("title", drawing_id)
+                drawings.append(
+                    {
+                        "id": drawing_id,
+                        "title": title,
+                        "last_modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                        "size": stat.st_size,
+                    }
+                )
+            except Exception as e:
+                log.warning(f"Error reading drawing {file_path.name}: {e}")
 
-    # Then search for .excalidraw.json files (old format)
-    for file_path in get_p("DIBUIXOS").glob("*.excalidraw.json"):
-        drawing_id = file_path.stem.replace(".excalidraw", "")
-        if drawing_id in seen_ids:
-            continue  # We already have the new format
-        stat = file_path.stat()
-        try:
-            data = json.loads(file_path.read_text(encoding="utf-8"))
-            drawings.append(
-                {
-                    "id": drawing_id,
-                    "title": data.get("metadata", {}).get("title", drawing_id),
-                    "last_modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
-                    "size": stat.st_size,
-                }
-            )
-        except Exception as e:
-            log.warning(f"Error reading drawing {file_path.name}: {e}")
+        # Then search for .excalidraw.json files (old format)
+        for file_path in dib_path.glob("*.excalidraw.json"):
+            drawing_id = file_path.stem.replace(".excalidraw", "")
+            if drawing_id in seen_ids:
+                continue  # We already have the new format
+            try:
+                stat = file_path.stat()
+                data = json.loads(file_path.read_text(encoding="utf-8"))
+                drawings.append(
+                    {
+                        "id": drawing_id,
+                        "title": data.get("metadata", {}).get("title", drawing_id),
+                        "last_modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                        "size": stat.st_size,
+                    }
+                )
+            except Exception as e:
+                log.warning(f"Error reading drawing {file_path.name}: {e}")
 
-    return drawings
+        return drawings
+
+    # Drawings live in the cloud-backed vault. Keep filesystem latency out of
+    # FastAPI's event loop so one unavailable placeholder cannot freeze all
+    # drawing loads and saves.
+    return await asyncio.to_thread(_list)
 
 
 @router.get("/drawings/{drawing_id}")
 async def get_drawing(drawing_id: str):
     """Returns the data of a Tldraw drawing."""
-    # Search first in new format (.tldraw.json)
-    file_path = get_p("DIBUIXOS") / f"{drawing_id}.tldraw.json"
-    if not file_path.exists():
-        # Fallback to old format (.excalidraw.json)
-        file_path = get_p("DIBUIXOS") / f"{drawing_id}.excalidraw.json"
+    def _read() -> dict:
+        # Search first in new format (.tldraw.json)
+        file_path = get_p("DIBUIXOS") / f"{drawing_id}.tldraw.json"
         if not file_path.exists():
-            raise HTTPException(status_code=404, detail="Drawing not found")
+            # Fallback to old format (.excalidraw.json)
+            file_path = get_p("DIBUIXOS") / f"{drawing_id}.excalidraw.json"
+            if not file_path.exists():
+                raise FileNotFoundError(drawing_id)
+
+        return json.loads(file_path.read_text(encoding="utf-8"))
 
     try:
-        file_data = json.loads(file_path.read_text(encoding="utf-8"))
+        # The vault can be backed by OneDrive; never perform its read on the
+        # event loop or a slow online-only file will block every drawing.
+        file_data = await asyncio.to_thread(_read)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Drawing not found")
+    except Exception as e:
+        log.error(f"Error reading drawing {drawing_id}: {e}")
+        raise HTTPException(status_code=500, detail="Error reading target file")
+
+    try:
         # New format has { title, data, metadata } - return data
         if "data" in file_data:
             return file_data["data"]

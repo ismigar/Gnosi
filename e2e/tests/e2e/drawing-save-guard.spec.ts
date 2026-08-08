@@ -29,8 +29,13 @@ async function openDrawingCard(page: Page, id: string, title: string) {
         })
     );
     await page.goto('/vault/drawing', { waitUntil: 'domcontentloaded' });
+    const releaseNotesClose = page.locator(
+        'button[aria-label="Close release notes"], button[aria-label="Tanca les notes de la versió"]'
+    );
+    await releaseNotesClose.first().click({ timeout: 10_000, force: true }).catch(() => {});
     const card = page.locator(`h3:has-text("${title}")`).first();
     await card.waitFor({ state: 'visible', timeout: 15_000 });
+    await releaseNotesClose.first().click({ timeout: 2_000, force: true }).catch(() => {});
     await card.click();
 }
 
@@ -70,7 +75,7 @@ test.describe('TldrawEditor: cap PUT destructiu si la càrrega falla', () => {
         await openDrawingCard(page, ID, 'Guard 500');
 
         // Error overlay visible, with saving blocked
-        await expect(page.getByText("No s'ha pogut carregar el dibuix")).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByText("No s'ha pogut carregar el dibuix")).toBeVisible({ timeout: 20_000 });
 
         // Neither autosave (1 s) nor Ctrl+S should be able to save
         await page.keyboard.press('ControlOrMeta+s');
@@ -136,11 +141,13 @@ test.describe('TldrawEditor: cap PUT destructiu si la càrrega falla', () => {
 
         // Drawing a stroke = 'document' scope ⇒ autosave in ~1 s
         await page.getByTestId('tools.draw').click();
+        await expect(page.getByTestId('tools.draw')).toHaveAttribute('aria-pressed', 'true');
+        await page.waitForTimeout(250);
         await page.mouse.move(cx - 120, cy - 40);
         await page.mouse.down();
         await page.mouse.move(cx + 120, cy + 60, { steps: 15 });
         await page.mouse.up();
-        await expect.poll(() => puts.length, { timeout: 6_000 }).toBeGreaterThan(baseline);
+        await expect.poll(() => puts.length, { timeout: 10_000 }).toBeGreaterThan(baseline);
 
         // The PUT must carry the stroke in the snapshot (not an empty canvas)
         const lastPut = JSON.parse(puts[puts.length - 1]);
