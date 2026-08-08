@@ -4738,11 +4738,73 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
             <div ref={contentRef} className="max-w-7xl w-full flex flex-col min-h-full bg-[var(--bg-primary)] relative transition-colors duration-300">
                 {isPageHeaderCompact && (
                     <div className="vault-page-compact-header">
-                        <span className="vault-page-compact-header__title">{metadata.title || t('editor.untitled')}</span>
-                        <PageActionsBar
-                            pageActions={isActivePage ? pageActions : null}
-                            containerWidth={contentWidth}
-                        />
+                        <div className="vault-page-compact-header__identity">
+                            <button
+                                type="button"
+                                className="vault-page-compact-header__icon"
+                                onClick={() => setIsIconPickerOpen(true)}
+                                title={t('common.icon')}
+                                aria-label={t('common.icon')}
+                            >
+                                {metadata.icon ? <IconRenderer icon={metadata.icon} size={18} /> : <FileText size={18} />}
+                            </button>
+                            <span className="vault-page-compact-header__title" title={metadata.title || t('editor.untitled')}>
+                                {metadata.title || t('editor.untitled')}
+                            </span>
+                        </div>
+                        <div className="vault-page-compact-header__actions">
+                            {showKnowledgePanels && (
+                                <>
+                                    <button
+                                        type="button"
+                                        className="vault-page-compact-header__action"
+                                        onClick={() => setIsPropertiesOpen((current) => !current)}
+                                        title={t('editor.toggle_properties')}
+                                        aria-label={t('editor.toggle_properties')}
+                                        aria-expanded={isPropertiesOpen}
+                                    >
+                                        <Settings size={16} />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="vault-page-compact-header__action"
+                                        onClick={() => setIsLinksInfoOpen((current) => !current)}
+                                        title={t('editor.links_and_mentions')}
+                                        aria-label={t('editor.links_and_mentions')}
+                                        aria-expanded={isLinksInfoOpen}
+                                    >
+                                        <Link2 size={16} />
+                                    </button>
+                                </>
+                            )}
+                            <PageActionsBar
+                                compactHeader
+                                pageActions={isActivePage ? pageActions : null}
+                                containerWidth={contentWidth}
+                                compactOverflowItems={isActivePage ? [{
+                                    key: 'spellcheck',
+                                    Icon: SpellCheck2,
+                                    active: spellEnabled,
+                                    label: spellEnabled
+                                        ? t('editor.spellcheck_active', { lang: spellLang.toUpperCase() })
+                                        : t('editor.spellcheck_disabled'),
+                                    onClick: () => setSpellEnabled((value) => !value),
+                                }, {
+                                    key: 'ai-correct',
+                                    Icon: Sparkles,
+                                    label: t('editor.ai_correct_page'),
+                                    onClick: () => window.dispatchEvent(new CustomEvent('gnosi:ai-correct-page')),
+                                }, {
+                                    key: 'quick-actions',
+                                    Icon: PanelBottomOpen,
+                                    active: isFloatingDockOpen,
+                                    label: isFloatingDockOpen
+                                        ? t('shell.close_quick_actions', 'Close quick actions')
+                                        : t('shell.open_quick_actions', 'Open quick actions'),
+                                    onClick: () => setIsFloatingDockOpen((value) => !value),
+                                }] : []}
+                            />
+                        </div>
                     </div>
                 )}
                 <div
