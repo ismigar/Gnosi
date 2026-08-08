@@ -3525,6 +3525,7 @@
     "loading_views": "Loading views…",
     "create_new_view": "— Create new view —",
     "existing_hint": "You can review/override the fields in the Fields, Filters and Sorting tabs.",
+    "existing_views_load_error": "Couldn't load the existing views. You can create a new view or try again.",
     "pinned_tabs": "Show tabs (views pinned to this block)",
     "anchor_view": "(anchor view)",
     "usage_count_one": "This view is already used on {{count}} page.",

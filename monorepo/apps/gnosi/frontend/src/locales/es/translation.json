@@ -3500,6 +3500,7 @@
     "loading_views": "Cargando vistas…",
     "create_new_view": "— Crear nueva vista —",
     "existing_hint": "Puedes revisar/sobrescribir los campos en las pestañas Campos, Filtros y Ordenación.",
+    "existing_views_load_error": "No se han podido cargar las vistas existentes. Puedes crear una nueva o volver a intentarlo.",
     "pinned_tabs": "Mostrar pestañas (vistas fijadas a este bloque)",
     "anchor_view": "(vista ancla)",
     "usage_count_one": "Esta vista ya se usa en {{count}} página.",

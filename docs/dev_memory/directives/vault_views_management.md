@@ -56,6 +56,12 @@ Before considering a view complete, verify:
   `Rendered more hooks than during the previous render`. Declare every hook
   before the closed-state return.
 
+- **The existing-view picker only shows “Create new view”.** A view request is
+  asynchronous. Reset stale entries and render a disabled loading state while
+  it is pending. If the request fails, keep creating a view available but show
+  a localized error with an explicit retry action; never silently present an
+  empty list as if the table had no saved views.
+
 - **Reloading `/vault/table/:id` renders no columns.** Do not select the table
   from the URL until `registry.tables` contains its ID. An empty array is
   truthy, so checking only `registry.tables` runs too early.
