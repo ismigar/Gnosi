@@ -13,6 +13,7 @@ import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
 import { RelationItem } from './RelationItem';
+import { orderGroupKeys } from './groupOrderUtils';
 import {
     normalizeRelationValues,
     unlinkRelationFromRecord,
@@ -235,6 +236,17 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
         });
     });
 
+    // Apply the group-order settings persisted by PageViewModal. The empty
+    // bucket remains last in every mode, matching table and gallery grouping.
+    const orderedStatuses = orderGroupKeys({
+        keys: allStatuses,
+        mode: activeView?.groupSort || activeView?.group_sort || 'catalog',
+        direction: activeView?.groupSortDir || activeView?.group_sort_dir || 'asc',
+        emptyKey: EMPTY_BUCKET,
+        getLabel: status => idToTitle[status] || status,
+        getCount: status => groupedNotes[status]?.length || 0,
+    });
+
     // Dropping a card on a column: writes the column's value
     // to the grouping field (like Notion). Multi-value (multi_select/relation):
     // replaces the SOURCE value with the destination one (the rest are kept);
@@ -316,7 +328,7 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
                 )}
 
                 <div className="flex gap-6 min-w-max pb-8 items-start">
-                    {allStatuses.map(status => (
+                    {orderedStatuses.map(status => (
                         <div
                             key={status}
                             onDragOver={canDrag ? (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (dragOverCol !== status) setDragOverCol(status); } : undefined}
