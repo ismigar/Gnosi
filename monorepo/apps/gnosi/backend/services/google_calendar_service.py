@@ -138,30 +138,60 @@ def get_google_calendar_free_busy(
 
 
 def update_google_event(email: str, event_uid: str, patch_data: dict) -> bool:
-    """Updates a Google Calendar event (legacy compatibility)."""
+    """Updates supported fields without replacing provider-owned event data."""
     service = get_google_calendar_service(email)
     if not service:
         return False
 
     try:
-        # Destination calendar (including subcalendars); defaults to the primary one
+        # Destination calendar (including subcalendars); defaults to the primary one.
         cal_id = patch_data.get("calendar_id") or "primary"
 
-        # Fetch existing event
+        # The existing resource supplies context such as the original time zone.
+        # It must not be sent back as a full update: expanded recurring instances
+        # omit the master's recurrence, which makes special event types such as
+        # birthdays fail Google's validation.
         event = service.events().get(calendarId=cal_id, eventId=event_uid).execute()
+        body = {}
 
-        # Update fields
-        if "summary" in patch_data:
-            event["summary"] = patch_data["summary"]
-        if "location" in patch_data:
-            event["location"] = patch_data["location"] or ""
-        if "description" in patch_data:
-            event["description"] = patch_data["description"] or ""
+        if "summary" in patch_data and patch_data["summary"] != event.get("summary", ""):
+            body["summary"] = patch_data["summary"]
+        if (
+            "location" in patch_data
+            and (patch_data["location"] or "") != event.get("location", "")
+        ):
+            body["location"] = patch_data["location"] or ""
+        if (
+            "description" in patch_data
+            and (patch_data["description"] or "") != event.get("description", "")
+        ):
+            body["description"] = patch_data["description"] or ""
         if "attendees" in patch_data and isinstance(patch_data["attendees"], list):
-            event["attendees"] = [
+            requested_attendees = [
                 {"email": a["email"], "displayName": a.get("name", "")}
-                for a in patch_data["attendees"] if a.get("email")
+                for a in patch_data["attendees"]
+                if a.get("email")
             ]
+            existing_attendees = [
+                {
+                    "email": attendee.get("email", ""),
+                    "displayName": attendee.get("displayName", ""),
+                }
+                for attendee in event.get("attendees", [])
+                if attendee.get("email")
+            ]
+            if requested_attendees != existing_attendees:
+                existing_by_email = {
+                    attendee.get("email"): attendee
+                    for attendee in event.get("attendees", [])
+                    if attendee.get("email")
+                }
+                body["attendees"] = []
+                for attendee in requested_attendees:
+                    preserved = existing_by_email.get(attendee["email"], {})
+                    if preserved.get("responseStatus"):
+                        attendee["responseStatus"] = preserved["responseStatus"]
+                    body["attendees"].append(attendee)
 
         # Time zone: Google requires `timeZone` when the dateTime doesn't carry
         # an offset. Preserves the original event's, and if it doesn't have one, the user's.
@@ -171,30 +201,40 @@ def update_google_event(email: str, event_uid: str, patch_data: dict) -> bool:
             or "Europe/Madrid"
         )
 
-        # Start time logic
         if "start" in patch_data and patch_data["start"]:
             start_val = patch_data["start"]
             if "T" in start_val:
-                event["start"] = {"dateTime": start_val, "timeZone": default_tz}
+                requested_start = {"dateTime": start_val, "timeZone": default_tz}
             else:
-                event["start"] = {"date": start_val[:10]}
+                requested_start = {"date": start_val[:10]}
+            if requested_start != event.get("start"):
+                body["start"] = requested_start
 
-        # End time logic
         if "end" in patch_data and patch_data["end"]:
             end_val = patch_data["end"]
             if "T" in end_val:
-                event["end"] = {"dateTime": end_val, "timeZone": default_tz}
+                requested_end = {"dateTime": end_val, "timeZone": default_tz}
             else:
-                event["end"] = {"date": end_val[:10]}
+                requested_end = {"date": end_val[:10]}
+            if requested_end != event.get("end"):
+                body["end"] = requested_end
 
-        # Update back to Google API
-        service.events().update(
-            calendarId=cal_id, eventId=event_uid, body=event
-        ).execute()
+        # Google birthdays accept only a narrow set of mutable properties.
+        # The sidebar submits its complete form state on every autosave, so
+        # unsupported empty fields must be discarded even when the user only
+        # changes the title.
+        if event.get("eventType") == "birthday":
+            birthday_fields = {"summary", "start", "end", "colorId", "reminders"}
+            body = {key: value for key, value in body.items() if key in birthday_fields}
+
+        if body:
+            service.events().patch(
+                calendarId=cal_id, eventId=event_uid, body=body
+            ).execute()
         return True
     except Exception as e:
         log.error(
-            f"Error actualitzant Google Calendar event {event_uid} per a {email}: {e}"
+            f"Error updating Google Calendar event {event_uid} for {email}: {e}"
         )
         return False
 
