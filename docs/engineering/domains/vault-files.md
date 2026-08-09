@@ -16,6 +16,7 @@ tests:
   - backend/tests/test_page_sidecar.py
   - backend/tests/test_files_provider.py
   - frontend/src/components/Vault/MarkdownCodeTextarea.test.jsx
+  - frontend/src/components/Vault/markdown-mapper.test.js
   - e2e/tests/e2e/vault.spec.ts
 ---
 
@@ -115,6 +116,12 @@ authoritative.
 property on the block content and its core stylesheet paints the background on
 the containing `.bn-block`, so the color spans the complete editor block,
 including blocks nested inside a column.
+
+On import, the Markdown mapper unwraps these styled block wrappers into the
+BlockNote block properties before parsing the inner Markdown. This keeps the
+background and text color through the save/reload round trip. Colored headings
+also remove the default heading offset so the full-width background does not
+include unnecessary vertical space.
 
 The editor stylesheet must not reset non-default block backgrounds to
 transparent or move the color to `.bn-inline-content`. Doing so turns a block

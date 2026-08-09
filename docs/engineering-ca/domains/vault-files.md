@@ -16,6 +16,7 @@ tests:
   - backend/tests/test_page_sidecar.py
   - backend/tests/test_files_provider.py
   - frontend/src/components/Vault/MarkdownCodeTextarea.test.jsx
+  - frontend/src/components/Vault/markdown-mapper.test.js
   - e2e/tests/e2e/vault.spec.ts
 ---
 
@@ -84,6 +85,12 @@ Un nom o supressió.
 ## Fons dels blocs a l'editor
 
 `BlockEditor` associa les propietats de fons dels blocs amb Markdown portable mitjançant un embolcall `<div style="background-color: ...">`. BlockNote renderitza la propietat obtinguda en analitzar el Markdown dins del contingut del bloc, i el seu full d'estils principal pinta el fons al contenidor `.bn-block`. Per tant, el color ocupa tot el bloc de l'editor, també quan el bloc està dins d'una columna.
+
+En importar, el mapper de Markdown extreu aquests embolcalls amb estil i els
+converteix en propietats del bloc abans d'analitzar el Markdown interior. Això
+manté el color de fons i de text durant el cicle de desar i tornar a carregar.
+Els encapçalaments amb color també eliminen el desplaçament vertical per defecte
+per evitar espai innecessari dins del fons d'amplada completa.
 
 El full d'estils de l'editor no ha de restablir a transparent els fons de bloc no predeterminats ni moure el color a `.bn-inline-content`. Això converteix el fons del bloc en un xip de la mida del text i fa que el resultat depengui de la llargada de l'encapçalament. Els fons en línia continuen sent adequats per als ressaltats de text; els fons de bloc pertanyen al contenidor del bloc.
 

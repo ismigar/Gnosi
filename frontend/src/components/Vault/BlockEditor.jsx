@@ -3020,10 +3020,12 @@ export function EditorInner({
                    with an inline text chip, so Markdown such as
                    <div style="background-color: pink">…</div> fills the block. */
                 /* Colored heading blocks should keep the full width without
-                   carrying the larger heading margins into the background. */
-                .bn-editor .bn-block:has(> .bn-block-content[data-background-color]:not([data-background-color="default"])) .bn-block-content[data-content-type="heading"] :is(h1, h2, h3, h4, h5, h6) {
-                    margin-top: 0.25em !important;
-                    margin-bottom: 0.15em !important;
+                   carrying the editor's 18px heading offset into the background. */
+                .bn-editor .bn-block:has(> .bn-block-content[data-background-color]:not([data-background-color="default"])) > .bn-block-content[data-content-type="heading"] {
+                    padding-block: 2px !important;
+                }
+                .bn-editor .bn-block:has(> .bn-block-content[data-background-color]:not([data-background-color="default"])) > .bn-block-content[data-content-type="heading"] :is(h1, h2, h3, h4, h5, h6) {
+                    margin-block: 0.1em !important;
                 }
 
                 /* Table header cells (<th>): gray background and bold text by default */

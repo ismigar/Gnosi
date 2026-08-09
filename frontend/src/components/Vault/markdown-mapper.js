@@ -1253,6 +1253,47 @@ const wrapUnknownHtmlTags = (text) => {
     }).join("\n");
 };
 
+// The Markdown serializer stores block-level colors as a styled <div>. BlockNote's
+// Markdown importer keeps the inner heading/paragraph but does not transfer the
+// wrapper's style to the resulting block props, so the color would disappear on
+// the next save. Extract only the serializer's block-level color properties before
+// delegating the inner Markdown to BlockNote.
+const extractStyledBlockWrapper = (text) => {
+    if (typeof text !== "string") return { markdown: text, props: {} };
+
+    const wrapper = text.match(/^\s*<div\b([^>]*)>([\s\S]*)<\/div>\s*$/i);
+    if (!wrapper) return { markdown: text, props: {} };
+
+    const styleAttribute = wrapper[1].match(
+        /\bstyle\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i,
+    );
+    const style = styleAttribute?.[1] ?? styleAttribute?.[2] ?? styleAttribute?.[3] ?? "";
+    if (!style) return { markdown: text, props: {} };
+
+    const props = {};
+    for (const [cssProperty, blockProp] of [
+        ["color", "textColor"],
+        ["background-color", "backgroundColor"],
+    ]) {
+        const value = style.match(
+            new RegExp(`(?:^|;)\\s*${cssProperty}\\s*:\\s*([^;]+)`, "i"),
+        )?.[1]?.trim();
+        if (value) props[blockProp] = value;
+    }
+
+    return Object.keys(props).length > 0
+        ? { markdown: wrapper[2].trim(), props }
+        : { markdown: text, props: {} };
+};
+
+const applyBlockProps = (blocks, props) => {
+    if (!Array.isArray(blocks) || Object.keys(props).length === 0) return blocks;
+    return blocks.map((block) => ({
+        ...block,
+        props: { ...(block.props || {}), ...props },
+    }));
+};
+
 // file:// links inside the markdown are replaced with the sentinel before
 // parsing because BlockNote/Tiptap doesn't accept them as a valid href (it's not
 // in its allowed protocols). We keep the sentinel in the blocks throughout the whole
@@ -1262,6 +1303,9 @@ const wrapUnknownHtmlTags = (text) => {
 // has a clickable href that our useFileLinkInterceptor can capture.
 const parsePlainMarkdownBlock = async (text, editor) => {
     if (!text) return [];
+
+    const styledWrapper = extractStyledBlockWrapper(text);
+    const markdownSource = styledWrapper.markdown;
 
     // Replaces file:// with the sentinel before delegating to the parser.
     // Also replaces the legacy sentinel (`__gnosi_file_protocol__`) and the
@@ -1278,7 +1322,7 @@ const parsePlainMarkdownBlock = async (text, editor) => {
     // CommonMark parses any line with 4+ leading spaces as an Indented Code Block.
     // If a heading was saved with 4+ spaces of indentation (e.g. inside a nested block),
     // markdown-it would interpret it as code. Strip excess leading indentation from ATX headings.
-    let protectedText = text;
+    let protectedText = markdownSource;
     if (typeof protectedText === 'string' && protectedText.includes('#')) {
         const lines = protectedText.split('\n');
         let inFence = false;
@@ -1396,17 +1440,18 @@ const parsePlainMarkdownBlock = async (text, editor) => {
             ]);
         } catch (e) {
             console.warn('parsePlainMarkdownBlock fallback:', e?.message);
-            blocks = [{ type: "paragraph", content: text }];
+            blocks = [{ type: "paragraph", content: markdownSource }];
         }
     } else {
-        blocks = [{ type: "paragraph", content: text }];
+        blocks = [{ type: "paragraph", content: markdownSource }];
     }
 
-    return processBlocksForDates(
+    const processedBlocks = processBlocksForDates(
         processBlocksForMentions(
             processBlocksForCitations(processBlocksForWikilinks(blocks))
         )
     );
+    return applyBlockProps(processedBlocks, styledWrapper.props);
 };
 
 /**
@@ -1727,8 +1772,14 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
                     blocks.push(...parsed);
                 };
 
+                let inFence = false;
                 for (const rawLine of textBuffer) {
                     const trimmedLine = rawLine.trim();
+                    if (/^\s*(```|~~~)/.test(rawLine)) {
+                        inFence = !inFence;
+                        plainBuffer.push(rawLine);
+                        continue;
+                    }
                     const transclusionMatch = trimmedLine.match(/^!\[\[([^\]|#]+)(?:#([^\]|]+))?(?:\|([^\]]+))?\]\]$/);
                     if (transclusionMatch) {
                         await flushPlain();
@@ -1740,6 +1791,12 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
                                 alias: String(transclusionMatch[3] || "").trim(),
                             },
                         });
+                    } else if (!inFence && Object.keys(extractStyledBlockWrapper(rawLine).props).length > 0) {
+                        // Flush a styled serializer block independently so a following
+                        // unstyled paragraph cannot hide the wrapper from the extractor.
+                        await flushPlain();
+                        const styledBlocks = await parsePlainMarkdownBlock(rawLine, editor);
+                        blocks.push(...styledBlocks);
                     } else {
                         plainBuffer.push(rawLine);
                     }
