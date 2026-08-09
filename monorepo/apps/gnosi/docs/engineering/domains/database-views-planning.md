@@ -1,12 +1,13 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-09
 source_paths:
   - backend/api/vault_views_routes.py
   - backend/api/planning_routes.py
   - backend/services/planning_engine.py
   - backend/services/planning_scheduler.py
   - frontend/src/components/Vault/VaultTable.jsx
+  - frontend/src/pages/VaultDashboard.jsx
   - frontend/src/pages/ProjectPlanningPage.jsx
 tests:
   - backend/tests/test_view_snapshot.py
@@ -50,6 +51,12 @@ values run before rollups that aggregate relations, and dependent formulas are
 resolved without allowing cycles to recurse indefinitely. Backend and frontend
 representations must agree on checkbox truthiness, percentages, empty values,
 and option identifiers.
+
+When `VaultDashboard` renders a table tab, it passes the table registry's
+enabled functionalities through `VaultViewBody` to `VaultTable`. The table tab,
+standalone table, split pane, and embedded view therefore expose the same
+configured row actions. Omitting that prop chain hides an action even when the
+registry and API correctly report it as enabled.
 
 ## Schema evolution and concurrency
 
