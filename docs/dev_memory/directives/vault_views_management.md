@@ -93,4 +93,8 @@ Before considering a view complete, verify:
   without the newly selected order. Catalog order uses the schema option order,
   alphabetical order uses the displayed label, and count order uses the number
   of records in each bucket. Keep the empty value bucket last in both ascending
-  and descending directions.
+  and descending directions. When confirming an embedded shared view, always
+  upsert the registry view before writing the page section; do not gate the
+  shared-view write solely on generic JSON change detection. Otherwise the
+  section can contain the new direction while the registry keeps the old one,
+  and the embed correctly prioritizes the stale shared source of truth.
