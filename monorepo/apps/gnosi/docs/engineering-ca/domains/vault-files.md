@@ -81,6 +81,14 @@ Un nom o supressió.
 
 `VaultDashboard` la seva història de navegació i selecciona la pàgina, taula, dibuix, galeria, tauler, calendari, cronologia, fonts o superfícies lectores. `VaultShell` proveeix del marc; components especialitzats que implementen editors i vistes. L' estat d' interacció frontal de la memòria cau però tracta el contingut de la pàgina de dorsal i els ETags com autoritiu.
 
+## Fons dels blocs a l'editor
+
+`BlockEditor` associa les propietats de fons dels blocs amb Markdown portable mitjançant un embolcall `<div style="background-color: ...">`. BlockNote renderitza la propietat obtinguda en analitzar el Markdown dins del contingut del bloc, i el seu full d'estils principal pinta el fons al contenidor `.bn-block`. Per tant, el color ocupa tot el bloc de l'editor, també quan el bloc està dins d'una columna.
+
+El full d'estils de l'editor no ha de restablir a transparent els fons de bloc no predeterminats ni moure el color a `.bn-inline-content`. Això converteix el fons del bloc en un xip de la mida del text i fa que el resultat depengui de la llargada de l'encapçalament. Els fons en línia continuen sent adequats per als ressaltats de text; els fons de bloc pertanyen al contenidor del bloc.
+
+Quan canvieu aquest comportament, verifiqueu tant un encapçalament independent com un encapçalament dins d'una `column-list`. Després feu una anada i tornada del Markdown i confirmeu que la propietat del bloc i la representació a amplada completa es mantenen intactes. La implementació es troba a `frontend/src/components/Vault/BlockEditor.jsx`; la conversió de Markdown, a `frontend/src/components/Vault/markdown-mapper.js`.
+
 La vista de codi Markdown utilitza una àrea de text accessible i localitzada que creix automàticament amb el document. Un document buit conserva una superfície mínima d'edició de 500 px perquè el mode de codi sempre ofereixi un objectiu visible per al focus i l'escriptura; els documents no buits continuen creixent segons l'alçada mesurada del contingut.
 
 ## Concentrat de verificació
