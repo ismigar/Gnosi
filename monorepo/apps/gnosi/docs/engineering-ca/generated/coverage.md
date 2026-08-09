@@ -9,19 +9,19 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Domini | Estat | Guia | Fitxers font | Comprova fitxers | S' han trobat directives |
 | --- | --- | --- | ---: | ---: | ---: |
 | `foundation-runtime` | **& Descarrega** | [tstform base i s'executentimetime 2001- 2009](../domains/foundation-runtime.md) | 14 | 3 | 2 |
-| `vault-files` | **& Descarrega** | [AhrtVult i fitxers l' ordre de l' ekaVault](../domains/vault-files.md) | 146 | 10 | 4 |
+| `vault-files` | **& Descarrega** | [AhrtVult i fitxers l' ordre de l' ekaVault](../domains/vault-files.md) | 150 | 10 | 4 |
 | `database-views-planning` | **& Descarrega** | [Vistes  1] Search unchName](../domains/database-views-planning.md) | 16 | 7 | 3 |
 | `knowledge-graph` | **& Descarrega** | [Koywise graphyKose](../domains/knowledge-graph.md) | 10 | 12 | 3 |
 | `reader-references` | **& Descarrega** | [ekaReider, referències i citacions de l'AKIPUCI](../domains/reader-references.md) | 7 | 1 | 3 |
 | `ai-agent` | **& Descarrega** | [agents  1]AI, models, eines i habilitats d'endria](../domains/ai-agent.md) | 56 | 13 | 4 |
 | `mail` | **& Descarrega** | [ManveenMailtsthandenmark_ counties. kgm](../domains/mail.md) | 15 | 6 | 4 |
-| `calendar-meetings` | **& Descarrega** | [CalendarCalendar i reunions de l' ordre d' antelació](../domains/calendar-meetings.md) | 11 | 3 | 3 |
+| `calendar-meetings` | **& Descarrega** | [CalendarCalendar i reunions de l' ordre d' antelació](../domains/calendar-meetings.md) | 11 | 4 | 3 |
 | `contacts` | **& Descarrega** | [tstacts occidentalindonesia. kgm](../domains/contacts.md) | 9 | 2 | 2 |
 | `social-publishing` | **& Descarrega** | [Publicació i media 2001- 2002](../domains/social-publishing.md) | 6 | 0 | 3 |
 | `integrations-plugins` | **& Descarrega** | [establishmentIntegrations i connectors del screensaver](../domains/integrations-plugins.md) | 46 | 6 | 3 |
 | `auth-workspaces-sharing` | **& Descarrega** | [KarachiAularació, espais de treball i compartir shareda sharing/ edu/ user- is not translate the keyword of the keyword between brackets (e. g. ServerName, ServerAdmin, etc.)](../domains/auth-workspaces-sharing.md) | 12 | 9 | 3 |
 | `automation-scheduling` | **& Descarrega** | [automàtica de la planificació i la planificació de l'  automàtica](../domains/automation-scheduling.md) | 6 | 1 | 3 |
-| `desktop-clients` | **& Descarrega** | [Desktop i company de clients del Beagle](../domains/desktop-clients.md) | 32 | 1 | 3 |
+| `desktop-clients` | **& Descarrega** | [Desktop i company de clients del Beagle](../domains/desktop-clients.md) | 41 | 1 | 3 |
 
 ## Plataforma base i hora d' execució
 

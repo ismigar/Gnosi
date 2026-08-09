@@ -10,8 +10,8 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 
 | Grup | Mòduls | Línies |
 | --- | ---: | ---: |
-| `agent` | 36 | 13126 |
-| `api` | 35 | 34611 |
+| `agent` | 36 | 13128 |
+| `api` | 35 | 35176 |
 | `application root` | 6 | 627 |
 | `config` | 8 | 846 |
 | `data` | 2 | 295 |
@@ -20,12 +20,12 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `scheduler` | 2 | 949 |
 | `scripts` | 3 | 130 |
 | `security` | 3 | 735 |
-| `services` | 111 | 36350 |
+| `services` | 112 | 36946 |
 | `sh` | 1 | 69 |
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **227 mòduls** i **Línies font de 89775**.
+Total: **228 mòduls** i **90938 línies font**.
 
 ## agent
 
@@ -56,7 +56,7 @@ Total: **227 mòduls** i **Línies font de 89775**.
 | [backend/agent/memory.ypyy McCrry](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/memory.py) | 185 | 2 | 4 | 0 | 3 | Sense documentació de mòduls |
 | [backend/ agent/ model_catàleg.pypypypypypyyluxembourg_ cantons. kgm](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/model_catalog.py) | 492 | 0 | 22 | 0 | 18 | Catàleg de model de model Manveen per al flux de treball d'activació model-comparison. |
 | [backend/ agent/ model_De confiança.](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/model_reliability.py) | 220 | 0 | 10 | 0 | 5 | Per què una crida a model ha fallat, gravat com a prova per proveïdor: model. |
-| [backend/ agent/ model_Encaminador.pywotxy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/model_router.py) | 487 | 1 | 13 | 0 | 12 | Enrutador de models coneixedors de dades, en forma de model de pressupost. |
+| [backend/ agent/ model_Encaminador.pywotxy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/model_router.py) | 489 | 1 | 13 | 0 | 12 | Enrutador de models coneixedors de dades, en forma de model de pressupost. |
 | [backend/ agent/notion_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/notion_tools.py) | 76 | 0 | 5 | 5 | 5 | Adaptadors controlats per a un descobriment de nocions connectat i clonament exacta. |
 | [backend/ agent/planning_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/planning_tools.py) | 167 | 0 | 13 | 12 | 12 | Les eines que han organitzat sobre els serveis de projectes d'en Gnosi. |
 | [backend/ agent/ reader_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/reader_tools.py) | 288 | 0 | 16 | 0 | 13 | Eines signades per inspeccionar i analitzar el contingut del lector Gnosi. |
@@ -75,7 +75,7 @@ Total: **227 mòduls** i **Línies font de 89775**.
 | [backend/api /__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/__init__.py) | 30 | 0 | 0 | 0 | 0 | Sense documentació de mòduls |
 | [backend/api/agent_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py) | 1633 | 7 | 40 | 17 | 29 | Sense documentació de mòduls |
 | [backend/api/agent_habilitats_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_skills_routes.py) | 635 | 4 | 28 | 0 | 9 | Arranjament API per a habilitats i eines de l' agent governades. |
-| [backend/api/ai_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/ai_routes.py) | 690 | 6 | 16 | 12 | 13 | Sense documentació de mòduls |
+| [backend/api/ai_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/ai_routes.py) | 747 | 6 | 17 | 13 | 14 | Sense documentació de mòduls |
 | [backend/api/anàlisis_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/analytics_routes.py) | 376 | 0 | 12 | 7 | 12 | Sense documentació de mòduls |
 | [backen/api/auth_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/auth_routes.py) | 365 | 5 | 11 | 0 | 11 | Desinstal· la el registre de punts de la Autech / sessió / sortida / mi. |
 | [backend/api/calendar_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/calendar_routes.py) | 776 | 0 | 28 | 18 | 21 | Sense documentació de mòduls |
@@ -102,8 +102,8 @@ Total: **227 mòduls** i **Línies font de 89775**.
 | [backend/api/system_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/system_routes.py) | 673 | 4 | 14 | 9 | 13 | Sense documentació de mòduls |
 | [backend/api/tools_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/tools_routes.py) | 164 | 3 | 6 | 5 | 6 | Rutes API per a la gestió d' eines Generades. |
 | [backend/api/vult_gràfic_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/vault_graph_routes.py) | 25 | 0 | 1 | 1 | 1 | Sense documentació de mòduls |
-| [backend/api/vult_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/vault_routes.py) | 20067 | 29 | 557 | 185 | 455 | Sense documentació de mòduls |
-| [backend/api/vult_Vistes_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/vault_views_routes.py) | 346 | 2 | 9 | 3 | 7 | volta_Vistes_Rutes.py API per a gestionar vistes per pàgina. |
+| [backend/api/vult_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/vault_routes.py) | 20571 | 29 | 564 | 190 | 462 | Sense documentació de mòduls |
+| [backend/api/vult_Vistes_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/vault_views_routes.py) | 350 | 2 | 9 | 3 | 7 | volta_Vistes_Rutes.py API per a gestionar vistes per pàgina. |
 | [backbackend/api/vultes_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/vaults_routes.py) | 276 | 2 | 10 | 0 | 9 | API Vultes (mode multi- vulta): llista, crea i escull voltes. |
 | [backend/api/vivtual_camps.pypypypypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/virtual_fields.py) | 676 | 0 | 32 | 0 | 26 | Camps virtuals: Les propietats derivades pel dorsal a l' hora de lectura. |
 | [backend/api/workespai_Rutes.py literalment RT](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/workspace_routes.py) | 375 | 0 | 11 | 11 | 0 | Sense documentació de mòduls |
@@ -197,7 +197,7 @@ Total: **227 mòduls** i **Línies font de 89775**.
 | [backend/ services/ agent_habilitat_Assignacions.](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/agent_skill_assignments.py) | 308 | 4 | 2 | 0 | 5 | Modificacions d'agents i migració heretats. |
 | [backend/ services/ agent_habilitat_catàleg.pypypypypypyyluxembourg_ cantons. kgm](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/agent_skill_catalog.py) | 783 | 6 | 21 | 0 | 18 | Catàlegs efectius i resolució d' hora d'execució per habilitats i eines d' agent. |
 | [backend/ services/artlecle_Extractor.pypy waitypython](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/article_extractor.py) | 137 | 0 | 2 | 0 | 2 | Extracció de text complet per als articles RSS que només donen de menjar a vaixells un extracte. |
-| [backend/ services/ as artificial_anàlisi.pypypypypypyty](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/artificial_analysis.py) | 526 | 1 | 17 | 0 | 13 | S'estan enviant els models d'anàlisi artificial. |
+| [backend/ services/ as artificial_anàlisi.pypypypypypyty](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/artificial_analysis.py) | 668 | 1 | 19 | 0 | 16 | S'estan enviant els models d'anàlisi artificial. |
 | [backen/ services/audio_resumeixdor.pyntynt](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/audio_summarizer.py) | 456 | 1 | 13 | 0 | 14 | Sense documentació de mòduls |
 | [backend/ services/auth_públic_superfície.pyzyl](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/auth_public_surface.py) | 164 | 1 | 4 | 1 | 4 | El joc de punts finals que s' han de mantenir accessible sense una sessió. |
 | [backend/ services/auth_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/auth_service.py) | 636 | 0 | 25 | 0 | 24 | Autenticació del servei rwych JWT + bcrip de contrasenyes. |
@@ -224,7 +224,7 @@ Total: **227 mòduls** i **Línies font de 89775**.
 | [backend/ services/fx_rates.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/fx_rates.py) | 188 | 0 | 9 | 0 | 5 | Conversió d'usuari ergy- ergy per al barret de l'AI. |
 | [backend/ services/ Lesson Name_Eina_Contribucions.pypy Finch](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/generated_tool_contributions.py) | 159 | 0 | 6 | 0 | 2 | En cas d'exposar les eines generades per habilitats sense concedir-les globalment. |
 | [backend/ services/gnosi_aiunit description in lists_Contribucions.pypy Finch](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/gnosi_ai_contributions.py) | 689 | 0 | 9 | 0 | 2 | Les habilitats bàsiques i eines per operacions de primera part. |
-| [backend/ services/google_calendari_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/google_calendar_service.py) | 250 | 0 | 7 | 0 | 7 | Sense documentació de mòduls |
+| [backend/ services/google_calendari_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/google_calendar_service.py) | 290 | 0 | 7 | 0 | 7 | Sense documentació de mòduls |
 | [backend/ services/google_contactes_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/google_contacts_service.py) | 335 | 0 | 7 | 0 | 7 | Sense documentació de mòduls |
 | [backend/ services/google_correu_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/google_mail_service.py) | 343 | 0 | 13 | 0 | 11 | Sense documentació de mòduls |
 | [backend/ services/graph_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/graph_service.py) | 958 | 1 | 8 | 0 | 8 | Sense documentació de mòduls |
@@ -264,7 +264,7 @@ Total: **227 mòduls** i **Línies font de 89775**.
 | [backend/ services/notion_mcp. ypypypypypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/notion_mcp.py) | 202 | 0 | 12 | 0 | 5 | Accés a la Llei allotjada MC (per a veure la recreativa fase de Phase 2). |
 | [backend/ services/notion_mcp_md.py literalmentz](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/notion_mcp_md.py) | 297 | 0 | 15 | 0 | 9 | Convertidor de la marca rica de la MCP 2880 Gnosi Markdown (per a l' exacta CLONE). |
 | [backend/ services/notion_esquema_config.pypypypypyl](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/notion_schema_config.py) | 92 | 0 | 3 | 0 | 3 | Conversió d' esquema de l' esquema  schemeConfigModàdul (format d' importació/clone configurable). |
-| [backend/ services/notion_Visualitza_recretor.](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/notion_view_recreator.py) | 388 | 0 | 14 | 0 | 13 | Recretor de vistes nodes incrustades (Phine 2, via MC). |
+| [backend/ services/notion_Visualitza_recretor.](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/notion_view_recreator.py) | 392 | 0 | 14 | 0 | 13 | Recretor de vistes nodes incrustades (Phine 2, via MC). |
 | [backend/ services/oauth2_helpers.](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/oauth2_helpers.py) | 175 | 1 | 5 | 0 | 6 | OAuth2 ajuda compartida per IMAP+XOUT2 i SMTP+XOUT2. |
 | [backend/ services/ option_Catàlegs.py Ahir a la nit](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/option_catalogs.py) | 327 | 0 | 17 | 0 | 12 | Catàlegs d' opció rics, rols semàntics de camp, i llavors pertables. |
 | [backend/ services/ page_carcar.](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/page_sidecar.py) | 225 | 0 | 11 | 0 | 11 | Selfcar I/O per a metadades internes de pàgina. |
@@ -289,6 +289,7 @@ Total: **227 mòduls** i **Línies font de 89775**.
 | [backend/ services/social_Clients.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/social_clients.py) | 587 | 4 | 0 | 0 | 4 | Clients de l' API de la xarxa social |
 | [backend/ services/social_Compondre.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/social_compose.py) | 144 | 0 | 5 | 0 | 5 | Capa de l'AI per editar publicacions als mitjans de comunicació socials. |
 | [backend/ services/social_store.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/social_store.py) | 206 | 0 | 6 | 4 | 6 | Persisteix en una taula de correu social en una pissarra de Vult. |
+| [backend/ services/tables_sistema_dates.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/table_system_dates.py) | 260 | 0 | 10 | 0 | 6 | Creació del sistema i camps de data de modificació de les taules de Vult. |
 | [backend/ services/trription.pyypyName](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/transcription.py) | 109 | 0 | 5 | 0 | 2 | La transcripció d'àudio local amb un joc de més ràpid (traducció2, SENSE Off keble). |
 | [backend/ services/traduction_helpers.](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/translation_helpers.py) | 343 | 0 | 15 | 0 | 14 | Ajudadors pura per a la traducció del contingut (translació_fila / tradueix_habilitats de pàgina). |
 | [backend/ services/traduction_índex.pypypypypyyty](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/translation_index.py) | 106 | 0 | 6 | 0 | 4 | Índex de traducció local per a la idpotència de la línia. |
@@ -297,7 +298,7 @@ Total: **227 mòduls** i **Línies font de 89775**.
 | [backbackend/ services/vult_fitxer_índex.pypypypypyyty](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/vault_file_index.py) | 358 | 0 | 12 | 0 | 12 | volta_fitxer_índex. pynty nty Vulty file/ folder nom index. |
 | [backbackend/ services/vult_correu_Sincronització_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/vault_mail_sync_service.py) | 206 | 1 | 0 | 0 | 0 | Sense documentació de mòduls |
 | [backbackend/ services/vult_warmup.py literalment wochylpy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/vault_warmup.py) | 127 | 0 | 3 | 1 | 3 | Proactiva l'escalfament dels fitxers CRIICAL de la càmera (només d' una banda virtual oberta). |
-| [backend/ services/view_instantània.py Boott](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/view_snapshot.py) | 716 | 0 | 26 | 0 | 23 | Instantània dels resultats d' una vista encastada al cos de marca. |
+| [backend/ services/view_instantània.py Boott](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/view_snapshot.py) | 866 | 0 | 28 | 0 | 25 | Instantània dels resultats d' una vista encastada al cos de marca. |
 | [backend/ services/web_clipper.pypyntypypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/web_clipper.py) | 257 | 0 | 9 | 0 | 6 | Clipper web com a connector configurable: taula de destí i mapa de camp. |
 | [backend/ services/workespai_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/workspace_service.py) | 307 | 1 | 5 | 0 | 4 | Sense documentació de mòduls |
 | [backend/ services/zotero_esquema.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/zotero_schema.py) | 558 | 0 | 0 | 0 | 0 | Font: canonada/suts/zotero_esquema/ schema.json. Regenera amb `pipeline/skills/zotero_schema/scripts/build_constants.py`. |

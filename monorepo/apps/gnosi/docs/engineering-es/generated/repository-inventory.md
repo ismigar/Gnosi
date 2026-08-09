@@ -10,22 +10,22 @@ Regenerar con `python pipeline/skills/technical_documentation/scripts/generate.p
 
 | Superficie | Cuenta |
 | --- | ---: |
-| Archivos de motor Python | 392 |
-| Archivos de prueba de motor Python | 165 |
-| Frontend JS/TS source files | 291 |
-| Archivos de prueba de la unidad de interfaz | 38 |
+| Archivos de motor Python | 395 |
+| Archivos de prueba de motor Python | 167 |
+| Frontend JS/TS source files | 303 |
+| Archivos de prueba de la unidad de interfaz | 42 |
 | Enrutadores FastAPI registrados | 33 |
 | Contratos de capacitación en tiempo de ejecución | 23 |
-| Directivas sobre el desarrollo y la memoria | 158 |
+| Directivas sobre el desarrollo y la memoria | 165 |
 
 ## Superficies de aplicación propias
 
 | Superficie | Archivos | Límite de finalidad |
 | --- | ---: | --- |
-| `backend/` | 402 | FastAPI, servicios, modelos, agentes, agenda y adaptadores de almacenamiento |
-| `frontend/src/` | 309 | Reaccionar la aplicación, el comportamiento de la interfaz de usuario, el estado y las integraciones del navegador |
-| `pipeline/` | 98 | Capacidades de aplicación reutilizables y herramientas de procesamiento deterministas |
-| `electron/` | 9 | Ciclo de vida del escritorio, embalaje de backend, IPC y actualizaciones |
+| `backend/` | 405 | FastAPI, servicios, modelos, agentes, agenda y adaptadores de almacenamiento |
+| `frontend/src/` | 323 | Reaccionar la aplicación, el comportamiento de la interfaz de usuario, el estado y las integraciones del navegador |
+| `pipeline/` | 99 | Capacidades de aplicación reutilizables y herramientas de procesamiento deterministas |
+| `electron/` | 18 | Ciclo de vida del escritorio, embalaje de backend, IPC y actualizaciones |
 | `integrations/` | 12 | Adaptadores de oficina y de sistema externo |
 | `web-clipper/` | 11 | Superficie de captura de extensión del navegador |
 | `e2e/` | 26 | Pruebas de aceptación de derechos de reproducción a nivel de host |

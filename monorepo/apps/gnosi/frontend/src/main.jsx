@@ -8,6 +8,7 @@ import { installPageEtagInterceptor } from './lib/pageEtagInterceptor.js'
 import { syncActiveVaultCookie } from './lib/fileResource.js'
 import { AuthProvider } from './context/AuthContext.jsx'
 import { initializeInterfaceLanguage } from './lib/interfaceLanguage.js'
+import { GlobalTooltip } from './components/GlobalTooltip.jsx'
 
 // Multi-vault: reflects the active vault (localStorage) in a same-origin cookie
 // BEFORE the first render, because EVERY request —raw fetch, <img>/<video>/<iframe>
@@ -28,6 +29,7 @@ async function bootstrap() {
             <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
                 <AuthProvider>
                     <App />
+                    <GlobalTooltip />
                 </AuthProvider>
             </BrowserRouter>
         </React.StrictMode>,
