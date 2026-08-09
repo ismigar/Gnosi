@@ -7,6 +7,7 @@ source_paths:
   - backend/services/planning_engine.py
   - backend/services/planning_scheduler.py
   - frontend/src/components/Vault/VaultTable.jsx
+  - frontend/src/components/Vault/BlockEditor.jsx
   - frontend/src/pages/VaultDashboard.jsx
   - frontend/src/pages/ProjectPlanningPage.jsx
 tests:
@@ -68,6 +69,11 @@ moving content.
 Registries are written atomically and refreshed after batch metadata changes.
 Cached snapshots are invalidated when source records or the schema revision
 changes.
+
+Page-property editors use field-aware controls. `select` and `status` fields
+render as single-value option pickers; status catalogs are strict and do not
+expose inline option creation or deletion. The table grid and page-property
+panel must preserve the same field type and option semantics.
 
 ## Project planning
 

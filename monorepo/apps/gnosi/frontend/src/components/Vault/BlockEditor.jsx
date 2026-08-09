@@ -4334,7 +4334,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     // Coercion context (options) for a select/multi/relation property.
     const propCoercionCtx = useCallback((entry) => {
         const { type, prop } = entry;
-        if (type === 'select' || type === 'multi_select') {
+        if (type === 'select' || type === 'status' || type === 'multi_select') {
             return { options: getPropOptions(prop), idToTitle: idToTitle || {} };
         }
         if (type === 'relation') {
@@ -5219,14 +5219,14 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                 onClick={() => setActiveProp(prop.name)}
                                                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveProp(prop.name); } }}
                                                 title={t('editor.property_select_hint', { defaultValue: "Select the property (↑↓ navigate · ⌘C/⌘V copy/paste)" })}
-                                                className={`flex items-center gap-1.5 group py-1 h-8 cursor-pointer rounded-md focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]/40 ${activeProp === prop.name ? 'bg-[var(--gnosi-primary)]/10 ring-1 ring-[var(--gnosi-primary)]/40' : ''} ${['files', 'autoria', 'relation', 'multi_select', 'select'].includes(prop.type) ? 'self-start' : ''}`}
+                                                className={`flex items-center gap-1.5 group py-1 h-8 cursor-pointer rounded-md focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]/40 ${activeProp === prop.name ? 'bg-[var(--gnosi-primary)]/10 ring-1 ring-[var(--gnosi-primary)]/40' : ''} ${['files', 'autoria', 'relation', 'multi_select', 'select', 'status'].includes(prop.type) ? 'self-start' : ''}`}
                                             >
                                                 <div className="p-1.5 rounded-md bg-[var(--bg-secondary)] text-[var(--text-tertiary)]/60 group-hover:bg-[var(--gnosi-primary)]/10 group-hover:text-[var(--gnosi-primary)] transition-colors">
-                                                    {prop.type === 'date' ? <Calendar size={14} /> : (prop.type === 'select' ? <Tag size={14} /> : (prop.type === 'number' ? <Hash size={14} /> : <Type size={14} />))}
+                                                    {prop.type === 'date' ? <Calendar size={14} /> : (['select', 'status'].includes(prop.type) ? <Tag size={14} /> : (prop.type === 'number' ? <Hash size={14} /> : <Type size={14} />))}
                                                 </div>
                                                 <span className="text-sm text-[var(--text-secondary)] font-medium truncate">{prop.name}</span>
                                             </div>
-                                            <div className={`flex items-center gap-1.5 group ${['files', 'autoria', 'relation', 'multi_select', 'select'].includes(prop.type) ? 'min-h-[2rem] py-1' : 'h-8'}`}>
+                                            <div className={`flex items-center gap-1.5 group ${['files', 'autoria', 'relation', 'multi_select', 'select', 'status'].includes(prop.type) ? 'min-h-[2rem] py-1' : 'h-8'}`}>
                                                 {prop.type === 'relation' ? (() => {
                                                     const relatedTableId = prop.relation_database_id;
                                                     const relatedNotes = allNotes.filter(n => {
@@ -5279,7 +5279,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                             if (cur.includes(val)) handleMetaChange(prop.name, cur.filter(v => v !== val));
                                                         }}
                                                     />
-                                                ) : prop.type === 'select' ? (
+                                                ) : prop.type === 'select' || prop.type === 'status' ? (
                                                     <MultiSelectPills
                                                         single
                                                         value={metadata[prop.name]}
@@ -5287,21 +5287,21 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                         options={getPropOptions(prop)}
                                                         idToTitle={idToTitle || {}}
                                                         placeholder={isEditor ? t('editor.add_options') : t('common.empty')}
-                                                        onCreate={val => {
+                                                        onCreate={prop.type === 'select' ? (val => {
                                                             if (!isEditor) return;
                                                             const nextOptions = [...getPropOptions(prop), val];
                                                             if (onAddSchemaOption && currentTableId && prop.id) {
                                                                 onAddSchemaOption(currentTableId, prop.id, nextOptions);
                                                             }
                                                             handleMetaChange(prop.name, val);
-                                                        }}
-                                                        onDeleteOption={val => {
+                                                        }) : undefined}
+                                                        onDeleteOption={prop.type === 'select' ? (val => {
                                                             if (!isEditor) return;
                                                             if (onAddSchemaOption && currentTableId && prop.id) {
                                                                 onAddSchemaOption(currentTableId, prop.id, getPropOptions(prop).filter(o => normalizeOption(o)?.name !== val));
                                                             }
                                                             if (metadata[prop.name] === val) handleMetaChange(prop.name, '');
-                                                        }}
+                                                        }) : undefined}
                                                     />
                                                 ) : prop.type === 'autoria' ? (
                                                     isEditor ? (

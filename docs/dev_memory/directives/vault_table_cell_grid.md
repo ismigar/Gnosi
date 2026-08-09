@@ -63,6 +63,9 @@ gallery cards, boards, and feeds.
 - Page-property cursor changes move DOM focus to the matching property row and
   scroll it into the nearest visible position so navigation follows the nested
   page scroller.
+- Page-property editors must render `status` fields as single-value option
+  pickers, just like `select`; status catalogs are strict and must not expose
+  inline option creation or deletion.
 - Shift plus arrows or click extends a rectangular selection.
 - Escape closes editing without saving; outside editing it clears selection.
 - Enter saves text or number edits and moves down.
