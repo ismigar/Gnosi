@@ -11,7 +11,7 @@ Regenerar con `python pipeline/skills/technical_documentation/scripts/generate.p
 | Runner | Archivos | Señales de ensayo |
 | --- | ---: | ---: |
 | Autor de la reproducción | 13 | 35 |
-| Vitest | 48 | 197 |
+| Vitest | 49 | 198 |
 | pytest | 177 | 1464 |
 
 ## Archivos
@@ -45,6 +45,7 @@ Regenerar con `python pipeline/skills/technical_documentation/scripts/generate.p
 | Vitest | [`frontend/src/components/ReleaseNotesDialog.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/ReleaseNotesDialog.test.jsx) | 4 | estimación de la llamada-patrón |
 | Vitest | [`frontend/src/components/SettingsSectionTabs.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/SettingsSectionTabs.test.jsx) | 1 | estimación de la llamada-patrón |
 | Vitest | [`frontend/src/components/Vault/GalleryCardPreview.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/GalleryCardPreview.test.jsx) | 3 | estimación de la llamada-patrón |
+| Vitest | [`frontend/src/components/Vault/MarkdownCodeTextarea.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/MarkdownCodeTextarea.test.jsx) | 1 | estimación de la llamada-patrón |
 | Vitest | [`frontend/src/components/Vault/PageLinksGraph.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PageLinksGraph.test.js) | 5 | estimación de la llamada-patrón |
 | Vitest | [`frontend/src/components/Vault/RelationItem.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/RelationItem.test.js) | 3 | estimación de la llamada-patrón |
 | Vitest | [`frontend/src/components/Vault/hoverPreviewLayout.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/hoverPreviewLayout.test.js) | 3 | estimación de la llamada-patrón |

@@ -3191,6 +3191,7 @@
     "error_occurred": "Une erreur s'est produite dans l'éditeur",
     "unsupported_blocks_hint": "Le contenu de cette page contient des blocs non pris en charge ou mal formatés.",
     "markdown_mode": "Mode Markdown (code)",
+    "markdown_empty_placeholder": "Écrivez en Markdown…",
     "markdown_autosave_hint": "Enregistrement automatique activé. Raccourci : Cmd/Ctrl+S pour enregistrer immédiatement.",
     "invalid_json": "JSON invalide",
     "invalid_json_toast": "JSON invalide, impossible d'enregistrer",

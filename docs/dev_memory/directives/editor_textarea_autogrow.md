@@ -26,6 +26,12 @@ height, and restore the position synchronously in the same tick before paint.
 
 Use this helper in `MarkdownCodeEditor` and `EditorInner` title auto-growth.
 
+The Markdown source textarea must also keep a minimum height equal to the Vault
+page body. Auto-growth may set its inline height to zero for an empty document,
+but the minimum height keeps the code surface visible, focusable, and editable.
+Show a localized placeholder so an empty source document is distinguishable
+from a failed editor render.
+
 ## Restrictions
 
 - Never use raw `height = "auto"` plus `scrollHeight` without preserving
@@ -36,3 +42,6 @@ Use this helper in `MarkdownCodeEditor` and `EditorInner` title auto-growth.
   not necessarily `window`. Walk ancestors and fall back to
   `document.scrollingElement`.
 - Every new auto-growing textarea must reuse `autoGrowTextarea()`.
+- Never rely only on `scrollHeight` for an empty source editor. A zero-height
+  textarea makes code view look active while leaving no practical click target;
+  keep the source textarea at least as tall as the page body's 500 px minimum.

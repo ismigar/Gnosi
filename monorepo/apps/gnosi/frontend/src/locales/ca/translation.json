@@ -798,6 +798,7 @@
     "markdown_saved": "Markdown desat",
     "markdown_save_error": "Error desant Markdown",
     "markdown_mode": "Mode Markdown (codi)",
+    "markdown_empty_placeholder": "Escriu Markdown…",
     "markdown_autosave_hint": "Guardat automàtic activat. Drecera: Cmd/Ctrl+S per desar immediatament.",
     "invalid_json": "JSON invàlid",
     "invalid_json_toast": "JSON invàlid, no es pot desar",

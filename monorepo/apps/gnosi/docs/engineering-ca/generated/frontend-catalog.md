@@ -32,7 +32,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Grup | Fitxers | Línies | Referències de l' API literal |
 | --- | ---: | ---: | ---: |
 | `application root` | 3 | 276 | 0 |
-| `components` | 187 | 76314 | 196 |
+| `components` | 188 | 76344 | 196 |
 | `context` | 1 | 177 | 6 |
 | `hooks` | 16 | 1239 | 7 |
 | `lib` | 17 | 1959 | 6 |
@@ -139,6 +139,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | [frontd/src/ components/ Vulta/ InlineComments.jsx danka](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/InlineComments.jsx) | 192 | `InlineComments`, `function` | — |
 | [frontend/src/ components/ Vulta/InteContentMul.jsx=\\\\ {@} Name](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/InsertContentModal.jsx) | 901 | `InsertContentModal` | `/api/vault/assets/upload`, `/api/vault/link-existing-file`, `/api/vault/local-file/register` |
 | [frontend/src/ components/ Vulta/LinkClockBlock.jsx danka](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/LinkCardBlock.jsx) | 83 | `LinkCardBlock`, `function` | `/api/vault/link-preview` |
+| [ROdefind/ src/ components/ Vulta/ PectdownText.jsx=KDE](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/MarkdownCodeTextarea.jsx) | 30 | `MarkdownCodeTextarea` | — |
 | [frontd/src/ components/ Vulta/MediaPerer.jsx64](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/MediaPicker.jsx) | 341 | `MediaPicker` | `/api/vault/media`, `/api/vault/media/roots`, `/api/vault/media/tree` |
 | [frontdlead/src/ components/ Vulta/MentionInline.jsx=KDE](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/MentionInline.jsx) | 36 | `MentionInline`, `function` | — |
 | [frontend/src/ components/ Vulta/MerMiermaidBlock.jsx danka](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/MermaidBlock.jsx) | 132 | `MermaidBlock`, `function` | — |

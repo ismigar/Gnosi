@@ -11,7 +11,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | ExecutadorComment | Fitxers | Comprova els senyals |
 | --- | ---: | ---: |
 | PlaywrightCity name (optional, probably does not need a translation) | 13 | 35 |
-| Vitest | 48 | 197 |
+| Vitest | 49 | 198 |
 | pytest | 177 | 1464 |
 
 ## Fitxers
@@ -45,6 +45,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [frontend/src/ components/RelaseNotesDialog.test.jsx=jsx 2001- {@}](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/ReleaseNotesDialog.test.jsx) | 4 | Estimació del patró de crida |
 | Vitest | [frontdlead/src/ components/ArranjamentSectionTabs.test.jsxKDEDIR](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/SettingsSectionTabs.test.jsx) | 1 | Estimació del patró de crida |
 | Vitest | [frontdlead/src/ components/ Vulta/GaddryCardPreview.test.jsx=8)](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/GalleryCardPreview.test.jsx) | 3 | Estimació del patró de crida |
+| Vitest | [ROdeCreden/ src/ components/ Vulta/ PecteChatText.test.jsx=8)](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/MarkdownCodeTextarea.test.jsx) | 1 | Estimació del patró de crida |
 | Vitest | [frontdlead/src/ components/ Vulta/PageLinksGraph.test.jsKDE](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PageLinksGraph.test.js) | 5 | Estimació del patró de crida |
 | Vitest | [frontdlead/src/ components/ Vulta/RelacióItem.test.jsjs 2001- 2009](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/RelationItem.test.js) | 3 | Estimació del patró de crida |
 | Vitest | [frontdlead/src/ components/ Vulta/hverPreviewLayout.test.jsKDE](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/hoverPreviewLayout.test.js) | 3 | Estimació del patró de crida |
