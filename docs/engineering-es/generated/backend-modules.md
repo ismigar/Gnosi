@@ -20,12 +20,12 @@ Regenerar con `python pipeline/skills/technical_documentation/scripts/generate.p
 | `scheduler` | 2 | 949 |
 | `scripts` | 3 | 130 |
 | `security` | 3 | 735 |
-| `services` | 112 | 36946 |
+| `services` | 112 | 36964 |
 | `sh` | 1 | 69 |
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **228 módulos** y **Líneas de origen 90938**.
+Total: **228 módulos** y **90956 líneas de origen**.
 
 ## agente
 
@@ -224,12 +224,12 @@ Total: **228 módulos** y **Líneas de origen 90938**.
 | ["backend/services/fx_tases.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/fx_rates.py) | 188 | 0 | 9 | 0 | 5 | USD → conversión de moneda de usuario para el límite de gasto de IA. |
 | ["backend/servicios/generados_herramienta_accounts.py»](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/generated_tool_contributions.py) | 159 | 0 | 6 | 0 | 2 | Exponer herramientas generadas aprobadas a las habilidades sin otorgarlas globalmente. |
 | ["backend/services/gnosi_ai_accounts.py»](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/gnosi_ai_contributions.py) | 689 | 0 | 9 | 0 | 2 | Competencias y herramientas básicas para operaciones Gnosi de primera mano. |
-| ["backend/services/google_calendario_service.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/google_calendar_service.py) | 290 | 0 | 7 | 0 | 7 | Sin docstring de módulo |
+| ["backend/services/google_calendario_service.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/google_calendar_service.py) | 306 | 0 | 7 | 0 | 7 | Sin docstring de módulo |
 | ["backend/services/google_contactos_service.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/google_contacts_service.py) | 335 | 0 | 7 | 0 | 7 | Sin docstring de módulo |
 | ["backend/services/google_correo_service.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/google_mail_service.py) | 343 | 0 | 13 | 0 | 11 | Sin docstring de módulo |
 | ["backend/services/graph"_service.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/graph_service.py) | 958 | 1 | 8 | 0 | 8 | Sin docstring de módulo |
 | [`backend/services/handwriting.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/handwriting.py) | 271 | 0 | 10 | 0 | 6 | Reconocimiento de escritura (ink → texto) LOCAL con TrOCR. |
-| ["backend/servicios/híbrido"_calendario_service.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/hybrid_calendar_service.py) | 437 | 1 | 19 | 0 | 5 | Servicio de Calendario híbrido — consultas de Google Calendar y CalDAV directamente sin bóveda. |
+| ["backend/servicios/híbrido"_calendario_service.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/hybrid_calendar_service.py) | 439 | 1 | 19 | 0 | 5 | Servicio de Calendario híbrido — consultas de Google Calendar y CalDAV directamente sin bóveda. |
 | ["backend/servicios/híbrido"_correo_service.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/hybrid_mail_service.py) | 869 | 0 | 18 | 0 | 6 | Servicio de correo híbrido: consulta la API de Gmail e IMAP directamente sin un almacén. |
 | ["backend/services/imap_inactivo_service.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/imap_idle_service.py) | 271 | 2 | 0 | 0 | 2 | Servicio IMAP IDLE: notificaciones push cuando lleguen nuevos mensajes. |
 | ["backend/services/imap_correo_sincronización_service.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/imap_mail_sync_service.py) | 1340 | 1 | 5 | 0 | 3 | Servicio de sincronización de correo IMAP. |

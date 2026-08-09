@@ -184,6 +184,8 @@ def _normalize_google_event(e: dict, email: str, cal: dict) -> dict:
         "link":          e.get("htmlLink", ""),
         "recurrence":    e.get("recurrence"),
         "recurring_event_id": e.get("recurringEventId"),
+        "event_type":    e.get("eventType", "default"),
+        "birthday_properties": e.get("birthdayProperties"),
         "is_read_only":  cal.get("access_role") == "reader",
         "attendees": [
             {

@@ -152,18 +152,30 @@ def update_google_event(email: str, event_uid: str, patch_data: dict) -> bool:
         # omit the master's recurrence, which makes special event types such as
         # birthdays fail Google's validation.
         event = service.events().get(calendarId=cal_id, eventId=event_uid).execute()
+        target_event = event
+        target_event_uid = event_uid
+        is_birthday = event.get("eventType") == "birthday"
+        if is_birthday and event.get("recurringEventId"):
+            target_event_uid = event["recurringEventId"]
+            target_event = service.events().get(
+                calendarId=cal_id,
+                eventId=target_event_uid,
+            ).execute()
         body = {}
 
-        if "summary" in patch_data and patch_data["summary"] != event.get("summary", ""):
+        if (
+            "summary" in patch_data
+            and patch_data["summary"] != target_event.get("summary", "")
+        ):
             body["summary"] = patch_data["summary"]
         if (
             "location" in patch_data
-            and (patch_data["location"] or "") != event.get("location", "")
+            and (patch_data["location"] or "") != target_event.get("location", "")
         ):
             body["location"] = patch_data["location"] or ""
         if (
             "description" in patch_data
-            and (patch_data["description"] or "") != event.get("description", "")
+            and (patch_data["description"] or "") != target_event.get("description", "")
         ):
             body["description"] = patch_data["description"] or ""
         if "attendees" in patch_data and isinstance(patch_data["attendees"], list):
@@ -177,13 +189,13 @@ def update_google_event(email: str, event_uid: str, patch_data: dict) -> bool:
                     "email": attendee.get("email", ""),
                     "displayName": attendee.get("displayName", ""),
                 }
-                for attendee in event.get("attendees", [])
+                for attendee in target_event.get("attendees", [])
                 if attendee.get("email")
             ]
             if requested_attendees != existing_attendees:
                 existing_by_email = {
                     attendee.get("email"): attendee
-                    for attendee in event.get("attendees", [])
+                    for attendee in target_event.get("attendees", [])
                     if attendee.get("email")
                 }
                 body["attendees"] = []
@@ -196,8 +208,8 @@ def update_google_event(email: str, event_uid: str, patch_data: dict) -> bool:
         # Time zone: Google requires `timeZone` when the dateTime doesn't carry
         # an offset. Preserves the original event's, and if it doesn't have one, the user's.
         default_tz = (
-            (event.get("start") or {}).get("timeZone")
-            or (event.get("end") or {}).get("timeZone")
+            (target_event.get("start") or {}).get("timeZone")
+            or (target_event.get("end") or {}).get("timeZone")
             or "Europe/Madrid"
         )
 
@@ -223,13 +235,17 @@ def update_google_event(email: str, event_uid: str, patch_data: dict) -> bool:
         # The sidebar submits its complete form state on every autosave, so
         # unsupported empty fields must be discarded even when the user only
         # changes the title.
-        if event.get("eventType") == "birthday":
+        if is_birthday:
             birthday_fields = {"summary", "start", "end", "colorId", "reminders"}
             body = {key: value for key, value in body.items() if key in birthday_fields}
+            birthday_properties = event.get("birthdayProperties") or {}
+            if birthday_properties.get("contact") or birthday_properties.get("type") == "self":
+                body.pop("start", None)
+                body.pop("end", None)
 
         if body:
             service.events().patch(
-                calendarId=cal_id, eventId=event_uid, body=body
+                calendarId=cal_id, eventId=target_event_uid, body=body
             ).execute()
         return True
     except Exception as e:

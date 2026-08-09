@@ -32,6 +32,32 @@ export const buildOccurrenceKey = (instanceStart, dateOnly, allDay, eventMeta) =
     return `${y}-${m}-${d}T${h}:${min}:00`;
 };
 
+const DAY_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Shifts a date-only calendar value without crossing through UTC.
+ * @param {string} day - Date in YYYY-MM-DD format.
+ * @param {number} delta - Number of local calendar days to add.
+ * @returns {string} Shifted date, or the original value when it is not date-only.
+ */
+export const shiftCalendarDay = (day, delta) => {
+    const value = String(day || '').trim();
+    if (!DAY_ONLY_RE.test(value)) return day;
+    const date = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return day;
+    date.setDate(date.getDate() + delta);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const dateOfMonth = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${dateOfMonth}`;
+};
+
+/** Converts a user-facing inclusive all-day end into a provider-exclusive end. */
+export const inclusiveToExclusiveAllDayEnd = (end) => shiftCalendarDay(end, 1);
+
+/** Converts a provider-exclusive all-day end into a user-facing inclusive end. */
+export const exclusiveToInclusiveAllDayEnd = (end) => shiftCalendarDay(end, -1);
+
 /**
  * Truncates an RRULE so it ends right before the cutoff date.
  * @param {string} rrule - The original RRULE string

@@ -5,7 +5,12 @@ import { toast } from '../../lib/toast';
 import { useTranslation } from 'react-i18next';
 import { ConfirmModal } from '../ConfirmModal';
 import { RecurrenceChoiceModal } from '../Vault/RecurrenceChoiceModal';
-import { buildOccurrenceKey, truncateRruleBefore } from '../../utils/calendarUtils';
+import {
+    buildOccurrenceKey,
+    exclusiveToInclusiveAllDayEnd,
+    inclusiveToExclusiveAllDayEnd,
+    truncateRruleBefore,
+} from '../../utils/calendarUtils';
 
 export const CalendarSidebarRight = ({
     searchQuery,
@@ -312,7 +317,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                 setEndDate(rawEnd.split('T')[0]);
                 setEndTime(padTime(rawEnd.split('T')[1]?.substring(0, 5) || ''));
             } else {
-                setEndDate(rawEnd);
+                setEndDate(meta._end_exclusive ? exclusiveToInclusiveAllDayEnd(rawEnd) : rawEnd);
                 setEndTime('');
             }
 
@@ -603,10 +608,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
             ev.start = { date: startDate };
             // In Google, end.date is EXCLUSIVE → +1 day relative to the last day
             const base = endDate || startDate;
-            const d = new Date(`${base}T00:00:00`);
-            d.setDate(d.getDate() + 1);
-            const pad = (n) => String(n).padStart(2, '0');
-            ev.end = { date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` };
+            ev.end = { date: inclusiveToExclusiveAllDayEnd(base) };
         } else {
             const st = `${startDate}T${startTime || '00:00'}:00`;
             const en = (endDate && endTime) ? `${endDate}T${endTime}:00`
@@ -646,6 +648,9 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
 
         const fullStart = buildDatetime(startDate, startTime);
         const fullEnd = buildDatetime(endDate, endTime);
+        const googleEnd = allDay
+            ? inclusiveToExclusiveAllDayEnd(endDate || startDate)
+            : (fullEnd || fullStart);
 
         // ─── Editing a Google event that ALREADY EXISTS (reopened in edit mode) → PATCH to Google ───
         const existGm = eventData?.metadata || {};
@@ -664,7 +669,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                         location: location.trim(),
                         description: description.trim() || '',
                         start: fullStart,
-                        end: fullEnd || fullStart,
+                        end: googleEnd,
                         calendar_id: existGm._calendar_id || 'primary',
                         attendees,
                     }
@@ -680,7 +685,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                     metadata: {
                         ...existGm,
                         date: fullStart,
-                        end_date: fullEnd || fullStart,
+                        end_date: googleEnd,
                         all_day: allDay,
                         location: location.trim(),
                         description: description.trim() || '',
@@ -718,7 +723,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                             location: location.trim(),
                             description: description.trim() || '',
                             start: fullStart,
-                            end: fullEnd || fullStart,
+                            end: googleEnd,
                             calendar_id: googleRef.current.calendar_id,
                             attendees,
                         }

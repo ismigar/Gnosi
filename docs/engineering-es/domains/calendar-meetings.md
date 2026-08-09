@@ -1,17 +1,23 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-09
 source_paths:
   - backend/api/calendar_routes.py
   - backend/api/meeting_routes.py
   - backend/models/calendar.py
   - backend/services/google_calendar_service.py
+  - backend/services/hybrid_calendar_service.py
   - frontend/src/pages/CalendarPage.jsx
+  - frontend/src/components/Vault/CalendarSidebarRight.jsx
+  - frontend/src/components/Vault/DigitalBrainCalendar.jsx
+  - frontend/src/utils/calendarUtils.js
   - frontend/src/components/MeetingRecorder.jsx
   - frontend/src/components/MeetingReminderWatcher.jsx
 tests:
   - backend/tests/test_calendar_path_containment.py
+  - backend/tests/test_google_calendar_event_updates.py
   - backend/tests/test_meeting_reminders_race.py
+  - frontend/src/utils/calendarUtils.test.js
   - e2e/tests/e2e/calendar.spec.ts
 ---
 
@@ -48,6 +54,8 @@ sequenceDiagram
     API-->>UI: Unified response
 ```
 
+Los eventos de día completo de Google utilizan una fecha de finalización exclusiva, mientras que el formulario de Gnosi presenta el último día de forma inclusiva. La conversión se realiza una sola vez en el límite del proveedor: las peticiones añaden un día antes de escribir en Google y las respuestas restan uno antes de renderizar. Las ocurrencias de cumpleaños se actualizan mediante su evento recurrente maestro; las fechas gestionadas por Google Contacts permanecen bajo el control del proveedor, mientras que los campos compatibles, como el título, todavía se pueden actualizar.
+
 ## Recordatorios y notas de reunión
 
 Los ajustes de recordatorio seleccionan el tiempo de entrega y el comportamiento. La colección combina los eventos próximos y deduplica las solicitudes concurrentes para que no se creen recordatorios duplicados. El frontend watcher muestra recordatorios activos y puede navegar al calendario o descartarlos.
@@ -57,6 +65,8 @@ La grabación de reuniones se carga en un flujo de trabajo de fondo. Las encuest
 ## Invariantes
 
 - La identidad del evento del proveedor incluye el contexto de cuenta y calendario.
+- Los finales exclusivos de los eventos de día completo nunca llegan al modelo inclusivo de la interfaz.
+- Las fechas de cumpleaños gestionadas por los contactos se conservan al actualizar eventos recurrentes.
 - Calendar escribe requiere un contexto con capacidad de editor.
 - Los eventos locales basados en el sendero permanecen dentro de la bóveda activa.
 - La ocultación es local y reversible; la eliminación utiliza el proveedor autorizado.

@@ -20,12 +20,12 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | `scheduler` | 2 | 949 |
 | `scripts` | 3 | 130 |
 | `security` | 3 | 735 |
-| `services` | 112 | 36946 |
+| `services` | 112 | 36964 |
 | `sh` | 1 | 69 |
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **228 mòduls** i **90938 línies font**.
+Total: **228 mòduls** i **90956 línies font**.
 
 ## agent
 
@@ -224,12 +224,12 @@ Total: **228 mòduls** i **90938 línies font**.
 | [backend/ services/fx_rates.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/fx_rates.py) | 188 | 0 | 9 | 0 | 5 | Conversió d'usuari ergy- ergy per al barret de l'AI. |
 | [backend/ services/ Lesson Name_Eina_Contribucions.pypy Finch](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/generated_tool_contributions.py) | 159 | 0 | 6 | 0 | 2 | En cas d'exposar les eines generades per habilitats sense concedir-les globalment. |
 | [backend/ services/gnosi_aiunit description in lists_Contribucions.pypy Finch](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/gnosi_ai_contributions.py) | 689 | 0 | 9 | 0 | 2 | Les habilitats bàsiques i eines per operacions de primera part. |
-| [backend/ services/google_calendari_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/google_calendar_service.py) | 290 | 0 | 7 | 0 | 7 | Sense documentació de mòduls |
+| [backend/ services/google_calendari_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/google_calendar_service.py) | 306 | 0 | 7 | 0 | 7 | Sense documentació de mòduls |
 | [backend/ services/google_contactes_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/google_contacts_service.py) | 335 | 0 | 7 | 0 | 7 | Sense documentació de mòduls |
 | [backend/ services/google_correu_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/google_mail_service.py) | 343 | 0 | 13 | 0 | 11 | Sense documentació de mòduls |
 | [backend/ services/graph_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/graph_service.py) | 958 | 1 | 8 | 0 | 8 | Sense documentació de mòduls |
 | [backend/ services/ angld.pypypych](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/handwriting.py) | 271 | 0 | 10 | 0 | 6 | Reconeixement d'escriptura de mà (ke Manveen text) LOCAL amb TrOCR. |
-| [backend/ services/hrid_calendari_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/hybrid_calendar_service.py) | 437 | 1 | 19 | 0 | 5 | Servei de calendari híbrid SearchConvoction Google Calendar i CalDAV directament sense una volta. |
+| [backend/ services/hrid_calendari_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/hybrid_calendar_service.py) | 439 | 1 | 19 | 0 | 5 | Servei de calendari híbrid SearchConvoction Google Calendar i CalDAV directament sense una volta. |
 | [backend/ services/hrid_correu_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/hybrid_mail_service.py) | 869 | 0 | 18 | 0 | 6 | Servei de correu híbrid KDEDIRS consultes de l' API Gmail i IMAP directament sense una volta. |
 | [backend/ services/ imap_inactiva_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/imap_idle_service.py) | 271 | 2 | 0 | 0 | 2 | Servei IDLE IMAP: empenyeu notificacions quan arribin nous missatges. |
 | [backend/ services/ imap_correu_Sincronització_Servei.pypypypypyypythailand. kgm](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/imap_mail_sync_service.py) | 1340 | 1 | 5 | 0 | 3 | Servei de sincronització de correu IMAP. |

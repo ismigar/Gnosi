@@ -11,8 +11,8 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | ExecutadorComment | Fitxers | Comprova els senyals |
 | --- | ---: | ---: |
 | PlaywrightCity name (optional, probably does not need a translation) | 13 | 35 |
-| Vitest | 49 | 198 |
-| pytest | 177 | 1464 |
+| Vitest | 50 | 202 |
+| pytest | 177 | 1465 |
 
 ## Fitxers
 
@@ -63,6 +63,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Vitest | [ROOTfrontend/ src/lib/modelComparisonRegist.test.jsjs © KDEPUL](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/modelComparisonRegistry.test.js) | 5 | Estimació del patró de crida |
 | Vitest | [ROdefind/ src/locales/ restring/ gregistry.test.jsKDE](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/locales/blocknote/registry.test.js) | 4 | Estimació del patró de crida |
 | Vitest | [ROden/ src/locales/registry.test.js DOCTYPE](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/locales/registry.test.js) | 5 | Estimació del patró de crida |
+| Vitest | [frontd/src/uls/calendarUls.test.jsjs danka](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/calendarUtils.test.js) | 4 | Estimació del patró de crida |
 | Vitest | [frontd/src/uts/fieldOrdering.test.jsversion](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/fieldOrdering.test.js) | 1 | Estimació del patró de crida |
 | Vitest | [frontnend/src/uls/graphConnections.test.js DOCTYPE](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/graphConnections.test.js) | 2 | Estimació del patró de crida |
 | Vitest | [frontnend/src/uls/graphEdgeStyles.test.js europeavs](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/graphEdgeStyles.test.js) | 3 | Estimació del patró de crida |
@@ -139,7 +140,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | pytest | [backend/tests/test_generat_Eina_registre_Separació.pypypypypypythy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_generated_tool_registry_separation.py) | 1 | Python AST |
 | pytest | [backend/tests/test_generat_Eina_validador.pypy literalment](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_generated_tool_validator.py) | 4 | Python AST |
 | pytest | [backend/tests/test_gnosi_agent_Eines.pypypypypypyyture](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_gnosi_agent_tools.py) | 25 | Python AST |
-| pytest | [backend/tests/test_google_calendari_esdeveniment_Actualitzacions.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_google_calendar_event_updates.py) | 2 | Python AST |
+| pytest | [backend/tests/test_google_calendari_esdeveniment_Actualitzacions.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_google_calendar_event_updates.py) | 3 | Python AST |
 | pytest | [backend/tests/test_gràfic_clúster_llegenda.py cervesa](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_graph_cluster_legend.py) | 3 | Python AST |
 | pytest | [backend/tests/test_gràfic_frontmatter_alternatiu.pypypypypythy](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_graph_frontmatter_fallback.py) | 4 | Python AST |
 | pytest | [backend/tests/test_gràfic_similaritat_suggeriments.pypypyq](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_graph_similarity_suggestions.py) | 2 | Python AST |
