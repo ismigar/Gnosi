@@ -2,18 +2,41 @@
 
 from pipeline.skills.technical_documentation.scripts.check_change_impact import (
     is_implementation_path,
+    requires_documentation_path,
     validate_change_set,
 )
 
 
-def test_functional_source_changes_require_public_documentation():
-    """A behavior change cannot merge without public engineering evidence."""
+def test_routine_frontend_component_changes_do_not_require_public_documentation():
+    """Routine component changes do not require prose that adds no new contract."""
     errors = validate_change_set(
         {"monorepo/apps/gnosi/frontend/src/components/Reader.jsx"}
     )
 
+    assert errors == []
+    assert is_implementation_path(
+        "monorepo/apps/gnosi/frontend/src/components/Reader.jsx"
+    )
+    assert not requires_documentation_path(
+        "monorepo/apps/gnosi/frontend/src/components/Reader.jsx"
+    )
+
+
+def test_backend_boundary_changes_require_public_documentation():
+    """Backend API changes still require reviewed or generated evidence."""
+    errors = validate_change_set({"monorepo/apps/gnosi/backend/api/reader.py"})
+
     assert len(errors) == 1
     assert "docs/engineering" in errors[0]
+    assert "high-impact" in errors[0]
+
+
+def test_frontend_shell_changes_require_public_documentation():
+    """Authentication and application-shell changes can alter system contracts."""
+    assert requires_documentation_path(
+        "monorepo/apps/gnosi/frontend/src/context/AuthContext.jsx"
+    )
+    assert requires_documentation_path("monorepo/apps/gnosi/frontend/src/main.jsx")
 
 
 def test_reviewed_or_generated_documentation_satisfies_the_gate():
@@ -47,3 +70,5 @@ def test_runtime_and_deployment_files_are_functional():
     """Native and Docker execution changes must update operations documentation."""
     assert is_implementation_path("monorepo/apps/gnosi/sh/run_native_dev.sh")
     assert is_implementation_path("monorepo/apps/gnosi/Dockerfile.backend")
+    assert requires_documentation_path("monorepo/apps/gnosi/sh/run_native_dev.sh")
+    assert requires_documentation_path("monorepo/apps/gnosi/Dockerfile.backend")

@@ -32,7 +32,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `application root` | 3 | 276 | 0 |
-| `components` | 188 | 76384 | 196 |
+| `components` | 188 | 76406 | 196 |
 | `context` | 1 | 177 | 6 |
 | `hooks` | 16 | 1239 | 7 |
 | `lib` | 17 | 1959 | 6 |
@@ -190,7 +190,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Vault/VaultViewErrorBoundary.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultViewErrorBoundary.jsx) | 94 | `VaultViewErrorBoundary` | — |
 | [`frontend/src/components/Vault/VaultViewHeader.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultViewHeader.jsx) | 76 | `VaultViewHeader` | — |
 | [`frontend/src/components/Vault/VaultViewToolbar.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultViewToolbar.jsx) | 101 | `VaultViewToolbar` | — |
-| [`frontend/src/components/Vault/VaultViewsHeader.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultViewsHeader.jsx) | 1054 | `VaultViewsHeader` | — |
+| [`frontend/src/components/Vault/VaultViewsHeader.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultViewsHeader.jsx) | 1076 | `VaultViewsHeader` | — |
 | [`frontend/src/components/Vault/WikilinkContextMenu.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/WikilinkContextMenu.jsx) | 195 | `WikilinkContextMenu` | — |
 | [`frontend/src/components/Vault/WikilinkHoverPreview.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/WikilinkHoverPreview.jsx) | 186 | `WikilinkHoverPreview`, `invalidatePreviewCache` | — |
 | [`frontend/src/components/Vault/WikilinkInline.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/WikilinkInline.jsx) | 271 | `WikilinkInline` | `/api/vault/resolve-by-title` |

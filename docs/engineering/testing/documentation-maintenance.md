@@ -1,9 +1,10 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-09
 source_paths:
   - pipeline/skills/technical_documentation/SKILL.md
   - pipeline/skills/technical_documentation/domains.json
+  - pipeline/skills/technical_documentation/scripts/check_change_impact.py
   - pipeline/skills/technical_documentation/scripts/generate.py
   - mkdocs.yml
 tests:
@@ -87,6 +88,18 @@ exist. Zero tests are visible and require a deliberate testing decision.
 - A new failure or recovery constraint: update the directive first, then
   promote stable knowledge to the portal.
 - A durable architectural decision: add an ADR.
+
+## CI impact gate
+
+The pull-request documentation gate is scoped to changes that can alter a
+system boundary or an operational contract. It covers backend APIs and
+services, integrations, desktop and native runtime code, deployment files, and
+frontend authentication, routing, providers, and application-shell code.
+
+Routine frontend component, page, styling, and test changes do not require a
+prose documentation edit when the existing contract remains accurate. They
+still require documentation when they change an invariant, trust boundary,
+lifecycle, storage owner, failure constraint, or other durable system fact.
 
 ## Anti-drift validation
 

@@ -30,6 +30,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { VIEW_TYPES, getViewIcon, isMainView, isViewHidden, isPageEmbedView } from './viewConstants';
 import { ReferenceImportExport } from './ReferenceImportExport';
 import { BrainInbox } from './BrainInbox';
+import { IconRenderer } from './IconRenderer';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import { viewMatchesFilters, isFilterGroup } from '../../utils/vaultFilters';
 import { getViewPopoverLayout } from './viewPopoverLayout';
@@ -174,6 +175,7 @@ function SortableManageRow({ view, tableViews, isActive, onAction }) {
     } = useSortable({ id: view.id });
 
     const [showMenu, setShowMenu] = useState(false);
+    const [menuPosition, setMenuPosition] = useState(null);
     const menuRef = useRef(null);
 
     const style = {
@@ -198,6 +200,21 @@ function SortableManageRow({ view, tableViews, isActive, onAction }) {
 
     // Esc closes the row contextual menu.
     useModalKeyboard({ isOpen: showMenu, onClose: () => setShowMenu(false) });
+
+    const toggleMenu = (event) => {
+        if (showMenu) {
+            setShowMenu(false);
+            setMenuPosition(null);
+            return;
+        }
+
+        const rect = event.currentTarget.getBoundingClientRect();
+        setMenuPosition({
+            top: rect.bottom + 4,
+            right: Math.max(8, window.innerWidth - rect.right),
+        });
+        setShowMenu(true);
+    };
 
     return (
         <div
@@ -243,7 +260,7 @@ function SortableManageRow({ view, tableViews, isActive, onAction }) {
             <div className="relative shrink-0">
                 <button
                     type="button"
-                    onClick={() => setShowMenu(!showMenu)}
+                    onClick={toggleMenu}
                     className={`inline-flex items-center justify-center w-7 h-6 rounded text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors ${showMenu ? 'bg-[var(--bg-secondary)]' : ''}`}
                     title={t('views_header.more_actions', "More actions")}
                     aria-label={t('views_header.more_actions', "More actions")}
@@ -252,11 +269,12 @@ function SortableManageRow({ view, tableViews, isActive, onAction }) {
                 >
                     <MoreHorizontal size={14} />
                 </button>
-                {showMenu && (
+                {showMenu && menuPosition && createPortal((
                     <div
                         ref={menuRef}
                         role="menu"
-                        className="absolute right-0 top-full mt-1 w-44 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[var(--z-popover)] py-1 animate-in fade-in zoom-in-95 duration-100"
+                        className="fixed w-44 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[var(--z-popover)] py-1 animate-in fade-in zoom-in-95 duration-100"
+                        style={menuPosition}
                     >
                         {!isPrimaryView && (
                             <>
@@ -303,7 +321,7 @@ function SortableManageRow({ view, tableViews, isActive, onAction }) {
                             </button>
                         )}
                     </div>
-                )}
+                ), document.body)}
             </div>
         </div>
     );
@@ -906,7 +924,11 @@ export function VaultViewsHeader({
                                                         onClick={() => { setShowNewMenu(false); onCreateRecord?.(tpl.id); }}
                                                         className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-primary)] text-left"
                                                     >
-                                                        <LayoutTemplate size={14} className="shrink-0 text-[var(--text-tertiary)] group-hover/tpl:text-[var(--gnosi-primary)]" />
+                                                        {tpl.metadata?.icon ? (
+                                                            <IconRenderer icon={tpl.metadata.icon} size={16} className="shrink-0" />
+                                                        ) : (
+                                                            <LayoutTemplate size={14} className="shrink-0 text-[var(--text-tertiary)] group-hover/tpl:text-[var(--gnosi-primary)]" />
+                                                        )}
                                                         <span className="truncate">{tpl.title || t('common.untitled')}</span>
                                                         {isDefault && (
                                                             <span className="ml-auto shrink-0 text-[9px] bg-[var(--status-success)]/20 text-[var(--status-success)] px-1 rounded">{t('views_header.default_badge')}</span>

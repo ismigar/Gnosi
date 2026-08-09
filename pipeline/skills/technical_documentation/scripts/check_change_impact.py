@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Require public engineering documentation for functional Gnosi changes."""
+"""Require public engineering documentation for high-impact Gnosi changes."""
 
 from __future__ import annotations
 
@@ -27,6 +27,26 @@ IMPLEMENTATION_FILES = {
     f"{APP_PREFIX}Dockerfile.frontend",
     f"{APP_PREFIX}package.json",
     f"{APP_PREFIX}requirements.txt",
+}
+HIGH_IMPACT_PREFIXES = (
+    f"{APP_PREFIX}backend/",
+    f"{APP_PREFIX}electron/",
+    f"{APP_PREFIX}integrations/",
+    f"{APP_PREFIX}mcp-servers/",
+    f"{APP_PREFIX}sh/",
+    f"{APP_PREFIX}web-clipper/",
+)
+HIGH_IMPACT_FRONTEND_PREFIXES = (
+    f"{APP_PREFIX}frontend/src/components/Auth",
+    f"{APP_PREFIX}frontend/src/components/Layout",
+    f"{APP_PREFIX}frontend/src/context/",
+    f"{APP_PREFIX}frontend/src/providers/",
+    f"{APP_PREFIX}frontend/src/routes/",
+)
+HIGH_IMPACT_FILES = IMPLEMENTATION_FILES | {
+    f"{APP_PREFIX}frontend/package.json",
+    f"{APP_PREFIX}frontend/src/App.jsx",
+    f"{APP_PREFIX}frontend/src/main.jsx",
 }
 SOURCE_SUFFIXES = {
     ".cjs",
@@ -63,22 +83,34 @@ def is_implementation_path(path: str) -> bool:
     return path.startswith(IMPLEMENTATION_PREFIXES)
 
 
+def requires_documentation_path(path: str) -> bool:
+    """Return whether a path can alter a documented system boundary."""
+    if path in HIGH_IMPACT_FILES:
+        return True
+    pure_path = PurePosixPath(path)
+    if pure_path.suffix not in SOURCE_SUFFIXES:
+        return False
+    if EXCLUDED_PARTS.intersection(pure_path.parts):
+        return False
+    return path.startswith(HIGH_IMPACT_PREFIXES + HIGH_IMPACT_FRONTEND_PREFIXES)
+
+
 def is_documentation_evidence(path: str) -> bool:
     """Return whether a path updates public English engineering documentation."""
     return path.startswith(DOCUMENTATION_PREFIX) and path.endswith(".md")
 
 
 def validate_change_set(paths: set[str]) -> list[str]:
-    """Require documentation evidence whenever implementation behavior changes."""
-    implementation = sorted(path for path in paths if is_implementation_path(path))
-    if not implementation:
+    """Require documentation evidence for changes with architectural impact."""
+    high_impact = sorted(path for path in paths if requires_documentation_path(path))
+    if not high_impact:
         return []
     if any(is_documentation_evidence(path) for path in paths):
         return []
     return [
-        "Functional Gnosi changes require an update under "
-        "monorepo/apps/gnosi/docs/engineering/. Changed implementation files: "
-        + ", ".join(implementation[:8])
+        "High-impact Gnosi changes require an update under "
+        "monorepo/apps/gnosi/docs/engineering/. Changed high-impact files: "
+        + ", ".join(high_impact[:8])
     ]
 
 
