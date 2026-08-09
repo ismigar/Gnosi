@@ -839,6 +839,7 @@
     "markdown_saved": "Markdown saved",
     "markdown_save_error": "Error saving Markdown",
     "markdown_mode": "Markdown Mode (Code)",
+    "markdown_empty_placeholder": "Write Markdown…",
     "markdown_autosave_hint": "Autosave enabled. Shortcut: Cmd/Ctrl+S to save immediately.",
     "invalid_json": "Invalid JSON",
     "invalid_json_toast": "Invalid JSON, cannot save",

@@ -798,6 +798,7 @@
     "markdown_saved": "Markdown guardado",
     "markdown_save_error": "Error al guardar Markdown",
     "markdown_mode": "Modo Markdown (código)",
+    "markdown_empty_placeholder": "Escribe Markdown…",
     "markdown_autosave_hint": "Guardado automático activado. Atajo: Cmd/Ctrl+S para guardar de inmediato.",
     "invalid_json": "JSON inválido",
     "invalid_json_toast": "JSON inválido, no se puede guardar",

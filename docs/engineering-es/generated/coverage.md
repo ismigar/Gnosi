@@ -9,7 +9,7 @@ Regenerar con `python pipeline/skills/technical_documentation/scripts/generate.p
 | Dominio | Situación | Guía | Archivos de origen | Archivos de prueba | Directivas encontradas |
 | --- | --- | --- | ---: | ---: | ---: |
 | `foundation-runtime` | **cubiertos** | [`Fundación de plataformas y tiempo de ejecución`](../domains/foundation-runtime.md) | 14 | 3 | 2 |
-| `vault-files` | **cubiertos** | [`Válido y archivos`](../domains/vault-files.md) | 150 | 10 | 4 |
+| `vault-files` | **cubiertos** | [`Válido y archivos`](../domains/vault-files.md) | 152 | 10 | 4 |
 | `database-views-planning` | **cubiertos** | [`Vistas de base de datos y planificación de proyectos '](../domains/database-views-planning.md) | 16 | 7 | 3 |
 | `knowledge-graph` | **cubiertos** | [`Gráfico de conocimiento`](../domains/knowledge-graph.md) | 10 | 12 | 3 |
 | `reader-references` | **cubiertos** | [`Lector, referencias y citas`](../domains/reader-references.md) | 7 | 1 | 3 |

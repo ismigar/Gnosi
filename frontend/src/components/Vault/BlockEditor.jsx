@@ -107,6 +107,7 @@ import SyncedBlock from './SyncedBlock';
 import SpellCheckLayer from './SpellCheckLayer';
 import AICorrectLayer from './AICorrectLayer';
 import { PageLinksGraph } from './PageLinksGraph';
+import { MarkdownCodeTextarea } from './MarkdownCodeTextarea';
 import { useFloatingActionDock } from '../../hooks/useFloatingActionDock';
 import { isManagedInternalMetadataKey, shouldShowKnowledgePanels } from './metadataVisibilityUtils';
 import { focusPropertyRow } from './propertyNavigationUtils';
@@ -1042,7 +1043,7 @@ const MarkdownCodeEditor = ({
 
     return (
         <div>
-            <textarea
+            <MarkdownCodeTextarea
                 ref={textareaRef}
                 value={markdownText}
                 onChange={(e) => {
@@ -1059,9 +1060,8 @@ const MarkdownCodeEditor = ({
                         void handleForceSave();
                     }
                 }}
-                spellCheck={false}
-                rows={1}
-                className="w-full bg-transparent p-0 font-mono text-sm leading-6 text-[var(--text-primary)] outline-none resize-none border-0 focus:ring-0 overflow-hidden"
+                ariaLabel={t('editor.markdown_mode')}
+                placeholder={t('editor.markdown_empty_placeholder')}
             />
         </div>
     );

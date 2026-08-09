@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-09
 source_paths:
   - backend/api/vault_routes.py
   - backend/api/vaults_routes.py
@@ -9,10 +9,13 @@ source_paths:
   - backend/services/files_provider
   - frontend/src/pages/VaultDashboard.jsx
   - frontend/src/components/Vault
+  - frontend/src/components/Vault/BlockEditor.jsx
+  - frontend/src/components/Vault/MarkdownCodeTextarea.jsx
 tests:
   - backend/tests/test_e2e_etag_concurrency.py
   - backend/tests/test_page_sidecar.py
   - backend/tests/test_files_provider.py
+  - frontend/src/components/Vault/MarkdownCodeTextarea.test.jsx
   - e2e/tests/e2e/vault.spec.ts
 ---
 
@@ -104,6 +107,11 @@ gallery, board, calendar, timeline, feed, or reader surfaces. `VaultShell`
 provides the frame; specialized components implement editors and views. The
 frontend caches interaction state but treats backend page content and ETags as
 authoritative.
+
+Markdown code view uses an accessible localized textarea that auto-grows with
+the document. An empty document retains a 500 px minimum editing surface so
+source mode always provides a visible focus and typing target; non-empty
+documents continue to grow from their measured content height.
 
 ## Verification focus
 

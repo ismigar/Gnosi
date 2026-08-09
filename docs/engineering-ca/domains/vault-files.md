@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-09
 source_paths:
   - backend/api/vault_routes.py
   - backend/api/vaults_routes.py
@@ -9,10 +9,13 @@ source_paths:
   - backend/services/files_provider
   - frontend/src/pages/VaultDashboard.jsx
   - frontend/src/components/Vault
+  - frontend/src/components/Vault/BlockEditor.jsx
+  - frontend/src/components/Vault/MarkdownCodeTextarea.jsx
 tests:
   - backend/tests/test_e2e_etag_concurrency.py
   - backend/tests/test_page_sidecar.py
   - backend/tests/test_files_provider.py
+  - frontend/src/components/Vault/MarkdownCodeTextarea.test.jsx
   - e2e/tests/e2e/vault.spec.ts
 ---
 
@@ -77,6 +80,8 @@ Un nom o supressió.
 ## Frontal
 
 `VaultDashboard` la seva història de navegació i selecciona la pàgina, taula, dibuix, galeria, tauler, calendari, cronologia, fonts o superfícies lectores. `VaultShell` proveeix del marc; components especialitzats que implementen editors i vistes. L' estat d' interacció frontal de la memòria cau però tracta el contingut de la pàgina de dorsal i els ETags com autoritiu.
+
+La vista de codi Markdown utilitza una àrea de text accessible i localitzada que creix automàticament amb el document. Un document buit conserva una superfície mínima d'edició de 500 px perquè el mode de codi sempre ofereixi un objectiu visible per al focus i l'escriptura; els documents no buits continuen creixent segons l'alçada mesurada del contingut.
 
 ## Concentrat de verificació
 

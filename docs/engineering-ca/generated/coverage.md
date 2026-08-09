@@ -9,7 +9,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Domini | Estat | Guia | Fitxers font | Comprova fitxers | S' han trobat directives |
 | --- | --- | --- | ---: | ---: | ---: |
 | `foundation-runtime` | **& Descarrega** | [tstform base i s'executentimetime 2001- 2009](../domains/foundation-runtime.md) | 14 | 3 | 2 |
-| `vault-files` | **& Descarrega** | [AhrtVult i fitxers l' ordre de l' ekaVault](../domains/vault-files.md) | 150 | 10 | 4 |
+| `vault-files` | **& Descarrega** | [AhrtVult i fitxers l' ordre de l' ekaVault](../domains/vault-files.md) | 152 | 10 | 4 |
 | `database-views-planning` | **& Descarrega** | [Vistes  1] Search unchName](../domains/database-views-planning.md) | 16 | 7 | 3 |
 | `knowledge-graph` | **& Descarrega** | [Koywise graphyKose](../domains/knowledge-graph.md) | 10 | 12 | 3 |
 | `reader-references` | **& Descarrega** | [ekaReider, referències i citacions de l'AKIPUCI](../domains/reader-references.md) | 7 | 1 | 3 |
