@@ -1,12 +1,13 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-09
 source_paths:
   - backend/api/vault_views_routes.py
   - backend/api/planning_routes.py
   - backend/services/planning_engine.py
   - backend/services/planning_scheduler.py
   - frontend/src/components/Vault/VaultTable.jsx
+  - frontend/src/pages/VaultDashboard.jsx
   - frontend/src/pages/ProjectPlanningPage.jsx
 tests:
   - backend/tests/test_view_snapshot.py
@@ -39,6 +40,8 @@ flowchart LR
 Los valores tipográficos deben compararse como su tipo de campo declarado. La entrada de texto por sí sola no puede representar cada valor de filtro; los campos fecha, casilla de verificación, número, relación, selección y multivalor se normalizan a través de operadores con conocimiento de campo.
 
 La evaluación de campo derivado tiene un orden explícito. Fórmulas que dependen de valores brutos que se ejecutan antes de las rerollups que se resuelven las relaciones agregadas, y fórmulas dependientes sin permitir que los ciclos se repitan indefinidamente. Las representaciones de backend y frontend deben acordar la veracidad de la casilla de verificación, porcentajes, valores vacíos e identificadores de opciones.
+
+Cuando `VaultDashboard` renderiza una pestaña de tabla, pasa las funcionalidades habilitadas del registro de la tabla a través de `VaultViewBody` hasta `VaultTable`. Por tanto, la pestaña de tabla, la tabla independiente, el panel dividido y la vista incrustada exponen las mismas acciones de fila configuradas. Si se omite esta cadena de propiedades, la acción queda oculta aunque el registro y la API la devuelvan como habilitada.
 
 ## Evolución del esquema y condición
 

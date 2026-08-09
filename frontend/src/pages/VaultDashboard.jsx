@@ -3605,6 +3605,7 @@ export default function VaultDashboard() {
                                     const body = (
                                         <VaultViewBody
                                             type={mergedView.type}
+                                            functionalities={table?.functionalities}
                                             notes={applyDashboardJoins(paneNotes, cv.joins, pages, resolvePageTableId)}
                                             templates={paneTemplates}
                                             schema={mergedSchema}
