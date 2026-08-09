@@ -136,10 +136,13 @@ product completeness.
 6. Record new restrictions or incidents in the relevant directive and promote
    stable knowledge into the public domain guide.
 
-Pull-request CI also compares the changed implementation paths with the public
-English engineering tree. Backend, frontend, desktop, integration, native
-runtime, and Docker behavior cannot merge without a reviewed or generated
-Markdown update. The locale mirror check then blocks the same change until the
+Pull-request CI also compares high-impact paths with the public English
+engineering tree. Backend APIs and services, desktop and integration
+boundaries, native runtime, Docker, and frontend authentication, routing,
+provider, or application-shell changes cannot merge without a reviewed or
+generated Markdown update. Routine frontend component, page, styling, and test
+changes do not require prose documentation when the existing contract remains
+accurate. The locale mirror check then blocks documentation changes until the
 Catalan and Spanish portals match the English source tree.
 
 ## Restrictions and edge cases

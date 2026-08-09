@@ -66,10 +66,14 @@ location.
    accurate.
 5. Run validation and the strict MkDocs build.
 
-Every pull request that changes shipped backend, frontend, integration,
-desktop, or deployment behavior must also change at least one public English
-engineering Markdown page. The locale mirror check then requires Catalan and
-Spanish parity before the pull request can merge.
+The change-impact gate is intentionally limited to high-impact boundaries:
+backend APIs and services, integrations, desktop and native runtime code,
+deployment files, and frontend authentication, routing, providers, or
+application-shell code. Routine frontend component, page, styling, and test
+changes do not require a prose documentation edit when the existing contract
+remains accurate. High-impact changes must still change at least one public
+English engineering Markdown page; the locale mirror check then requires
+Catalan and Spanish parity before the pull request can merge.
 
 ## Restrictions and edge cases
 
