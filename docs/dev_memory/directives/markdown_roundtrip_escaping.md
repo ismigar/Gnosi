@@ -83,6 +83,16 @@ soft-break fix.
 The escaping change still prevents a line following a soft break from being
 promoted to a structural Markdown block.
 
+## Block-level style wrappers
+
+The serializer represents BlockNote block colors as a styled `<div>` around the
+block Markdown. BlockNote's Markdown importer preserves the inner block but does
+not promote the wrapper's `color` or `background-color` into block properties.
+The Gnosi mapper must extract those two declarations before parsing and apply
+them to the resulting block; otherwise the first render looks correct but the
+next save removes the color. Styled serializer blocks must be flushed separately
+from adjacent unstyled Markdown so a larger parse batch cannot hide the wrapper.
+
 ## QA
 
 Use an isolated editor instance and verify stable round-trips for:

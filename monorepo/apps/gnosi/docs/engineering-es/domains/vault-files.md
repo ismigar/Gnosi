@@ -16,6 +16,7 @@ tests:
   - backend/tests/test_page_sidecar.py
   - backend/tests/test_files_provider.py
   - frontend/src/components/Vault/MarkdownCodeTextarea.test.jsx
+  - frontend/src/components/Vault/markdown-mapper.test.js
   - e2e/tests/e2e/vault.spec.ts
 ---
 
@@ -84,6 +85,12 @@ renombrar o borrar.
 ## Fondos de bloque en el editor
 
 `BlockEditor` asigna las propiedades de fondo de los bloques a Markdown portable mediante un envoltorio `<div style="background-color: ...">`. BlockNote renderiza la propiedad obtenida al analizar el Markdown dentro del contenido del bloque, y su hoja de estilos principal pinta el fondo en el contenedor `.bn-block`. Por tanto, el color ocupa todo el bloque del editor, también cuando el bloque está dentro de una columna.
+
+Al importar, el mapper de Markdown extrae estos envoltorios con estilo y los
+convierte en propiedades del bloque antes de analizar el Markdown interior. Así
+se mantienen el color de fondo y el color de texto durante el ciclo de guardado
+y recarga. Los encabezados coloreados también eliminan el desplazamiento vertical
+predeterminado para evitar espacio innecesario dentro del fondo de ancho completo.
 
 La hoja de estilos del editor no debe restablecer a transparente los fondos de bloque no predeterminados ni mover el color a `.bn-inline-content`. Eso convierte el fondo del bloque en un chip del tamaño del texto y hace que el resultado dependa de la longitud del encabezado. Los fondos en línea siguen siendo adecuados para los resaltados de texto; los fondos de bloque pertenecen al contenedor del bloque.
 

@@ -32,7 +32,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `application root` | 3 | 276 | 0 |
-| `components` | 188 | 76325 | 196 |
+| `components` | 188 | 76384 | 196 |
 | `context` | 1 | 177 | 6 |
 | `hooks` | 16 | 1239 | 7 |
 | `lib` | 17 | 1959 | 6 |
@@ -113,7 +113,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Vault/AIGenerateModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/AIGenerateModal.jsx) | 241 | `AIGenerateModal`, `function` | `/api/ai/generate` |
 | [`frontend/src/components/Vault/AutoriaField.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/AutoriaField.jsx) | 186 | `AutoriaDisplay`, `AutoriaEditor` | — |
 | [`frontend/src/components/Vault/BibliographyBlock.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/BibliographyBlock.jsx) | 201 | `BibliographyBlock` | `/api/vault/resolve-by-citation-key` |
-| [`frontend/src/components/Vault/BlockEditor.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/BlockEditor.jsx) | 5829 | `BlockEditor`, `EditorInner` | `/api/contacts`, `/api/vault/assets/`, `/api/vault/assets/upload`, `/api/vault/backlinks`, `/api/vault/link-unlinked-mentions`, `/api/vault/outlinks`, `/api/vault/pages`, `/api/vault/unlinked-mentions` |
+| [`frontend/src/components/Vault/BlockEditor.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/BlockEditor.jsx) | 5831 | `BlockEditor`, `EditorInner` | `/api/contacts`, `/api/vault/assets/`, `/api/vault/assets/upload`, `/api/vault/backlinks`, `/api/vault/link-unlinked-mentions`, `/api/vault/outlinks`, `/api/vault/pages`, `/api/vault/unlinked-mentions` |
 | [`frontend/src/components/Vault/BrainInbox.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/BrainInbox.jsx) | 210 | `BrainInbox` | `/api/vault/llm-wiki/suggestions` |
 | [`frontend/src/components/Vault/CalendarContextMenu.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/CalendarContextMenu.jsx) | 68 | `CalendarContextMenu` | — |
 | [`frontend/src/components/Vault/CalendarSidebarLeft.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/CalendarSidebarLeft.jsx) | 315 | `CalendarSidebarLeft` | — |
@@ -210,7 +210,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Vault/hoverPreviewLayout.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/hoverPreviewLayout.js) | 38 | `HOVER_PREVIEW_MARGIN`, `adaptiveHoverPreviewStyle`, `positionHoverPreview` | — |
 | [`frontend/src/components/Vault/identifierValidators.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/identifierValidators.js) | 91 | `isValidArxivId`, `isValidDOI`, `isValidISBN`, `isValidPMID`, `isValidURL`, `validateIdentifier` | — |
 | [`frontend/src/components/Vault/managedMarkdownUtils.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/managedMarkdownUtils.js) | 73 | `normalizeManagedBlockSpacing`, `stripManagedBlockMarkers` | — |
-| [`frontend/src/components/Vault/markdown-mapper.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/markdown-mapper.js) | 1763 | `FILE_PROTOCOL_SENTINEL`, `blocksToRichMarkdown`, `fileUrlToSentinel`, `richMarkdownToBlocks`, `sentinelToFileUrl` | — |
+| [`frontend/src/components/Vault/markdown-mapper.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/markdown-mapper.js) | 1820 | `FILE_PROTOCOL_SENTINEL`, `blocksToRichMarkdown`, `fileUrlToSentinel`, `richMarkdownToBlocks`, `sentinelToFileUrl` | — |
 | [`frontend/src/components/Vault/metadataVisibilityUtils.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/metadataVisibilityUtils.js) | 17 | `isManagedInternalMetadataKey`, `shouldShowKnowledgePanels` | — |
 | [`frontend/src/components/Vault/optionCatalogUtils.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/optionCatalogUtils.js) | 230 | `DEFAULT_ACTION_RULES`, `DEFAULT_STATUS_GROUPS`, `OPTION_COLOR_PALETTE`, `STATUS_DRAFT`, `STATUS_PUBLISHED_DRUPAL`, `STATUS_PUBLISHED_SOCIAL`, `STATUS_REVIEWED`, `STATUS_TRANSLATED`, `autoColorFor`, `checkActionRequires`, `findRoleFieldName`, `normalizeOption`, `normalizeOptions`, `optionChipStyle`, `optionColorHex`, `optionNames`, `seedOptionsForFeature` | — |
 | [`frontend/src/components/Vault/pageLinksGraphModel.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/pageLinksGraphModel.js) | 50 | `buildPageLinksGraphModel`, `truncateGraphLabel` | — |
