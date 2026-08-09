@@ -1,15 +1,18 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-09
 source_paths:
   - backend/server.py
   - backend/config/app_config.py
   - backend/config/env_config.py
   - backend/config/paths_config.py
   - frontend/src/App.jsx
+  - frontend/src/main.jsx
+  - frontend/src/components/GlobalTooltip.jsx
 tests:
   - backend/tests/test_app_config_language.py
   - backend/tests/test_host_helper_url.py
+  - frontend/src/components/GlobalTooltip.test.jsx
   - e2e/tests/anon/smoke.spec.ts
 ---
 
@@ -46,6 +49,8 @@ Reforçament de la configuració de l' IA. Un entorn antic credential pot crear 
 ## Àrea de treball per a la interfície
 
 `App.jsx` Espera a l' autenticació "mobitra " abans de seleccionar la compartició pública, iniciar sessió o l' intèrpret d' ordres. Les pàgines fortes s' acarregen. Les pròpies pàgines de l' intèrpret d' ordres globals són navegació i superfícies d' interacció disponibles globalment; rutes de pàgines de ruta del contingut del propi domini. `/s/:token` Es refereix a fora de l' intèrpret d' ordres autenticat pel disseny.
+
+`main.jsx` munta una capa `GlobalTooltip` al costat de l'intèrpret d'ordres de l'aplicació. Adopta els atributs `title` natius del contingut inicial, de càrrega diferida i dels portals perquè els indicadors de funció segueixin el tema clar o fosc efectiu. La capa conserva els noms accessibles, exposa el contingut visible mitjançant `aria-describedby`, admet el punter i el focus del teclat, es tanca amb Escape i cedeix el control als components que ja tenen indicadors enriquits propis.
 
 ## Invariants
 

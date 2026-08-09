@@ -9,19 +9,19 @@ Regenerar con `python pipeline/skills/technical_documentation/scripts/generate.p
 | Dominio | Situación | Guía | Archivos de origen | Archivos de prueba | Directivas encontradas |
 | --- | --- | --- | ---: | ---: | ---: |
 | `foundation-runtime` | **cubiertos** | [`Fundación de plataformas y tiempo de ejecución`](../domains/foundation-runtime.md) | 14 | 3 | 2 |
-| `vault-files` | **cubiertos** | [`Válido y archivos`](../domains/vault-files.md) | 146 | 10 | 4 |
+| `vault-files` | **cubiertos** | [`Válido y archivos`](../domains/vault-files.md) | 150 | 10 | 4 |
 | `database-views-planning` | **cubiertos** | [`Vistas de base de datos y planificación de proyectos '](../domains/database-views-planning.md) | 16 | 7 | 3 |
 | `knowledge-graph` | **cubiertos** | [`Gráfico de conocimiento`](../domains/knowledge-graph.md) | 10 | 12 | 3 |
 | `reader-references` | **cubiertos** | [`Lector, referencias y citas`](../domains/reader-references.md) | 7 | 1 | 3 |
 | `ai-agent` | **cubiertos** | [Agentes, modelos, herramientas y habilidades de la AI](../domains/ai-agent.md) | 56 | 13 | 4 |
 | `mail` | **cubiertos** | [`Mail`](../domains/mail.md) | 15 | 6 | 4 |
-| `calendar-meetings` | **cubiertos** | [`Calendario y reuniones`](../domains/calendar-meetings.md) | 11 | 3 | 3 |
+| `calendar-meetings` | **cubiertos** | [`Calendario y reuniones`](../domains/calendar-meetings.md) | 11 | 4 | 3 |
 | `contacts` | **cubiertos** | [`Contactos`](../domains/contacts.md) | 9 | 2 | 2 |
 | `social-publishing` | **cubiertos** | [`Publicación social y medios de comunicación '](../domains/social-publishing.md) | 6 | 0 | 3 |
 | `integrations-plugins` | **cubiertos** | [`Integraciones y complementos`](../domains/integrations-plugins.md) | 46 | 6 | 3 |
 | `auth-workspaces-sharing` | **cubiertos** | [`Autenticación, espacios de trabajo y compartir '](../domains/auth-workspaces-sharing.md) | 12 | 9 | 3 |
 | `automation-scheduling` | **cubiertos** | [`Automatización y programación '](../domains/automation-scheduling.md) | 6 | 1 | 3 |
-| `desktop-clients` | **cubiertos** | [`Desktop y clientes acompañantes '](../domains/desktop-clients.md) | 32 | 1 | 3 |
+| `desktop-clients` | **cubiertos** | [`Desktop y clientes acompañantes '](../domains/desktop-clients.md) | 41 | 1 | 3 |
 
 ## Fundación y duración de la plataforma
 
