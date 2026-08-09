@@ -12,8 +12,8 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | --- | ---: |
 | Dorsal de fitxers Python | 395 |
 | Dorsal de fitxers de proves en Python | 167 |
-| Frontal de fitxers de codi font JS/TS | 305 |
-| Fitxers de proves d' unitats per al Frontal | 43 |
+| Frontal de fitxers de codi font JS/TS | 306 |
+| Fitxers de proves d' unitats per al Frontal | 44 |
 | Encaminadors d' API ràpids Registrat | 33 |
 | Executar contractes d' habilitat | 23 |
 | Directives del desenvolupament | 165 |
@@ -23,7 +23,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 | Superfície | Fitxers | Límit dependència |
 | --- | ---: | --- |
 | `backend/` | 405 | RALLE, serveis, models, agents, planificació i adaptadors d' emmagatzematge |
-| `frontend/src/` | 325 | Una aplicació react, comportament de la IU, estat i integració del navegador |
+| `frontend/src/` | 326 | Una aplicació react, comportament de la IU, estat i integració del navegador |
 | `pipeline/` | 99 | habilitat de l' aplicació i eines de processament determinants |
 | `electron/` | 18 | Un cicle vital de l'escriptori, empaquetament de paquets de paquets, IPC i actualitzacions |
 | `integrations/` | 12 | Adaptadors de l' oficina i de sistemes externs |

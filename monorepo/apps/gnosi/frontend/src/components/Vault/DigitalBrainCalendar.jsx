@@ -17,6 +17,10 @@ import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcu
 import './CalendarStyles.css';
 import { useTitlePreview } from './useTitlePreview';
 import { parsePeriod, withPeriodBoundaries } from '../../utils/projectPlanning';
+import {
+    exclusiveToInclusiveAllDayEnd,
+    inclusiveToExclusiveAllDayEnd,
+} from '../../utils/calendarUtils';
 
 // Serializes a Date to "YYYY-MM-DDTHH:MM:SS" in LOCAL time (not UTC). When moving or
 // when resizing a timed Vault event we must save the local time: `toISOString()`
@@ -26,19 +30,6 @@ import { parsePeriod, withPeriodBoundaries } from '../../utils/projectPlanning';
 const _p2 = (n) => String(n).padStart(2, '0');
 const toLocalDateTimeStr = (d) =>
     `${d.getFullYear()}-${_p2(d.getMonth() + 1)}-${_p2(d.getDate())}T${_p2(d.getHours())}:${_p2(d.getMinutes())}:${_p2(d.getSeconds())}`;
-
-// FullCalendar treats the `end` of all-day events as EXCLUSIVE, but the
-// Vault stores the INCLUSIVE end date (Notion-style): without conversion, an event
-// from the 8th to the 10th was only rendered up to the 9th, and stretching it saved one extra day.
-const _shiftDay = (dayStr, delta) => {
-    const d = new Date(`${String(dayStr).trim()}T00:00:00`);
-    if (isNaN(d.getTime())) return dayStr;
-    d.setDate(d.getDate() + delta);
-    return `${d.getFullYear()}-${_p2(d.getMonth() + 1)}-${_p2(d.getDate())}`;
-};
-const _DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
-const inclusiveToExclusiveEnd = (end) => (_DAY_RE.test(String(end || '').trim()) ? _shiftDay(end, 1) : end);
-const exclusiveToInclusiveEnd = (end) => (_DAY_RE.test(String(end || '').trim()) ? _shiftDay(end, -1) : end);
 
 // Views selectable from the DB view's toolbar. Navigation is done
 // with its OWN toolbar (like CalendarPage's, via calendarApi): activating the
@@ -251,7 +242,9 @@ export const DigitalBrainCalendar = ({
                 let endStr = endDateField
                     ? ((metadata[endDateField] != null && metadata[endDateField] !== '') ? metadata[endDateField] : (periodEnd || null))
                     : (periodEnd || metadata.end_date || metadata.end_time || null);
-                if (endStr && isAllDay) endStr = inclusiveToExclusiveEnd(endStr);
+                if (endStr && isAllDay && !metadata._end_exclusive) {
+                    endStr = inclusiveToExclusiveAllDayEnd(endStr);
+                }
                 let eventObj = {
                     id: id,
                     title: noteTitle,
@@ -408,7 +401,7 @@ export const DigitalBrainCalendar = ({
             : toLocalDateTimeStr(event.start);
         // All-day end: FullCalendar gives it as EXCLUSIVE; the Vault stores it as INCLUSIVE.
         const newEnd = event.end
-            ? (event.allDay ? exclusiveToInclusiveEnd(event.endStr) : toLocalDateTimeStr(event.end))
+            ? (event.allDay ? exclusiveToInclusiveAllDayEnd(event.endStr) : toLocalDateTimeStr(event.end))
             : null;
 
         const isRecurrent = !!(metadata?.rrule || metadata?.recurrence);
@@ -491,7 +484,7 @@ export const DigitalBrainCalendar = ({
 
         // All-day end: FullCalendar gives it as EXCLUSIVE; the Vault stores it as INCLUSIVE.
         const newEnd = event.allDay
-            ? exclusiveToInclusiveEnd(event.endStr)
+            ? exclusiveToInclusiveAllDayEnd(event.endStr)
             : toLocalDateTimeStr(event.end);
 
         const isRecurrent = !!(metadata?.rrule || metadata?.recurrence);

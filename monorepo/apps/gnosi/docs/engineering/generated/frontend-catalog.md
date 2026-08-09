@@ -32,14 +32,14 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `application root` | 3 | 276 | 0 |
-| `components` | 188 | 76344 | 196 |
+| `components` | 188 | 76342 | 196 |
 | `context` | 1 | 177 | 6 |
 | `hooks` | 16 | 1239 | 7 |
 | `lib` | 17 | 1959 | 6 |
 | `locales` | 3 | 565 | 0 |
-| `pages` | 16 | 12176 | 52 |
+| `pages` | 16 | 12179 | 52 |
 | `plugins` | 4 | 528 | 5 |
-| `utils` | 14 | 1606 | 0 |
+| `utils` | 14 | 1632 | 0 |
 
 ## application root
 
@@ -117,7 +117,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Vault/BrainInbox.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/BrainInbox.jsx) | 210 | `BrainInbox` | `/api/vault/llm-wiki/suggestions` |
 | [`frontend/src/components/Vault/CalendarContextMenu.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/CalendarContextMenu.jsx) | 68 | `CalendarContextMenu` | — |
 | [`frontend/src/components/Vault/CalendarSidebarLeft.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/CalendarSidebarLeft.jsx) | 315 | `CalendarSidebarLeft` | — |
-| [`frontend/src/components/Vault/CalendarSidebarRight.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/CalendarSidebarRight.jsx) | 1695 | `CalendarSidebarRight` | `/api/vault/pages` |
+| [`frontend/src/components/Vault/CalendarSidebarRight.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/CalendarSidebarRight.jsx) | 1700 | `CalendarSidebarRight` | `/api/vault/pages` |
 | [`frontend/src/components/Vault/CiteInline.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/CiteInline.jsx) | 249 | `CiteInline` | `/api/vault/resolve-by-citation-key` |
 | [`frontend/src/components/Vault/CitePicker.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/CitePicker.jsx) | 242 | `CitePicker` | `/api/vault/search-citations` |
 | [`frontend/src/components/Vault/CollaborationPresence.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/CollaborationPresence.jsx) | 77 | `CollaborationPresence` | — |
@@ -125,7 +125,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Vault/CslStylePicker.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/CslStylePicker.jsx) | 166 | `CslStylePicker` | `/api/vault/csl/styles` |
 | [`frontend/src/components/Vault/DateMentionInline.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/DateMentionInline.jsx) | 115 | `DateMentionInline`, `function` | — |
 | [`frontend/src/components/Vault/DbViewEmbed.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/DbViewEmbed.jsx) | 2093 | `DbViewEmbed` | `/api/vault/bulk-apply-template`, `/api/vault/pages`, `/api/vault/views` |
-| [`frontend/src/components/Vault/DigitalBrainCalendar.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/DigitalBrainCalendar.jsx) | 1093 | `DigitalBrainCalendar` | — |
+| [`frontend/src/components/Vault/DigitalBrainCalendar.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/DigitalBrainCalendar.jsx) | 1086 | `DigitalBrainCalendar` | — |
 | [`frontend/src/components/Vault/EmbedRenderer.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/EmbedRenderer.jsx) | 292 | `EmbedRenderer` | `/api/vault/assets/` |
 | [`frontend/src/components/Vault/FileAttachmentField.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/FileAttachmentField.jsx) | 149 | `FileAttachmentField` | — |
 | [`frontend/src/components/Vault/FileFieldValue.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/FileFieldValue.jsx) | 119 | `FileFieldValue` | — |
@@ -303,7 +303,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Source | Lines | Export signals | Literal API paths |
 | --- | ---: | --- | --- |
-| [`frontend/src/pages/CalendarPage.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/CalendarPage.jsx) | 1140 | `CalendarPage`, `function` | `/api/calendar/calendars`, `/api/calendar/events`, `/api/calendar/reminders/settings`, `/api/integrations`, `/api/integrations/calendar_aliases`, `/api/integrations/calendar_colors`, `/api/integrations/calendar_selection`, `/api/integrations/default_calendar`, `/api/vault/pages`, `/api/vault/tables` |
+| [`frontend/src/pages/CalendarPage.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/CalendarPage.jsx) | 1143 | `CalendarPage`, `function` | `/api/calendar/calendars`, `/api/calendar/events`, `/api/calendar/reminders/settings`, `/api/integrations`, `/api/integrations/calendar_aliases`, `/api/integrations/calendar_colors`, `/api/integrations/calendar_selection`, `/api/integrations/default_calendar`, `/api/vault/pages`, `/api/vault/tables` |
 | [`frontend/src/pages/ComposerPage.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/ComposerPage.jsx) | 37 | `ComposerPage` | — |
 | [`frontend/src/pages/ContactsPage.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/ContactsPage.jsx) | 191 | `ContactsPage`, `function` | `/api/contacts`, `/api/integrations` |
 | [`frontend/src/pages/ContentCalendar.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/ContentCalendar.jsx) | 225 | `ContentCalendar` | `/api/social/scheduled` |
@@ -334,7 +334,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Source | Lines | Export signals | Literal API paths |
 | --- | ---: | --- | --- |
 | [`frontend/src/utils/avatar-utils.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/avatar-utils.js) | 46 | `getGoogleAvatarUrl`, `getGravatarUrl`, `isGmail` | — |
-| [`frontend/src/utils/calendarUtils.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/calendarUtils.js) | 63 | `buildOccurrenceKey`, `truncateRruleBefore` | — |
+| [`frontend/src/utils/calendarUtils.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/calendarUtils.js) | 89 | `buildOccurrenceKey`, `exclusiveToInclusiveAllDayEnd`, `inclusiveToExclusiveAllDayEnd`, `shiftCalendarDay`, `truncateRruleBefore` | — |
 | [`frontend/src/utils/fieldOrdering.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/fieldOrdering.js) | 21 | `sortFieldItems` | — |
 | [`frontend/src/utils/graphConnections.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/graphConnections.js) | 70 | `getVisibleConnectionGroups` | — |
 | [`frontend/src/utils/graphEdgeStyles.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/graphEdgeStyles.js) | 34 | `BASE_EDGE_THICKNESS`, `MIN_EDGE_THICKNESS`, `getHoverEdgeStyle`, `getRenderedEdgeThickness` | — |

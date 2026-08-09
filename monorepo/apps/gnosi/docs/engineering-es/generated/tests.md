@@ -11,8 +11,8 @@ Regenerar con `python pipeline/skills/technical_documentation/scripts/generate.p
 | Runner | Archivos | Señales de ensayo |
 | --- | ---: | ---: |
 | Autor de la reproducción | 13 | 35 |
-| Vitest | 49 | 198 |
-| pytest | 177 | 1464 |
+| Vitest | 50 | 202 |
+| pytest | 177 | 1465 |
 
 ## Archivos
 
@@ -63,6 +63,7 @@ Regenerar con `python pipeline/skills/technical_documentation/scripts/generate.p
 | Vitest | [`frontend/src/lib/modeloComparaciónRegistry.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/modelComparisonRegistry.test.js) | 5 | estimación de la llamada-patrón |
 | Vitest | [`frontend/src/locales/blocknote/registry.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/locales/blocknote/registry.test.js) | 4 | estimación de la llamada-patrón |
 | Vitest | [`frontend/src/locales/registry.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/locales/registry.test.js) | 5 | estimación de la llamada-patrón |
+| Vitest | [`frontend/src/utils/calendarUtils.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/calendarUtils.test.js) | 4 | estimación de la llamada-patrón |
 | Vitest | [`frontend/src/utils/fieldOrdering.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/fieldOrdering.test.js) | 1 | estimación de la llamada-patrón |
 | Vitest | [`frontend/src/utils/graphConnections.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/graphConnections.test.js) | 2 | estimación de la llamada-patrón |
 | Vitest | [`frontend/src/utils/graphEdgeStyles.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/graphEdgeStyles.test.js) | 3 | estimación de la llamada-patrón |
@@ -139,7 +140,7 @@ Regenerar con `python pipeline/skills/technical_documentation/scripts/generate.p
 | pytest | ["backend/tests/test_generado_herramienta_Registro_separation.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_generated_tool_registry_separation.py) | 1 | Python AST |
 | pytest | ["backend/tests/test_generado_herramienta_validator.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_generated_tool_validator.py) | 4 | Python AST |
 | pytest | ["backend/tests/test_gnosi_agente_tools.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_gnosi_agent_tools.py) | 25 | Python AST |
-| pytest | ["backend/tests/test_google_calendario_evento_actualizaciones.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_google_calendar_event_updates.py) | 2 | Python AST |
+| pytest | ["backend/tests/test_google_calendario_evento_actualizaciones.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_google_calendar_event_updates.py) | 3 | Python AST |
 | pytest | ["backend/tests/test_gráfico_grupo_legend.py'](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_graph_cluster_legend.py) | 3 | Python AST |
 | pytest | ["backend/tests/test_gráfico_frontmatter_# Retroceso. #](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_graph_frontmatter_fallback.py) | 4 | Python AST |
 | pytest | ["backend/tests/test_gráfico_similitud_sugerencias.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_graph_similarity_suggestions.py) | 2 | Python AST |

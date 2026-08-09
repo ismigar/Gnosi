@@ -241,6 +241,9 @@ export default function CalendarPage() {
             _calendar_id: ev.calendar_id,
             _calendar_name: ev.calendar_name,
             _vault_path: ev.vault_path || null,
+            _end_exclusive: ev.provider !== 'vault' && ev.all_day,
+            _event_type: ev.event_type || 'default',
+            _birthday_properties: ev.birthday_properties || null,
             recurring_event_id: ev.recurring_event_id || null,
         },
     });

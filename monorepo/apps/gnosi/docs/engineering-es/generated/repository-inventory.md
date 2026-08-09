@@ -12,8 +12,8 @@ Regenerar con `python pipeline/skills/technical_documentation/scripts/generate.p
 | --- | ---: |
 | Archivos de motor Python | 395 |
 | Archivos de prueba de motor Python | 167 |
-| Frontend JS/TS source files | 305 |
-| Archivos de prueba de la unidad de interfaz | 43 |
+| Frontend JS/TS source files | 306 |
+| Archivos de prueba de la unidad de interfaz | 44 |
 | Enrutadores FastAPI registrados | 33 |
 | Contratos de capacitación en tiempo de ejecución | 23 |
 | Directivas sobre el desarrollo y la memoria | 165 |
@@ -23,7 +23,7 @@ Regenerar con `python pipeline/skills/technical_documentation/scripts/generate.p
 | Superficie | Archivos | Límite de finalidad |
 | --- | ---: | --- |
 | `backend/` | 405 | FastAPI, servicios, modelos, agentes, agenda y adaptadores de almacenamiento |
-| `frontend/src/` | 325 | Reaccionar la aplicación, el comportamiento de la interfaz de usuario, el estado y las integraciones del navegador |
+| `frontend/src/` | 326 | Reaccionar la aplicación, el comportamiento de la interfaz de usuario, el estado y las integraciones del navegador |
 | `pipeline/` | 99 | Capacidades de aplicación reutilizables y herramientas de procesamiento deterministas |
 | `electron/` | 18 | Ciclo de vida del escritorio, embalaje de backend, IPC y actualizaciones |
 | `integrations/` | 12 | Adaptadores de oficina y de sistema externo |
