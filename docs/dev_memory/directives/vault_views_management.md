@@ -83,3 +83,14 @@ Before considering a view complete, verify:
   `if (aEmpty || bEmpty) { if (aEmpty && bEmpty) continue; return aEmpty ? 1 : -1; }`.
   When content seems missing, inspect `activeView.sort` before suspecting cell
   rendering; sorting reorders rows but does not change the total count.
+
+- **Changing Kanban group order has no visible effect.** Persisting
+  `groupSort` and `groupSortDir` in the view modal is insufficient: the Kanban
+  renderer must apply both values when ordering its column keys, and embedded
+  views must propagate both camelCase and snake_case variants into the renderer
+  view model. The embedded modal's returned section data must also include all
+  type-specific extras; otherwise the editor immediately rewrites the block
+  without the newly selected order. Catalog order uses the schema option order,
+  alphabetical order uses the displayed label, and count order uses the number
+  of records in each bucket. Keep the empty value bucket last in both ascending
+  and descending directions.

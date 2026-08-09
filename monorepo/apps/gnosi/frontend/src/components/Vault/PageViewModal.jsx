@@ -1771,6 +1771,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 filterTree: filterTreeBody,
                 sorts: cleanSorts,
                 visible_properties: visibleProperties,
+                ...buildViewExtras(),
             };
         } catch (e) {
             setError(e?.message || t('view.error_create', "Unknown error creating the view"));
