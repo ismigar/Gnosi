@@ -108,6 +108,26 @@ provides the frame; specialized components implement editors and views. The
 frontend caches interaction state but treats backend page content and ETags as
 authoritative.
 
+## Block backgrounds in the editor
+
+`BlockEditor` maps block background properties to portable Markdown using a
+`<div style="background-color: ...">` wrapper. BlockNote renders the parsed
+property on the block content and its core stylesheet paints the background on
+the containing `.bn-block`, so the color spans the complete editor block,
+including blocks nested inside a column.
+
+The editor stylesheet must not reset non-default block backgrounds to
+transparent or move the color to `.bn-inline-content`. Doing so turns a block
+background into a text-sized chip and makes the result depend on heading text
+length. Inline background styles remain appropriate for text-level highlights;
+block backgrounds belong to the block container.
+
+When changing this behavior, verify both a standalone heading and a heading
+inside a `column-list`, then round-trip the Markdown and confirm the block
+property and full-width rendering remain intact. The implementation lives in
+`frontend/src/components/Vault/BlockEditor.jsx`; Markdown conversion is in
+`frontend/src/components/Vault/markdown-mapper.js`.
+
 Markdown code view uses an accessible localized textarea that auto-grows with
 the document. An empty document retains a 500 px minimum editing surface so
 source mode always provides a visible focus and typing target; non-empty

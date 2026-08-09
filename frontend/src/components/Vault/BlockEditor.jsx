@@ -3015,33 +3015,10 @@ export function EditorInner({
                     background-color: var(--bg-secondary)/5;
                 }
 
-                .bn-editor .bn-block:has(> .bn-block-content[data-background-color]:not([data-background-color="default"])) {
-                    background-color: transparent !important;
-                }
-                .bn-editor .bn-block-content[data-background-color]:not([data-background-color="default"]) {
-                    background-color: transparent !important;
-                }
-                .bn-editor [data-background-color]:not([data-background-color="default"]):not(.bn-block):not(.bn-block-content):not(th):not(td) {
-                    background-color: transparent !important;
-                }
-                .bn-editor .bn-block-content[data-background-color="gray"] .bn-inline-content,
-                .bn-editor .bn-block:has(> .bn-block-content[data-background-color="gray"]) .bn-inline-content { background-color: #ebeced !important; display: inline !important; padding: 2px 6px !important; border-radius: 4px !important; }
-                .bn-editor .bn-block-content[data-background-color="brown"] .bn-inline-content,
-                .bn-editor .bn-block:has(> .bn-block-content[data-background-color="brown"]) .bn-inline-content { background-color: #e9e5e3 !important; display: inline !important; padding: 2px 6px !important; border-radius: 4px !important; }
-                .bn-editor .bn-block-content[data-background-color="red"] .bn-inline-content,
-                .bn-editor .bn-block:has(> .bn-block-content[data-background-color="red"]) .bn-inline-content { background-color: #fbe4e4 !important; display: inline !important; padding: 2px 6px !important; border-radius: 4px !important; }
-                .bn-editor .bn-block-content[data-background-color="orange"] .bn-inline-content,
-                .bn-editor .bn-block:has(> .bn-block-content[data-background-color="orange"]) .bn-inline-content { background-color: #f6e9d9 !important; display: inline !important; padding: 2px 6px !important; border-radius: 4px !important; }
-                .bn-editor .bn-block-content[data-background-color="yellow"] .bn-inline-content,
-                .bn-editor .bn-block:has(> .bn-block-content[data-background-color="yellow"]) .bn-inline-content { background-color: #fbf3db !important; display: inline !important; padding: 2px 6px !important; border-radius: 4px !important; }
-                .bn-editor .bn-block-content[data-background-color="green"] .bn-inline-content,
-                .bn-editor .bn-block:has(> .bn-block-content[data-background-color="green"]) .bn-inline-content { background-color: #ddedea !important; display: inline !important; padding: 2px 6px !important; border-radius: 4px !important; }
-                .bn-editor .bn-block-content[data-background-color="blue"] .bn-inline-content,
-                .bn-editor .bn-block:has(> .bn-block-content[data-background-color="blue"]) .bn-inline-content { background-color: #ddebf1 !important; display: inline !important; padding: 2px 6px !important; border-radius: 4px !important; }
-                .bn-editor .bn-block-content[data-background-color="purple"] .bn-inline-content,
-                .bn-editor .bn-block:has(> .bn-block-content[data-background-color="purple"]) .bn-inline-content { background-color: #eae4f2 !important; display: inline !important; padding: 2px 6px !important; border-radius: 4px !important; }
-                .bn-editor .bn-block-content[data-background-color="pink"] .bn-inline-content,
-                .bn-editor .bn-block:has(> .bn-block-content[data-background-color="pink"]) .bn-inline-content { background-color: #f4dfeb !important; display: inline !important; padding: 2px 6px !important; border-radius: 4px !important; }
+                /* BlockNote's core stylesheet paints block backgrounds on the
+                   full .bn-block. Keep that behavior instead of replacing it
+                   with an inline text chip, so Markdown such as
+                   <div style="background-color: pink">…</div> fills the block. */
 
                 /* Table header cells (<th>): gray background and bold text by default */
                 .bn-editor [data-content-type="table"] th {

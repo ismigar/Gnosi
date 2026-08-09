@@ -81,6 +81,14 @@ renombrar o borrar.
 
 `VaultDashboard` Posee historial de navegación y selecciona superficies de página, tabla, dibujo, galería, tablero, calendario, línea de tiempo, fuente o lector. `VaultShell` proporciona el marco; los componentes especializados implementan editores y vistas. La interfaz de cachés de estado de interacción, pero trata el contenido de página de backend y Etags como autoritative.
 
+## Fondos de bloque en el editor
+
+`BlockEditor` asigna las propiedades de fondo de los bloques a Markdown portable mediante un envoltorio `<div style="background-color: ...">`. BlockNote renderiza la propiedad obtenida al analizar el Markdown dentro del contenido del bloque, y su hoja de estilos principal pinta el fondo en el contenedor `.bn-block`. Por tanto, el color ocupa todo el bloque del editor, también cuando el bloque está dentro de una columna.
+
+La hoja de estilos del editor no debe restablecer a transparente los fondos de bloque no predeterminados ni mover el color a `.bn-inline-content`. Eso convierte el fondo del bloque en un chip del tamaño del texto y hace que el resultado dependa de la longitud del encabezado. Los fondos en línea siguen siendo adecuados para los resaltados de texto; los fondos de bloque pertenecen al contenedor del bloque.
+
+Al cambiar este comportamiento, compruebe tanto un encabezado independiente como un encabezado dentro de una `column-list`. Después haga un recorrido de ida y vuelta del Markdown y confirme que la propiedad del bloque y la representación a ancho completo se mantienen intactas. La implementación está en `frontend/src/components/Vault/BlockEditor.jsx`; la conversión de Markdown, en `frontend/src/components/Vault/markdown-mapper.js`.
+
 La vista de código Markdown utiliza un área de texto accesible y localizada que crece automáticamente con el documento. Un documento vacío conserva una superficie mínima de edición de 500 px para que el modo de código siempre proporcione un objetivo visible para el foco y la escritura; los documentos no vacíos continúan creciendo según la altura medida del contenido.
 
 ## Enfoque de verificación

@@ -32,7 +32,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `application root` | 3 | 276 | 0 |
-| `components` | 188 | 76342 | 196 |
+| `components` | 188 | 76319 | 196 |
 | `context` | 1 | 177 | 6 |
 | `hooks` | 16 | 1239 | 7 |
 | `lib` | 17 | 1959 | 6 |
@@ -113,7 +113,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Vault/AIGenerateModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/AIGenerateModal.jsx) | 241 | `AIGenerateModal`, `function` | `/api/ai/generate` |
 | [`frontend/src/components/Vault/AutoriaField.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/AutoriaField.jsx) | 186 | `AutoriaDisplay`, `AutoriaEditor` | — |
 | [`frontend/src/components/Vault/BibliographyBlock.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/BibliographyBlock.jsx) | 201 | `BibliographyBlock` | `/api/vault/resolve-by-citation-key` |
-| [`frontend/src/components/Vault/BlockEditor.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/BlockEditor.jsx) | 5846 | `BlockEditor`, `EditorInner` | `/api/contacts`, `/api/vault/assets/`, `/api/vault/assets/upload`, `/api/vault/backlinks`, `/api/vault/link-unlinked-mentions`, `/api/vault/outlinks`, `/api/vault/pages`, `/api/vault/unlinked-mentions` |
+| [`frontend/src/components/Vault/BlockEditor.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/BlockEditor.jsx) | 5823 | `BlockEditor`, `EditorInner` | `/api/contacts`, `/api/vault/assets/`, `/api/vault/assets/upload`, `/api/vault/backlinks`, `/api/vault/link-unlinked-mentions`, `/api/vault/outlinks`, `/api/vault/pages`, `/api/vault/unlinked-mentions` |
 | [`frontend/src/components/Vault/BrainInbox.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/BrainInbox.jsx) | 210 | `BrainInbox` | `/api/vault/llm-wiki/suggestions` |
 | [`frontend/src/components/Vault/CalendarContextMenu.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/CalendarContextMenu.jsx) | 68 | `CalendarContextMenu` | — |
 | [`frontend/src/components/Vault/CalendarSidebarLeft.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/CalendarSidebarLeft.jsx) | 315 | `CalendarSidebarLeft` | — |
