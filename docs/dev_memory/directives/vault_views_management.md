@@ -62,6 +62,14 @@ Before considering a view complete, verify:
   a localized error with an explicit retry action; never silently present an
   empty list as if the table had no saved views.
 
+- **The existing-view picker remains on “Loading views…” after a successful
+  response.** Set the requested table id together with the loading state before
+  starting the request, accept only the latest request result, and transition
+  the status to `ready` or `error` for that same table. Copy and validate the
+  response array before adding the virtual main view; do not mutate a response
+  object in place, because stale or reused response data can otherwise leave
+  the picker in a permanent loading state.
+
 - **An empty embedded calendar shows only its toolbar.** The embedded calendar
   has no parent height to inherit. Give its calendar container a minimum height
   and let FullCalendar calculate its own height, so the month/week/day grid is

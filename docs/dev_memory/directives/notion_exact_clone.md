@@ -109,6 +109,15 @@ Raw details tags remain allowed because BlockNote normalizes them to toggles.
   otherwise restore the pre-clone property list through the schema modal's
   autosave. Exact clones must increment `schema_revision`; schema writes based
   on any other revision fail with HTTP 409 and require a reload.
+- Do not derive a shared, non-contextual Notion view ID from the host page. That
+  creates one registry entry per page for the same global tab. Use the source
+  `view_url` plus the target table for global identity; retain a host-scoped ID
+  only when a filter depends on the embedding page (`this` or its Notion page
+  URL).
+- Do not compact or prune the live registry without a dry-run and a backup.
+  Rewrite Markdown `gnosi-view:def` references through the alias map first,
+  retain all referenced tabs, and use `--prune-orphans` only after confirming
+  the clone/import completed successfully.
 
 ## QA
 

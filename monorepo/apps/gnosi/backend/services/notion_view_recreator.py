@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 import re
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 _NS = uuid.UUID("6f0c9b2e-1a4d-5e6f-8a9b-000000000002")
 _DB_RE = re.compile(r'<database\s+url="[^"]*?([0-9a-f]{32})"[^>]*\binline="true"')
@@ -202,6 +202,120 @@ def _filter_value(flt: Dict[str, Any]) -> Any:
     return v
 
 
+def _value_mentions_host_page(value: Any, host_page_id: str) -> bool:
+    """Return whether a raw Notion filter value is scoped to the host page."""
+    host_uid = _uid(host_page_id)
+    if not host_uid:
+        return False
+    if isinstance(value, list):
+        return any(_value_mentions_host_page(item, host_page_id) for item in value)
+    if isinstance(value, dict):
+        return any(_value_mentions_host_page(item, host_page_id) for item in value.values())
+    return host_uid in _uid(value)
+
+
+def is_contextual_view(view_meta: Dict[str, Any], host_page_id: str) -> bool:
+    """Whether a parsed Notion view depends on the page where it is embedded.
+
+    A relation filter can arrive either as the resolved ``this`` marker or as a
+    Notion URL. Both forms must remain page-scoped. Views without either form
+    are safe to share across pages and should not create one registry entry per
+    host page.
+    """
+    for flt in view_meta.get("filters_raw") or []:
+        if not isinstance(flt, dict):
+            continue
+        if _value_mentions_host_page(_filter_value(flt), host_page_id):
+            return True
+    if _uid(view_meta.get("filter_value_page_id")) == _uid(host_page_id):
+        return True
+    return False
+
+
+def _canonical_view_payload(view: Dict[str, Any]) -> str:
+    """Canonical payload used to identify equivalent imported global views."""
+    ignored = {
+        "id", "tabs", "embedded", "is_main", "hidden", "order", "source_view_id",
+    }
+    payload = {key: value for key, value in view.items() if key not in ignored}
+    return json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def view_identity(view: Dict[str, Any]) -> Optional[Tuple[str, ...]]:
+    """Return a merge key for a safe-to-share imported view, or ``None``.
+
+    Contextual views are intentionally never merged: their ``this`` filter is
+    evaluated against the host page. Only views explicitly marked as embedded
+    and lacking a host-page filter are candidates for cleanup.
+    """
+    if view.get("embedded") is not True:
+        return None
+    if any(isinstance(f, dict) and f.get("value") == "this"
+           for f in view.get("filters") or []):
+        return None
+    source_view_id = str(view.get("source_view_id") or "").strip()
+    if source_view_id:
+        return ("source", str(view.get("table_id") or ""), source_view_id)
+    return ("payload", str(view.get("table_id") or ""), _canonical_view_payload(view))
+
+
+def deduplicate_view_definitions(
+    views: List[Dict[str, Any]],
+) -> Tuple[List[Dict[str, Any]], Dict[str, str]]:
+    """Deduplicate safe imported global views while returning ID aliases.
+
+    The first registry entry wins to keep existing references valid. Callers
+    must rewrite body markers and ``tabs`` through the returned aliases before
+    persisting the compacted registry. Page-scoped views and ordinary user
+    views are left untouched.
+    """
+    kept: List[Dict[str, Any]] = []
+    aliases: Dict[str, str] = {}
+    canonical_by_key: Dict[Tuple[str, ...], Dict[str, Any]] = {}
+
+    for view in views:
+        key = view_identity(view)
+        if key is None:
+            kept.append(view)
+            continue
+        canonical = canonical_by_key.get(key)
+        if canonical is None:
+            canonical_by_key[key] = view
+            kept.append(view)
+            continue
+        duplicate_id = str(view.get("id") or "").strip()
+        canonical_id = str(canonical.get("id") or "").strip()
+        if duplicate_id and canonical_id and duplicate_id != canonical_id:
+            aliases[duplicate_id] = canonical_id
+
+    if not aliases:
+        return kept, aliases
+
+    def resolve(view_id: str) -> str:
+        seen = set()
+        current = view_id
+        while current in aliases and current not in seen:
+            seen.add(current)
+            current = aliases[current]
+        return current
+
+    # Collapse aliases transitively so callers can use one map safely.
+    aliases = {old: resolve(old) for old in aliases}
+
+    for view in kept:
+        tabs = view.get("tabs")
+        if not isinstance(tabs, list):
+            continue
+        new_tabs: List[str] = []
+        for tab_id in tabs:
+            resolved = resolve(str(tab_id))
+            if resolved != str(view.get("id") or "") and resolved not in new_tabs:
+                new_tabs.append(resolved)
+        view["tabs"] = new_tabs
+
+    return kept, aliases
+
+
 def map_simple_filter(flt: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Notion simpleFilter → Gnosi filter {field, operator, value} (None if not mappable).
     Gnosi operators (cf. frontend vaultFilters.js): equals, not_equals, contains,
@@ -277,9 +391,23 @@ def build_gnosi_view(host_page_id: str, target_table: Dict[str, Any], host_table
     Filter `{field, value:"this"}` when the view filters by the relation to the host page.
     `salt`: id suffix for tabs 2..N of the same block (the 1st leaves it empty and
     keeps the legacy id → embeds from previous clones keep resolving)."""
-    seed = f"{host_page_id}:{target_table.get('id')}:{heading}"
-    if salt:
-        seed += f":{salt}"
+    target_table_id = str(target_table.get("id") or "")
+    source_view_id = str(view_meta.get("view_url") or "").strip()
+    contextual = is_contextual_view(view_meta, host_page_id)
+    if not contextual and source_view_id:
+        # A global Notion tab is the same view wherever it is embedded. Its ID
+        # must therefore not contain the host page ID.
+        seed = f"global:{target_table_id}:{source_view_id}"
+    elif not contextual:
+        # Older MCP responses may omit view:// URLs. The parsed definition is
+        # still stable enough to share when it has no host-page filter.
+        seed = f"global:{target_table_id}:{_canonical_view_payload(view_meta)}"
+    else:
+        # Contextual views must remain per-page because `this` resolves against
+        # the host page at render time. Preserve the legacy seed for these.
+        seed = f"{host_page_id}:{target_table_id}:{heading}"
+        if salt:
+            seed += f":{salt}"
     view_id = str(uuid.uuid5(_NS, seed))
     view: Dict[str, Any] = {
         "id": view_id,
@@ -292,6 +420,8 @@ def build_gnosi_view(host_page_id: str, target_table: Dict[str, Any], host_table
         # a normal part of the registry.
         "embedded": True,
     }
+    if source_view_id:
+        view["source_view_id"] = source_view_id
     # Type-specific config (same keys read by VaultChart/VaultTimeline/
     # DigitalBrainCalendar in the frontend).
     ch = view_meta.get("chart")

@@ -6,7 +6,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from services.notion_view_recreator import (  # noqa: E402
     parse_mcp_page, parse_mcp_view, parse_mcp_views, build_gnosi_view, resolve_filter_field,
-    view_embed, recreate_views_for_page,
+    view_embed, recreate_views_for_page, deduplicate_view_definitions,
 )
 
 HOST_PAGE = "1d3268e52714809ab328fc33d9331454"      # Postgrau de Coaching (row from Projectes)
@@ -100,6 +100,56 @@ def test_build_gnosi_view_deterministic_id():
     a = build_gnosi_view(HOST_PAGE, TASQUES_TABLE, PROJECTES_TABLE, meta, "Tasques pendents")
     b = build_gnosi_view(HOST_PAGE, TASQUES_TABLE, PROJECTES_TABLE, meta, "Tasques pendents")
     assert a["id"] == b["id"]   # idempotent (uuid5) → no duplica en re-sync
+
+
+def test_global_view_id_is_shared_across_host_pages():
+    meta = {
+        "view_type": "calendar",
+        "view_url": "notion-view-global",
+        "display_properties": ["Data"],
+        "filters_raw": [],
+        "sorts": [],
+        "group_by": None,
+    }
+    table = {"id": "target", "name": "Calendar", "properties": []}
+    first = build_gnosi_view("host-a", table, "host-table", meta, "Calendar")
+    second = build_gnosi_view("host-b", table, "host-table", meta, "Calendar")
+    assert first["id"] == second["id"]
+    assert first["source_view_id"] == "notion-view-global"
+
+
+def test_contextual_view_id_remains_host_scoped():
+    meta = {
+        "view_type": "gallery",
+        "view_url": "notion-view-contextual",
+        "display_properties": [],
+        "filters_raw": [{"property": "Project", "operator": "relation_contains",
+                          "value": "https://app.notion.com/p/host-a"}],
+        "sorts": [],
+        "group_by": None,
+    }
+    table = {"id": "target", "name": "Project", "properties": []}
+    first = build_gnosi_view("host-a", table, "host-table", meta, "Project")
+    second = build_gnosi_view("host-b", table, "host-table", meta, "Project")
+    assert first["id"] != second["id"]
+
+
+def test_deduplicate_view_definitions_preserves_contextual_and_user_views():
+    global_view = {
+        "id": "global-1", "table_id": "t", "name": "Shared", "type": "table",
+        "embedded": True, "source_view_id": "notion-global",
+    }
+    duplicate = {**global_view, "id": "global-2"}
+    contextual = {
+        "id": "contextual", "table_id": "t", "name": "Shared", "type": "table",
+        "embedded": True, "filters": [{"field": "Project", "value": "this"}],
+    }
+    user_view = {"id": "user", "table_id": "t", "name": "Shared", "type": "table"}
+    compacted, aliases = deduplicate_view_definitions(
+        [global_view, duplicate, contextual, user_view]
+    )
+    assert [view["id"] for view in compacted] == ["global-1", "contextual", "user"]
+    assert aliases == {"global-2": "global-1"}
 
 
 def test_view_embed_format():

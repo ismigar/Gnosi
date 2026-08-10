@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 13 | 35 |
 | Vitest | 52 | 207 |
-| pytest | 177 | 1467 |
+| pytest | 178 | 1471 |
 
 ## Files
 
@@ -124,6 +124,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_capability_jobs.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_capability_jobs.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_carddav_vcard_unfold.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_carddav_vcard_unfold.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_citation_key_and_pubmed.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_citation_key_and_pubmed.py) | 41 | Python AST |
+| pytest | [`backend/tests/test_cleanup_notion_views.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_cleanup_notion_views.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_comments_race.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_comments_race.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_config_language_locale.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_config_language_locale.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_connection_scheduler_alignment.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_connection_scheduler_alignment.py) | 3 | Python AST |
@@ -183,7 +184,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_notion_mcp_md.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_notion_mcp_md.py) | 19 | Python AST |
 | pytest | [`backend/tests/test_notion_pagination_guard.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_notion_pagination_guard.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_notion_schema_config.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_notion_schema_config.py) | 5 | Python AST |
-| pytest | [`backend/tests/test_notion_view_recreator.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_notion_view_recreator.py) | 16 | Python AST |
+| pytest | [`backend/tests/test_notion_view_recreator.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_notion_view_recreator.py) | 19 | Python AST |
 | pytest | [`backend/tests/test_onedrive_filename_safety.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_onedrive_filename_safety.py) | 21 | Python AST |
 | pytest | [`backend/tests/test_option_catalogs.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_option_catalogs.py) | 23 | Python AST |
 | pytest | [`backend/tests/test_page_section_upsert.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_page_section_upsert.py) | 5 | Python AST |

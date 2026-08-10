@@ -20,12 +20,12 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `scheduler` | 2 | 949 |
 | `scripts` | 3 | 130 |
 | `security` | 3 | 735 |
-| `services` | 112 | 36964 |
+| `services` | 112 | 37094 |
 | `sh` | 1 | 69 |
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **228 modules** and **90956 source lines**.
+Total: **228 modules** and **91086 source lines**.
 
 ## agent
 
@@ -264,7 +264,7 @@ Total: **228 modules** and **90956 source lines**.
 | [`backend/services/notion_mcp.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/notion_mcp.py) | 202 | 0 | 12 | 0 | 5 | Access to Notion's hosted MCP (for view recreation — Phase 2). |
 | [`backend/services/notion_mcp_md.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/notion_mcp_md.py) | 297 | 0 | 15 | 0 | 9 | Converter from Notion MCP's rich Markdown → Gnosi Markdown (for the exact CLONE). |
 | [`backend/services/notion_schema_config.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/notion_schema_config.py) | 92 | 0 | 3 | 0 | 3 | Notion schema conversion ↔ SchemaConfigModal format (configurable import/clone). |
-| [`backend/services/notion_view_recreator.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/notion_view_recreator.py) | 392 | 0 | 14 | 0 | 13 | Recreator of embedded Notion views (Phase 2, via hosted MCP). |
+| [`backend/services/notion_view_recreator.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/notion_view_recreator.py) | 522 | 0 | 19 | 0 | 18 | Recreator of embedded Notion views (Phase 2, via hosted MCP). |
 | [`backend/services/oauth2_helpers.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/oauth2_helpers.py) | 175 | 1 | 5 | 0 | 6 | OAuth2 helpers shared by IMAP+XOAUTH2 and SMTP+XOAUTH2. |
 | [`backend/services/option_catalogs.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/option_catalogs.py) | 327 | 0 | 17 | 0 | 12 | Rich option catalogs, semantic field roles, and per-table seeds. |
 | [`backend/services/page_sidecar.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/page_sidecar.py) | 225 | 0 | 11 | 0 | 11 | Sidecar I/O for internal page metadata. |
