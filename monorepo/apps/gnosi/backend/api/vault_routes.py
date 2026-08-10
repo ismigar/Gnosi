@@ -16913,7 +16913,12 @@ def _reconcile_table_schema_revision(old_table: dict, incoming_table: dict) -> N
 
 def _create_table_locked(table: dict):
     registry = load_registry()
-    locale = table.pop("locale", None) or table.pop("language", None) or "ca"
+    locale = table.pop("locale", None) or table.pop("language", None)
+    if not locale:
+        try:
+            locale = load_params(strict_env=False).settings.get("language")
+        except Exception:
+            locale = "en"
     if "id" not in table:
         table["id"] = str(uuid.uuid4())
     table["name"] = _normalize_table_view_name(

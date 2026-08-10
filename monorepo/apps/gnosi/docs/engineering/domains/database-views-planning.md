@@ -5,13 +5,17 @@ source_paths:
   - backend/api/vault_routes.py
   - backend/api/vault_views_routes.py
   - backend/api/planning_routes.py
+  - backend/services/table_system_dates.py
   - backend/services/planning_engine.py
   - backend/services/planning_scheduler.py
+  - pipeline/scripts/migrate_table_system_dates.py
   - frontend/src/components/Vault/VaultTable.jsx
   - frontend/src/components/Vault/BlockEditor.jsx
   - frontend/src/pages/VaultDashboard.jsx
   - frontend/src/pages/ProjectPlanningPage.jsx
 tests:
+  - backend/tests/test_table_system_dates.py
+  - backend/tests/test_migrate_table_system_dates.py
   - backend/tests/test_table_view_name_hygiene.py
   - backend/tests/test_view_snapshot.py
   - backend/tests/test_planning_engine.py
@@ -31,6 +35,21 @@ display settings, and actions.
 At least one main view is an invariant. Startup and read-time repair paths
 restore it when legacy or interrupted writes leave a table without a valid
 view.
+
+## System audit dates
+
+Every table owns read-only creation and last-modification properties. New
+tables localize their labels from the request language or the current
+interface language in Settings, and keep both properties at the end of the
+schema. Record creation stamps both values; later saves preserve creation and
+refresh modification.
+
+The idempotent migration recognizes only explicit system types and known
+legacy labels, so unrelated `date` fields and internal `created_at` or
+`last_edited_at` metadata remain untouched. Deterministic Notion clones can
+backfill authoritative audit timestamps by mapping configured database and
+page UUIDs, without title matching. The complete Notion index is fetched
+before writes, and each changed registry or Markdown file is backed up.
 
 ## Table and view name hygiene
 

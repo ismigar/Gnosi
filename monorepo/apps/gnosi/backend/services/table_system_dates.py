@@ -63,7 +63,6 @@ _CREATED_NAMES = {
         "Creation date",
         "date_added",
         "date_created",
-        "created_at",
         "created_time",
     )
 }
@@ -83,7 +82,6 @@ _MODIFIED_NAMES = {
         "Last edited",
         "date_modified",
         "last_modified",
-        "last_edited_at",
         "last_edited_time",
     )
 }
@@ -102,6 +100,9 @@ def property_role(prop: Optional[Dict[str, Any]]) -> Optional[str]:
         return "created"
     if field_type == "last_edited_time":
         return "modified"
+    raw_name = str(prop.get("name") or "").strip().casefold()
+    if raw_name in {"created_at", "last_edited_at"}:
+        return None
     normalized = _normalized_name(prop.get("name"))
     if normalized in _CREATED_NAMES:
         return "created"
@@ -151,6 +152,7 @@ def ensure_system_date_properties(
 
     absorbed: Dict[str, Dict[str, Any]] = {}
     kept: list[Dict[str, Any]] = []
+    targets: Dict[str, Dict[str, Any]] = {}
     removed_ids: set[str] = set()
     removed_objects: set[int] = set()
     for role in SYSTEM_DATE_ROLES:
@@ -180,6 +182,7 @@ def ensure_system_date_properties(
         target["type"] = SYSTEM_DATE_TYPES[role]
         target["read_only"] = True
         target["system_date_role"] = role
+        targets[role] = target
         for duplicate in candidates[1:]:
             removed_objects.add(id(duplicate))
             duplicate_name = str(duplicate.get("name") or "").strip()
@@ -200,7 +203,10 @@ def ensure_system_date_properties(
     for prop in properties:
         if id(prop) not in removed_objects and str(prop.get("id") or "") not in removed_ids:
             kept.append(prop)
-    normalized["properties"] = kept
+    target_objects = {id(prop) for prop in targets.values()}
+    normalized["properties"] = [
+        prop for prop in kept if id(prop) not in target_objects
+    ] + [targets[role] for role in SYSTEM_DATE_ROLES]
     table.clear()
     table.update(normalized)
     return absorbed
