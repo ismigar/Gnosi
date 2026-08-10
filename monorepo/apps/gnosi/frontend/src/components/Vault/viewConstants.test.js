@@ -36,6 +36,15 @@ describe('viewConstants', () => {
             expect(isMainView(tableViews[0], tableViews)).toBe(true);
             expect(isMainView(tableViews[1], tableViews)).toBe(false);
         });
+
+        it('treats locked views as protected main views', () => {
+            const tableViews = [
+                { id: 'v-locked', name: 'Protected', locked: true, type: 'board' },
+                { id: 'v-custom', name: 'Custom', type: 'gallery' },
+            ];
+            expect(isMainView(tableViews[0], tableViews)).toBe(true);
+            expect(isMainView(tableViews[1], tableViews)).toBe(false);
+        });
     });
 
     describe('isViewHidden', () => {

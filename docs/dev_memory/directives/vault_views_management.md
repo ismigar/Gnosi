@@ -40,6 +40,12 @@ Before considering a view complete, verify:
 
 ## Edge cases and regressions
 
+- **Main or locked views drift from the table's canonical view.** Normalize every
+  main/protected view to `type: table`, show all fields, clear filters and
+  grouping, and sort ascending by the internal `title` field. Keep the table
+  name as the view name; do not allow imports or legacy aliases to restore a
+  gallery, board, partial field list, filter, or grouping.
+
 - **A table has only its locked main view.** Keep that view visible as a tab
   named exactly after the owning table. Do not hide the single-view tab: it is
   the user's entry point to the table's main view and its view-management

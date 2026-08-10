@@ -31,7 +31,7 @@ import { VaultTagsView } from '../components/Vault/VaultTagsView';
 import { PageComments } from '../components/Vault/PageComments';
 import { ShareModal } from '../components/Vault/ShareModal';
 import { usePlugins } from '../plugins/usePlugins';
-import { MAIN_VIEW_NAME, isMainView, isPageEmbedView } from '../components/Vault/viewConstants';
+import { MAIN_VIEW_NAME, isMainView, isPageEmbedView, isProtectedMainView } from '../components/Vault/viewConstants';
 import { buildSchemaFromTableProperties, buildTablePropertiesFromSchema, getSchemaFieldNames, isCalendarPage } from '../components/Vault/schemaUtils';
 import { applyDefaultFormulasToMetadata } from '../components/Vault/defaultFormulaUtils';
 import { Palette } from 'lucide-react';
@@ -1072,18 +1072,28 @@ export default function VaultDashboard() {
         }
     }, [fetchPages, t]);
 
-    // Canonical definition of a table's main view: type table, no filters,
-    // sorted by the canonical `title` field, and all of the table's fields
-    // visible. It mirrors the field configuration — the main view is how you
-    // browse the raw table, so it must show everything.
+    // Canonical definition of a table's main view: plain table, no filters or
+    // grouping, sorted by the canonical `title` field, and all of the table's
+    // fields visible. It mirrors the field configuration — the main view is
+    // how you browse the raw table, so it must show everything.
     const buildMainViewBody = useCallback((tableId) => {
         const table = registry.tables?.find(t => t.id === tableId);
-        const propNames = (table?.properties || []).map(p => p.name).filter(n => n !== 'title');
+        const propNames = (table?.properties || []).map(p => p.name).filter(Boolean).filter(n => n !== 'title');
+        const sort = { field: 'title', direction: 'asc' };
         return {
             name: table?.name || MAIN_VIEW_NAME,
             type: 'table',
-            sort: { field: 'title', direction: 'asc' },
+            sort,
+            sorts: [{ ...sort }],
             filters: [],
+            filter: null,
+            filterTree: null,
+            groupBy: null,
+            group_by: null,
+            groupSort: null,
+            group_sort: null,
+            groupSortDir: 'asc',
+            group_sort_dir: 'asc',
             visibleProperties: ['title', ...propNames],
             is_main: true,
         };
@@ -1098,16 +1108,24 @@ export default function VaultDashboard() {
             }];
         }
 
-        return tableViews.map(v => ({
-            ...v,
-            is_main: isMainView(v, tableViews),
-        }));
+        return tableViews.map(v => {
+            if (!isProtectedMainView(v)) {
+                return { ...v, is_main: isMainView(v, tableViews) };
+            }
+            return {
+                ...v,
+                ...buildMainViewBody(tableId),
+                id: v.id,
+                table_id: v.table_id || tableId,
+                is_main: true,
+            };
+        });
     }, [buildMainViewBody]);
 
     // One-time migration: when a table is opened, if its main view doesn't
     // match the canonical definition (type=table, no filters, sort by title),
-    // rewrite it. `visibleProperties` is left untouched so a user who hid
-    // fields on the main view keeps that choice. Guarded by
+    // rewrite every relevant setting, including `visibleProperties`, so the
+    // main view cannot drift after an import or an old client update. Guarded by
     // viewCreationInProgressRef to avoid concurrent migrations of the same
     // table and skipped while the registry is still loading.
     const migrateMainViewForTable = useCallback((tableId) => {
@@ -1115,23 +1133,23 @@ export default function VaultDashboard() {
         const tableViews = registry.views?.filter(v => v.table_id === tableId) || [];
         const mainView = tableViews.find(v => isMainView(v, tableViews));
         if (!mainView || mainView.id === 'default') return; // virtual, not persisted
-        const needsMigration =
-            mainView.type !== 'table' ||
-            (Array.isArray(mainView.filters) && mainView.filters.length > 0) ||
-            mainView.sort?.field !== 'title';
+        const canonical = buildMainViewBody(tableId);
+        const needsMigration = Object.entries(canonical).some(([key, value]) =>
+            JSON.stringify(mainView[key]) !== JSON.stringify(value)
+        );
         if (!needsMigration) return;
         if (viewCreationInProgressRef.current.has(`migrate-${tableId}`)) return;
         viewCreationInProgressRef.current.add(`migrate-${tableId}`);
         axios.put(`/api/vault/views/${mainView.id}`, {
             ...mainView,
-            type: 'table',
-            filters: [],
-            sort: { field: 'title', direction: 'asc' },
+            ...canonical,
+            id: mainView.id,
+            table_id: tableId,
         })
             .then(() => fetchRegistry())
             .catch(err => console.error("Error migrating main view:", err))
             .finally(() => viewCreationInProgressRef.current.delete(`migrate-${tableId}`));
-    }, [registry.views, fetchRegistry]);
+    }, [buildMainViewBody, registry.views, fetchRegistry]);
 
     const getTableViews = useCallback((tableId) => {
         const persisted = registry.views?.filter(v => v.table_id === tableId) || [];
@@ -1190,10 +1208,18 @@ export default function VaultDashboard() {
                 updatedView = { ...updatedView, visibleProperties: newVisible };
             }
 
-            const normalizedView = {
-                ...updatedView,
-                is_main: main,
-            };
+            const normalizedView = main
+                ? {
+                    ...updatedView,
+                    ...buildMainViewBody(tableId),
+                    id: updatedView.id,
+                    table_id: tableId,
+                    is_main: true,
+                }
+                : {
+                    ...updatedView,
+                    is_main: false,
+                };
 
             await axios.put(`/api/vault/views/${updatedView.id}`, normalizedView);
             await fetchRegistry();
