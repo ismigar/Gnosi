@@ -40,6 +40,11 @@ Before considering a view complete, verify:
 
 ## Edge cases and regressions
 
+- **A table has only its locked main view.** Keep that view visible as a tab
+  named exactly after the owning table. Do not hide the single-view tab: it is
+  the user's entry point to the table's main view and its view-management
+  actions.
+
 - **The view picker is detached from its add button or extends past the viewport.**
   Anchor the management popover to the add-view button's viewport rectangle,
   clamp its horizontal position, flip it above the button when the space below

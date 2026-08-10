@@ -549,8 +549,6 @@ export function VaultViewsHeader({
             .sort((a, b) => (isMainView(b, views) ? 1 : 0) - (isMainView(a, views) ? 1 : 0)),
         [views]
     );
-    const hideSingleViewTab = tabViews.length === 1;
-
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -742,10 +740,10 @@ export function VaultViewsHeader({
                     >
                         <div className="flex items-end gap-1 flex-1 pb-0 relative min-w-0">
                             <SortableContext 
-                                items={hideSingleViewTab ? [] : displayViews.map(v => v.id)}
+                                items={displayViews.map(v => v.id)}
                                 strategy={horizontalListSortingStrategy}
                             >
-                                {!hideSingleViewTab && displayViews.slice(0, visibleCount).map(view => (
+                                {displayViews.slice(0, visibleCount).map(view => (
                                     <SortableTab 
                                         key={view.id}
                                         view={view}
