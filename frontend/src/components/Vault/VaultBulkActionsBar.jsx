@@ -10,6 +10,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Trash2, X, CheckSquare, Tag, Download, ChevronDown, Languages, LayoutTemplate } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import ConfirmModal from '../ConfirmModal';
 
 /**
  * @param {Object} props
@@ -41,6 +42,7 @@ export function VaultBulkActionsBar({
     const [typeMenuOpen, setTypeMenuOpen] = useState(false);
     const [exportMenuOpen, setExportMenuOpen] = useState(false);
     const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
+    const [pendingTemplate, setPendingTemplate] = useState(null);
     const typeMenuRef = useRef(null);
     const exportMenuRef = useRef(null);
     const templateMenuRef = useRef(null);
@@ -59,8 +61,15 @@ export function VaultBulkActionsBar({
     const count = selectedIds?.size ?? 0;
     if (count === 0) return null;
 
+    const confirmTemplateApplication = () => {
+        if (!pendingTemplate) return;
+        onApplyTemplate(pendingTemplate.id);
+        setPendingTemplate(null);
+    };
+
     return (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-[var(--bg-primary)] text-[var(--text-primary)] px-4 py-2.5 rounded-xl shadow-2xl border border-[var(--border-primary)] animate-in slide-in-from-bottom-4 ring-1 ring-black/5">
+        <>
+            <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-[var(--bg-primary)] text-[var(--text-primary)] px-4 py-2.5 rounded-xl shadow-2xl border border-[var(--border-primary)] animate-in slide-in-from-bottom-4 ring-1 ring-black/5">
             {/* Recompte */}
             <span className="text-sm font-bold text-[var(--text-secondary)]">
                 {t('bulk_actions.selected_count', { count })}
@@ -167,7 +176,7 @@ export function VaultBulkActionsBar({
                             {templates.map((template) => (
                                 <button
                                     key={template.id}
-                                    onClick={() => { onApplyTemplate(template.id); setTemplateMenuOpen(false); }}
+                                    onClick={() => { setPendingTemplate(template); setTemplateMenuOpen(false); }}
                                     className="w-full text-left px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]"
                                 >
                                     {template.title || t('common.untitled', 'Untitled')}
@@ -198,6 +207,22 @@ export function VaultBulkActionsBar({
             >
                 <X size={14} />
             </button>
-        </div>
+
+            </div>
+
+            <ConfirmModal
+                isOpen={!!pendingTemplate}
+                onClose={() => setPendingTemplate(null)}
+                onConfirm={confirmTemplateApplication}
+                title={t('bulk_actions.confirm_apply_template_title')}
+                message={t('bulk_actions.confirm_apply_template_message', {
+                    count,
+                    title: pendingTemplate?.title || t('common.untitled'),
+                })}
+                confirmText={t('bulk_actions.confirm_apply_template')}
+                cancelText={t('common.cancel')}
+                isDestructive={false}
+            />
+        </>
     );
 }
