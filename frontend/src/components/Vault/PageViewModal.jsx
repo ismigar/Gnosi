@@ -607,6 +607,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     const [existingViewsStatus, setExistingViewsStatus] = useState('idle');
     const [existingViewsTableId, setExistingViewsTableId] = useState('');
     const [existingViewsReloadKey, setExistingViewsReloadKey] = useState(0);
+    const existingViewsRequestRef = useRef(0);
     // How many pages share the selected existing view — if > 1
     // (including this one), we warn the user before propagating changes.
     const [viewUsage, setViewUsage] = useState({ count: 0, pages: [] });
@@ -1070,12 +1071,19 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
             return;
         }
         let cancelled = false;
+        const requestId = ++existingViewsRequestRef.current;
         setExistingViews([]);
+        setExistingViewsTableId(sourceTableId);
         setExistingViewsStatus('loading');
         apiFetch(`/api/vault/views?table_id=${encodeURIComponent(sourceTableId)}`)
             .then(data => {
-                if (cancelled) return;
-                const list = Array.isArray(data) ? data : (data?.views || []);
+                if (cancelled || requestId !== existingViewsRequestRef.current) return;
+                const responseList = Array.isArray(data) ? data : data?.views;
+                // Work on a local copy: callers may reuse or freeze the decoded
+                // response, and the virtual main view must not mutate it in place.
+                const list = Array.isArray(responseList)
+                    ? responseList.filter(view => view && typeof view === 'object').slice()
+                    : [];
                 // The "Main Table" is not persisted in the registry: the frontend
                 // creates it virtually when a table doesn't yet have any view
                 // (see VaultDashboard.jsx::ensureMainViewForTable). If we don't
@@ -1110,7 +1118,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 setExistingViewsStatus('ready');
             })
             .catch(() => {
-                if (!cancelled) {
+                if (!cancelled && requestId === existingViewsRequestRef.current) {
                     setExistingViews([]);
                     setExistingViewsTableId(sourceTableId);
                     setExistingViewsStatus('error');
@@ -1829,10 +1837,9 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     // accidentally click the overlay and lose the config. Closing only via X / Esc.
     const handleOverlayClick = () => {};
     const existingViewsLoadError = existingViewsStatus === 'error' && existingViewsTableId === sourceTableId;
-    const isLoadingExistingViews = Boolean(sourceTableId) && (
-        existingViewsStatus === 'loading'
-        || (existingViewsTableId !== sourceTableId && !existingViewsLoadError)
-    );
+    const isLoadingExistingViews = Boolean(sourceTableId)
+        && existingViewsStatus === 'loading'
+        && existingViewsTableId === sourceTableId;
 
     return (
         <div

@@ -58,7 +58,9 @@ def test_off_they_behave_exactly_as_before(client, monkeypatch, method, path):
     Asserting only `!= 401` would let a 500 through, which is how a broken gate
     stayed green earlier in this branch's history.
     """
-    monkeypatch.delenv(REQUIRE_AUTH_ENV, raising=False)
+    # An unset value means auto-detect, which correctly fails closed on CI.
+    # Use the explicit off override when this test asks for the legacy-open mode.
+    monkeypatch.setenv(REQUIRE_AUTH_ENV, "0")
     r = client.request(method, path)
     assert r.status_code < 500, f"{method} {path} -> {r.status_code}: {r.text[:200]}"
     assert r.status_code != 401, f"{method} {path} -> {r.status_code}"
