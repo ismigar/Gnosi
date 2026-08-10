@@ -66,6 +66,16 @@ def test_tests_and_style_only_changes_do_not_trigger_the_gate():
     assert not any(is_implementation_path(path) for path in paths)
 
 
+def test_dependency_only_updates_do_not_require_public_documentation():
+    """Dependency manifests do not change the documented product contract."""
+    assert validate_change_set({"monorepo/apps/gnosi/frontend/package.json"}) == []
+    assert validate_change_set({"monorepo/apps/gnosi/requirements.txt"}) == []
+    assert validate_change_set({
+        "monorepo/apps/gnosi/frontend/package.json",
+        "monorepo/apps/gnosi/frontend/src/main.jsx",
+    })
+
+
 def test_runtime_and_deployment_files_are_functional():
     """Native and Docker execution changes must update operations documentation."""
     assert is_implementation_path("monorepo/apps/gnosi/sh/run_native_dev.sh")

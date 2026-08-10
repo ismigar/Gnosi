@@ -35,7 +35,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `components` | 190 | 76621 | 196 |
 | `context` | 1 | 177 | 6 |
 | `hooks` | 16 | 1239 | 7 |
-| `lib` | 17 | 1959 | 6 |
+| `lib` | 17 | 1964 | 6 |
 | `locales` | 3 | 565 | 0 |
 | `pages` | 16 | 12205 | 52 |
 | `plugins` | 4 | 528 | 5 |
@@ -282,7 +282,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/lib/electron.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/electron.js) | 53 | `ensureBackendOrigin`, `getBackendOrigin`, `isElectron` | — |
 | [`frontend/src/lib/fileResource.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/fileResource.js) | 665 | `ACTIVE_VAULT_KEY`, `buildImageValue`, `canonicalStorageFolder`, `documentKindForHref`, `documentResourceKey`, `documentTabId`, `documentWindowName`, `fileKindFromValue`, `fileTargetKey`, `filenameFromTarget`, `findCitationAttachment`, `findDocAttachment`, `getActiveVaultId`, `getImageSrc`, `interpolateNamePattern`, `isImageFieldName`, `openCitation`, `openFileResource`, `parseAuthorsString`, `parseFileEntries`, `parseImageField`, `servedUrlToVaultPath`, `setActiveVaultCookie`, `syncActiveVaultCookie`, `toAssetPreviewUrl`, `toServedAssetUrl`, `withActiveVault` | `/api/vault/`, `/api/vault/assets/`, `/api/vault/open-local-path` |
 | [`frontend/src/lib/interfaceLanguage.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/interfaceLanguage.js) | 62 | `DEFAULT_INTERFACE_LANGUAGE`, `INTERFACE_LANGUAGE_STORAGE_KEY`, `SUPPORTED_INTERFACE_LANGUAGES`, `getStoredInterfaceLanguage`, `initializeInterfaceLanguage`, `normalizeInterfaceLanguage`, `resolveInitialInterfaceLanguage`, `setInterfaceLanguage` | `/api/config` |
-| [`frontend/src/lib/modelComparisonRegistry.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/modelComparisonRegistry.js) | 65 | `comparisonRouteToRegistryEntry`, `comparisonRoutesForMode`, `matchingRegistryIndexes`, `registryEntryMatchesModel` | — |
+| [`frontend/src/lib/modelComparisonRegistry.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/modelComparisonRegistry.js) | 70 | `comparisonRouteToRegistryEntry`, `comparisonRoutesForMode`, `matchingRegistryIndexes`, `registryEntryMatchesModel` | — |
 | [`frontend/src/lib/modelReliability.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/modelReliability.js) | 51 | `MODEL_FAULT_REASONS`, `findModelFault`, `useModelReliability` | `/api/ai/model-reliability` |
 | [`frontend/src/lib/notifyError.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/notifyError.js) | 143 | `_persistNotification`, `logError`, `notifyError`, `notifyInfo`, `notifySuccess` | `/api/system/notifications` |
 | [`frontend/src/lib/pageEtagInterceptor.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/pageEtagInterceptor.js) | 212 | `clearPageEtag`, `getCachedEtag`, `installPageEtagInterceptor` | — |

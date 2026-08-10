@@ -69,6 +69,16 @@ EXCLUDED_PARTS = {
     "vendor",
 }
 DOCUMENTATION_PREFIX = f"{APP_PREFIX}docs/engineering/"
+DEPENDENCY_MANIFEST_NAMES = {
+    "Pipfile",
+    "Pipfile.lock",
+    "poetry.lock",
+    "package-lock.json",
+    "package.json",
+    "pyproject.toml",
+    "requirements.txt",
+    "uv.lock",
+}
 
 
 def is_implementation_path(path: str) -> bool:
@@ -100,8 +110,20 @@ def is_documentation_evidence(path: str) -> bool:
     return path.startswith(DOCUMENTATION_PREFIX) and path.endswith(".md")
 
 
+def is_dependency_manifest_path(path: str) -> bool:
+    """Return whether a path is a supported dependency manifest or lockfile."""
+    return PurePosixPath(path).name in DEPENDENCY_MANIFEST_NAMES
+
+
+def is_dependency_only_change(paths: set[str]) -> bool:
+    """Return whether the change set contains only dependency metadata."""
+    return bool(paths) and all(is_dependency_manifest_path(path) for path in paths)
+
+
 def validate_change_set(paths: set[str]) -> list[str]:
     """Require documentation evidence for changes with architectural impact."""
+    if is_dependency_only_change(paths):
+        return []
     high_impact = sorted(path for path in paths if requires_documentation_path(path))
     if not high_impact:
         return []

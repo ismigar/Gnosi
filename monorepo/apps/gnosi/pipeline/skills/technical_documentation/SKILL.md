@@ -75,6 +75,11 @@ remains accurate. High-impact changes must still change at least one public
 English engineering Markdown page; the locale mirror check then requires
 Catalan and Spanish parity before the pull request can merge.
 
+Dependency-only changes to supported manifests or lockfiles are exempt from the
+change-impact gate because they do not by themselves change the documented
+product contract. A dependency update combined with implementation changes still
+requires documentation evidence.
+
 ## Restrictions and edge cases
 
 - Static routes with dynamically computed path strings are labeled
