@@ -32,7 +32,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `application root` | 3 | 276 | 0 |
-| `components` | 190 | 76576 | 196 |
+| `components` | 190 | 76601 | 196 |
 | `context` | 1 | 177 | 6 |
 | `hooks` | 16 | 1239 | 7 |
 | `lib` | 17 | 1959 | 6 |
@@ -169,7 +169,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Vault/TagsModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/TagsModal.jsx) | 168 | `TagsModal`, `function` | — |
 | [`frontend/src/components/Vault/TldrawEditor.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/TldrawEditor.jsx) | 687 | `TldrawEditor`, `function` | `/api/vault/handwriting/recognize`, `/api/vault/handwriting/warmup`, `/api/vault/pages` |
 | [`frontend/src/components/Vault/TranslateLanguagesModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/TranslateLanguagesModal.jsx) | 203 | `TranslateLanguagesModal` | `/api/vault/skills/translate-page`, `/api/vault/skills/translate-row`, `/api/vault/skills/translate-rows` |
-| [`frontend/src/components/Vault/VaultBulkActionsBar.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultBulkActionsBar.jsx) | 203 | `VaultBulkActionsBar` | — |
+| [`frontend/src/components/Vault/VaultBulkActionsBar.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultBulkActionsBar.jsx) | 228 | `VaultBulkActionsBar` | — |
 | [`frontend/src/components/Vault/VaultChart.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultChart.jsx) | 300 | `VaultChart` | — |
 | [`frontend/src/components/Vault/VaultDateProperty.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultDateProperty.jsx) | 597 | `VaultDateProperty`, `addDaysISO` | — |
 | [`frontend/src/components/Vault/VaultDocumentTabs.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultDocumentTabs.jsx) | 413 | `VaultDocumentTabs` | — |
