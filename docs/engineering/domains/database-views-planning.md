@@ -1,7 +1,8 @@
 ---
 status: implemented
-last_verified: 2026-08-09
+last_verified: 2026-08-10
 source_paths:
+  - backend/api/vault_routes.py
   - backend/api/vault_views_routes.py
   - backend/api/planning_routes.py
   - backend/services/planning_engine.py
@@ -11,6 +12,7 @@ source_paths:
   - frontend/src/pages/VaultDashboard.jsx
   - frontend/src/pages/ProjectPlanningPage.jsx
 tests:
+  - backend/tests/test_table_view_name_hygiene.py
   - backend/tests/test_view_snapshot.py
   - backend/tests/test_planning_engine.py
   - backend/tests/test_project_planning.py
@@ -29,6 +31,14 @@ display settings, and actions.
 At least one main view is an invariant. Startup and read-time repair paths
 restore it when legacy or interrupted writes leave a table without a valid
 view.
+
+## Table and view name hygiene
+
+Registry table and saved-view labels are normalized at load and write
+boundaries. Decorative emoji and pictographic symbols are removed while
+accents and meaningful punctuation are retained. The locked main view is
+always named exactly after its owning table, and its `is_main` marker remains
+authoritative.
 
 ## View pipeline
 

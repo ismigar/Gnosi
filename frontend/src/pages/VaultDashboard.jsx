@@ -1080,7 +1080,7 @@ export default function VaultDashboard() {
         const table = registry.tables?.find(t => t.id === tableId);
         const propNames = (table?.properties || []).map(p => p.name).filter(n => n !== 'title');
         return {
-            name: MAIN_VIEW_NAME,
+            name: table?.name || MAIN_VIEW_NAME,
             type: 'table',
             sort: { field: 'title', direction: 'asc' },
             filters: [],
@@ -4032,7 +4032,7 @@ export default function VaultDashboard() {
                             <div className="flex-1 overflow-hidden">
                                 {(() => {
                                     const displayViews = getTableViews(activeTableId);
-                                    const cv = displayViews.find(v => v.id === activeViewId) || displayViews[0] || { id: 'default', name: MAIN_VIEW_NAME, type: 'table', sort: { field: 'title', direction: 'asc' }, filters: [], is_main: true };
+                                    const cv = displayViews.find(v => v.id === activeViewId) || displayViews[0] || { id: 'default', name: registry.tables?.find(t => t.id === activeTableId)?.name || MAIN_VIEW_NAME, type: 'table', sort: { field: 'title', direction: 'asc' }, filters: [], is_main: true };
 
                                     const onEditSchema = (type) => {
                                         if (type === 'filters' || type === 'sorts') {
@@ -4347,7 +4347,7 @@ export default function VaultDashboard() {
             {
                 isSchemaModalOpen && activeTableId && (() => {
                     const activeTable = registry.tables?.find(t => t.id === activeTableId);
-                    const cv = getTableViews(activeTableId).find(v => v.id === activeViewId) || { id: 'default', table_id: activeTableId, name: MAIN_VIEW_NAME, type: 'table', is_main: true };
+                    const cv = getTableViews(activeTableId).find(v => v.id === activeViewId) || { id: 'default', table_id: activeTableId, name: activeTable?.name || MAIN_VIEW_NAME, type: 'table', is_main: true };
                     const currentSchemaObj = getSchemaFromTableId(activeTableId);
                     return (
                         <SchemaConfigModal

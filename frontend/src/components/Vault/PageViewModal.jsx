@@ -6,7 +6,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import ConfirmModal from '../ConfirmModal';
-import { VIEW_TYPES } from './viewConstants';
+import { MAIN_VIEW_NAME, VIEW_TYPES } from './viewConstants';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import { discoverFieldNamesFromRecords } from './schemaUtils';
 import { normalizeOptions } from './optionCatalogUtils';
@@ -678,6 +678,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         () => allTables.find(tbl => tbl.id === sourceTableId),
         [allTables, sourceTableId]
     );
+    const sourceTableName = selectedTable?.name || MAIN_VIEW_NAME;
 
     const tableFields = useMemo(() => {
         // A title column from the schema (the property of type `title`
@@ -1084,7 +1085,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 const list = Array.isArray(responseList)
                     ? responseList.filter(view => view && typeof view === 'object').slice()
                     : [];
-                // The "Main Table" is not persisted in the registry: the frontend
+                // The main view may be virtual when the table has no persisted view:
                 // creates it virtually when a table doesn't yet have any view
                 // (see VaultDashboard.jsx::ensureMainViewForTable). If we don't
                 // add it here, the user can't select it in the dropdown.
@@ -1098,7 +1099,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                     list.unshift({
                         id: 'default',
                         table_id: sourceTableId,
-                        name: 'Main Table',
+                        name: sourceTableName,
                         type: 'table',
                         is_main: true,
                         filters: [],
@@ -1125,7 +1126,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 }
             });
         return () => { cancelled = true; };
-    }, [sourceTableId, existingViewsReloadKey, apiFetch]);
+    }, [sourceTableId, sourceTableName, existingViewsReloadKey, apiFetch]);
 
     // Tables without a registered schema (`properties` empty, e.g. "Recursos"
     // imported from the Notion clone) do not expose any field in the column selector.
@@ -1560,6 +1561,12 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
             // subsequent saves PUT (no duplicate views).
             if (isTableMode) {
                 const existingId = editingView?.id || createdViewIdRef.current;
+                const isMainViewSelection = Boolean(
+                    editingView?.is_main
+                    || editingView?.is_default
+                    || existingId === 'default'
+                    || selectedExistingViewId === 'default'
+                );
                 // Persist joins only when present (absence = single-table view,
                 // fully backward compatible). `visiblePropertiesToPersist`
                 // switches between plain strings (single-table) and the
@@ -1568,7 +1575,10 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 const viewBody = {
                     ...(editingView || {}),
                     table_id: sourceTableId,
-                    name: (viewName || editingView?.name || 'Vista').trim(),
+                    name: isMainViewSelection
+                        ? sourceTableName
+                        : (viewName || editingView?.name || 'Vista').trim(),
+                    ...(isMainViewSelection ? { is_main: true } : {}),
                     type: viewType,
                     filters: cleanFilters,
                     filterTree: filterTreeBody,

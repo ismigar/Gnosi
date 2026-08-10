@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 13 | 35 |
 | Vitest | 54 | 210 |
-| pytest | 178 | 1471 |
+| pytest | 179 | 1476 |
 
 ## Files
 
@@ -230,6 +230,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_table_rename_collision.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_table_rename_collision.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_table_schema_revision.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_table_schema_revision.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_table_system_dates.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_table_system_dates.py) | 3 | Python AST |
+| pytest | [`backend/tests/test_table_view_name_hygiene.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_table_view_name_hygiene.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_translate_row_lang_field.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_translate_row_lang_field.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_translate_row_recover.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_translate_row_recover.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_translation_helpers.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_translation_helpers.py) | 38 | Python AST |
