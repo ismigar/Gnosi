@@ -36,7 +36,7 @@
     "@fullcalendar/interaction": "^6.1.20",
     "@fullcalendar/multimonth": "^6.1.20",
     "@fullcalendar/react": "^6.1.17",
-    "@fullcalendar/rrule": "^6.1.20",
+    "@fullcalendar/rrule": "^7.0.2",
     "@fullcalendar/timegrid": "^6.1.17",
     "@mantine/core": "^9.2.1",
     "@mantine/hooks": "^9.2.1",
