@@ -11,8 +11,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
 | Playwright | 13 | 35 |
-| Vitest | 54 | 210 |
-| pytest | 179 | 1476 |
+| Vitest | 54 | 211 |
+| pytest | 179 | 1477 |
 
 ## Files
 
@@ -57,7 +57,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/components/Vault/propertyNavigationUtils.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/propertyNavigationUtils.test.js) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/toggleExpansionStateUtils.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/toggleExpansionStateUtils.test.js) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/vaultMarkdownBlocks.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/vaultMarkdownBlocks.test.js) | 2 | call-pattern estimate |
-| Vitest | [`frontend/src/components/Vault/viewConstants.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/viewConstants.test.js) | 9 | call-pattern estimate |
+| Vitest | [`frontend/src/components/Vault/viewConstants.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/viewConstants.test.js) | 10 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/viewPopoverLayout.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/viewPopoverLayout.test.js) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/zoteroLocale.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/zoteroLocale.test.js) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/components/agentChatKeyboardUtils.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/agentChatKeyboardUtils.test.js) | 0 | call-pattern estimate |
@@ -230,7 +230,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_table_rename_collision.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_table_rename_collision.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_table_schema_revision.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_table_schema_revision.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_table_system_dates.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_table_system_dates.py) | 3 | Python AST |
-| pytest | [`backend/tests/test_table_view_name_hygiene.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_table_view_name_hygiene.py) | 5 | Python AST |
+| pytest | [`backend/tests/test_table_view_name_hygiene.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_table_view_name_hygiene.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_translate_row_lang_field.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_translate_row_lang_field.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_translate_row_recover.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_translate_row_recover.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_translation_helpers.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_translation_helpers.py) | 38 | Python AST |

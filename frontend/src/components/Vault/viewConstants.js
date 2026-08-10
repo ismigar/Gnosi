@@ -18,6 +18,18 @@ export const VIEW_TYPES = [
 export const MAIN_VIEW_NAME = 'Main Table';
 const LEGACY_MAIN_VIEW_NAMES = new Set([MAIN_VIEW_NAME, 'Taula Principal']);
 
+export const isLockedView = (view) => Boolean(
+    view?.locked || view?.is_locked || view?.isLocked
+);
+
+export const isProtectedMainView = (view) => Boolean(
+    view?.id === 'default'
+    || view?.is_main === true
+    || view?.is_default === true
+    || isLockedView(view)
+    || LEGACY_MAIN_VIEW_NAMES.has(view?.name)
+);
+
 export const isMainView = (view, tableViews = []) => {
     if (!view) return false;
 
@@ -25,7 +37,7 @@ export const isMainView = (view, tableViews = []) => {
 
     // No table context: degenerate case (single or virtual view)
     if (safeTableViews.length === 0) {
-        return view.id === 'default' || view.is_main === true || view.is_default === true || LEGACY_MAIN_VIEW_NAMES.has(view.name);
+        return isProtectedMainView(view);
     }
 
     const scopedViews = view.table_id
@@ -38,7 +50,7 @@ export const isMainView = (view, tableViews = []) => {
     const effectiveCandidates = nonEmbedCandidates.length > 0 ? nonEmbedCandidates : candidateViews;
 
     // Priority: explicit > canonical name > first by order. Always a single main view.
-    const explicitMain = effectiveCandidates.find(v => v.id === 'default' || v.is_main === true || v.is_default === true);
+    const explicitMain = effectiveCandidates.find(isProtectedMainView);
     if (explicitMain) return explicitMain.id === view.id;
 
     const mainByName = effectiveCandidates.find(v => LEGACY_MAIN_VIEW_NAMES.has(v.name));

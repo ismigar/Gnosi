@@ -15918,6 +15918,83 @@ def _table_name_from_registry(registry: dict, table_id: object) -> str:
     )
 
 
+def _main_view_fields(registry: dict, table_id: object) -> list[str]:
+    """Return the canonical visible fields for a table's main view."""
+    table = next(
+        (
+            item
+            for item in registry.get("tables", []) or []
+            if str(item.get("id") or "") == str(table_id or "")
+        ),
+        None,
+    )
+    fields = ["title"]
+    for prop in (table or {}).get("properties", []) or []:
+        name = prop.get("name") if isinstance(prop, dict) else None
+        if name and name not in fields:
+            fields.append(name)
+    return fields
+
+
+def _is_main_or_locked_view(view: dict) -> bool:
+    """Return whether a view is protected as a table's main view."""
+    if (
+        view.get("is_main")
+        or view.get("is_default")
+        or view.get("id") == "default"
+    ):
+        return True
+    normalized_name = _normalize_table_view_name(view.get("name"), "View")
+    if normalized_name.casefold() in _LEGACY_MAIN_VIEW_NAMES:
+        return True
+    return any(
+        bool(view.get(key))
+        for key in ("locked", "is_locked", "isLocked")
+    )
+
+
+def _normalize_main_view_configuration(registry: dict, view: dict) -> bool:
+    """Enforce the immutable configuration of a main or locked view.
+
+    Main views are the table's canonical entry point. They must remain a plain
+    table showing every field, without saved filters or grouping, sorted by the
+    record title. Legacy aliases are written alongside the canonical keys so
+    older renderers cannot revive stale configuration.
+    """
+    if not _is_main_or_locked_view(view):
+        return False
+
+    table_id = view.get("table_id")
+    table_name = _table_name_from_registry(registry, table_id)
+    sort = {"field": "title", "direction": "asc"}
+    visible_fields = _main_view_fields(registry, table_id)
+    canonical = {
+        "name": table_name,
+        "type": "table",
+        "filters": [],
+        "filter": None,
+        "filterTree": None,
+        "sort": sort,
+        "sorts": [dict(sort)],
+        "groupBy": None,
+        "group_by": None,
+        "groupSort": None,
+        "group_sort": None,
+        "groupSortDir": "asc",
+        "group_sort_dir": "asc",
+        "visibleProperties": visible_fields,
+    }
+    changed = False
+    for key, value in canonical.items():
+        if key not in view or view.get(key) != value:
+            view[key] = value
+            changed = True
+    if not view.get("is_main"):
+        view["is_main"] = True
+        changed = True
+    return changed
+
+
 def _normalize_registry_table_view_names(registry: dict) -> bool:
     """Normalize persisted table/view labels and canonicalize main view names."""
     changed = False
@@ -15944,21 +16021,15 @@ def _normalize_registry_table_view_names(registry: dict) -> bool:
         )
         old_view_name = view.get("name")
         normalized_view_name = _normalize_table_view_name(old_view_name, "View")
-        is_legacy_main = (
-            normalized_view_name.casefold() in _LEGACY_MAIN_VIEW_NAMES
-        )
-        is_main = bool(
-            view.get("is_main")
-            or view.get("is_default")
-            or view.get("id") == "default"
-            or is_legacy_main
-        )
+        is_main = _is_main_or_locked_view(view)
         if is_main and not view.get("is_main"):
             view["is_main"] = True
             changed = True
         desired_name = table_name if is_main else normalized_view_name
         if old_view_name != desired_name:
             view["name"] = desired_name
+            changed = True
+        if _normalize_main_view_configuration(registry, view):
             changed = True
 
     return changed
@@ -16750,8 +16821,7 @@ def _ensure_main_view(registry: dict, table_id: str) -> Optional[dict]:
     table_name = _table_name_from_registry(registry, table_id)
     existing_main = next((v for v in table_views if v.get("is_main")), None)
     if existing_main is not None:
-        if existing_main.get("name") != table_name:
-            existing_main["name"] = table_name
+        if _normalize_main_view_configuration(registry, existing_main):
             return existing_main
         return None
     # Prefer the first existing table-typed view (oldest at the top of
@@ -16763,16 +16833,15 @@ def _ensure_main_view(registry: dict, table_id: str) -> Optional[dict]:
     if promote_candidate is not None:
         promote_candidate["is_main"] = True
         promote_candidate["name"] = table_name
+        _normalize_main_view_configuration(registry, promote_candidate)
         return promote_candidate
     new_view = {
         "id": str(uuid.uuid4()),
         "table_id": table_id,
         "name": table_name,
-        "type": "table",
-        "sort": {"field": "last_modified", "direction": "desc"},
-        "filters": [],
         "is_main": True,
     }
+    _normalize_main_view_configuration(registry, new_view)
     views.append(new_view)
     return new_view
 

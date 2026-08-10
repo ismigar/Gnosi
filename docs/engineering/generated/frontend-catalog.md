@@ -32,12 +32,12 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `application root` | 3 | 276 | 0 |
-| `components` | 190 | 76609 | 196 |
+| `components` | 190 | 76621 | 196 |
 | `context` | 1 | 177 | 6 |
 | `hooks` | 16 | 1239 | 7 |
 | `lib` | 17 | 1959 | 6 |
 | `locales` | 3 | 565 | 0 |
-| `pages` | 16 | 12179 | 52 |
+| `pages` | 16 | 12205 | 52 |
 | `plugins` | 4 | 528 | 5 |
 | `utils` | 14 | 1632 | 0 |
 
@@ -226,7 +226,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Vault/vaultMarkdownBlocks.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/vaultMarkdownBlocks.js) | 73 | `parseVaultMarkdownBlocks` | — |
 | [`frontend/src/components/Vault/vaultMarkdownUtils.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/vaultMarkdownUtils.js) | 198 | `CITE_HREF_SENTINEL`, `STYLE_HREF_SENTINEL`, `WIKILINK_HREF_SENTINEL`, `convertInlineHtmlToMd`, `convertWikilinksToMd`, `decodeStylePayload`, `normalizeAssetUrl`, `wikilinkUrlTransform` | — |
 | [`frontend/src/components/Vault/vaultMediaUtils.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/vaultMediaUtils.js) | 68 | `getMediaType`, `getThumbnailUrl`, `isAudioUrl`, `isImageUrl`, `isVideoUrl` | — |
-| [`frontend/src/components/Vault/viewConstants.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/viewConstants.js) | 75 | `MAIN_VIEW_NAME`, `VIEW_TYPES`, `getViewIcon`, `isMainView`, `isPageEmbedView`, `isViewHidden` | — |
+| [`frontend/src/components/Vault/viewConstants.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/viewConstants.js) | 87 | `MAIN_VIEW_NAME`, `VIEW_TYPES`, `getViewIcon`, `isLockedView`, `isMainView`, `isPageEmbedView`, `isProtectedMainView`, `isViewHidden` | — |
 | [`frontend/src/components/Vault/viewPopoverLayout.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/viewPopoverLayout.js) | 39 | `getViewPopoverLayout` | — |
 | [`frontend/src/components/Vault/zoteroLocale.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/zoteroLocale.js) | 10 | `uiLangToZoteroLocale` | — |
 | [`frontend/src/components/Vault/zoteroSchema.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/zoteroSchema.js) | 517 | `ALL_ITEM_TYPES`, `ITEM_TYPE_FIELDS`, `LABEL_TO_ZOTERO_TYPE`, `SCHEMA_SOURCE_SHA`, `SCHEMA_VERSION`, `ZOTERO_TO_CSL_TYPE`, `ZOTERO_TYPE_LABELS` | — |
@@ -320,7 +320,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/pages/SchedulerPage.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/SchedulerPage.jsx) | 205 | `SchedulerPage` | `/api/schedulers` |
 | [`frontend/src/pages/SharedPage.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/SharedPage.jsx) | 77 | `SharedPage`, `function` | — |
 | [`frontend/src/pages/SocialDashboard.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/SocialDashboard.jsx) | 206 | `SocialDashboard` | `/api/social/streams` |
-| [`frontend/src/pages/VaultDashboard.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/VaultDashboard.jsx) | 4459 | `VaultDashboard`, `function` | `/api/vault/alias-index`, `/api/vault/brain-table`, `/api/vault/bulk-apply-template`, `/api/vault/daily`, `/api/vault/databases`, `/api/vault/global-index`, `/api/vault/llm-wiki/config`, `/api/vault/pages`, `/api/vault/reference-table`, `/api/vault/registry`, `/api/vault/resolve-by-title`, `/api/vault/tables`, `/api/vault/views`, `/api/vault/views/order` |
+| [`frontend/src/pages/VaultDashboard.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/VaultDashboard.jsx) | 4485 | `VaultDashboard`, `function` | `/api/vault/alias-index`, `/api/vault/brain-table`, `/api/vault/bulk-apply-template`, `/api/vault/daily`, `/api/vault/databases`, `/api/vault/global-index`, `/api/vault/llm-wiki/config`, `/api/vault/pages`, `/api/vault/reference-table`, `/api/vault/registry`, `/api/vault/resolve-by-title`, `/api/vault/tables`, `/api/vault/views`, `/api/vault/views/order` |
 
 ## plugins
 
