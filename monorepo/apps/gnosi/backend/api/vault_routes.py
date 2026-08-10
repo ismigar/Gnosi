@@ -15880,6 +15880,90 @@ def _degenerate_overwrite_is_risky(reg_path) -> bool:
 _registry_mutation_lock = threading.RLock()
 
 
+# Decorative emoji and their presentation/control characters. This is scoped to
+# table and view labels; page titles, property values, and icons remain untouched.
+_TABLE_VIEW_EMOJI_RE = re.compile(
+    r"[\U0001F000-\U0001FAFF\U0001FC00-\U0001FFFD\u2122\u2139\u2300-\u23FF\u2600-\u27BF\u2B00-\u2BFF\u3030\u303D\u3297\u3299]"
+)
+_TABLE_VIEW_KEYCAP_RE = re.compile(r"[0-9#*]\uFE0F?\u20E3")
+_TABLE_VIEW_EMOJI_CONTROL_RE = re.compile(r"[\u200D\u20E3\uFE0E\uFE0F]")
+_LEGACY_MAIN_VIEW_NAMES = frozenset(
+    {"main table", "taula principal", "vista principal", "tableau principal"}
+)
+
+
+def _normalize_table_view_name(value: object, fallback: str) -> str:
+    """Return a compact table/view label without decorative emoji."""
+    raw = str(value or "")
+    cleaned = _TABLE_VIEW_KEYCAP_RE.sub("", raw)
+    cleaned = _TABLE_VIEW_EMOJI_RE.sub("", cleaned)
+    cleaned = _TABLE_VIEW_EMOJI_CONTROL_RE.sub("", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return cleaned or fallback
+
+
+def _table_name_from_registry(registry: dict, table_id: object) -> str:
+    """Return the normalized display name for a table ID."""
+    table = next(
+        (
+            item
+            for item in registry.get("tables", []) or []
+            if str(item.get("id") or "") == str(table_id or "")
+        ),
+        None,
+    )
+    return _normalize_table_view_name(
+        (table or {}).get("name") or (table or {}).get("id"),
+        "Untitled Table",
+    )
+
+
+def _normalize_registry_table_view_names(registry: dict) -> bool:
+    """Normalize persisted table/view labels and canonicalize main view names."""
+    changed = False
+    tables = registry.setdefault("tables", [])
+    views = registry.setdefault("views", [])
+    table_names: dict[str, str] = {}
+
+    for table in tables:
+        table_id = str(table.get("id") or "")
+        old_name = table.get("name")
+        new_name = _normalize_table_view_name(
+            old_name or table_id, "Untitled Table"
+        )
+        if old_name != new_name:
+            table["name"] = new_name
+            changed = True
+        if table_id:
+            table_names[table_id] = new_name
+
+    for view in views:
+        table_id = str(view.get("table_id") or "")
+        table_name = table_names.get(table_id) or _table_name_from_registry(
+            registry, table_id
+        )
+        old_view_name = view.get("name")
+        normalized_view_name = _normalize_table_view_name(old_view_name, "View")
+        is_legacy_main = (
+            normalized_view_name.casefold() in _LEGACY_MAIN_VIEW_NAMES
+        )
+        is_main = bool(
+            view.get("is_main")
+            or view.get("is_default")
+            or view.get("id") == "default"
+            or is_legacy_main
+        )
+        if is_main and not view.get("is_main"):
+            view["is_main"] = True
+            changed = True
+        desired_name = table_name if is_main else normalized_view_name
+        if old_view_name != desired_name:
+            view["name"] = desired_name
+            changed = True
+
+    return changed
+
+
 @contextmanager
 def registry_mutation():
     """Wraps an entire load_registry→modify→save_registry cycle.
@@ -16009,6 +16093,12 @@ def _load_registry_from_disk(registry_path, _ck: str, now: float):
             view["id"] = str(uuid.uuid4())
             changed = True
             log.info(f"🧹 Assigned UUID to view with null/empty ID: {view.get('name')}")
+
+    # Table and saved-view labels are user-facing registry data. Normalize them
+    # on read so existing databases are migrated before any API response or
+    # frontend render. The operation is idempotent and does not touch page data.
+    if _normalize_registry_table_view_names(data):
+        changed = True
 
     # 2. Sanitization and folder creation (only for tables not yet validated)
     for table in data.get("tables", []):
@@ -16657,7 +16747,12 @@ def _ensure_main_view(registry: dict, table_id: str) -> Optional[dict]:
     """
     views = registry.setdefault("views", [])
     table_views = [v for v in views if v.get("table_id") == table_id]
-    if any(v.get("is_main") for v in table_views):
+    table_name = _table_name_from_registry(registry, table_id)
+    existing_main = next((v for v in table_views if v.get("is_main")), None)
+    if existing_main is not None:
+        if existing_main.get("name") != table_name:
+            existing_main["name"] = table_name
+            return existing_main
         return None
     # Prefer the first existing table-typed view (oldest at the top of
     # the list); fall back to any view; create only if there are none.
@@ -16667,11 +16762,12 @@ def _ensure_main_view(registry: dict, table_id: str) -> Optional[dict]:
     ) or (table_views[0] if table_views else None)
     if promote_candidate is not None:
         promote_candidate["is_main"] = True
+        promote_candidate["name"] = table_name
         return promote_candidate
     new_view = {
         "id": str(uuid.uuid4()),
         "table_id": table_id,
-        "name": "Taula Principal",
+        "name": table_name,
         "type": "table",
         "sort": {"field": "last_modified", "direction": "desc"},
         "filters": [],
@@ -16751,6 +16847,9 @@ def _create_table_locked(table: dict):
     locale = table.pop("locale", None) or table.pop("language", None) or "ca"
     if "id" not in table:
         table["id"] = str(uuid.uuid4())
+    table["name"] = _normalize_table_view_name(
+        table.get("name") or table.get("id"), "Untitled Table"
+    )
 
     # Every table owns the two read-only audit fields. This is the single
     # backend boundary used by the UI, imports, plugins, and internal services.
@@ -16991,9 +17090,13 @@ def _rename_table_locked(table_id: str, data: dict):
         if t["id"] == table_id:
             old_name = str(t.get("name") or "").strip()
             if "name" in data:
-                t["name"] = data["name"]
+                t["name"] = _normalize_table_view_name(
+                    data["name"], old_name or "Untitled Table"
+                )
                 if not t.get("folder"):
-                    t["folder"] = sanitize_vault_title(data["name"], fallback="untitled_table")
+                    t["folder"] = sanitize_vault_title(
+                        t["name"], fallback="untitled_table"
+                    )
             if "folder" in data:
                 # Direct pass-through from the API payload → per-segment OneDrive
                 # sanitation (forbidden chars, trailing dot/space, reserved names, `..`).
@@ -17106,6 +17209,7 @@ def _rename_table_locked(table_id: str, data: dict):
             _ensure_asset_dirs_for_table_entry(t, registry)
             _ensure_table_vault_folder(t, registry)
             break
+    _normalize_registry_table_view_names(registry)
     save_registry(registry)
     return deferred_rewrite
 
@@ -17660,6 +17764,8 @@ async def create_view(view: dict = Body(...)):
         else:
             registry["views"].append(view)
 
+        _normalize_registry_table_view_names(registry)
+
         save_registry(registry)
     return view
 
@@ -17818,6 +17924,8 @@ async def update_view(view_id: str, data: dict = Body(...)):
                 registry["views"].append(data)
             else:
                 raise HTTPException(status_code=404, detail="View not found")
+
+        _normalize_registry_table_view_names(registry)
 
         save_registry(registry)
     return {"status": "success"}

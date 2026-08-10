@@ -1,7 +1,8 @@
 ---
 status: implemented
-last_verified: 2026-08-09
+last_verified: 2026-08-10
 source_paths:
+  - backend/api/vault_routes.py
   - backend/api/vault_views_routes.py
   - backend/api/planning_routes.py
   - backend/services/planning_engine.py
@@ -10,6 +11,7 @@ source_paths:
   - frontend/src/pages/VaultDashboard.jsx
   - frontend/src/pages/ProjectPlanningPage.jsx
 tests:
+  - backend/tests/test_table_view_name_hygiene.py
   - backend/tests/test_view_snapshot.py
   - backend/tests/test_planning_engine.py
   - backend/tests/test_project_planning.py
@@ -23,6 +25,14 @@ tests:
 Una base de datos Gnosi es un esquema y una capa de vista sobre páginas, normalmente enraizada en una carpeta Vault. La materia frontal de la página contiene valores de registro. Los datos del registro definen tipos de campos, configuraciones de vistas, fórmulas, versiones, relaciones, opciones, configuración de visualización y acciones.
 
 Al menos una vista principal es una invariante. Rutas de inicio y de reparación en tiempo de lectura restauran cuando el legado o la interrupción escribe dejan una tabla sin una vista válida.
+
+## Higiene de los nombres de tablas y vistas
+
+Los nombres de las tablas y de las vistas guardadas del registro se normalizan
+al cargar y al escribir. Se eliminan los emojis y símbolos pictográficos
+decorativos, pero se conservan los acentos y la puntuación significativa. La
+vista principal bloqueada siempre tiene exactamente el nombre de su tabla
+propietaria, y el marcador `is_main` sigue siendo la autoridad.
 
 ## Ver tubería
 

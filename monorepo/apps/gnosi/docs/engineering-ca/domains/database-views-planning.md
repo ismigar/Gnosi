@@ -1,7 +1,8 @@
 ---
 status: implemented
-last_verified: 2026-08-09
+last_verified: 2026-08-10
 source_paths:
+  - backend/api/vault_routes.py
   - backend/api/vault_views_routes.py
   - backend/api/planning_routes.py
   - backend/services/planning_engine.py
@@ -10,6 +11,7 @@ source_paths:
   - frontend/src/pages/VaultDashboard.jsx
   - frontend/src/pages/ProjectPlanningPage.jsx
 tests:
+  - backend/tests/test_table_view_name_hygiene.py
   - backend/tests/test_view_snapshot.py
   - backend/tests/test_planning_engine.py
   - backend/tests/test_project_planning.py
@@ -23,6 +25,14 @@ tests:
 Una base de dades Gnosi és un esquema i una capa de vista sobre pàgines, normalment arrelada en una carpeta Vult. La pàgina del davant conté valors de registre. Les dades de registre defineix els tipus de camp, vistes de valors, fórmules, característiques, relacions, opcions, preferències i accions.
 
 Com a mínim una vista principal és una vista invariciant. L' inici i les rutes de reparació de temps de lectura, restaurar- la quan el llegat o interrompre escriu deixar una taula sense vista vàlida.
+
+## Higiene dels noms de taules i vistes
+
+Els noms de les taules i de les vistes desades del registre es normalitzen en
+carregar i en escriure. S'eliminen els emoticones i símbols pictogràfics
+decoratius, però es conserven els accents i la puntuació significativa. La
+vista principal bloquejada sempre té exactament el nom de la taula propietària,
+i el marcador `is_main` continua sent l'autoritat.
 
 ## Visualitza canonada
 
