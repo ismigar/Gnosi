@@ -5,12 +5,16 @@ source_paths:
   - backend/api/vault_routes.py
   - backend/api/vault_views_routes.py
   - backend/api/planning_routes.py
+  - backend/services/table_system_dates.py
   - backend/services/planning_engine.py
   - backend/services/planning_scheduler.py
+  - pipeline/scripts/migrate_table_system_dates.py
   - frontend/src/components/Vault/VaultTable.jsx
   - frontend/src/pages/VaultDashboard.jsx
   - frontend/src/pages/ProjectPlanningPage.jsx
 tests:
+  - backend/tests/test_table_system_dates.py
+  - backend/tests/test_migrate_table_system_dates.py
   - backend/tests/test_table_view_name_hygiene.py
   - backend/tests/test_view_snapshot.py
   - backend/tests/test_planning_engine.py
@@ -25,6 +29,23 @@ tests:
 Una base de dades Gnosi és un esquema i una capa de vista sobre pàgines, normalment arrelada en una carpeta Vult. La pàgina del davant conté valors de registre. Les dades de registre defineix els tipus de camp, vistes de valors, fórmules, característiques, relacions, opcions, preferències i accions.
 
 Com a mínim una vista principal és una vista invariciant. L' inici i les rutes de reparació de temps de lectura, restaurar- la quan el llegat o interrompre escriu deixar una taula sense vista vàlida.
+
+## Dates d'auditoria del sistema
+
+Cada taula té propietats de només lectura per a la data de creació i l'última
+modificació. Les taules noves localitzen els noms segons l'idioma de la
+petició o l'idioma actual de la interfície configurat a Settings, i mantenen
+les dues propietats al final de l'esquema. La creació d'un registre assigna
+tots dos valors; els desaments posteriors preserven la creació i actualitzen
+la modificació.
+
+La migració idempotent només reconeix els tipus de sistema explícits i els
+noms heretats coneguts, de manera que els altres camps `date` i les metadades
+internes `created_at` o `last_edited_at` no es modifiquen. Els clons
+deterministes de Notion poden recuperar els timestamps autoritatius mitjançant
+els UUID configurats de base de dades i pàgina, sense comparar títols. L'índex
+complet de Notion es recupera abans d'escriure i es fa backup de cada registre
+o fitxer Markdown modificat.
 
 ## Higiene dels noms de taules i vistes
 

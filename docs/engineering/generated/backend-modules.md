@@ -11,7 +11,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Modules | Lines |
 | --- | ---: | ---: |
 | `agent` | 36 | 13128 |
-| `api` | 35 | 35353 |
+| `api` | 35 | 35358 |
 | `application root` | 6 | 627 |
 | `config` | 8 | 846 |
 | `data` | 2 | 295 |
@@ -20,12 +20,12 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `scheduler` | 2 | 949 |
 | `scripts` | 3 | 130 |
 | `security` | 3 | 735 |
-| `services` | 112 | 37094 |
+| `services` | 112 | 37100 |
 | `sh` | 1 | 69 |
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **228 modules** and **91263 source lines**.
+Total: **228 modules** and **91274 source lines**.
 
 ## agent
 
@@ -102,7 +102,7 @@ Total: **228 modules** and **91263 source lines**.
 | [`backend/api/system_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/system_routes.py) | 673 | 4 | 14 | 9 | 13 | No module docstring |
 | [`backend/api/tools_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/tools_routes.py) | 164 | 3 | 6 | 5 | 6 | API Routes for Generated Tools Management. |
 | [`backend/api/vault_graph_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/vault_graph_routes.py) | 25 | 0 | 1 | 1 | 1 | No module docstring |
-| [`backend/api/vault_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/vault_routes.py) | 20748 | 29 | 570 | 190 | 468 | No module docstring |
+| [`backend/api/vault_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/vault_routes.py) | 20753 | 29 | 570 | 190 | 468 | No module docstring |
 | [`backend/api/vault_views_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/vault_views_routes.py) | 350 | 2 | 9 | 3 | 7 | vault_views_routes.py — API to manage per-page views. |
 | [`backend/api/vaults_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/vaults_routes.py) | 276 | 2 | 10 | 0 | 9 | Vaults API (personal multi-vault mode): list, create and choose vaults. |
 | [`backend/api/virtual_fields.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/virtual_fields.py) | 676 | 0 | 32 | 0 | 26 | Virtual fields: derived properties computed by the backend at read-time. |
@@ -289,7 +289,7 @@ Total: **228 modules** and **91263 source lines**.
 | [`backend/services/social_clients.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/social_clients.py) | 587 | 4 | 0 | 0 | 4 | Social Network API Clients |
 | [`backend/services/social_compose.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/social_compose.py) | 144 | 0 | 5 | 0 | 5 | AI layer for composing social media posts. |
 | [`backend/services/social_store.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/social_store.py) | 206 | 0 | 6 | 4 | 6 | Persistence of social posts in a Vault table. |
-| [`backend/services/table_system_dates.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/table_system_dates.py) | 260 | 0 | 10 | 0 | 6 | System creation and modification date fields for Vault tables. |
+| [`backend/services/table_system_dates.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/table_system_dates.py) | 266 | 0 | 10 | 0 | 6 | System creation and modification date fields for Vault tables. |
 | [`backend/services/transcription.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/transcription.py) | 109 | 0 | 5 | 0 | 2 | Local audio transcription with faster-whisper (CTranslate2, WITHOUT torch). |
 | [`backend/services/translation_helpers.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/translation_helpers.py) | 343 | 0 | 15 | 0 | 14 | Pure helpers for content translation (translate_row / translate_page skills). |
 | [`backend/services/translation_index.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/translation_index.py) | 106 | 0 | 6 | 0 | 4 | Local translation index for translate-row idempotency. |

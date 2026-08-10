@@ -29,6 +29,7 @@ _ROOT = _HERE.parents[3]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
+from backend.services.notion_clone import clone_page_id, clone_table_id  # noqa: E402
 from backend.services.table_system_dates import (  # noqa: E402
     ensure_system_date_properties,
     property_role,
@@ -45,6 +46,55 @@ _PROTECTED_METADATA = {
     "last_edited_at",
     "last_edited_by",
 }
+
+NotionTimestampIndex = Dict[str, Dict[str, Dict[str, str]]]
+
+
+def build_notion_timestamp_index(
+    client: Any,
+    config: Dict[str, Any],
+) -> Tuple[NotionTimestampIndex, Dict[str, int]]:
+    """Enumerate configured Notion databases and index row audit timestamps.
+
+    Local table and page IDs are the deterministic clone UUIDs. Building the
+    complete index before the Vault write phase prevents a transient Notion
+    error from leaving a partially authoritative migration on disk.
+    """
+
+    index: NotionTimestampIndex = {}
+    report = {
+        "notion_databases": 0,
+        "notion_source_rows": 0,
+        "notion_rows_without_dates": 0,
+    }
+    databases = config.get("databases") or []
+    if not isinstance(databases, list) or not databases:
+        raise RuntimeError("The Notion import configuration has no databases")
+
+    for source in databases:
+        if not isinstance(source, dict):
+            continue
+        source_database_id = str(source.get("id") or "").strip()
+        if not source_database_id:
+            continue
+        table_id = clone_table_id(source_database_id)
+        rows: Dict[str, Dict[str, str]] = {}
+        for page in client.query_database(source_database_id):
+            source_page_id = str(page.get("id") or "").strip()
+            if not source_page_id:
+                continue
+            created = str(page.get("created_time") or "").strip()
+            modified = str(page.get("last_edited_time") or "").strip()
+            report["notion_source_rows"] += 1
+            if not created or not modified:
+                report["notion_rows_without_dates"] += 1
+            rows[clone_page_id(source_page_id)] = {
+                "created": created,
+                "modified": modified,
+            }
+        index[table_id] = rows
+        report["notion_databases"] += 1
+    return index, report
 
 
 def _parse_frontmatter(raw: str) -> Tuple[Dict[str, Any], str]:
@@ -225,14 +275,26 @@ def migrate_registry(registry: Dict[str, Any], locale: str) -> Tuple[Dict[str, A
     return migrated, report
 
 
-def _migrate_page(path: Path, table: Dict[str, Any], locale: str, dry_run: bool) -> str:
+def _migrate_page(
+    path: Path,
+    table: Dict[str, Any],
+    locale: str,
+    dry_run: bool,
+    *,
+    notion_dates_by_page: Optional[Dict[str, Dict[str, str]]] = None,
+    vault: Optional[Path] = None,
+    backup_root: Optional[Path] = None,
+) -> Tuple[str, bool, str]:
     try:
         raw = path.read_text(encoding="utf-8")
         metadata, body = _parse_frontmatter(raw)
     except (OSError, UnicodeDecodeError):
-        return "error:read"
+        return "error:read", False, ""
     if not metadata:
-        return "skipped:no-frontmatter"
+        return "skipped:no-frontmatter", False, ""
+
+    page_id = str(metadata.get("id") or "").strip()
+    notion_dates = (notion_dates_by_page or {}).get(page_id)
 
     old_by_role: Dict[str, list[str]] = {"created": [], "modified": []}
     for prop in table.get("properties", []) or []:
@@ -255,10 +317,14 @@ def _migrate_page(path: Path, table: Dict[str, Any], locale: str, dry_run: bool)
     for role, target in labels.items():
         source_keys = [key for key in old_by_role[role] if key and key not in _PROTECTED_METADATA]
         legacy_keys = [key for key in source_keys if key != target]
-        value = next(
-            (metadata[key] for key in legacy_keys if metadata.get(key) not in (None, "", [])),
-            metadata.get(target),
-        )
+        authoritative = (notion_dates or {}).get(role)
+        if authoritative:
+            value = authoritative
+        else:
+            value = next(
+                (metadata[key] for key in legacy_keys if metadata.get(key) not in (None, "", [])),
+                metadata.get(target),
+            )
         if value in (None, "", []):
             value = _iso_from_stat(path, creation=role == "created")
         if metadata.get(target) != value:
@@ -270,34 +336,92 @@ def _migrate_page(path: Path, table: Dict[str, Any], locale: str, dry_run: bool)
                 changed = True
 
     if not changed:
-        return "clean"
+        return "clean", notion_dates is not None, page_id
     if not dry_run:
+        if backup_root is not None and vault is not None:
+            backup_path = backup_root / path.relative_to(vault)
+            backup_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(path, backup_path)
         safe_write_text(path, _render_frontmatter(metadata, body))
-    return "migrated"
+    return "migrated", notion_dates is not None, page_id
 
 
-def run_migration(vault: Path, locale: str, dry_run: bool) -> Dict[str, int]:
+def run_migration(
+    vault: Path,
+    locale: str,
+    dry_run: bool,
+    *,
+    notion_index: Optional[NotionTimestampIndex] = None,
+    notion_report: Optional[Dict[str, int]] = None,
+    backup_root: Optional[Path] = None,
+) -> Dict[str, Any]:
     registry_path = vault / "BD" / "vault_db_registry.json"
     registry = json.loads(registry_path.read_text(encoding="utf-8"))
     new_registry, report = migrate_registry(registry, locale)
     roots = _table_roots(vault, new_registry)
-    report.update({"pages": 0, "page_errors": 0})
+    report.update(notion_report or {})
+    report.update({
+        "pages": 0,
+        "page_errors": 0,
+        "backup_files": 0,
+        "notion_local_matches": 0,
+        "notion_local_unmatched": 0,
+        "notion_source_unmatched": 0,
+    })
+    matched_source_rows: set[Tuple[str, str]] = set()
+
+    registry_changed = new_registry != registry
+    sibling_backup: Optional[Path] = None
+    if not dry_run and registry_changed:
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        sibling_backup = registry_path.with_name(
+            f"vault_db_registry.bak-system-dates-{stamp}.json"
+        )
+        shutil.copy2(registry_path, sibling_backup)
+    if not dry_run and backup_root is not None:
+        registry_backup = backup_root / registry_path.relative_to(vault)
+        registry_backup.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(registry_path, registry_backup)
+        report["backup_files"] += 1
+
     for table in new_registry.get("tables", []) or []:
         table_id = str(table.get("id") or "")
         root = roots.get(table_id)
         if not root:
             continue
+        notion_dates_by_page = (
+            (notion_index or {}).get(table_id) if notion_index is not None else None
+        )
         for path in _iter_table_pages(root):
-            result = _migrate_page(path, table, locale, dry_run)
+            result, matched_notion, page_id = _migrate_page(
+                path,
+                table,
+                locale,
+                dry_run,
+                notion_dates_by_page=notion_dates_by_page,
+                vault=vault,
+                backup_root=backup_root,
+            )
             if result == "migrated":
                 report["pages"] += 1
+                if not dry_run and backup_root is not None:
+                    report["backup_files"] += 1
             elif result.startswith("error:"):
                 report["page_errors"] += 1
+            if notion_index is not None and page_id:
+                if matched_notion:
+                    report["notion_local_matches"] += 1
+                    matched_source_rows.add((table_id, page_id))
+                else:
+                    report["notion_local_unmatched"] += 1
 
-    if not dry_run and new_registry != registry:
-        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-        backup = registry_path.with_name(f"vault_db_registry.bak-system-dates-{stamp}.json")
-        shutil.copy2(registry_path, backup)
+    if notion_index is not None:
+        indexed_rows = sum(len(rows) for rows in notion_index.values())
+        report["notion_source_unmatched"] = max(
+            0, indexed_rows - len(matched_source_rows)
+        )
+
+    if not dry_run and registry_changed:
         safe_write_text(
             registry_path,
             json.dumps(new_registry, ensure_ascii=False, indent=2) + "\n",
@@ -305,6 +429,10 @@ def run_migration(vault: Path, locale: str, dry_run: bool) -> Dict[str, int]:
         report["registry_backup"] = 1
     else:
         report["registry_backup"] = 0
+    if backup_root is not None and not dry_run:
+        report["backup_root"] = str(backup_root)
+    if sibling_backup is not None:
+        report["registry_backup_path"] = str(sibling_backup)
     return report
 
 
@@ -313,13 +441,78 @@ def main() -> int:
     parser.add_argument("--vault", type=Path, default=None, help="Vault root; defaults to DIGITAL_BRAIN_VAULT_PATH")
     parser.add_argument("--locale", default="ca", help="Active locale (ca, en, es, fr)")
     parser.add_argument("--dry-run", action="store_true", help="Report changes without writing")
+    parser.add_argument(
+        "--notion",
+        action="store_true",
+        help="Use authoritative Notion creation and modification timestamps",
+    )
+    parser.add_argument(
+        "--notion-config",
+        type=Path,
+        help="Notion import configuration; defaults to GNOSI_LOCAL_DATA/system/notion_import_config.json",
+    )
+    parser.add_argument(
+        "--backup-dir",
+        type=Path,
+        help="Parent directory for recoverable backups; defaults to GNOSI_LOCAL_DATA/backups",
+    )
     args = parser.parse_args()
     vault_arg = args.vault or os.environ.get("DIGITAL_BRAIN_VAULT_PATH")
     if not vault_arg:
         parser.error("--vault or DIGITAL_BRAIN_VAULT_PATH is required")
-    report = run_migration(Path(vault_arg).expanduser().resolve(), args.locale, args.dry_run)
+
+    local_data = Path(
+        os.environ.get("GNOSI_LOCAL_DATA")
+        or (_HERE.parents[2] / "local_data")
+    ).expanduser().resolve()
+    notion_index: Optional[NotionTimestampIndex] = None
+    notion_report: Dict[str, int] = {}
+    if args.notion:
+        config_path = (
+            args.notion_config or local_data / "system" / "notion_import_config.json"
+        ).expanduser().resolve()
+        try:
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise RuntimeError(
+                f"Cannot read Notion import configuration: {config_path}"
+            ) from exc
+        from backend.services.integration_manager import integration_manager
+        from backend.services.notion_importer import NotionClient
+
+        token = str((integration_manager.get_raw("notion") or {}).get("token") or "")
+        if not token:
+            raise RuntimeError("No Notion REST integration token is configured")
+        notion_index, notion_report = build_notion_timestamp_index(
+            NotionClient(token), config
+        )
+        missing_dates = notion_report.get("notion_rows_without_dates", 0)
+        if missing_dates:
+            raise RuntimeError(
+                f"Notion returned {missing_dates} rows without complete audit timestamps"
+            )
+
+    backup_root = None
+    if not args.dry_run:
+        backup_parent = (
+            args.backup_dir or local_data / "backups"
+        ).expanduser().resolve()
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        backup_root = backup_parent / f"table-system-dates-{stamp}"
+
+    report = run_migration(
+        Path(vault_arg).expanduser().resolve(),
+        args.locale,
+        args.dry_run,
+        notion_index=notion_index,
+        notion_report=notion_report,
+        backup_root=backup_root,
+    )
     print(json.dumps(report, ensure_ascii=False, sort_keys=True))
-    return 0 if report.get("page_errors", 0) == 0 else 1
+    return 0 if (
+        report.get("page_errors", 0) == 0
+        and report.get("notion_rows_without_dates", 0) == 0
+    ) else 1
 
 
 if __name__ == "__main__":

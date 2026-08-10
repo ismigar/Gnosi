@@ -5,12 +5,16 @@ source_paths:
   - backend/api/vault_routes.py
   - backend/api/vault_views_routes.py
   - backend/api/planning_routes.py
+  - backend/services/table_system_dates.py
   - backend/services/planning_engine.py
   - backend/services/planning_scheduler.py
+  - pipeline/scripts/migrate_table_system_dates.py
   - frontend/src/components/Vault/VaultTable.jsx
   - frontend/src/pages/VaultDashboard.jsx
   - frontend/src/pages/ProjectPlanningPage.jsx
 tests:
+  - backend/tests/test_table_system_dates.py
+  - backend/tests/test_migrate_table_system_dates.py
   - backend/tests/test_table_view_name_hygiene.py
   - backend/tests/test_view_snapshot.py
   - backend/tests/test_planning_engine.py
@@ -25,6 +29,23 @@ tests:
 Una base de datos Gnosi es un esquema y una capa de vista sobre páginas, normalmente enraizada en una carpeta Vault. La materia frontal de la página contiene valores de registro. Los datos del registro definen tipos de campos, configuraciones de vistas, fórmulas, versiones, relaciones, opciones, configuración de visualización y acciones.
 
 Al menos una vista principal es una invariante. Rutas de inicio y de reparación en tiempo de lectura restauran cuando el legado o la interrupción escribe dejan una tabla sin una vista válida.
+
+## Fechas de auditoría del sistema
+
+Cada tabla tiene propiedades de solo lectura para la fecha de creación y la
+última modificación. Las tablas nuevas localizan sus nombres según el idioma
+de la petición o el idioma actual de la interfaz configurado en Settings, y
+mantienen ambas propiedades al final del esquema. La creación de un registro
+asigna los dos valores; los guardados posteriores conservan la creación y
+actualizan la modificación.
+
+La migración idempotente solo reconoce los tipos de sistema explícitos y los
+nombres heredados conocidos, de modo que los demás campos `date` y los
+metadatos internos `created_at` o `last_edited_at` no se modifican. Los clones
+deterministas de Notion pueden recuperar los timestamps autoritativos mediante
+los UUID configurados de base de datos y página, sin comparar títulos. El
+índice completo de Notion se recupera antes de escribir y se crea una copia de
+seguridad de cada registro o archivo Markdown modificado.
 
 ## Higiene de los nombres de tablas y vistas
 
