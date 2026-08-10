@@ -93,6 +93,15 @@ them to the resulting block; otherwise the first render looks correct but the
 next save removes the color. Styled serializer blocks must be flushed separately
 from adjacent unstyled Markdown so a larger parse batch cannot hide the wrapper.
 
+## Preview renderer
+
+Custom `:::toggle` and `:::toggle-heading{level=N}` fences are editor syntax,
+not CommonMark. Any Markdown preview that uses `react-markdown` must parse these
+fences before handing ordinary fragments to CommonMark; otherwise the directive
+is displayed literally (especially in table hover cards and feed previews).
+Preview parsing must preserve nested toggles and leave occurrences inside fenced
+code blocks untouched.
+
 ## QA
 
 Use an isolated editor instance and verify stable round-trips for:

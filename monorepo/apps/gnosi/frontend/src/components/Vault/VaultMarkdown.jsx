@@ -6,6 +6,7 @@ import rehypeKatex from 'rehype-katex';
 import { useTranslation } from 'react-i18next';
 import 'katex/dist/katex.min.css';
 import { WikilinkInline } from './WikilinkInline';
+import { parseVaultMarkdownBlocks } from './vaultMarkdownBlocks';
 import { WIKILINK_HREF_SENTINEL, STYLE_HREF_SENTINEL, CITE_HREF_SENTINEL, convertWikilinksToMd, convertInlineHtmlToMd, decodeStylePayload, wikilinkUrlTransform, normalizeAssetUrl } from './vaultMarkdownUtils';
 import { openCitation } from '../../lib/fileResource';
 
@@ -97,90 +98,116 @@ export function VaultMarkdown({
         }
     };
 
-    return (
-      <>
+    const markdownComponents = {
+        // Inline images: we normalize the URL (Assets/... →
+        // /api/vault/assets/...) and we use RetryableImage because
+        // OneDrive sometimes returns 503 until it has the file downloaded.
+        // `vaultId` forces the vault for assets on the shared
+        // public page (the anonymous visitor has no vault in localStorage).
+        img: ({ src = '', alt = '' }) => {
+            const norm = normalizeAssetUrl(String(src || ''), vaultId);
+            if (!norm) return null;
+            return <RetryableImage src={norm} title={alt || imageTitle || ''} onClick={onActivate} />;
+        },
+        h1: (props) => <h1 className="font-bold text-2xl text-[var(--text-primary)] my-2" {...props} />,
+        h2: (props) => <h2 className="font-bold text-xl text-[var(--text-primary)] my-2" {...props} />,
+        h3: (props) => <h3 className="font-semibold text-lg text-[var(--text-primary)] my-2" {...props} />,
+        ul: (props) => <ul className="list-disc pl-5 my-2" {...props} />,
+        ol: (props) => <ol className="list-decimal pl-5 my-2" {...props} />,
+        blockquote: (props) => <blockquote className="pl-3 italic text-[var(--text-tertiary)] my-2" {...props} />,
+        // If the href carries our wikilink sentinel, we render the
+        // real component (clickable, with hover preview, context menu, etc.)
+        // instead of an opaque anchor.
+        a: ({ href = '', children, ...rest }) => {
+            if (typeof href === 'string' && href.startsWith(STYLE_HREF_SENTINEL)) {
+                return <span style={decodeStylePayload(href)}>{children}</span>;
+            }
+            if (typeof href === 'string' && href.startsWith(WIKILINK_HREF_SENTINEL)) {
+                let target;
+                try { target = decodeURIComponent(href.slice(WIKILINK_HREF_SENTINEL.length)); }
+                catch { target = href.slice(WIKILINK_HREF_SENTINEL.length); }
+                const text = React.Children.toArray(children)
+                    .map(c => (typeof c === 'string' ? c : (c?.props?.children || '')))
+                    .join('') || target;
+                return (
+                    <WikilinkInline
+                        title={text}
+                        target={target}
+                        idToTitle={idToTitle}
+                        onOpenInCurrentTab={onOpenInCurrentTab}
+                        onOpenInNewTab={onOpenInNewTab}
+                        onOpenParallel={onOpenParallel}
+                    />
+                );
+            }
+            if (typeof href === 'string' && href.startsWith(CITE_HREF_SENTINEL)) {
+                const qs = new URLSearchParams(href.slice(CITE_HREF_SENTINEL.length).replace(/^\?/, ''));
+                const res = qs.get('res');
+                return (
+                    <a
+                        href="#cite"
+                        className="text-[var(--gnosi-primary)] hover:underline cursor-pointer"
+                        onClick={(event) => {
+                            event.preventDefault();
+                            if (res) handleCitation(qs);
+                        }}
+                    >{children}</a>
+                );
+            }
+            return <a href={href} className="text-[var(--gnosi-primary)] hover:underline" {...rest}>{children}</a>;
+        },
+        code: ({ className, children, node, ...props }) => {
+            const isBlock = /language-/.test(className || '') || String(children).includes('\n');
+            return isBlock
+                ? <code className="block p-2 rounded bg-[var(--bg-tertiary)] text-[12px] overflow-x-auto" {...props}>{children}</code>
+                : <code className="px-1 py-0.5 rounded bg-[var(--bg-tertiary)] text-[12px]" {...props}>{children}</code>;
+        },
+    };
+
+    const renderMarkdown = (content, key, inline = false) => (
         <ReactMarkdown
+            key={key}
             remarkPlugins={[remarkGfm, remarkMath]}
             rehypePlugins={[rehypeKatex]}
             urlTransform={wikilinkUrlTransform}
-            components={{
-                // Inline images: we normalize the URL (Assets/... →
-                // /api/vault/assets/...) and we use RetryableImage because
-                // OneDrive sometimes returns 503 until it has the file downloaded.
-                // `vaultId` forces the vault for assets on the shared
-                // public page (the anonymous visitor has no vault in localStorage).
-                img: ({ src = '', alt = '' }) => {
-                    const norm = normalizeAssetUrl(String(src || ''), vaultId);
-                    if (!norm) return null;
-                    return <RetryableImage src={norm} title={alt || imageTitle || ''} onClick={onActivate} />;
-                },
-                h1: (props) => <h1 className="font-bold text-2xl text-[var(--text-primary)] my-2" {...props} />,
-                h2: (props) => <h2 className="font-bold text-xl text-[var(--text-primary)] my-2" {...props} />,
-                h3: (props) => <h3 className="font-semibold text-lg text-[var(--text-primary)] my-2" {...props} />,
-                ul: (props) => <ul className="list-disc pl-5 my-2" {...props} />,
-                ol: (props) => <ol className="list-decimal pl-5 my-2" {...props} />,
-                blockquote: (props) => <blockquote className="pl-3 italic text-[var(--text-tertiary)] my-2" {...props} />,
-                // If the href carries our wikilink sentinel, we render the
-                // real component (clickable, with hover preview, context menu, etc.)
-                // instead of an opaque anchor. The pre-conversion of `[[…]]` to
-                // `[text](sentinel:target)` has already been done on `md` before parsing.
-                a: ({ href = '', children, ...rest }) => {
-                    // Text acolorit heretat (`<span style>` → sentinel `gnosi-style:`):
-                    // we turn it back into a `<span>` with the color, without link styles.
-                    if (typeof href === 'string' && href.startsWith(STYLE_HREF_SENTINEL)) {
-                        return <span style={decodeStylePayload(href)}>{children}</span>;
-                    }
-                    if (typeof href === 'string' && href.startsWith(WIKILINK_HREF_SENTINEL)) {
-                        let target;
-                        try { target = decodeURIComponent(href.slice(WIKILINK_HREF_SENTINEL.length)); }
-                        catch { target = href.slice(WIKILINK_HREF_SENTINEL.length); }
-                        const text = React.Children.toArray(children)
-                            .map(c => (typeof c === 'string' ? c : (c?.props?.children || '')))
-                            .join('') || target;
-                        return (
-                            <WikilinkInline
-                                title={text}
-                                target={target}
-                                idToTitle={idToTitle}
-                                onOpenInCurrentTab={onOpenInCurrentTab}
-                                onOpenInNewTab={onOpenInNewTab}
-                                onOpenParallel={onOpenParallel}
-                            />
-                        );
-                    }
-                    // Citation links open the source and a persisted evidence
-                    // paragraph/timestamp drawer.
-                    if (typeof href === 'string' && href.startsWith(CITE_HREF_SENTINEL)) {
-                        const qs = new URLSearchParams(href.slice(CITE_HREF_SENTINEL.length).replace(/^\?/, ''));
-                        const res = qs.get('res');
-                        return (
-                            <a
-                                href="#cite"
-                                className="text-[var(--gnosi-primary)] hover:underline cursor-pointer"
-                                onClick={(event) => {
-                                    event.preventDefault();
-                                    if (res) handleCitation(qs);
-                                }}
-                            >{children}</a>
-                        );
-                    }
-                    return <a href={href} className="text-[var(--gnosi-primary)] hover:underline" {...rest}>{children}</a>;
-                },
-                // react-markdown v10 no longer passes the `inline` prop: we distinguish the
-                // block code (fence with a language or multiline) from inline
-                // by className/content. We also destructure className/node
-                // so the `{...props}` spread doesn't overwrite our class
-                // of styling (previously `language-js` overrode it → block with no styling).
-                code: ({ className, children, node, ...props }) => {
-                    const isBlock = /language-/.test(className || '') || String(children).includes('\n');
-                    return isBlock
-                        ? <code className="block p-2 rounded bg-[var(--bg-tertiary)] text-[12px] overflow-x-auto" {...props}>{children}</code>
-                        : <code className="px-1 py-0.5 rounded bg-[var(--bg-tertiary)] text-[12px]" {...props}>{children}</code>;
-                },
-            }}
+            components={inline ? { ...markdownComponents, p: ({ children }) => <>{children}</> } : markdownComponents}
         >
-            {convertWikilinksToMd(convertInlineHtmlToMd(latexFencesToMath(md || '')))}
+            {convertWikilinksToMd(convertInlineHtmlToMd(latexFencesToMath(content || '')))}
         </ReactMarkdown>
+    );
+
+    const renderBlocks = (blocks, path = 'root') => blocks.map((block, index) => {
+        const key = `${path}-${index}`;
+        if (block.type === 'markdown') return renderMarkdown(block.content, key);
+
+        const headingClass = {
+            1: 'text-2xl font-bold',
+            2: 'text-xl font-bold',
+            3: 'text-lg font-semibold',
+        }[block.level] || 'text-base font-semibold';
+        const HeadingText = ({ children }) => (
+            <span role={block.type === 'toggle-heading' ? 'heading' : undefined} aria-level={block.type === 'toggle-heading' ? block.level : undefined} className={`${headingClass} text-[var(--text-primary)]`}>
+                {children}
+            </span>
+        );
+
+        return (
+            <details key={key} className="vault-markdown-toggle" open>
+                <summary>
+                    <HeadingText>
+                        {renderMarkdown(block.label || t('editor.block_type_toggle', 'Toggle'), `${key}-label`, true)}
+                    </HeadingText>
+                </summary>
+                <div className="vault-markdown-toggle__content">
+                    {renderBlocks(block.children, `${key}-children`)}
+                </div>
+            </details>
+        );
+    });
+
+    return (
+      <>
+        {renderBlocks(parseVaultMarkdownBlocks(md))}
         {(evidence || evidenceLoading) && (
             <aside
                 className="fixed right-4 bottom-4 z-[130] w-[min(420px,calc(100vw-2rem))] rounded-xl border border-[var(--border-primary)] bg-[var(--bg-primary)] p-4 shadow-2xl"
