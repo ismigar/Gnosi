@@ -34,6 +34,17 @@ decorativos, pero se conservan los acentos y la puntuación significativa. La
 vista principal bloqueada siempre tiene exactamente el nombre de su tabla
 propietaria, y el marcador `is_main` sigue siendo la autoridad.
 
+## Jerarquía de navegación de las tablas
+
+La barra lateral del Vault presenta cada tabla como un nodo padre con dos grupos
+hijos independientes: `Contenido` contiene los registros de la tabla y `Vistas`
+contiene las vistas guardadas. Ambos grupos aparecen contraídos por defecto,
+igual que los nodos de tabla y las secciones de navegación de primer nivel, para
+que una tabla con muchos registros o vistas siga siendo fácil de consultar.
+Expandir un grupo no debe expandir implícitamente el otro; cada sección conserva
+su propio estado persistente y todas las etiquetas pasan por el catálogo de
+localización del frontend.
+
 ## Ver tubería
 
 ```mermaid

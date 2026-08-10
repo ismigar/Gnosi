@@ -159,6 +159,20 @@ def test_save_blocks_degenerate_when_only_backups_exist(vault):
     assert not vault.reg.exists()
 
 
+def test_load_registry_does_not_require_optional_status_migration(vault, monkeypatch):
+    """Registry loading remains valid without an optional status migrator."""
+    vault.reg.write_text(json.dumps(GOOD_REGISTRY), encoding="utf-8")
+    monkeypatch.delattr(
+        vr.option_catalogs_service,
+        "ensure_global_status_catalog",
+        raising=False,
+    )
+
+    loaded = vr.load_registry()
+
+    assert loaded["databases"], "registry loading must not depend on the optional migrator"
+
+
 def test_save_allows_degenerate_after_process_read_good_registry(vault):
     """Deliberate flow: the process loaded the real registry, the user then
     deleted everything → the degenerate save must go through."""

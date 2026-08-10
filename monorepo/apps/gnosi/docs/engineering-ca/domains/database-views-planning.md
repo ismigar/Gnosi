@@ -34,6 +34,17 @@ decoratius, però es conserven els accents i la puntuació significativa. La
 vista principal bloquejada sempre té exactament el nom de la taula propietària,
 i el marcador `is_main` continua sent l'autoritat.
 
+## Jerarquia de navegació de les taules
+
+La barra lateral del Vault presenta cada taula com un node pare amb dos grups
+fills independents: `Contingut` conté els registres de la taula i `Vistes`
+conté les vistes desades. Tots dos grups apareixen col·lapsats per defecte,
+igual que els nodes de taula i les seccions de navegació de primer nivell, de
+manera que una taula amb molts registres o vistes continua sent fàcil de
+consultar. Expandir un grup no ha d'expandir implícitament l'altre; cada
+secció conserva el seu propi estat persistent i totes les etiquetes passen pel
+catàleg de localització del frontend.
+
 ## Visualitza canonada
 
 ```mermaid

@@ -40,6 +40,16 @@ accents and meaningful punctuation are retained. The locked main view is
 always named exactly after its owning table, and its `is_main` marker remains
 authoritative.
 
+## Table navigation hierarchy
+
+The Vault sidebar presents each table as a parent node with two independent
+child groups: `Content` contains the table's records and `Views` contains its
+saved views. Both groups are collapsed by default, as are table nodes and
+top-level navigation sections, so a table with many records or views remains
+scannable. Expanding one group must not implicitly expand the other; each
+section keeps its own persisted state and all labels go through the frontend
+localization catalog.
+
 ## View pipeline
 
 ```mermaid

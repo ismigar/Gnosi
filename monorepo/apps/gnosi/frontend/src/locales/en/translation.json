@@ -470,6 +470,8 @@
     "nav_documentation": "Engineering documentation",
     "favorites": "Favorites",
     "data": "Data",
+    "content": "Content",
+    "views": "Views",
     "favorites_sort": "Sort favorites",
     "sort_manual": "Manual (drag)",
     "sort_alpha_asc": "A → Z",
