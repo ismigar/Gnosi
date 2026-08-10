@@ -228,14 +228,14 @@ const sidebarSectionStateKey = () => (
 const loadSidebarSectionState = () => {
     try {
         return {
-            favorites: true,
+            favorites: false,
             dashboards: false,
             data: false,
             wiki: false,
             ...JSON.parse(localStorage.getItem(sidebarSectionStateKey()) || '{}'),
         };
     } catch {
-        return { favorites: true, dashboards: false, data: false, wiki: false };
+        return { favorites: false, dashboards: false, data: false, wiki: false };
     }
 };
 
@@ -781,6 +781,7 @@ export const VaultSidebar = ({
     const [expandedWikiNodes, setExpandedWikiNodes] = useState({});
     const [expandedDashboardNodes, setExpandedDashboardNodes] = useState({});
     const [expandedTables, setExpandedTables] = useState({});
+    const [expandedTableSections, setExpandedTableSections] = useState({});
     const [wikiScrollTop, setWikiScrollTop] = useState(0);
     const [wikiViewportHeight, setWikiViewportHeight] = useState(380);
     const wikiViewportRef = useRef(null);
@@ -821,6 +822,11 @@ export const VaultSidebar = ({
 
     const toggleTableExpand = (id) => {
         setExpandedTables(prev => ({ ...prev, [id]: !prev[id] }));
+    };
+
+    const toggleTableSection = (tableId, section) => {
+        const key = `${tableId}:${section}`;
+        setExpandedTableSections(prev => ({ ...prev, [key]: !prev[key] }));
     };
 
     const { childrenMap, rootPages, dataChildrenMap, dashboardChildrenMap, dashboardRootPages } = useMemo(() => {
@@ -1330,6 +1336,14 @@ export const VaultSidebar = ({
                                     <div className="ml-4 space-y-0.5 border-l border-[var(--border-primary)] pl-1">
                                         {renderedTables.map(table => {
                                             const tableViews = viewsByTable[table.id] || [];
+                                            const tableRecords = dataChildrenMap[table.id]?.roots || [];
+                                            const hasContent = tableRecords.length > 0;
+                                            const hasViews = tableViews.length > 0;
+                                            const hasTableSections = hasContent || hasViews;
+                                            const contentKey = `${table.id}:content`;
+                                            const viewsKey = `${table.id}:views`;
+                                            const isContentExpanded = Boolean(expandedTableSections[contentKey]);
+                                            const isViewsExpanded = Boolean(expandedTableSections[viewsKey]);
                                             return (
                                                 <div key={table.id} className="w-full flex flex-col gap-0.5">
                                                      <div className="w-full flex items-center gap-1 px-2 py-1 rounded-md text-[13px] text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors group/tableItem">
@@ -1337,9 +1351,9 @@ export const VaultSidebar = ({
                                                             className="vault-sidebar-icon-action p-0.5 hover:bg-[var(--bg-secondary)] rounded shrink-0 text-[var(--text-secondary)]/60"
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                toggleTableExpand(table.id);
+                                                                if (hasTableSections) toggleTableExpand(table.id);
                                                             }}
-                                                            style={{ visibility: dataChildrenMap[table.id]?.roots?.length > 0 ? 'visible' : 'hidden' }}
+                                                            style={{ visibility: hasTableSections ? 'visible' : 'hidden' }}
                                                             title={t(expandedTables[table.id] ? 'sidebar.collapse_children' : 'sidebar.expand_children', {
                                                                 name: table.name,
                                                             })}
@@ -1400,49 +1414,79 @@ export const VaultSidebar = ({
                                                          )}
                                                     </div>
 
-                                                    {/* Nested Pages (Records) within the Table */}
-                                                    {expandedTables[table.id] && dataChildrenMap[table.id]?.roots?.length > 0 && (
-                                                        <div className="ml-2 border-l border-[var(--border-primary)] pl-1 mt-0.5">
-                                                            {dataChildrenMap[table.id].roots.map(p => (
-                                                                <PageTreeItem
-                                                                    key={p.id}
-                                                                    page={p}
-                                                                    depth={1}
-                                                                    childrenMap={dataChildrenMap[table.id].children}
-                                                                    role={role}
-                                                                    expandedNodes={expandedWikiNodes}
-                                                                    onToggleExpand={(id) => setExpandedWikiNodes(prev => ({ ...prev, [id]: !prev[id] }))}
-                                                                    activePageId={activePageId}
-                                                                    onPageSelect={onPageSelect}
-                                                                    onOpenParallel={onOpenParallel}
-                                                                    onCreatePage={onCreatePage}
-                                                                    onRenamePage={onRenamePage}
-                                                                    onDuplicatePage={onDuplicatePage}
-                                                                    onDeletePage={onDeletePage}
-                                                                    onToggleFavorite={onToggleFavorite}
-                                                                    menuState={menuState}
-                                                                    setMenuState={setMenuState}
-                                                                    canCreateChild={Boolean(tableAllowsSubitems[table.id])}
-                                                                />
-                                                            ))}
-                                                        </div>
-                                                    )}
+                                                    {expandedTables[table.id] && hasTableSections && (
+                                                        <div className="ml-5 border-l border-[var(--border-primary)] pl-2 flex flex-col gap-0.5 mt-0.5 mb-1">
+                                                            {hasContent && (
+                                                                <div>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => toggleTableSection(table.id, 'content')}
+                                                                        aria-expanded={isContentExpanded}
+                                                                        className="w-full flex items-center gap-1.5 px-2 py-1 text-[11px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] rounded transition-colors text-left"
+                                                                    >
+                                                                        {isContentExpanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+                                                                        <FileText size={11} className="shrink-0" />
+                                                                        <span>{t('sidebar.content')}</span>
+                                                                    </button>
+                                                                    {isContentExpanded && (
+                                                                        <div className="ml-3 border-l border-[var(--border-primary)] pl-1 mt-0.5">
+                                                                            {tableRecords.map(p => (
+                                                                                <PageTreeItem
+                                                                                    key={p.id}
+                                                                                    page={p}
+                                                                                    depth={1}
+                                                                                    childrenMap={dataChildrenMap[table.id].children}
+                                                                                    role={role}
+                                                                                    expandedNodes={expandedWikiNodes}
+                                                                                    onToggleExpand={(id) => setExpandedWikiNodes(prev => ({ ...prev, [id]: !prev[id] }))}
+                                                                                    activePageId={activePageId}
+                                                                                    onPageSelect={onPageSelect}
+                                                                                    onOpenParallel={onOpenParallel}
+                                                                                    onCreatePage={onCreatePage}
+                                                                                    onRenamePage={onRenamePage}
+                                                                                    onDuplicatePage={onDuplicatePage}
+                                                                                    onDeletePage={onDeletePage}
+                                                                                    onToggleFavorite={onToggleFavorite}
+                                                                                    menuState={menuState}
+                                                                                    setMenuState={setMenuState}
+                                                                                    canCreateChild={Boolean(tableAllowsSubitems[table.id])}
+                                                                                />
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )}
 
-                                                    {/* Nested Views */}
-                                                    {tableViews.length > 0 && (
-                                                        <div className="ml-4 border-l border-[var(--border-primary)] pl-2 flex flex-col gap-0.5 mt-0.5 mb-1">
-                                                            {tableViews.map(view => (
-                                                                <button
-                                                                    key={view.id}
-                                                                    onClick={() => {
-                                                                        onTableSelect && onTableSelect(table.id, view.id);
-                                                                    }}
-                                                                    className="flex items-center gap-2 px-2 py-1 text-[11px] text-[var(--text-secondary)] hover:text-gnosi hover:bg-[var(--bg-secondary)] rounded transition-colors text-left"
-                                                                >
-                                                                    <Hash size={10} className="shrink-0" />
-                                                                    <span className="truncate">{view.name}</span>
-                                                                </button>
-                                                            ))}
+                                                            {hasViews && (
+                                                                <div>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => toggleTableSection(table.id, 'views')}
+                                                                        aria-expanded={isViewsExpanded}
+                                                                        className="w-full flex items-center gap-1.5 px-2 py-1 text-[11px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] rounded transition-colors text-left"
+                                                                    >
+                                                                        {isViewsExpanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+                                                                        <LayoutPanelLeft size={11} className="shrink-0" />
+                                                                        <span>{t('sidebar.views')}</span>
+                                                                    </button>
+                                                                    {isViewsExpanded && (
+                                                                        <div className="ml-3 border-l border-[var(--border-primary)] pl-1 mt-0.5">
+                                                                            {tableViews.map(view => (
+                                                                                <button
+                                                                                    key={view.id}
+                                                                                    onClick={() => {
+                                                                                        onTableSelect && onTableSelect(table.id, view.id);
+                                                                                    }}
+                                                                                    className="flex items-center gap-2 px-2 py-1 text-[11px] text-[var(--text-secondary)] hover:text-gnosi hover:bg-[var(--bg-secondary)] rounded transition-colors text-left w-full"
+                                                                                >
+                                                                                    <Hash size={10} className="shrink-0" />
+                                                                                    <span className="truncate">{view.name}</span>
+                                                                                </button>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     )}
                                                 </div>
