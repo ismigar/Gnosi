@@ -1,4 +1,5 @@
 const normalize = (value) => String(value || '').toLocaleLowerCase().replace(/[^a-z0-9]+/g, '');
+const isProviderQualifiedModelId = (value) => String(value || '').includes('/');
 
 export function registryEntryMatchesModel(entry, comparisonModel) {
     const exactRoute = (comparisonModel?.routes || []).some((route) => (
@@ -9,6 +10,10 @@ export function registryEntryMatchesModel(entry, comparisonModel) {
     const registryModel = normalize(entry?.model_id);
     if (!registryModel) return false;
     return [comparisonModel?.slug, comparisonModel?.name, comparisonModel?.id]
+        .filter((candidate) => (
+            !isProviderQualifiedModelId(entry?.model_id)
+            && !isProviderQualifiedModelId(candidate)
+        ))
         .map(normalize)
         .filter(Boolean)
         .some((comp) => comp === registryModel || registryModel.includes(comp) || comp.includes(registryModel));

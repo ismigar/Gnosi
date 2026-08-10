@@ -37,6 +37,13 @@ describe('model comparison registry helpers', () => {
         expect(indexes).toEqual([0]);
     });
 
+    it('does not fuzzy-match provider-qualified ids without an exact route', () => {
+        expect(registryEntryMatchesModel(
+            { provider: 'openrouter', model_id: 'openai/gpt-5.6-sol' },
+            comparisonModel,
+        )).toBe(false);
+    });
+
     it('builds a router row directly from an exact comparison route', () => {
         expect(comparisonRouteToRegistryEntry({
             provider: 'ollama',

@@ -26,7 +26,7 @@ Discovered **23 documented runtime skills**.
 | `scheduler` | SKILL: Backend Background Scheduler | 59 | 0 | [`pipeline/skills/scheduler/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/scheduler/SKILL.md) |
 | `suggest_connections` | SKILL: Brain Connection Proposals | 48 | 0 | [`pipeline/skills/suggest_connections/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/suggest_connections/SKILL.md) |
 | `team_manager` | SKILL: Team Manager (Multi-Agent Architecture) | 46 | 0 | [`pipeline/skills/team_manager/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/team_manager/SKILL.md) |
-| `technical_documentation` | SKILL: Technical documentation | 105 | 4 | [`pipeline/skills/technical_documentation/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/SKILL.md) |
+| `technical_documentation` | SKILL: Technical documentation | 110 | 4 | [`pipeline/skills/technical_documentation/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/SKILL.md) |
 | `translate_page` | Skill: translate_page | 104 | 3 | [`pipeline/skills/translate_page/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/translate_page/SKILL.md) |
 | `translate_row` | Skill: translate_row | 153 | 2 | [`pipeline/skills/translate_row/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/translate_row/SKILL.md) |
 | `ui_stability` | Directive: GraphPage field-filter TypeError fix | 33 | 0 | [`pipeline/skills/ui_stability/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/ui_stability/SKILL.md) |
