@@ -3170,6 +3170,34 @@ button:hover > .row-action-tooltip {
 .feed-md > p:last-child,
 .feed-md > blockquote:last-child { margin-bottom: 0; }
 
+/* Custom toggle fences are rendered as native disclosure widgets in previews. */
+.vault-markdown-toggle {
+  margin: 0.5rem 0;
+  border-radius: 0.5rem;
+}
+.vault-markdown-toggle > summary {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  cursor: pointer;
+  list-style: none;
+  color: var(--text-primary);
+}
+.vault-markdown-toggle > summary::-webkit-details-marker { display: none; }
+.vault-markdown-toggle > summary::before {
+  content: "▸";
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
+  font-size: 0.8em;
+  transition: transform 0.15s ease;
+}
+.vault-markdown-toggle[open] > summary::before { transform: rotate(90deg); }
+.vault-markdown-toggle__content {
+  margin-left: 1.15rem;
+  padding-left: 0.7rem;
+  border-left: 1px solid var(--border-primary);
+}
+
 /* Corrector ortogràfic (nspell): subratllat ondulat vermell sota les faltes. */
 .ProseMirror .gnosi-spell-error {
     text-decoration: underline wavy var(--status-error, #dc2626);
