@@ -160,6 +160,9 @@ registry type and configuration reverses the schema migration.
   format. Deploy the tolerant reader with the first rich write.
 - Option names are stored values. Renaming them is a data migration, not a
   cosmetic label change.
+- Do not require the optional status-catalog migrator while loading the central
+  registry. Mixed-version deployments or isolated tests may not expose it;
+  detect a callable migrator and otherwise continue loading the registry.
 
 ## QA gates
 

@@ -153,7 +153,7 @@ const RenamePromptModal = ({ isOpen, type, defaultValue, onClose, onConfirm }) =
 const NavItem = ({ icon: Icon, label, onClick, isActive, colorClass = "text-[var(--text-secondary)]", emoji, rightElement, indented = false }) => (
     <button
         onClick={onClick}
-        className={`group w-full flex items-center gap-2 ${indented ? 'pl-[34px] pr-3' : 'px-3'} py-1.5 text-sm rounded-md transition-colors ${isActive ? 'bg-[var(--bg-secondary)] text-[var(--text-primary)] font-medium' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'}`}
+        className={`vault-sidebar__navigation-row group w-full flex items-center gap-2 ${indented ? 'vault-sidebar__navigation-row--tree-leaf' : 'px-3'} rounded-md transition-colors ${isActive ? 'bg-[var(--bg-secondary)] text-[var(--text-primary)] font-medium' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'}`}
     >
         {emoji ? (
             <IconRenderer icon={emoji} size={16} />
@@ -321,7 +321,7 @@ const PageTreeItem = ({
             <div
                 data-vault-page-id={page.id}
                 title={page.title}
-                className={`group flex items-center gap-1 py-1 text-sm rounded-md transition-colors cursor-pointer ${isActive ? 'bg-[var(--bg-secondary)] text-[var(--text-primary)] font-medium' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]/50'} ${isDropTarget ? 'ring-2 ring-[var(--gnosi-primary)]/50 bg-[var(--gnosi-primary)]/10' : ''}`}
+                className={`vault-sidebar__navigation-row group flex items-center gap-1 rounded-md transition-colors cursor-pointer ${isActive ? 'bg-[var(--bg-secondary)] text-[var(--text-primary)] font-medium' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]/50'} ${isDropTarget ? 'ring-2 ring-[var(--gnosi-primary)]/50 bg-[var(--gnosi-primary)]/10' : ''}`}
                 style={{ paddingLeft: `${depth * 12 + 8}px`, paddingRight: '8px' }}
                 onClick={() => {
                     if (!isRenaming) onPageSelect(page.id);
@@ -483,7 +483,7 @@ const PageTreeItem = ({
             {isMenuOpen && typeof document !== 'undefined' && createPortal(
                 <div
                     ref={menuRef}
-                    className="fixed w-40 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[var(--z-popover)] py-1 animate-in fade-in zoom-in-95 duration-100 max-h-[calc(100vh-20px)] overflow-y-auto"
+                    className="vault-sidebar__menu fixed w-40 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[var(--z-popover)] py-1 animate-in fade-in zoom-in-95 duration-100 max-h-[calc(100vh-20px)] overflow-y-auto"
                     style={{ top: menuState.y, left: menuState.x }}
                 >
                     {onRenamePage && isEditor && (
@@ -558,7 +558,7 @@ const PageTreeItem = ({
             )}
 
             {isExpanded && hasChildren && (
-                <div className="mt-0.5">
+                <div className="vault-sidebar__navigation-list mt-0.5">
                     {childrenMap[page.id].map(child => (
                         <PageTreeItem
                             key={child.id}
@@ -1091,12 +1091,12 @@ export const VaultSidebar = ({
                     setWikiScrollTop(e.currentTarget.scrollTop);
                 }
             }}
-            className="flex flex-col h-full select-none overflow-y-auto custom-scrollbar pb-8 bg-[var(--bg-primary)]"
+            className="vault-sidebar flex flex-col h-full select-none overflow-y-auto custom-scrollbar pb-8 bg-[var(--bg-primary)]"
         >
             <div className="vault-sidebar__identity px-3 pt-4 mb-2 flex items-center justify-between group cursor-pointer hover:bg-[var(--bg-secondary)] rounded mx-2 py-1.5 transition-colors">
                 <div className="flex min-w-0 items-center gap-2">
                     <div className="w-5 h-5 bg-gnosi/10 rounded flex items-center justify-center text-gnosi font-bold text-[10px]">G</div>
-                    <span className="truncate text-sm font-semibold text-[var(--text-primary)]">{t('common.vault_label', 'Vault')}: {activeVaultName || '…'}</span>
+                    <span className="vault-sidebar__navigation-row truncate font-semibold text-[var(--text-primary)]">{t('common.vault_label', 'Vault')}: {activeVaultName || '…'}</span>
                 </div>
                 <button
                     type="button"
@@ -1110,7 +1110,7 @@ export const VaultSidebar = ({
                 </button>
             </div>
 
-            <div className="px-2 space-y-0.5">
+            <div className="vault-sidebar__navigation-list px-2">
                 <NavItem
                     icon={Search}
                     label={t('sidebar.search')}
@@ -1127,7 +1127,7 @@ export const VaultSidebar = ({
                     />
                 )}
                 <div
-                    className={`group relative w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors ${currentView === 'drawing' ? 'bg-[var(--bg-secondary)] text-[var(--text-primary)] font-medium' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'}`}
+                    className={`vault-sidebar__navigation-row group relative w-full flex items-center gap-2 px-3 rounded-md transition-colors ${currentView === 'drawing' ? 'bg-[var(--bg-secondary)] text-[var(--text-primary)] font-medium' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'}`}
                     onClick={() => onNavigate('drawing')}
                 >
                     <Palette size={16} className={currentView === 'drawing' ? 'text-gnosi' : 'text-amber-500'} />
@@ -1209,7 +1209,7 @@ export const VaultSidebar = ({
                     {isFavoritesExpanded && (
                         <DndContext sensors={favoriteSensors} collisionDetection={closestCenter} onDragEnd={handleFavoriteDragEnd}>
                             <SortableContext items={sortedFavoritePages.map((p) => p.id)} strategy={verticalListSortingStrategy}>
-                                <div className="px-2 space-y-0.5">
+                                <div className="vault-sidebar__navigation-list px-2">
                                     {sortedFavoritePages.map((page) => (
                                         <SortableFavoriteItem
                                             key={page.id}
@@ -1236,7 +1236,7 @@ export const VaultSidebar = ({
                 addLabel={t('sidebar.add_dashboard')}
             />
             {isDashboardExpanded && (
-                <div className="px-2 space-y-0.5">
+                <div className="vault-sidebar__navigation-list px-2">
                     {dashboardRootPages.length === 0 ? (
                         <div className="px-3 py-2 text-xs text-[var(--text-secondary)]/60">{t('sidebar.no_dashboard_pages')}</div>
                     ) : (
@@ -1273,7 +1273,7 @@ export const VaultSidebar = ({
                 addLabel={t('sidebar.add_database')}
             />
             {isDatabasesExpanded && (
-                <div className="px-2 space-y-0.5">
+                <div className="vault-sidebar__navigation-list px-2">
                     {visibleDatabases.map(db => {
                         const dbTables = tablesByDatabase[db.id] || [];
                         const isExpanded = expandedDatabases[db.id];
@@ -1281,8 +1281,8 @@ export const VaultSidebar = ({
                         const renderedTables = dbTables.slice(0, visibleTableCount);
 
                         return (
-                            <div key={db.id} className="space-y-0.5">
-                                <div className={`w-full flex items-center gap-2 px-2 py-1 rounded-md text-sm transition-colors group ${isExpanded ? 'bg-[var(--bg-secondary)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'}`}>
+                            <div key={db.id} className="vault-sidebar__navigation-list">
+                                <div className={`vault-sidebar__navigation-row w-full flex items-center gap-2 px-2 rounded-md transition-colors group ${isExpanded ? 'bg-[var(--bg-secondary)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'}`}>
                                     <button onClick={() => toggleDatabase(db.id)} className="flex items-center gap-2 flex-1 min-w-0">
                                         <ChevronRight
                                             size={14}
@@ -1333,7 +1333,7 @@ export const VaultSidebar = ({
                                 </div>
 
                                 {isExpanded && (
-                                    <div className="ml-4 space-y-0.5 border-l border-[var(--border-primary)] pl-1">
+                                    <div className="vault-sidebar__navigation-list ml-4 border-l border-[var(--border-primary)] pl-1">
                                         {renderedTables.map(table => {
                                             const tableViews = viewsByTable[table.id] || [];
                                             const tableRecords = dataChildrenMap[table.id]?.roots || [];
@@ -1346,7 +1346,7 @@ export const VaultSidebar = ({
                                             const isViewsExpanded = Boolean(expandedTableSections[viewsKey]);
                                             return (
                                                 <div key={table.id} className="w-full flex flex-col gap-0.5">
-                                                     <div className="w-full flex items-center gap-1 px-2 py-1 rounded-md text-[13px] text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors group/tableItem">
+                                                     <div className="vault-sidebar__navigation-row vault-sidebar__navigation-row--compact w-full flex items-center gap-1 px-2 rounded-md text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors group/tableItem">
                                                         <button
                                                             className="vault-sidebar-icon-action p-0.5 hover:bg-[var(--bg-secondary)] rounded shrink-0 text-[var(--text-secondary)]/60"
                                                             onClick={(e) => {
@@ -1422,7 +1422,7 @@ export const VaultSidebar = ({
                                                                         type="button"
                                                                         onClick={() => toggleTableSection(table.id, 'content')}
                                                                         aria-expanded={isContentExpanded}
-                                                                        className="w-full flex items-center gap-1.5 px-2 py-1 text-[11px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] rounded transition-colors text-left"
+                                                                        className="vault-sidebar__navigation-row vault-sidebar__navigation-row--detail w-full flex items-center gap-1.5 px-2 font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] rounded transition-colors text-left"
                                                                     >
                                                                         {isContentExpanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
                                                                         <FileText size={11} className="shrink-0" />
@@ -1463,7 +1463,7 @@ export const VaultSidebar = ({
                                                                         type="button"
                                                                         onClick={() => toggleTableSection(table.id, 'views')}
                                                                         aria-expanded={isViewsExpanded}
-                                                                        className="w-full flex items-center gap-1.5 px-2 py-1 text-[11px] font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] rounded transition-colors text-left"
+                                                                        className="vault-sidebar__navigation-row vault-sidebar__navigation-row--detail w-full flex items-center gap-1.5 px-2 font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] rounded transition-colors text-left"
                                                                     >
                                                                         {isViewsExpanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
                                                                         <LayoutPanelLeft size={11} className="shrink-0" />
@@ -1477,7 +1477,7 @@ export const VaultSidebar = ({
                                                                                     onClick={() => {
                                                                                         onTableSelect && onTableSelect(table.id, view.id);
                                                                                     }}
-                                                                                    className="flex items-center gap-2 px-2 py-1 text-[11px] text-[var(--text-secondary)] hover:text-gnosi hover:bg-[var(--bg-secondary)] rounded transition-colors text-left w-full"
+                                                                                    className="vault-sidebar__navigation-row vault-sidebar__navigation-row--detail flex items-center gap-2 px-2 text-[var(--text-secondary)] hover:text-gnosi hover:bg-[var(--bg-secondary)] rounded transition-colors text-left w-full"
                                                                                 >
                                                                                     <Hash size={10} className="shrink-0" />
                                                                                     <span className="truncate">{view.name}</span>
@@ -1580,7 +1580,7 @@ export const VaultSidebar = ({
             </div>
             {isWorkspaceExpanded && (
                 <div
-                    className="px-2 space-y-0.5"
+                    className="vault-sidebar__navigation-list px-2"
                 >
                     {isRegistryLoading ? (
                         <div className="px-3 py-2 text-xs text-[var(--text-secondary)]/60">{t('common.loading')}</div>
@@ -1636,7 +1636,7 @@ export const VaultSidebar = ({
             {menuState && (menuState.type === 'database' || menuState.type === 'table') && createPortal(
                 <div
                     ref={sidebarMenuRef}
-                    className="fixed w-40 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[var(--z-popover)] py-1 animate-in fade-in zoom-in-95 duration-100 max-h-[calc(100vh-20px)] overflow-y-auto"
+                    className="vault-sidebar__menu fixed w-40 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[var(--z-popover)] py-1 animate-in fade-in zoom-in-95 duration-100 max-h-[calc(100vh-20px)] overflow-y-auto"
                     style={{ top: menuState.y, left: menuState.x }}
                 >
                     {menuState.type === 'table' && (

@@ -15994,7 +15994,6 @@ def _normalize_main_view_configuration(registry: dict, view: dict) -> bool:
         changed = True
     return changed
 
-
 def _normalize_registry_table_view_names(registry: dict) -> bool:
     """Normalize persisted table/view labels and canonicalize main view names."""
     changed = False
@@ -16169,6 +16168,15 @@ def _load_registry_from_disk(registry_path, _ck: str, now: float):
     # on read so existing databases are migrated before any API response or
     # frontend render. The operation is idempotent and does not touch page data.
     if _normalize_registry_table_view_names(data):
+        changed = True
+
+    # Dedicated `status` fields share one lifecycle catalog across the vault.
+    # This is deliberately done while loading so existing registries are
+    # migrated before the frontend renders any table schema.
+    ensure_status_catalog = getattr(
+        option_catalogs_service, "ensure_global_status_catalog", None
+    )
+    if callable(ensure_status_catalog) and ensure_status_catalog(data):
         changed = True
 
     # 2. Sanitization and folder creation (only for tables not yet validated)
