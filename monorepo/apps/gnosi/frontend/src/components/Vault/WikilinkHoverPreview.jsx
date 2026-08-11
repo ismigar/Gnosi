@@ -6,7 +6,9 @@ import { useTranslation } from 'react-i18next';
 import { IconRenderer } from './IconRenderer';
 import {
     adaptiveHoverPreviewStyle,
+    isHoverPreviewScrollable,
     positionHoverPreview,
+    scrollHoverPreviewByKey,
 } from './hoverPreviewLayout';
 
 // Preview cache shared across instances. Avoids refetching when the user
@@ -78,6 +80,8 @@ export const WikilinkHoverPreview = ({ pageId, anchorRect, onMouseEnter, onMouse
     const [error, setError] = useState(false);
     const [popupPos, setPopupPos] = useState(null);
     const popupRef = useRef(null);
+    const scrollRef = useRef(null);
+    const prevFocusRef = useRef(null);
 
     useEffect(() => {
         if (!pageId) return;
@@ -120,7 +124,50 @@ export const WikilinkHoverPreview = ({ pageId, anchorRect, onMouseEnter, onMouse
         }));
     }, [anchorRect, data, loading, error]);
 
+    // If loading finishes while the pointer is already inside the popup,
+    // focus the newly overflowing content without requiring another mouse pass.
+    useEffect(() => {
+        const popup = popupRef.current;
+        const element = scrollRef.current;
+        if (popup?.matches(':hover') && element && !element.contains(document.activeElement)
+            && isHoverPreviewScrollable(element)) {
+            prevFocusRef.current = document.activeElement;
+            element.focus({ preventScroll: true });
+        }
+    }, [data, loading, popupPos]);
+
     if (!anchorRect) return null;
+
+    const handleKeyDown = (event) => {
+        if (scrollHoverPreviewByKey(scrollRef.current, event.key)) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+    };
+
+    const handlePopupMouseEnter = () => {
+        onMouseEnter?.();
+        const element = scrollRef.current;
+        if (element && !element.contains(document.activeElement) && isHoverPreviewScrollable(element)) {
+            prevFocusRef.current = document.activeElement;
+            element.focus({ preventScroll: true });
+        }
+    };
+
+    const handlePopupMouseLeave = () => {
+        onMouseLeave?.();
+        const element = scrollRef.current;
+        if (!element || !element.contains(document.activeElement)) return;
+
+        const previousFocus = prevFocusRef.current;
+        prevFocusRef.current = null;
+        if (previousFocus && previousFocus !== document.body && previousFocus.isConnected
+            && typeof previousFocus.focus === 'function') {
+            previousFocus.focus({ preventScroll: true });
+        } else {
+            element.blur();
+        }
+    };
 
     const popup = (
         <div
@@ -133,8 +180,9 @@ export const WikilinkHoverPreview = ({ pageId, anchorRect, onMouseEnter, onMouse
                 ? { ...PREVIEW_STYLE, top: popupPos.top, left: popupPos.left, opacity: 1, pointerEvents: 'auto' }
                 : { ...PREVIEW_STYLE, top: -9999, left: -9999, opacity: 0, pointerEvents: 'none' }
             }
-            onMouseEnter={onMouseEnter}
-            onMouseLeave={onMouseLeave}
+            onMouseEnter={handlePopupMouseEnter}
+            onMouseLeave={handlePopupMouseLeave}
+            onKeyDown={handleKeyDown}
         >
             {!loading && !error && data?.cover && (
                 <div
@@ -142,39 +190,43 @@ export const WikilinkHoverPreview = ({ pageId, anchorRect, onMouseEnter, onMouse
                     style={{ backgroundImage: `url("${data.cover}")` }}
                 />
             )}
-            <div className="p-4 min-w-0 min-h-0 flex flex-col overflow-hidden">
+            {!loading && !error && data && (
+                <div className="flex items-center gap-2 px-4 pt-4 pb-2 shrink-0">
+                    {data.icon ? (
+                        <IconRenderer icon={data.icon} size={16} className="flex-shrink-0" />
+                    ) : (
+                        <FileText size={14} className="text-slate-400 flex-shrink-0" />
+                    )}
+                    <h4 className="font-semibold text-sm text-slate-900 dark:text-slate-100 truncate">
+                        {data.title || t('common.untitled', "Untitled")}
+                    </h4>
+                </div>
+            )}
+            <div
+                ref={scrollRef}
+                tabIndex={-1}
+                className="flex-1 min-w-0 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain px-4 pb-4 outline-none custom-scrollbar"
+            >
                 {loading && (
-                    <div className="flex items-center gap-2 text-sm text-slate-500">
+                    <div className="flex items-center gap-2 pt-4 text-sm text-slate-500">
                         <div className="w-3 h-3 border-2 border-slate-300 border-t-[var(--gnosi-primary)] rounded-full animate-spin" />
                         <span>{t('common.loading', "Loading...")}</span>
                     </div>
                 )}
                 {error && (
-                    <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                    <div className="flex items-center gap-2 pt-4 text-sm text-slate-500 dark:text-slate-400">
                         <FileText size={14} />
                         <span>{t('wikilink.preview_error', "Could not load the page")}</span>
                     </div>
                 )}
                 {!loading && !error && data && (
-                    <>
-                        <div className="flex items-center gap-2 mb-2">
-                            {data.icon ? (
-                                <IconRenderer icon={data.icon} size={16} className="flex-shrink-0" />
-                            ) : (
-                                <FileText size={14} className="text-slate-400 flex-shrink-0" />
-                            )}
-                            <h4 className="font-semibold text-sm text-slate-900 dark:text-slate-100 truncate">
-                                {data.title || t('common.untitled', "Untitled")}
-                            </h4>
-                        </div>
-                        {data.excerpt ? (
-                            <p className="min-h-0 overflow-y-auto overflow-x-hidden text-xs text-slate-600 dark:text-slate-400 leading-relaxed whitespace-pre-line break-words [overflow-wrap:anywhere]">
-                                {data.excerpt}
-                            </p>
-                        ) : (
-                            <p className="text-xs text-slate-400 italic">{t('wikilink.empty_page', "Empty page")}</p>
-                        )}
-                    </>
+                    data.excerpt ? (
+                        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed whitespace-pre-line break-words [overflow-wrap:anywhere]">
+                            {data.excerpt}
+                        </p>
+                    ) : (
+                        <p className="text-xs text-slate-400 italic">{t('wikilink.empty_page', "Empty page")}</p>
+                    )
                 )}
             </div>
         </div>

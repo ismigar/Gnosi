@@ -7,7 +7,9 @@ import { IconRenderer } from './IconRenderer';
 import { VaultMarkdown } from './VaultMarkdown';
 import {
     adaptiveHoverPreviewStyle,
+    isHoverPreviewScrollable,
     positionHoverPreview,
+    scrollHoverPreviewByKey,
 } from './hoverPreviewLayout';
 
 // Cache of COMPLETE previews (body_md). Separate from the one in WikilinkHoverPreview
@@ -195,9 +197,27 @@ export const PageHoverCard = ({
         }
     }, [viaKeyboard, pos]);
 
+    // The pointer may enter while the card still contains only the loading
+    // state. Focus again after the full content arrives if it has become
+    // scrollable without requiring the user to leave and re-enter the card.
+    useEffect(() => {
+        const card = cardRef.current;
+        const element = scrollRef.current;
+        if (!viaKeyboard && card?.matches(':hover') && element
+            && !element.contains(document.activeElement) && isHoverPreviewScrollable(element)) {
+            prevFocusRef.current = document.activeElement;
+            element.focus({ preventScroll: true });
+        }
+    }, [data, loading, meta, pos, viaKeyboard]);
+
     if (!anchorRect) return null;
 
     const handleKeyDown = (e) => {
+        if (scrollHoverPreviewByKey(scrollRef.current, e.key)) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+        }
         if (e.key === 'Escape' || e.key === ' ' || e.key === 'Spacebar') {
             e.preventDefault();
             e.stopPropagation();
@@ -216,7 +236,7 @@ export const PageHoverCard = ({
     const handleCardMouseEnter = () => {
         onMouseEnter?.();
         const el = scrollRef.current;
-        if (el && !el.contains(document.activeElement) && el.scrollHeight > el.clientHeight) {
+        if (el && !el.contains(document.activeElement) && isHoverPreviewScrollable(el)) {
             prevFocusRef.current = document.activeElement;
             el.focus({ preventScroll: true });
         }
@@ -275,7 +295,7 @@ export const PageHoverCard = ({
             <div
                 ref={scrollRef}
                 tabIndex={-1}
-                className="min-w-0 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-3 outline-none"
+                className="min-w-0 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain px-4 py-3 outline-none custom-scrollbar"
             >
                 {loading && (
                     <div className="flex items-center gap-2 text-sm text-slate-500">

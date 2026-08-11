@@ -32,7 +32,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `application root` | 3 | 276 | 0 |
-| `components` | 190 | 76698 | 197 |
+| `components` | 190 | 76809 | 197 |
 | `context` | 1 | 177 | 6 |
 | `hooks` | 16 | 1239 | 7 |
 | `lib` | 17 | 1964 | 6 |
@@ -147,7 +147,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Vault/PageActionsBar.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PageActionsBar.jsx) | 289 | `PageActionsBar` | — |
 | [`frontend/src/components/Vault/PageComments.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PageComments.jsx) | 304 | `PageComments` | — |
 | [`frontend/src/components/Vault/PageHistory.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PageHistory.jsx) | 337 | `PageHistory` | — |
-| [`frontend/src/components/Vault/PageHoverCard.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PageHoverCard.jsx) | 341 | `PageHoverCard` | — |
+| [`frontend/src/components/Vault/PageHoverCard.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PageHoverCard.jsx) | 361 | `PageHoverCard` | — |
 | [`frontend/src/components/Vault/PageLinksGraph.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PageLinksGraph.jsx) | 185 | `PageLinksGraph` | — |
 | [`frontend/src/components/Vault/PageViewModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PageViewModal.jsx) | 3051 | `PageViewModal` | `/api/ai/models`, `/api/vault/plugins/vault-summary/settings`, `/api/vault/views` |
 | [`frontend/src/components/Vault/PdfAnnotationsToCite.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PdfAnnotationsToCite.jsx) | 151 | `PdfAnnotationsToCite` | `/api/vault/pdf-annotations` |
@@ -192,7 +192,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Vault/VaultViewToolbar.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultViewToolbar.jsx) | 101 | `VaultViewToolbar` | — |
 | [`frontend/src/components/Vault/VaultViewsHeader.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultViewsHeader.jsx) | 1074 | `VaultViewsHeader` | — |
 | [`frontend/src/components/Vault/WikilinkContextMenu.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/WikilinkContextMenu.jsx) | 195 | `WikilinkContextMenu` | — |
-| [`frontend/src/components/Vault/WikilinkHoverPreview.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/WikilinkHoverPreview.jsx) | 186 | `WikilinkHoverPreview`, `invalidatePreviewCache` | — |
+| [`frontend/src/components/Vault/WikilinkHoverPreview.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/WikilinkHoverPreview.jsx) | 238 | `WikilinkHoverPreview`, `invalidatePreviewCache` | — |
 | [`frontend/src/components/Vault/WikilinkInline.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/WikilinkInline.jsx) | 271 | `WikilinkInline` | `/api/vault/resolve-by-title` |
 | [`frontend/src/components/Vault/WorkspacesModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/WorkspacesModal.jsx) | 75 | `WorkspacesModal`, `function` | — |
 | [`frontend/src/components/Vault/ZoteroExtrasSection.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/ZoteroExtrasSection.jsx) | 241 | `ZoteroExtrasSection` | `/api/vault/promote-zotero-extra` |
@@ -208,7 +208,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Vault/formulaUtils.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/formulaUtils.js) | 93 | `evaluateFormula` | — |
 | [`frontend/src/components/Vault/galleryCardPreviewUtils.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/galleryCardPreviewUtils.js) | 18 | `getGalleryMarkdown`, `getGalleryPageUrl`, `openGalleryPageWindow` | — |
 | [`frontend/src/components/Vault/groupOrderUtils.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/groupOrderUtils.js) | 38 | `orderGroupKeys` | — |
-| [`frontend/src/components/Vault/hoverPreviewLayout.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/hoverPreviewLayout.js) | 38 | `HOVER_PREVIEW_MARGIN`, `adaptiveHoverPreviewStyle`, `positionHoverPreview` | — |
+| [`frontend/src/components/Vault/hoverPreviewLayout.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/hoverPreviewLayout.js) | 77 | `HOVER_PREVIEW_ARROW_STEP`, `HOVER_PREVIEW_MARGIN`, `adaptiveHoverPreviewStyle`, `isHoverPreviewScrollable`, `positionHoverPreview`, `scrollHoverPreviewByKey` | — |
 | [`frontend/src/components/Vault/identifierValidators.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/identifierValidators.js) | 91 | `isValidArxivId`, `isValidDOI`, `isValidISBN`, `isValidPMID`, `isValidURL`, `validateIdentifier` | — |
 | [`frontend/src/components/Vault/managedMarkdownUtils.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/managedMarkdownUtils.js) | 73 | `normalizeManagedBlockSpacing`, `stripManagedBlockMarkers` | — |
 | [`frontend/src/components/Vault/markdown-mapper.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/markdown-mapper.js) | 1820 | `FILE_PROTOCOL_SENTINEL`, `blocksToRichMarkdown`, `fileUrlToSentinel`, `richMarkdownToBlocks`, `sentinelToFileUrl` | — |
