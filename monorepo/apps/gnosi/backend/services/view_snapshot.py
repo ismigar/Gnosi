@@ -610,10 +610,9 @@ def _compare_field_values(a_raw: Any, b_raw: Any, direction: str = "asc") -> int
     """1:1 port of ``compareFieldValues`` (vaultFilters.js), the ONLY source of truth
     for view sorting on the frontend (main view and embedded ones):
 
-    - EMPTY values FOLLOW the direction (like Excel/Sheets): LAST in ascending,
-      FIRST in descending. Direction applies to BOTH the empty and non-empty
-      parts (which is why a comparator is needed, not a ``key=`` with
-      ``reverse``).
+    - EMPTY values are always LAST, in both ascending and descending order.
+      This matches Notion view sorting and keeps records without the primary
+      property behind populated records.
     - if both are NUMERIC (according to JS's ``parseFloat``), real numeric order
       (2 < 10, not "10" < "2").
     - otherwise, string fallback with ``_collation_key(sort_key(...))``, which folds
@@ -629,12 +628,7 @@ def _compare_field_values(a_raw: Any, b_raw: Any, direction: str = "asc") -> int
     if a_empty or b_empty:
         if a_empty and b_empty:
             return 0
-        # Empty values FOLLOW the direction: LAST in asc, FIRST in desc
-        # (Excel/Sheets convention). Both branches depend on `direction`.
-        empty_first = direction == "desc"
-        if a_empty:
-            return -1 if empty_first else 1
-        return 1 if empty_first else -1
+        return 1 if a_empty else -1
     a_num = _parse_numeric_value(a_val) if _FULL_NUMERIC_RE.match(a_val.strip()) else None
     b_num = _parse_numeric_value(b_val) if _FULL_NUMERIC_RE.match(b_val.strip()) else None
     if a_num is not None and b_num is not None:

@@ -1,11 +1,12 @@
 ---
 status: implemented
-last_verified: 2026-08-10
+last_verified: 2026-08-11
 source_paths:
   - backend/api/vault_routes.py
   - backend/api/vault_views_routes.py
   - backend/api/planning_routes.py
   - backend/services/table_system_dates.py
+  - backend/services/view_snapshot.py
   - backend/services/planning_engine.py
   - backend/services/planning_scheduler.py
   - pipeline/scripts/migrate_table_system_dates.py
@@ -13,11 +14,13 @@ source_paths:
   - frontend/src/components/Vault/BlockEditor.jsx
   - frontend/src/pages/VaultDashboard.jsx
   - frontend/src/pages/ProjectPlanningPage.jsx
+  - frontend/src/utils/vaultFilters.js
 tests:
   - backend/tests/test_table_system_dates.py
   - backend/tests/test_migrate_table_system_dates.py
   - backend/tests/test_table_view_name_hygiene.py
   - backend/tests/test_view_snapshot.py
+  - backend/tests/test_snapshot_sort_accent_parity.py
   - backend/tests/test_planning_engine.py
   - backend/tests/test_project_planning.py
   - e2e/tests/e2e/dashboards.spec.ts
@@ -91,6 +94,12 @@ values run before rollups that aggregate relations, and dependent formulas are
 resolved without allowing cycles to recurse indefinitely. Backend and frontend
 representations must agree on checkbox truthiness, percentages, empty values,
 and option identifiers.
+
+Saved-view sort criteria are applied in array order with a stable multi-key
+comparison. Empty property values always follow populated values in both
+ascending and descending directions, matching imported Notion view semantics.
+Frontend views and backend Markdown snapshots use the same rule so their
+record order cannot drift.
 
 When `VaultDashboard` renders a table tab, it passes the table registry's
 enabled functionalities through `VaultViewBody` to `VaultTable`. The table tab,

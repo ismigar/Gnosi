@@ -30,20 +30,18 @@ def test_base_collation_ignores_accent_and_case():
     assert _compare_field_values("Çelona", "celona", "asc") == 0
 
 
-def test_empty_values_follow_direction_with_descending_first():
-    # Empty values FOLLOW the direction: FIRST in desc, LAST in asc
-    # (Excel/Sheets convention).
+def test_empty_values_are_last_in_descending_order():
+    # Notion keeps empty values after populated values in both directions.
     rows = [{"metadata": {"Nom": v}} for v in ["", "óptim", "", "abc"]]
     out = multi_key_sort(rows, [{"field": "Nom", "direction": "desc"}])
     noms = [r["metadata"]["Nom"] for r in out]
-    assert noms[:2] == ["", ""]            # empty ones first in desc
-    assert noms[-2:] == ["óptim", "abc"]   # desc: ó (base o) > a
+    assert noms[:2] == ["óptim", "abc"]
+    assert noms[-2:] == ["", ""]
 
 
-def test_buits_segueixen_la_direccio_asc_ultim():
-    # Empty values FOLLOW the direction: LAST in asc.
+def test_empty_values_are_last_in_ascending_order():
     rows = [{"metadata": {"Nom": v}} for v in ["", "óptim", "", "abc"]]
     out = multi_key_sort(rows, [{"field": "Nom", "direction": "asc"}])
     noms = [r["metadata"]["Nom"] for r in out]
-    assert noms[:2] == ["abc", "óptim"]    # asc: a < ó (base o)
-    assert noms[-2:] == ["", ""]           # empty ones last in asc
+    assert noms[:2] == ["abc", "óptim"]
+    assert noms[-2:] == ["", ""]
