@@ -593,6 +593,13 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     const [calendarView, setCalendarView] = useState('dayGridMonth');
     const [colorField, setColorField] = useState('');
     const [rowHeight, setRowHeight] = useState('normal');
+    // Feed reading preferences are view settings, so embedded and full-page
+    // feeds render the same way and need no extra in-content toolbar.
+    const [feedPillLimit, setFeedPillLimit] = useState(5);
+    const [feedExcerptLines, setFeedExcerptLines] = useState(6);
+    const [feedFocus, setFeedFocus] = useState(false);
+    const [summaryModel, setSummaryModel] = useState('');
+    const [summaryModels, setSummaryModels] = useState([]);
     // Chart view options.
     const [chartType, setChartType] = useState('bar');
     const [xField, setXField] = useState('');
@@ -856,6 +863,10 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         setCalendarView(v?.calendarView || v?.calendar_view || 'dayGridMonth');
         setColorField(v?.colorField || v?.color_field || '');
         setRowHeight(v?.rowHeight || v?.row_height || 'normal');
+        setFeedPillLimit(Number(v?.pillLimit ?? v?.pill_limit) || 5);
+        setFeedExcerptLines(Number(v?.excerptLines ?? v?.excerpt_lines) || 6);
+        setFeedFocus(Boolean(v?.feedFocus ?? v?.feed_focus));
+        setSummaryModel(v?.summaryModel || v?.summary_model || '');
         setChartType(v?.chartType || v?.chart_type || 'bar');
         setXField(v?.xField || v?.x_field || '');
         setYField(v?.yField || v?.y_field || '');
@@ -874,11 +885,35 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         setCalendarView('dayGridMonth');
         setColorField('');
         setRowHeight('normal');
+        setFeedPillLimit(5);
+        setFeedExcerptLines(6);
+        setFeedFocus(false);
+        setSummaryModel('');
         setChartType('bar');
         setXField('');
         setYField('');
         setAggregation('count');
     };
+
+    useEffect(() => {
+        if (!isOpen || viewType !== 'feed') return undefined;
+        let cancelled = false;
+        Promise.all([
+            apiFetch('/api/ai/models'),
+            apiFetch('/api/vault/plugins/vault-summary/settings').catch(() => ({})),
+        ]).then(([modelsResponse, settingsResponse]) => {
+            if (cancelled) return;
+            const models = (modelsResponse?.models || [])
+                .filter(model => model?.enabled !== false && model?.provider && model?.model_id);
+            setSummaryModels(models);
+            const fallback = settingsResponse?.settings?.model
+                || (models[0] ? `${models[0].provider}:${models[0].model_id}` : '');
+            setSummaryModel(current => current || fallback);
+        }).catch(() => {
+            if (!cancelled) setSummaryModels([]);
+        });
+        return () => { cancelled = true; };
+    }, [apiFetch, isOpen, viewType]);
 
     useEffect(() => {
         if (!isOpen) {
@@ -1385,7 +1420,8 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     }, [isOpen, isTableMode, sourceTableId, viewName, viewType, filterTree, sorts,
         visibleProperties, resultSnapshot, resultSnapshotLimit, cardSize, galleryPreview,
         coverField, imageFit, groupBy, groupSort, groupSortDir, dateField, endDateField,
-        calendarView, colorField, rowHeight, chartType, xField, yField, aggregation]);
+        calendarView, colorField, rowHeight, feedPillLimit, feedExcerptLines, feedFocus,
+        summaryModel, chartType, xField, yField, aggregation]);
 
     // Flush the pending save when the modal unmounts (e.g. closing right after
     // an edit, inside the debounce window). Fire-and-forget: the request
@@ -1482,7 +1518,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         // existing view) it extracts the same fields with the same defaults,
         // tolerating camelCase (registry) and snake_case (embedded section). This way
         // change detection and saving use exactly the same shape.
-        const s = src || { cardSize, galleryPreview, coverField, imageFit, groupBy, groupSort, groupSortDir, dateField, endDateField, calendarView, colorField, rowHeight, chartType, xField, yField, aggregation };
+        const s = src || { cardSize, galleryPreview, coverField, imageFit, groupBy, groupSort, groupSortDir, dateField, endDateField, calendarView, colorField, rowHeight, feedPillLimit, feedExcerptLines, feedFocus, summaryModel, chartType, xField, yField, aggregation };
         const extras = {};
         if (viewType === 'gallery') {
             extras.cardSize = s.cardSize || 'medium';
@@ -1508,6 +1544,11 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
             extras.xField = s.xField || s.x_field || '';
             extras.yField = s.yField || s.y_field || '';
             extras.aggregation = s.aggregation || ((s.yField || s.y_field) ? 'sum' : 'count');
+        } else if (viewType === 'feed') {
+            extras.pillLimit = Number(s.pillLimit ?? s.pill_limit ?? s.feedPillLimit) || 5;
+            extras.excerptLines = Number(s.excerptLines ?? s.excerpt_lines ?? s.feedExcerptLines) || 6;
+            extras.feedFocus = Boolean(s.feedFocus ?? s.feed_focus);
+            extras.summaryModel = s.summaryModel || s.summary_model || '';
         } else if (viewType === 'table' || viewType === 'list') {
             extras.rowHeight = s.rowHeight || s.row_height || 'normal';
             extras.groupBy = s.groupBy || s.group_by || '';
@@ -2193,6 +2234,40 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                 {opt.label}
                                             </button>
                                         ))}
+                                    </div>
+                                </div>
+                            )}
+                            {viewType === 'feed' && (
+                                <div className="border-t border-[var(--border-primary)] pt-4 space-y-3">
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">{t('view.feed_options', "Feed options")}</p>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">{t('feed.visible_tags', 'Visible tags')}</label>
+                                            <select value={feedPillLimit} onChange={event => setFeedPillLimit(Number(event.target.value))} className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]">
+                                                <option value="3">3</option>
+                                                <option value="5">5</option>
+                                                <option value="8">8</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">{t('feed.excerpt_length', 'Excerpt length')}</label>
+                                            <select value={feedExcerptLines} onChange={event => setFeedExcerptLines(Number(event.target.value))} className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]">
+                                                <option value="3">3</option>
+                                                <option value="6">6</option>
+                                                <option value="9">9</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <label className="flex items-center gap-2 text-xs font-semibold text-[var(--text-secondary)] cursor-pointer">
+                                        <input type="checkbox" checked={feedFocus} onChange={event => setFeedFocus(event.target.checked)} className="accent-[var(--gnosi-primary)]" />
+                                        {t('feed.focus_feed', 'Focus feed')}
+                                    </label>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">{t('feed.summary_model', 'Summary model')}</label>
+                                        <select value={summaryModel} onChange={event => setSummaryModel(event.target.value)} disabled={!summaryModels.length} className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)] disabled:opacity-50">
+                                            <option value="">{t('feed.summary_model_placeholder', 'Select an active model')}</option>
+                                            {summaryModels.map(model => <option key={`${model.provider}:${model.model_id}`} value={`${model.provider}:${model.model_id}`}>{model.provider}: {model.model_id}</option>)}
+                                        </select>
                                     </div>
                                 </div>
                             )}
