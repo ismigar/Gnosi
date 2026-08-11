@@ -16,8 +16,8 @@ import { Search, Star, FileText, Plus, ChevronRight, ChevronDown, Clock, Inbox, 
 import { IconRenderer } from './IconRenderer';
 import { ConfirmModal } from '../ConfirmModal';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
-import { isCalendarPage, isAppContent } from './schemaUtils';
 import { sortKey } from '../../utils/vaultFilters';
+import { buildVaultSidebarTrees } from './vaultSidebarTree';
 
 // Alphabetical favorites keep titles beginning with a number or underscore in
 // a dedicated priority group: first in A → Z and last in Z → A.
@@ -829,137 +829,10 @@ export const VaultSidebar = ({
         setExpandedTableSections(prev => ({ ...prev, [key]: !prev[key] }));
     };
 
-    const { childrenMap, rootPages, dataChildrenMap, dashboardChildrenMap, dashboardRootPages } = useMemo(() => {
-        const computedChildrenMap = {};
-        const computedRootPages = [];
-        const computedDataChildrenMap = {};
-        const computedDashboardChildrenMap = {};
-        const computedDashboardRootPages = [];
-
-        // Fast mapping to find pages by ID
-        const pagesById = {};
-        (pages || []).forEach(p => { pagesById[p.id] = p; });
-
-        const isDashboardPage = (page) => {
-            if (!page) return false;
-            const folder = String(page.folder || '');
-            return page.metadata?.is_dashboard === true
-                || folder === 'Dashboard'
-                || folder.startsWith('Dashboard/')
-                || folder === '.Dashboards'
-                || folder.startsWith('.Dashboards/');
-        };
-
-
-        const ownTableId = (page) =>
-            page.resolved_table_id || page.metadata?.table_id || page.metadata?.database_table_id;
-        const hasOwnDataMarkers = (page) => {
-            const t = ownTableId(page);
-            return page.is_database || (!!t && t !== 'wiki') || page.folder?.startsWith('BD/');
-        };
-
-        // Section where a page lives: its OWN markers decide (dashboard / data).
-        // DB membership is a property of the page itself (table_id / BD/ folder),
-        // NEVER inherited from the parent: a page without properties that hangs
-        // off a DB row is still a WIKI page (cf. directive
-        // vault_subpages_hierarchy.md — the row links it, but only real table
-        // members belong to DATA). Dashboard subpages do inherit (parent_id
-        // chain, memoized and cycle-proof): a dashboard's subpage renders in
-        // the dashboard tree, not as loose wiki.
-        const sectionCache = {};
-        const sectionOf = (page, visiting) => {
-            if (!page) return { kind: 'wiki' };
-            const hit = sectionCache[page.id];
-            if (hit) return hit;
-            const seen = visiting || new Set();
-            if (seen.has(page.id)) return { kind: 'wiki' };   // parent_id cycle: cuts
-            seen.add(page.id);
-            let sec;
-            if (isDashboardPage(page)) {
-                sec = { kind: 'dashboard' };
-            } else if (hasOwnDataMarkers(page)) {
-                let tableId = ownTableId(page);
-                if (!tableId && page.parent_id && pagesById[page.parent_id]) {
-                    const psec = sectionOf(pagesById[page.parent_id], seen);
-                    if (psec.kind === 'data') tableId = psec.tableId;
-                }
-                // Without a resolvable table, the previous behavior is kept: it's shown nowhere.
-                sec = { kind: 'data', tableId: tableId || null };
-            } else if (page.parent_id && pagesById[page.parent_id]) {
-                const psec = sectionOf(pagesById[page.parent_id], seen);
-                sec = psec.kind === 'data' ? { kind: 'wiki' } : psec;
-            } else {
-                sec = { kind: 'wiki' };
-            }
-            sectionCache[page.id] = sec;
-            return sec;
-        };
-
-        (pages || []).forEach(p => {
-            // `isAppContent` treats the entire BD/ folder as app content: without
-            // the exception below, NO row ever entered the maps and the data tree
-            // (rows under the table, expand chevron, row subpages) was code
-            // dormant. Pages with their own data markers enter their own tree;
-            // Mail/Assets/Calendar/… remain outside.
-            if (p.metadata?.is_template || isCalendarPage(p) || (isAppContent(p) && !hasOwnDataMarkers(p))) return;
-
-            const parent = p.parent_id ? pagesById[p.parent_id] : null;
-            const sec = sectionOf(p);
-
-            if (sec.kind === 'dashboard') {
-                if (parent && sectionOf(parent).kind === 'dashboard') {
-                    if (!computedDashboardChildrenMap[p.parent_id]) computedDashboardChildrenMap[p.parent_id] = [];
-                    computedDashboardChildrenMap[p.parent_id].push(p);
-                } else {
-                    computedDashboardRootPages.push(p);
-                }
-                return;
-            }
-
-            if (sec.kind === 'data') {
-                if (!sec.tableId) return;   // BD/ with no resolvable table: as before, outside
-                const psec = parent ? sectionOf(parent) : null;
-                if (psec?.kind === 'data' && psec.tableId === sec.tableId) {
-                    if (!computedDataChildrenMap[sec.tableId]) {
-                        computedDataChildrenMap[sec.tableId] = { roots: [], children: {} };
-                    }
-                    const tableTree = computedDataChildrenMap[sec.tableId];
-                    if (!tableTree.children[p.parent_id]) tableTree.children[p.parent_id] = [];
-                    tableTree.children[p.parent_id].push(p);
-                } else if (hasOwnDataMarkers(p)) {
-                    if (!computedDataChildrenMap[sec.tableId]) {
-                        computedDataChildrenMap[sec.tableId] = { roots: [], children: {} };
-                    }
-                    computedDataChildrenMap[sec.tableId].roots.push(p);
-                } else {
-                    // Subpage whose parent has disappeared (row deleted): visible in the wiki,
-                    // never as the table's root pseudo-row.
-                    computedRootPages.push(p);
-                }
-                return;
-            }
-
-            if (parent && sectionOf(parent).kind === 'wiki') {
-                if (!computedChildrenMap[p.parent_id]) computedChildrenMap[p.parent_id] = [];
-                computedChildrenMap[p.parent_id].push(p);
-            } else {
-                // Wiki root: no parent_id, a nonexistent parent (an orphaned
-                // parent_id used to hide the page forever in the childrenMap of
-                // a parent that doesn't render), or a parent that lives in
-                // another section (a DB row): the page is wiki but its parent
-                // never renders in the wiki tree, so it surfaces at the root.
-                computedRootPages.push(p);
-            }
-        });
-
-        return {
-            childrenMap: computedChildrenMap,
-            rootPages: computedRootPages,
-            dataChildrenMap: computedDataChildrenMap,
-            dashboardChildrenMap: computedDashboardChildrenMap,
-            dashboardRootPages: computedDashboardRootPages,
-        };
-    }, [pages]);
+    const { childrenMap, rootPages, dataChildrenMap, dashboardChildrenMap, dashboardRootPages } = useMemo(
+        () => buildVaultSidebarTrees(pages || []),
+        [pages]
+    );
 
     const tablesByDatabase = useMemo(() => {
         const mapping = {};

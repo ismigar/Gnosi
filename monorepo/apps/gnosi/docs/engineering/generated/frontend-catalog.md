@@ -32,7 +32,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `application root` | 3 | 276 | 0 |
-| `components` | 190 | 76814 | 197 |
+| `components` | 191 | 76812 | 197 |
 | `context` | 1 | 177 | 6 |
 | `hooks` | 16 | 1239 | 7 |
 | `lib` | 17 | 1964 | 6 |
@@ -181,7 +181,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Vault/VaultKanban.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultKanban.jsx) | 416 | `VaultKanban` | — |
 | [`frontend/src/components/Vault/VaultMarkdown.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultMarkdown.jsx) | 263 | `RetryableImage`, `VaultMarkdown` | — |
 | [`frontend/src/components/Vault/VaultShell.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultShell.jsx) | 231 | `VaultShell` | — |
-| [`frontend/src/components/Vault/VaultSidebar.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultSidebar.jsx) | 1741 | `VaultSidebar` | — |
+| [`frontend/src/components/Vault/VaultSidebar.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultSidebar.jsx) | 1614 | `VaultSidebar` | — |
 | [`frontend/src/components/Vault/VaultTable.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultTable.jsx) | 4355 | `VaultTable` | `/api/vault/assets/`, `/api/vault/delete-physical-file`, `/api/vault/llm-wiki/config`, `/api/vault/open-resource`, `/api/vault/option-catalogs`, `/api/vault/skills/execute-button-action` |
 | [`frontend/src/components/Vault/VaultTagsView.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultTagsView.jsx) | 142 | `VaultTagsView` | `/api/vault/tags` |
 | [`frontend/src/components/Vault/VaultTimeline.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultTimeline.jsx) | 854 | `VaultTimeline` | — |
@@ -226,6 +226,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Vault/vaultMarkdownBlocks.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/vaultMarkdownBlocks.js) | 73 | `parseVaultMarkdownBlocks` | — |
 | [`frontend/src/components/Vault/vaultMarkdownUtils.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/vaultMarkdownUtils.js) | 198 | `CITE_HREF_SENTINEL`, `STYLE_HREF_SENTINEL`, `WIKILINK_HREF_SENTINEL`, `convertInlineHtmlToMd`, `convertWikilinksToMd`, `decodeStylePayload`, `normalizeAssetUrl`, `wikilinkUrlTransform` | — |
 | [`frontend/src/components/Vault/vaultMediaUtils.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/vaultMediaUtils.js) | 68 | `getMediaType`, `getThumbnailUrl`, `isAudioUrl`, `isImageUrl`, `isVideoUrl` | — |
+| [`frontend/src/components/Vault/vaultSidebarTree.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/vaultSidebarTree.js) | 125 | `buildVaultSidebarTrees` | — |
 | [`frontend/src/components/Vault/viewConstants.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/viewConstants.js) | 87 | `MAIN_VIEW_NAME`, `VIEW_TYPES`, `getViewIcon`, `isLockedView`, `isMainView`, `isPageEmbedView`, `isProtectedMainView`, `isViewHidden` | — |
 | [`frontend/src/components/Vault/viewPopoverLayout.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/viewPopoverLayout.js) | 39 | `getViewPopoverLayout` | — |
 | [`frontend/src/components/Vault/zoteroLocale.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/zoteroLocale.js) | 10 | `uiLangToZoteroLocale` | — |
