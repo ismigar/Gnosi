@@ -5025,7 +5025,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                     </div>
                 </div>
 
-                <div className={`vault-page-overview px-12 pb-2 ${metadata.cover ? '' : 'vault-page-overview--bare'} ${metadata.icon ? 'vault-page-overview--with-icon' : 'vault-page-overview--without-icon'}`}>
+                <div className={`vault-page-overview px-16 pb-2 ${metadata.cover ? '' : 'vault-page-overview--bare'} ${metadata.icon ? 'vault-page-overview--with-icon' : 'vault-page-overview--without-icon'}`}>
                     <div className="mb-4 space-y-1.5">
                         <div className="flex items-center justify-between gap-4 group/title mb-6">
                             <textarea
@@ -5702,7 +5702,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                         </div>}
                     </div>
                 </div>
-                <div className="vault-page-body relative min-h-[500px] px-12 pb-8">
+                <div className="vault-page-body relative min-h-[500px] px-16 pb-8">
                     <ErrorBoundary>
                         {isCodeView ? (
                             <MarkdownCodeEditor

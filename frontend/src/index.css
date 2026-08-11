@@ -3160,6 +3160,13 @@ button:hover > .row-action-tooltip {
     border-radius: 0 !important;
 }
 
+/* Keep a click-capture wrapper from baseline-aligning the drag handle above
+   its sibling and the embedded block content. */
+.bn-side-menu > div:has([data-test="dragHandle"]) {
+    display: flex;
+    align-items: flex-start;
+}
+
 /* La VaultTable embeguda viu dins de `.ProseMirror`, on el CSS de taules de
    BlockNote (@blocknote/core) es filtra sobre la nostra `<table>` i trenca la
    columna fixa (sticky) del títol:
