@@ -3449,6 +3449,7 @@
     "type_chart": "Chart",
     "type_graph": "Graph",
     "table_options": "Table options",
+    "feed_options": "Feed options",
     "row_height": "Row height",
     "row_compact": "Compact",
     "row_normal": "Normal",

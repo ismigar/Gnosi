@@ -32,7 +32,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `application root` | 3 | 276 | 0 |
-| `components` | 190 | 76665 | 196 |
+| `components` | 190 | 76698 | 197 |
 | `context` | 1 | 177 | 6 |
 | `hooks` | 16 | 1239 | 7 |
 | `lib` | 17 | 1964 | 6 |
@@ -149,7 +149,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Vault/PageHistory.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PageHistory.jsx) | 337 | `PageHistory` | — |
 | [`frontend/src/components/Vault/PageHoverCard.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PageHoverCard.jsx) | 341 | `PageHoverCard` | — |
 | [`frontend/src/components/Vault/PageLinksGraph.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PageLinksGraph.jsx) | 185 | `PageLinksGraph` | — |
-| [`frontend/src/components/Vault/PageViewModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PageViewModal.jsx) | 2976 | `PageViewModal` | `/api/vault/views` |
+| [`frontend/src/components/Vault/PageViewModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PageViewModal.jsx) | 3051 | `PageViewModal` | `/api/ai/models`, `/api/vault/plugins/vault-summary/settings`, `/api/vault/views` |
 | [`frontend/src/components/Vault/PdfAnnotationsToCite.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PdfAnnotationsToCite.jsx) | 151 | `PdfAnnotationsToCite` | `/api/vault/pdf-annotations` |
 | [`frontend/src/components/Vault/PresentationMode.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PresentationMode.jsx) | 99 | `PresentationMode`, `function` | — |
 | [`frontend/src/components/Vault/ProcessResourceModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/ProcessResourceModal.jsx) | 255 | `ProcessResourceModal` | `/api/vault/llm-wiki/process` |
@@ -175,7 +175,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Vault/VaultDocumentTabs.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultDocumentTabs.jsx) | 413 | `VaultDocumentTabs` | — |
 | [`frontend/src/components/Vault/VaultDrawings.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultDrawings.jsx) | 125 | `VaultDrawings` | `/api/vault` |
 | [`frontend/src/components/Vault/VaultEditorContext.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultEditorContext.js) | 17 | `VaultEditorContext` | — |
-| [`frontend/src/components/Vault/VaultFeed.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultFeed.jsx) | 882 | `VaultFeed` | `/api/ai/models`, `/api/vault/open-resource`, `/api/vault/plugins/vault-summary/settings`, `/api/vault/plugins/vault-summary/summarize` |
+| [`frontend/src/components/Vault/VaultFeed.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultFeed.jsx) | 839 | `VaultFeed` | `/api/vault/open-resource`, `/api/vault/plugins/vault-summary/settings`, `/api/vault/plugins/vault-summary/summarize` |
 | [`frontend/src/components/Vault/VaultGallery.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultGallery.jsx) | 742 | `VaultGallery` | `/api/vault/open-resource` |
 | [`frontend/src/components/Vault/VaultGraph.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultGraph.jsx) | 156 | `VaultGraph` | `/api/config`, `/api/graph` |
 | [`frontend/src/components/Vault/VaultKanban.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultKanban.jsx) | 416 | `VaultKanban` | — |
@@ -186,7 +186,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Vault/VaultTagsView.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultTagsView.jsx) | 142 | `VaultTagsView` | `/api/vault/tags` |
 | [`frontend/src/components/Vault/VaultTimeline.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultTimeline.jsx) | 854 | `VaultTimeline` | — |
 | [`frontend/src/components/Vault/VaultTrashView.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultTrashView.jsx) | 249 | `VaultTrashView` | `/api/vault/trash` |
-| [`frontend/src/components/Vault/VaultViewBody.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultViewBody.jsx) | 202 | `VaultViewBody` | — |
+| [`frontend/src/components/Vault/VaultViewBody.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultViewBody.jsx) | 203 | `VaultViewBody` | — |
 | [`frontend/src/components/Vault/VaultViewErrorBoundary.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultViewErrorBoundary.jsx) | 94 | `VaultViewErrorBoundary` | — |
 | [`frontend/src/components/Vault/VaultViewHeader.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultViewHeader.jsx) | 76 | `VaultViewHeader` | — |
 | [`frontend/src/components/Vault/VaultViewToolbar.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultViewToolbar.jsx) | 101 | `VaultViewToolbar` | — |

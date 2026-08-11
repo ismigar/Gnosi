@@ -56,7 +56,7 @@ const TableBox = ({ children }) => (
 // (which resolves the real scroller via getScrollParent) keeps loading the rest into
 // as you scroll down the page; "See more" also expands the page.
 const FeedFlowBox = ({ children }) => (
-    <div className="my-2 w-full max-w-full min-w-0 rounded-xl border border-transparent focus-within:border-[var(--gnosi-primary)]/50 focus-within:ring-1 focus-within:ring-[var(--gnosi-primary)]/30 overflow-hidden transition-all">
+    <div className="mt-0 mb-2 w-full max-w-full min-w-0 rounded-xl border border-transparent focus-within:border-[var(--gnosi-primary)]/50 focus-within:ring-1 focus-within:ring-[var(--gnosi-primary)]/30 overflow-hidden transition-all">
         {children}
     </div>
 );

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
-import { FileText, Calendar, Clock, Link as LinkIcon, CheckSquare, Loader2, ExternalLink, ChevronDown, ChevronUp, PanelRight, X, ArrowLeft, ArrowRight, SlidersHorizontal } from 'lucide-react';
+import { FileText, Calendar, Clock, Link as LinkIcon, CheckSquare, Loader2, ExternalLink, ChevronDown, ChevronUp, PanelRight, X, ArrowLeft, ArrowRight } from 'lucide-react';
 import { getFieldConfig, getFieldType, getSchemaFieldNames, resolveViewSorts, resolveViewFilters } from './schemaUtils';
 import { normalizeOptions, optionChipStyle, autoColorFor } from './optionCatalogUtils';
 import { FileFieldValue } from './FileFieldValue';
@@ -21,6 +21,7 @@ import { toast } from '../../lib/toast';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { RelationItem } from './RelationItem';
+import { isMainView } from './viewConstants';
 import {
     normalizeRelationValues,
     unlinkRelationFromRecord,
@@ -69,14 +70,13 @@ function highlightSearchMatch(value, searchTerm) {
  * interact with the body); opening the page is done with the "Open" button or
  * by clicking the title.
  */
-function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, onOpen, onPreview, titlePreviewProps, searchTerm, isRead, density, index, onVisible, pillLimit = PILL_PREVIEW_LIMIT, excerptLines = 6 }) {
+function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, onOpen, onPreview, titlePreviewProps, searchTerm, isRead, density, pillLimit = PILL_PREVIEW_LIMIT, excerptLines = 6 }) {
     const { t, i18n } = useTranslation();
     const isCompact = useMediaQuery('(max-width: 768px)');
     const [expanded, setExpanded] = useState(false);
     const [showAllPills, setShowAllPills] = useState(false);
     const [previewOverflows, setPreviewOverflows] = useState(false);
     const previewRef = useRef(null);
-    const cardRef = useRef(null);
     // The cover is resolved the same way as in the other views (VaultGallery): `Assets/x`
     // → `/api/vault/assets/x` with the active vault in the query. A `background-image`
     // (like a native `<img>`) does NOT send the X-Vault-Id header, so without
@@ -112,16 +112,6 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
             observer?.disconnect();
         };
     }, [expanded, previewMd]);
-    useEffect(() => {
-        const card = cardRef.current;
-        if (!card || typeof IntersectionObserver !== 'function') return undefined;
-        const observer = new IntersectionObserver(([entry]) => {
-            if (entry.isIntersecting && entry.intersectionRatio >= 0.45) onVisible?.(index);
-        }, { threshold: [0.45] });
-        observer.observe(card);
-        return () => observer.disconnect();
-    }, [index, onVisible]);
-
     const handleToggleExpand = useCallback((e) => {
         e.stopPropagation();
         if (expanded) { setExpanded(false); return; }
@@ -134,7 +124,6 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
 
     return (
         <article
-            ref={cardRef}
             data-feed-note-id={note.id}
             className={`vault-feed-card ${density === 'compact' ? 'vault-feed-card--compact' : ''} ${density === 'adaptive' ? 'vault-feed-card--adaptive' : ''} ${isRead ? 'is-read' : ''} relative bg-[var(--bg-primary)] rounded-2xl shadow-sm border overflow-hidden hover:shadow-md transition-all group flex flex-col ${isSelected ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/40'}`}
         >
@@ -299,7 +288,6 @@ function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSele
     const { t, i18n } = useTranslation();
     const sentinelRef = useRef(null);
     const [visibleCount, setVisibleCount] = useState(FEED_BATCH);
-    const [visibleIndex, setVisibleIndex] = useState(0);
     const hasMore = visibleCount < notes.length;
 
     useEffect(() => {
@@ -324,7 +312,6 @@ function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSele
     }, [hasMore, notes.length]);
 
     const visibleNotes = useMemo(() => notes.slice(0, visibleCount), [notes, visibleCount]);
-    const handleVisible = useCallback((index) => setVisibleIndex(index), []);
     const dateGroup = useCallback((value) => {
         const date = new Date(value);
         const now = new Date();
@@ -340,9 +327,6 @@ function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSele
 
     return (
         <div className="w-full max-w-3xl flex flex-col gap-8 pb-16 relative">
-            <div className="vault-feed-position" role="status">
-                {t('feed.position', { current: Math.min(visibleIndex + 1, notes.length), total: notes.length })}
-            </div>
             {visibleNotes.map((note, index) => {
                 const group = groupMode === 'date' ? dateGroup(note.last_modified) : '';
                 const previousGroup = index > 0 && groupMode === 'date'
@@ -363,8 +347,6 @@ function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSele
                             searchTerm={searchTerm}
                             isRead={readIds.has(note.id)}
                             density={density}
-                            index={index}
-                            onVisible={handleVisible}
                             pillLimit={pillLimit}
                             excerptLines={excerptLines}
                         />
@@ -382,14 +364,12 @@ function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSele
     );
 }
 
-export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onDeleteSelected, onDeletePage, onApplyTemplate, templates = [], onUpdateNote, onCreateRecord, onOpenConfig, onClearSearch, onSearchChange, searchTerm = '', density = 'comfortable', groupMode = 'none' }) {
+export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onDeleteSelected, onDeletePage, onApplyTemplate, templates = [], onUpdateNote, onCreateRecord, onOpenConfig, onClearSearch, onSearchChange, searchTerm = '', density = 'comfortable', groupMode = 'none', isEmbedded = false }) {
     const { t, i18n } = useTranslation();
     const localeSettings = useLocaleSettings();
-    const preferenceKey = `gnosi.feed.preferences.${activeView?.id || 'default'}`;
-    const [feedPreferences, setFeedPreferences] = useState(() => {
-        try { return JSON.parse(localStorage.getItem(preferenceKey) || '{"pillLimit":5,"excerptLines":6}'); } catch { return { pillLimit: 5, excerptLines: 6 }; }
-    });
-    const [showPreferences, setShowPreferences] = useState(false);
+    const pillLimit = Number(activeView?.pillLimit ?? activeView?.pill_limit) || 5;
+    const excerptLines = Number(activeView?.excerptLines ?? activeView?.excerpt_lines) || 6;
+    const feedFocus = Boolean(activeView?.feedFocus ?? activeView?.feed_focus);
     const [previewId, setPreviewId] = useState('');
     const [paneWidth, setPaneWidth] = useState(() => {
         try { return Number(localStorage.getItem('gnosi.feed.readingPaneWidth')) || 480; } catch { return 480; }
@@ -398,9 +378,9 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
     const [dockReadingPane, setDockReadingPane] = useState(() => {
         try { return localStorage.getItem('gnosi.feed.dockReadingPane') === 'true'; } catch { return false; }
     });
-    const [feedFocus, setFeedFocus] = useState(false);
-    const [summaryModels, setSummaryModels] = useState([]);
-    const [summaryModel, setSummaryModel] = useState('');
+    const configuredSummaryModel = activeView?.summaryModel || activeView?.summary_model || '';
+    const [fallbackSummaryModel, setFallbackSummaryModel] = useState('');
+    const summaryModel = configuredSummaryModel || fallbackSummaryModel;
     const [summaryText, setSummaryText] = useState('');
     const [summaryState, setSummaryState] = useState('idle');
     const [summaryForId, setSummaryForId] = useState('');
@@ -428,50 +408,37 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
             return next;
         });
     }, [readStorageKey]);
-    const updateFeedPreferences = useCallback((patch) => {
-        setFeedPreferences((current) => {
-            const next = { ...current, ...patch };
-            try { localStorage.setItem(preferenceKey, JSON.stringify(next)); } catch { /* noop */ }
-            return next;
-        });
-    }, [preferenceKey]);
-
     useEffect(() => {
+        if (configuredSummaryModel) return undefined;
         let cancelled = false;
-        const loadSummaryPlugin = async () => {
+        const loadSummaryModel = async () => {
             try {
-                const [modelsResponse, settingsResponse] = await Promise.all([
-                    axios.get('/api/ai/models'),
-                    axios.get('/api/vault/plugins/vault-summary/settings'),
-                ]);
+                const settingsResponse = await axios.get('/api/vault/plugins/vault-summary/settings');
                 if (cancelled) return;
-                const models = (modelsResponse.data?.models || []).filter((model) => model?.enabled !== false && model?.provider && model?.model_id);
-                setSummaryModels(models);
                 const configured = settingsResponse.data?.settings?.model || '';
-                setSummaryModel(configured || (models[0] ? `${models[0].provider}:${models[0].model_id}` : ''));
+                setFallbackSummaryModel(configured);
             } catch {
-                if (!cancelled) setSummaryModels([]);
+                if (!cancelled) setFallbackSummaryModel('');
             }
         };
-        loadSummaryPlugin();
+        loadSummaryModel();
         return () => { cancelled = true; };
-    }, []);
+    }, [configuredSummaryModel]);
 
-    const saveSummaryModel = useCallback(async (model) => {
-        setSummaryModel(model);
-        try {
-            await axios.put('/api/vault/plugins/vault-summary/settings', { settings: { model } });
-            toast.success(t('feed.summary_model_saved', 'Summary model saved'));
-        } catch {
-            toast.error(t('feed.summary_model_error', 'Could not save the summary model'));
-        }
-    }, [t]);
-
-    // The feed shows ALL properties of the record (like Notion's feed),
-    // regardless of the view's `visibleProperties`: the card is the
-    // entire record in post format. `title` is excluded (by type AND by
-    // key): it's already the card's heading.
-    const dynamicColumns = getSchemaFieldNames(schema)
+    // Feed cards follow the same visible-field contract as gallery and board
+    // cards. This also prevents system dates that are not selected in the view
+    // from being repeated below the timestamp in the card header.
+    const configuredProperties = activeView?.visibleProperties
+        || activeView?.visible_properties
+        || activeView?.columns;
+    const visibleProperties = Array.isArray(configuredProperties) && configuredProperties.length
+        ? configuredProperties
+        : (isMainView(activeView)
+            ? getSchemaFieldNames(schema)
+            : getSchemaFieldNames(schema).slice(0, 3));
+    const dynamicColumns = visibleProperties
+        .map(prop => (typeof prop === 'string' ? prop : prop?.fieldKey))
+        .filter(Boolean)
         .map(prop => [prop, getFieldType(schema, prop)])
         .filter(([key, type]) => type && type !== 'title' && String(key).toLowerCase() !== 'title');
 
@@ -814,17 +781,7 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
     }
 
     return (
-        <div className={`vault-feed w-full h-full pt-vault-header-top px-4 md:px-6 pb-4 md:pb-6 overflow-y-auto custom-scrollbar bg-[var(--bg-primary)] flex flex-col items-center ${feedFocus ? 'is-focus' : ''} ${previewNote && dockReadingPane ? 'has-docked-pane' : ''}`} style={previewNote && dockReadingPane ? { paddingRight: `calc(${paneWidth}px + 1.5rem)` } : undefined}>
-            <div className="relative self-end w-full max-w-3xl flex justify-end mb-2">
-                <button type="button" onClick={() => setShowPreferences((open) => !open)} className="vault-feed-preferences-trigger" aria-expanded={showPreferences} title={t('feed.reading_preferences', 'Reading preferences')}><SlidersHorizontal size={14} /> {t('feed.reading_preferences', 'Reading preferences')}</button>
-                {showPreferences && <div className="vault-feed-preferences">
-                    <label>{t('feed.visible_tags', 'Visible tags')}<select value={feedPreferences.pillLimit} onChange={(event) => updateFeedPreferences({ pillLimit: Number(event.target.value) })}><option value="3">3</option><option value="5">5</option><option value="8">8</option></select></label>
-                    <label>{t('feed.excerpt_length', 'Excerpt length')}<select value={feedPreferences.excerptLines} onChange={(event) => updateFeedPreferences({ excerptLines: Number(event.target.value) })}><option value="3">3</option><option value="6">6</option><option value="9">9</option></select></label>
-                    <label className="vault-feed-preferences__toggle"><input type="checkbox" checked={feedFocus} onChange={(event) => setFeedFocus(event.target.checked)} />{t('feed.focus_feed', 'Focus feed')}</label>
-                    <label>{t('feed.summary_model', 'Summary model')}<select value={summaryModel} onChange={(event) => saveSummaryModel(event.target.value)} disabled={!summaryModels.length}><option value="">{t('feed.summary_model_placeholder', 'Select an active model')}</option>{summaryModels.map((model) => <option key={`${model.provider}:${model.model_id}`} value={`${model.provider}:${model.model_id}`}>{model.provider}: {model.model_id}</option>)}</select></label>
-                </div>}
-            </div>
-            <div className="vault-feed-progress" role="status">{t('feed.reading_progress', { read: sortedNotes.filter((note) => readIds.has(note.id)).length, total: sortedNotes.length, defaultValue: '{{read}} of {{total}} read' })}</div>
+        <div className={`vault-feed w-full h-full ${isEmbedded ? 'pb-4' : 'pt-vault-header-top px-4 md:px-6 pb-4 md:pb-6'} overflow-y-auto custom-scrollbar bg-[var(--bg-primary)] flex flex-col items-center ${feedFocus ? 'is-focus' : ''} ${previewNote && dockReadingPane ? 'has-docked-pane' : ''}`} style={previewNote && dockReadingPane ? { paddingRight: `calc(${paneWidth}px + 1.5rem)` } : undefined}>
             {selectedIds.size > 0 && (
                 <VaultBulkActionsBar
                         selectedIds={selectedIds}
@@ -867,8 +824,8 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
                 readIds={readIds}
                 density={density}
                 groupMode={groupMode}
-                pillLimit={feedPreferences.pillLimit}
-                excerptLines={feedPreferences.excerptLines}
+                pillLimit={pillLimit}
+                excerptLines={excerptLines}
             />
             {titlePreview.preview}
             {previewNote && <aside className={`vault-feed-reading-pane ${cleanReading ? 'is-clean' : ''} ${dockReadingPane ? 'is-docked' : ''}`} style={{ width: `min(${paneWidth}px, 92vw)` }} aria-label={t('feed.reading_pane', 'Reading pane')}>

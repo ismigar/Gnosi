@@ -138,6 +138,7 @@ export function VaultViewBody({
                 onClearSearch={() => onSearchChange?.('')}
                 density={feedDensity}
                 groupMode={feedGroupMode}
+                isEmbedded={isEmbedded}
             />
         );
     } else if (t === 'calendar') {

@@ -117,3 +117,10 @@ Before considering a view complete, verify:
   shared-view write solely on generic JSON change detection. Otherwise the
   section can contain the new direction while the registry keeps the old one,
   and the embed correctly prioritizes the stale shared source of truth.
+
+- **A Feed repeats its record total or adds a second preferences toolbar.** Do
+  not render reading preferences or reading-progress counts inside the Feed
+  body: they duplicate the shared view toolbar and consume vertical space. Put
+  Feed-specific preferences in `PageViewModal`, persist them as view extras,
+  and let `VaultFeed` read them from `activeView`. Embedded Feeds must also omit
+  the full-page header padding so their first card follows the shared toolbar.

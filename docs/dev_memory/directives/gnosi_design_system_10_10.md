@@ -234,6 +234,9 @@ environment-specific frontend assumptions.
   icon action shares a visible theme-aware focus ring in both color schemes.
 - Feed hierarchy prioritizes the record title over its timestamp and property
   pills without lowering secondary text below accessible contrast.
+- Feed cards respect the active view's ordered visible-field list, matching
+  gallery and board cards. Do not render every schema field because hidden
+  system dates then duplicate the timestamp already shown in the card header.
 - Feed density is an explicit user preference stored independently for mobile
   and desktop. Responsive defaults must not overwrite a choice made for the
   other profile.
