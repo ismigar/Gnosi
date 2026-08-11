@@ -3638,6 +3638,7 @@ export default function VaultDashboard() {
                                             idToTitle={globalIndex}
                                             allNotes={pages}
                                             activeView={mergedView}
+                                            onNoteSelect={loadPage}
                                     onSearchChange={setSearchTerm}
                                     onUpdateView={handleUpdateView}
                                     onDeletePage={handleDeletePage}
