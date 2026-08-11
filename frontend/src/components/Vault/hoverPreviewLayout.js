@@ -1,4 +1,5 @@
 export const HOVER_PREVIEW_MARGIN = 8;
+export const HOVER_PREVIEW_ARROW_STEP = 40;
 
 export function adaptiveHoverPreviewStyle({
     minWidth = 260,
@@ -35,4 +36,42 @@ export function positionHoverPreview(
     if (left < margin) left = margin;
 
     return { top, left };
+}
+
+export function isHoverPreviewScrollable(element) {
+    return Boolean(element && element.scrollHeight > element.clientHeight);
+}
+
+export function scrollHoverPreviewByKey(element, key) {
+    if (!isHoverPreviewScrollable(element)) return false;
+
+    const maxScrollTop = Math.max(0, element.scrollHeight - element.clientHeight);
+    const pageStep = Math.max(HOVER_PREVIEW_ARROW_STEP, Math.round(element.clientHeight * 0.8));
+    let nextScrollTop;
+
+    switch (key) {
+        case 'ArrowUp':
+            nextScrollTop = element.scrollTop - HOVER_PREVIEW_ARROW_STEP;
+            break;
+        case 'ArrowDown':
+            nextScrollTop = element.scrollTop + HOVER_PREVIEW_ARROW_STEP;
+            break;
+        case 'PageUp':
+            nextScrollTop = element.scrollTop - pageStep;
+            break;
+        case 'PageDown':
+            nextScrollTop = element.scrollTop + pageStep;
+            break;
+        case 'Home':
+            nextScrollTop = 0;
+            break;
+        case 'End':
+            nextScrollTop = maxScrollTop;
+            break;
+        default:
+            return false;
+    }
+
+    element.scrollTop = Math.max(0, Math.min(maxScrollTop, nextScrollTop));
+    return true;
 }

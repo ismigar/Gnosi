@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import {
     adaptiveHoverPreviewStyle,
+    isHoverPreviewScrollable,
     positionHoverPreview,
+    scrollHoverPreviewByKey,
 } from './hoverPreviewLayout';
 
 describe('adaptive hover preview layout', () => {
@@ -40,5 +42,53 @@ describe('adaptive hover preview layout', () => {
             top: 8,
             left: 8,
         });
+    });
+
+    it('detects vertical overflow without depending on width', () => {
+        expect(isHoverPreviewScrollable({ scrollHeight: 401, clientHeight: 400 })).toBe(true);
+        expect(isHoverPreviewScrollable({ scrollHeight: 400, clientHeight: 400 })).toBe(false);
+        expect(isHoverPreviewScrollable(null)).toBe(false);
+    });
+
+    it.each([
+        ['ArrowDown', 100, 140],
+        ['ArrowUp', 100, 60],
+        ['PageDown', 100, 340],
+        ['PageUp', 300, 60],
+        ['Home', 300, 0],
+        ['End', 100, 700],
+    ])('scrolls an overflowing preview with %s', (key, initial, expected) => {
+        const element = {
+            scrollTop: initial,
+            scrollHeight: 1000,
+            clientHeight: 300,
+        };
+
+        expect(scrollHoverPreviewByKey(element, key)).toBe(true);
+        expect(element.scrollTop).toBe(expected);
+    });
+
+    it('clamps at the vertical boundaries and ignores unrelated keys', () => {
+        const element = {
+            scrollTop: 690,
+            scrollHeight: 1000,
+            clientHeight: 300,
+        };
+
+        expect(scrollHoverPreviewByKey(element, 'ArrowDown')).toBe(true);
+        expect(element.scrollTop).toBe(700);
+        expect(scrollHoverPreviewByKey(element, 'Enter')).toBe(false);
+        expect(element.scrollTop).toBe(700);
+    });
+
+    it('does not consume cursor keys when the preview has no vertical overflow', () => {
+        const element = {
+            scrollTop: 0,
+            scrollHeight: 300,
+            clientHeight: 300,
+        };
+
+        expect(scrollHoverPreviewByKey(element, 'ArrowDown')).toBe(false);
+        expect(element.scrollTop).toBe(0);
     });
 });
