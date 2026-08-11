@@ -195,6 +195,42 @@ def test_sort_by_field_desc_and_default_title():
     assert by_title == ["2", "1"]  # A before B
 
 
+def test_sort_keeps_empty_values_last_in_both_directions():
+    rows = [
+        {"id": "empty", "title": "Empty", "metadata": {"Any": ""}},
+        {"id": "2025", "title": "2025", "metadata": {"Any": "2025"}},
+        {"id": "2026", "title": "2026", "metadata": {"Any": "2026"}},
+    ]
+
+    asc = [r["id"] for r in multi_key_sort(rows, [{"field": "Any", "direction": "asc"}])]
+    desc = [r["id"] for r in multi_key_sort(rows, [{"field": "Any", "direction": "desc"}])]
+
+    assert asc == ["2025", "2026", "empty"]
+    assert desc == ["2026", "2025", "empty"]
+
+
+def test_sort_matches_notion_year_desc_then_date_asc():
+    rows = [
+        {"id": "empty", "title": "Empty", "metadata": {"Any": "", "Data": ""}},
+        {"id": "oct", "title": "October", "metadata": {"Any": "2025", "Data": "2025-10-29"}},
+        {"id": "feb", "title": "February", "metadata": {"Any": "2026", "Data": "2026-02-23"}},
+        {"id": "may", "title": "May", "metadata": {"Any": "2025", "Data": "2025-05-16"}},
+    ]
+
+    ordered = [
+        r["id"]
+        for r in multi_key_sort(
+            rows,
+            [
+                {"field": "Any", "direction": "desc"},
+                {"field": "Data", "direction": "asc"},
+            ],
+        )
+    ]
+
+    assert ordered == ["feb", "may", "oct", "empty"]
+
+
 def test_sort_comma_decimal_numeric_order():
     # '0,5' < '0,75' < '2,25' — previously all "0,xx" tied at 0 (parseFloat)
     # and the order was left at the mercy of the sort's stability.

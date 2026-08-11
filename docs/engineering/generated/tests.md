@@ -11,8 +11,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
 | Playwright | 13 | 35 |
-| Vitest | 54 | 212 |
-| pytest | 180 | 1486 |
+| Vitest | 55 | 213 |
+| pytest | 180 | 1488 |
 
 ## Files
 
@@ -78,6 +78,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/utils/panelKeyboardNavigation.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/panelKeyboardNavigation.test.js) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/utils/projectPlanning.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/projectPlanning.test.js) | 10 | call-pattern estimate |
 | Vitest | [`frontend/src/utils/semanticOverlay.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/semanticOverlay.test.js) | 3 | call-pattern estimate |
+| Vitest | [`frontend/src/utils/vaultFilters.sort.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/vaultFilters.sort.test.js) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/utils/vaultQuickNavigation.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/vaultQuickNavigation.test.js) | 4 | call-pattern estimate |
 | Vitest | [`frontend/tests/account_management.spec.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/tests/account_management.spec.js) | 1 | call-pattern estimate |
 | Vitest | [`frontend/tests/interface-language.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/tests/interface-language.test.js) | 7 | call-pattern estimate |
@@ -248,7 +249,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_vault_trash_purge.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_vault_trash_purge.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_vcard_escaping.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_vcard_escaping.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_view_filter_rename.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_view_filter_rename.py) | 7 | Python AST |
-| pytest | [`backend/tests/test_view_snapshot.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_view_snapshot.py) | 47 | Python AST |
+| pytest | [`backend/tests/test_view_snapshot.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_view_snapshot.py) | 49 | Python AST |
 | pytest | [`backend/tests/test_virtual_fields_graph_projection.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_virtual_fields_graph_projection.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_web_clipper.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_web_clipper.py) | 13 | Python AST |
 | pytest | [`backend/tests/test_workspace_bootstrap_race.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_workspace_bootstrap_race.py) | 4 | Python AST |

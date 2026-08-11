@@ -39,7 +39,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `locales` | 3 | 565 | 0 |
 | `pages` | 16 | 12205 | 52 |
 | `plugins` | 4 | 528 | 5 |
-| `utils` | 14 | 1632 | 0 |
+| `utils` | 14 | 1627 | 0 |
 
 ## application root
 
@@ -347,5 +347,5 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/utils/panelKeyboardNavigation.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/panelKeyboardNavigation.js) | 16 | `getPanelScrollTarget` | — |
 | [`frontend/src/utils/projectPlanning.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/projectPlanning.js) | 361 | `addWorkingDuration`, `dependencySuccessorIds`, `formatLocalDateTime`, `latestPredecessorEnd`, `nextWorkingInstant`, `parsePeriod`, `periodBoundary`, `periodDaysInclusive`, `serializePeriod`, `withPeriodBoundaries`, `workingDurationDays`, `wouldCreateDependencyCycle` | — |
 | [`frontend/src/utils/semanticOverlay.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/semanticOverlay.js) | 51 | `SEMANTIC_SUGGESTION_COLOR`, `getSemanticOverlaySegments`, `getVisibleSemanticEdges`, `hasSemanticSuggestions` | — |
-| [`frontend/src/utils/vaultFilters.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/vaultFilters.js) | 307 | `ISO_DATE_RE`, `NUM_RE`, `asBool`, `compareFieldValues`, `isFilterGroup`, `matchesFilterNode`, `matchesFilters`, `matchesRule`, `matchesSearch`, `normalizeForSearch`, `parseNumericValue`, `sortKey`, `viewMatchesFilters` | — |
+| [`frontend/src/utils/vaultFilters.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/vaultFilters.js) | 302 | `ISO_DATE_RE`, `NUM_RE`, `asBool`, `compareFieldValues`, `isFilterGroup`, `matchesFilterNode`, `matchesFilters`, `matchesRule`, `matchesSearch`, `normalizeForSearch`, `parseNumericValue`, `sortKey`, `viewMatchesFilters` | — |
 | [`frontend/src/utils/vaultQuickNavigation.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/vaultQuickNavigation.js) | 48 | `isGeneratedIndexNote`, `openVaultNote`, `selectRecentNotes` | — |

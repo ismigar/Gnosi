@@ -1,22 +1,25 @@
 ---
 status: implemented
-last_verified: 2026-08-10
+last_verified: 2026-08-11
 source_paths:
   - backend/api/vault_routes.py
   - backend/api/vault_views_routes.py
   - backend/api/planning_routes.py
   - backend/services/table_system_dates.py
+  - backend/services/view_snapshot.py
   - backend/services/planning_engine.py
   - backend/services/planning_scheduler.py
   - pipeline/scripts/migrate_table_system_dates.py
   - frontend/src/components/Vault/VaultTable.jsx
   - frontend/src/pages/VaultDashboard.jsx
   - frontend/src/pages/ProjectPlanningPage.jsx
+  - frontend/src/utils/vaultFilters.js
 tests:
   - backend/tests/test_table_system_dates.py
   - backend/tests/test_migrate_table_system_dates.py
   - backend/tests/test_table_view_name_hygiene.py
   - backend/tests/test_view_snapshot.py
+  - backend/tests/test_snapshot_sort_accent_parity.py
   - backend/tests/test_planning_engine.py
   - backend/tests/test_project_planning.py
   - e2e/tests/e2e/dashboards.spec.ts
@@ -82,6 +85,13 @@ flowchart LR
 Els valors amb tipus de camp declarat han de ser comparats com el seu tipus de camp declarat. L' entrada de text només pot representar tots els valors de filtre; data, caixa de selecció, número, relació, seleccioneu i multivalor normalitzar els camps mitjançant operadors de camp compatible amb el camp.
 
 L' avaluació derivada del camp té una ordre explícita. Les fórmules que depenen dels valors en brut que s' executen abans de que les relacions agregades i dependre de fórmules es resolin sense permetre que els cicles es repeteixin indefinidament. El dorsal i les representacions dels frontals han d' estar d' acord amb la veritat, percentatges, valors buits i identificadors d' opció.
+
+Els criteris d'ordenació de les vistes desades s'apliquen en l'ordre de la
+llista amb una comparació estable de múltiples claus. Els valors buits sempre
+queden després dels valors informats, tant en ordre ascendent com descendent,
+tal com fa Notion en les vistes importades. Les vistes del frontend i les
+instantànies Markdown del backend comparteixen aquesta regla perquè l'ordre
+dels registres no divergeixi.
 
 Quan `VaultDashboard` renderitza una pestanya de taula, passa les funcionalitats habilitades del registre de la taula a través de `VaultViewBody` fins a `VaultTable`. Per tant, la pestanya de taula, la taula independent, el panell dividit i la vista incrustada exposen les mateixes accions de fila configurades. Si s'omet aquesta cadena de propietats, l'acció queda oculta encara que el registre i l'API la retornin com a habilitada.
 

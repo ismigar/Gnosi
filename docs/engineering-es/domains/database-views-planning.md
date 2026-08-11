@@ -1,22 +1,25 @@
 ---
 status: implemented
-last_verified: 2026-08-10
+last_verified: 2026-08-11
 source_paths:
   - backend/api/vault_routes.py
   - backend/api/vault_views_routes.py
   - backend/api/planning_routes.py
   - backend/services/table_system_dates.py
+  - backend/services/view_snapshot.py
   - backend/services/planning_engine.py
   - backend/services/planning_scheduler.py
   - pipeline/scripts/migrate_table_system_dates.py
   - frontend/src/components/Vault/VaultTable.jsx
   - frontend/src/pages/VaultDashboard.jsx
   - frontend/src/pages/ProjectPlanningPage.jsx
+  - frontend/src/utils/vaultFilters.js
 tests:
   - backend/tests/test_table_system_dates.py
   - backend/tests/test_migrate_table_system_dates.py
   - backend/tests/test_table_view_name_hygiene.py
   - backend/tests/test_view_snapshot.py
+  - backend/tests/test_snapshot_sort_accent_parity.py
   - backend/tests/test_planning_engine.py
   - backend/tests/test_project_planning.py
   - e2e/tests/e2e/dashboards.spec.ts
@@ -82,6 +85,13 @@ flowchart LR
 Los valores tipográficos deben compararse como su tipo de campo declarado. La entrada de texto por sí sola no puede representar cada valor de filtro; los campos fecha, casilla de verificación, número, relación, selección y multivalor se normalizan a través de operadores con conocimiento de campo.
 
 La evaluación de campo derivado tiene un orden explícito. Fórmulas que dependen de valores brutos que se ejecutan antes de las rerollups que se resuelven las relaciones agregadas, y fórmulas dependientes sin permitir que los ciclos se repitan indefinidamente. Las representaciones de backend y frontend deben acordar la veracidad de la casilla de verificación, porcentajes, valores vacíos e identificadores de opciones.
+
+Los criterios de ordenación de las vistas guardadas se aplican en el orden de
+la lista mediante una comparación estable de múltiples claves. Los valores
+vacíos siempre quedan después de los valores informados, tanto en orden
+ascendente como descendente, igual que en las vistas importadas de Notion. Las
+vistas del frontend y las instantáneas Markdown del backend comparten esta
+regla para que el orden de los registros no diverja.
 
 Cuando `VaultDashboard` renderiza una pestaña de tabla, pasa las funcionalidades habilitadas del registro de la tabla a través de `VaultViewBody` hasta `VaultTable`. Por tanto, la pestaña de tabla, la tabla independiente, el panel dividido y la vista incrustada exponen las mismas acciones de fila configuradas. Si se omite esta cadena de propiedades, la acción queda oculta aunque el registro y la API la devuelvan como habilitada.
 

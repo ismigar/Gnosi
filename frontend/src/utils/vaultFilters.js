@@ -228,11 +228,9 @@ export function sortKey(value) {
  * so that the main view (useVaultViewData), embedded views
  * (DbViewEmbed.multiKeySort) and —ideally— the backend snapshot
  * (view_snapshot.multi_key_sort) sort EXACTLY the same way:
- *  - EMPTY values FOLLOW the direction (like Excel/Sheets): LAST in
- *    ascending, FIRST in descending. Without this, a sparsely
- *    populated column made empty rows float to the top in ascending
- *    order, but pinning them last in BOTH directions was surprising
- *    when toggling to descending.
+ *  - EMPTY values are always LAST, in both ascending and descending
+ *    order. This matches Notion view sorting and prevents records without
+ *    the primary property from preceding populated records.
  *  - if both values are NUMERIC, real numeric order (2 < 10, not "10" < "2").
  *  - otherwise, `localeCompare` with normalization (sortKey), locale 'ca' and
  *    'base' sensitivity (insensitive to accents/case).
@@ -258,10 +256,7 @@ export function compareFieldValues(aRaw, bRaw, direction = 'asc') {
     const bEmpty = bVal.trim() === '';
     if (aEmpty || bEmpty) {
         if (aEmpty && bEmpty) return 0;
-        // Empty values FOLLOW the direction: LAST in asc, FIRST in desc
-        // (Excel/Sheets convention). Both branches depend on `direction`.
-        const emptyFirst = direction === 'desc';
-        return aEmpty ? (emptyFirst ? -1 : 1) : (emptyFirst ? 1 : -1);
+        return aEmpty ? 1 : -1;
     }
     // We only treat the value as NUMERIC if the WHOLE string is a number
     // (NUM_RE, which EXCLUDES dates): `parseFloat`/`parseNumericValue` parse

@@ -20,12 +20,12 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `scheduler` | 2 | 949 |
 | `scripts` | 3 | 130 |
 | `security` | 3 | 735 |
-| `services` | 112 | 37100 |
+| `services` | 112 | 37094 |
 | `sh` | 1 | 69 |
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **228 modules** and **91282 source lines**.
+Total: **228 modules** and **91276 source lines**.
 
 ## agent
 
@@ -298,7 +298,7 @@ Total: **228 modules** and **91282 source lines**.
 | [`backend/services/vault_file_index.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/vault_file_index.py) | 358 | 0 | 12 | 0 | 12 | vault_file_index.py — Vault file/folder name index. |
 | [`backend/services/vault_mail_sync_service.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/vault_mail_sync_service.py) | 206 | 1 | 0 | 0 | 0 | No module docstring |
 | [`backend/services/vault_warmup.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/vault_warmup.py) | 127 | 0 | 3 | 1 | 3 | Proactive warmup of the vault's CRITICAL files (OneDrive online-only). |
-| [`backend/services/view_snapshot.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/view_snapshot.py) | 866 | 0 | 28 | 0 | 25 | Snapshot of the results of a view embedded in the markdown body. |
+| [`backend/services/view_snapshot.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/view_snapshot.py) | 860 | 0 | 28 | 0 | 25 | Snapshot of the results of a view embedded in the markdown body. |
 | [`backend/services/web_clipper.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/web_clipper.py) | 257 | 0 | 9 | 0 | 6 | Web Clipper as a configurable plugin: destination table and field mapping. |
 | [`backend/services/workspace_service.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/workspace_service.py) | 307 | 1 | 5 | 0 | 4 | No module docstring |
 | [`backend/services/zotero_schema.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/zotero_schema.py) | 558 | 0 | 0 | 0 | 0 | GENERATED — DO NOT EDIT. Source: pipeline/skills/zotero_schema/schema.json. Regenerate with `pipeline/skills/zotero_schema/scripts/build_constants.py`. |
