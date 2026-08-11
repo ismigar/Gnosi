@@ -170,6 +170,10 @@ Clear cursor and range when view, search, sort order, or row identity changes.
 - Do not treat relation unlink as page deletion or reuse the trash restore API.
 - Do not show action controls on multi-select values; the relation item contract
   applies only to fields whose schema type is `relation`.
+- Do not omit `onNoteSelect` from any `VaultViewBody` table context. The main
+  table route, table-tab renderer, split-table renderer, and embedded renderer
+  must all forward the open callback; otherwise the visible Open action throws
+  while Open Parallel keeps working through its separate callback.
 - Do not refresh only the global page list after relation history changes; table
   panes keep their own record cache and would remain visually stale.
 - Do not update only the page-property cursor state during keyboard navigation;
