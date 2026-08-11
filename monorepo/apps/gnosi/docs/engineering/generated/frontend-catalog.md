@@ -32,7 +32,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `application root` | 3 | 276 | 0 |
-| `components` | 190 | 76809 | 197 |
+| `components` | 190 | 76814 | 197 |
 | `context` | 1 | 177 | 6 |
 | `hooks` | 16 | 1239 | 7 |
 | `lib` | 17 | 1964 | 6 |
@@ -192,7 +192,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Vault/VaultViewToolbar.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultViewToolbar.jsx) | 101 | `VaultViewToolbar` | — |
 | [`frontend/src/components/Vault/VaultViewsHeader.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultViewsHeader.jsx) | 1074 | `VaultViewsHeader` | — |
 | [`frontend/src/components/Vault/WikilinkContextMenu.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/WikilinkContextMenu.jsx) | 195 | `WikilinkContextMenu` | — |
-| [`frontend/src/components/Vault/WikilinkHoverPreview.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/WikilinkHoverPreview.jsx) | 238 | `WikilinkHoverPreview`, `invalidatePreviewCache` | — |
+| [`frontend/src/components/Vault/WikilinkHoverPreview.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/WikilinkHoverPreview.jsx) | 243 | `WikilinkHoverPreview`, `invalidatePreviewCache` | — |
 | [`frontend/src/components/Vault/WikilinkInline.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/WikilinkInline.jsx) | 271 | `WikilinkInline` | `/api/vault/resolve-by-title` |
 | [`frontend/src/components/Vault/WorkspacesModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/WorkspacesModal.jsx) | 75 | `WorkspacesModal`, `function` | — |
 | [`frontend/src/components/Vault/ZoteroExtrasSection.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/ZoteroExtrasSection.jsx) | 241 | `ZoteroExtrasSection` | `/api/vault/promote-zotero-extra` |

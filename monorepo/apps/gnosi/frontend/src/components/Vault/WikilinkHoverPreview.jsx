@@ -4,6 +4,7 @@ import axios from 'axios';
 import { FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { IconRenderer } from './IconRenderer';
+import { VaultMarkdown } from './VaultMarkdown';
 import {
     adaptiveHoverPreviewStyle,
     isHoverPreviewScrollable,
@@ -64,8 +65,9 @@ if (typeof window !== 'undefined') {
 }
 
 /**
- * Wikipedia-style popup for wikilink hover.
- * Shows title, icon (if present), and excerpt (first paragraph).
+ * Full-record popup for wikilink hover.
+ * Shows title, icon (if present), and the complete Markdown body with vertical
+ * scrolling. The excerpt remains only as a fallback for legacy payloads.
  *
  * Props:
  *  - pageId: resolved ID (UUID or normalized title) of the page
@@ -97,7 +99,7 @@ export const WikilinkHoverPreview = ({ pageId, anchorRect, onMouseEnter, onMouse
         setData(null);
         setLoading(true);
         setError(false);
-        axios.get(`/api/vault/pages/${encodeURIComponent(pageId)}/preview`)
+        axios.get(`/api/vault/pages/${encodeURIComponent(pageId)}/preview?full=true`)
             .then(res => {
                 if (cancelled) return;
                 writeCache(pageId, res.data);
@@ -220,10 +222,13 @@ export const WikilinkHoverPreview = ({ pageId, anchorRect, onMouseEnter, onMouse
                     </div>
                 )}
                 {!loading && !error && data && (
-                    data.excerpt ? (
-                        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed whitespace-pre-line break-words [overflow-wrap:anywhere]">
-                            {data.excerpt}
-                        </p>
+                    (data.body_md || data.content || data.excerpt) ? (
+                        <div className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed feed-md break-words [overflow-wrap:anywhere] [&_*]:max-w-full [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_pre]:[overflow-wrap:anywhere] [&_code]:whitespace-pre-wrap [&_code]:break-words [&_code]:[overflow-wrap:anywhere] [&_code]:overflow-x-hidden [&_table]:table [&_table]:w-full [&_table]:table-fixed [&_th]:break-words [&_th]:[overflow-wrap:anywhere] [&_td]:break-words [&_td]:[overflow-wrap:anywhere]">
+                            <VaultMarkdown
+                                md={String(data.body_md || data.content || data.excerpt)}
+                                imageTitle={data.title}
+                            />
+                        </div>
                     ) : (
                         <p className="text-xs text-slate-400 italic">{t('wikilink.empty_page', "Empty page")}</p>
                     )

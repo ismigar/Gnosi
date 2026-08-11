@@ -10,8 +10,8 @@ other database views, wikilinks, and citations.
 
 - `PageHoverCard` is the shared full-record preview used by table, gallery,
   board, timeline, feed, and calendar titles.
-- `WikilinkHoverPreview` is the compact record preview used by wikilinks and
-  citations inside record content.
+- `WikilinkHoverPreview` is the compact full-record preview used by wikilinks
+  and citations inside record content.
 - Both use the shared layout and keyboard-scroll utilities in
   `hoverPreviewLayout.js`.
 
@@ -19,6 +19,9 @@ other database views, wikilinks, and citations.
 
 - The content region scrolls vertically when its rendered content exceeds the
   viewport-safe card height.
+- Wikilink and citation hovers request the full preview payload and render the
+  complete Markdown body. The short API excerpt is only a compatibility
+  fallback when no full body is available.
 - The card and its content never expose horizontal scrolling. Long words,
   preformatted text, code, and tables wrap or stay constrained to the card.
 - Moving the pointer into an overflowing card focuses its content region without
@@ -57,3 +60,7 @@ other database views, wikilinks, and citations.
 - Do not put `overflow-y-auto` on a child without a constrained flex height;
   it can grow to its content and never become scrollable. Use a `min-height: 0`
   flex content region under the card's viewport-safe maximum height.
+- Do not request or render only the excerpt in a record hover. That produces a
+  scroll-capable container with no additional content to scroll and makes the
+  feature appear unchanged. Request `preview?full=true`, prefer `body_md`, and
+  use the excerpt only as a fallback for legacy payloads.
