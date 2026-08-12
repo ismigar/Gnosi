@@ -136,6 +136,20 @@ when movement reaches the last loaded row.
 
 Clear cursor and range when view, search, sort order, or row identity changes.
 
+## Record return focus
+
+Opening a record from the grid must retain the source record ID and the source
+table/view ID. When the record closes and the grid mounts again, restore the
+title-cell cursor, load the virtualized batch containing that stable record ID,
+scroll it into view, and return DOM focus to that title cell. Record IDs are the
+anchor; row indexes are not stable after sorting, filtering, or a title edit.
+
+An optimistic title edit in the open record must update the tab, global page
+list, title index, active table notes, and every per-table visible-record cache
+immediately. The eventual PATCH may reconcile in the background, but returning
+to the source view must never require a page or view reload to reveal the new
+title.
+
 ## Shortcut coexistence
 
 - Existing row selection keeps Command/Ctrl+A.
@@ -180,3 +194,27 @@ Clear cursor and range when view, search, sort order, or row identity changes.
   the focused row can leave the viewport without moving the nested page
   scroller. Focus the matching row without implicit scrolling, then explicitly
   scroll it into the nearest visible position.
+- Do not restore a closed record by its previous row index; title edits and view
+  sorting can move it. Restore by record ID, expand its parent/group when
+  necessary, and increase the virtualized batch before focusing its title cell.
+- Do not call the full page-list refresh after a metadata/title PATCH. The
+  backend index may still expose the previous title and overwrite the optimistic
+  caches 600–900 ms after the edit. Update the parent caches through the editor
+  callback and let normal background reconciliation happen independently.
+- Do not cancel the deferred DOM-focus attempt when setting the restored grid
+  cursor causes React to render again. Mark the request as scheduled before the
+  cursor update and let the bounded focus retry survive that render; otherwise
+  the row looks selected while keyboard focus remains on the document body.
+- Do not rely exclusively on `requestAnimationFrame` for return focus; browsers
+  may suspend animation frames while the Gnosi tab is backgrounded. Use a short,
+  bounded timer retry so focus restoration also completes after a background
+  tab or window transition.
+- The source table can reconcile its asynchronous snapshot immediately after it
+  mounts, replacing the first focused virtual row. Require two short consecutive
+  stable focus checks. Retry only while the active element is the document body
+  or the target cell, and stop at once if the user focuses another control; this
+  restores focus without creating a temporary focus trap.
+- Do not clear the parent's pending restoration request with state immediately
+  after focusing. That rerenders the whole dashboard and can replace the focused
+  virtual row. Mark the request as consumed in a ref instead; the next parent
+  render can stop forwarding it without disturbing the current DOM focus.

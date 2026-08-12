@@ -4074,11 +4074,10 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                 setSaveStatus('saved');
                 // Notifies the parent so that `tabs[i].title` and the breadcrumb
                 // follow the rename. Without this, title changes via the
-                // properties panel or header input only propagated via
-                // `onRefreshNotes` (slow, full fetch); the tab would stay
-                // showing the old title until the next reload.
+                // properties panel or header input would stay local to the
+                // editor. The parent owns the optimistic page and table caches,
+                // so a full page-list refresh is neither needed nor safe here.
                 if (onUpdate) onUpdate(noteFilename, undefined, { title: data.title, metadata: data.metadata });
-                if (onRefreshNotes) onRefreshNotes();
                 setTimeout(() => setSaveStatus(prev => prev === 'saved' ? 'idle' : prev), 3000);
                 return true;
             } catch (err) {
@@ -4106,7 +4105,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         });
         metaSaveInFlightRef.current = promise;
         return promise;
-    }, [noteFilename, onUpdate, onRefreshNotes, t]);
+    }, [noteFilename, onUpdate, t]);
 
     // Debounced metadata save. Without this, every keystroke on the title or
     // every option toggle on a multi-select fires its own PATCH; on slow
@@ -4142,7 +4141,13 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         };
     }, [noteFilename, _doSaveMetadata]);
 
-    const handleTitleChange = (e) => { const nextTitle = e.target.value; const nextMeta = { ...metadata, title: nextTitle }; setMetadata(nextMeta); handleSaveMetadata(nextMeta); };
+    const handleTitleChange = (e) => {
+        const nextTitle = e.target.value;
+        const nextMeta = { ...metadata, title: nextTitle };
+        setMetadata(nextMeta);
+        onUpdate?.(noteFilename, undefined, { title: nextTitle, metadata: nextMeta });
+        handleSaveMetadata(nextMeta);
+    };
 
     useEffect(() => {
         autoGrowTextarea(titleInputRef.current);

@@ -15,3 +15,13 @@
 - [x] Add the localized in-app sidebar access to the canonical engineering portal.
 - [x] Configure the public repository to use GitHub Actions as its Pages source.
 - [x] Consolidate staging memory into the corresponding Skill.
+
+## Restore table record focus and live title updates
+
+- [x] Read the table-grid, view-management, environment, and QA directives.
+- [x] Preserve and restore the source record focus after closing an open record.
+- [x] Propagate open-record title edits optimistically to every table-view cache.
+- [x] Verify integrity with `npm run build`.
+- [x] Visual and functionality validation in the browser (Browser).
+- [x] Check for Z-index conflicts and visual overlapping.
+- [x] Consolidate staging memory into the corresponding directive.
