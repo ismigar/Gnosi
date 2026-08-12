@@ -3028,9 +3028,11 @@ export function EditorInner({
                     margin-block: 0.1em !important;
                 }
 
-                /* Table header cells (<th>): gray background and bold text by default */
+                /* Table headers use theme tokens so text and background keep
+                   sufficient contrast in both light and dark modes. */
                 .bn-editor [data-content-type="table"] th {
-                    background-color: #ebeced !important;
+                    background-color: var(--bg-tertiary) !important;
+                    color: var(--text-primary) !important;
                     font-weight: 700 !important;
                 }
                 .bn-editor [data-content-type="table"] th *,
