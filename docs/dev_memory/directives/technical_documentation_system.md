@@ -211,6 +211,16 @@ Catalan and Spanish portals match the English source tree.
   catalogs are verified in private CI and intentionally include private
   development-memory directives that are not synchronized; the public Pages
   workflow must validate the committed portal and build it without regeneration.
+- Do not open or update a pull request after changing a path covered by the
+  private documentation workflow without running the technical-documentation
+  pre-PR gate from the authoritative application tree. Writing a functional
+  directive does not refresh deterministic catalogs; run the gate in update
+  mode, review and stage every generated page, and require its final check mode
+  to pass before pushing.
+- Do not duplicate the documentation workflow as an informal command list in
+  delivery notes. Keep the executable sequence in the technical-documentation
+  skill's pre-PR script and make the root agent instructions invoke that single
+  entry point so local validation and CI cannot silently diverge.
 - A missing doc-tool dependency is a failed documentation build, not permission
   to skip verification.
 
@@ -219,6 +229,8 @@ Catalan and Spanish portals match the English source tree.
 The documentation system is ready when:
 
 - The generator produces byte-identical output on consecutive runs.
+- The pre-PR gate updates generated catalogs, then verifies them without a
+  second diff before any implementation branch is pushed.
 - `generate.py --check` succeeds on a clean generated tree.
 - The documentation site builds with strict warnings enabled.
 - All internal Markdown links and declared source paths resolve.

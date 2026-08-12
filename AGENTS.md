@@ -92,6 +92,25 @@ against `main`. Preserve unrelated worktree changes. Do not create commits or PR
 analysis-only, diagnostic-only, or explicitly local-only tasks; report authentication,
 network, merge-conflict, or approval blockers instead.
 
+### Engineering documentation gate (Mandatory before push/PR)
+
+For every implementation diff that matches the path filters in
+`.github/workflows/documentation.yml`, run the repository's documentation gate from
+`monorepo/apps/gnosi/` before staging the final commit:
+
+`<python> pipeline/skills/technical_documentation/scripts/pre_pr.py --base-ref origin/main`
+
+Use the active Gnosi virtual-environment interpreter locally (`.venv/bin/python` in the
+authoritative workspace) or an equivalent Python environment with `requirements-docs.txt`
+installed. The command updates deterministic catalogs, checks functional-change impact,
+validates links and localized mirrors, runs documentation-tool tests, and builds all three
+strict MkDocs portals. Review and stage every resulting file under
+`docs/engineering/generated/`. Run the same command again after staging; do not push or open
+the PR unless the second run produces no further generated diff and exits successfully.
+Missing documentation dependencies or a stale generated page are blockers, never reasons to
+skip the gate. In an isolated worktree, use an available external interpreter rather than
+creating or committing a worktree-local virtual environment.
+
 ## Essential Commands
 
 **Frontend:** `npm run dev | build | lint | test (Playwright)`  

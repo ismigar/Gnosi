@@ -371,6 +371,7 @@
     "main_navigation": "Navegación principal",
     "my_vault": "Mi Conocimiento",
     "search": "Buscar",
+    "search_shortcut": "{{shortcut}}",
     "recent": "Reciente",
     "drawings": "Dibujos",
     "add_drawing": "Añadir dibujo",

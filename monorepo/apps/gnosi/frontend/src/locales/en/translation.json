@@ -419,6 +419,7 @@
     "main_navigation": "Main navigation",
     "my_vault": "My Knowledge",
     "search": "Search",
+    "search_shortcut": "{{shortcut}}",
     "recent": "Recent",
     "drawings": "Drawings",
     "add_drawing": "Add drawing",
