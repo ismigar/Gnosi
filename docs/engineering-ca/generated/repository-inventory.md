@@ -10,21 +10,21 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 
 | Superfície | Compte |
 | --- | ---: |
-| Dorsal de fitxers Python | 395 |
-| Dorsal de fitxers de proves en Python | 167 |
-| Frontal de fitxers de codi font JS/TS | 306 |
-| Fitxers de proves d' unitats per al Frontal | 44 |
+| Dorsal de fitxers Python | 398 |
+| Dorsal de fitxers de proves en Python | 170 |
+| Frontal de fitxers de codi font JS/TS | 316 |
+| Fitxers de proves d' unitats per al Frontal | 51 |
 | Encaminadors d' API ràpids Registrat | 33 |
 | Executar contractes d' habilitat | 23 |
-| Directives del desenvolupament | 165 |
+| Directives del desenvolupament | 169 |
 
 ## Superfícies d' aplicació propis
 
 | Superfície | Fitxers | Límit dependència |
 | --- | ---: | --- |
-| `backend/` | 405 | RALLE, serveis, models, agents, planificació i adaptadors d' emmagatzematge |
-| `frontend/src/` | 326 | Una aplicació react, comportament de la IU, estat i integració del navegador |
-| `pipeline/` | 99 | habilitat de l' aplicació i eines de processament determinants |
+| `backend/` | 408 | RALLE, serveis, models, agents, planificació i adaptadors d' emmagatzematge |
+| `frontend/src/` | 336 | Una aplicació react, comportament de la IU, estat i integració del navegador |
+| `pipeline/` | 100 | habilitat de l' aplicació i eines de processament determinants |
 | `electron/` | 18 | Un cicle vital de l'escriptori, empaquetament de paquets de paquets, IPC i actualitzacions |
 | `integrations/` | 12 | Adaptadors de l' oficina i de sistemes externs |
 | `web-clipper/` | 11 | Superfície de captura de l' extensió del navegador |

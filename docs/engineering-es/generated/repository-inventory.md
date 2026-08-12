@@ -10,21 +10,21 @@ Regenerar con `python pipeline/skills/technical_documentation/scripts/generate.p
 
 | Superficie | Cuenta |
 | --- | ---: |
-| Archivos de motor Python | 395 |
-| Archivos de prueba de motor Python | 167 |
-| Frontend JS/TS source files | 306 |
-| Archivos de prueba de la unidad de interfaz | 44 |
+| Archivos de motor Python | 398 |
+| Archivos de prueba de motor Python | 170 |
+| Frontend JS/TS source files | 316 |
+| Archivos de prueba de la unidad de interfaz | 51 |
 | Enrutadores FastAPI registrados | 33 |
 | Contratos de capacitación en tiempo de ejecución | 23 |
-| Directivas sobre el desarrollo y la memoria | 165 |
+| Directivas sobre el desarrollo y la memoria | 169 |
 
 ## Superficies de aplicación propias
 
 | Superficie | Archivos | Límite de finalidad |
 | --- | ---: | --- |
-| `backend/` | 405 | FastAPI, servicios, modelos, agentes, agenda y adaptadores de almacenamiento |
-| `frontend/src/` | 326 | Reaccionar la aplicación, el comportamiento de la interfaz de usuario, el estado y las integraciones del navegador |
-| `pipeline/` | 99 | Capacidades de aplicación reutilizables y herramientas de procesamiento deterministas |
+| `backend/` | 408 | FastAPI, servicios, modelos, agentes, agenda y adaptadores de almacenamiento |
+| `frontend/src/` | 336 | Reaccionar la aplicación, el comportamiento de la interfaz de usuario, el estado y las integraciones del navegador |
+| `pipeline/` | 100 | Capacidades de aplicación reutilizables y herramientas de procesamiento deterministas |
 | `electron/` | 18 | Ciclo de vida del escritorio, embalaje de backend, IPC y actualizaciones |
 | `integrations/` | 12 | Adaptadores de oficina y de sistema externo |
 | `web-clipper/` | 11 | Superficie de captura de extensión del navegador |
