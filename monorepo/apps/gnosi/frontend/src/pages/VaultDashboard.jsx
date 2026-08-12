@@ -1039,6 +1039,7 @@ export default function VaultDashboard() {
                 tableId,
                 viewId: viewId || null,
                 requestId: recordReturnFocusSequenceRef.current,
+                isArmed: false,
             });
         }
         return loadPage(pageId);
@@ -1970,6 +1971,14 @@ export default function VaultDashboard() {
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pushToHistory, setActiveTableId, setViewMode, setActiveTabId, resolvePageTableId, getTableVisibleRecords, setTableNotes, pages, setTableTemplates, fetchPagesByTable, registry.tables, registry.views, getSchemaFromTableId, setViews, setActiveViewId, getPreferredInitialViewId, fetchRegistry, tabs, getTableIdFromTab, activeTableId]);
+
+    const returnToTableFromBreadcrumb = useCallback((tableId, viewId = null) => {
+        setRecordReturnFocus(current => {
+            if (!current || current.tableId !== tableId) return current;
+            return { ...current, isArmed: true };
+        });
+        return handleTableSelect(tableId, viewId);
+    }, [handleTableSelect]);
 
     const handleEditorUpdate = useCallback((pageId, content, payload = {}) => {
         setTabs(prevTabs => prevTabs.map(tab => {
@@ -3133,13 +3142,13 @@ export default function VaultDashboard() {
         if (database) {
             crumbs.push({
                 label: database.name,
-                onClick: () => handleTableSelect(table.id, viewId)
+                onClick: () => returnToTableFromBreadcrumb(table.id, viewId)
             });
         }
 
         crumbs.push({
             label: table.name,
-            onClick: () => handleTableSelect(table.id, viewId)
+            onClick: () => returnToTableFromBreadcrumb(table.id, viewId)
         });
 
         return crumbs;
@@ -3688,7 +3697,7 @@ export default function VaultDashboard() {
                                             activeView={mergedView}
                                             searchTerm={searchTerm}
                                             onNoteSelect={(pageId, openContext) => openRecordFromView(pageId, tableId, currentViewId, openContext)}
-                                            restoreRecordFocus={recordReturnFocus?.tableId === tableId && consumedRecordReturnFocusRef.current !== recordReturnFocus.requestId && (!recordReturnFocus.viewId || recordReturnFocus.viewId === currentViewId) ? recordReturnFocus : null}
+                                            restoreRecordFocus={recordReturnFocus?.isArmed === true && recordReturnFocus.tableId === tableId && consumedRecordReturnFocusRef.current !== recordReturnFocus.requestId && (!recordReturnFocus.viewId || recordReturnFocus.viewId === currentViewId) ? recordReturnFocus : null}
                                             onRecordFocusRestored={handleRecordFocusRestored}
                                     onSearchChange={setSearchTerm}
                                     onUpdateView={handleUpdateView}
@@ -3916,7 +3925,7 @@ export default function VaultDashboard() {
                                 actionRules={registry.tables?.find(x => x.id === tableId)?.action_rules}
                                 functionalities={table?.functionalities}
                                 onNoteSelect={(pageId, openContext) => openRecordFromView(pageId, tableId, currentViewId, openContext)}
-                                restoreRecordFocus={recordReturnFocus?.tableId === tableId && consumedRecordReturnFocusRef.current !== recordReturnFocus.requestId && (!recordReturnFocus.viewId || recordReturnFocus.viewId === currentViewId) ? recordReturnFocus : null}
+                                restoreRecordFocus={recordReturnFocus?.isArmed === true && recordReturnFocus.tableId === tableId && consumedRecordReturnFocusRef.current !== recordReturnFocus.requestId && (!recordReturnFocus.viewId || recordReturnFocus.viewId === currentViewId) ? recordReturnFocus : null}
                                 onRecordFocusRestored={handleRecordFocusRestored}
                                 onSearchChange={setSearchTerm}
                                 onUpdateView={handleUpdateView}
@@ -4160,7 +4169,7 @@ export default function VaultDashboard() {
                                             actionRules={registry.tables?.find(x => x.id === activeTableId)?.action_rules}
                                             functionalities={table?.functionalities}
                                             onNoteSelect={(pageId, openContext) => openRecordFromView(pageId, activeTableId, cv.id, openContext)}
-                                            restoreRecordFocus={recordReturnFocus?.tableId === activeTableId && consumedRecordReturnFocusRef.current !== recordReturnFocus.requestId && (!recordReturnFocus.viewId || recordReturnFocus.viewId === cv.id) ? recordReturnFocus : null}
+                                            restoreRecordFocus={recordReturnFocus?.isArmed === true && recordReturnFocus.tableId === activeTableId && consumedRecordReturnFocusRef.current !== recordReturnFocus.requestId && (!recordReturnFocus.viewId || recordReturnFocus.viewId === cv.id) ? recordReturnFocus : null}
                                             onRecordFocusRestored={handleRecordFocusRestored}
                                             onSearchChange={setSearchTerm}
                                             onUpdateView={handleUpdateView}
