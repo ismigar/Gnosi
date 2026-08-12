@@ -28,6 +28,7 @@ import { InsertContentModal } from './InsertContentModal';
 import { useTitlePreview } from './useTitlePreview';
 import { normalizeTableFunctionalities } from './tableFunctionalityUtils';
 import { getTableFocusTarget, getTableRecordFocusPreparation } from './tableRecordFocusUtils';
+import { hasResourceReference } from './resourceLinkUtils';
 
 // A cell's dropdown (select/multi_select) rendered in a PORTAL at
 // `document.body` with `position: fixed`, anchored below the input. This way it escapes the
@@ -1596,7 +1597,9 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         const zoteroUri = String(getMetadataValueByNormalizedKey(metadata, ['Zotero uri', 'zotero_uri', 'zotero uri'])).trim();
         const filePath = String(getMetadataValueByNormalizedKey(metadata, ["Ruta de l'arxiu", 'ruta_arxiu', 'file_path', 'path'])).trim();
         const attachments = getMetadataValueByNormalizedKey(metadata, ['Adjunts', 'attachments', 'adjuntos']);
-        return Boolean(zoteroUri || filePath || attachments);
+        return hasResourceReference(zoteroUri)
+            || hasResourceReference(filePath)
+            || hasResourceReference(attachments);
     }, [getMetadataValueByNormalizedKey]);
 
     const handleOpenExternalResource = useCallback(async (note) => {
