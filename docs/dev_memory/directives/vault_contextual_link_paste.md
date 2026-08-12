@@ -46,6 +46,9 @@ Markdown links.
 - Keep every visible label in all four frontend locale catalogs.
 - Do not replace the existing rich-link modal; it remains the explicit flow
   for local paths, uploads, and media files.
+- Keep the embed block fluid through every BlockNote wrapper so external frames
+  fill the available page or column width; intrinsic renderer sizing leaves a
+  narrow frame with unused space beside it.
 - Do not define callbacks that close over the BlockNote editor before the
   `useCreateBlockNote` declaration. JavaScript's temporal dead zone causes a
   runtime ReferenceError even though the production build succeeds; place

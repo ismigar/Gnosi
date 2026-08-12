@@ -261,7 +261,7 @@ export const EmbedRenderer = React.forwardRef(({ block, editor }, ref) => {
     }
 
     return (
-        <div ref={ref} className="my-4 group/embed">
+        <div ref={ref} className="w-full min-w-0 my-4 group/embed">
             <div className="relative">
                 {media}
                 <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/embed:opacity-100 transition-opacity">

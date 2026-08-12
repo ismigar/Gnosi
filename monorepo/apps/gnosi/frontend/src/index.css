@@ -3141,6 +3141,17 @@ button:hover > .row-action-tooltip {
     top: 1.125rem;
 }
 
+/* External/media embeds are block-level content. Keep every BlockNote wrapper
+   fluid so the frame fills the available page or column width instead of
+   shrinking to the intrinsic width of its document. */
+.bn-editor .bn-block-content[data-content-type="embed"],
+.bn-editor .bn-block-content[data-content-type="embed"] > .bn-react-node-view-renderer,
+.bn-editor .bn-block-content[data-content-type="embed"] > .react-renderer,
+.bn-editor .bn-block-content[data-content-type="embed"] > [data-content-type="embed"] {
+    width: 100% !important;
+    min-width: 0 !important;
+}
+
 /* La VaultTable embeguda viu dins de `.ProseMirror`, on el CSS de taules de
    BlockNote (@blocknote/core) es filtra sobre la nostra `<table>` i trenca la
    columna fixa (sticky) del títol:
