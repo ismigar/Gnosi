@@ -36,6 +36,8 @@ export function VaultViewBody({
     searchTerm = '',
     actionRules,
     onNoteSelect,
+    restoreRecordFocus,
+    onRecordFocusRestored,
     onOpenParallel,
     onUpdateView,
     onEditSchema,
@@ -179,6 +181,8 @@ export function VaultViewBody({
                 onTranslated={onTranslated}
                 onUpdateFieldOptions={onUpdateFieldOptions}
                 actionRules={actionRules}
+                restoreRecordFocus={restoreRecordFocus}
+                onRecordFocusRestored={onRecordFocusRestored}
                 registerNavApi={registerNavApi}
                 onExitTop={onExitTop}
                 onExitBottom={onExitBottom}

@@ -26,6 +26,7 @@ import {
 import { filenameFromTarget, isImageFieldName, getImageSrc, parseImageField, buildImageValue, fileTargetKey, withActiveVault, canonicalStorageFolder } from '../../lib/fileResource';
 import { InsertContentModal } from './InsertContentModal';
 import { useTitlePreview } from './useTitlePreview';
+import { getTableRecordFocusPreparation } from './tableRecordFocusUtils';
 
 // A cell's dropdown (select/multi_select) rendered in a PORTAL at
 // `document.body` with `position: fixed`, anchored below the input. This way it escapes the
@@ -457,7 +458,7 @@ const InfiniteLoadSentinel = React.memo(function InfiniteLoadSentinel({ visibleC
 let _gridKeyboardOwner = null;
 let _gridInstanceSeq = 0;
 
-export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView, onUpdateView, isEmbedded = false, isListView = false, onCreateRecord, onDeletePage, onDeleteSelected, onApplyTemplate, templates = [], onCellSaved, onUpdateFieldOptions, onOpenParallel, onTranslated, searchTerm: searchTermProp, actionRules = null, maxHeight = null, registerNavApi = null, onExitTop = null, onExitBottom = null, onEscape = null }) {
+export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView, onUpdateView, isEmbedded = false, isListView = false, onCreateRecord, onDeletePage, onDeleteSelected, onApplyTemplate, templates = [], onCellSaved, onUpdateFieldOptions, onOpenParallel, onTranslated, searchTerm: searchTermProp, actionRules = null, maxHeight = null, registerNavApi = null, onExitTop = null, onExitBottom = null, onEscape = null, restoreRecordFocus = null, onRecordFocusRestored = null }) {
     const { isEnabled: isPluginEnabled, getPluginSettings } = usePlugins();
     const projectPlanningEnabled = isPluginEnabled('project-planning');
     const projectPlanningSettings = getPluginSettings('project-planning');
@@ -898,7 +899,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             if ((e.metaKey || e.ctrlKey) && e.key === 'o') {
                 if (lastSelectedId) {
                     e.preventDefault();
-                    onNoteSelect(lastSelectedId);
+                    onNoteSelect(lastSelectedId, { returnFocusId: lastSelectedId });
                 }
             }
         };
@@ -1216,6 +1217,109 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
     navRowsRef.current = navRows;
     const rowDescriptorsRef = useRef([]);
     rowDescriptorsRef.current = rowDescriptors;
+    const restoredRecordFocusRequestRef = useRef(null);
+    const scheduledRecordFocusRequestRef = useRef(null);
+    useEffect(() => {
+        const recordId = restoreRecordFocus?.recordId;
+        const requestId = restoreRecordFocus?.requestId;
+        if (
+            !recordId
+            || requestId == null
+            || restoredRecordFocusRequestRef.current === requestId
+            || scheduledRecordFocusRequestRef.current === requestId
+        ) return undefined;
+
+        const preparation = getTableRecordFocusPreparation({
+            recordId,
+            notes: safeNotes,
+            sortedNotes,
+            enableSubitems,
+            expandedRows,
+            groupByField,
+            groupFieldId: groupMeta?.fieldId,
+            expandedGroups,
+            visibleRowsCount,
+            batchSize: ROWS_BATCH_SIZE,
+        });
+        if (preparation.status === 'missing') {
+            if (safeNotes.length > 0) {
+                restoredRecordFocusRequestRef.current = requestId;
+                onRecordFocusRestored?.(requestId);
+            }
+            return undefined;
+        }
+        if (preparation.status === 'expand-parent') {
+            setExpandedRows(current => new Set(current).add(preparation.parentId));
+            return undefined;
+        }
+        if (preparation.status === 'load-batch') {
+            setVisibleRowsCount(preparation.requiredCount);
+            return undefined;
+        }
+        if (preparation.status === 'expand-group') {
+            setExpandedGroups(current => new Set(current).add(preparation.groupKey));
+            return undefined;
+        }
+
+        const targetRow = navRows.find(row => row.id === recordId);
+        if (!targetRow) return undefined;
+
+        scheduledRecordFocusRequestRef.current = requestId;
+        claimKeyboard();
+        setAnchorCell(null);
+        setActiveCell({ rowId: recordId, field: 'title' });
+        rowVirtualizer.scrollToIndex(targetRow.descriptorIndex, { align: 'center' });
+
+        let attempts = 0;
+        let stableChecks = 0;
+        const findRenderedCell = () => Array.from(tableContainerRef.current?.querySelectorAll('[data-title-cell]') || [])
+            .find(element => element.dataset.titleCell === recordId);
+        const stabilizeRenderedCellFocus = () => {
+            const cell = findRenderedCell();
+            const activeElement = document.activeElement;
+            if (cell && activeElement && activeElement !== document.body && activeElement !== cell) {
+                scheduledRecordFocusRequestRef.current = null;
+                return;
+            }
+
+            if (cell && activeElement === cell) {
+                stableChecks += 1;
+            } else if (cell) {
+                cell.focus({ preventScroll: true });
+                stableChecks = 0;
+            }
+
+            if (cell && stableChecks >= 2) {
+                restoredRecordFocusRequestRef.current = requestId;
+                scheduledRecordFocusRequestRef.current = null;
+                onRecordFocusRestored?.(requestId);
+                return;
+            }
+
+            attempts += 1;
+            if (attempts < 12) {
+                setTimeout(stabilizeRenderedCellFocus, 50);
+            } else {
+                scheduledRecordFocusRequestRef.current = null;
+            }
+        };
+        setTimeout(stabilizeRenderedCellFocus, 0);
+        return undefined;
+    }, [
+        claimKeyboard,
+        enableSubitems,
+        expandedGroups,
+        expandedRows,
+        groupByField,
+        groupMeta,
+        navRows,
+        onRecordFocusRestored,
+        restoreRecordFocus,
+        rowVirtualizer,
+        safeNotes,
+        sortedNotes,
+        visibleRowsCount,
+    ]);
     // Navigation between group headers and entry into the first row (mode
     // kept separate: the cell cursor is not affected). They are defined here so that
     // the `pendingEnterGroupDesc` effect can access them without a TDZ issue.
@@ -1780,7 +1884,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                 toast.success(t('table.record_created'));
                 const newId = res.data?.id;
                 if (newId && onNoteSelect) {
-                    onNoteSelect(newId);
+                    onNoteSelect(newId, { returnFocusId: newId });
                 }
             }
         } catch (error) {
@@ -2613,7 +2717,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             if (e.altKey && !e.shiftKey) {
                 const { noteById, onNoteSelect, onOpenParallel, hasOpenableResource, handleOpenExternalResource } = rowActionsRef.current;
                 const n = noteById.get(cell.rowId);
-                if (e.code === 'KeyO') { e.preventDefault(); if (n && onNoteSelect) onNoteSelect(n.id); return; }
+                if (e.code === 'KeyO') { e.preventDefault(); if (n && onNoteSelect) onNoteSelect(n.id, { returnFocusId: n.id }); return; }
                 if (e.code === 'KeyR') { e.preventDefault(); if (n && hasOpenableResource(n)) handleOpenExternalResource(n); return; }
                 if (e.code === 'KeyP') { e.preventDefault(); if (n && onOpenParallel) onOpenParallel(n.id); return; }
             }
@@ -3302,7 +3406,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                     ${isChild ? 'bg-[var(--bg-secondary)]/30' : ''}
                 `}
                 onClick={() => { /* Row: selection via checkbox */ }}
-                    onDoubleClick={() => onNoteSelect(note.id)}
+                    onDoubleClick={() => onNoteSelect(note.id, { returnFocusId: note.id })}
                     draggable
                     onDragStart={(e) => {
                         // Don't hijack text selection inside inline editors.
@@ -3332,7 +3436,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                                 />
                             </label>
                             <button
-                                onClick={(e) => { e.stopPropagation(); onNoteSelect(note.id); }}
+                                onClick={(e) => { e.stopPropagation(); onNoteSelect(note.id, { returnFocusId: note.id }); }}
                                 className={`relative p-1 text-[var(--text-tertiary)] hover:text-indigo-600 transition-colors ${selectedIds.size > 0 ? 'hidden' : 'block'}`}
                                 title={t('common.open')}
                             >
@@ -3497,6 +3601,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
 
                     <td
                         data-title-cell={note.id}
+                        tabIndex={-1}
                         style={{ width: columnWidths['title'] || 250, maxWidth: columnWidths['title'] || 250 }}
                         className={`${rowPadClass} px-4 font-medium text-[var(--text-primary)] sticky left-10 z-30 overflow-hidden align-top
                             ${titleSel.inRange && !titleSel.isActive ? 'bg-[var(--gnosi-primary)]/10' : isSelected(note.id) ? 'bg-indigo-50 dark:bg-indigo-950' : isChild ? 'bg-[var(--bg-secondary)]' : 'bg-[var(--bg-primary)]'}

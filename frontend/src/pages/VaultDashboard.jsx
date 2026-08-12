@@ -201,6 +201,9 @@ export default function VaultDashboard() {
     const viewCreationInProgressRef = useRef(new Set());
     const [tabs, setTabs] = useState([]);
     const [activeTabId, setActiveTabId] = useState(null);
+    const [recordReturnFocus, setRecordReturnFocus] = useState(null);
+    const recordReturnFocusSequenceRef = useRef(0);
+    const consumedRecordReturnFocusRef = useRef(null);
     const [codeViewByTabId, setCodeViewByTabId] = useState({});
     // Per-page edit lock (by ID). Persisted to localStorage so that
     // the lock survives a browser reload. When it's locked (true), the
@@ -1024,6 +1027,25 @@ export default function VaultDashboard() {
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [fetchPageById, fetchPagesByTable, isAbortLikeError, pushToHistory, resolvePageTableId, tabs]);
+
+    const openRecordFromView = useCallback((pageId, tableId, viewId, openContext = null) => {
+        const sourceRecordId = openContext?.returnFocusId;
+        if (sourceRecordId && tableId) {
+            recordReturnFocusSequenceRef.current += 1;
+            consumedRecordReturnFocusRef.current = null;
+            setRecordReturnFocus({
+                recordId: sourceRecordId,
+                tableId,
+                viewId: viewId || null,
+                requestId: recordReturnFocusSequenceRef.current,
+            });
+        }
+        return loadPage(pageId);
+    }, [loadPage]);
+
+    const handleRecordFocusRestored = useCallback((requestId) => {
+        consumedRecordReturnFocusRef.current = requestId;
+    }, []);
 
     const handleUpdateNote = useCallback(async (id, data) => {
         try {
@@ -1972,6 +1994,10 @@ export default function VaultDashboard() {
             pagesRef.current = next;
             return next;
         });
+        setTableNotes(prev => prev.map(p => p.id === pageId ? applyPatch(p) : p));
+        if (nextTitle !== undefined) {
+            setGlobalIndex(prev => ({ ...prev, [pageId]: nextTitle }));
+        }
         setVisibleTableRecordsById(prev => {
             if (!prev) return prev;
             let changed = false;
@@ -3638,7 +3664,9 @@ export default function VaultDashboard() {
                                             idToTitle={globalIndex}
                                             allNotes={pages}
                                             activeView={mergedView}
-                                            onNoteSelect={loadPage}
+                                            onNoteSelect={(pageId, openContext) => openRecordFromView(pageId, tableId, currentViewId, openContext)}
+                                            restoreRecordFocus={recordReturnFocus?.tableId === tableId && consumedRecordReturnFocusRef.current !== recordReturnFocus.requestId && (!recordReturnFocus.viewId || recordReturnFocus.viewId === currentViewId) ? recordReturnFocus : null}
+                                            onRecordFocusRestored={handleRecordFocusRestored}
                                     onSearchChange={setSearchTerm}
                                     onUpdateView={handleUpdateView}
                                     onDeletePage={handleDeletePage}
@@ -3864,7 +3892,9 @@ export default function VaultDashboard() {
                                 isEmbedded={true}
                                 searchTerm={searchTerm}
                                 actionRules={registry.tables?.find(x => x.id === tableId)?.action_rules}
-                                onNoteSelect={loadPage}
+                                onNoteSelect={(pageId, openContext) => openRecordFromView(pageId, tableId, currentViewId, openContext)}
+                                restoreRecordFocus={recordReturnFocus?.tableId === tableId && consumedRecordReturnFocusRef.current !== recordReturnFocus.requestId && (!recordReturnFocus.viewId || recordReturnFocus.viewId === currentViewId) ? recordReturnFocus : null}
+                                onRecordFocusRestored={handleRecordFocusRestored}
                                 onSearchChange={setSearchTerm}
                                 onUpdateView={handleUpdateView}
                                 onDeletePage={handleDeletePage}
@@ -4105,7 +4135,9 @@ export default function VaultDashboard() {
                                             isEmbedded={false}
                                             searchTerm={searchTerm}
                                             actionRules={registry.tables?.find(x => x.id === activeTableId)?.action_rules}
-                                            onNoteSelect={loadPage}
+                                            onNoteSelect={(pageId, openContext) => openRecordFromView(pageId, activeTableId, cv.id, openContext)}
+                                            restoreRecordFocus={recordReturnFocus?.tableId === activeTableId && consumedRecordReturnFocusRef.current !== recordReturnFocus.requestId && (!recordReturnFocus.viewId || recordReturnFocus.viewId === cv.id) ? recordReturnFocus : null}
+                                            onRecordFocusRestored={handleRecordFocusRestored}
                                             onSearchChange={setSearchTerm}
                                             onUpdateView={handleUpdateView}
                                             onDeletePage={handleDeletePage}
