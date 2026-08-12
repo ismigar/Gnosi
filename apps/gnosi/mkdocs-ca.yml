@@ -1,0 +1,107 @@
+site_name: Documentació d'enginyeria de Gnosi
+site_description: Arquitectura, implementació, operacions i referència del codi font de Gnosi
+site_url: https://gnosi.temenosismael.org/engineering/ca/
+repo_url: https://github.com/ismigar/Gnosi
+repo_name: ismigar/Gnosi
+edit_uri: edit/main/apps/gnosi/docs/engineering/
+docs_dir: docs/engineering-ca
+site_dir: site/engineering/ca
+strict: true
+
+theme:
+  name: material
+  custom_dir: docs/engineering-overrides
+  language: ca
+  features:
+    - content.code.copy
+    - navigation.footer
+    - navigation.indexes
+    - navigation.sections
+    - navigation.top
+    - search.highlight
+    - search.suggest
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: teal
+
+nav:
+  - Comenceu aquí: index.md
+  - Producte:
+      - Objectiu i abast: product/purpose-and-scope.md
+      - Terminologia: product/terminology.md
+  - Arquitectura:
+      - Context del sistema: architecture/system-context.md
+      - Execució i desplegament: architecture/runtime-and-deployment.md
+      - Dades i emmagatzematge: architecture/data-and-storage.md
+      - Fluxos transversals: architecture/cross-cutting-flows.md
+  - Dominis:
+      - Base de la plataforma i execució: domains/foundation-runtime.md
+      - Vault i fitxers: domains/vault-files.md
+      - Vistes de base de dades i planificació: domains/database-views-planning.md
+      - Graf de coneixement: domains/knowledge-graph.md
+      - Lector, referències i citacions: domains/reader-references.md
+      - Agents, models, eines i habilitats d’IA: domains/ai-agent.md
+      - Correu: domains/mail.md
+      - Calendari i reunions: domains/calendar-meetings.md
+      - Contactes: domains/contacts.md
+      - Publicació social i multimèdia: domains/social-publishing.md
+      - Integracions i connectors: domains/integrations-plugins.md
+      - Autenticació, espais de treball i compartició: domains/auth-workspaces-sharing.md
+      - Automatització i programació: domains/automation-scheduling.md
+      - Clients d’escriptori i complementaris: domains/desktop-clients.md
+  - Seguretat:
+      - Model de confiança: security/trust-model.md
+  - Operacions:
+      - Manual d’operacions: operations/runbook.md
+  - Qualitat:
+      - Estratègia de proves: testing/test-strategy.md
+      - Manteniment de la documentació: testing/documentation-maintenance.md
+  - Decisions:
+      - Registres de decisions: decisions/index.md
+      - Font de veritat local-first: decisions/0001-local-first-source-of-truth.md
+      - Documentació com a codi: decisions/0002-documentation-as-code.md
+  - Referència generada:
+      - Inventari del repositori: generated/repository-inventory.md
+      - Catàleg de l’API: generated/api-catalog.md
+      - Mòduls del backend: generated/backend-modules.md
+      - Catàleg del frontend: generated/frontend-catalog.md
+      - Model de dades relacional: generated/data-model.md
+      - Configuració: generated/configuration.md
+      - Proves: generated/tests.md
+      - Habilitats d’execució: generated/skills.md
+      - Cobertura: generated/coverage.md
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+
+extra_javascript:
+  - https://unpkg.com/mermaid@11/dist/mermaid.min.js
+  - assets/mermaid-init.js
+  - assets/language-switcher.js
+
+extra_css:
+  - assets/engineering.css
+
+exclude_docs: |
+  generated/.gitkeep
