@@ -533,6 +533,20 @@ textarea,
   box-shadow: inset var(--focus-ring);
 }
 
+/* Keep the create menu opaque and above the embedded view content. The header
+ * is a stacking context because the view cards can contain their own layers. */
+.vault-views-header {
+  z-index: var(--z-popover);
+}
+
+.vault-new-record-menu {
+  z-index: var(--z-popover);
+  border-color: var(--border-primary);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  opacity: 1;
+}
+
 .vault-feed-card__identity {
   min-width: 0;
   flex: 1 1 220px;

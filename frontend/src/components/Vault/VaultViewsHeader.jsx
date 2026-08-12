@@ -690,7 +690,7 @@ export function VaultViewsHeader({
     // Handling of the expanding search input
 
     return (
-        <div className="relative z-50 flex flex-col w-full bg-[var(--bg-primary)] shrink-0">
+        <div className="vault-views-header relative flex flex-col w-full bg-[var(--bg-primary)] shrink-0">
             {/* Row 1: Title and Record Count */}
             <div className="flex items-start justify-between px-2 pt-vault-header-top pb-1.5 md:px-4 md:pb-2">
                 <div className="flex items-center gap-3">
@@ -881,7 +881,7 @@ export function VaultViewsHeader({
                         </button>
 
                         {showNewMenu && (
-                            <div className="absolute top-full right-0 mt-1 w-56 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[var(--z-popover)] py-1 animate-in fade-in zoom-in-95 duration-100">
+                            <div className="vault-new-record-menu absolute top-full right-0 mt-1 w-56 border rounded-lg shadow-xl py-1 animate-in fade-in zoom-in-95 duration-100">
                                 <button
                                     onClick={() => { setShowNewMenu(false); onCreateRecord?.(); }}
                                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
