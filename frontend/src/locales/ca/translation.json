@@ -371,6 +371,7 @@
     "main_navigation": "Navegació principal",
     "my_vault": "El meu Coneixement",
     "search": "Cerca",
+    "search_shortcut": "{{shortcut}}",
     "recent": "Recent",
     "drawings": "Dibuixos",
     "add_drawing": "Afegir dibuix",

@@ -31,9 +31,10 @@ import { VaultTagsView } from '../components/Vault/VaultTagsView';
 import { PageComments } from '../components/Vault/PageComments';
 import { ShareModal } from '../components/Vault/ShareModal';
 import { usePlugins } from '../plugins/usePlugins';
-import { MAIN_VIEW_NAME, isMainView, isPageEmbedView, isProtectedMainView } from '../components/Vault/viewConstants';
+import { MAIN_VIEW_NAME, isMainView, isProtectedMainView, isViewHidden } from '../components/Vault/viewConstants';
 import { buildSchemaFromTableProperties, buildTablePropertiesFromSchema, getSchemaFieldNames, isCalendarPage } from '../components/Vault/schemaUtils';
 import { applyDefaultFormulasToMetadata } from '../components/Vault/defaultFormulaUtils';
+import { isGlobalSearchShortcut } from '../components/Vault/globalSearchUtils';
 import { Palette } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
 import { ProcessResourceModal } from '../components/Vault/ProcessResourceModal';
@@ -1694,10 +1695,11 @@ export default function VaultDashboard() {
     }, [fetchPages]);
     useEffect(() => { closePromptModalRef.current = closePromptModal; }, [closePromptModal]);
 
-    // Keyboard listeners for Cmd+K / Ctrl+K and Escape
+    // Keyboard listeners for Option/Alt+K and Escape. Cmd/Ctrl+K belongs to
+    // the editor's link-insertion command and must keep propagating there.
     useEffect(() => {
         const handleKeyDown = (e) => {
-            if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+            if (isGlobalSearchShortcut(e)) {
                 e.preventDefault();
                 setIsGlobalSearchOpen(open => !open);
             }
@@ -3565,8 +3567,7 @@ export default function VaultDashboard() {
             const table = registry.tables?.find(t => t.id === tableId);
             const paneNotes = getTableVisibleRecords(tableId);
             const paneTemplates = pages.filter(p => resolvePageTableId(p) === tableId && p.metadata?.is_template);
-            const paneSchema = getSchemaFromTableId(tableId);
-            
+
             // Get views for this specific table
             const displayViews = getTableViews(tableId);
             const currentViewId = activeTableId === tableId ? (activeViewId || displayViews[0].id) : displayViews[0].id;
@@ -3664,6 +3665,7 @@ export default function VaultDashboard() {
                                             idToTitle={globalIndex}
                                             allNotes={pages}
                                             activeView={mergedView}
+                                            searchTerm={searchTerm}
                                             onNoteSelect={(pageId, openContext) => openRecordFromView(pageId, tableId, currentViewId, openContext)}
                                             restoreRecordFocus={recordReturnFocus?.tableId === tableId && consumedRecordReturnFocusRef.current !== recordReturnFocus.requestId && (!recordReturnFocus.viewId || recordReturnFocus.viewId === currentViewId) ? recordReturnFocus : null}
                                             onRecordFocusRestored={handleRecordFocusRestored}
@@ -3793,8 +3795,7 @@ export default function VaultDashboard() {
         const table = registry.tables?.find(t => t.id === tableId);
         const paneNotes = getTableVisibleRecords(tableId);
         const paneTemplates = pages.filter(p => resolvePageTableId(p) === tableId && p.metadata?.is_template);
-        const paneSchema = getSchemaFromTableId(tableId);
-        
+
         // Get views for this specific table
         const displayViews = getTableViews(tableId);
         const currentViewId = activeTableId === tableId ? (activeViewId || displayViews[0].id) : displayViews[0].id;
@@ -4142,7 +4143,7 @@ export default function VaultDashboard() {
                                             onUpdateView={handleUpdateView}
                                             onDeletePage={handleDeletePage}
                                             onDeleteSelected={handleDeleteSelected}
-                                            onApplyTemplate={(ids, templateId) => handleApplyTemplate(ids, templateId, tableId)}
+                                            onApplyTemplate={(ids, templateId) => handleApplyTemplate(ids, templateId, activeTableId)}
                                             onEditSchema={onEditSchema}
                                             onOpenParallel={handleOpenParallel}
                                             onUpdateFieldOptions={handleAddSchemaOption}
@@ -4217,6 +4218,8 @@ export default function VaultDashboard() {
                 onClose={() => setIsGlobalSearchOpen(false)}
                 allNotes={pages}
                 tables={registry.tables}
+                globalIndex={globalIndex}
+                aliasesById={aliasIndex}
                 onNoteSelect={loadPage}
             />
 

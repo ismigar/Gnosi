@@ -2353,6 +2353,7 @@
     "prompt_new_name_table": "Nouveau nom pour la table",
     "my_vault": "Ma Connaissance",
     "search": "Rechercher",
+    "search_shortcut": "{{shortcut}}",
     "recent": "Récent",
     "drawings": "Dessins",
     "add_drawing": "Ajouter un dessin",

@@ -1,17 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Search, FileText, Hash, FolderClosed, Star, X, Database } from 'lucide-react';
-import { isCalendarPage } from './schemaUtils';
-import { normalizeForSearch } from '../../utils/vaultFilters';
 import { openVaultNote } from '../../utils/vaultQuickNavigation';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import { IconRenderer } from './IconRenderer';
+import {
+    buildTagFieldsByTable,
+    getSearchNoteTags,
+    mergeGlobalSearchNotes,
+    searchGlobalNotes,
+} from './globalSearchUtils';
 
 /**
  * Global search with Obsidian-style operators + saved searches.
  * Supported operators (combinable): `tag:a/b` (hierarchical, matches descendants),
  * `path:Folder`, `title:text`, `is:database`, and regex with `/pattern/flags`.
- * Free terms match the title. Searches are saved to localStorage.
+ * Free terms match titles, aliases, and tags. Searches are saved to localStorage.
  */
 
 const SAVED_KEY = 'gnosi.savedSearches';
@@ -22,89 +26,15 @@ const persistSaved = (list) => {
     try { localStorage.setItem(SAVED_KEY, JSON.stringify(list.slice(0, 20))); } catch { /* noop */ }
 };
 
-const splitTags = (raw) => {
-    if (!raw) return [];
-    const arr = Array.isArray(raw) ? raw : String(raw).split(',');
-    // normalizeForSearch (lowercase + accent-stripped) and not plain toLowerCase:
-    // this way `tag:etica` finds "Ètica", consistent with the rest of the search.
-    return arr.map((t) => normalizeForSearch(String(t).replace(/^#/, '').trim())).filter(Boolean);
-};
-
-// Semantic tags field of a table — mirrors option_catalogs.find_role_prop
-// (backend): explicit role `config.role === 'tags'`, or, if there isn't one, a heuristic based on
-// NAME (tags/tag/etiquetes/etiquetas/labels, normalized without accents) restricted
-// on multi_select. It's the same source that feeds the Tags page
-// (/api/vault/tags), so the search's `tag:` sees the same tags that it does.
-const TAG_FIELD_NAMES = new Set(['tags', 'tag', 'etiquetes', 'etiquetas', 'labels']);
-const findTagsField = (table) => {
-    const props = table?.properties || [];
-    const explicit = props.find((p) => String(p?.config?.role || '').trim().toLowerCase() === 'tags');
-    if (explicit) return explicit;
-    return props.find((p) => TAG_FIELD_NAMES.has(normalizeForSearch(p?.name)) && p?.type === 'multi_select') || null;
-};
-
-// Tags of a note: `tags` frontmatter (Obsidian style) + the value of the
-// semantic tags field of its table (the two sources that the Tags page unifies
-// ). Previously only `metadata.tags` (lowercase key) was read, so
-// `tag:` NEVER matched tables imported from Notion (the "Tags" field).
-const noteTags = (note, tagFieldsByTable) => {
-    const meta = note?.metadata || {};
-    const tags = splitTags(meta.tags);
-    const tableId = note?.resolved_table_id || meta.table_id || meta.database_table_id;
-    const field = tableId ? tagFieldsByTable?.get(String(tableId)) : null;
-    if (field) {
-        let raw = field.id != null ? meta[field.id] : undefined;
-        if (raw === undefined || raw === null) raw = field.name ? meta[field.name] : undefined;
-        tags.push(...splitTags(raw));
-    }
-    return tags;
-};
-
-// Parseja la consulta en operadors + termes lliures + regex opcional.
-const parseQuery = (query) => {
-    const tokens = String(query).trim().split(/\s+/).filter(Boolean);
-    const ops = { tag: [], path: [], title: [], is: [] };
-    const terms = [];
-    let regex = null;
-    for (const tok of tokens) {
-        const reMatch = tok.match(/^\/(.+)\/([a-z]*)$/i);
-        if (reMatch) { try { regex = new RegExp(reMatch[1], reMatch[2] || 'i'); } catch { /* invalid regex: ignore */ } continue; }
-        const opMatch = tok.match(/^(tag|path|title|is):(.+)$/i);
-        if (opMatch) { ops[opMatch[1].toLowerCase()].push(opMatch[2].toLowerCase()); continue; }
-        terms.push(tok);
-    }
-    return { ops, terms, regex };
-};
-
-const matchNote = (note, parsed, tagFieldsByTable) => {
-    const { ops, terms, regex } = parsed;
-    const title = note.title || '';
-    const titleNorm = normalizeForSearch(title);
-    const folder = String(note.folder || note.path || '').toLowerCase();
-    const tags = noteTags(note, tagFieldsByTable);
-
-    // tag: (hierarchical — matches the exact tag or any descendant a/b/c).
-    // The operator's value is also normalized (accents stripped), like the tags.
-    for (const tg of ops.tag) {
-        const tgn = normalizeForSearch(tg);
-        if (!tags.some((t) => t === tgn || t.startsWith(tgn + '/'))) return false;
-    }
-    for (const p of ops.path) { if (!folder.includes(p)) return false; }
-    for (const tt of ops.title) { if (!normalizeForSearch(title).includes(normalizeForSearch(tt))) return false; }
-    for (const isv of ops.is) {
-        if (isv === 'database' && !note.is_database) return false;
-        if (isv === 'page' && note.is_database) return false;
-    }
-    if (regex && !(regex.test(title) || regex.test(folder))) return false;
-    // Free terms: match the title (or tag; tags already come normalized).
-    for (const term of terms) {
-        const tn = normalizeForSearch(term);
-        if (!titleNorm.includes(tn) && !tags.some((t) => t.includes(tn))) return false;
-    }
-    return true;
-};
-
-export function GlobalSearchModal({ isOpen, onClose, allNotes = [], onNoteSelect, tables = [] }) {
+export function GlobalSearchModal({
+    isOpen,
+    onClose,
+    allNotes = [],
+    onNoteSelect,
+    tables = [],
+    globalIndex = {},
+    aliasesById = {},
+}) {
     const { t } = useTranslation();
     const [query, setQuery] = useState('');
     const [selectedIndex, setSelectedIndex] = useState(0);
@@ -115,31 +45,27 @@ export function GlobalSearchModal({ isOpen, onClose, allNotes = [], onNoteSelect
 
     useModalKeyboard({ isOpen, onClose, containerRef: panelRef, trapFocus: true });
 
-    // Tag field per table, resolved once (O(tables), not O(notes)).
-    const tagFieldsByTable = React.useMemo(() => {
-        const m = new Map();
-        (tables || []).forEach((t) => {
-            const f = findTagsField(t);
-            if (f && t?.id != null) m.set(String(t.id), f);
-        });
-        return m;
-    }, [tables]);
+    const searchableNotes = React.useMemo(
+        () => mergeGlobalSearchNotes(allNotes, globalIndex),
+        [allNotes, globalIndex],
+    );
+    const tagFieldsByTable = React.useMemo(() => buildTagFieldsByTable(tables), [tables]);
 
     const filteredNotes = React.useMemo(() => {
-        if (!query.trim()) return [];
-        const parsed = parseQuery(query);
-        return allNotes.filter((note) => {
-            if (isCalendarPage(note)) return false;
-            return matchNote(note, parsed, tagFieldsByTable);
-        }).slice(0, 30);
-    }, [query, allNotes, tagFieldsByTable]);
+        return searchGlobalNotes({
+            notes: searchableNotes,
+            query,
+            tables,
+            aliasesById,
+        });
+    }, [query, searchableNotes, tables, aliasesById]);
 
     // Title of a row's source DB. Three paths, in order of reliability:
     // 1) resolved_table_id → name in the table registry; 2) ancestor with
     // is_database (wiki DB-pages); 3) last segment of the BD/… folder (the
     // DB rows have null parent_id and their table_id might not be in the registry).
     const getSourceDbTitle = React.useMemo(() => {
-        const byId = new Map(allNotes.map((n) => [n.id, n]));
+        const byId = new Map(searchableNotes.map((n) => [n.id, n]));
         const tableNameById = new Map((tables || []).map((t) => [t.id, t.name]));
         return (note) => {
             const rawTableId = note?.resolved_table_id || note?.metadata?.table_id || note?.metadata?.database_table_id;
@@ -163,7 +89,7 @@ export function GlobalSearchModal({ isOpen, onClose, allNotes = [], onNoteSelect
             }
             return null;
         };
-    }, [allNotes, tables]);
+    }, [searchableNotes, tables]);
 
     useEffect(() => {
         if (isOpen) {
@@ -314,9 +240,9 @@ export function GlobalSearchModal({ isOpen, onClose, allNotes = [], onNoteSelect
                                                             {sourceDb}
                                                         </span>
                                                     ) : (
-                                                        <span className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-[var(--bg-tertiary)] text-[var(--text-secondary)]">{note.folder}</span>
+                                                        <span className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-[var(--bg-tertiary)] text-[var(--text-secondary)]">{note.folder || t('common.page_wiki', "Page • Wiki")}</span>
                                                     )}
-                                                    {noteTags(note).slice(0, 3).map((tg) => (
+                                                    {getSearchNoteTags(note, tagFieldsByTable).slice(0, 3).map((tg) => (
                                                         <span key={tg} className="text-[11px] text-[var(--text-tertiary)]">#{tg}</span>
                                                     ))}
                                                 </div>

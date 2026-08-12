@@ -11,8 +11,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
 | Playwright | 13 | 35 |
-| Vitest | 58 | 222 |
-| pytest | 180 | 1488 |
+| Vitest | 59 | 226 |
+| pytest | 181 | 1491 |
 
 ## Files
 
@@ -50,6 +50,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/components/Vault/RelationItem.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/RelationItem.test.js) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/VaultMarkdown.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultMarkdown.test.jsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/WikilinkHoverPreview.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/WikilinkHoverPreview.test.jsx) | 1 | call-pattern estimate |
+| Vitest | [`frontend/src/components/Vault/globalSearchUtils.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/globalSearchUtils.test.js) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/groupOrderUtils.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/groupOrderUtils.test.js) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/hoverPreviewLayout.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/hoverPreviewLayout.test.js) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/managedMarkdownUtils.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/managedMarkdownUtils.test.js) | 4 | call-pattern estimate |
@@ -264,6 +265,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`pipeline/skills/technical_documentation/tests/test_change_impact.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_change_impact.py) | 7 | Python AST |
 | pytest | [`pipeline/skills/technical_documentation/tests/test_generate.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_generate.py) | 11 | Python AST |
 | pytest | [`pipeline/skills/technical_documentation/tests/test_localize.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_localize.py) | 2 | Python AST |
+| pytest | [`pipeline/skills/technical_documentation/tests/test_pre_pr.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_pre_pr.py) | 3 | Python AST |
 | pytest | [`pipeline/skills/technical_documentation/tests/test_publication.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_publication.py) | 6 | Python AST |
 | pytest | [`pipeline/skills/technical_documentation/tests/test_validate.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_validate.py) | 3 | Python AST |
 | pytest | [`pipeline/skills/translate_page/scripts/test_markdown_segmenter.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/translate_page/scripts/test_markdown_segmenter.py) | 33 | Python AST |

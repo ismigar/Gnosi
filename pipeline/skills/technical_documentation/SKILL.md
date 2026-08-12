@@ -32,6 +32,7 @@ ordinary diffs. They must never be edited manually.
 Run from `monorepo/apps/gnosi/`:
 
 ```bash
+python pipeline/skills/technical_documentation/scripts/pre_pr.py --base-ref origin/main
 python pipeline/skills/technical_documentation/scripts/generate.py
 python pipeline/skills/technical_documentation/scripts/generate.py --check
 python pipeline/skills/technical_documentation/scripts/validate.py
@@ -42,6 +43,13 @@ mkdocs build --strict
 The generator accepts `--app-root` and `--domains` only for isolated tests and
 development. Normal runs auto-detect the application root from the script
 location.
+
+The pre-PR command is the mandatory local entry point for implementation
+branches covered by the private documentation workflow. It regenerates catalogs
+before checking them, runs the documentation-tool tests and change-impact gate,
+validates localization and traceability, and builds every strict locale portal.
+Use `--check-only` in read-only automation that must reject stale catalogs
+without updating them.
 
 ## Generation rules
 
@@ -100,6 +108,8 @@ requires documentation evidence.
 
 ## Verification
 
+- Run the pre-PR command before the final implementation commit and again after
+  staging the generated output; the second run must create no further diff.
 - Run the generator twice and compare the tree; the second run must be clean.
 - Run `generate.py --check`.
 - Run `validate.py`.
