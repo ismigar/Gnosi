@@ -76,6 +76,11 @@ rewriting user data.
 Only `monorepo/apps/gnosi/` is authoritative. The removed root-level mirror is
 not a valid target.
 
+## Restrictions and edge cases
+
+- Do not use `ARTICLE_IFRAME_CSS` to style Vault page content. It only affects
+  RSS article iframes; Vault prose is rendered by BlockNote in `BlockEditor`.
+
 ## QA
 
 1. Production frontend build passes.

@@ -53,7 +53,7 @@ const readStoredCustomIcons = () => {
     }
 };
 
-export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, triggerRef }) => {
+export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, triggerRef, anchorRect = null }) => {
     const { t } = useTranslation();
     const { effectiveTheme } = useTheme();
     const [activeTab, setActiveTab] = useState('emoji');
@@ -158,7 +158,8 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
 
     useEffect(() => {
         const handleClickOutside = (e) => {
-            if (pickerRef.current && !pickerRef.current.contains(e.target) && triggerRef.current && !triggerRef.current.contains(e.target)) {
+            const clickedTrigger = triggerRef?.current?.contains?.(e.target) || false;
+            if (pickerRef.current && !pickerRef.current.contains(e.target) && !clickedTrigger) {
                 onClose();
             }
         };
@@ -230,10 +231,17 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
         let top = 0;
         let left = 48;
 
-        if (triggerRef.current) {
-            const rect = triggerRef.current.getBoundingClientRect();
+        const rect = anchorRect || triggerRef?.current?.getBoundingClientRect?.();
+        if (rect) {
             top = rect.bottom + 8;
             left = rect.left;
+
+            if (typeof window !== 'undefined') {
+                left = Math.max(12, Math.min(left, window.innerWidth - 362));
+                if (top + 500 > window.innerHeight) {
+                    top = Math.max(12, rect.top - 508);
+                }
+            }
         }
 
         return (

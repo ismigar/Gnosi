@@ -83,6 +83,8 @@ days old and reports count and bytes.
 - Use timezone-aware UTC timestamps.
 - Prefer `shutil.move` over assumptions about identical mounts.
 - Rebuild backlinks and indexes after restore.
+- Notify open drawing editors after page deletion so embedded page-card shapes
+  are removed instead of remaining as unavailable cards.
 - Do not treat `deleted: true` frontmatter as deletion; it would require every
   reader to filter the page.
 - Do not use the operating-system Trash because it lacks application metadata,

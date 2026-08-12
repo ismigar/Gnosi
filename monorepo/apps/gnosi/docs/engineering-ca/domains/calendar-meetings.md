@@ -1,23 +1,17 @@
 ---
 status: implemented
-last_verified: 2026-08-09
+last_verified: 2026-08-02
 source_paths:
   - backend/api/calendar_routes.py
   - backend/api/meeting_routes.py
   - backend/models/calendar.py
   - backend/services/google_calendar_service.py
-  - backend/services/hybrid_calendar_service.py
   - frontend/src/pages/CalendarPage.jsx
-  - frontend/src/components/Vault/CalendarSidebarRight.jsx
-  - frontend/src/components/Vault/DigitalBrainCalendar.jsx
-  - frontend/src/utils/calendarUtils.js
   - frontend/src/components/MeetingRecorder.jsx
   - frontend/src/components/MeetingReminderWatcher.jsx
 tests:
   - backend/tests/test_calendar_path_containment.py
-  - backend/tests/test_google_calendar_event_updates.py
   - backend/tests/test_meeting_reminders_race.py
-  - frontend/src/utils/calendarUtils.test.js
   - e2e/tests/e2e/calendar.spec.ts
 ---
 
@@ -54,8 +48,6 @@ sequenceDiagram
     API-->>UI: Unified response
 ```
 
-Els esdeveniments de dia complet de Google utilitzen una data de finalització exclusiva, mentre que el formulari de Gnosi presenta l'últim dia de manera inclusiva. La conversió es fa una sola vegada al límit del proveïdor: les peticions afegeixen un dia abans d'escriure a Google i les respostes en resten un abans de renderitzar. Les ocurrències d'aniversari s'actualitzen mitjançant el seu esdeveniment recurrent mestre; les dates gestionades per Google Contacts continuen sota control del proveïdor, mentre que els camps compatibles, com el títol, encara es poden actualitzar.
-
 ## Recordatoris i notes de reunió@ info: whatsthis
 
 Els arranjaments del recordatori seleccionen el temps i el comportament. La col· lecció fusionarà els esdeveniments propers i despensi els requeriments recurrents per tal que els recordatoris duplicats no siguin creats. El visor de la botiga mostra recordatoris actius i pot navegar fins al calendari o rebutjar- los. @ info
@@ -65,8 +57,6 @@ S' han vinculat les pujades d' àudio a un flux de treball de fons. Les enqueste
 ## Invariants
 
 - El proveïdor d' esdeveniments inclou compte i context del calendari.
-- Els finals exclusius dels esdeveniments de dia complet no arriben mai al model inclusiu de la interfície.
-- Les dates d'aniversari gestionades pels contactes es conserven en actualitzar esdeveniments recurrents.
 - El calendari escriu que requereix un context executable.
 - Els esdeveniments locals basats en camins es queden dins de la volta activa.
 - Ocultar és local i reversible; l' eliminació utilitza el proveïdor autoriu.

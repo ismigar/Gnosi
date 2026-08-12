@@ -113,6 +113,12 @@ Shared catalogs currently reject rename and delete because a per-table rewrite
 cannot safely cover every consumer. Adding, recoloring, and reordering shared
 options are supported.
 
+The dedicated `status` field type is a special case: its option catalog is
+global to the vault, stored at `option_catalogs.status`, and every `status`
+property references it. Existing per-table status catalogs are merged during
+registry load. Renaming or removing a global status option rewrites values in
+every table that uses the `status` type.
+
 The UI must warn before removing an option referenced by an action rule.
 
 ## Migration

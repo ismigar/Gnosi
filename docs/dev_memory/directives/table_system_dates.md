@@ -59,6 +59,12 @@ fallback when a caller does not provide one.
 - A legacy field may remain in a record after it has disappeared from the
   registry; inspect record keys as well as schema properties before choosing the
   value to migrate.
+- Do not render a registered `created_time` or `last_edited_time` property from
+  the Markdown file birth time or modification time when the record already
+  stores the property. Metadata migrations and cloud hydration rewrite files
+  and make old records appear newly created or edited. Use the registered table
+  field first, internal authorship timestamps second, and filesystem timestamps
+  only as the final fallback.
 - Do not fall back to fuzzy title matching for a Notion row. A local-only row
   without a deterministic Notion UUID keeps its existing audit dates or uses
   filesystem timestamps, and the migration reports it as unmatched.

@@ -78,6 +78,10 @@ on their next save. API responses show the current name immediately.
 - A current name always wins over an alias collision.
 - Batch cleanup is optional, dry-run-first, backed up, and must use the same
   canonical conversion helper.
+- If a page PATCH misses the in-memory ID→path cache, refresh the page index
+  once before returning 404. External OneDrive renames can leave a valid
+  Markdown file temporarily absent from the cache; repeated rescans per
+  autosave are forbidden.
 
 ## QA
 

@@ -1,18 +1,15 @@
 ---
 status: implemented
-last_verified: 2026-08-09
+last_verified: 2026-08-02
 source_paths:
   - backend/server.py
   - backend/config/app_config.py
   - backend/config/env_config.py
   - backend/config/paths_config.py
   - frontend/src/App.jsx
-  - frontend/src/main.jsx
-  - frontend/src/components/GlobalTooltip.jsx
 tests:
   - backend/tests/test_app_config_language.py
   - backend/tests/test_host_helper_url.py
-  - frontend/src/components/GlobalTooltip.test.jsx
   - e2e/tests/anon/smoke.spec.ts
 ---
 
@@ -65,13 +62,6 @@ prevents it from reappearing after deliberate deletion.
 login, or application shell. Heavy pages are lazy-loaded. The global shell owns
 navigation and globally available interaction surfaces; route pages own domain
 content. `/s/:token` renders outside the authenticated shell by design.
-
-`main.jsx` mounts one `GlobalTooltip` layer beside the application shell. It
-adopts native `title` attributes from initial, lazy-loaded, and portal content
-so tooltips follow the effective light or dark theme. The layer preserves
-accessible names, exposes visible content through `aria-describedby`, supports
-pointer and keyboard focus, closes on Escape, and defers to components that
-already own richer tooltip markup.
 
 ## Invariants
 

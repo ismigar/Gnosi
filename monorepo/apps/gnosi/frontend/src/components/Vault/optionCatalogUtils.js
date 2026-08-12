@@ -38,6 +38,7 @@ export const STATUS_REVIEWED = 'Revisat';
 export const STATUS_TRANSLATED = 'Traduït';
 export const STATUS_PUBLISHED_DRUPAL = 'Publicat a Drupal';
 export const STATUS_PUBLISHED_SOCIAL = 'Publicat a XXSS';
+export const STATUS_CATALOG_REF = 'status';
 
 const stripAccents = (s) => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 const normName = (s) => stripAccents(String(s ?? '').trim().toLowerCase());

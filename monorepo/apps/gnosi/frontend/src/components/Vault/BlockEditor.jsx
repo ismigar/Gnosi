@@ -46,11 +46,18 @@ import {
     useCreateBlockNote,
     getDefaultReactSlashMenuItems,
     SideMenuController,
+    SideMenu,
+    AddBlockButton,
+    DragHandleButton,
     SuggestionMenuController,
+    useBlockNoteEditor,
+    useExtensionState,
     createReactBlockSpec,
     createReactInlineContentSpec,
 } from "@blocknote/react";
 import { BlockNoteSchema, defaultBlockSpecs, defaultInlineContentSpecs, defaultStyleSpecs } from "@blocknote/core";
+import { SideMenuExtension } from "@blocknote/core/extensions";
+import { NodeSelection } from "prosemirror-state";
 import { insertOrUpdateBlockForSlashMenu } from "@blocknote/core/extensions";
 import { BlockNoteView } from "@blocknote/mantine";
 import { withMultiColumn, multiColumnDropCursor } from "@blocknote/xl-multi-column";
@@ -158,6 +165,58 @@ import AIGenerateModal from './AIGenerateModal';
 import PromptModal from '../PromptModal';
 import { InsertContentModal } from './InsertContentModal';
 import { resolveBlockNoteDictionary } from '../../locales/blocknote/registry';
+
+/** Selects the complete block when its six-dot handle is clicked. */
+function SelectableSideMenu() {
+    const editor = useBlockNoteEditor();
+    const block = useExtensionState(SideMenuExtension, {
+        editor,
+        selector: (state) => state?.block,
+    });
+
+    const selectBlock = (event) => {
+        if (event.button !== 0 || !block?.id || !editor.prosemirrorView) return;
+        const target = event.target;
+        if (!(target instanceof HTMLElement) || !target.closest('[data-test="dragHandle"]')) return;
+
+        let blockPosition;
+        editor.prosemirrorState.doc.descendants((node, pos) => {
+            if (blockPosition === undefined && node.attrs?.id === block.id) blockPosition = pos;
+        });
+        if (blockPosition === undefined) return;
+
+        // The drag-handle menu focuses itself after the click. Apply the node
+        // selection after that focus change so the menu remains open while the
+        // complete block stays visibly selected.
+        window.setTimeout(() => {
+            const view = editor.prosemirrorView;
+            if (!view) return;
+            view.dispatch(
+                view.state.tr.setSelection(
+                    NodeSelection.create(view.state.doc, blockPosition + 1),
+                ),
+            );
+            view.focus();
+            view.dom.querySelectorAll('.gnosi-block-selected').forEach((element) => {
+                element.classList.remove('gnosi-block-selected');
+            });
+            const selectedContent = view.nodeDOM(blockPosition + 1);
+            const selectedOuter = selectedContent instanceof HTMLElement
+                ? selectedContent.closest('.bn-block-outer')
+                : null;
+            selectedOuter?.classList.add('gnosi-block-selected');
+        }, 0);
+    };
+
+    return (
+        <SideMenu>
+            <AddBlockButton />
+            <div onClickCapture={selectBlock}>
+                <DragHandleButton />
+            </div>
+        </SideMenu>
+    );
+}
 
 // Native BlockNote block type for a file. `image`/`video`/`audio`
 // have an obvious inline representation; anything else is `file`.
@@ -1249,6 +1308,20 @@ export function EditorInner({
                         updateInlineContent={props.updateInlineContent}
                     />
                 )
+            }),
+            inlineIcon: createReactInlineContentSpec({
+                type: "inlineIcon",
+                propSchema: { value: { default: "" } },
+                content: "none",
+            }, {
+                render: (props) => (
+                    <span
+                        className="inline-flex align-text-bottom mx-0.5"
+                        data-gnosi-inline-icon={props.inlineContent.props.value}
+                    >
+                        <IconRenderer icon={props.inlineContent.props.value} size={18} />
+                    </span>
+                )
             })
         };
         const baseSchema = BlockNoteSchema.create({
@@ -1273,6 +1346,7 @@ export function EditorInner({
                 footnote: specs.footnote,
                 mention: specs.mention,
                 dateref: specs.dateref,
+                inlineIcon: specs.inlineIcon,
             },
             styleSpecs: defaultStyleSpecs,
         });
@@ -1388,6 +1462,7 @@ export function EditorInner({
     // Citation picker (Cmd+Shift+I). The render happens at the end of the
     // component via <CitePicker /> and the insertion is routed to `insertCitation`.
     const [isCitePickerOpen, setIsCitePickerOpen] = useState(false);
+    const [inlineIconPickerAnchor, setInlineIconPickerAnchor] = useState(null);
 
     // AI generation modal (slash «AI»). Rendered at the end via <AIGenerateModal>.
     const [aiRequest, setAiRequest] = useState(null);
@@ -1409,6 +1484,46 @@ export function EditorInner({
         return new Promise((resolve, reject) => {
             setPendingInsert({ initialFile, initialTab, resolve, reject });
         });
+    }, []);
+
+    const openInlineIconPicker = useCallback(() => {
+        try {
+            const view = editorRef.current?.prosemirrorView;
+            const selectionFrom = view?.state?.selection?.from;
+            const coords = view && Number.isFinite(selectionFrom)
+                ? view.coordsAtPos(selectionFrom)
+                : null;
+            setInlineIconPickerAnchor(coords
+                ? { left: coords.left, top: coords.top, bottom: coords.bottom }
+                : { left: 24, top: 24, bottom: 24 });
+        } catch {
+            setInlineIconPickerAnchor({ left: 24, top: 24, bottom: 24 });
+        }
+    }, []);
+
+    const closeInlineIconPicker = useCallback(() => {
+        setInlineIconPickerAnchor(null);
+        try { editorRef.current?.focus(); } catch { /* noop */ }
+    }, []);
+
+    const insertInlineIcon = useCallback((icon) => {
+        const value = String(icon || '').trim();
+        if (!value) return;
+        setInlineIconPickerAnchor(null);
+        try {
+            const isImageOrLucide = value.startsWith('lucide:')
+                || value.startsWith('http')
+                || value.startsWith('/')
+                || value.startsWith('Assets/')
+                || value.startsWith('data:')
+                || value.includes('.');
+            editorRef.current?.insertInlineContent(isImageOrLucide
+                ? [{ type: 'inlineIcon', props: { value } }, ' ']
+                : `${value} `);
+            editorRef.current?.focus();
+        } catch (error) {
+            console.warn('Inline icon picker: could not insert the selected icon', error);
+        }
     }, []);
 
     // Silent upload to Assets. BlockNote's `uploadFile` uses it
@@ -2958,6 +3073,12 @@ export function EditorInner({
                     background: transparent !important;
                 }
 
+                /* Separate prose paragraphs by more than one text line. The
+                   paragraph block type excludes headings and list items. */
+                .bn-editor .bn-block-content[data-content-type="paragraph"] {
+                    margin-bottom: 26.5px !important;
+                }
+
                 .bn-editor [data-content-type="heading"] h1,
                 .bn-editor .bn-block-content[data-content-type="heading"] [data-level="1"] h1,
                 .bn-editor h1.bn-inline-content {
@@ -3230,6 +3351,7 @@ export function EditorInner({
                 theme={effectiveTheme}
             >
                 <SideMenuController
+                    sideMenu={SelectableSideMenu}
                     floatingUIOptions={{
                         elementProps: {
                             style: { zIndex: 'var(--z-popover)' },
@@ -3241,7 +3363,11 @@ export function EditorInner({
                     getItems={async (query) => {
                         if (!editor) return [];
                         // The default "File" block is redundant with "/+" (Insert content).
-                        const defaultItems = getDefaultReactSlashMenuItems(editor).filter((item) => item.key !== 'file');
+                        const defaultItems = getDefaultReactSlashMenuItems(editor)
+                            .filter((item) => item.key !== 'file')
+                            .map((item) => item.key === 'emoji'
+                                ? { ...item, onItemClick: openInlineIconPicker }
+                                : item);
                         const vaultItems = buildSlashCommandCatalog({ allTables: contextValue?.allTables || [], onOpenPageView: (tableId = '') => { try { pageViewAnchorRef.current = editor.getTextCursorPosition().block?.id || null; } catch { pageViewAnchorRef.current = null; } onOpenPageViewModal?.(tableId); } }).map(item => ({
                             title: item.title,
                             onItemClick: item.onItemClick,
@@ -3785,6 +3911,13 @@ export function EditorInner({
                 onLangDetected={onLangDetected}
             />
             <AICorrectLayer editor={editor} lang={spellLang} />
+            <IconPicker
+                isOpen={inlineIconPickerAnchor != null}
+                onClose={closeInlineIconPicker}
+                onSelectIcon={insertInlineIcon}
+                currentIcon=""
+                anchorRect={inlineIconPickerAnchor}
+            />
             <InsertContentModal
                 open={Boolean(pendingInsert)}
                 initialFile={pendingInsert?.initialFile || null}

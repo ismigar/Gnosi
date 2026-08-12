@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import { FileText, Calendar, Clock, Link as LinkIcon, CheckSquare, Loader2, ExternalLink, ChevronDown, ChevronUp, PanelRight, X, ArrowLeft, ArrowRight } from 'lucide-react';
-import { getFieldConfig, getFieldType, getSchemaFieldNames, resolveViewSorts, resolveViewFilters } from './schemaUtils';
+import { getFieldConfig, getFieldType, getSchemaFieldNames, resolveViewSorts, resolveViewFilters, withResolvedSystemDates } from './schemaUtils';
 import { normalizeOptions, optionChipStyle, autoColorFor } from './optionCatalogUtils';
 import { FileFieldValue } from './FileFieldValue';
 import { getImageSrc, toAssetPreviewUrl } from '../../lib/fileResource';
@@ -393,6 +393,13 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
     const [bulkSaveState, setBulkSaveState] = useState('idle');
     const [pendingBulkUndo, setPendingBulkUndo] = useState(null);
     const titlePreview = useTitlePreview({ onOpenPage: onNoteSelect });
+    // Feed timestamps must represent the record's registered system fields.
+    // A metadata migration rewrites the Markdown file and therefore changes
+    // its mtime even when the source record itself is years old.
+    const datedNotes = useMemo(
+        () => (notes || []).map(note => withResolvedSystemDates(note, schema)),
+        [notes, schema],
+    );
     useEffect(() => {
         const onKeyDown = (event) => {
             if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); setIsCommandOpen(true); }
@@ -625,7 +632,7 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
         sorts: resolveViewSorts(activeView, { field: 'last_modified', direction: 'desc' }),
         search: searchTerm,
     }), [activeView, searchTerm]);
-    const { sortedPages: sortedNotes } = useVaultViewData({ pages: notes, schema, view: viewConfig, searchTerm });
+    const { sortedPages: sortedNotes } = useVaultViewData({ pages: datedNotes, schema, view: viewConfig, searchTerm });
 
     const { selectedIds, isSelected, toggleSelect, selectAll, clearSelection } = useVaultSelection(sortedNotes);
     const lastRecordStorageKey = `gnosi.feed.lastRecord.${activeView?.id || 'default'}`;

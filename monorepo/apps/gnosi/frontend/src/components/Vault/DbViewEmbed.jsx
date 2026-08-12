@@ -1912,6 +1912,7 @@ export function DbViewEmbed({ block }) {
                     onUpdateFieldOptions={ctx.onAddSchemaOption}
                     onUpdateNote={onUpdateNoteAdapter}
                     actionRules={table?.action_rules}
+                    functionalities={table?.functionalities}
                 />
             </Box>
         );

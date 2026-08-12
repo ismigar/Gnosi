@@ -1922,9 +1922,10 @@ body[data-gnosi-floating-panel] .gnosi-floating-dock-toggle {
 /* Tooltips for row actions such as open and delete. */
 .row-action-tooltip {
   position: absolute;
-  bottom: calc(100% + 5px);
+  top: calc(100% + 5px);
+  bottom: auto;
   left: 50%;
-  transform: translateX(-50%) translateY(3px);
+  transform: translateX(-50%) translateY(-3px);
   background: var(--tooltip-bg);
   color: var(--tooltip-text);
   padding: 4px 8px;
@@ -3103,7 +3104,17 @@ button:hover > .row-action-tooltip {
     border-radius: 0 !important;
 }
 
-/* Keep a click-capture wrapper from baseline-aligning the drag handle above
+/* A drag-handle click selects the whole BlockNote node. Make the selection
+   visible on the outer block too, including blocks nested in columns. */
+.bn-editor .bn-block-outer:has(> .bn-block > .bn-block-content.ProseMirror-selectednode),
+.bn-editor .bn-block-outer:has(> .bn-block-content.ProseMirror-selectednode) {
+    outline: 2px solid color-mix(in srgb, var(--gnosi-primary) 72%, transparent) !important;
+    outline-offset: 3px;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--gnosi-primary) 7%, transparent) !important;
+}
+
+/* Keep the click-capture wrapper from baseline-aligning the drag handle above
    its sibling and the embedded block content. */
 .bn-side-menu > div:has([data-test="dragHandle"]) {
     display: flex;
@@ -3171,18 +3182,40 @@ button:hover > .row-action-tooltip {
     --area-orange: rgba(249, 115, 22, 0.24);
 }
 
-/* Separació entre paràgrafs dins del cos de cada feed item, exceptuant
-   els ítems d'una llista (els quals porten la seva pròpia interlinia
-   compacta). */
-.feed-md > p,
-.feed-md > blockquote {
-    margin-top: 0.75em;
-    margin-bottom: 0.75em;
+/* Keep paragraph spacing larger than the relaxed line height. Headers and
+   list items keep their own compact spacing. */
+.feed-md > p {
+    margin-top: 0;
+    margin-bottom: 1.8em;
 }
-.feed-md > p:first-child,
-.feed-md > blockquote:first-child { margin-top: 0; }
-.feed-md > p:last-child,
-.feed-md > blockquote:last-child { margin-bottom: 0; }
+
+/* Custom toggle fences are rendered as native disclosure widgets in previews. */
+.vault-markdown-toggle {
+  margin: 0.5rem 0;
+  border-radius: 0.5rem;
+}
+.vault-markdown-toggle > summary {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  cursor: pointer;
+  list-style: none;
+  color: var(--text-primary);
+}
+.vault-markdown-toggle > summary::-webkit-details-marker { display: none; }
+.vault-markdown-toggle > summary::before {
+  content: "▸";
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
+  font-size: 0.8em;
+  transition: transform 0.15s ease;
+}
+.vault-markdown-toggle[open] > summary::before { transform: rotate(90deg); }
+.vault-markdown-toggle__content {
+  margin-left: 1.15rem;
+  padding-left: 0.7rem;
+  border-left: 1px solid var(--border-primary);
+}
 
 /* Custom toggle fences are rendered as native disclosure widgets in previews. */
 .vault-markdown-toggle {

@@ -2358,12 +2358,23 @@ def _delete_asset_files_for_page(
 def _delete_asset_property_dir(
     table: Dict[str, Any], database: Optional[Dict[str, Any]], prop_name: str
 ):
-    """Recursively deletes the Assets/[DB]/[Table]/[Property] folder if it exists."""
+    """Remove an empty property asset folder without deleting user files.
+
+    Full-table schema updates can transiently omit properties when a client has
+    not finished hydrating. Asset files are user data, so a missing property in
+    one payload is never sufficient authorization to delete a non-empty folder.
+    """
     prop_dir = _property_assets_dir(table, database, prop_name)
     if prop_dir.is_dir():
         try:
-            shutil.rmtree(prop_dir)
-            log.info(f"Property folder deleted: {prop_dir}")
+            if next(prop_dir.iterdir(), None) is not None:
+                log.warning(
+                    "Preserving non-empty property asset folder after schema removal: %s",
+                    prop_dir,
+                )
+                return
+            prop_dir.rmdir()
+            log.info("Empty property folder deleted: %s", prop_dir)
         except Exception as exc:
             log.warning(f"Could not delete folder {prop_dir}: {exc}")
 
@@ -5768,6 +5779,27 @@ def find_page_path(page_id: str, *, allow_full_scan: bool = True) -> Optional[Pa
                 continue
 
     return None
+
+
+def _find_page_path_for_write(page_id: str) -> Optional[Path]:
+    """Find a page for a write, repairing a stale index once on a cache miss.
+
+    External OneDrive renames can leave the in-memory page index behind while
+    the Markdown file is still present. Read paths should fail fast for stale
+    IDs, but a user edit must get one authoritative index refresh before the
+    server returns a misleading 404.
+    """
+    file_path = find_page_path(page_id)
+    if file_path:
+        return file_path
+
+    log.info("🔄 Page %s missing from write index; refreshing page index once.", page_id)
+    try:
+        _get_cached_page_entries(force_refresh=True)
+    except Exception as exc:
+        log.warning("Page index refresh failed while saving %s: %s", page_id, exc)
+        return None
+    return find_page_path(page_id, allow_full_scan=False)
 
 
 async def _materialize_if_online_only(file_path: Path, label: str = "") -> None:
@@ -10910,7 +10942,7 @@ async def patch_page(
     async with await _get_page_write_lock(page_id):
 
         def _find_and_read():
-            fp = find_page_path(page_id)
+            fp = _find_page_path_for_write(page_id)
             if not fp:
                 return None, None, None, None, None
             # Concurrency check before the read (same as before).
@@ -17003,6 +17035,7 @@ def _create_table_locked(table: dict):
     # «Translated», «Published to Drupal», «Published to XXSS» depending on toggles) and the
     # corresponding action_rules blocks. Idempotent.
     option_catalogs_service.ensure_table_seeds(table)
+    option_catalogs_service.ensure_global_status_catalog(registry)
     action_rules_service.ensure_action_rules(table)
 
     # Product invariant: every table must always own at least one main
@@ -17558,6 +17591,16 @@ def _option_value_keys(prop: dict) -> list:
     return keys
 
 
+def _global_status_members(registry: dict) -> list[tuple[dict, dict]]:
+    """Return every table/property pair backed by the global status catalog."""
+    return [
+        (table, prop)
+        for table in registry.get("tables", []) or []
+        for prop in table.get("properties") or []
+        if option_catalogs_service.is_global_status_prop(prop)
+    ]
+
+
 async def _rewrite_option_in_rows(
     table: dict, prop: dict, old: str, new: Optional[str]
 ) -> int:
@@ -17636,22 +17679,21 @@ async def table_option_usage(table_id: str, field_id: str):
     the option editor of the SchemaConfigModal."""
     registry = load_registry()
     table, prop = _find_table_and_prop(registry, table_id, field_id)
-    rows = await asyncio.to_thread(_get_pages_for_table, table_id)
     counts: Dict[str, int] = {}
-    is_multi = prop.get("type") == "multi_select"
-    for r in rows:
-        v = action_rules_service.read_prop_value(r.metadata or {}, prop)
-        if v in (None, "", []):
-            continue
-        values = (
-            [str(x).strip() for x in v]
-            if isinstance(v, list)
-            else ([s.strip() for s in str(v).split(",")] if is_multi else [str(v).strip()])
-        )
-        for val in values:
-            if val:
-                counts[val] = counts.get(val, 0) + 1
-    return {"field": prop.get("name"), "counts": counts, "total_rows": len(rows)}
+    members = _global_status_members(registry) if option_catalogs_service.is_global_status_prop(prop) else [(table, prop)]
+    total_rows = 0
+    for member_table, member_prop in members:
+        rows = await asyncio.to_thread(_get_pages_for_table, member_table.get("id"))
+        total_rows += len(rows)
+        for r in rows:
+            v = action_rules_service.read_prop_value(r.metadata or {}, member_prop)
+            if v in (None, "", []):
+                continue
+            values = [str(x).strip() for x in v] if isinstance(v, list) else [str(v).strip()]
+            for val in values:
+                if val:
+                    counts[val] = counts.get(val, 0) + 1
+    return {"field": prop.get("name"), "counts": counts, "total_rows": total_rows}
 
 
 @router.post(
@@ -17679,7 +17721,26 @@ async def rename_table_option(table_id: str, payload: dict = Body(...)):
         registry = load_registry()
         table, prop = _find_table_and_prop(registry, table_id, field_ref)
         cfg = option_catalogs_service.get_prop_config(prop)
-        if not str(cfg.get("catalog_ref") or "").strip():
+        if option_catalogs_service.is_global_status_prop(prop):
+            options = option_catalogs_service.get_prop_options(
+                {"config": {"catalog_ref": option_catalogs_service.STATUS_CATALOG_REF}},
+                registry.get("option_catalogs"),
+            )
+            names = {o["name"] for o in options}
+            renamed = []
+            for option in options:
+                if option["name"] == old:
+                    if new in names:
+                        continue
+                    option = {**option, "name": new}
+                renamed.append(option)
+            registry.setdefault("option_catalogs", {})[option_catalogs_service.STATUS_CATALOG_REF] = renamed
+            for _, status_prop in _global_status_members(registry):
+                if str(option_catalogs_service.get_prop_config(status_prop).get("default_option") or "") == old:
+                    option_catalogs_service.get_prop_config(status_prop)["default_option"] = new
+            save_registry(registry)
+            members = _global_status_members(registry)
+        elif not str(cfg.get("catalog_ref") or "").strip():
             options = option_catalogs_service.get_prop_options(prop)
             names = {o["name"] for o in options}
             renamed = []
@@ -17693,8 +17754,14 @@ async def rename_table_option(table_id: str, payload: dict = Body(...)):
             if str(cfg.get("default_option") or "") == old:
                 cfg["default_option"] = new
             save_registry(registry)
-    files_changed = await _rewrite_option_in_rows(table, prop, old, new)
-    return {"status": "ok", "files_changed": files_changed}
+            members = [(table, prop)]
+        else:
+            members = []
+    files_changed = 0
+    for member_table, member_prop in members:
+        files_changed += await _rewrite_option_in_rows(member_table, member_prop, old, new)
+    response_options = registry.get("option_catalogs", {}).get(option_catalogs_service.STATUS_CATALOG_REF) if option_catalogs_service.is_global_status_prop(prop) else None
+    return {"status": "ok", "files_changed": files_changed, "options": response_options}
 
 
 @router.post(
@@ -17720,7 +17787,23 @@ async def remove_table_option(table_id: str, payload: dict = Body(...)):
         registry = load_registry()
         table, prop = _find_table_and_prop(registry, table_id, field_ref)
         cfg = option_catalogs_service.get_prop_config(prop)
-        if not str(cfg.get("catalog_ref") or "").strip():
+        if option_catalogs_service.is_global_status_prop(prop):
+            options = [
+                option
+                for option in option_catalogs_service.get_prop_options(
+                    {"config": {"catalog_ref": option_catalogs_service.STATUS_CATALOG_REF}},
+                    registry.get("option_catalogs"),
+                )
+                if option["name"] != value
+            ]
+            registry.setdefault("option_catalogs", {})[option_catalogs_service.STATUS_CATALOG_REF] = options
+            for _, status_prop in _global_status_members(registry):
+                status_cfg = option_catalogs_service.get_prop_config(status_prop)
+                if str(status_cfg.get("default_option") or "") == value:
+                    status_cfg.pop("default_option", None)
+            save_registry(registry)
+            members = _global_status_members(registry)
+        elif not str(cfg.get("catalog_ref") or "").strip():
             options = [
                 o
                 for o in option_catalogs_service.get_prop_options(prop)
@@ -17730,8 +17813,14 @@ async def remove_table_option(table_id: str, payload: dict = Body(...)):
             if str(cfg.get("default_option") or "") == value:
                 cfg.pop("default_option", None)
             save_registry(registry)
-    files_changed = await _rewrite_option_in_rows(table, prop, value, reassign_to)
-    return {"status": "ok", "files_changed": files_changed}
+            members = [(table, prop)]
+        else:
+            members = []
+    files_changed = 0
+    for member_table, member_prop in members:
+        files_changed += await _rewrite_option_in_rows(member_table, member_prop, value, reassign_to)
+    response_options = registry.get("option_catalogs", {}).get(option_catalogs_service.STATUS_CATALOG_REF) if option_catalogs_service.is_global_status_prop(prop) else None
+    return {"status": "ok", "files_changed": files_changed, "options": response_options}
 
 
 # --- Named shared catalogs (root registry `option_catalogs`) ---------
@@ -17743,6 +17832,39 @@ async def remove_table_option(table_id: str, payload: dict = Body(...)):
 async def list_option_catalogs():
     registry = load_registry()
     cats = registry.get("option_catalogs") or {}
+    # A previous local-status migration may already have removed the field's
+    # catalog before the root catalog was populated. Recover values that are
+    # actually present in rows so the UI never presents an empty lifecycle
+    # picker for existing data.
+    status_options = option_catalogs_service.normalize_options(
+        cats.get(option_catalogs_service.STATUS_CATALOG_REF)
+    )
+    status_names = {option["name"] for option in status_options}
+    status_members = _global_status_members(registry)
+    recovered_values: list[str] = []
+    if status_members:
+        for table, prop in status_members:
+            rows = await asyncio.to_thread(_get_pages_for_table, table.get("id"))
+            for row in rows:
+                value = action_rules_service.read_prop_value(row.metadata or {}, prop)
+                values = value if isinstance(value, list) else [value]
+                for item in values:
+                    clean = str(item or "").strip()
+                    if clean and clean not in status_names:
+                        status_names.add(clean)
+                        recovered_values.append(clean)
+    if recovered_values:
+        status_options.extend(
+            {"name": value, "color": option_catalogs_service.auto_color(value)}
+            for value in recovered_values
+        )
+        with registry_mutation():
+            fresh_registry = load_registry()
+            fresh_registry.setdefault("option_catalogs", {})[
+                option_catalogs_service.STATUS_CATALOG_REF
+            ] = status_options
+            save_registry(fresh_registry)
+        cats = fresh_registry.get("option_catalogs") or {}
     return {
         "catalogs": {
             name: option_catalogs_service.normalize_options(opts)
@@ -18598,7 +18720,30 @@ def _ensure_status_options_persisted(table_id: str, values: list) -> None:
             if not prop:
                 return
             wanted = [(str(v), "") for v in values if str(v or "").strip()]
-            if wanted and option_catalogs_service.ensure_options_exist(prop, wanted):
+            if not wanted:
+                return
+            if option_catalogs_service.is_global_status_prop(prop):
+                catalog = reg.setdefault("option_catalogs", {}).setdefault(
+                    option_catalogs_service.STATUS_CATALOG_REF, []
+                )
+                names = {
+                    option["name"]
+                    for option in option_catalogs_service.normalize_options(catalog)
+                }
+                changed = False
+                for value, group in wanted:
+                    if value in names:
+                        continue
+                    option = {"name": value, "color": option_catalogs_service.auto_color(value)}
+                    if group:
+                        option["group"] = group
+                    catalog.append(option)
+                    names.add(value)
+                    changed = True
+                if changed:
+                    reg["option_catalogs"][option_catalogs_service.STATUS_CATALOG_REF] = option_catalogs_service.normalize_options(catalog)
+                    save_registry(reg)
+            elif option_catalogs_service.ensure_options_exist(prop, wanted):
                 save_registry(reg)
     except Exception as exc:
         log.warning(

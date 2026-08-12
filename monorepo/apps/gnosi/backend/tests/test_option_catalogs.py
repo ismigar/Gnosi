@@ -214,3 +214,42 @@ def test_table_has_social_column():
     assert oc.table_has_social_column(_table([{"name": "XXSS", "type": "text", "system": True}]))
     assert oc.table_has_social_column(_table([{"name": "Social", "type": "text", "config": {"system": True}}]))
     assert not oc.table_has_social_column(_table([{"name": "XXSS", "type": "text"}]))
+
+
+def test_status_type_uses_one_global_catalog_and_migrates_local_options():
+    registry = {
+        "tables": [
+            _table([
+                {"id": "f1", "name": "Estat", "type": "status",
+                 "config": {"options": [{"name": "En revisió", "color": "red"}]}},
+            ]),
+            _table([
+                {"id": "f2", "name": "Lifecycle", "type": "status",
+                 "config": {"options": ["Arxivat"]}},
+            ], translation_enabled=True),
+        ],
+        "option_catalogs": {oc.STATUS_CATALOG_REF: [{"name": "Custom", "color": "blue"}]},
+    }
+
+    assert oc.ensure_global_status_catalog(registry) is True
+    assert registry["option_catalogs"][oc.STATUS_CATALOG_REF][0] == {"name": "Custom", "color": "blue"}
+    names = oc.option_names(registry["option_catalogs"][oc.STATUS_CATALOG_REF])
+    assert names[:3] == ["Custom", "En revisió", "Arxivat"]
+    assert oc.STATUS_DRAFT in names
+    assert oc.STATUS_REVIEWED in names
+    assert oc.STATUS_TRANSLATED in names
+    for table in registry["tables"]:
+        prop = table["properties"][0]
+        assert prop["config"]["catalog_ref"] == oc.STATUS_CATALOG_REF
+        assert "options" not in prop["config"]
+
+    assert oc.ensure_global_status_catalog(registry) is False
+
+
+def test_select_named_status_remains_table_local():
+    registry = {"tables": [_table([
+        {"id": "f1", "name": "Estat", "type": "select", "config": {"options": ["Local"]}},
+    ])]}
+    assert oc.ensure_global_status_catalog(registry) is False
+    assert "option_catalogs" not in registry
+    assert "catalog_ref" not in registry["tables"][0]["properties"][0]["config"]

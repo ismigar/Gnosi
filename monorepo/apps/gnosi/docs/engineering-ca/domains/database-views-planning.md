@@ -1,25 +1,15 @@
 ---
 status: implemented
-last_verified: 2026-08-11
+last_verified: 2026-08-02
 source_paths:
-  - backend/api/vault_routes.py
   - backend/api/vault_views_routes.py
   - backend/api/planning_routes.py
-  - backend/services/table_system_dates.py
-  - backend/services/view_snapshot.py
   - backend/services/planning_engine.py
   - backend/services/planning_scheduler.py
-  - pipeline/scripts/migrate_table_system_dates.py
   - frontend/src/components/Vault/VaultTable.jsx
-  - frontend/src/pages/VaultDashboard.jsx
   - frontend/src/pages/ProjectPlanningPage.jsx
-  - frontend/src/utils/vaultFilters.js
 tests:
-  - backend/tests/test_table_system_dates.py
-  - backend/tests/test_migrate_table_system_dates.py
-  - backend/tests/test_table_view_name_hygiene.py
   - backend/tests/test_view_snapshot.py
-  - backend/tests/test_snapshot_sort_accent_parity.py
   - backend/tests/test_planning_engine.py
   - backend/tests/test_project_planning.py
   - e2e/tests/e2e/dashboards.spec.ts
@@ -32,42 +22,6 @@ tests:
 Una base de dades Gnosi és un esquema i una capa de vista sobre pàgines, normalment arrelada en una carpeta Vult. La pàgina del davant conté valors de registre. Les dades de registre defineix els tipus de camp, vistes de valors, fórmules, característiques, relacions, opcions, preferències i accions.
 
 Com a mínim una vista principal és una vista invariciant. L' inici i les rutes de reparació de temps de lectura, restaurar- la quan el llegat o interrompre escriu deixar una taula sense vista vàlida.
-
-## Dates d'auditoria del sistema
-
-Cada taula té propietats de només lectura per a la data de creació i l'última
-modificació. Les taules noves localitzen els noms segons l'idioma de la
-petició o l'idioma actual de la interfície configurat a Settings, i mantenen
-les dues propietats al final de l'esquema. La creació d'un registre assigna
-tots dos valors; els desaments posteriors preserven la creació i actualitzen
-la modificació.
-
-La migració idempotent només reconeix els tipus de sistema explícits i els
-noms heretats coneguts, de manera que els altres camps `date` i les metadades
-internes `created_at` o `last_edited_at` no es modifiquen. Els clons
-deterministes de Notion poden recuperar els timestamps autoritatius mitjançant
-els UUID configurats de base de dades i pàgina, sense comparar títols. L'índex
-complet de Notion es recupera abans d'escriure i es fa backup de cada registre
-o fitxer Markdown modificat.
-
-## Higiene dels noms de taules i vistes
-
-Els noms de les taules i de les vistes desades del registre es normalitzen en
-carregar i en escriure. S'eliminen els emoticones i símbols pictogràfics
-decoratius, però es conserven els accents i la puntuació significativa. La
-vista principal bloquejada sempre té exactament el nom de la taula propietària,
-i el marcador `is_main` continua sent l'autoritat.
-
-## Jerarquia de navegació de les taules
-
-La barra lateral del Vault presenta cada taula com un node pare amb dos grups
-fills independents: `Contingut` conté els registres de la taula i `Vistes`
-conté les vistes desades. Tots dos grups apareixen col·lapsats per defecte,
-igual que els nodes de taula i les seccions de navegació de primer nivell, de
-manera que una taula amb molts registres o vistes continua sent fàcil de
-consultar. Expandir un grup no ha d'expandir implícitament l'altre; cada
-secció conserva el seu propi estat persistent i totes les etiquetes passen pel
-catàleg de localització del frontend.
 
 ## Visualitza canonada
 
@@ -85,15 +39,6 @@ flowchart LR
 Els valors amb tipus de camp declarat han de ser comparats com el seu tipus de camp declarat. L' entrada de text només pot representar tots els valors de filtre; data, caixa de selecció, número, relació, seleccioneu i multivalor normalitzar els camps mitjançant operadors de camp compatible amb el camp.
 
 L' avaluació derivada del camp té una ordre explícita. Les fórmules que depenen dels valors en brut que s' executen abans de que les relacions agregades i dependre de fórmules es resolin sense permetre que els cicles es repeteixin indefinidament. El dorsal i les representacions dels frontals han d' estar d' acord amb la veritat, percentatges, valors buits i identificadors d' opció.
-
-Els criteris d'ordenació de les vistes desades s'apliquen en l'ordre de la
-llista amb una comparació estable de múltiples claus. Els valors buits sempre
-queden després dels valors informats, tant en ordre ascendent com descendent,
-tal com fa Notion en les vistes importades. Les vistes del frontend i les
-instantànies Markdown del backend comparteixen aquesta regla perquè l'ordre
-dels registres no divergeixi.
-
-Quan `VaultDashboard` renderitza una pestanya de taula, passa les funcionalitats habilitades del registre de la taula a través de `VaultViewBody` fins a `VaultTable`. Per tant, la pestanya de taula, la taula independent, el panell dividit i la vista incrustada exposen les mateixes accions de fila configurades. Si s'omet aquesta cadena de propietats, l'acció queda oculta encara que el registre i l'API la retornin com a habilitada.
 
 ## Evolucionació d' esquemes i d'acordència
 
