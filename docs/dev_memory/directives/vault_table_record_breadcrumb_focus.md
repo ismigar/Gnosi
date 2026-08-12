@@ -21,9 +21,16 @@ mounted briefly and would consume the request before breadcrumb navigation. Keep
 the originating view identifier so returning to a non-default view restores the
 same visible record.
 
+Do not reset the table cursor just because a search term changes. When clearing
+a search, the previously active record can be visible in the restored result set
+and must remain the cursor target; fall back to the first record only when that
+active cell is no longer available.
+
 ## Required validation
 
 1. Run the focused frontend tests and the frontend build.
 2. In the browser, open a non-first table record, return through the breadcrumb,
    and verify that the same record is focused and visible.
 3. Repeat from a non-default table view.
+4. Search for a non-first record, select it, clear the search, and verify that
+   the selected record remains the table cursor.

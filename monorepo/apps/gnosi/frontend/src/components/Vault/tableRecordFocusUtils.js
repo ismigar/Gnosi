@@ -1,5 +1,16 @@
 const EMPTY_GROUP_KEY = ' empty';
 
+export function getTableFocusTarget({ activeCell, navRows, gridColumns }) {
+    const hasActiveRow = activeCell && (navRows || []).some(row => row.id === activeCell.rowId);
+    const hasActiveColumn = activeCell && (gridColumns || []).some(column => column.key === activeCell.field);
+    if (hasActiveRow && hasActiveColumn) return activeCell;
+
+    const firstRow = navRows?.[0];
+    const firstColumn = gridColumns?.[0];
+    if (!firstRow || !firstColumn) return null;
+    return { rowId: firstRow.id, field: firstColumn.key };
+}
+
 export function getTableRecordFocusPreparation({
     recordId,
     notes,
@@ -47,4 +58,3 @@ export function getTableRecordFocusPreparation({
 
     return { status: 'ready' };
 }
-

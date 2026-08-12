@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getTableRecordFocusPreparation } from './tableRecordFocusUtils';
+import { getTableFocusTarget, getTableRecordFocusPreparation } from './tableRecordFocusUtils';
 
 const baseInput = {
     notes: [],
@@ -59,3 +59,23 @@ describe('getTableRecordFocusPreparation', () => {
     });
 });
 
+describe('getTableFocusTarget', () => {
+    const navRows = [{ id: 'first' }, { id: 'selected' }];
+    const gridColumns = [{ key: 'title' }, { key: 'status' }];
+
+    it('keeps the selected record when clearing a search restores it to the table', () => {
+        expect(getTableFocusTarget({
+            activeCell: { rowId: 'selected', field: 'status' },
+            navRows,
+            gridColumns,
+        })).toEqual({ rowId: 'selected', field: 'status' });
+    });
+
+    it('falls back to the first cell when the prior record is no longer visible', () => {
+        expect(getTableFocusTarget({
+            activeCell: { rowId: 'filtered-out', field: 'title' },
+            navRows,
+            gridColumns,
+        })).toEqual({ rowId: 'first', field: 'title' });
+    });
+});
