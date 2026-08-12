@@ -1450,7 +1450,19 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                 return;
             }
         }
-        if (focusTarget) setActiveCell(focusTarget);
+        if (focusTarget) {
+            setActiveCell(focusTarget);
+            if (preservesActiveCell) {
+                const targetRow = navRows.find(row => row.id === focusTarget.rowId);
+                if (targetRow?.descriptorIndex != null) {
+                    rowVirtualizer.scrollToIndex(targetRow.descriptorIndex, { align: 'center' });
+                    requestAnimationFrame(() => {
+                        const selector = `[data-title-cell="${CSS.escape(focusTarget.rowId)}"]`;
+                        tableContainerRef.current?.querySelector(selector)?.focus({ preventScroll: true });
+                    });
+                }
+            }
+        }
     }, [activeView?.id, searchTerm, sortSignature, navRows, gridColumns, groupByField, rowDescriptors, rowVirtualizer]);
 
     // Resizing Handlers

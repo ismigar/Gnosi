@@ -26,6 +26,9 @@ a search, the previously active record can be visible in the restored result set
 and must remain the cursor target; fall back to the first record only when that
 active cell is no longer available.
 
+When a preserved record was outside the viewport while the search was active,
+scroll its virtual row into view before returning DOM focus to its title cell.
+
 ## Required validation
 
 1. Run the focused frontend tests and the frontend build.
@@ -34,3 +37,5 @@ active cell is no longer available.
 3. Repeat from a non-default table view.
 4. Search for a non-first record, select it, clear the search, and verify that
    the selected record remains the table cursor.
+5. Repeat with a record outside the initial viewport and verify that it is
+   scrolled into view.
