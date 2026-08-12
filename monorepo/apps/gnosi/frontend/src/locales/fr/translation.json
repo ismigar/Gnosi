@@ -3009,6 +3009,7 @@
     "unchecked": "Non coché",
     "value_ph": "Valeur",
     "value_this_ph": "this ou valeur",
+    "filter_text_pattern_hint": "% = n’importe quel texte · /motif/i = expression régulière",
     "delete": "Supprimer",
     "sort_intro": "Tri par priorité : le premier critère prime, les suivants départagent. Sans critère, tri par titre croissant.",
     "add_sort": "Ajouter un critère",

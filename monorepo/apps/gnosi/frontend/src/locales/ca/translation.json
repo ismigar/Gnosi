@@ -3625,6 +3625,7 @@
     "unchecked": "Sense marcar",
     "value_ph": "Valor",
     "value_this_ph": "this o valor",
+    "filter_text_pattern_hint": "% = qualsevol text · /patró/i = expressió regular",
     "delete": "Eliminar",
     "sort_intro": "Ordenació amb prioritat: el primer criteri mana, els següents desempaten. Sense criteris, s'ordena per títol ascendent.",
     "add_sort": "Afegir criteri",

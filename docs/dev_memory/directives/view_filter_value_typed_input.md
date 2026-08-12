@@ -18,6 +18,9 @@ Change the value control only, not the operator list:
 - `period`: allow filtering against either the start or end boundary, then use
   the same `Today` or calendar control.
 - `relation`: use the existing `RelationValuePicker`.
+- `autoria`: render separate `nom`, `cognom1`, and `cognom2` inputs. Empty
+  components are ignored; populated components must match the same stored
+  author, never different authors in the list.
 - `select` and `status`: render a native selector from the field option catalog.
 - `multi_select`: render a multiple selector from the field option catalog; a
   record matches when it has any selected option.
@@ -42,6 +45,14 @@ Change the value control only, not the operator list:
   start for end-boundary filters. Keep `periodPart` (`start` or `end`) with the
   filter rule and resolve the dynamic `today` value at evaluation time in the
   live frontend, embedded views, and backend snapshots.
+- Text filter values support `%` as a SQL-style wildcard and explicit regular
+  expressions written as `/pattern/flags`. Invalid or incomplete regular
+  expressions fall back safely to literal text while the user edits them.
+- Structured authorship values must be flattened to their readable full name
+  for general text search. Never stringify author objects directly because it
+  produces `[object Object]` and silently hides valid records.
+- Keep the three filtering engines in parity: `vaultFilters.matchesRule`,
+  `DbViewEmbed.applyFilter`, and `view_snapshot.apply_filter`.
 
 ## QA
 

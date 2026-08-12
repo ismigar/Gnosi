@@ -9,6 +9,9 @@ editor shortcut collisions across every Vault surface.
 
 - A view search filters records on every keystroke in full-page, table-tab,
   split-pane, and embedded views.
+- View search text supports `%` as a wildcard and `/pattern/flags` as an
+  explicit regular expression, while ordinary text preserves accent-insensitive
+  contains behavior.
 - Every renderer receives the same controlled `searchTerm`; a header must never
   own search state that is omitted from its view body.
 - Global search opens with Option/Alt+K. Cmd/Ctrl+K remains available to the
@@ -32,6 +35,9 @@ editor shortcut collisions across every Vault surface.
   shared filter engine.
 - Keep calendar entries and trashed pages excluded according to the canonical
   page and index semantics.
+- Flatten structured metadata into readable values before searching. In
+  particular, authorship objects are searched as `nom cognom1 cognom2`, not as
+  their JavaScript object representation.
 
 ## Validation
 
