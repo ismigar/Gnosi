@@ -70,6 +70,38 @@ def test_filter_contains_and_numeric():
     assert apply_filter({"n": "2"}, PAGE, {"field": "n", "operator": "greater_than", "value": "3"}) is False
 
 
+def test_filter_text_supports_percent_wildcards_and_explicit_regex():
+    meta = {"t": "Ismael García Fernández"}
+    assert apply_filter(meta, PAGE, {"field": "t", "operator": "contains", "value": "Ismael%Fernandez"}) is True
+    assert apply_filter(meta, PAGE, {"field": "t", "operator": "equals", "value": "%Garcia%"}) is True
+    assert apply_filter(meta, PAGE, {"field": "t", "operator": "contains", "value": r"/^ismael\s+garc.*fernandez$/i"}) is True
+    assert apply_filter(meta, PAGE, {"field": "t", "operator": "contains", "value": "Joan%"}) is False
+
+
+def test_structured_authorship_matches_components_on_the_same_author():
+    meta = {
+        "Autoría": [
+            {"nom": "Ismael", "cognom1": "García", "cognom2": "Fernández"},
+            {"nom": "Maria", "cognom1": "Serra", "cognom2": "Pons"},
+        ]
+    }
+    assert apply_filter(meta, PAGE, {
+        "field": "Autoría",
+        "operator": "contains",
+        "value": {"nom": "Ism%", "cognom1": "García", "cognom2": ""},
+    }) is True
+    assert apply_filter(meta, PAGE, {
+        "field": "Autoría",
+        "operator": "equals",
+        "value": {"nom": "", "cognom1": "García", "cognom2": "Fernández"},
+    }) is True
+    assert apply_filter(meta, PAGE, {
+        "field": "Autoría",
+        "operator": "contains",
+        "value": {"nom": "Ismael", "cognom1": "Serra", "cognom2": ""},
+    }) is False
+
+
 def test_filter_greater_less_than_or_equal():
     assert apply_filter({"n": "5"}, PAGE, {"field": "n", "operator": "greater_than_or_equal", "value": "5"}) is True
     assert apply_filter({"n": "6"}, PAGE, {"field": "n", "operator": "greater_than_or_equal", "value": "5"}) is True

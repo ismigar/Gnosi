@@ -50,6 +50,81 @@ export function parseNumericValue(s) {
     return /^-?\d+,\d+$/.test(t) ? Number(t.replace(',', '.')) : parseFloat(t);
 }
 
+const REGEX_LITERAL_RE = /^\/([\s\S]*)\/([a-z]*)$/i;
+const REGEX_FLAGS_RE = /^[dgimsuvy]*$/;
+
+function escapeRegex(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Matches user-entered text patterns consistently across searches and filters.
+ * Plain text keeps the historical contains/equals semantics. `%` is a
+ * SQL-style wildcard and `/pattern/flags` is treated as an explicit regular
+ * expression. Invalid regular expressions safely fall back to plain text.
+ */
+export function matchesTextPattern(candidate, pattern, mode = 'contains') {
+    const source = normalizeForSearch(candidate);
+    const rawPattern = String(pattern ?? '');
+    const normalizedPattern = normalizeForSearch(rawPattern);
+    if (!normalizedPattern) return true;
+
+    const literal = rawPattern.match(REGEX_LITERAL_RE);
+    if (literal && REGEX_FLAGS_RE.test(literal[2])) {
+        try {
+            const normalizedBody = normalizeForSearch(literal[1]);
+            const flags = Array.from(new Set(`${literal[2]}i`.replace(/[gy]/g, ''))).join('');
+            return new RegExp(normalizedBody, flags).test(source);
+        } catch {
+            // Keep the filter usable while the user is typing an incomplete regex.
+        }
+    }
+
+    if (normalizedPattern.includes('%')) {
+        const wildcard = normalizedPattern
+            .split('%')
+            .map(escapeRegex)
+            .join('.*');
+        return new RegExp(`^${wildcard}$`, 'i').test(source);
+    }
+    return mode === 'equals'
+        ? source === normalizedPattern
+        : source.includes(normalizedPattern);
+}
+
+function isStructuredAuthor(value) {
+    return value && typeof value === 'object' && !Array.isArray(value)
+        && ('nom' in value || 'cognom1' in value || 'cognom2' in value);
+}
+
+function textValues(value) {
+    if (value === null || value === undefined || value === '') return [];
+    if (Array.isArray(value)) return value.flatMap(textValues);
+    if (isStructuredAuthor(value)) {
+        return [[value.nom, value.cognom1, value.cognom2].filter(Boolean).join(' ')];
+    }
+    if (typeof value === 'object') return Object.values(value).flatMap(textValues);
+    return [String(value)];
+}
+
+function matchesStructuredAuthorship(rawValue, filterValue, operator) {
+    if (!isStructuredAuthor(filterValue)) return null;
+    const criteria = ['nom', 'cognom1', 'cognom2']
+        .filter(key => String(filterValue[key] || '').trim())
+        .map(key => [key, filterValue[key]]);
+    if (!criteria.length) return true;
+    const mode = operator === 'equals' || operator === 'not_equals' ? 'equals' : 'contains';
+    const authors = Array.isArray(rawValue) ? rawValue : [rawValue];
+    const positive = authors.some(author => {
+        if (isStructuredAuthor(author)) {
+            return criteria.every(([key, pattern]) => matchesTextPattern(author[key], pattern, mode));
+        }
+        // Legacy free-text authorship remains searchable until migration is complete.
+        return criteria.every(([, pattern]) => matchesTextPattern(author, pattern, mode));
+    });
+    return operator === 'not_equals' || operator === 'not_contains' ? !positive : positive;
+}
+
 /**
  * Evaluates a SINGLE filter rule `{ field, operator, value }` against an item.
  * Extracted from `matchesFilters` so both the flat list and the nested
@@ -79,6 +154,9 @@ export function matchesRule(item, filter) {
         rawVal = periodBoundary(rawVal, filter.periodPart || 'start');
     }
 
+    const authorshipMatch = matchesStructuredAuthorship(rawVal, filter.value, filter.operator);
+    if (authorshipMatch !== null) return authorshipMatch;
+
     // Normalizes the value to an array of strings —1:1 parity with the
     // backend's snapshot engine (view_snapshot.apply_filter) and the one for
     // embedded views (DbViewEmbed.applyFilter)—. A multi_select field
@@ -87,9 +165,7 @@ export function matchesRule(item, filter) {
     // match (the main view was hiding rows that DID contain the value) and
     // made `not_equals` ALWAYS match. We compare by membership, in lowercase
     // (case-insensitive, consistent with the rest of the filter).
-    const arr = Array.isArray(rawVal)
-        ? rawVal.map(x => String(x))
-        : (rawVal === null || rawVal === undefined || rawVal === '' ? [] : [String(rawVal)]);
+    const arr = textValues(rawVal);
     const arrLower = arr.map(s => s.toLowerCase());
     // A multi-select filter can carry several selected options. Those options
     // match when any selected value belongs to the record's value array.
@@ -105,12 +181,12 @@ export function matchesRule(item, filter) {
         // counts as "unchecked" and matches "false".
         case 'equals':
             if (filterVal === 'true' || filterVal === 'false') return asBool(rawVal) === (filterVal === 'true');
-            return filterVals.some(value => arrLower.includes(value));
+            return filterVals.some(value => arr.some(x => matchesTextPattern(x, value, 'equals')));
         case 'not_equals':
             if (filterVal === 'true' || filterVal === 'false') return asBool(rawVal) !== (filterVal === 'true');
-            return filterVals.every(value => !arrLower.includes(value));
-        case 'contains': return filterVals.some(value => arrLower.some(x => x.includes(value)));
-        case 'not_contains': return filterVals.every(value => !arrLower.some(x => x.includes(value)));
+            return filterVals.every(value => !arr.some(x => matchesTextPattern(x, value, 'equals')));
+        case 'contains': return filterVals.some(value => arr.some(x => matchesTextPattern(x, value, 'contains')));
+        case 'not_contains': return filterVals.every(value => !arr.some(x => matchesTextPattern(x, value, 'contains')));
         case 'is_empty': return arr.length === 0;
         case 'is_not_empty': return arr.length > 0;
         // greater/less than: if BOTH (value and filter) are pure numbers
@@ -293,10 +369,10 @@ export const normalizeForSearch = (s) =>
 export function matchesSearch(item, searchTerm = '') {
     if (!searchTerm || !searchTerm.trim()) return true;
 
-    const q = normalizeForSearch(searchTerm);
-    const title = normalizeForSearch(item.title || item.label || '');
-    if (title.includes(q)) return true;
+    if (matchesTextPattern(item.title || item.label || '', searchTerm, 'contains')) return true;
 
     const metadata = item.metadata || {};
-    return Object.values(metadata).some(v => normalizeForSearch(v).includes(q));
+    return Object.values(metadata).some(value => (
+        textValues(value).some(text => matchesTextPattern(text, searchTerm, 'contains'))
+    ));
 }

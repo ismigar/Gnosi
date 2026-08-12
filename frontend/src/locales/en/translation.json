@@ -3596,6 +3596,7 @@
     "unchecked": "Unchecked",
     "value_ph": "Value",
     "value_this_ph": "this or value",
+    "filter_text_pattern_hint": "% = any text · /pattern/i = regular expression",
     "delete": "Delete",
     "sort_intro": "Priority sorting: the first criterion rules, the rest break ties. With no criteria, rows sort by title ascending.",
     "add_sort": "Add criterion",

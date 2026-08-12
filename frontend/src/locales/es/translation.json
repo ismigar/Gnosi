@@ -3571,6 +3571,7 @@
     "unchecked": "Sin marcar",
     "value_ph": "Valor",
     "value_this_ph": "this o valor",
+    "filter_text_pattern_hint": "% = cualquier texto · /patrón/i = expresión regular",
     "delete": "Eliminar",
     "sort_intro": "Ordenación con prioridad: el primer criterio manda, los siguientes desempatan. Sin criterios, se ordena por título ascendente.",
     "add_sort": "Añadir criterio",

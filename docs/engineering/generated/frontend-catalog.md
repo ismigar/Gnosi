@@ -32,14 +32,14 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `application root` | 3 | 276 | 0 |
-| `components` | 197 | 77894 | 198 |
+| `components` | 197 | 77866 | 198 |
 | `context` | 1 | 177 | 6 |
 | `hooks` | 16 | 1239 | 7 |
 | `lib` | 17 | 1964 | 6 |
 | `locales` | 3 | 565 | 0 |
 | `pages` | 16 | 12275 | 52 |
 | `plugins` | 4 | 528 | 5 |
-| `utils` | 14 | 1627 | 0 |
+| `utils` | 14 | 1703 | 0 |
 
 ## application root
 
@@ -125,7 +125,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Vault/CoverPicker.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/CoverPicker.jsx) | 315 | `CoverPicker` | `/api/vault/upload-cover` |
 | [`frontend/src/components/Vault/CslStylePicker.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/CslStylePicker.jsx) | 166 | `CslStylePicker` | `/api/vault/csl/styles` |
 | [`frontend/src/components/Vault/DateMentionInline.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/DateMentionInline.jsx) | 115 | `DateMentionInline`, `function` | — |
-| [`frontend/src/components/Vault/DbViewEmbed.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/DbViewEmbed.jsx) | 2098 | `DbViewEmbed` | `/api/vault/bulk-apply-template`, `/api/vault/pages`, `/api/vault/views` |
+| [`frontend/src/components/Vault/DbViewEmbed.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/DbViewEmbed.jsx) | 2025 | `DbViewEmbed` | `/api/vault/bulk-apply-template`, `/api/vault/pages`, `/api/vault/views` |
 | [`frontend/src/components/Vault/DigitalBrainCalendar.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/DigitalBrainCalendar.jsx) | 1086 | `DigitalBrainCalendar` | — |
 | [`frontend/src/components/Vault/EmbedRenderer.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/EmbedRenderer.jsx) | 292 | `EmbedRenderer` | `/api/vault/assets/` |
 | [`frontend/src/components/Vault/FileAttachmentField.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/FileAttachmentField.jsx) | 149 | `FileAttachmentField` | — |
@@ -150,7 +150,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Vault/PageHistory.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PageHistory.jsx) | 337 | `PageHistory` | — |
 | [`frontend/src/components/Vault/PageHoverCard.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PageHoverCard.jsx) | 361 | `PageHoverCard` | — |
 | [`frontend/src/components/Vault/PageLinksGraph.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PageLinksGraph.jsx) | 185 | `PageLinksGraph` | — |
-| [`frontend/src/components/Vault/PageViewModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PageViewModal.jsx) | 3043 | `PageViewModal` | `/api/ai/models`, `/api/vault/plugins/vault-summary/settings`, `/api/vault/views` |
+| [`frontend/src/components/Vault/PageViewModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PageViewModal.jsx) | 3088 | `PageViewModal` | `/api/ai/models`, `/api/vault/plugins/vault-summary/settings`, `/api/vault/views` |
 | [`frontend/src/components/Vault/PdfAnnotationsToCite.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PdfAnnotationsToCite.jsx) | 151 | `PdfAnnotationsToCite` | `/api/vault/pdf-annotations` |
 | [`frontend/src/components/Vault/PresentationMode.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PresentationMode.jsx) | 99 | `PresentationMode`, `function` | — |
 | [`frontend/src/components/Vault/ProcessResourceModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/ProcessResourceModal.jsx) | 255 | `ProcessResourceModal` | `/api/vault/llm-wiki/process` |
@@ -354,5 +354,5 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/utils/panelKeyboardNavigation.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/panelKeyboardNavigation.js) | 16 | `getPanelScrollTarget` | — |
 | [`frontend/src/utils/projectPlanning.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/projectPlanning.js) | 361 | `addWorkingDuration`, `dependencySuccessorIds`, `formatLocalDateTime`, `latestPredecessorEnd`, `nextWorkingInstant`, `parsePeriod`, `periodBoundary`, `periodDaysInclusive`, `serializePeriod`, `withPeriodBoundaries`, `workingDurationDays`, `wouldCreateDependencyCycle` | — |
 | [`frontend/src/utils/semanticOverlay.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/semanticOverlay.js) | 51 | `SEMANTIC_SUGGESTION_COLOR`, `getSemanticOverlaySegments`, `getVisibleSemanticEdges`, `hasSemanticSuggestions` | — |
-| [`frontend/src/utils/vaultFilters.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/vaultFilters.js) | 302 | `ISO_DATE_RE`, `NUM_RE`, `asBool`, `compareFieldValues`, `isFilterGroup`, `matchesFilterNode`, `matchesFilters`, `matchesRule`, `matchesSearch`, `normalizeForSearch`, `parseNumericValue`, `sortKey`, `viewMatchesFilters` | — |
+| [`frontend/src/utils/vaultFilters.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/vaultFilters.js) | 378 | `ISO_DATE_RE`, `NUM_RE`, `asBool`, `compareFieldValues`, `isFilterGroup`, `matchesFilterNode`, `matchesFilters`, `matchesRule`, `matchesSearch`, `matchesTextPattern`, `normalizeForSearch`, `parseNumericValue`, `sortKey`, `viewMatchesFilters` | — |
 | [`frontend/src/utils/vaultQuickNavigation.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/vaultQuickNavigation.js) | 48 | `isGeneratedIndexNote`, `openVaultNote`, `selectRecentNotes` | — |

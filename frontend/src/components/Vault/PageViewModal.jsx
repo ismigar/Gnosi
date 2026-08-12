@@ -297,6 +297,45 @@ function FilterValueControl({ rule, meta, relOpts, onValue, t }) {
         );
     }
     const ftype = meta?.type;
+    if (ftype === 'autoria') {
+        const authorValue = rule.value && typeof rule.value === 'object' && !Array.isArray(rule.value)
+            ? rule.value
+            : { nom: String(rule.value || ''), cognom1: '', cognom2: '' };
+        const updateAuthorPart = (key, value) => onValue({
+            nom: String(authorValue.nom || ''),
+            cognom1: String(authorValue.cognom1 || ''),
+            cognom2: String(authorValue.cognom2 || ''),
+            [key]: value,
+        });
+        return (
+            <div className="grid min-w-[25rem] grid-cols-3 gap-1">
+                <input
+                    className={inputCls}
+                    value={authorValue.nom || ''}
+                    onChange={e => updateAuthorPart('nom', e.target.value)}
+                    placeholder={t('autoria.first_name', "First name")}
+                    aria-label={t('autoria.first_name', "First name")}
+                />
+                <input
+                    className={inputCls}
+                    value={authorValue.cognom1 || ''}
+                    onChange={e => updateAuthorPart('cognom1', e.target.value)}
+                    placeholder={t('autoria.surname1', "Surname 1")}
+                    aria-label={t('autoria.surname1', "Surname 1")}
+                />
+                <input
+                    className={inputCls}
+                    value={authorValue.cognom2 || ''}
+                    onChange={e => updateAuthorPart('cognom2', e.target.value)}
+                    placeholder={t('autoria.surname2', "Surname 2")}
+                    aria-label={t('autoria.surname2', "Surname 2")}
+                />
+                <span className="col-span-3 text-[10px] text-[var(--text-tertiary)]">
+                    {t('view.filter_text_pattern_hint')}
+                </span>
+            </div>
+        );
+    }
     const optionNames = normalizeOptions(meta?.options).map(option => option.name);
     if ((ftype === 'select' || ftype === 'status') && optionNames.length > 0) {
         return (
@@ -377,12 +416,17 @@ function FilterValueControl({ rule, meta, relOpts, onValue, t }) {
         );
     }
     return (
-        <input
-            className={inputCls}
-            value={rule.value || ''}
-            onChange={e => onValue(e.target.value)}
-            placeholder={t('view.value_this_ph', "this or value")}
-        />
+        <div className="flex w-40 flex-col gap-0.5">
+            <input
+                className={inputCls}
+                value={rule.value || ''}
+                onChange={e => onValue(e.target.value)}
+                placeholder={t('view.value_this_ph', "this or value")}
+            />
+            <span className="text-[10px] text-[var(--text-tertiary)]">
+                {t('view.filter_text_pattern_hint')}
+            </span>
+        </div>
     );
 }
 
@@ -1483,6 +1527,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         const type = fieldMeta[fieldName]?.type;
         if (type === 'checkbox') return 'false';
         if (type === 'multi_select') return [];
+        if (type === 'autoria') return { nom: '', cognom1: '', cognom2: '' };
         return '';
     };
 

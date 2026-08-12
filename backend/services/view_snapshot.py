@@ -423,6 +423,91 @@ def _period_boundary(value: Any, part: str) -> Any:
     return (end or start) if part == "end" else start
 
 
+_REGEX_LITERAL_RE = re.compile(r"^/([\s\S]*)/([a-z]*)$", re.IGNORECASE)
+_REGEX_FLAGS_RE = re.compile(r"^[imsx]*$", re.IGNORECASE)
+
+
+def _normalize_search_text(value: Any) -> str:
+    """Return lowercase, accent-insensitive text for filters and searches."""
+    decomposed = unicodedata.normalize("NFD", str(value or "").lower())
+    return "".join(char for char in decomposed if not unicodedata.combining(char))
+
+
+def _matches_text_pattern(candidate: Any, pattern: Any, mode: str = "contains") -> bool:
+    """Match plain text, SQL-style ``%`` wildcards, or ``/regex/flags``."""
+    source = _normalize_search_text(candidate)
+    raw_pattern = str(pattern or "")
+    normalized_pattern = _normalize_search_text(raw_pattern)
+    if not normalized_pattern:
+        return True
+
+    literal = _REGEX_LITERAL_RE.match(raw_pattern)
+    if literal and _REGEX_FLAGS_RE.match(literal.group(2)):
+        try:
+            flag_text = literal.group(2).lower()
+            flags = re.IGNORECASE
+            if "m" in flag_text:
+                flags |= re.MULTILINE
+            if "s" in flag_text:
+                flags |= re.DOTALL
+            if "x" in flag_text:
+                flags |= re.VERBOSE
+            return re.search(_normalize_search_text(literal.group(1)), source, flags) is not None
+        except re.error:
+            pass
+
+    if "%" in normalized_pattern:
+        wildcard = ".*".join(re.escape(part) for part in normalized_pattern.split("%"))
+        return re.fullmatch(wildcard, source, re.IGNORECASE) is not None
+    if mode == "equals":
+        return source == normalized_pattern
+    return normalized_pattern in source
+
+
+def _is_structured_author(value: Any) -> bool:
+    return isinstance(value, dict) and any(key in value for key in ("nom", "cognom1", "cognom2"))
+
+
+def _text_values(value: Any) -> List[str]:
+    """Flatten structured values into human-searchable text fragments."""
+    if value is None or value == "":
+        return []
+    if isinstance(value, list):
+        return [text for item in value for text in _text_values(item)]
+    if _is_structured_author(value):
+        return [" ".join(str(value.get(key) or "").strip() for key in ("nom", "cognom1", "cognom2")).strip()]
+    if isinstance(value, dict):
+        return [text for item in value.values() for text in _text_values(item)]
+    return [str(value)]
+
+
+def _matches_structured_authorship(value: Any, target: Any, operator: str) -> Optional[bool]:
+    """Compare supplied author components against the same stored author."""
+    if not _is_structured_author(target):
+        return None
+    criteria = [
+        (key, target.get(key))
+        for key in ("nom", "cognom1", "cognom2")
+        if str(target.get(key) or "").strip()
+    ]
+    if not criteria:
+        return True
+    mode = "equals" if operator in ("equals", "not_equals") else "contains"
+    authors = value if isinstance(value, list) else [value]
+    positive = any(
+        all(
+            _matches_text_pattern(
+                author.get(key) if _is_structured_author(author) else author,
+                pattern,
+                mode,
+            )
+            for key, pattern in criteria
+        )
+        for author in authors
+    )
+    return not positive if operator in ("not_equals", "not_contains") else positive
+
+
 def apply_filter(meta: Dict[str, Any], page_id: Optional[str], f: Dict[str, Any]) -> bool:
     """1:1 port of ``applyFilter`` (DbViewEmbed.jsx). ``value == 'this'`` →
     ``page_id``. Metadata values: list → set of strings; scalar →
@@ -437,21 +522,19 @@ def apply_filter(meta: Dict[str, Any], page_id: Optional[str], f: Dict[str, Any]
         return True
     op = str(f.get("operator") or "equals").lower()
     raw = page_id if f.get("value") == "this" else f.get("value")
-    targets = [str(value) for value in raw] if isinstance(raw, list) else ([] if raw is None else [str(raw)])
-    target = targets[0] if targets else None
     v = _meta_value_for_field(meta or {}, field)
     if f.get("periodPart") or (isinstance(v, dict) and "start" in v):
         v = _period_boundary(v, f.get("periodPart") or "start")
-    if isinstance(v, list):
-        arr = [str(x) for x in v]
-    elif v is None or v == "":
-        arr = []
-    else:
-        arr = [str(v)]
+    arr = _text_values(v)
     if op == "is_empty":
         return len(arr) == 0
     if op == "is_not_empty":
         return len(arr) > 0
+    authorship_match = _matches_structured_authorship(v, raw, op)
+    if authorship_match is not None:
+        return authorship_match
+    targets = [str(value) for value in raw] if isinstance(raw, list) else ([] if raw is None else [str(raw)])
+    target = targets[0] if targets else None
     if target is None:
         return True
     # Boolean value (checkbox: "true"/"false"): we compare by truthiness, not by
@@ -469,13 +552,13 @@ def apply_filter(meta: Dict[str, Any], page_id: Optional[str], f: Dict[str, Any]
     target_l = targets_l[0]
     arr_l = [x.lower() for x in arr]
     if op == "equals":
-        return any(value in arr_l for value in targets_l)
+        return any(_matches_text_pattern(item, value, "equals") for value in targets_l for item in arr)
     if op == "not_equals":
-        return all(value not in arr_l for value in targets_l)
+        return all(not any(_matches_text_pattern(item, value, "equals") for item in arr) for value in targets_l)
     if op == "contains":
-        return any(value in item for value in targets_l for item in arr_l)
+        return any(_matches_text_pattern(item, value, "contains") for value in targets_l for item in arr)
     if op == "not_contains":
-        return all(not any(value in item for item in arr_l) for value in targets_l)
+        return all(not any(_matches_text_pattern(item, value, "contains") for item in arr) for value in targets_l)
     # greater/less than: if BOTH (value and filter) are pure numbers, comparison
     # is numeric (_parse_numeric_value, parity with the frontend's parseNumericValue:
     # '12,5' → 12.5, comma decimal); otherwise, lowercase STRING comparison.
