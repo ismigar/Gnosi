@@ -10,8 +10,8 @@ Regenerar con `python pipeline/skills/technical_documentation/scripts/generate.p
 
 | Grupo | Módulos | Líneas |
 | --- | ---: | ---: |
-| `agent` | 36 | 13128 |
-| `api` | 35 | 35176 |
+| `agent` | 36 | 13126 |
+| `api` | 35 | 34611 |
 | `application root` | 6 | 627 |
 | `config` | 8 | 846 |
 | `data` | 2 | 295 |
@@ -20,12 +20,12 @@ Regenerar con `python pipeline/skills/technical_documentation/scripts/generate.p
 | `scheduler` | 2 | 949 |
 | `scripts` | 3 | 130 |
 | `security` | 3 | 735 |
-| `services` | 112 | 36964 |
+| `services` | 111 | 36350 |
 | `sh` | 1 | 69 |
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **228 módulos** y **90956 líneas de origen**.
+Total: **227 módulos** y **89775 líneas de origen**.
 
 ## agente
 
@@ -56,7 +56,7 @@ Total: **228 módulos** y **90956 líneas de origen**.
 | [`backend/agent/memory.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/memory.py) | 185 | 2 | 4 | 0 | 3 | Sin docstring de módulo |
 | ["backend/agente/modelo"_catalog.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/model_catalog.py) | 492 | 0 | 22 | 0 | 18 | Proveedor → modelo de catálogo para el flujo de trabajo de activación de comparación de modelos. |
 | ["backend/agente/modelo"_fiabilidad.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/model_reliability.py) | 220 | 0 | 10 | 0 | 5 | Por qué falló una llamada modelo, registrada como evidencia por proveedor:modelo. |
-| ["backend/agente/modelo"_router.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/model_router.py) | 489 | 1 | 13 | 0 | 12 | router basado en datos, modelo con presupuesto. |
+| ["backend/agente/modelo"_router.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/model_router.py) | 487 | 1 | 13 | 0 | 12 | router basado en datos, modelo con presupuesto. |
 | ["backend/agente/noción_tools.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/notion_tools.py) | 76 | 0 | 5 | 5 | 5 | Adaptadores gobernados para el descubrimiento de Notion conectado y la clonación exacta. |
 | ["backend/agente/planificación"_tools.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/planning_tools.py) | 167 | 0 | 13 | 12 | 12 | Herramientas gobernadas sobre los servicios de planificación de proyectos autorizados de Gnosi. |
 | ["backend/agent/reader"_tools.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/reader_tools.py) | 288 | 0 | 16 | 0 | 13 | Herramientas administradas para inspeccionar y analizar el contenido de Gnosi Reader. |
@@ -75,7 +75,7 @@ Total: **228 módulos** y **90956 líneas de origen**.
 | ["backend/api/__init__.py»](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/__init__.py) | 30 | 0 | 0 | 0 | 0 | Sin docstring de módulo |
 | ["backend/api/agent_routes.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py) | 1633 | 7 | 40 | 17 | 29 | Sin docstring de módulo |
 | ["backend/api/agent_competencias_routes.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_skills_routes.py) | 635 | 4 | 28 | 0 | 9 | Configuración APIs para habilidades y herramientas de agente gobernado. |
-| ["backend/api/ai_routes.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/ai_routes.py) | 747 | 6 | 17 | 13 | 14 | Sin docstring de módulo |
+| ["backend/api/ai_routes.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/ai_routes.py) | 690 | 6 | 16 | 12 | 13 | Sin docstring de módulo |
 | ["backend/api/analytics_routes.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/analytics_routes.py) | 376 | 0 | 12 | 7 | 12 | Sin docstring de módulo |
 | ["backend/api/auth_routes.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/auth_routes.py) | 365 | 5 | 11 | 0 | 11 | Endpoints de Auth — register / login / logout / me. |
 | ["backend/api/calendar_routes.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/calendar_routes.py) | 776 | 0 | 28 | 18 | 21 | Sin docstring de módulo |
@@ -102,8 +102,8 @@ Total: **228 módulos** y **90956 líneas de origen**.
 | [`backend/api/system_routes.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/system_routes.py) | 673 | 4 | 14 | 9 | 13 | Sin docstring de módulo |
 | ["backend/api/herramientas"_routes.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/tools_routes.py) | 164 | 3 | 6 | 5 | 6 | API Routes for Genered Tools Management. |
 | ["backend/api/vault_gráfico_routes.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/vault_graph_routes.py) | 25 | 0 | 1 | 1 | 1 | Sin docstring de módulo |
-| ["backend/api/vault_routes.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/vault_routes.py) | 20571 | 29 | 564 | 190 | 462 | Sin docstring de módulo |
-| ["backend/api/vault_opiniones_routes.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/vault_views_routes.py) | 350 | 2 | 9 | 3 | 7 | bóveda_opiniones_routes.py — API para gestionar vistas por página. |
+| ["backend/api/vault_routes.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/vault_routes.py) | 20067 | 29 | 557 | 185 | 455 | Sin docstring de módulo |
+| ["backend/api/vault_opiniones_routes.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/vault_views_routes.py) | 346 | 2 | 9 | 3 | 7 | bóveda_opiniones_routes.py — API para gestionar vistas por página. |
 | ["backend/api/vaults"_routes.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/vaults_routes.py) | 276 | 2 | 10 | 0 | 9 | Vaults API (modo multi-vault personal): lista, crea y elige bóvedas. |
 | ["backend/api/virtual_fields.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/virtual_fields.py) | 676 | 0 | 32 | 0 | 26 | Campos virtuales: propiedades derivadas calculadas por el motor en tiempo de lectura. |
 | [`backend/api/workspace_routes.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/workspace_routes.py) | 375 | 0 | 11 | 11 | 0 | Sin docstring de módulo |
@@ -197,7 +197,7 @@ Total: **228 módulos** y **90956 líneas de origen**.
 | ["backend/services/agent"_habilidad_tareas.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/agent_skill_assignments.py) | 308 | 4 | 2 | 0 | 5 | Tareas de habilidades de agente de revisión y migración de legado. |
 | ["backend/services/agent"_habilidad_catalog.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/agent_skill_catalog.py) | 783 | 6 | 21 | 0 | 18 | Catalogos eficaces y resolución de tiempo de ejecución para habilidades y herramientas de agente. |
 | ["backend/servicios/artículo_extractor.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/article_extractor.py) | 137 | 0 | 2 | 0 | 2 | Extracción de texto completo para artículos RSS cuya alimentación sólo envía un extracto. |
-| ["backend/servicios/artificial_ansything.py»](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/artificial_analysis.py) | 668 | 1 | 19 | 0 | 16 | Alimentación de comparación de modelos de análisis artificial. |
+| ["backend/servicios/artificial_ansything.py»](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/artificial_analysis.py) | 526 | 1 | 17 | 0 | 13 | Alimentación de comparación de modelos de análisis artificial. |
 | ["backend/services/audio"_summaryr.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/audio_summarizer.py) | 456 | 1 | 13 | 0 | 14 | Sin docstring de módulo |
 | ["backend/services/auth"_público_superficie.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/auth_public_surface.py) | 164 | 1 | 4 | 1 | 4 | El conjunto de puntos finales que deben permanecer accesibles sin una sesión. |
 | ["backend/services/auth"_service.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/auth_service.py) | 636 | 0 | 25 | 0 | 24 | Servicio de autenticación — Cookies JWT + cifrado de contraseñas. |
@@ -224,12 +224,12 @@ Total: **228 módulos** y **90956 líneas de origen**.
 | ["backend/services/fx_tases.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/fx_rates.py) | 188 | 0 | 9 | 0 | 5 | USD → conversión de moneda de usuario para el límite de gasto de IA. |
 | ["backend/servicios/generados_herramienta_accounts.py»](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/generated_tool_contributions.py) | 159 | 0 | 6 | 0 | 2 | Exponer herramientas generadas aprobadas a las habilidades sin otorgarlas globalmente. |
 | ["backend/services/gnosi_ai_accounts.py»](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/gnosi_ai_contributions.py) | 689 | 0 | 9 | 0 | 2 | Competencias y herramientas básicas para operaciones Gnosi de primera mano. |
-| ["backend/services/google_calendario_service.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/google_calendar_service.py) | 306 | 0 | 7 | 0 | 7 | Sin docstring de módulo |
+| ["backend/services/google_calendario_service.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/google_calendar_service.py) | 250 | 0 | 7 | 0 | 7 | Sin docstring de módulo |
 | ["backend/services/google_contactos_service.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/google_contacts_service.py) | 335 | 0 | 7 | 0 | 7 | Sin docstring de módulo |
 | ["backend/services/google_correo_service.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/google_mail_service.py) | 343 | 0 | 13 | 0 | 11 | Sin docstring de módulo |
 | ["backend/services/graph"_service.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/graph_service.py) | 958 | 1 | 8 | 0 | 8 | Sin docstring de módulo |
 | [`backend/services/handwriting.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/handwriting.py) | 271 | 0 | 10 | 0 | 6 | Reconocimiento de escritura (ink → texto) LOCAL con TrOCR. |
-| ["backend/servicios/híbrido"_calendario_service.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/hybrid_calendar_service.py) | 439 | 1 | 19 | 0 | 5 | Servicio de Calendario híbrido — consultas de Google Calendar y CalDAV directamente sin bóveda. |
+| ["backend/servicios/híbrido"_calendario_service.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/hybrid_calendar_service.py) | 437 | 1 | 19 | 0 | 5 | Servicio de Calendario híbrido — consultas de Google Calendar y CalDAV directamente sin bóveda. |
 | ["backend/servicios/híbrido"_correo_service.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/hybrid_mail_service.py) | 869 | 0 | 18 | 0 | 6 | Servicio de correo híbrido: consulta la API de Gmail e IMAP directamente sin un almacén. |
 | ["backend/services/imap_inactivo_service.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/imap_idle_service.py) | 271 | 2 | 0 | 0 | 2 | Servicio IMAP IDLE: notificaciones push cuando lleguen nuevos mensajes. |
 | ["backend/services/imap_correo_sincronización_service.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/imap_mail_sync_service.py) | 1340 | 1 | 5 | 0 | 3 | Servicio de sincronización de correo IMAP. |
@@ -264,7 +264,7 @@ Total: **228 módulos** y **90956 líneas de origen**.
 | ["backend/services/notion_mcp.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/notion_mcp.py) | 202 | 0 | 12 | 0 | 5 | Acceso al MCP de Notion (para ver recreación — Fase 2). |
 | ["backend/services/notion_mcp_md.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/notion_mcp_md.py) | 297 | 0 | 15 | 0 | 9 | Convertidor de Markdown rico de Notion MCP → Gnosi Markdown (para el CLONE exacto). |
 | ["backend/services/notion_esquema_config.py»](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/notion_schema_config.py) | 92 | 0 | 3 | 0 | 3 | Conversión de esquema de noción ↔ SchemaConfigFormato de modo (importación/clon configurable). |
-| ["backend/services/notion_vista_recreador.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/notion_view_recreator.py) | 392 | 0 | 14 | 0 | 13 | Recreador de vistas de Notion (Fase 2, a través de MCP alojado). |
+| ["backend/services/notion_vista_recreador.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/notion_view_recreator.py) | 388 | 0 | 14 | 0 | 13 | Recreador de vistas de Notion (Fase 2, a través de MCP alojado). |
 | ["backend/services/oauth2_helpers.py'](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/oauth2_helpers.py) | 175 | 1 | 5 | 0 | 6 | Ayudantes OAuth2 compartidos por IMAP+XOUATH2 y SMTP+XOUATH2. |
 | ["backend/servicios/opción"_catalogos.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/option_catalogs.py) | 327 | 0 | 17 | 0 | 12 | Catalogos de opciones ricos, roles de campo semánticos y semillas por mesa. |
 | ["backend/services/page_sidecar.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/page_sidecar.py) | 225 | 0 | 11 | 0 | 11 | Sidecar E/S para metadatos internos de página. |
@@ -289,7 +289,6 @@ Total: **228 módulos** y **90956 líneas de origen**.
 | ["backend/servicios/sociales_clients.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/social_clients.py) | 587 | 4 | 0 | 0 | 4 | Clientes de API de redes sociales |
 | ["backend/servicios/sociales_composite.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/social_compose.py) | 144 | 0 | 5 | 0 | 5 | Capa de IA para componer publicaciones en redes sociales. |
 | ["backend/servicios/sociales_store.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/social_store.py) | 206 | 0 | 6 | 4 | 6 | Persistencia de los puestos sociales en una tabla de la bóveda. |
-| ["backend/servicios/mesa_sistema_dates.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/table_system_dates.py) | 260 | 0 | 10 | 0 | 6 | Creación y modificación de campos de fecha para tablas de la bóveda. |
 | [`backend/services/transcripción.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/transcription.py) | 109 | 0 | 5 | 0 | 2 | Transcripción local de audio con susurro más rápido (CTranslate2, SIN antorcha). |
 | ["backend/servicios/traducción_helpers.py'](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/translation_helpers.py) | 343 | 0 | 15 | 0 | 14 | Ayudantes puros para la traducción de contenido (traducir_fila / traducir_) |
 | ["backend/servicios/traducción_index.py»](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/translation_index.py) | 106 | 0 | 6 | 0 | 4 | Índice de traducción local para idempotencia de fila de traducción. |
@@ -298,7 +297,7 @@ Total: **228 módulos** y **90956 líneas de origen**.
 | ["backend/services/vault_archivo_index.py»](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/vault_file_index.py) | 358 | 0 | 12 | 0 | 12 | bóveda_archivo_index.py — índice de nombre de archivo/carpeta de Vault. |
 | ["backend/services/vault_correo_sincronización_service.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/vault_mail_sync_service.py) | 206 | 1 | 0 | 0 | 0 | Sin docstring de módulo |
 | ["backend/services/vault_warmup.py'](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/vault_warmup.py) | 127 | 0 | 3 | 1 | 3 | Calentamiento proactivo de los archivos CRÍTICOS de la bóveda (OneDrive sólo en línea). |
-| ["backend/services/view_snapshot.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/view_snapshot.py) | 866 | 0 | 28 | 0 | 25 | Captura de pantalla de los resultados de una vista incrustada en el cuerpo de marca hacia abajo. |
+| ["backend/services/view_snapshot.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/view_snapshot.py) | 716 | 0 | 26 | 0 | 23 | Captura de pantalla de los resultados de una vista incrustada en el cuerpo de marca hacia abajo. |
 | ["backend/services/web_slipper.py»](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/web_clipper.py) | 257 | 0 | 9 | 0 | 6 | Web Clipper como complemento configurable: tabla de destino y asignación de campos. |
 | [`backend/servicios/espacio de trabajo_service.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/workspace_service.py) | 307 | 1 | 5 | 0 | 4 | Sin docstring de módulo |
 | ["backend/services/zotero"_esquema.py».](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/zotero_schema.py) | 558 | 0 | 0 | 0 | 0 | GENERATO — NO EDITAR. Fuente: tuberías/habilidades/zotero_esquema/schema.json. Regenerar con `pipeline/skills/zotero_schema/scripts/build_constants.py`. |

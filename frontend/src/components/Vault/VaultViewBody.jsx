@@ -35,6 +35,7 @@ export function VaultViewBody({
     maxHeight = null,
     searchTerm = '',
     actionRules,
+    functionalities,
     onNoteSelect,
     restoreRecordFocus,
     onRecordFocusRestored,
@@ -181,6 +182,7 @@ export function VaultViewBody({
                 onTranslated={onTranslated}
                 onUpdateFieldOptions={onUpdateFieldOptions}
                 actionRules={actionRules}
+                functionalities={functionalities}
                 restoreRecordFocus={restoreRecordFocus}
                 onRecordFocusRestored={onRecordFocusRestored}
                 registerNavApi={registerNavApi}

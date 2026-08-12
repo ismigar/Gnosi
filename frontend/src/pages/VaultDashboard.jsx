@@ -1184,6 +1184,23 @@ export default function VaultDashboard() {
         return ensureMainViewForTable(allViews, tableId);
     }, [registry.views, views, ensureMainViewForTable]);
 
+    // The dashboard can render a virtual main view while an older table is
+    // being migrated to the registry. Keep that same fallback visible in the
+    // sidebar so the table's main view and navigation entry do not disappear.
+    const sidebarViews = [
+        ...(registry.views || []),
+        ...(registry.tables || [])
+            .filter(table => {
+                const tableViews = (registry.views || []).filter(view => view.table_id === table.id);
+                return !tableViews.some(view => isMainView(view, tableViews));
+            })
+            .map(table => ({
+                id: 'default',
+                table_id: table.id,
+                ...buildMainViewBody(table.id),
+            })),
+    ];
+
     const getPreferredInitialViewId = useCallback((tableViews = []) => {
         if (!Array.isArray(tableViews) || tableViews.length === 0) return 'default';
         const normalized = ensureMainViewForTable(tableViews);
@@ -2580,6 +2597,9 @@ export default function VaultDashboard() {
         const title = pageTitle || t('common.untitled', "Untitled");
 
         const removeFromState = () => {
+            window.dispatchEvent(new CustomEvent('gnosi:page-deleted', {
+                detail: { pageId: id },
+            }));
             setPages(prev => prev.filter(page => page.id !== id));
             setTableNotes(prev => prev.filter(note => note.id !== id));
             setVisibleTableRecordsById(prev => {
@@ -3448,8 +3468,9 @@ export default function VaultDashboard() {
             currentView={viewMode}
             databases={registry.databases}
             tables={registry.tables}
-            onTableSelect={(tableId, fromHistory = false) => {
-                handleTableSelect(tableId, null, fromHistory);
+            views={sidebarViews}
+            onTableSelect={(tableId, viewId = null, fromHistory = false) => {
+                handleTableSelect(tableId, viewId, fromHistory);
             }}
             onOpenTable={(tableId) => handleOpenTableAsTab(tableId)}
             onOpenTableParallel={handleOpenTableParallel}
@@ -3893,6 +3914,7 @@ export default function VaultDashboard() {
                                 isEmbedded={true}
                                 searchTerm={searchTerm}
                                 actionRules={registry.tables?.find(x => x.id === tableId)?.action_rules}
+                                functionalities={table?.functionalities}
                                 onNoteSelect={(pageId, openContext) => openRecordFromView(pageId, tableId, currentViewId, openContext)}
                                 restoreRecordFocus={recordReturnFocus?.tableId === tableId && consumedRecordReturnFocusRef.current !== recordReturnFocus.requestId && (!recordReturnFocus.viewId || recordReturnFocus.viewId === currentViewId) ? recordReturnFocus : null}
                                 onRecordFocusRestored={handleRecordFocusRestored}
@@ -4136,6 +4158,7 @@ export default function VaultDashboard() {
                                             isEmbedded={false}
                                             searchTerm={searchTerm}
                                             actionRules={registry.tables?.find(x => x.id === activeTableId)?.action_rules}
+                                            functionalities={table?.functionalities}
                                             onNoteSelect={(pageId, openContext) => openRecordFromView(pageId, activeTableId, cv.id, openContext)}
                                             restoreRecordFocus={recordReturnFocus?.tableId === activeTableId && consumedRecordReturnFocusRef.current !== recordReturnFocus.requestId && (!recordReturnFocus.viewId || recordReturnFocus.viewId === cv.id) ? recordReturnFocus : null}
                                             onRecordFocusRestored={handleRecordFocusRestored}
@@ -4423,6 +4446,7 @@ export default function VaultDashboard() {
                             initialEnableDrupalSync={!!activeTable?.drupal_sync_enabled}
                             initialDrupalBundle={activeTable?.drupal_bundle || ''}
                             initialDrupalFieldMapping={activeTable?.drupal_field_mapping || {}}
+                            initialFunctionalities={activeTable?.functionalities || []}
                             tableId={activeTableId}
                             onSchemaUpdated={(newSchema) => setSchema(newSchema)}
                             onSave={async (newSchemaObj, viewConfig) => {
@@ -4444,6 +4468,7 @@ export default function VaultDashboard() {
                                         // with the toggle off would erase the entire mapping.
                                         drupal_bundle: viewConfig.drupalBundle || '',
                                         drupal_field_mapping: viewConfig.drupalFieldMapping || {},
+                                        functionalities: viewConfig.functionalities || [],
                                     });
                                     setSchema(newSchemaObj);
 

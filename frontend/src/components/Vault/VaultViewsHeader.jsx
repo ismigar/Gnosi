@@ -826,7 +826,7 @@ export function VaultViewsHeader({
                                     type="text"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    onBlur={() => !searchTerm && setShowSearch(false)}
+                                    onBlur={(event) => !event.currentTarget.value && setShowSearch(false)}
                                     placeholder={t('views_header.search_placeholder')}
                                     className="text-xs outline-none w-32 md:w-48 text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] bg-transparent"
                                 />

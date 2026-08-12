@@ -26,6 +26,7 @@ import {
 import { filenameFromTarget, isImageFieldName, getImageSrc, parseImageField, buildImageValue, fileTargetKey, withActiveVault, canonicalStorageFolder } from '../../lib/fileResource';
 import { InsertContentModal } from './InsertContentModal';
 import { useTitlePreview } from './useTitlePreview';
+import { normalizeTableFunctionalities } from './tableFunctionalityUtils';
 import { getTableRecordFocusPreparation } from './tableRecordFocusUtils';
 
 // A cell's dropdown (select/multi_select) rendered in a PORTAL at
@@ -373,7 +374,7 @@ import { VaultViewToolbar } from './VaultViewToolbar';
 import { evaluateFormula } from './formulaUtils';
 import { evaluateRollup } from './rollupUtils';
 import { normalizeOptions, optionChipStyle, optionColorHex, checkActionRequires } from './optionCatalogUtils';
-import { getFieldConfig, getFieldType, getSchemaFieldEntries, getSchemaFieldNames, getLanguageFieldName, resolveFieldRef, resolveViewSorts, resolveViewFilters } from './schemaUtils';
+import { getFieldConfig, getFieldType, getSchemaFieldEntries, getSchemaFieldNames, getLanguageFieldName, resolveFieldRef, resolveSystemDateValue, resolveViewSorts, resolveViewFilters, withResolvedSystemDates } from './schemaUtils';
 import {
     isComputedType,
     isPasteableType,
@@ -458,7 +459,7 @@ const InfiniteLoadSentinel = React.memo(function InfiniteLoadSentinel({ visibleC
 let _gridKeyboardOwner = null;
 let _gridInstanceSeq = 0;
 
-export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView, onUpdateView, isEmbedded = false, isListView = false, onCreateRecord, onDeletePage, onDeleteSelected, onApplyTemplate, templates = [], onCellSaved, onUpdateFieldOptions, onOpenParallel, onTranslated, searchTerm: searchTermProp, actionRules = null, maxHeight = null, registerNavApi = null, onExitTop = null, onExitBottom = null, onEscape = null, restoreRecordFocus = null, onRecordFocusRestored = null }) {
+export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView, onUpdateView, isEmbedded = false, isListView = false, onCreateRecord, onDeletePage, onDeleteSelected, onApplyTemplate, templates = [], onCellSaved, onUpdateFieldOptions, onOpenParallel, onTranslated, searchTerm: searchTermProp, actionRules = null, functionalities = null, maxHeight = null, registerNavApi = null, onExitTop = null, onExitBottom = null, onEscape = null, restoreRecordFocus = null, onRecordFocusRestored = null }) {
     const { isEnabled: isPluginEnabled, getPluginSettings } = usePlugins();
     const projectPlanningEnabled = isPluginEnabled('project-planning');
     const projectPlanningSettings = getPluginSettings('project-planning');
@@ -580,6 +581,10 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             };
         });
     }, [rawNotes, optimisticPatches, optimisticTitles]);
+    const datedNotes = useMemo(
+        () => safeNotes.map(note => withResolvedSystemDates(note, schema)),
+        [safeNotes, schema],
+    );
 
     // Clears title overrides already reflected in the `notes` prop (post-refetch).
     useEffect(() => {
@@ -740,6 +745,11 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         }),
         [schema]
     );
+    const tableFunctionalities = useMemo(
+        () => normalizeTableFunctionalities(functionalities, schema).filter((functionality) => functionality.enabled !== false),
+        [functionalities, schema]
+    );
+    const hasTranslateFunctionality = tableFunctionalities.some((functionality) => functionality.action === 'translate_row');
     // The Brain action is gated by plugin state and the v2 source-table
     // configuration. A historical processed-date column may remain after the
     // plugin is disabled, so schema heuristics are deliberately not used.
@@ -817,7 +827,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         search: searchTerm
     }), [activeView, effectiveSorts, searchTerm]);
 
-    const { sortedPages: sortedAndFilteredNotes } = useVaultViewData({ pages: safeNotes, schema, view: viewConfig, searchTerm });
+    const { sortedPages: sortedAndFilteredNotes } = useVaultViewData({ pages: datedNotes, schema, view: viewConfig, searchTerm });
 
     const resolveNoteTableId = useCallback((note) => note?.resolved_table_id || note?.metadata?.table_id || note?.metadata?.database_table_id || null, []);
 
@@ -1142,7 +1152,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         // We exclude it by the field's real name (titleFieldName), by the reference
         // to canonical/legacy 'title' (which getFieldType resolves to 'text' because
         // the schema doesn't have that key), and by any field of type 'title'.
-        return baseFields.filter(([key, type]) => key !== titleFieldName && key !== 'title' && type !== 'title');
+        return baseFields.filter(([key, type]) => key !== titleFieldName && key !== 'title' && type !== 'title' && type !== 'button');
     }, [activeView, schema]);
 
     // Column drag-to-reorder: available in ANY view (the main
@@ -2810,6 +2820,62 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         return true;
     }, [handleCellSave, safeNotes]);
 
+    const executeTableFunctionality = async (event, note, functionality) => {
+        event?.stopPropagation();
+        if (!functionality || functionality.enabled === false) return;
+        const action = functionality.action || 'translate_row';
+        const config = functionality.config || {};
+        const buttonKey = `${note.id}_${functionality.id}`;
+        if (executingButtonKey === buttonKey) return;
+
+        if (action === 'translate_row' || action === 'sync_drupal' || action === 'publish_social' || action === 'process_resource') {
+            setPendingAction({
+                noteId: note.id,
+                fieldConfig: { button_action: action, button_config: config },
+                action,
+            });
+            return;
+        }
+
+        if (action === 'set_fields') {
+            const assignments = config.assignments || [];
+            if (assignments.length === 0) {
+                toast.error(t('schema.no_assignments_error', 'No field assignments configured for this functionality'));
+                return;
+            }
+            for (const assignment of assignments) {
+                if (!assignment.field) continue;
+                let value = assignment.value ?? '';
+                if (typeof value === 'string' && (value.includes('(') || value.includes('{') || value.includes('+'))) {
+                    const evaluated = evaluateFormula(value, note.metadata || {}, note.title || '');
+                    if (evaluated !== null && evaluated !== undefined) value = evaluated;
+                }
+                await handleCellSave(note.id, assignment.field, value, assignment.field);
+            }
+            toast.success(t('schema.functionality_executed_success', 'Functionality executed successfully'));
+            return;
+        }
+
+        if (action === 'ai_prompt' || action === 'run_skill') {
+            setExecutingButtonKey(buttonKey);
+            try {
+                const response = await axios.post('/api/vault/skills/execute-button-action', {
+                    note_id: note.id,
+                    button_action: action,
+                    button_config: config,
+                });
+                if (response.data?.status === 'ok') {
+                    toast.success(t('schema.functionality_executed_success', 'Functionality executed successfully'));
+                    onTranslated?.({});
+                }
+            } catch (error) {
+                toast.error(error.response?.data?.detail || t('schema.functionality_execute_error', 'Could not execute functionality'));
+            } finally {
+                setExecutingButtonKey(null);
+            }
+        }
+    };
+
     const renderCellContent = (value, type, noteId, field, originalMetaKey) => {
         const isEditing = editingCell?.rowId === noteId && editingCell?.field === field;
         const note = noteById.get(noteId);
@@ -2894,15 +2960,11 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         }
 
         // System fields (read-only): Created/Edited on (timestamps from the
-        // file) and Created/Edited by (authorship). In personal mode, the author is
-        // the sole user; if the page carries a saved value (e.g. from an import),
-        // es respecta.
+        // registered table fields) and Created/Edited by (authorship). In
+        // personal mode, the author is the sole user; if the page carries a
+        // saved value (e.g. from an import), it is preserved.
         if (type === 'created_time' || type === 'last_edited_time') {
-            // Prioritizes the file's timestamp; falls back to the mark stamped in the
-            // frontmatter (created_at/last_edited_at) and, finally, to the field.
-            const iso = type === 'created_time'
-                ? (note?.created_time || note?.metadata?.created_at || note?.metadata?.[field])
-                : (note?.last_modified || note?.metadata?.last_edited_at || note?.metadata?.[field]);
+            const iso = resolveSystemDateValue(note, schema, type, field);
             let label = '';
             if (iso) { try { label = new Date(iso).toLocaleDateString(i18n.language, { day: 'numeric', month: 'short', year: 'numeric' }); } catch { label = String(iso).slice(0, 10); } }
             return <span className="text-sm text-[var(--text-tertiary)]">{label || '—'}</span>;
@@ -3438,7 +3500,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                             <button
                                 onClick={(e) => { e.stopPropagation(); onNoteSelect(note.id, { returnFocusId: note.id }); }}
                                 className={`relative p-1 text-[var(--text-tertiary)] hover:text-indigo-600 transition-colors ${selectedIds.size > 0 ? 'hidden' : 'block'}`}
-                                title={t('common.open')}
+                                aria-label={t('common.open')}
                             >
                                 <ExternalLink size={14} />
                                 <span className="row-action-tooltip">{t('common.open')}<kbd>⌥O</kbd></span>
@@ -3451,7 +3513,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                                     }}
                                     disabled={openingResourceId === note.id}
                                     className="relative p-1 text-[var(--text-tertiary)] hover:text-emerald-600 transition-colors"
-                                    title={t('table.open_resource_tooltip')}
+                                    aria-label={t('table.open_resource_tooltip')}
                                 >
                                     <LinkIcon size={14} />
                                     <span className="row-action-tooltip">{t('table.open_resource_tooltip')}<kbd>⌥R</kbd></span>
@@ -3461,13 +3523,37 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                                 <button
                                     onClick={(e) => { e.stopPropagation(); onOpenParallel(note.id); }}
                                     className="relative p-1 text-[var(--text-tertiary)] hover:text-purple-600 transition-colors opacity-60 hover:opacity-100"
-                                    title={t('table.open_parallel')}
+                                    aria-label={t('table.open_parallel')}
                                 >
                                     <Columns2 size={14} />
                                     <span className="row-action-tooltip">{t('table.open_parallel')}<kbd>⌥P</kbd></span>
                                 </button>
                             )}
-                            {isTranslatableTable && !isListView && !note.metadata?.translation_lang && (() => {
+                            {!isListView && tableFunctionalities.map((functionality) => {
+                                const action = functionality.action || 'set_fields';
+                                const gate = checkActionRequires(schema, note.metadata || {}, action, actionRules);
+                                const buttonKey = `${note.id}_${functionality.id}`;
+                                const isExecuting = executingButtonKey === buttonKey;
+                                const Icon = isExecuting ? Loader2 : action === 'translate_row' ? Languages : action === 'ai_prompt' ? Sparkles : Zap;
+                                const label = functionality.label || t('schema.functionality_default_label', 'Functionality');
+                                return (
+                                    <button
+                                        key={functionality.id}
+                                        type="button"
+                                        onClick={(event) => {
+                                            if (!gate.ok || isExecuting) return;
+                                            executeTableFunctionality(event, note, functionality);
+                                        }}
+                                        disabled={!gate.ok || isExecuting}
+                                        className={`relative p-1 transition-colors opacity-0 group-hover/row:opacity-100 ${gate.ok ? 'text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]/40 cursor-not-allowed'}`}
+                                        aria-label={gate.ok ? label : gate.reason}
+                                    >
+                                        <Icon size={14} className={isExecuting ? 'animate-spin' : ''} />
+                                        <span className="row-action-tooltip">{gate.ok ? label : gate.reason}</span>
+                                    </button>
+                                );
+                            })}
+                            {!hasTranslateFunctionality && isTranslatableTable && !isListView && !note.metadata?.translation_lang && (() => {
                                 // action_rules safeguard: button VISIBLE but
                                 // disabled with the reason (e.g. drafts),
                                 // instead of hiding it. The backend revalidates (409).
@@ -3487,7 +3573,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                                         }}
                                         disabled={!gate.ok}
                                         className={`relative p-1 transition-colors opacity-0 group-hover/row:opacity-100 ${gate.ok ? 'text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]/40 cursor-not-allowed'}`}
-                                        title={gate.ok ? t('table.translate_row', "Translate") : gate.reason}
+                                        aria-label={gate.ok ? t('table.translate_row', "Translate") : gate.reason}
                                     >
                                         <Languages size={14} />
                                         <span className="row-action-tooltip">{gate.ok ? t('table.translate_row', "Translate") : gate.reason}</span>
@@ -3510,7 +3596,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                                         }}
                                         disabled={!gate.ok}
                                         className={`relative p-1 transition-colors opacity-0 group-hover/row:opacity-100 ${gate.ok ? 'text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]/40 cursor-not-allowed'}`}
-                                        title={gate.ok ? label : gate.reason}
+                                        aria-label={gate.ok ? label : gate.reason}
                                     >
                                         <Globe size={14} className={note.metadata?.drupal_uuid && gate.ok ? 'text-[var(--gnosi-primary)]' : ''} />
                                         <span className="row-action-tooltip">{gate.ok ? label : gate.reason}</span>
@@ -3531,7 +3617,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                                         }}
                                         disabled={!gate.ok}
                                         className={`relative p-1 transition-colors opacity-0 group-hover/row:opacity-100 ${gate.ok ? 'text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]/40 cursor-not-allowed'}`}
-                                        title={gate.ok ? t('table.publish_social', "Publish to social") : gate.reason}
+                                        aria-label={gate.ok ? t('table.publish_social', "Publish to social") : gate.reason}
                                     >
                                         <Send size={14} />
                                         <span className="row-action-tooltip">{gate.ok ? t('table.publish_social', "Publish to social") : gate.reason}</span>
@@ -3576,7 +3662,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                                         }}
                                         disabled={!ok}
                                         className={`relative p-1 transition-colors opacity-0 group-hover/row:opacity-100 ${ok ? 'text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]/40 cursor-not-allowed'}`}
-                                        title={label}
+                                        aria-label={label}
                                     >
                                         <BrainCircuit size={14} />
                                         <span className="row-action-tooltip">{label}</span>
@@ -3590,7 +3676,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                                         onDeletePage(note.id, note.title);
                                     }}
                                     className="relative p-1 text-[var(--text-tertiary)] hover:text-red-500 transition-colors opacity-0 group-hover/row:opacity-100"
-                                    title={t('table.delete')}
+                                    aria-label={t('table.delete')}
                                 >
                                     <Trash2 size={14} />
                                     <span className="row-action-tooltip">{t('table.delete')}<kbd>⌘⌫</kbd></span>

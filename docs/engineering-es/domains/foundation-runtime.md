@@ -1,18 +1,15 @@
 ---
 status: implemented
-last_verified: 2026-08-09
+last_verified: 2026-08-02
 source_paths:
   - backend/server.py
   - backend/config/app_config.py
   - backend/config/env_config.py
   - backend/config/paths_config.py
   - frontend/src/App.jsx
-  - frontend/src/main.jsx
-  - frontend/src/components/GlobalTooltip.jsx
 tests:
   - backend/tests/test_app_config_language.py
   - backend/tests/test_host_helper_url.py
-  - frontend/src/components/GlobalTooltip.test.jsx
   - e2e/tests/anon/smoke.spec.ts
 ---
 
@@ -49,8 +46,6 @@ Una credencial de entorno legado puede crear un proveedor una vez, pero una láp
 ## Carcasa de la interfaz
 
 `App.jsx` espera a que se inicie la autenticación antes de seleccionar el shell de uso compartido, de acceso público o de aplicación. Las páginas pesadas están cargadas de páginas sueltas. El shell global posee superficies de navegación y de interacción disponibles a nivel mundial; las páginas de ruta poseen contenido de dominio. `/s/:token` Renders fuera de la cáscara autenticada por diseño.
-
-`main.jsx` monta una capa `GlobalTooltip` junto al shell de la aplicación. Adopta los atributos `title` nativos del contenido inicial, de carga diferida y de los portales para que la información sobre herramientas siga el tema claro u oscuro efectivo. La capa conserva los nombres accesibles, expone el contenido visible mediante `aria-describedby`, admite el puntero y el foco del teclado, se cierra con Escape y cede el control a los componentes que ya tienen información enriquecida propia.
 
 ## Invariantes
 

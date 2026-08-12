@@ -11,7 +11,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Modules | Lines |
 | --- | ---: | ---: |
 | `agent` | 36 | 13128 |
-| `api` | 35 | 35366 |
+| `api` | 35 | 35511 |
 | `application root` | 6 | 627 |
 | `config` | 8 | 846 |
 | `data` | 2 | 295 |
@@ -20,12 +20,12 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `scheduler` | 2 | 949 |
 | `scripts` | 3 | 130 |
 | `security` | 3 | 735 |
-| `services` | 112 | 37094 |
+| `services` | 112 | 37203 |
 | `sh` | 1 | 69 |
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **228 modules** and **91276 source lines**.
+Total: **228 modules** and **91530 source lines**.
 
 ## agent
 
@@ -102,7 +102,7 @@ Total: **228 modules** and **91276 source lines**.
 | [`backend/api/system_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/system_routes.py) | 673 | 4 | 14 | 9 | 13 | No module docstring |
 | [`backend/api/tools_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/tools_routes.py) | 164 | 3 | 6 | 5 | 6 | API Routes for Generated Tools Management. |
 | [`backend/api/vault_graph_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/vault_graph_routes.py) | 25 | 0 | 1 | 1 | 1 | No module docstring |
-| [`backend/api/vault_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/vault_routes.py) | 20761 | 29 | 570 | 190 | 468 | No module docstring |
+| [`backend/api/vault_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/vault_routes.py) | 20906 | 29 | 572 | 190 | 470 | No module docstring |
 | [`backend/api/vault_views_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/vault_views_routes.py) | 350 | 2 | 9 | 3 | 7 | vault_views_routes.py — API to manage per-page views. |
 | [`backend/api/vaults_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/vaults_routes.py) | 276 | 2 | 10 | 0 | 9 | Vaults API (personal multi-vault mode): list, create and choose vaults. |
 | [`backend/api/virtual_fields.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/virtual_fields.py) | 676 | 0 | 32 | 0 | 26 | Virtual fields: derived properties computed by the backend at read-time. |
@@ -192,7 +192,7 @@ Total: **228 modules** and **91276 source lines**.
 | Module | Lines | Classes | Functions | Async | Documented declarations | Purpose signal |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | [`backend/services/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/__init__.py) | 0 | 0 | 0 | 0 | 0 | No module docstring |
-| [`backend/services/action_rules.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/action_rules.py) | 256 | 0 | 10 | 0 | 7 | Declarative action rules per table (`table.action_rules` block). |
+| [`backend/services/action_rules.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/action_rules.py) | 279 | 0 | 10 | 0 | 7 | Declarative action rules per table (`table.action_rules` block). |
 | [`backend/services/active_vault_middleware.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/active_vault_middleware.py) | 108 | 1 | 2 | 0 | 2 | ASGI Middleware: sets the ACTIVE vault from `X-Vault-Id` in a context that PROPAGATES. |
 | [`backend/services/agent_skill_assignments.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/agent_skill_assignments.py) | 308 | 4 | 2 | 0 | 5 | Revision-aware agent skill assignments and legacy migration. |
 | [`backend/services/agent_skill_catalog.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/agent_skill_catalog.py) | 783 | 6 | 21 | 0 | 18 | Effective catalogs and runtime resolution for agent skills and tools. |
@@ -266,7 +266,7 @@ Total: **228 modules** and **91276 source lines**.
 | [`backend/services/notion_schema_config.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/notion_schema_config.py) | 92 | 0 | 3 | 0 | 3 | Notion schema conversion ↔ SchemaConfigModal format (configurable import/clone). |
 | [`backend/services/notion_view_recreator.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/notion_view_recreator.py) | 522 | 0 | 19 | 0 | 18 | Recreator of embedded Notion views (Phase 2, via hosted MCP). |
 | [`backend/services/oauth2_helpers.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/oauth2_helpers.py) | 175 | 1 | 5 | 0 | 6 | OAuth2 helpers shared by IMAP+XOAUTH2 and SMTP+XOAUTH2. |
-| [`backend/services/option_catalogs.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/option_catalogs.py) | 327 | 0 | 17 | 0 | 12 | Rich option catalogs, semantic field roles, and per-table seeds. |
+| [`backend/services/option_catalogs.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/option_catalogs.py) | 413 | 0 | 19 | 0 | 14 | Rich option catalogs, semantic field roles, and per-table seeds. |
 | [`backend/services/page_sidecar.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/page_sidecar.py) | 225 | 0 | 11 | 0 | 11 | Sidecar I/O for internal page metadata. |
 | [`backend/services/path_resolver.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/path_resolver.py) | 85 | 1 | 0 | 0 | 1 | No module docstring |
 | [`backend/services/planning_engine.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/planning_engine.py) | 270 | 2 | 6 | 0 | 6 | Deterministic, rebuildable scheduling for Gnosi project planning. |

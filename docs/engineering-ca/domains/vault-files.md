@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-09
+last_verified: 2026-08-02
 source_paths:
   - backend/api/vault_routes.py
   - backend/api/vaults_routes.py
@@ -9,14 +9,10 @@ source_paths:
   - backend/services/files_provider
   - frontend/src/pages/VaultDashboard.jsx
   - frontend/src/components/Vault
-  - frontend/src/components/Vault/BlockEditor.jsx
-  - frontend/src/components/Vault/MarkdownCodeTextarea.jsx
 tests:
   - backend/tests/test_e2e_etag_concurrency.py
   - backend/tests/test_page_sidecar.py
   - backend/tests/test_files_provider.py
-  - frontend/src/components/Vault/MarkdownCodeTextarea.test.jsx
-  - frontend/src/components/Vault/markdown-mapper.test.js
   - e2e/tests/e2e/vault.spec.ts
 ---
 
@@ -81,22 +77,6 @@ Un nom o supressió.
 ## Frontal
 
 `VaultDashboard` la seva història de navegació i selecciona la pàgina, taula, dibuix, galeria, tauler, calendari, cronologia, fonts o superfícies lectores. `VaultShell` proveeix del marc; components especialitzats que implementen editors i vistes. L' estat d' interacció frontal de la memòria cau però tracta el contingut de la pàgina de dorsal i els ETags com autoritiu.
-
-## Fons dels blocs a l'editor
-
-`BlockEditor` associa les propietats de fons dels blocs amb Markdown portable mitjançant un embolcall `<div style="background-color: ...">`. BlockNote renderitza la propietat obtinguda en analitzar el Markdown dins del contingut del bloc, i el seu full d'estils principal pinta el fons al contenidor `.bn-block`. Per tant, el color ocupa tot el bloc de l'editor, també quan el bloc està dins d'una columna.
-
-En importar, el mapper de Markdown extreu aquests embolcalls amb estil i els
-converteix en propietats del bloc abans d'analitzar el Markdown interior. Això
-manté el color de fons i de text durant el cicle de desar i tornar a carregar.
-Els encapçalaments amb color també eliminen el desplaçament vertical per defecte
-per evitar espai innecessari dins del fons d'amplada completa.
-
-El full d'estils de l'editor no ha de restablir a transparent els fons de bloc no predeterminats ni moure el color a `.bn-inline-content`. Això converteix el fons del bloc en un xip de la mida del text i fa que el resultat depengui de la llargada de l'encapçalament. Els fons en línia continuen sent adequats per als ressaltats de text; els fons de bloc pertanyen al contenidor del bloc.
-
-Quan canvieu aquest comportament, verifiqueu tant un encapçalament independent com un encapçalament dins d'una `column-list`. Després feu una anada i tornada del Markdown i confirmeu que la propietat del bloc i la representació a amplada completa es mantenen intactes. La implementació es troba a `frontend/src/components/Vault/BlockEditor.jsx`; la conversió de Markdown, a `frontend/src/components/Vault/markdown-mapper.js`.
-
-La vista de codi Markdown utilitza una àrea de text accessible i localitzada que creix automàticament amb el document. Un document buit conserva una superfície mínima d'edició de 500 px perquè el mode de codi sempre ofereixi un objectiu visible per al focus i l'escriptura; els documents no buits continuen creixent segons l'alçada mesurada del contingut.
 
 ## Concentrat de verificació
 

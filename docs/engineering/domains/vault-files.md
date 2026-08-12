@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-09
+last_verified: 2026-08-02
 source_paths:
   - backend/api/vault_routes.py
   - backend/api/vaults_routes.py
@@ -9,14 +9,10 @@ source_paths:
   - backend/services/files_provider
   - frontend/src/pages/VaultDashboard.jsx
   - frontend/src/components/Vault
-  - frontend/src/components/Vault/BlockEditor.jsx
-  - frontend/src/components/Vault/MarkdownCodeTextarea.jsx
 tests:
   - backend/tests/test_e2e_etag_concurrency.py
   - backend/tests/test_page_sidecar.py
   - backend/tests/test_files_provider.py
-  - frontend/src/components/Vault/MarkdownCodeTextarea.test.jsx
-  - frontend/src/components/Vault/markdown-mapper.test.js
   - e2e/tests/e2e/vault.spec.ts
 ---
 
@@ -108,37 +104,6 @@ gallery, board, calendar, timeline, feed, or reader surfaces. `VaultShell`
 provides the frame; specialized components implement editors and views. The
 frontend caches interaction state but treats backend page content and ETags as
 authoritative.
-
-## Block backgrounds in the editor
-
-`BlockEditor` maps block background properties to portable Markdown using a
-`<div style="background-color: ...">` wrapper. BlockNote renders the parsed
-property on the block content and its core stylesheet paints the background on
-the containing `.bn-block`, so the color spans the complete editor block,
-including blocks nested inside a column.
-
-On import, the Markdown mapper unwraps these styled block wrappers into the
-BlockNote block properties before parsing the inner Markdown. This keeps the
-background and text color through the save/reload round trip. Colored headings
-also remove the default heading offset so the full-width background does not
-include unnecessary vertical space.
-
-The editor stylesheet must not reset non-default block backgrounds to
-transparent or move the color to `.bn-inline-content`. Doing so turns a block
-background into a text-sized chip and makes the result depend on heading text
-length. Inline background styles remain appropriate for text-level highlights;
-block backgrounds belong to the block container.
-
-When changing this behavior, verify both a standalone heading and a heading
-inside a `column-list`, then round-trip the Markdown and confirm the block
-property and full-width rendering remain intact. The implementation lives in
-`frontend/src/components/Vault/BlockEditor.jsx`; Markdown conversion is in
-`frontend/src/components/Vault/markdown-mapper.js`.
-
-Markdown code view uses an accessible localized textarea that auto-grows with
-the document. An empty document retains a 500 px minimum editing surface so
-source mode always provides a visible focus and typing target; non-empty
-documents continue to grow from their measured content height.
 
 ## Verification focus
 

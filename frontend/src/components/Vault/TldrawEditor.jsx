@@ -552,6 +552,24 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
         };
     }, [penOnly, loadState]);
 
+    // Keep embedded page cards in sync when a Vault page is moved to trash
+    // from another view or tab.
+    useEffect(() => {
+        const handlePageDeleted = (event) => {
+            const pageId = event.detail?.pageId;
+            const editor = editorRef.current;
+            if (!pageId || !editor) return;
+
+            const cardIds = editor.getCurrentPageShapes()
+                .filter((shape) => shape.type === 'page-card' && shape.props.pageId === pageId)
+                .map((shape) => shape.id);
+            if (cardIds.length > 0) editor.deleteShapes(cardIds);
+        };
+
+        window.addEventListener('gnosi:page-deleted', handlePageDeleted);
+        return () => window.removeEventListener('gnosi:page-deleted', handlePageDeleted);
+    }, []);
+
     return (
         <div className="flex flex-col h-full w-full">
             {/* Header */}

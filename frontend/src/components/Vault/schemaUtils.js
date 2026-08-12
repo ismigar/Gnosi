@@ -247,6 +247,47 @@ export function getMetaValue(page, schema, ref) {
 }
 
 /**
+ * Resolves one read-only table system timestamp.
+ *
+ * The registered schema field is authoritative. Filesystem timestamps are
+ * only fallbacks because migrations, cloud hydration, or metadata-only saves
+ * can rewrite every Markdown file without changing the source record.
+ *
+ * @param {Object} page       page/record returned by the Vault API
+ * @param {Object} schema     flat table schema
+ * @param {'created_time'|'last_edited_time'} type
+ * @param {string} fieldRef   optional explicit field name or stable field ID
+ * @returns {*} resolved timestamp, or an empty string
+ */
+export function resolveSystemDateValue(page, schema = {}, type, fieldRef = '') {
+    if (type !== 'created_time' && type !== 'last_edited_time') return '';
+    const metadata = page?.metadata || {};
+    const registeredField = fieldRef || getSchemaFieldNames(schema)
+        .find(name => getFieldType(schema, name) === type);
+    const candidates = [
+        registeredField ? getMetaValue(page, schema, registeredField) : undefined,
+        metadata[type],
+        type === 'created_time' ? metadata.created_at : metadata.last_edited_at,
+        type === 'created_time' ? page?.created_time : page?.last_modified,
+    ];
+    return candidates.find(value => value !== undefined && value !== null && value !== '') ?? '';
+}
+
+/**
+ * Returns a page whose top-level timestamps reflect registered system fields.
+ * Existing objects are reused when no value changes.
+ */
+export function withResolvedSystemDates(page, schema = {}) {
+    if (!page || typeof page !== 'object') return page;
+    const createdTime = resolveSystemDateValue(page, schema, 'created_time');
+    const lastModified = resolveSystemDateValue(page, schema, 'last_edited_time');
+    const patch = {};
+    if (createdTime && createdTime !== page.created_time) patch.created_time = createdTime;
+    if (lastModified && lastModified !== page.last_modified) patch.last_modified = lastModified;
+    return Object.keys(patch).length ? { ...page, ...patch } : page;
+}
+
+/**
  * Writes a metadata value using the current NAME as the key
  * (persistence by name: the .md never stores opaque 'fld_*' keys).
  * Removes any leftover 'fld_*' key for the same field. The backend

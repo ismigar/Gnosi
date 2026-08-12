@@ -56,7 +56,7 @@ const ARTICLE_IFRAME_CSS = `
     h2 { font-size: 1.3em; }
     h3 { font-size: 1.15em; }
     h4 { font-size: 1.05em; }
-    p { margin: 0 0 1em; }
+    p { margin: 0 0 1.8em; }
     ul, ol { padding-left: 1.5em; margin: 0 0 1em; }
     li { margin: 0.25em 0; }
     li > p:last-child { margin-bottom: 0; }

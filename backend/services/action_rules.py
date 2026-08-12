@@ -228,7 +228,20 @@ def status_effect(
         prop = oc.find_role_prop(table, role)
         if not prop:
             continue
-        catalog_changed = oc.ensure_options_exist(prop, [(value, "")])
+        if oc.is_global_status_prop(prop):
+            # Keep the in-memory table copy complete for the caller while the
+            # route persists the same value in the root catalog. The loader
+            # removes this compatibility copy on the next registry read.
+            cfg = prop.setdefault("config", {})
+            local_options = oc.normalize_options(cfg.get("options"))
+            if value in {option["name"] for option in local_options}:
+                catalog_changed = False
+            else:
+                local_options.append({"name": value, "color": oc.auto_color(value)})
+                cfg["options"] = local_options
+                catalog_changed = True
+        else:
+            catalog_changed = oc.ensure_options_exist(prop, [(value, "")])
         return prop, value, catalog_changed
     return None, None, False
 
@@ -251,6 +264,16 @@ def on_stale_effect(table: dict) -> Tuple[Optional[dict], Optional[str], bool]:
         prop = oc.find_role_prop(table, role)
         if not prop:
             continue
-        catalog_changed = oc.ensure_options_exist(prop, [(value, "")])
+        if oc.is_global_status_prop(prop):
+            cfg = prop.setdefault("config", {})
+            local_options = oc.normalize_options(cfg.get("options"))
+            if value in {option["name"] for option in local_options}:
+                catalog_changed = False
+            else:
+                local_options.append({"name": value, "color": oc.auto_color(value)})
+                cfg["options"] = local_options
+                catalog_changed = True
+        else:
+            catalog_changed = oc.ensure_options_exist(prop, [(value, "")])
         return prop, value, catalog_changed
     return None, None, False

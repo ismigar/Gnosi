@@ -53,6 +53,11 @@ ROLE_LANGUAGE = "language"
 ROLE_STATUS = "status"
 ROLE_TAGS = "tags"
 
+# Every field whose persisted type is `status` uses this root catalog. Select
+# fields named "Status" are still allowed to have a table-local catalog; the
+# global rule applies to the dedicated status field type only.
+STATUS_CATALOG_REF = "status"
+
 # Name heuristics for assigning roles (same synonyms as
 # translation_helpers._LANGUAGE_FIELD_NAMES for the language field).
 _ROLE_FIELD_NAMES = {
@@ -162,6 +167,11 @@ def get_prop_options(prop: dict, option_catalogs: Optional[dict] = None) -> List
     if isinstance(prop.get("options"), list):
         return normalize_options(prop["options"])
     return []
+
+
+def is_global_status_prop(prop: dict) -> bool:
+    """Return whether a property must use the global status catalog."""
+    return str(prop.get("type") or "").strip() == "status"
 
 
 def set_prop_options(prop: dict, options: List[Dict[str, Any]]) -> None:
@@ -324,4 +334,80 @@ def ensure_table_seeds(table: dict) -> bool:
     changed = normalize_table_options(table)
     changed = assign_roles(table) or changed
     changed = ensure_status_seed(table) or changed
+    return changed
+
+
+def ensure_global_status_catalog(registry: dict) -> bool:
+    """Migrate every dedicated status field to one registry-wide catalog.
+
+    Status values are persisted by name in row frontmatter, so separate
+    per-table catalogs make the same lifecycle value mean different things in
+    different tables. Existing local and referenced catalogs are merged in
+    stable order, required feature states are seeded, and every `status`
+    property is then pointed at ``option_catalogs[STATUS_CATALOG_REF]``.
+    """
+    if not isinstance(registry, dict):
+        return False
+
+    tables = registry.get("tables") or []
+    root_catalogs = registry.get("option_catalogs")
+    if not isinstance(root_catalogs, dict):
+        root_catalogs = {}
+
+    merged: List[Dict[str, Any]] = normalize_options(
+        root_catalogs.get(STATUS_CATALOG_REF)
+    )
+    have = {option["name"] for option in merged}
+    status_props: List[Tuple[dict, dict]] = []
+
+    for table in tables:
+        for prop in table.get("properties") or []:
+            if not is_global_status_prop(prop):
+                continue
+            cfg = get_prop_config(prop)
+            status_props.append((table, prop))
+            existing = get_prop_options(prop, root_catalogs)
+            for option in existing:
+                if option["name"] not in have:
+                    merged.append(option)
+                    have.add(option["name"])
+
+    if not status_props:
+        return False
+
+    if registry.get("option_catalogs") is not root_catalogs:
+        registry["option_catalogs"] = root_catalogs
+
+    wanted: List[Tuple[str, str]] = list(BASE_STATUS_SEED)
+    if any(table.get("translation_enabled") for table, _ in status_props):
+        wanted.append((STATUS_TRANSLATED, "En curs"))
+    if any(table.get("drupal_sync_enabled") for table, _ in status_props):
+        wanted.append((STATUS_PUBLISHED_DRUPAL, "Final"))
+    if any(table_has_social_column(table) for table, _ in status_props):
+        wanted.append((STATUS_PUBLISHED_SOCIAL, "Final"))
+
+    for name, group in wanted:
+        if name not in have:
+            option: Dict[str, Any] = {"name": name, "color": auto_color(name)}
+            if group:
+                option["group"] = group
+            merged.append(option)
+            have.add(name)
+
+    changed = normalize_options(root_catalogs.get(STATUS_CATALOG_REF)) != merged
+    root_catalogs[STATUS_CATALOG_REF] = merged
+
+    for _, prop in status_props:
+        cfg = prop.setdefault("config", {})
+        if cfg.get("catalog_ref") != STATUS_CATALOG_REF:
+            cfg["catalog_ref"] = STATUS_CATALOG_REF
+            changed = True
+        if cfg.pop("options", None) is not None:
+            changed = True
+        if prop.pop("options", None) is not None:
+            changed = True
+        if not isinstance(cfg.get("option_groups"), list) or not cfg.get("option_groups"):
+            cfg["option_groups"] = list(DEFAULT_STATUS_GROUPS)
+            changed = True
+
     return changed

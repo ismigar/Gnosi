@@ -1727,15 +1727,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 if (modified && editScope === 'fork') {
                     // Undo the link: the section will be inline.
                     viewId = null;
-                } else if (editScope === 'shared') {
-                    // Always persist the selected shared view when the modal is
-                    // confirmed. The embedded section is written immediately
-                    // afterwards with the current type extras; skipping this
-                    // upsert because the generic JSON comparison reports no
-                    // change can leave the registry copy stale (notably for
-                    // groupSortDir). DbViewEmbed intentionally reads the shared
-                    // registry view as its source of truth, so both copies must
-                    // be updated in the same save operation.
+                } else if (modified && editScope === 'shared') {
                     const updated = {
                         ...(original || {}),
                         id: selectedExistingViewId,

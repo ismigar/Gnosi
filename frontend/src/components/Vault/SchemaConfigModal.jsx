@@ -13,12 +13,14 @@ import {
     normalizeOptions,
     optionColorHex,
     seedOptionsForFeature,
+    STATUS_CATALOG_REF,
 } from './optionCatalogUtils';
 import { ConfirmModal } from '../ConfirmModal';
 import { pushModalLayer } from '../../hooks/useModalKeyboard';
 import PromptModal from '../PromptModal';
 import { useTranslation } from 'react-i18next';
 import { usePlugins } from '../../plugins/usePlugins';
+import { normalizeTableFunctionalities } from './tableFunctionalityUtils';
 
 // Immutable ID for properties: 'fld_' + 8 hex chars. It is persisted in the
 // table schema and is preserved across field name renames.
@@ -31,6 +33,8 @@ const generateFieldId = () => {
     }
     return 'fld_' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
 };
+
+const generateFunctionalityId = () => generateFieldId().replace('fld_', 'fn_');
 
 const ROLLUP_AGGREGATIONS = [
     { value: 'count_all', label: 'Count all' },
@@ -54,10 +58,8 @@ const TRANSLATABLE_FIELD_TYPES = new Set([
     'title', 'text', 'rich_text', 'select', 'multi_select', 'status', 'url'
 ]);
 
-// Catalog of actions that a `button`-type field can execute. For now
-// only row translation; adding new actions means registering them
-// also in the backend (skills) and, if needed, in the UI.
-const BUTTON_ACTIONS = [
+// Catalog of row actions available as table-level functionalities.
+const FUNCTIONALITY_ACTIONS = [
     { id: 'translate_row', label_key: 'schema.button_action_translate_row', label_default: 'Traduir fila a subitems' },
     { id: 'set_fields', label_key: 'schema.button_action_set_fields', label_default: 'Assignar valors a camps' },
     { id: 'ai_prompt', label_key: 'schema.button_action_ai_prompt', label_default: 'Executar prompt IA' },
@@ -250,10 +252,10 @@ function OptionsEditor({ options = [], onChange, fieldType = 'select', groups = 
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     );
     // With a shared catalog (config.catalog_ref), the options LIVE in the root
-    // registry and are edited there (all linked tables see them). Otherwise, they are
-    // local to the field. Renaming/deleting everywhere is only supported for
-    // local catalogs (row rewriting is per-table).
+    // registry and are edited there (all linked tables see them). Dedicated
+    // `status` fields always use the reserved global status catalog.
     const isShared = Boolean(catalogRef);
+    const isGlobalStatus = fieldType === 'status' && catalogRef === STATUS_CATALOG_REF;
     const richOptions = normalizeOptions(isShared ? (sharedCatalogs[catalogRef] || []) : options);
     const names = richOptions.map((o) => o.name);
     const applyChange = (next) => {
@@ -282,10 +284,13 @@ function OptionsEditor({ options = [], onChange, fieldType = 'select', groups = 
 
     const renameOption = (oldVal, newVal) => {
         if (names.includes(newVal)) return; // silent: do not duplicate
-        if (isShared) {
-            // Row rewriting for shared catalogs (multi-table)
-            // is not yet supported: renaming would leave orphaned values.
+        if (isShared && !isGlobalStatus) {
+            // Row rewriting for arbitrary shared catalogs is not supported yet.
             toast.error(t('schema.shared_catalog_rename_unsupported', "Renaming options of a shared catalog is not supported yet."));
+            return;
+        }
+        if (isGlobalStatus) {
+            optionTools?.renameEverywhere?.(fieldId, oldVal, newVal, usage?.[oldVal] ?? null);
             return;
         }
         onChange(richOptions.map((o) => (o.name === oldVal ? { ...o, name: newVal } : o)));
@@ -320,7 +325,7 @@ function OptionsEditor({ options = [], onChange, fieldType = 'select', groups = 
     // just from the catalog) or reassigns them to another option. Always with
     // confirmation (accessibility: never destructive on the first click).
     const requestRemoveOption = (val) => {
-        if (isShared) {
+        if (isShared && !isGlobalStatus) {
             toast.error(t('schema.shared_catalog_remove_unsupported', "Deleting options from a shared catalog is not supported yet."));
             return;
         }
@@ -337,7 +342,11 @@ function OptionsEditor({ options = [], onChange, fieldType = 'select', groups = 
         const val = confirmRemove.value;
         setConfirmRemove({ isOpen: false, value: null, usageCount: null, protectedReason: '' });
         if (val === null) return;
-        onChange(richOptions.filter((o) => o.name !== val));
+        if (isGlobalStatus) {
+            optionTools?.removeEverywhere?.(fieldId, val, reassignTo);
+        } else {
+            onChange(richOptions.filter((o) => o.name !== val));
+        }
         if (defaultOption === val) onDefaultOptionChange?.('');
         optionTools?.removeEverywhere?.(fieldId, val, reassignTo);
         if (usage) {
@@ -391,7 +400,9 @@ function OptionsEditor({ options = [], onChange, fieldType = 'select', groups = 
                     <Tag size={12} /> {t('schema.options_label', "Options")}
                     {catalogRef && (
                         <span className="normal-case tracking-normal font-medium text-[var(--text-tertiary)]">
-                            · {t('schema.options_shared_catalog', { name: catalogRef, defaultValue: "shared catalog “{{name}}”" })}
+                            · {isGlobalStatus
+                                ? t('schema.status_catalog_global', 'Global status catalog')
+                                : t('schema.options_shared_catalog', { name: catalogRef, defaultValue: "shared catalog “{{name}}”" })}
                         </span>
                     )}
                 </label>
@@ -443,7 +454,7 @@ function OptionsEditor({ options = [], onChange, fieldType = 'select', groups = 
                         <Plus size={14} /> {t('common.add', "Add")}
                     </button>
                 </div>
-                {onLinkCatalog && (
+                {onLinkCatalog && !isGlobalStatus && (
                     <div className="flex items-center gap-2 pt-1">
                         <Link2 size={12} className="text-[var(--text-tertiary)]/60" />
                         <label className="text-[10px] text-[var(--text-tertiary)]/80">
@@ -677,8 +688,120 @@ function AssignmentValueControl({ value, onChange, fieldMeta, custom, onCustomCh
     );
 }
 
+function FunctionalityEditor({ functionality, index, allFields, availableSkills, onUpdate, onRemove, onProgramWithAi }) {
+    const { t } = useTranslation();
+    const config = functionality.config || {};
+    const updateConfig = (patch) => onUpdate(index, { config: { ...config, ...patch } });
+
+    return (
+        <div className="rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] p-3 space-y-3">
+            <div className="flex items-center gap-2">
+                <label className="flex items-center gap-2 cursor-pointer shrink-0">
+                    <div className={`w-10 h-6 flex items-center rounded-full p-1 transition-colors ${functionality.enabled !== false ? 'bg-[var(--gnosi-primary)]' : 'bg-[var(--text-tertiary)]/20'}`}>
+                        <input
+                            type="checkbox"
+                            className="hidden"
+                            checked={functionality.enabled !== false}
+                            onChange={(event) => onUpdate(index, { enabled: event.target.checked })}
+                        />
+                        <div className={`bg-[var(--bg-primary)] w-4 h-4 rounded-full shadow-sm transform transition-transform ${functionality.enabled !== false ? 'translate-x-4' : 'translate-x-0'}`} />
+                    </div>
+                    <span className="text-xs font-semibold text-[var(--text-secondary)]">{t('schema.functionality_enabled', 'Enabled')}</span>
+                </label>
+                <input type="text" value={functionality.label || ''}
+                    onChange={(event) => onUpdate(index, { label: event.target.value })}
+                    placeholder={t('schema.functionality_label_placeholder', 'Button label')}
+                    aria-label={t('schema.functionality_label', 'Functionality label')}
+                    className="min-w-0 flex-1 text-sm border border-[var(--border-primary)] rounded-md p-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)]" />
+                <select value={functionality.action || 'translate_row'}
+                    onChange={(event) => onUpdate(index, { action: event.target.value, config: {} })}
+                    aria-label={t('schema.functionality_action', 'Functionality action')}
+                    className="w-52 text-xs border border-[var(--border-primary)] rounded-md p-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)]">
+                    {FUNCTIONALITY_ACTIONS.map((action) => (
+                        <option key={action.id} value={action.id}>{t(action.label_key, action.label_default)}</option>
+                    ))}
+                </select>
+                <button type="button" onClick={() => onProgramWithAi(index)}
+                    className="p-1.5 rounded-md text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/10"
+                    title={t('schema.button_program_ai', 'Program with AI')} aria-label={t('schema.button_program_ai', 'Program with AI')}>
+                    <Sparkles size={15} />
+                </button>
+                <button type="button" onClick={() => onRemove(index)}
+                    className="p-1.5 rounded-md text-red-500 hover:bg-red-500/10"
+                    title={t('schema.remove_functionality', 'Remove functionality')} aria-label={t('schema.remove_functionality', 'Remove functionality')}>
+                    <Trash2 size={15} />
+                </button>
+            </div>
+
+            {functionality.action === 'set_fields' && (
+                <div className="space-y-2 border-t border-[var(--border-primary)] pt-3">
+                    <p className="text-xs font-semibold text-[var(--text-primary)]">{t('schema.button_set_fields_title', 'Field assignments')}</p>
+                    {(config.assignments || []).map((assignment, assignmentIndex) => {
+                        const targetMeta = allFields.find((field) => field.name === assignment.field);
+                        const assignments = config.assignments || [];
+                        const updateAssignment = (patch) => {
+                            const next = [...assignments];
+                            next[assignmentIndex] = { ...next[assignmentIndex], ...patch };
+                            updateConfig({ assignments: next });
+                        };
+                        return (
+                            <div key={assignmentIndex} className="flex items-center gap-2">
+                                <select value={assignment.field || ''}
+                                    onChange={(event) => updateAssignment({ field: event.target.value, value: '' })}
+                                    className="w-1/2 text-xs border border-[var(--border-primary)] rounded p-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)]">
+                                    <option value="">{t('schema.button_target_field', 'Target field')}</option>
+                                    {allFields.map((field) => <option key={field.id} value={field.name}>{field.name}</option>)}
+                                </select>
+                                <div className="flex-1">
+                                    <AssignmentValueControl value={assignment.value ?? ''} fieldMeta={targetMeta}
+                                        custom={assignment.custom === true} onCustomChange={(custom) => updateAssignment({ custom })}
+                                        onChange={(value) => updateAssignment({ value })} />
+                                </div>
+                                <button type="button"
+                                    onClick={() => updateConfig({ assignments: assignments.filter((_, itemIndex) => itemIndex !== assignmentIndex) })}
+                                    className="p-1.5 rounded text-red-500 hover:bg-red-500/10"
+                                    aria-label={t('schema.remove_field_assignment', 'Remove field assignment')}>
+                                    <Trash2 size={13} />
+                                </button>
+                            </div>
+                        );
+                    })}
+                    <button type="button"
+                        onClick={() => updateConfig({ assignments: [...(config.assignments || []), { field: '', value: '' }] })}
+                        className="text-xs text-[var(--gnosi-primary)] hover:underline inline-flex items-center gap-1">
+                        <Plus size={12} /> {t('schema.button_add_field_assignment', 'Add assignment')}
+                    </button>
+                </div>
+            )}
+
+            {functionality.action === 'ai_prompt' && (
+                <div className="grid grid-cols-[1fr_13rem] gap-2 border-t border-[var(--border-primary)] pt-3">
+                    <textarea rows={2} value={config.prompt || ''} onChange={(event) => updateConfig({ prompt: event.target.value })}
+                        placeholder={t('schema.button_ai_prompt_placeholder', 'AI instruction')}
+                        className="text-xs border border-[var(--border-primary)] rounded p-2 bg-[var(--bg-primary)] text-[var(--text-primary)]" />
+                    <select value={config.target_field || ''} onChange={(event) => updateConfig({ target_field: event.target.value })}
+                        className="text-xs border border-[var(--border-primary)] rounded p-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)]">
+                        <option value="">{t('schema.button_target_field', 'Target field')}</option>
+                        {allFields.map((field) => <option key={field.id} value={field.name}>{field.name}</option>)}
+                    </select>
+                </div>
+            )}
+
+            {functionality.action === 'run_skill' && (
+                <select value={config.skill_id || ''} onChange={(event) => updateConfig({ skill_id: event.target.value })}
+                    className="w-full text-xs border border-[var(--border-primary)] rounded p-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)]">
+                    <option value="">{t('schema.button_select_skill', 'Select Skill')}</option>
+                    {availableSkills.map((skill) => (
+                        <option key={skill.id || skill.name} value={skill.id || skill.name}>{skill.name || skill.id}</option>
+                    ))}
+                </select>
+            )}
+        </div>
+    );
+}
+
 // Child component for each draggable property
-function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveField, allTables = [], currentTableName = '', virtualComputers = [], enableTranslation = false, enableDrupalSync = false, drupalBundle = '', drupalFields = [], drupalFieldMapping = {}, setDrupalFieldMapping = () => {}, optionTools = null, projectPlanningEnabled = false, setAiActionModalFieldIndex, availableSkills = [] }) {
+function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveField, allTables = [], currentTableName = '', virtualComputers = [], enableTranslation = false, enableDrupalSync = false, drupalBundle = '', drupalFields = [], drupalFieldMapping = {}, setDrupalFieldMapping = () => {}, optionTools = null, projectPlanningEnabled = false, setAiActionModalFieldIndex, setAiActionPrompt, availableSkills = [] }) {
     const { t } = useTranslation();
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.id });
 
@@ -760,7 +883,6 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                             { value: 'last_edited_time', label: t('schema.type_last_edited_time', "Edited at") },
                             { value: 'created_by', label: t('schema.type_created_by', "Created by") },
                             { value: 'last_edited_by', label: t('schema.type_last_edited_by', "Edited by") },
-                            { value: 'button', label: t('schema.type_button', "Button") },
                             { value: 'title', label: t('schema.type_title') },
                         ]
                             .sort((a, b) => a.label.localeCompare(b.label))
@@ -979,7 +1101,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                             onChange={(e) => handleUpdateField(idx, 'button_action', e.target.value)}
                             className="w-full text-sm border border-[var(--border-primary)] rounded-md p-1.5 focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 outline-none bg-[var(--bg-primary)] text-[var(--text-primary)]"
                         >
-                            {BUTTON_ACTIONS.map(action => (
+                            {FUNCTIONALITY_ACTIONS.map(action => (
                                 <option key={action.id} value={action.id}>
                                     {t(action.label_key, action.label_default)}
                                 </option>
@@ -1428,11 +1550,13 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
     );
 }
 
-export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', currentSchema, onSchemaUpdated, onSave, initialEnableSubitems = false, initialVisibleProperties = null, initialEnableTranslation = false, initialEnableDrupalSync = false, initialDrupalBundle = '', initialDrupalFieldMapping = null, tableId = null, availableTables = null }) {
+export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', currentSchema, onSchemaUpdated, onSave, initialEnableSubitems = false, initialVisibleProperties = null, initialEnableTranslation = false, initialEnableDrupalSync = false, initialDrupalBundle = '', initialDrupalFieldMapping = null, initialFunctionalities = null, tableId = null, availableTables = null }) {
     const { t } = useTranslation();
     const { isEnabled: isPluginEnabled } = usePlugins();
     const projectPlanningEnabled = isPluginEnabled('project-planning');
     const [fields, setFields] = useState([]);
+    const [functionalities, setFunctionalities] = useState([]);
+    const [isInitializedForSave, setIsInitializedForSave] = useState(false);
     const [allTables, setAllTables] = useState([]);
     const [virtualComputers, setVirtualComputers] = useState([]);
     // Name of the CURRENT table for the human-readable cardinality label ("[source] X to Y [target]").
@@ -1482,11 +1606,12 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             });
             const result = res.data?.result || {};
             const idx = aiActionModalFieldIndex;
-            const newFields = [...fields];
-            if (result.button_action) newFields[idx].button_action = result.button_action;
-            if (result.button_label) newFields[idx].button_label = result.button_label;
-            if (result.button_config) newFields[idx].button_config = result.button_config;
-            setFields(newFields);
+            setFunctionalities((current) => current.map((functionality, functionalityIndex) => functionalityIndex === idx ? {
+                ...functionality,
+                action: result.button_action || functionality.action,
+                label: result.button_label || functionality.label,
+                config: result.button_config || functionality.config,
+            } : functionality));
             toast.success(t('schema.button_program_success', "Acció programada correctament"));
             setAiActionModalFieldIndex(null);
             setAiActionPrompt('');
@@ -1525,10 +1650,6 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
     // arrive with new references and would overwrite the user's edits
     // that haven't been saved yet (toggles, added fields, etc.).
     const initializedRef = useRef(false);
-    // Ref to skip the first autosave trigger: right after
-    // initialization, the setters cause a re-render that would trigger
-    // autosave with a payload identical to the backend's. There's no point sending it.
-    const skipNextAutosaveRef = useRef(false);
     // Ref to the modal's root element: we attach the Esc listener there (see below).
     const modalRef = useRef(null);
     // Ref to the modal's scrollable body: we focus it on open so it
@@ -1544,12 +1665,11 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
     useEffect(() => {
         if (!isOpen) {
             initializedRef.current = false;
-            skipNextAutosaveRef.current = false;
+            setIsInitializedForSave(false);
             return;
         }
         if (initializedRef.current) return;
         initializedRef.current = true;
-        skipNextAutosaveRef.current = true;
         {
             // Transform object to array for editing.
             const fieldsArray = getSchemaFieldNames(currentSchema || {}).map((name) => {
@@ -1584,7 +1704,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                     // Rich catalog: normalizes legacy strings into {name,color,group}.
                     options: normalizeOptions(cfg.options),
                     defaultOption: cfg.default_option || '',
-                    catalogRef: cfg.catalog_ref || '',
+                    catalogRef: cfg.catalog_ref || (getFieldType(currentSchema || {}, name) === 'status' ? STATUS_CATALOG_REF : ''),
                     // Registry CRU config: buildPayload starts from it to do
                     // round-trip of keys that the UI doesn't manage (role,
                     // option_groups…) — without this, every save would erase them.
@@ -1592,13 +1712,19 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                     visible: initialVisibleProperties ? initialVisibleProperties.includes(name) : true
                 };
             });
-            setFields(fieldsArray);
+            setFields(fieldsArray.filter((field) => field.type !== 'button'));
+            setFunctionalities(normalizeTableFunctionalities(initialFunctionalities, currentSchema));
             setEnableSubitems(initialEnableSubitems);
             setEnableTranslation(initialEnableTranslation);
             setEnableDrupalSync(initialEnableDrupalSync);
             setDrupalBundle(initialDrupalBundle || '');
             setDrupalFieldMapping(initialDrupalFieldMapping || {});
             setEnableSocialPublish(fieldsArray.some((f) => f.system && /xxss|social/i.test(f.name || '')));
+            // The autosave effect runs after this initialization effect on the
+            // opening commit. Keep it blocked until React applies this complete
+            // state batch; otherwise it can briefly persist `fields=[]` and
+            // remove the table schema before hydration finishes.
+            setIsInitializedForSave(true);
 
             // Candidate tables for relation fields. If the parent passes a list of them
             // (e.g. Notion Import: the Notion workspace's DBs, not the vault's
@@ -1640,53 +1766,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             };
             fetchVirtualComputers();
         }
-    }, [isOpen, currentSchema, initialEnableSubitems, initialVisibleProperties, initialEnableTranslation, initialEnableDrupalSync, initialDrupalBundle, initialDrupalFieldMapping, availableTables]);
-
-    // Checks whether a button field with the translation action already exists.
-    // Every `button` field receives `button_action` when created (handleUpdateField and
-    // addTranslateButton sets it explicitly), so the comparison
-    // direct comparison is correct: if a button with an empty button_action arrived, it would mean
-    // the configuration is incomplete and the warning banner must appear.
-    const hasTranslateButton = fields.some(
-        (f) => f.type === 'button' && f.button_action === 'translate_row'
-    );
-
-    // Adds a `button` field with the `translate_row` action if there isn't one yet.
-    // Picks a unique name based on the "Translate" label to avoid collisions with
-    // existing fields (silent validation).
-    const addTranslateButton = () => {
-        if (hasTranslateButton) return;
-        const baseName = t('schema.button_label_translate', "Translate");
-        const usedNames = new Set(fields.map((f) => (f.name || '').trim()).filter(Boolean));
-        let candidate = baseName;
-        let i = 2;
-        while (usedNames.has(candidate)) {
-            candidate = `${baseName} ${i++}`;
-        }
-        setFields([...fields, {
-            id: generateFieldId(),
-            name: candidate,
-            type: 'button',
-            formula: '',
-            compute: '',
-            defaultFormula: '',
-            relationField: '',
-            targetProperty: '',
-            aggregation: 'count_values',
-            limit: '',
-            fallbackValue: '',
-            relation_database_id: '',
-            cardinality: 'one-to-many',
-            file_mode: 'upload',
-            storage_folder: '',
-            name_pattern: '',
-            translatable: false,
-            button_action: 'translate_row',
-            button_label: '',
-            options: [],
-            visible: true,
-        }]);
-    };
+    }, [isOpen, currentSchema, initialEnableSubitems, initialVisibleProperties, initialEnableTranslation, initialEnableDrupalSync, initialDrupalBundle, initialDrupalFieldMapping, initialFunctionalities, availableTables]);
 
     // When enabling translation for the first time, sub-items are required
     // (translations are saved as children). If the user disables it
@@ -1715,7 +1795,11 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             try {
                 const res = await axios.post(`/api/vault/tables/${tableId}/options/rename`, { field_id: fieldId, old: oldVal, new: newVal });
                 const n = res.data?.files_changed ?? 0;
+                if (Array.isArray(res.data?.options)) {
+                    setSharedCatalogs((prev) => ({ ...prev, [STATUS_CATALOG_REF]: res.data.options }));
+                }
                 if (n > 0) toast.success(t('schema.option_renamed', { count: n, defaultValue: "{{count}} records updated" }));
+                return res.data;
             } catch (err) {
                 toast.error(err.response?.data?.detail || t('schema.option_rename_error', "Could not rename the option in the records"));
             }
@@ -1725,7 +1809,11 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             try {
                 const res = await axios.post(`/api/vault/tables/${tableId}/options/remove`, { field_id: fieldId, value, reassign_to: reassignTo || undefined });
                 const n = res.data?.files_changed ?? 0;
+                if (Array.isArray(res.data?.options)) {
+                    setSharedCatalogs((prev) => ({ ...prev, [STATUS_CATALOG_REF]: res.data.options }));
+                }
                 if (n > 0) toast.success(t('schema.option_removed_rows', { count: n, defaultValue: "{{count}} records updated" }));
+                return res.data;
             } catch (err) {
                 toast.error(err.response?.data?.detail || t('schema.option_remove_error', "Could not remove the option from the records"));
             }
@@ -1745,6 +1833,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
     // receives the base options and the feature's option. The server sends it back
     // guarantee on save — this only saves waiting for the autosave+refetch.
     const seedStatusOptions = (feature) => {
+        let sharedUpdate = null;
         setFields((prev) => {
             const isStatusField = (f) =>
                 OPTION_FIELD_TYPES.has(f.type) && f.type !== 'multi_select' && (
@@ -1754,7 +1843,16 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             const idx = prev.findIndex(isStatusField);
             if (idx === -1) return prev;
             const f = prev[idx];
-            if (f.catalogRef) return prev;
+            if (f.catalogRef) {
+                if (f.catalogRef === STATUS_CATALOG_REF) {
+                    const current = normalizeOptions(sharedCatalogs[STATUS_CATALOG_REF] || f.options);
+                    const have = new Set(current.map((o) => o.name));
+                    const additions = [...seedOptionsForFeature('base'), ...seedOptionsForFeature(feature)]
+                        .filter((o) => !have.has(o.name));
+                    if (additions.length > 0) sharedUpdate = [...current, ...additions];
+                }
+                return prev;
+            }
             const current = normalizeOptions(f.options);
             const have = new Set(current.map((o) => o.name));
             const additions = [...seedOptionsForFeature('base'), ...seedOptionsForFeature(feature)]
@@ -1764,6 +1862,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             next[idx] = { ...f, options: [...current, ...additions] };
             return next;
         });
+        if (sharedUpdate) optionTools.updateSharedCatalog(STATUS_CATALOG_REF, sharedUpdate);
     };
 
     const handleToggleTranslation = (next) => {
@@ -1781,7 +1880,6 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             setEnableSubitems(true);
         }
         if (next) {
-            addTranslateButton();
             seedStatusOptions('translation');
             // A translatable table with no translatable field fails silent
             // validation, which blocks autosave for the WHOLE modal: the toggle
@@ -2014,9 +2112,17 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         if (key === 'type' && !TRANSLATABLE_FIELD_TYPES.has(value)) {
             newFields[index].translatable = false;
         }
-        if (key === 'type' && value === 'status' && normalizeOptions(newFields[index].options).length === 0) {
-            // A newly created `status` field starts with the base catalog (decision §9.1).
-            newFields[index].options = seedOptionsForFeature('base');
+        if (key === 'type' && value === 'status') {
+            // Dedicated status fields always use the vault-wide lifecycle catalog.
+            newFields[index].catalogRef = STATUS_CATALOG_REF;
+            if (normalizeOptions(newFields[index].options).length === 0) {
+                newFields[index].options = seedOptionsForFeature('base');
+            }
+        } else if (key === 'type' && value !== 'status' && newFields[index].catalogRef === STATUS_CATALOG_REF) {
+            // If a user changes the type away from status, keep a local copy of
+            // the current global values instead of leaving an invalid reference.
+            newFields[index].catalogRef = '';
+            newFields[index].options = normalizeOptions(sharedCatalogs[STATUS_CATALOG_REF] || newFields[index].options);
         }
         if (key === 'type' && value === 'period') {
             if (newFields[index].duration_enabled === undefined) newFields[index].duration_enabled = true;
@@ -2054,6 +2160,26 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         }
     };
 
+    const handleAddFunctionality = () => {
+        setFunctionalities((current) => [...current, {
+            id: generateFunctionalityId(),
+            enabled: true,
+            label: t('schema.functionality_default_label', 'New functionality'),
+            action: 'set_fields',
+            config: { assignments: [] },
+        }]);
+    };
+
+    const handleUpdateFunctionality = (index, patch) => {
+        setFunctionalities((current) => current.map((functionality, itemIndex) => (
+            itemIndex === index ? { ...functionality, ...patch } : functionality
+        )));
+    };
+
+    const handleRemoveFunctionality = (index) => {
+        setFunctionalities((current) => current.filter((_, itemIndex) => itemIndex !== index));
+    };
+
     // Silent validation: returns a message if something needs to be corrected,
     // null if everything's OK. Doesn't show toasts: the state is reflected in the bar
     // of the footer's autosave.
@@ -2063,7 +2189,8 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         if (fields.some(f => f.type === 'virtual' && !f.compute?.trim())) return t('schema.error_compute_required', "Pick a computer for the derived field.");
         if (fields.some(f => f.type === 'rollup' && !f.relationField?.trim())) return t('schema.error_relation_field_required');
         if (fields.some(f => f.type === 'rollup' && f.aggregation !== 'count_all' && !f.targetProperty?.trim())) return t('schema.error_target_property_required');
-        if (fields.some(f => f.type === 'button' && !f.button_action?.trim())) return t('schema.error_button_action_required', "Pick an action for the button field.");
+        if (functionalities.some((functionality) => !functionality.label?.trim())) return t('schema.error_functionality_label_required', 'Give every functionality a label.');
+        if (functionalities.some((functionality) => !functionality.action?.trim())) return t('schema.error_functionality_action_required', 'Pick an action for every functionality.');
         if (enableTranslation && !fields.some(f => f.translatable)) return t('schema.error_no_translatable_fields', "If the table is translatable, mark at least one field as translatable.");
         return null;
     };
@@ -2141,15 +2268,6 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                 if (f.storage_folder) config.storage_folder = f.storage_folder;
                 if (f.name_pattern?.trim()) config.name_pattern = f.name_pattern.trim();
             }
-            if (f.type === 'button') {
-                config.button_action = (f.button_action || 'translate_row').trim();
-                if (f.button_label?.trim()) {
-                    config.button_label = f.button_label.trim();
-                }
-                if (f.button_config) {
-                    config.button_config = f.button_config;
-                }
-            }
             if (f.type === 'period') {
                 config.duration_enabled = f.duration_enabled !== false;
                 config.predecessors_enabled = f.predecessors_enabled !== false;
@@ -2210,12 +2328,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
     useEffect(() => {
         if (!isOpen) return;
         if (!initializedRef.current) return; // first render: no autosave
-        if (skipNextAutosaveRef.current) {
-            // The initialization setters just caused this trigger.
-            // The payload is identical to the backend's; nothing to save.
-            skipNextAutosaveRef.current = false;
-            return;
-        }
+        if (!isInitializedForSave) return;
         if (validationError) {
             // Invalid state: nothing is sent (the banner above tells the user why).
             // We also drop any pending save: it belongs to an earlier render and
@@ -2230,7 +2343,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             try {
                 const { newSchemaObj, visibleProperties } = buildPayload();
                 if (onSave) {
-                    await onSave(newSchemaObj, { enableSubitems, visibleProperties, enableTranslation, enableDrupalSync, drupalBundle, drupalFieldMapping });
+                    await onSave(newSchemaObj, { enableSubitems, visibleProperties, enableTranslation, enableDrupalSync, drupalBundle, drupalFieldMapping, functionalities });
                 } else {
                     await axios.post(`/api/vault/schema?folder=${encodeURIComponent(folder)}`, newSchemaObj);
                 }
@@ -2244,7 +2357,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         const handle = setTimeout(doSave, 600);
         return () => clearTimeout(handle);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isOpen, fields, enableSubitems, enableTranslation, enableDrupalSync, drupalBundle, drupalFieldMapping]);
+    }, [isOpen, isInitializedForSave, fields, functionalities, enableSubitems, enableTranslation, enableDrupalSync, drupalBundle, drupalFieldMapping]);
 
     // Flush the pending save on unmounting the modal (e.g. closing with Esc or the X
     // right after editing, before the debounce's 600ms). Fire-and-forget:
@@ -2610,6 +2723,43 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                             )}
                         </div>
 
+                        <div className="border-t border-[var(--border-primary)] pt-4 space-y-3">
+                            <div className="flex items-start justify-between gap-3">
+                                <div>
+                                    <h4 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-1.5">
+                                        <Zap size={14} className="text-[var(--gnosi-primary)]" />
+                                        {t('schema.functionalities_title', 'Functionalities')}
+                                    </h4>
+                                    <p className="mt-1 text-xs text-[var(--text-secondary)]/60">
+                                        {t('schema.functionalities_hint', 'Configure row actions. Enabled functionalities appear as buttons at the left of the table.')}
+                                    </p>
+                                </div>
+                                <button type="button" onClick={handleAddFunctionality}
+                                    className="btn-gnosi btn-gnosi-primary !text-xs !py-1.5 !px-3 shrink-0">
+                                    <Plus size={14} /> {t('schema.add_functionality', 'Add functionality')}
+                                </button>
+                            </div>
+                            {functionalities.length === 0 ? (
+                                <p className="rounded-lg border border-dashed border-[var(--border-primary)] px-3 py-4 text-center text-xs text-[var(--text-tertiary)]">
+                                    {t('schema.functionalities_empty', 'No custom functionalities configured.')}
+                                </p>
+                            ) : functionalities.map((functionality, index) => (
+                                <FunctionalityEditor
+                                    key={functionality.id}
+                                    functionality={functionality}
+                                    index={index}
+                                    allFields={fields}
+                                    availableSkills={availableSkills}
+                                    onUpdate={handleUpdateFunctionality}
+                                    onRemove={handleRemoveFunctionality}
+                                    onProgramWithAi={(functionalityIndex) => {
+                                        setAiActionModalFieldIndex(functionalityIndex);
+                                        setAiActionPrompt('');
+                                    }}
+                                />
+                            ))}
+                        </div>
+
                     </div>
 
                     <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3 flex items-center gap-2 px-1">
@@ -2642,6 +2792,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                                         optionTools={optionTools}
                                         projectPlanningEnabled={projectPlanningEnabled}
                                         setAiActionModalFieldIndex={setAiActionModalFieldIndex}
+                                        setAiActionPrompt={setAiActionPrompt}
                                         availableSkills={availableSkills}
                                     />
                                 ))}

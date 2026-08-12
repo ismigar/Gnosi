@@ -595,6 +595,7 @@ const processBlocksForCitations = (blocks) => {
 // wikilinks; `@digit` isn't a citation either. They are processed AFTER citations/wikilinks.
 const MENTION_RE = /@\[([^\]|]*)\|([^\]]*)\]/g;
 const DATEREF_RE = /@(\d{4}-\d{2}-\d{2})(?:T(\d{2}:\d{2}))?/g;
+const INLINE_ICON_RE = /\{\{gnosi-icon:([^}\s]+)\}\}/g;
 
 const convertTextTokens = (content, regex, build) => {
     if (!Array.isArray(content)) return content;
@@ -628,6 +629,11 @@ const convertToMentions = (content) => convertTextTokens(content, MENTION_RE, (m
 const convertToDates = (content) => convertTextTokens(content, DATEREF_RE, (m) => ({
     type: 'dateref', props: { date: String(m[1] || ''), time: String(m[2] || '') },
 }));
+const convertToInlineIcons = (content) => convertTextTokens(content, INLINE_ICON_RE, (m) => {
+    let value = String(m[1] || '');
+    try { value = decodeURIComponent(value); } catch { /* Keep malformed legacy values visible. */ }
+    return { type: 'inlineIcon', props: { value } };
+});
 
 const makeBlockProcessor = (convert) => {
     const proc = (blocks) => {
@@ -643,6 +649,7 @@ const makeBlockProcessor = (convert) => {
 };
 const processBlocksForMentions = makeBlockProcessor(convertToMentions);
 const processBlocksForDates = makeBlockProcessor(convertToDates);
+const processBlocksForInlineIcons = makeBlockProcessor(convertToInlineIcons);
 
 const codeBlockText = (block) => {
     if (!block?.content) return '';
@@ -1146,6 +1153,10 @@ const inlineContentToMarkdown = (content, { escape = true, atLineStart = false }
             if (!date) return "";
             return time ? `@${date}T${time}` : `@${date}`;
         }
+        if (item.type === "inlineIcon") {
+            const value = String(item.props?.value || '').trim();
+            return value ? `{{gnosi-icon:${encodeURIComponent(value)}}}` : '';
+        }
         return "";
     }).join("");
 };
@@ -1446,9 +1457,11 @@ const parsePlainMarkdownBlock = async (text, editor) => {
         blocks = [{ type: "paragraph", content: markdownSource }];
     }
 
-    const processedBlocks = processBlocksForDates(
-        processBlocksForMentions(
-            processBlocksForCitations(processBlocksForWikilinks(blocks))
+    const processedBlocks = processBlocksForInlineIcons(
+        processBlocksForDates(
+            processBlocksForMentions(
+                processBlocksForCitations(processBlocksForWikilinks(blocks))
+            )
         )
     );
     return applyBlockProps(processedBlocks, styledWrapper.props);
