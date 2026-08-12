@@ -110,6 +110,13 @@ import { VaultDateProperty } from './VaultDateProperty';
 import MentionInline from './MentionInline';
 import DateMentionInline from './DateMentionInline';
 import LinkCardBlock from './LinkCardBlock';
+import ContextualLinkPasteMenu from './ContextualLinkPasteMenu';
+import {
+    compactUrlLabel,
+    extractInternalPageId,
+    isEmptyInlineBlock,
+    normalizeStandaloneHttpUrl,
+} from './contextualLinkPasteUtils';
 import SyncedBlock from './SyncedBlock';
 import SpellCheckLayer from './SpellCheckLayer';
 import AICorrectLayer from './AICorrectLayer';
@@ -1467,6 +1474,8 @@ export function EditorInner({
     // AI generation modal (slash «AI»). Rendered at the end via <AIGenerateModal>.
     const [aiRequest, setAiRequest] = useState(null);
     const [linkCardCtx, setLinkCardCtx] = useState(null);
+    const [linkPasteCtx, setLinkPasteCtx] = useState(null);
+    const [linkPastePreviewTitle, setLinkPastePreviewTitle] = useState('');
     const doLinkCard = async (raw) => {
         const ctx = linkCardCtx;
         setLinkCardCtx(null);
@@ -1475,6 +1484,22 @@ export function EditorInner({
             insertOrUpdateBlockForSlashMenu(ctx.editor, { type: 'linkcard', props: { url: u } });
         }
     };
+
+    useEffect(() => {
+        const url = linkPasteCtx?.url;
+        if (!url || linkPasteCtx?.internalPageId) {
+            setLinkPastePreviewTitle('');
+            return undefined;
+        }
+        let cancelled = false;
+        setLinkPastePreviewTitle('');
+        axios.get('/api/vault/link-preview', { params: { url }, timeout: 4000 })
+            .then((response) => {
+                if (!cancelled) setLinkPastePreviewTitle(String(response.data?.title || '').trim());
+            })
+            .catch(() => { /* A hostname fallback keeps mention insertion available. */ });
+        return () => { cancelled = true; };
+    }, [linkPasteCtx?.internalPageId, linkPasteCtx?.url]);
 
     const requestInsertContent = useCallback(({ initialFile = null, initialTab = 'vault' } = {}) => {
         const prev = pendingInsertRef.current;
@@ -1593,6 +1618,47 @@ export function EditorInner({
     // org mode). In personal mode `collabReady` never changes → no recreation.
     [collabReady]);
     editorRef.current = editor;
+
+    const closeContextualLinkPaste = useCallback(() => {
+        setLinkPasteCtx(null);
+        try { editor?.focus(); } catch { /* noop */ }
+    }, [editor]);
+
+    const applyContextualLinkPaste = useCallback((mode) => {
+        const context = linkPasteCtx;
+        if (!context?.url || !editor) return;
+        setLinkPasteCtx(null);
+        try {
+            const anchor = editor.getBlock?.(context.anchorBlockId);
+            if (anchor) editor.setTextCursorPosition(anchor.id, 'start');
+
+            if (mode === 'bookmark') {
+                insertOrUpdateBlockForSlashMenu(editor, { type: 'linkcard', props: { url: context.url } });
+            } else if (mode === 'embed') {
+                insertOrUpdateBlockForSlashMenu(editor, { type: 'embed', props: { url: context.url, caption: '' } });
+            } else if (mode === 'mention' && context.internalPageId) {
+                editor.insertInlineContent([{
+                    type: 'wikilink',
+                    props: {
+                        target: context.internalPageId,
+                        title: idToTitle?.[context.internalPageId] || context.internalPageId,
+                    },
+                }]);
+            } else {
+                const label = mode === 'mention'
+                    ? linkPastePreviewTitle || compactUrlLabel(context.url)
+                    : context.url;
+                editor.insertInlineContent([{
+                    type: 'link',
+                    href: context.url,
+                    content: [{ type: 'text', text: label, styles: {} }],
+                }]);
+            }
+            editor.focus();
+        } catch (error) {
+            console.error('contextual link paste failed', error);
+        }
+    }, [editor, idToTitle, linkPasteCtx, linkPastePreviewTitle]);
 
     // Seeding initial content in collaboration: if the Yjs document is
     // empty (first peer), we dump the page's blocks into it. Gated by a flag
@@ -2118,11 +2184,50 @@ export function EditorInner({
 
         const onPasteCapture = (e) => {
             const files = Array.from(e.clipboardData?.files || []);
-            if (!files.length) return;
-            if (files.every(isVisualMediaFile)) return;
+            if (files.length) {
+                if (files.every(isVisualMediaFile)) return;
+                e.preventDefault();
+                e.stopPropagation();
+                processFiles(files);
+                return;
+            }
+
+            const url = normalizeStandaloneHttpUrl(e.clipboardData?.getData?.('text/plain'));
+            if (!url) return;
+            const view = editor.prosemirrorView;
+            const selection = view?.state?.selection;
+            if (!selection) return;
+
+            // Pasting on selected text is unambiguous: link that text directly
+            // and skip the chooser, matching the behavior of familiar editors.
+            if (!selection.empty) {
+                const selectedText = String(editor.getSelectedText?.() || '').trim();
+                if (!selectedText) return;
+                e.preventDefault();
+                e.stopPropagation();
+                editor.insertInlineContent([{
+                    type: 'link',
+                    href: url,
+                    content: [{ type: 'text', text: selectedText, styles: {} }],
+                }]);
+                return;
+            }
+
+            const cursor = editor.getTextCursorPosition?.();
+            if (!isEmptyInlineBlock(cursor?.block)) return;
+
             e.preventDefault();
             e.stopPropagation();
-            processFiles(files);
+            let caret = { left: e.clientX || 24, bottom: e.clientY || 24 };
+            try {
+                caret = view.coordsAtPos(selection.from) || caret;
+            } catch { /* Keep the event-position fallback. */ }
+            setLinkPasteCtx({
+                url,
+                anchorBlockId: cursor.block.id,
+                internalPageId: extractInternalPageId(url, window.location.origin),
+                position: { left: caret.left, top: caret.bottom + 8 },
+            });
         };
 
         wrapper.addEventListener('drop', onDropCapture, true);
@@ -3966,6 +4071,13 @@ export function EditorInner({
                 confirmText={t('common.add', { defaultValue: "Add" })}
                 cancelText={t('common.cancel', { defaultValue: "Cancel" })}
             />
+            {linkPasteCtx && (
+                <ContextualLinkPasteMenu
+                    position={linkPasteCtx.position}
+                    onChoose={applyContextualLinkPaste}
+                    onClose={closeContextualLinkPaste}
+                />
+            )}
         </VaultEditorContext.Provider>
     );
 };
