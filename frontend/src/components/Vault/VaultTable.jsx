@@ -27,7 +27,7 @@ import { filenameFromTarget, isImageFieldName, getImageSrc, parseImageField, bui
 import { InsertContentModal } from './InsertContentModal';
 import { useTitlePreview } from './useTitlePreview';
 import { normalizeTableFunctionalities } from './tableFunctionalityUtils';
-import { getTableRecordFocusPreparation } from './tableRecordFocusUtils';
+import { getTableFocusTarget, getTableRecordFocusPreparation } from './tableRecordFocusUtils';
 
 // A cell's dropdown (select/multi_select) rendered in a PORTAL at
 // `document.body` with `position: fixed`, anchored below the input. This way it escapes the
@@ -1431,9 +1431,16 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         initializedViewRef.current = viewKey;
         _gridKeyboardOwner = gridInstanceIdRef.current;
         setAnchorCell(null);
+        const focusTarget = getTableFocusTarget({
+            activeCell: activeCellRef.current,
+            navRows,
+            gridColumns,
+        });
+        const preservesActiveCell = focusTarget?.rowId === activeCellRef.current?.rowId
+            && focusTarget?.field === activeCellRef.current?.field;
         // Grouped view: initial focus goes to the FIRST group HEADER
         // (Enter expands it and moves down to the items). Otherwise, to the first cell.
-        if (groupByField) {
+        if (groupByField && !preservesActiveCell) {
             const firstGroupIdx = rowDescriptors.findIndex(d => d.kind === 'group-header');
             if (firstGroupIdx >= 0) {
                 rowVirtualizer.scrollToIndex(firstGroupIdx);
@@ -1443,7 +1450,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                 return;
             }
         }
-        setActiveCell({ rowId: navRows[0].id, field: gridColumns[0].key });
+        if (focusTarget) setActiveCell(focusTarget);
     }, [activeView?.id, searchTerm, sortSignature, navRows, gridColumns, groupByField, rowDescriptors, rowVirtualizer]);
 
     // Resizing Handlers
