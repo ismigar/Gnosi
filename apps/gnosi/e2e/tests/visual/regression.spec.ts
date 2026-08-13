@@ -1,5 +1,10 @@
 import { test, expect, type Page } from '@playwright/test';
 
+// These baselines are recorded with the macOS font stack. Functional E2E
+// coverage still runs on Linux CI, but pixel comparisons require a matching
+// rendering environment and must not compare Linux output with Darwin files.
+test.skip(process.platform !== 'darwin', 'Visual baselines are recorded on macOS only.');
+
 /**
  * Visual regression: pixel-diff against a baseline screenshot.
  *

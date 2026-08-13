@@ -4080,7 +4080,7 @@ export default function VaultDashboard() {
                                     <VaultViewsHeader
                                         tableName={activeTable ? (activeTable.title || activeTable.name) : t('common.table')}
                                         recordCount={(tableNotes || []).length}
-                                        notes={(console.log('[DashboardJoins] Active view filters:', displayViews.find(v => v.id === activeViewId)?.filterTree, displayViews.find(v => v.id === activeViewId)?.filters), tableNotes || [])}
+                                        notes={tableNotes || []}
                                         referenceTableId={refTableId && refTableId === activeTableId ? activeTableId : undefined}
                                         brainTableId={brainTableId && brainTableId === activeTableId ? activeTableId : undefined}
                                         onReferencesImported={fetchPages}

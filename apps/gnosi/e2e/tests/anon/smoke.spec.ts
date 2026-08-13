@@ -35,7 +35,9 @@ test.describe('Gnosi frontend smoke', () => {
         if (
           text.includes('React DevTools') ||
           text.includes('Download the React DevTools') ||
-          text.includes('Failed to load resource: the server responded with a status of 404')
+          text.includes('Failed to load resource: the server responded with a status of 404') ||
+          // Anonymous mode intentionally returns 401 for the auth bootstrap request.
+          text.includes('Failed to load resource: the server responded with a status of 401')
         ) {
           return;
         }

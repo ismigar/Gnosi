@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
 /**
  * AI Chat E2E: floating chat button is visible globally, opens panel, has textarea.
@@ -9,6 +10,43 @@ import { test, expect } from '@playwright/test';
 
 test.describe('AI Chat', () => {
   test.beforeEach(async ({ page }) => {
+    await page.route('**/api/health', (route) => route.fulfill({
+      json: { status: 'ok', gnosi_mode: 'personal', require_auth: false },
+    }));
+    await page.route('**/api/auth/me', (route) => route.fulfill({
+      status: 401,
+      contentType: 'application/json',
+      body: JSON.stringify({ detail: 'Not authenticated' }),
+    }));
+    await page.addInitScript(() => {
+      const openDock = () => {
+        document.body.dataset.gnosiFloatingDock = 'open';
+      };
+      if (document.body) openDock();
+      else document.addEventListener('DOMContentLoaded', openDock, { once: true });
+    });
+
+    await page.route('**/api/config', async (route) => {
+      await route.fulfill({
+        json: {
+          ai: {
+            active_agent_id: 'gnosy',
+            agents: [{
+              id: 'gnosy',
+              name: 'Gnosi Test Agent',
+              provider: 'test',
+              model: 'test-model',
+              enabled: true,
+            }],
+          },
+        },
+      });
+    });
+    for (const endpoint of ['/api/vault/pages', '/api/vault/tables', '/api/vault/databases']) {
+      await page.route(`**${endpoint}`, (route) => route.fulfill({ json: [] }));
+    }
+    await page.route('**/api/chat/confirmations**', (route) => route.fulfill({ json: [] }));
+
     await page.route('**/api/chat', async (route) => {
       await route.fulfill({
         status: 200,
@@ -23,11 +61,15 @@ test.describe('AI Chat', () => {
     });
   });
 
-  const chatLauncherRegex = /(obrir chat|abrir chat|open chat)/i;
+  const chatLauncherRegex = /(obrir (?:chat|xat)|abrir chat|open chat|ouvrir le chat)/i;
+  const openFloatingDock = (page: Page) => page.evaluate(() => {
+    document.body.dataset.gnosiFloatingDock = 'open';
+  });
 
   test('chat launcher button is present on home', async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+    await openFloatingDock(page);
 
     const launcher = page.getByRole('button', { name: chatLauncherRegex });
     await expect(launcher).toBeVisible({ timeout: 10_000 });
@@ -36,6 +78,7 @@ test.describe('AI Chat', () => {
   test('chat panel opens with textarea on click', async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+    await openFloatingDock(page);
 
     await page.getByRole('button', { name: chatLauncherRegex }).click();
 
@@ -48,6 +91,7 @@ test.describe('AI Chat', () => {
   test('typing into chat textarea updates value', async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+    await openFloatingDock(page);
 
     await page.getByRole('button', { name: chatLauncherRegex }).click();
 
@@ -63,6 +107,7 @@ test.describe('AI Chat', () => {
   test('submitted message renders the terminal NDJSON response', async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+    await openFloatingDock(page);
     await page.getByRole('button', { name: chatLauncherRegex }).click();
 
     const textarea = page
@@ -86,6 +131,7 @@ test.describe('AI Chat', () => {
     });
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+    await openFloatingDock(page);
     await page.getByRole('button', { name: chatLauncherRegex }).click();
 
     const textarea = page
@@ -104,6 +150,7 @@ test.describe('AI Chat', () => {
       && request.url().includes('/api/chat/sessions/gnosy/session-20')
     ));
     await page.addInitScript(() => {
+      const storageScope = 'retention-test:personal:personal';
       const sessions = Array.from({ length: 21 }, (_, index) => ({
         id: `session-${index}`,
         title: `Session ${index}`,
@@ -115,14 +162,15 @@ test.describe('AI Chat', () => {
       }));
       localStorage.setItem('gnosi_active_vault', 'retention-test');
       localStorage.setItem(
-        'agent_chat_sessions_v2:retention-test',
+        `agent_chat_sessions_v2:${storageScope}`,
         JSON.stringify(sessions),
       );
-      localStorage.setItem('agent_selected_id_v2:retention-test', 'gnosy');
+      localStorage.setItem(`agent_selected_id_v2:${storageScope}`, 'gnosy');
       localStorage.setItem(
-        'agent_chat_active_session_id_v2:retention-test',
+        `agent_chat_active_session_id_v2:${storageScope}`,
         'session-0',
       );
+      localStorage.setItem(`agent_session_id_v2:${storageScope}`, 'session-0');
     });
     await page.route('**/api/chat/sessions/**', async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{"deleted":true}' });

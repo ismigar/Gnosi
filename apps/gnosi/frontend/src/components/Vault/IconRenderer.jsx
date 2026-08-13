@@ -1,6 +1,11 @@
 import React from 'react';
-import * as LucideIcons from 'lucide-react';
+import { DynamicIcon, iconNames } from 'lucide-react/dynamic';
 import { withActiveVault } from '../../lib/fileResource';
+
+const DYNAMIC_ICON_NAMES = new Set(iconNames);
+const normalizeLucideIconName = (name) => name
+    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+    .toLowerCase();
 
 const normalizeVaultAssetUrl = (value) => {
     if (typeof value !== 'string') return value;
@@ -53,9 +58,9 @@ export const IconRenderer = ({ icon, size = 16, className = "", color }) => {
             'red': '#e03e3e'
         };
 
-        const IconComponent = LucideIcons[iconName];
-        if (IconComponent) {
-            return <IconComponent size={size} color={color || colorMap[colorName]} className={className} />;
+        const normalizedName = normalizeLucideIconName(iconName || '');
+        if (DYNAMIC_ICON_NAMES.has(normalizedName)) {
+            return <DynamicIcon name={normalizedName} size={size} color={color || colorMap[colorName]} className={className} />;
         }
     }
 
