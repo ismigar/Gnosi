@@ -1,30 +1,28 @@
 #!/usr/bin/env python3
-"""
-Drupal Remote Agent - Automatización de acceso SSH con suweb interactivo.
-Requiere: pip install pexpect python-dotenv
+"""Automate SSH access to Drupal through the interactive ``suweb`` bridge.
 
-Este script permite:
-1. Conectarse via SSH automàticamente.
-2. Gestionar el comando interactivo 'suweb' si es necesario.
-3. Ejecutar comandos DRUSH.
-4. Subir archivos al servidor.
+Requires ``pexpect`` and ``python-dotenv``. The agent can run remote Drush or
+shell commands and upload files through the privileged web-user session.
 
-Uso:
+Usage:
     python remote_agent.py drush cr
+    python remote_agent.py exec --timeout 900 composer update
     python remote_agent.py upload local_file remote_path
 """
 
-import sys
 import os
-import pexpect
-import time
+import re
+import sys
 from pathlib import Path
+
+import pexpect
 from dotenv import load_dotenv
 
+
 def load_envs():
-    """Carga variables de entorno desde .env.shared"""
+    """Load variables from the nearest parent ``.env.shared`` file."""
     current = Path(__file__).resolve()
-    # Buscar .env.shared recursivamente hacia arriba
+    # Search parent directories for the legacy environment filename.
     for _ in range(8):
         current = current.parent
         env_file = current / ".env.shared"
@@ -33,157 +31,189 @@ def load_envs():
             return True
     return False
 
+
 class DrupalRemoteAgent:
+    SHELL_PROMPT = re.compile(
+        r"(?m)^[^\r\n]*@[^\r\n]*:[^\r\n]*[#$%>] ?$"
+    )
+    EXIT_MARKER = "__DRUPAL_AGENT_EXIT__"
+
     def __init__(self):
         load_envs()
         self.host = os.getenv("SSH_HOST")
         self.user = os.getenv("SSH_USER")
         self.password = os.getenv("SSH_PASSWORD")
-        self.suweb_pass = os.getenv("SSH_SUWEB_PASSWORD") # Contraseña para suweb
+        self.suweb_pass = os.getenv("SSH_SUWEB_PASSWORD")
         self.port = os.getenv("SSH_PORT", "22")
         self.drupal_root = os.getenv("DRUPAL_PATH", "/var/www/html")
         
         if not self.host or not self.user:
-            raise ValueError("Faltan credenciales SSH_HOST o SSH_USER en .env.shared")
+            raise ValueError("SSH_HOST or SSH_USER is missing from the environment")
 
     def _execute_command(self, cmd, timeout):
-        """Método interno para ejecutar comando y capturar output raw."""
-        print(f"🤖 AGENT: Conectando a {self.user}@{self.host}...")
+        """Execute a remote command and return its success state and output."""
+        print(f"🤖 AGENT: Connecting to {self.user}@{self.host}...")
         
-        # Comando SSH básico
         ssh_cmd = f"ssh -p {self.port} {self.user}@{self.host}"
         
         try:
-            child = pexpect.spawn(ssh_cmd, encoding='utf-8', timeout=timeout)
-            # LOGGING: Ver qué responde el servidor
-            # child.logfile_read = sys.stdout 
+            child = pexpect.spawn(ssh_cmd, encoding="utf-8", timeout=timeout)
             
-            # 1. Gestionar Login SSH
-            i = child.expect(['password:', 'yes/no', pexpect.EOF, pexpect.TIMEOUT, '\$ ', '# ', '> ', '% ', 'ismigar@'])
+            # Authenticate the initial SSH session.
+            i = child.expect([
+                "(?i)password:",
+                "yes/no",
+                self.SHELL_PROMPT,
+                pexpect.EOF,
+                pexpect.TIMEOUT,
+            ])
             
-            if i == 0: # Pide password
+            if i == 0:
                 child.sendline(self.password)
-            elif i == 1: # Confirmar host key
-                child.sendline('yes')
-                child.expect('password:')
+            elif i == 1:
+                child.sendline("yes")
+                child.expect("password:")
                 child.sendline(self.password)
-            elif i == 2: # EOF
-                print("❌ Error: Conexión cerrada (EOF).")
-                return False, child.before
-            elif i == 3: # Timeout
-                print("❌ Error: Timeout inicial.")
-                return False, child.before
-            elif i >= 4: # Ya estamos dentro
-                pass # Login automático
+            elif i == 2:
+                pass
+            elif i == 3:
+                return False, self._redact_output(child.before)
+            elif i == 4:
+                return False, "Initial SSH connection timed out."
 
-            # Esperar prompt post-login explícitamente si enviamos password
             if i <= 1:
-                idx = child.expect(['\$', '#', '>', '%', 'ismigar@', pexpect.TIMEOUT])
+                login_result = child.expect(
+                    [self.SHELL_PROMPT, pexpect.EOF, pexpect.TIMEOUT]
+                )
+                if login_result != 0:
+                    return False, "SSH login did not reach a shell prompt."
                 
-            # 2. Gestionar suweb
+            # Enter the privileged web-user session when configured.
             if self.suweb_pass:
-                # Limpiar cualquier prompt residual antes de enviar comando
+                # Consume a residual prompt if one is still buffered.
                 try:
-                    child.expect(['\$', '#', '>', '%', 'ismigar@'], timeout=1)
-                except:
+                    child.expect(self.SHELL_PROMPT, timeout=1)
+                except pexpect.TIMEOUT:
                     pass
 
-                child.sendline('suweb')
-                j = child.expect(['(?i)password:', '(?i)contrase', '(?i)contrasenya', '(?i)(authentication failure|fallo de auten|fallida)', pexpect.TIMEOUT], timeout=10)
+                child.sendline("suweb")
+                j = child.expect(
+                    [
+                        "(?i)password:",
+                        "(?i)contrase",
+                        "(?i)contrasenya",
+                        "(?i)(authentication failure|fallo de auten|fallida)",
+                        pexpect.TIMEOUT,
+                    ],
+                    timeout=10,
+                )
                 
-                if j < 3: 
-                     child.sendline(self.suweb_pass)
-                     child.expect(['\$', '#', '>', '%', 'root@'], timeout=10)
+                if j < 3:
+                    child.sendline(self.suweb_pass)
+                    child.expect(self.SHELL_PROMPT, timeout=10)
                 elif j == 3:
-                     print("❌ Error: Fallo de autenticación en suweb")
-                     return False, "Auth failed"
+                    return False, "suweb authentication failed."
                 else:
-                     # Timeout esperando password, verificamos si ya somos root/user destino
-                     child.sendline('echo "CHECK_ROOT"')
-                     child.expect('CHECK_ROOT')
-                     child.expect(['\$', '#', '>', '%'])
+                    # Some hosts switch users without asking for a password.
+                    child.sendline('echo "CHECK_ROOT"')
+                    child.expect("CHECK_ROOT")
+                    child.expect(self.SHELL_PROMPT)
 
-            # 3. Navegar
+            # Commands must run from the Composer project root.
             child.sendline(f"cd {self.drupal_root}")
-            child.expect(['\$', '#', '>', '%'])
+            child.expect(self.SHELL_PROMPT)
+
+            # Disable echo in the remote terminal so commands and any
+            # command-line secrets are not copied into captured output.
+            child.sendline("stty -echo")
+            child.expect(self.SHELL_PROMPT)
             
-            # 4. Ejecutar comando
-            print(f"🔧 AGENT: Ejecutando '{cmd}'")
-            child.sendline(cmd)
-            child.expect(['\$', '#', '>', '%'])
+            print("🔧 AGENT: Executing remote command.")
+            wrapped_cmd = (
+                f"{cmd}; __drupal_agent_status=$?; "
+                f"printf '\\n{self.EXIT_MARKER}%s\\n' \"$__drupal_agent_status\""
+            )
+            child.sendline(wrapped_cmd)
+            child.expect(self.SHELL_PROMPT)
             
             output = child.before.strip()
-            # Limpieza básica
-            lines = output.splitlines()
-            if lines and cmd in lines[0]: lines.pop(0)
-            
-            clean_output = "\n".join(lines)
-            child.sendline('exit')
+            exit_match = re.search(rf"{self.EXIT_MARKER}(\d+)", output)
+            exit_code = int(exit_match.group(1)) if exit_match else 1
+            clean_output = re.sub(
+                rf"\s*{self.EXIT_MARKER}\d+\s*$", "", output
+            ).strip()
+            clean_output = self._redact_output(clean_output)
+            child.sendline("stty echo")
+            child.expect(self.SHELL_PROMPT)
+            child.sendline("exit")
             child.close()
-            return True, clean_output
+            return exit_code == 0, clean_output
             
-        except Exception as e:
-            print(f"❌ Exception: {e}")
-            return False, str(e)
+        except Exception as error:
+            return False, self._redact_output(str(error))
+
+    @staticmethod
+    def _redact_output(output):
+        """Remove common credential fields from captured command output."""
+        sensitive_field = re.compile(
+            r'(?i)(["\']?(?:db[-_]?password|password|passwd|secret|token)'
+            r'["\']?\s*[:=]\s*)(["\'][^"\']*["\']|[^\s,}]+)'
+        )
+        return sensitive_field.sub(r'\1"[REDACTED]"', output)
 
     def run_command(self, cmd, timeout=30):
-        """Ejecuta un comando (Legacy interface: retorna bool). Imprime output."""
+        """Execute a command, print its redacted output, and return success."""
         success, output = self._execute_command(cmd, timeout)
-        if success:
-            print("✅ Output:")
+        if output:
+            print("✅ Output:" if success else "❌ Output:")
             print(output)
         return success
 
     def run_command_output(self, cmd, timeout=30):
-        """Ejecuta un comando y retorna (bool, output)."""
+        """Execute a command and return ``(success, redacted_output)``."""
         return self._execute_command(cmd, timeout)
 
     def upload_file(self, local_path, remote_path):
-        """Sube un archivo via SCP y luego lo mueve al destino final con suweb si es necesario"""
+        """Upload a file with SCP and move it through ``suweb`` if needed."""
         if not os.path.exists(local_path):
-            print(f"❌ Error: Archivo local no existe: {local_path}")
+            print(f"❌ Error: Local file does not exist: {local_path}")
             return False
             
         filename = os.path.basename(local_path)
         temp_remote_path = f"/tmp/{filename}"
         
-        print(f"📤 AGENT: Subiendo {filename} a /tmp/...")
+        print(f"📤 AGENT: Uploading {filename} to /tmp/...")
         
-        # SCP usa sshpass si está disponible, o pexpect scp
-        # Para simplicidad con pexpect usaremos scp interactivo
         scp_cmd = f"scp -P {self.port} {local_path} {self.user}@{self.host}:{temp_remote_path}"
         
         try:
-            child = pexpect.spawn(scp_cmd, encoding='utf-8')
-            i = child.expect(['password:', 'yes/no', pexpect.EOF])
+            child = pexpect.spawn(scp_cmd, encoding="utf-8")
+            i = child.expect(["password:", "yes/no", pexpect.EOF])
             
             if i == 0:
                 child.sendline(self.password)
             elif i == 1:
-                child.sendline('yes')
-                child.expect('password:')
+                child.sendline("yes")
+                child.expect("password:")
                 child.sendline(self.password)
                 
             child.expect(pexpect.EOF)
-            print("✅ Subida a /tmp completada.")
+            print("✅ Upload to /tmp completed.")
             
-            # Mover archivo al destino final usando la sesión interactiva (por permisos)
             move_cmd = f"mv {temp_remote_path} {remote_path}"
             if self.suweb_pass:
-                 # Si hay suweb, asumimos que necesitamos permisos para escribir en destino
-                 print(f"🚚 AGENT: Moviendo archivo a destino final con permisos...")
-                 return self.run_command(move_cmd)
-            else:
-                 # Si no hay suweb, intentamos mover directamente via ssh command simple (o interactive si queremos reutilizar)
-                 return self.run_command(move_cmd)
+                print("🚚 AGENT: Moving file through the privileged session.")
+            return self.run_command(move_cmd)
 
-        except Exception as e:
-            print(f"❌ Error subiendo archivo: {e}")
+        except Exception as error:
+            print(f"❌ Upload failed: {self._redact_output(str(error))}")
             return False
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Uso:")
+        print("Usage:")
+        print("  python remote_agent.py exec [--timeout SECONDS] <command>")
         print("  python remote_agent.py drush <cmd>")
         print("  python remote_agent.py upload <local_file> <remote_path>")
         sys.exit(1)
@@ -193,16 +223,28 @@ if __name__ == "__main__":
     
     if action == "drush":
         cmd = f"drush {' '.join(sys.argv[2:])}"
-        agent.run_command(cmd)
+        success = agent.run_command(cmd)
+        sys.exit(0 if success else 1)
     elif action == "upload":
         if len(sys.argv) < 4:
-            print("Faltan argumentos para upload")
+            print("The local and remote paths are required.")
             sys.exit(1)
         local = sys.argv[2]
         remote = sys.argv[3]
-        agent.upload_file(local, remote)
+        success = agent.upload_file(local, remote)
+        sys.exit(0 if success else 1)
     elif action == "exec":
-        cmd = " ".join(sys.argv[2:])
-        agent.run_command(cmd)
+        args = sys.argv[2:]
+        timeout = 30
+        if args[:1] == ["--timeout"]:
+            if len(args) < 3:
+                print("The timeout and command are required.")
+                sys.exit(1)
+            timeout = int(args[1])
+            args = args[2:]
+        cmd = " ".join(args)
+        success = agent.run_command(cmd, timeout=timeout)
+        sys.exit(0 if success else 1)
     else:
-        print("Acción desconocida")
+        print("Unknown action.")
+        sys.exit(1)
