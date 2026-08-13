@@ -1,0 +1,2025 @@
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import axios from 'axios';
+import { Accessibility, AlertCircle, Focus, HelpCircle, LayoutTemplate, ListTree, MoreHorizontal, Plus, Search, Settings, SlidersHorizontal, ChevronDown, ChevronUp, X, Edit2, Copy, Trash2, Rows3 } from 'lucide-react';
+import { compareFieldValues, matchesRule, normalizeForSearch } from '../../utils/vaultFilters';
+import { VaultEditorContext } from './VaultEditorContext';
+import { VaultMarkdown, RetryableImage } from './VaultMarkdown';
+import { VaultViewBody } from './VaultViewBody';
+import { buildSchemaFromTableProperties } from './schemaUtils';
+import { VIEW_TYPES } from './viewConstants';
+import ConfirmModal from '../ConfirmModal';
+import PromptModal from '../PromptModal';
+import { toast } from '../../lib/toast';
+
+// Scrollable container to fit the full view components (which
+// assume a height) within the embed's document flow. At module level
+// so as not to recreate the component type on every render (this would avoid remounts).
+const ScrollBox = ({ children }) => (
+    // `w-full max-w-full min-w-0` pins the width to that of the container of
+    // the editor (not the content's); `overflow-x-auto` makes the table
+    // wide scroll INSIDE the box and not overflow the page/editor.
+    <div className="my-2 w-full max-w-full min-w-0 max-h-[70vh] min-h-[8rem] overflow-x-auto overflow-y-auto focus-within:ring-1 focus-within:ring-[var(--gnosi-primary)]/30 transition-all">
+        {children}
+    </div>
+);
+
+// Container for the TABLE/list: does NOT scroll on its own (overflow-hidden) and is
+// flex-col with bounded height so that VaultTable itself (which has its own
+// internal scroller + sticky `title` column) handles the horizontal scroll and
+// vertical. If we wrapped the table in a box with `overflow-x-auto`,
+// the box would handle the horizontal scroll and the sticky column would not stay fixed.
+//
+// `isolate` (isolation: isolate) creates a stacking context that CONFINES the
+// VaultTable's internal z-index values (sticky cells use z-20/z-30/z-40).
+// Without this, since neither the box nor the scroller create a stacking context,
+// these z-index values rise up to the embed's root and cover the dropdowns of
+// the tab bar (the sticky title column, z-40, was painting over
+// the "+"/"…" menu). With `isolate`, the table participates as a single block and the
+// menus (in the bar, positioned) always stay on top.
+//
+// ADAPTIVE height: we no longer force `h-[60vh]` (it left a big gap with few
+// rows). VaultTable receives `maxHeight` and its scroller takes the height of the
+// content, scrolling internally only if it exceeds it. That's why the box has no
+// fixed height nor `overflow-hidden` (which would clip menus that open downward):
+// the border/rounding is applied by the table's own scroller (`isEmbedded` mode).
+const TableBox = ({ children }) => (
+    <div className="my-2 w-full max-w-full min-w-0 isolate">
+        {children}
+    </div>
+);
+
+// Embedded FEED container: GROWS with the content (like Notion) and it's the
+// PAGE that scrolls — no 70vh box with internal scroll. The
+// feed's infinite scroll plays in our favor: it starts with a small batch and the sentinel
+// (which resolves the real scroller via getScrollParent) keeps loading the rest into
+// as you scroll down the page; "See more" also expands the page.
+const FeedFlowBox = ({ children }) => (
+    <div className="mt-0 mb-2 w-full max-w-full min-w-0 rounded-xl border border-transparent focus-within:border-[var(--gnosi-primary)]/50 focus-within:ring-1 focus-within:ring-[var(--gnosi-primary)]/30 overflow-hidden transition-all">
+        {children}
+    </div>
+);
+
+/* -------------------------------------------------------------------------- */
+/*  Filter / sort / format utilities                                  */
+/* -------------------------------------------------------------------------- */
+
+// Field name without decorative prefix (symbols/spaces), lowercase: allows
+// a filter saved with an old variant of a column's name to match the
+// canonicalized metadata under the NEW name (`Àrees`) after renaming it. Mirror
+// of `_normalize_field_key` (backend view_snapshot.py).
+function normFieldKey(name) {
+    return String(name ?? '').replace(/^[^\p{L}\p{N}_]+/u, '').trim().toLowerCase();
+}
+function metaValueForField(meta, field) {
+    if (!meta) return undefined;
+    if (field in meta) return meta[field];
+    const nf = normFieldKey(field);
+    if (!nf) return undefined;
+    for (const k of Object.keys(meta)) {
+        if (normFieldKey(k) === nf) return meta[k];
+    }
+    return undefined;
+}
+
+function applyFilter(row, pageId, f) {
+    if (!f?.field) return true;
+    const raw = f.value === 'this' ? pageId : f.value;
+    // `title` lives in the ROW, not in metadata (parity with matchesFilters):
+    // without the special case, a filter by title —the default field of the
+    // modal— emptied the embedded view while the table tab filtered correctly.
+    const value = f.field === 'title'
+        ? (row?.title || '')
+        : metaValueForField(row?.metadata || {}, f.field);
+    const normalizedRow = f.field === 'title'
+        ? { title: value, metadata: {} }
+        : { title: row?.title || '', metadata: { [f.field]: value } };
+    return matchesRule(normalizedRow, { ...f, value: raw });
+}
+
+// A node is a GROUP (not a leaf rule) when it carries a `rules` array. Parity
+// with vaultFilters.isFilterGroup / backend view_snapshot._is_filter_group.
+function isFilterGroup(node) {
+    return !!node && Array.isArray(node.rules);
+}
+
+// Recursively evaluates a filter NODE — a leaf rule { field, operator, value }
+// or a group { conjunction, rules: [...] } whose children may themselves be
+// groups (arbitrary nesting, like Notion). An empty group matches everything.
+// 1:1 parity with vaultFilters.matchesFilterNode and the backend's
+// view_snapshot.apply_filter_node.
+function applyFilterNode(row, pageId, node) {
+    if (!node) return true;
+    if (isFilterGroup(node)) {
+        const rules = node.rules;
+        if (!rules || rules.length === 0) return true;
+        const useOr = String(node.conjunction || 'and').toLowerCase() === 'or';
+        return useOr
+            ? rules.some(child => applyFilterNode(row, pageId, child))
+            : rules.every(child => applyFilterNode(row, pageId, child));
+    }
+    return applyFilter(row, pageId, node);
+}
+
+function multiKeySort(rows, sorts) {
+    // Comparator shared with the main view (vaultFilters.compareFieldValues):
+    // empties last, numeric order for numbers, and normalized localeCompare for
+    // the rest. It used to sort by pure string (`localeCompare`), so that
+    // numbers came out lexicographic ("10" before "2") and empty values floated to the
+    // top → the embedded view diverged from the main table.
+    if (!sorts || sorts.length === 0) {
+        return [...rows].sort((a, b) => compareFieldValues(a.title, b.title, 'asc'));
+    }
+    // `title` is in the row; for everything else, a tolerant key into metadata with
+    // fallback to the top-level field (last_modified/created) — parity with the
+    // comparator of the main view (useVaultViewData).
+    const sortValOf = (r, field) => field === 'title'
+        ? (r?.title || '')
+        : (metaValueForField(r?.metadata, field) ?? r?.[field]);
+    const result = [...rows];
+    for (let i = sorts.length - 1; i >= 0; i--) {
+        const { field, direction = 'asc' } = sorts[i];
+        if (!field) continue;
+        result.sort((a, b) => compareFieldValues(sortValOf(a, field), sortValOf(b, field), direction));
+    }
+    return result;
+}
+
+function Heading({ level, children }) {
+    const safeLevel = Math.min(Math.max(Number(level) || 1, 1), 6);
+    const Tag = `h${safeLevel}`;
+    const cls = safeLevel === 1 ? 'text-2xl font-bold mb-3'
+        : safeLevel === 2 ? 'text-xl font-bold mb-2'
+        : 'text-lg font-semibold mb-2';
+    return <Tag className={`${cls} text-[var(--text-primary)]`}>{children}</Tag>;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Action helpers (create / update property)                               */
+/* -------------------------------------------------------------------------- */
+
+async function createPageInTable({ tableId, title = 'Nou registre', content = '', extraMetadata = {} } = {}) {
+    const body = {
+        title,
+        content,
+        metadata: { table_id: tableId, ...extraMetadata },
+    };
+    const res = await axios.post('/api/vault/pages', body);
+    return res.data;
+}
+
+async function patchPageMetadata(pageId, partialMetadata) {
+    // Direct partial PATCH: the backend does `metadata.update(request.metadata)`
+    // and keeps title/content/other fields intact. We used to do GET +
+    // PATCH (2 round-trips serialized, 400-700 ms) to build a
+    // full payload "for safety"; the current backend accepts partials
+    // so we save the GET and its corresponding latency.
+    await axios.patch(
+        `/api/vault/pages/${encodeURIComponent(pageId)}`,
+        { metadata: partialMetadata }
+    );
+    return partialMetadata;
+}
+
+async function patchSectionConfig(pageId, section, patch) {
+    // The POST /api/pages/{page_id}/views does an upsert by heading. We send the
+    // the full section (preserving all legacy fields) with the patch
+    // applied. Requires ConfigDict(extra='allow') on the ViewSection model.
+    const next = { ...section, ...patch };
+    await axios.post(`/api/pages/${encodeURIComponent(pageId)}/views`, next);
+    return next;
+}
+
+function ViewActionsBar({
+    onCreate,
+    onAddView,
+    templates = [],
+    onOpenConfig,
+    searchTerm,
+    setSearchTerm,
+    showSearch,
+    setShowSearch,
+    density,
+    onToggleDensity,
+    activeFilterCount = 0,
+    resultCount = 0,
+    totalCount = 0,
+    presets = [],
+    onSavePreset,
+    onApplyPreset,
+    onRenamePreset,
+    onDeletePreset,
+    onExportPresets,
+    onImportPresets,
+    groupMode = 'none',
+    onToggleGroup,
+    loadDuration = null,
+}) {
+    const { t } = useTranslation();
+    const [showNewMenu, setShowNewMenu] = useState(false);
+    const [showTools, setShowTools] = useState(false);
+    const menuRef = useRef(null);
+    const toolsRef = useRef(null);
+    useEffect(() => {
+        if (!showNewMenu) return undefined;
+        const handler = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setShowNewMenu(false); };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [showNewMenu]);
+    useEffect(() => {
+        if (!showTools) return undefined;
+        const handler = (event) => {
+            if (toolsRef.current && !toolsRef.current.contains(event.target)) setShowTools(false);
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [showTools]);
+    useEffect(() => {
+        const openTools = () => setShowTools(true);
+        window.addEventListener('gnosi:open-view-tools', openTools);
+        return () => window.removeEventListener('gnosi:open-view-tools', openTools);
+    }, []);
+
+    return (
+        <div className="vault-view-actions flex items-center gap-1">
+            {(activeFilterCount > 0 || searchTerm) && (
+                <div className="vault-view-filter-status" role="status">
+                    {activeFilterCount > 0 && (
+                        <button type="button" onClick={onOpenConfig} className="vault-view-filter-chip">
+                            {t('views_header.active_filters', { count: activeFilterCount })}
+                        </button>
+                    )}
+                    {searchTerm && (
+                        <button
+                            type="button"
+                            onClick={() => setSearchTerm?.('')}
+                            className="vault-view-filter-chip"
+                            title={t('views_header.clear_search')}
+                        >
+                            “{searchTerm}” <X size={11} />
+                        </button>
+                    )}
+                    <span className="vault-view-result-count">
+                        {t('views_header.filtered_records_count', { count: resultCount, total: totalCount })}
+                    </span>
+                </div>
+            )}
+            {showSearch ? (
+                <div className="flex items-center gap-1 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-md px-2 py-1">
+                    <Search size={12} className="text-[var(--text-tertiary)]" />
+                    <input
+                        autoFocus
+                        type="text"
+                        value={searchTerm}
+                        onChange={e => setSearchTerm?.(e.target.value)}
+                        placeholder={t('common.search_placeholder', "Search...")}
+                        className="text-xs outline-none w-28 text-[var(--text-primary)] bg-transparent"
+                    />
+                    <button
+                        type="button"
+                        onClick={() => { setSearchTerm?.(''); setShowSearch?.(false); }}
+                        className="text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+                        title={t('common.close')}
+                        aria-label={t('common.close')}
+                    >
+                        <X size={12} />
+                    </button>
+                </div>
+            ) : (
+                <button
+                    type="button"
+                    onClick={() => setShowSearch?.(true)}
+                    className="vault-view-action p-1.5 rounded-md text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors"
+                    title={t('views_header.search_title', "Search")}
+                    aria-label={t('views_header.search_title', "Search")}
+                >
+                    <Search size={14} />
+                </button>
+            )}
+
+            {onOpenConfig && (
+                <button
+                    type="button"
+                    onClick={onOpenConfig}
+                    className="vault-view-action flex items-center gap-1.5 px-2 py-1.5 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] rounded-md transition-colors"
+                    title={t('views_header.view_settings', "View settings")}
+                    aria-label={t('views_header.view_settings', "View settings")}
+                >
+                    <SlidersHorizontal size={13} />
+                </button>
+            )}
+
+            {onToggleDensity && (
+                <button
+                    type="button"
+                    onClick={onToggleDensity}
+                    className="vault-view-action"
+                    aria-pressed={density === 'compact'}
+                    title={density === 'compact'
+                        ? t('views_header.comfortable_density')
+                        : t('views_header.compact_density')}
+                    aria-label={density === 'compact'
+                        ? t('views_header.comfortable_density')
+                        : t('views_header.compact_density')}
+                >
+                    <Rows3 size={14} />
+                </button>
+            )}
+
+            {onSavePreset && (
+                <button
+                    type="button"
+                    onClick={onSavePreset}
+                    className="vault-view-action"
+                    title={t('views_header.save_quick_view')}
+                    aria-label={t('views_header.save_quick_view')}
+                >
+                    <LayoutTemplate size={14} />
+                </button>
+            )}
+            {presets.length > 0 && (
+                <select
+                    value=""
+                    onChange={(event) => {
+                        if (event.target.value) onApplyPreset?.(event.target.value);
+                    }}
+                    className="vault-view-preset-select"
+                    aria-label={t('views_header.quick_views')}
+                >
+                    <option value="">{t('views_header.quick_views')}</option>
+                    {presets.map((preset) => (
+                        <option key={preset.id} value={preset.id}>{preset.label}</option>
+                    ))}
+                </select>
+            )}
+            <div className="relative" ref={toolsRef}>
+                <button
+                    type="button"
+                    onClick={() => setShowTools((current) => !current)}
+                    className="vault-view-action"
+                    title={t('views_header.tools_and_shortcuts')}
+                    aria-label={t('views_header.tools_and_shortcuts')}
+                    aria-expanded={showTools}
+                    aria-haspopup="dialog"
+                >
+                    <HelpCircle size={14} />
+                </button>
+                {showTools && (
+                    <div className="vault-view-tools-popover" role="dialog" aria-label={t('views_header.tools_and_shortcuts')}>
+                        <div className="vault-view-tools-title">{t('views_header.shortcuts')}</div>
+                        <div className="vault-shortcut-grid">
+                            {[
+                                ['Ctrl + /', t('views_header.search_title')],
+                                ['Ctrl + F', t('views_header.view_settings')],
+                                ['Ctrl + N', t('views_header.new_action')],
+                                ['Ctrl + D', t('views_header.compact_density')],
+                                ['Ctrl + L', t('sidebar.locate_active_page')],
+                                ['Ctrl + ?', t('views_header.tools_and_shortcuts')],
+                            ].map(([key, label]) => (
+                                <React.Fragment key={key}><kbd className="text-nowrap">{key}</kbd><span>{label}</span></React.Fragment>
+                            ))}
+                        </div>
+                        {onToggleGroup && (
+                            <button type="button" className="vault-view-tools-row" onClick={onToggleGroup}>
+                                <ListTree size={14} />
+                                <span>{groupMode === 'date' ? t('feed.disable_date_groups') : t('feed.enable_date_groups')}</span>
+                            </button>
+                        )}
+                        <button
+                            type="button"
+                            className="vault-view-tools-row"
+                            onClick={() => window.dispatchEvent(new CustomEvent('gnosi:toggle-focus-mode'))}
+                        >
+                            <Focus size={14} /><span>{t('editor.toggle_focus_mode')}</span>
+                        </button>
+                        <button
+                            type="button"
+                            className="vault-view-tools-row"
+                            onClick={() => {
+                                const next = document.documentElement.dataset.vaultContrast === 'high' ? 'normal' : 'high';
+                                document.documentElement.dataset.vaultContrast = next;
+                                localStorage.setItem('gnosi.vault.contrast', next);
+                            }}
+                        >
+                            <Accessibility size={14} /><span>{t('editor.toggle_high_contrast')}</span>
+                        </button>
+                        <button
+                            type="button"
+                            className="vault-view-tools-row"
+                            onClick={() => {
+                                const next = document.documentElement.dataset.vaultText === 'large' ? 'normal' : 'large';
+                                document.documentElement.dataset.vaultText = next;
+                                localStorage.setItem('gnosi.vault.textSize', next);
+                            }}
+                        >
+                            <Accessibility size={14} /><span>{t('editor.toggle_large_text')}</span>
+                        </button>
+                        {presets.length > 0 && (
+                            <>
+                                <div className="vault-view-tools-title">{t('views_header.manage_quick_views')}</div>
+                                <div className="flex gap-1 px-2 pb-1">
+                                    <button type="button" className="vault-view-tools-row" onClick={onExportPresets}><Copy size={14} /><span>{t('views_header.export_quick_views', 'Copy configuration')}</span></button>
+                                    <button type="button" className="vault-view-tools-row" onClick={onImportPresets}><Plus size={14} /><span>{t('views_header.import_quick_views', 'Import configuration')}</span></button>
+                                </div>
+                                {presets.map((preset) => (
+                                    <div className="vault-view-preset-row" key={preset.id}>
+                                        <button type="button" onClick={() => onApplyPreset?.(preset.id)}>{preset.label}</button>
+                                        <button type="button" onClick={() => onRenamePreset?.(preset.id)} aria-label={t('views_header.rename')}><Edit2 size={12} /></button>
+                                        <button type="button" onClick={() => onDeletePreset?.(preset.id)} aria-label={t('views_header.delete')}><Trash2 size={12} /></button>
+                                    </div>
+                                ))}
+                            </>
+                        )}
+                        {loadDuration != null && (
+                            <div className="vault-view-performance">
+                                {t('views_header.last_load_time', { duration: Math.round(loadDuration) })}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {onAddView && (
+                <button
+                    type="button"
+                    onClick={onAddView}
+                    className="vault-view-action inline-flex items-center justify-center rounded-md text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)] hover:bg-[var(--bg-tertiary)] transition-colors"
+                    title={t('views_header.add_view', "Add view")}
+                    aria-label={t('views_header.add_view', "Add view")}
+                >
+                    <Plus size={14} />
+                </button>
+            )}
+
+            {onCreate && (
+                <div className="relative" ref={menuRef}>
+                    <div className="vault-new-split">
+                        <button
+                            type="button"
+                            onClick={() => onCreate()}
+                            className="vault-new-split__create"
+                        >
+                            <Plus size={14} />
+                            <span>{t('views_header.new_action', "New")}</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setShowNewMenu(open => !open)}
+                            className="vault-new-split__menu"
+                            title={t('views_header.new_options', "New record options")}
+                            aria-label={t('views_header.new_options', "New record options")}
+                            aria-haspopup="menu"
+                            aria-expanded={showNewMenu}
+                        >
+                            <ChevronDown size={14} />
+                        </button>
+                    </div>
+                    {showNewMenu && (
+                        <div className="absolute top-full right-0 mt-1 w-56 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[var(--z-popover)] py-1">
+                            <button
+                                onClick={() => { setShowNewMenu(false); onCreate(); }}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] text-left"
+                            >
+                                <Plus size={14} className="text-[var(--text-tertiary)]" />
+                                <span>{t('views_header.new_empty_record', "New record")}</span>
+                            </button>
+                            {templates.length > 0 && (
+                                <>
+                                    <div className="h-px bg-[var(--border-primary)] my-1 mx-2" />
+                                    <div className="px-3 py-1 text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-tighter">{t('views_header.templates_title', "Templates")}</div>
+                                    {templates.map(tpl => (
+                                        <button
+                                            key={tpl.id}
+                                            onClick={() => { setShowNewMenu(false); onCreate({}, tpl); }}
+                                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] text-left group"
+                                        >
+                                            <LayoutTemplate size={14} className="text-[var(--text-tertiary)] group-hover:text-[var(--gnosi-primary)]" />
+                                            <span className="truncate">{tpl.title || t('view.untitled', "(untitled)")}</span>
+                                        </button>
+                                    ))}
+                                </>
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function ColumnPlusButton({ onClick }) {
+    const { t } = useTranslation();
+    return (
+        <button
+            onClick={onClick}
+            className="text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]"
+            title={t('views_header.create_in_column', "Create in this column")}
+        >
+            <Plus size={12} />
+        </button>
+    );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Preview and per-table page cache                                  */
+/* -------------------------------------------------------------------------- */
+
+const _previewCache = new Map();
+function _cacheGet(id) { return _previewCache.get(id); }
+function _cacheSet(id, value) {
+    if (_previewCache.size >= 500) {
+        const oldest = _previewCache.keys().next().value;
+        _previewCache.delete(oldest);
+    }
+    _previewCache.set(id, value);
+}
+
+const _byTableCache = new Map();
+// 5 min: the cache avoids bursts of /pages/by-table calls during navigation
+// short (switching tabs and back, scrolling, opening/closing the modal for
+// config). The backend serves the same list for about 10-15s on cold OneDrive,
+// so reusing the cache a bit longer avoids a wait
+// of the same length. The cache is cleared if the user presses the reload button.
+const BY_TABLE_TTL_MS = 300_000;
+// Each entry can hold thousands of PageInfo (a large table), so
+// unlike the per-entry TTL, a hard limit on entries is needed to prevent
+// a long session visiting many tables from accumulating memory unchecked. 32
+// tables comfortably covers any active view; once exceeded, eviction
+// FIFO of the oldest one (Map preserves insertion order).
+const BY_TABLE_MAX_ENTRIES = 32;
+function _byTableGet(tableId) {
+    const e = _byTableCache.get(tableId);
+    if (!e) return null;
+    if (Date.now() - e.ts > BY_TABLE_TTL_MS) { _byTableCache.delete(tableId); return null; }
+    return e.value;
+}
+function _byTableSet(tableId, value) {
+    // Refreshes the insertion position so the FIFO head doesn't evict a table
+    // that was just re-read.
+    if (_byTableCache.has(tableId)) _byTableCache.delete(tableId);
+    else if (_byTableCache.size >= BY_TABLE_MAX_ENTRIES) {
+        const oldest = _byTableCache.keys().next().value;
+        _byTableCache.delete(oldest);
+    }
+    _byTableCache.set(tableId, { ts: Date.now(), value });
+}
+
+// --- Multi-table joins (client-side mirror of backend `apply_joins`) -------
+// Replicates the backend join so an embedded view can render columns from
+// joined tables without a round-trip per render. `loadTable(tid)` must return
+// the non-template rows of `tid` (same shape as `/pages/by-table/{tid}`).
+// Each join combines the accumulated rows with the join table on
+// `leftRow[leftField] == rightRow[rightField]`. Supported types: inner/left/right.
+function _indexByField(rows, field) {
+    const idx = new Map();
+    for (const r of rows) {
+        const meta = r.metadata || {};
+        let val;
+        if (field === 'id') val = r.id;
+        else if (field === 'title') val = r.title || meta.title || meta.Nom || meta.Títol || meta.Name || meta.Título;
+        else val = meta[field];
+        if (val === null || val === undefined || val === '') continue;
+        const keys = Array.isArray(val) ? val.map(v => String(v)).filter(v => v) : [String(val)];
+        for (const k of keys) {
+            if (!idx.has(k)) idx.set(k, []);
+            idx.get(k).push(r);
+        }
+    }
+    return idx;
+}
+async function applyClientJoins(baseRows, joins, loadTable) {
+    if (!Array.isArray(joins) || joins.length === 0) return baseRows;
+    let acc = baseRows.map(r => ({ ...r, metadata: { ...(r.metadata || {}) } }));
+    for (const join of joins) {
+        const tid = join && join.tableId;
+        const lf = join && join.leftField;
+        const rf = join && join.rightField;
+        const type = String((join && join.type) || 'inner').toLowerCase();
+        if (!tid || !lf || !rf) continue;
+        const right = await loadTable(tid);
+        const ridx = _indexByField(right, rf);
+        const next = [];
+        if (type === 'right') {
+            const matched = new Set();
+            for (const a of acc) {
+                const meta = a.metadata || {};
+                let lv;
+                if (lf === 'id') lv = a.id;
+                else if (lf === 'title') lv = a.title || meta.title || meta.Nom || meta.Títol || meta.Name || meta.Título;
+                else lv = meta[lf];
+                const keys = Array.isArray(lv) ? lv.map(v => String(v)).filter(v => v) : (lv !== '' && lv != null ? [String(lv)] : []);
+                for (const k of keys) {
+                    for (const rr of (ridx.get(k) || [])) {
+                        matched.add(String(rr.id));
+                        const merged = { ...a, metadata: { ...meta } };
+                        for (const [fk, fv] of Object.entries(rr.metadata || {})) {
+                            if (!(fk in merged.metadata)) merged.metadata[fk] = fv;
+                        }
+                        merged.metadata[`_join:${tid}`] = [rr.metadata || {}];
+                        next.push(merged);
+                    }
+                }
+            }
+            for (const rr of right) {
+                if (matched.has(String(rr.id))) continue;
+                next.push({ id: rr.id, title: rr.title, metadata: { [`_join:${tid}`]: [rr.metadata || {}] } });
+            }
+            acc = next;
+            continue;
+        }
+        for (const a of acc) {
+            const meta = a.metadata || {};
+            let lv;
+            if (lf === 'id') lv = a.id;
+            else if (lf === 'title') lv = a.title || meta.title || meta.Nom || meta.Títol || meta.Name || meta.Título;
+            else lv = meta[lf];
+            const keys = Array.isArray(lv) ? lv.map(v => String(v)).filter(v => v) : (lv !== '' && lv != null ? [String(lv)] : []);
+            const matches = [];
+            for (const k of keys) matches.push(...(ridx.get(k) || []));
+            if (matches.length === 0) {
+                if (type === 'left') {
+                    next.push({ ...a, metadata: { ...meta, [`_join:${tid}`]: [] } });
+                }
+                continue;
+            }
+            for (const rr of matches) {
+                const merged = { ...a, metadata: { ...meta } };
+                for (const [fk, fv] of Object.entries(rr.metadata || {})) {
+                    if (!(fk in merged.metadata)) merged.metadata[fk] = fv;
+                }
+                merged.metadata[`_join:${tid}`] = [rr.metadata || {}];
+                next.push(merged);
+            }
+        }
+        acc = next;
+    }
+    return acc;
+}
+
+// Normalizes `visibleProperties` (strings or `{tableId, fieldKey, label}`) into
+// the composite form, treating strings as fields of the base table.
+function normalizeVisibleColumns(cols, baseTableId) {
+    if (!Array.isArray(cols) || cols.length === 0) {
+        return [{ tableId: baseTableId, fieldKey: 'title' }];
+    }
+    return cols.map(c => {
+        if (typeof c === 'string') return { tableId: baseTableId, fieldKey: c };
+        if (c && typeof c === 'object' && c.fieldKey) {
+            return { tableId: c.tableId || baseTableId, fieldKey: c.fieldKey, label: c.label };
+        }
+        return null;
+    }).filter(Boolean);
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Graph (force)                                                             */
+/* -------------------------------------------------------------------------- */
+
+function GraphRender({ rows, columns, onOpenPage }) {
+    const { t } = useTranslation();
+    const idToRow = useMemo(() => Object.fromEntries((rows || []).map(r => [r.id, r])), [rows]);
+    const titleToId = useMemo(() => {
+        const m = {};
+        (rows || []).forEach(r => { if (r.title) m[r.title] = r.id; });
+        return m;
+    }, [rows]);
+
+    const relationCol = (columns || []).find(c => (rows || []).some(r => Array.isArray(r.metadata?.[c]) && r.metadata[c].length > 0));
+
+    const { nodes, links } = useMemo(() => {
+        const nodeMap = new Map();
+        (rows || []).forEach(r => nodeMap.set(r.id, { id: r.id, title: r.title || t('view.untitled', "(untitled)") }));
+        const edges = [];
+        if (relationCol) {
+            (rows || []).forEach(r => {
+                const targets = r.metadata?.[relationCol];
+                if (!Array.isArray(targets)) return;
+                targets.forEach(t => {
+                    const tid = idToRow[t] ? t : titleToId[t];
+                    if (!tid) return;
+                    if (!nodeMap.has(tid)) nodeMap.set(tid, { id: tid, title: tid });
+                    edges.push({ source: r.id, target: tid });
+                });
+            });
+        }
+        return { nodes: Array.from(nodeMap.values()), links: edges };
+    }, [rows, relationCol, idToRow, titleToId, t]);
+
+    const svgRef = useRef(null);
+    const [hover, setHover] = useState(null);
+    const W = 600, H = 360;
+
+    // Force simulation run as a derived computation (useMemo) to avoid
+    // setState inside useEffect — the cost is amortizable: ~250 iterations × N²
+    // is fast for views with fewer than 200 nodes (the common case).
+    const positions = useMemo(() => {
+        if (nodes.length === 0) return {};
+        const sim = nodes.map((n, i) => ({
+            id: n.id,
+            x: W / 2 + Math.cos((i * 2 * Math.PI) / nodes.length) * 80,
+            y: H / 2 + Math.sin((i * 2 * Math.PI) / nodes.length) * 80,
+            vx: 0, vy: 0,
+        }));
+        const byId = Object.fromEntries(sim.map(s => [s.id, s]));
+        const REPEL = 4000, SPRING = 0.02, SPRING_LEN = 80, CENTER = 0.005, DAMP = 0.85, STEPS = 250;
+
+        for (let step = 0; step < STEPS; step++) {
+            for (let i = 0; i < sim.length; i++) {
+                for (let j = i + 1; j < sim.length; j++) {
+                    const a = sim[i], b = sim[j];
+                    let dx = a.x - b.x, dy = a.y - b.y;
+                    const dist2 = dx * dx + dy * dy + 0.01;
+                    const f = REPEL / dist2;
+                    const dist = Math.sqrt(dist2);
+                    dx /= dist; dy /= dist;
+                    a.vx += dx * f * 0.001; a.vy += dy * f * 0.001;
+                    b.vx -= dx * f * 0.001; b.vy -= dy * f * 0.001;
+                }
+            }
+            links.forEach(l => {
+                const s = byId[l.source], t = byId[l.target];
+                if (!s || !t) return;
+                const dx = t.x - s.x, dy = t.y - s.y;
+                const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                const f = SPRING * (dist - SPRING_LEN);
+                const fx = (dx / dist) * f, fy = (dy / dist) * f;
+                s.vx += fx; s.vy += fy; t.vx -= fx; t.vy -= fy;
+            });
+            sim.forEach(n => {
+                n.vx += (W / 2 - n.x) * CENTER;
+                n.vy += (H / 2 - n.y) * CENTER;
+                n.vx *= DAMP; n.vy *= DAMP;
+                n.x += n.vx; n.y += n.vy;
+                n.x = Math.max(20, Math.min(W - 20, n.x));
+                n.y = Math.max(20, Math.min(H - 20, n.y));
+            });
+        }
+        return Object.fromEntries(sim.map(s => [s.id, { x: s.x, y: s.y }]));
+    }, [nodes, links]);
+
+    return (
+        <div className="my-2 bg-[var(--bg-secondary)]/30">
+            <div className="p-2 border-b border-[var(--border-primary)]/40 text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">
+                {t('view.graph_title', "Graph")} {relationCol ? <>{t('view.graph_via', 'via')} <code>{relationCol}</code></> : t('view.graph_no_relations', "(no relations)")} · {t('view.graph_stats', "{{nodes}} nodes · {{edges}} edges", { nodes: nodes.length, edges: links.length })}
+            </div>
+            <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: 400 }}>
+                {links.map((l, i) => {
+                    const a = positions[l.source], b = positions[l.target];
+                    if (!a || !b) return null;
+                    return <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="var(--border-primary)" strokeOpacity="0.6" strokeWidth="1" />;
+                })}
+                {nodes.map(n => {
+                    const p = positions[n.id]; if (!p) return null;
+                    const isHover = hover === n.id;
+                    return (
+                        <g
+                            key={n.id}
+                            transform={`translate(${p.x}, ${p.y})`}
+                            style={{ cursor: 'pointer' }}
+                            onClick={() => onOpenPage?.(n.id)}
+                            onMouseEnter={() => setHover(n.id)}
+                            onMouseLeave={() => setHover(null)}
+                        >
+                            <circle r={isHover ? 8 : 5} fill="var(--gnosi-primary)" />
+                            <text
+                                x={10}
+                                y={4}
+                                fontSize={isHover ? 12 : 10}
+                                fill="var(--text-primary)"
+                                style={{ pointerEvents: 'none' }}
+                            >
+                                {n.title.length > 24 ? n.title.slice(0, 22) + '…' : n.title}
+                            </text>
+                        </g>
+                    );
+                })}
+            </svg>
+        </div>
+    );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Wrapper principal                                                         */
+/* -------------------------------------------------------------------------- */
+
+export function DbViewEmbed({ block }) {
+    const { t } = useTranslation();
+    const ctx = useContext(VaultEditorContext) || {};
+    const pageId = ctx.pageId;
+    const onOpenPage = ctx.onOpenPage;
+    const onOpenPageViewModal = ctx.onOpenPageViewModal;
+    const onOpenViewConfig = ctx.onOpenViewConfig;
+    // Keyboard-navigation API that the embedded VaultTable registers with, so that
+    // the editor can "enter" the table (focusFirstCell/focusLastCell) when
+    // you can reach it with the arrow keys. See the bridge in VaultEditorContext.
+    const tableNavApiRef = useRef(null);
+    // Outer container of the embed. When the view is NOT table/list (feed,
+    // gallery, kanban, timeline…) there are no navigable cells: we make the
+    // whole shell focusable (tabIndex=-1) and act like a widget —
+    // "entering it" with ↓ gives it a visible focus, and you exit with ↑/↓/Esc.
+    const embedContainerRef = useRef(null);
+    const isInEditor = typeof ctx.exitEmbedToEditor === 'function';
+
+    // Focuses the SHELL of the embed (widget). Serves as an «entry point» for views
+    // without navigable cells and as the Esc target from records (gallery).
+    const focusShell = useCallback(() => {
+        const el = embedContainerRef.current;
+        if (!el) return false;
+        try { el.focus({ preventScroll: false }); el.scrollIntoView({ block: 'nearest' }); } catch { /* noop */ }
+        return true;
+    }, []);
+
+    // Keyboard handling when the SHELL has focus (not a child: card, search, cell…).
+    // ↑/↓ return the cursor to the editor (adjacent block or upper zone); Esc exits.
+    // Space/Enter "goes down" into it: enters the view's records (first cell or
+    // card) if it has navigable ones (table/list/gallery). Feed/kanban/timeline
+    // don't register the API → they do nothing and the key is left to pass through.
+    const handleShellKeyDown = useCallback((e) => {
+        if (e.target !== embedContainerRef.current) return;
+        if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+        if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'Escape') {
+            e.preventDefault();
+            e.stopPropagation();
+            const dir = e.key === 'ArrowUp' ? 'up' : (e.key === 'ArrowDown' ? 'down' : 'escape');
+            ctx.exitEmbedToEditor?.(block?.id, dir);
+            return;
+        }
+        if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+            const r = tableNavApiRef.current?.focusFirstCell?.();
+            if (r !== undefined && r !== false) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        }
+    }, [ctx, block?.id]);
+
+    const viewId = String(block?.props?.view_id || '').trim();
+    const headingProp = block?.props?.heading || '';
+    const headingLevelProp = Number(block?.props?.heading_level) || 0;
+
+    const [view, setView] = useState(null);          // the embedded SECTION (anchor: table + `this`)
+    const [rawRecords, setRawRecords] = useState([]); // non-template records WITHOUT filtering
+    const [templates, setTemplates] = useState([]);  // separate templates
+    // PHASE 3: view tabs. List of the table's views (registry.views)
+    // and which one is active. By default, the block's section view.
+    const [tableViews, setTableViews] = useState([]);
+    const [activeViewId, setActiveViewId] = useState('');
+    const [loading, setLoading] = useState(() => Boolean(pageId && (viewId || block?.props?.section)));
+    const [error, setError] = useState(() => {
+        if (!pageId) return t('errors.no_active_page', "No active page to resolve the view.");
+        if (!viewId && !block?.props?.section) return t('errors.view_missing_id', "View without view_id or inline config.");
+        return '';
+    });
+    const [reloadKey, setReloadKey] = useState(0);
+    // Last `viewSectionNonce` (from the context) that we have already applied. When it changes, it
+    // means a view's config has just been saved: the client's ctx.registry
+    // goes stale and the views need to be reread from the backend (see `load`).
+    const lastSavedNonceRef = useRef(0);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [showSearch, setShowSearch] = useState(false);
+    const [loadDuration, setLoadDuration] = useState(null);
+    const [preferenceProfile, setPreferenceProfile] = useState(() => (
+        window.matchMedia('(max-width: 768px)').matches ? 'mobile' : 'desktop'
+    ));
+    useEffect(() => {
+        const query = window.matchMedia('(max-width: 768px)');
+        const update = () => setPreferenceProfile(query.matches ? 'mobile' : 'desktop');
+        query.addEventListener('change', update);
+        return () => query.removeEventListener('change', update);
+    }, []);
+    const densityStorageKey = `gnosi.view.feedDensity.${preferenceProfile}`;
+    const [feedDensity, setFeedDensity] = useState(() => {
+        try {
+            const profile = window.matchMedia('(max-width: 768px)').matches ? 'mobile' : 'desktop';
+            return localStorage.getItem(`gnosi.view.feedDensity.${profile}`) || 'comfortable';
+        } catch {
+            return 'comfortable';
+        }
+    });
+    useEffect(() => {
+        const frame = window.requestAnimationFrame(() => {
+            try {
+                setFeedDensity(localStorage.getItem(densityStorageKey) || 'comfortable');
+            } catch { /* noop */ }
+        });
+        return () => window.cancelAnimationFrame(frame);
+    }, [densityStorageKey]);
+    const toggleFeedDensity = useCallback(() => {
+        setFeedDensity((current) => {
+            const next = current === 'compact' ? 'comfortable' : current === 'comfortable' ? 'adaptive' : 'compact';
+            try { localStorage.setItem(densityStorageKey, next); } catch { /* noop */ }
+            return next;
+        });
+    }, [densityStorageKey]);
+    const [feedGroupMode, setFeedGroupMode] = useState(() => {
+        try { return localStorage.getItem('gnosi.view.feedGroupMode') || 'none'; } catch { return 'none'; }
+    });
+    const toggleFeedGroupMode = useCallback(() => {
+        setFeedGroupMode((current) => {
+            const next = current === 'date' ? 'none' : 'date';
+            try { localStorage.setItem('gnosi.view.feedGroupMode', next); } catch { /* noop */ }
+            return next;
+        });
+    }, []);
+    const presetStorageKey = `gnosi.view.quickPresets.${preferenceProfile}.${pageId}.${viewId}`;
+    const [quickPresets, setQuickPresets] = useState([]);
+    const [renameQuickPresetId, setRenameQuickPresetId] = useState(null);
+    const [isImportQuickPresetOpen, setIsImportQuickPresetOpen] = useState(false);
+    const persistQuickPresets = useCallback((next) => {
+        try { localStorage.setItem(presetStorageKey, JSON.stringify(next)); } catch { /* noop */ }
+        if (viewId) {
+            axios.put(`/api/vault/views/${encodeURIComponent(viewId)}`, { quickPresets: next })
+                .catch(() => { /* offline/local fallback remains available */ });
+        }
+    }, [presetStorageKey, viewId]);
+    useEffect(() => {
+        const frame = window.requestAnimationFrame(() => {
+            try {
+                const stored = JSON.parse(localStorage.getItem(presetStorageKey) || '[]');
+                setQuickPresets(Array.isArray(stored) ? stored : []);
+            } catch {
+                setQuickPresets([]);
+            }
+        });
+        return () => window.cancelAnimationFrame(frame);
+    }, [presetStorageKey]);
+    const saveQuickPreset = useCallback(() => {
+        setQuickPresets((current) => {
+            const nextNumber = current.length + 1;
+            const preset = {
+                id: `${Date.now()}`,
+                label: t('views_header.quick_view_name', { count: nextNumber }),
+                searchTerm,
+                density: feedDensity,
+                groupMode: feedGroupMode,
+                activeViewId,
+            };
+            const next = [...current.slice(-4), preset];
+            persistQuickPresets(next);
+            return next;
+        });
+    }, [activeViewId, feedDensity, feedGroupMode, persistQuickPresets, searchTerm, t]);
+    const applyQuickPreset = useCallback((presetId) => {
+        const preset = quickPresets.find((candidate) => candidate.id === presetId);
+        if (!preset) return;
+        setSearchTerm(preset.searchTerm || '');
+        setShowSearch(Boolean(preset.searchTerm));
+        if (preset.density) {
+            setFeedDensity(preset.density);
+            try { localStorage.setItem(densityStorageKey, preset.density); } catch { /* noop */ }
+        }
+        if (preset.groupMode) setFeedGroupMode(preset.groupMode);
+        if (preset.activeViewId) setActiveViewId(preset.activeViewId);
+    }, [densityStorageKey, quickPresets]);
+    const renameQuickPreset = useCallback((presetId) => {
+        setRenameQuickPresetId(presetId);
+    }, []);
+    const submitQuickPresetRename = useCallback((label) => {
+        if (!label?.trim() || !renameQuickPresetId) return;
+        setQuickPresets((presets) => {
+            const next = presets.map((preset) => preset.id === renameQuickPresetId ? { ...preset, label: label.trim() } : preset);
+            persistQuickPresets(next);
+            return next;
+        });
+        setRenameQuickPresetId(null);
+    }, [persistQuickPresets, renameQuickPresetId]);
+    const deleteQuickPreset = useCallback((presetId) => {
+        setQuickPresets((presets) => {
+            const next = presets.filter((preset) => preset.id !== presetId);
+            persistQuickPresets(next);
+            return next;
+        });
+    }, [persistQuickPresets]);
+    const exportQuickPresets = useCallback(async () => {
+        const payload = JSON.stringify({ version: 1, presets: quickPresets });
+        try {
+            const encoded = btoa(unescape(encodeURIComponent(payload)));
+            const url = new URL(window.location.href);
+            url.hash = `gnosi-view-presets=${encoded}`;
+            await navigator.clipboard.writeText(url.toString());
+            toast.success(t('views_header.quick_views_copied', 'View configuration copied'));
+        } catch {
+            toast.error(t('views_header.quick_views_copy_error', 'Could not copy the configuration'));
+        }
+    }, [quickPresets, t]);
+    const importQuickPresets = useCallback((raw) => {
+        try {
+            const candidate = String(raw || '').includes('gnosi-view-presets=')
+                ? decodeURIComponent(escape(atob(String(raw).split('gnosi-view-presets=')[1].split('#')[0])))
+                : raw;
+            const parsed = JSON.parse(candidate);
+            const incoming = Array.isArray(parsed) ? parsed : parsed.presets;
+            if (!Array.isArray(incoming)) throw new Error('invalid preset payload');
+            const next = incoming.filter((preset) => preset && typeof preset.label === 'string').slice(-5).map((preset, index) => ({ ...preset, id: `${Date.now()}-${index}` }));
+            setQuickPresets(next);
+            persistQuickPresets(next);
+            setIsImportQuickPresetOpen(false);
+            toast.success(t('views_header.quick_views_imported', 'View configuration imported'));
+        } catch {
+            toast.error(t('views_header.quick_views_import_error', 'That configuration is not valid'));
+        }
+    }, [persistQuickPresets, t]);
+    const [tabMenuFor, setTabMenuFor] = useState(null);     // id of the view with its (remove/delete) menu open
+    const [menuUp, setMenuUp] = useState(false);            // open the dropdown upward if it doesn't fit below
+    const [confirmDeleteView, setConfirmDeleteView] = useState(null); // view pending deletion everywhere (ConfirmModal)
+    const [deleteViewUsage, setDeleteViewUsage] = useState(null);
+    const [renameView, setRenameView] = useState(null);     // view pending rename (PromptModal)
+    // Decides the dropdown's direction based on the space below the trigger.
+    const decideMenuDir = (e) => {
+        try { const r = e.currentTarget.getBoundingClientRect(); setMenuUp(window.innerHeight - r.bottom < 300); } catch { setMenuUp(false); }
+    };
+    // Views PINNED as tabs IN THIS block, apart from the view of the
+    // section (anchor, always present). None by default: the block shows only the
+    // view that was inserted/chosen, not all of the table's views. Two sources:
+    //   · `tabs` of the ANCHOR view in the registry (persistent and portable across
+    //     browsers — this is what the Notion importer writes to replicate
+    //     the block's tabs)
+    //   · localStorage (legacy local pins). Key: pageId + view_id of the section.
+    const [pinnedViewIds, setPinnedViewIds] = useState(() => {
+        try { return new Set(JSON.parse(localStorage.getItem(`gnosi_embed_pinned_${pageId}_${viewId}`) || '[]')); } catch { return new Set(); }
+    });
+    const persistPinned = (set) => {
+        try { localStorage.setItem(`gnosi_embed_pinned_${pageId}_${viewId}`, JSON.stringify([...set])); } catch { /* noop */ }
+    };
+    // Persists the block's tabs in the anchor view's `tabs` field in the
+    // registry (the PUT merges by key, the full dict isn't required). If the anchor
+    // isn't in the registry (a legacy section without a view), it fails silently and
+    // localStorage still calls the shots.
+    const persistServerTabs = useCallback((set) => {
+        axios.put(`/api/vault/views/${encodeURIComponent(viewId)}`, { tabs: [...set] })
+            .catch(() => { /* anchor outside the registry: localStorage only */ });
+    }, [viewId]);
+
+    const reload = useCallback(() => {
+        _byTableCache.delete(view?.source_table_id || view?.table_id);
+        setReloadKey(k => k + 1);
+    }, [view]);
+
+    useEffect(() => {
+        const inlineSectionStr = block?.props?.section;
+        if (!pageId || (!viewId && !inlineSectionStr)) return undefined;
+        let cancelled = false;
+        const load = async () => {
+            const startedAt = window.performance?.now?.() ?? Date.now();
+            setError('');
+            setLoading(true);
+            try {
+                let section = null;
+                if (viewId) {
+                    const viewsRes = await axios.get(`/api/pages/${encodeURIComponent(pageId)}/views`);
+                    const sections = viewsRes.data?.sections || [];
+                    section = sections.find(s => s.view_id === viewId)
+                        || (headingProp ? sections.find(s => s.heading === headingProp) : null);
+                // Fallback: if this block has no registered section (e.g. because
+                // the PER HEADING section upsert has collided with another
+                // it's an embed without a heading on the same page), but the view DOES
+                // exist in the registry, we build the section from the view.
+                // The fence's `view_id` is the source of truth: this way the block
+                // renders even if the page section has been lost.
+                if (!section) {
+                    let regView = (ctx.registry?.views || []).find(v => String(v.id) === String(viewId));
+                    if (!regView) {
+                        try {
+                            const vr = await axios.get('/api/vault/views');
+                            const allViews = Array.isArray(vr.data) ? vr.data : (vr.data?.views || []);
+                            regView = allViews.find(v => String(v.id) === String(viewId));
+                        } catch { /* registry inaccessible: it will fall to the error below */ }
+                    }
+                    if (regView) {
+                        section = {
+                            view_id: regView.id,
+                            heading: headingProp || '',
+                            source_table_id: regView.table_id,
+                            view_type: regView.type || 'table',
+                            filters: regView.filters || [],
+                            sorts: regView.sorts || (regView.sort ? [regView.sort] : []),
+                            visible_properties: regView.visibleProperties || regView.visible_properties || ['title'],
+                        };
+                    }
+                }
+                } else if (inlineSectionStr) {
+                    try {
+                        section = JSON.parse(inlineSectionStr);
+                    } catch {
+                        section = null;
+                    }
+                }
+                if (cancelled) return;
+                if (!section) {
+                    if (!cancelled) {
+                        setView(null);
+                        setRawRecords([]);
+                        setTemplates([]);
+                        if (viewId) {
+                            setError(t('errors.view_not_found_registry', "View \"{{id}}...\" not found in the registry.", { id: viewId.slice(0, 8) }));
+                        } else {
+                            setError(t('errors.view_not_found_registry', "Invalid inline view configuration.", { id: '' }));
+                        }
+                        setLoading(false);
+                    }
+                    return;
+                }
+                if (!cancelled) setView(section);
+
+                const tableId = section.source_table_id || section.table_id;
+                if (!tableId) {
+                    if (!cancelled) { setRawRecords([]); setTemplates([]); setLoading(false); }
+                    return;
+                }
+
+                const cached = _byTableGet(tableId);
+                let all = cached;
+                if (!all) {
+                    const pagesRes = await axios.get(`/api/vault/pages/by-table/${encodeURIComponent(tableId)}`);
+                    all = Array.isArray(pagesRes.data) ? pagesRes.data : [];
+                    _byTableSet(tableId, all);
+                }
+
+                // Separate templates (for the "New" button's dropdown) from the
+                // records to display. Templates never appear in the body
+                // of the view, even if they pass the filters.
+                const tpls = all.filter(p => p.metadata?.is_template === true);
+                let records = all.filter(p => !p.metadata?.is_template);
+
+                // Multi-table: if the view (or the section) defines joins,
+                // expand the base rows with the joined tables' columns. The
+                // joined metadata is exposed both unqualified (so filters/sort
+                // on the base view keep working) and under `_join:{tableId}` for
+                // the joined columns.
+                const viewJoins = Array.isArray(section.joins) ? section.joins : null;
+                if (viewJoins && viewJoins.length > 0) {
+                    const loadJoined = async (tid) => {
+                        let rows = _byTableGet(tid);
+                        if (!rows) {
+                            const jr = await axios.get(`/api/vault/pages/by-table/${encodeURIComponent(tid)}`);
+                            rows = Array.isArray(jr.data) ? jr.data : [];
+                            _byTableSet(tid, rows);
+                        }
+                        return rows.filter(p => !p.metadata?.is_template);
+                    };
+                    try {
+                        records = await applyClientJoins(records, viewJoins, loadJoined);
+                    } catch (e) {
+                        console.warn('applyClientJoins failed', e);
+                    }
+                }
+
+                // The table's views (for the tabs and for the cardSize/
+                // galleryPreview from which embeddedView derives). They usually come from
+                // ctx.registry, but right after a view's config is saved to
+                // (viewSectionNonce has changed) this one goes stale — saving touches
+                // the backend, not to ctx.registry—, so we reread the views
+                // fresh, so the change (size/preview…) is visible live.
+                let registryViews = ctx.registry?.views || [];
+                if (ctx.viewSectionNonce !== lastSavedNonceRef.current) {
+                    lastSavedNonceRef.current = ctx.viewSectionNonce;
+                    try {
+                        const vr = await axios.get('/api/vault/views');
+                        const fresh = Array.isArray(vr.data) ? vr.data : vr.data?.views;
+                        if (Array.isArray(fresh)) registryViews = fresh;
+                    } catch { /* fallback: ctx.registry */ }
+                }
+
+                if (!cancelled) {
+                    setRawRecords(records);
+                    setTemplates(tpls);
+                    // Pinned tabs = anchor view's `tabs` in the registry
+                    // (portable; written by the Notion importer or by its own
+                    // pinned by the user) ∪ localStorage (legacy local pins).
+                    let pinned = [];
+                    try {
+                        pinned = JSON.parse(localStorage.getItem(`gnosi_embed_pinned_${pageId}_${viewId}`) || '[]');
+                    } catch { /* noop */ }
+                    const anchorReg = registryViews.find(v => String(v.id) === String(viewId));
+                    if (Array.isArray(anchorReg?.quickPresets)) {
+                        setQuickPresets(anchorReg.quickPresets);
+                        try { localStorage.setItem(presetStorageKey, JSON.stringify(anchorReg.quickPresets)); } catch { /* noop */ }
+                    }
+                    if (Array.isArray(anchorReg?.tabs)) pinned = [...pinned, ...anchorReg.tabs.map(String)];
+                    setPinnedViewIds(new Set(pinned));
+                    // We guarantee the section's view is always there. A view
+                    // belongs to the table if it is its base OR if it joins it.
+                    const involves = (v) => String(v.table_id) === String(tableId)
+                        || (Array.isArray(v.joins) && v.joins.some(j => String(j && j.tableId) === String(tableId)));
+                    const tv = registryViews.filter(involves);
+                    const sectionAsView = {
+                        id: section.view_id,
+                        name: section.heading || t('views_header.default_view_name', "View"),
+                        type: section.view_type || 'table',
+                        table_id: tableId,
+                        filters: section.filters || [],
+                        sorts: section.sorts || (section.sort ? [section.sort] : []),
+                        visibleProperties: section.visible_properties || section.columns || ['title'],
+                        // Per-type options saved in the section (ViewSection accepts
+                        // extra fields); we preserve them so embeddedView can read them.
+                        cardSize: section.cardSize,
+                        galleryPreview: section.galleryPreview,
+                        coverField: section.coverField || section.cover_field,
+                        imageFit: section.imageFit || section.image_fit,
+                        groupBy: section.groupBy || section.group_by,
+                        groupSort: section.groupSort || section.group_sort,
+                        groupSortDir: section.groupSortDir || section.group_sort_dir,
+                        dateField: section.dateField || section.date_field,
+                        endDateField: section.endDateField || section.end_date_field,
+                        calendarView: section.calendarView || section.calendar_view,
+                        colorField: section.colorField || section.color_field,
+                        rowHeight: section.rowHeight || section.row_height,
+                        enableSubitems: section.enableSubitems ?? section.enable_subitems,
+                        columnWidths: section.columnWidths || section.column_widths,
+                        // Chart options (the 'chart' view).
+                        chartType: section.chartType || section.chart_type,
+                        xField: section.xField || section.x_field,
+                        yField: section.yField || section.y_field,
+                        aggregation: section.aggregation,
+                    };
+                    const merged = tv.some(v => v.id === section.view_id) ? tv : [sectionAsView, ...tv];
+                    setTableViews(merged);
+                    // Remembers the last selected tab if it still exists;
+                    // otherwise, it falls back to the block's section view. The key must
+                    // be STABLE across reloads: `block.id` gets regenerated by
+                    // BlockNote on every load, but the section's `pageId`+`view_id`
+                    // are persisted in the markdown fence.
+                    let saved = '';
+                    try { saved = localStorage.getItem(`gnosi_embed_view_${pageId}_${viewId}`) || ''; } catch { /* noop */ }
+                    const def = (saved && merged.some(v => v.id === saved)) ? saved : section.view_id;
+                    setActiveViewId(prev => prev || def);
+                    const duration = (window.performance?.now?.() ?? Date.now()) - startedAt;
+                    setLoadDuration(duration);
+                    try { localStorage.setItem(`gnosi.view.lastLoad.${pageId}.${viewId}`, String(Math.round(duration))); } catch { /* noop */ }
+                    setLoading(false);
+                }
+            } catch (e) {
+                if (!cancelled) {
+                    setError(e?.response?.data?.detail || e?.message || t('errors.load_view', "Error loading the view"));
+                    setRawRecords([]);
+                    setTemplates([]);
+                    setLoading(false);
+                }
+            }
+        };
+        void load();
+        return () => { cancelled = true; };
+        // `ctx.viewSectionNonce` increments when a view's config is saved
+        // (BlockEditor): we re-trigger the load to read the updated section
+        // (cardSize/galleryPreview/…), because editing only the size doesn't change
+        // viewId/headingProp and the useEffect wouldn't re-trigger otherwise.
+    }, [viewId, pageId, headingProp, reloadKey, ctx.viewSectionNonce, block?.props?.section]);
+
+    const tableId = view?.source_table_id || view?.table_id;
+
+    // The EFFECTIVE view = the active tab (of the table) or, by default, the
+    // the block's section. Columns, type, filters, and sorting all come from it.
+    const effectiveView = useMemo(() => {
+        const fromTab = tableViews.find(v => v.id === activeViewId);
+        return fromTab || view || null;
+    }, [tableViews, activeViewId, view]);
+
+    const columns = useMemo(
+        () => effectiveView?.visibleProperties || effectiveView?.visible_properties || effectiveView?.columns || ['title'],
+        [effectiveView],
+    );
+    // Normalize to composite form so we know which table each column belongs to
+    // (for joined columns and header disambiguation). `columnSpec` parallels the
+    // raw `columns` array (1:1, same order). Renderers still receive `columns`
+    // as plain field keys for backward compatibility; joined values are already
+    // merged into each row's metadata by `applyClientJoins`, so `metadata[key]`
+    // resolves transparently for non-colliding field names.
+    const columnSpec = useMemo(
+        () => normalizeVisibleColumns(columns, tableId),
+        [columns, tableId],
+    );
+    const columnsAsKeys = useMemo(
+        () => columnSpec.map(c => c.fieldKey),
+        [columnSpec],
+    );
+    const rawType = String(effectiveView?.view_type || effectiveView?.type || 'table').toLowerCase();
+    const viewType = rawType === 'db_view' ? 'table' : rawType;
+    const activeFilterCount = useMemo(() => {
+        if (isFilterGroup(effectiveView?.filterTree)) {
+            const countRules = (node) => (node?.rules || []).reduce(
+                (count, rule) => count + (isFilterGroup(rule) ? countRules(rule) : 1),
+                0,
+            );
+            return countRules(effectiveView.filterTree);
+        }
+        return effectiveView?.filters?.length || (effectiveView?.filter ? 1 : 0);
+    }, [effectiveView]);
+    // The title/heading is carried by the block's section (it doesn't change with the tab).
+    const displayHeading = headingProp || view?.heading;
+    const displayLevel = headingLevelProp || view?.heading_level || 1;
+
+    // Derived rows: raw records filtered by the effective view (with the
+    // `this` value → pageId) and sorted. Reacts when switching tabs
+    // without a refetch (same table).
+    const allRows = useMemo(() => {
+        // Prefer the nested `filterTree` (complex AND/OR groups); fall back to the
+        // legacy flat `filters`/`filter` (AND). Parity with the main view
+        // (viewMatchesFilters) and the backend snapshot (resolve_rows).
+        const tree = isFilterGroup(effectiveView?.filterTree)
+            ? effectiveView.filterTree
+            : {
+                conjunction: 'and',
+                rules: (effectiveView?.filters && effectiveView.filters.length > 0)
+                    ? effectiveView.filters
+                    : (effectiveView?.filter ? [effectiveView.filter] : []),
+            };
+        const filtered = rawRecords.filter(r => applyFilterNode(r, pageId, tree));
+        const sorts = (effectiveView?.sorts && effectiveView.sorts.length > 0)
+            ? effectiveView.sorts
+            : (effectiveView?.sort ? [effectiveView.sort] : []);
+        return multiKeySort(filtered, sorts);
+    }, [rawRecords, effectiveView, pageId]);
+
+    // Local concept search over the set of records: title + ALL the metadata,
+    // accent-insensitive (normalizeForSearch) — parity with matchesSearch from
+    // the main view. It used to be bare toLowerCase ("merce" would not find
+    // "Mercè") and it only looked at the visible columns.
+    const rows = useMemo(() => {
+        const q = normalizeForSearch(searchTerm.trim());
+        if (!q) return allRows;
+        // Matching individual concepts keeps searches useful when the user writes a
+        // natural phrase whose words are distributed between the title, tags and body.
+        // It remains completely local: no request, index, or user data leaves the vault.
+        const terms = q.split(/\s+/).filter((term) => term.length > 1);
+        return allRows.map((record) => {
+            const title = normalizeForSearch(record.title || '');
+            const metadata = Object.values(record.metadata || {}).map((value) => Array.isArray(value) ? value.join(' ') : String(value ?? '')).join(' ');
+            const haystack = `${title} ${normalizeForSearch(metadata)}`;
+            const score = terms.reduce((total, term) => total + (haystack.includes(term) ? 1 : 0) + (title.includes(term) ? 2 : 0), 0);
+            return { record, score };
+        }).filter(({ score }) => score > 0).sort((left, right) => right.score - left.score).map(({ record }) => record);
+    }, [allRows, searchTerm]);
+
+    const isCreatingRef = useRef(false);
+    const handleCreate = useCallback(async (extra = {}, template = null) => {
+        if (isCreatingRef.current || !tableId) return;
+        isCreatingRef.current = true;
+        try {
+            let initialContent = '';
+            let baseMeta = template?.metadata || {};
+            let title = template ? `Nou (${template.title || 'plantilla'})` : 'Nou registre';
+
+            if (template?.id) {
+                try {
+                    const getRes = await axios.get(`/api/vault/pages/${template.id}`);
+                    if (getRes.data) {
+                        initialContent = getRes.data.content || '';
+                        if (getRes.data.title) title = getRes.data.title;
+                        baseMeta = { ...getRes.data.metadata, ...baseMeta };
+                    }
+                } catch (e) {
+                    console.warn('Failed to fetch template content', e);
+                }
+            }
+
+            const created = await createPageInTable({
+                tableId,
+                title,
+                content: initialContent,
+                extraMetadata: {
+                    ...baseMeta,
+                    is_template: false,
+                    ...extra,
+                },
+            });
+            const newId = created?.id;
+            reload();
+            if (newId) {
+                onOpenPage?.(newId);
+            }
+        } catch (e) {
+            console.warn('createPageInTable failed', e);
+        } finally {
+            isCreatingRef.current = false;
+        }
+    }, [tableId, onOpenPage, reload]);
+
+    const handleOpenConfig = useCallback(() => {
+        if (!onOpenPageViewModal || !tableId) return;
+        const sectionVid = block?.props?.view_id || '';
+        if (!activeViewId || activeViewId === sectionVid) {
+            // The active tab is the section's view → the block's config as-is.
+            onOpenPageViewModal(tableId, block);
+        } else {
+            // Config for the ACTIVE tab's view: we pass an editingBlock
+            // synthetic one with its view_id. When saving, PageViewModal updates
+            // this view and re-anchors the block's section to it (the block then
+            // shows the view you configured).
+            onOpenPageViewModal(tableId, {
+                id: block?.id,
+                props: { view_id: activeViewId, heading: headingProp || '', heading_level: headingLevelProp || 1 },
+            });
+        }
+    }, [onOpenPageViewModal, tableId, block, activeViewId, headingProp, headingLevelProp]);
+
+    useEffect(() => {
+        const handleShortcut = (event) => {
+            const target = event.target;
+            const embed = embedContainerRef.current;
+            const isInput = target?.isContentEditable
+                || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName);
+
+            if (isInput) return;
+            if (isInEditor && !embed?.contains(document.activeElement)) return;
+            if (!event.ctrlKey || event.metaKey || event.altKey) return;
+
+            const key = event.key ? event.key.toLowerCase() : '';
+            const code = event.code || '';
+
+            if (key === '/' || code === 'Slash') {
+                if (!event.shiftKey) {
+                    event.preventDefault();
+                    setShowSearch(true);
+                } else {
+                    event.preventDefault();
+                    window.dispatchEvent(new CustomEvent('gnosi:open-view-tools'));
+                }
+            } else if (key === 'f' || code === 'KeyF') {
+                if (onOpenPageViewModal && tableId) {
+                    event.preventDefault();
+                    handleOpenConfig();
+                }
+            } else if (key === 'n' || code === 'KeyN') {
+                if (tableId) {
+                    event.preventDefault();
+                    handleCreate();
+                }
+            } else if (key === 'd' || code === 'KeyD') {
+                if (viewType === 'feed') {
+                    event.preventDefault();
+                    toggleFeedDensity();
+                }
+            } else if (key === 'l' || code === 'KeyL') {
+                event.preventDefault();
+                window.dispatchEvent(new CustomEvent('gnosi:locate-active-page'));
+            } else if (key === '?') {
+                event.preventDefault();
+                window.dispatchEvent(new CustomEvent('gnosi:open-view-tools'));
+            }
+        };
+        window.addEventListener('keydown', handleShortcut);
+        return () => window.removeEventListener('keydown', handleShortcut);
+    }, [
+        handleCreate,
+        handleOpenConfig,
+        onOpenPageViewModal,
+        tableId,
+        toggleFeedDensity,
+        viewType,
+    ]);
+
+    // --- PHASE 3: CRUD for the view tabs (registry.views) ---
+    const refetchTableViews = useCallback(async () => {
+        try {
+            const res = await axios.get('/api/vault/views');
+            const all = Array.isArray(res.data) ? res.data : (res.data?.views || []);
+            setTableViews(all.filter(v => String(v.table_id) === String(tableId)
+                || (Array.isArray(v.joins) && v.joins.some(j => String(j && j.tableId) === String(tableId)))));
+        } catch { /* keep the current state */ }
+    }, [tableId]);
+
+    const pinView = useCallback((id) => {
+        if (!id || id === viewId) return;
+        setPinnedViewIds(prev => { const next = new Set(prev); next.add(id); persistPinned(next); persistServerTabs(next); return next; });
+    }, [viewId, persistPinned, persistServerTabs]);
+
+    const handleAddView = useCallback((type = 'table') => {
+        if (!tableId || !onOpenViewConfig) return;
+        onOpenViewConfig({ type: type, name: '' }, (savedView) => {
+            if (savedView?.id) {
+                pinView(savedView.id);
+                setActiveViewId(savedView.id);
+            }
+        });
+    }, [tableId, onOpenViewConfig, pinView]);
+
+    const handleDeleteView = useCallback((v) => {
+        if (!v?.id) return;
+        if (tableViews.length <= 1) { toast.error(t('errors.delete_only_view', "Cannot delete the only view.")); return; }
+        setConfirmDeleteView(v);
+        setDeleteViewUsage(null);
+        axios.get(`/api/vault/views/${encodeURIComponent(v.id)}/usage`)
+            .then(res => { if (res.data) setDeleteViewUsage(res.data); })
+            .catch(() => {});
+    }, [tableViews, t]);
+
+    const doDeleteView = useCallback(async () => {
+        const v = confirmDeleteView;
+        setConfirmDeleteView(null);
+        setDeleteViewUsage(null);
+        if (!v?.id) return;
+        try {
+            await axios.delete(`/api/vault/views/${encodeURIComponent(v.id)}`);
+            await refetchTableViews();
+            if (activeViewId === v.id) setActiveViewId(view?.view_id || '');
+        } catch (e) { console.warn('delete view failed', e); }
+    }, [confirmDeleteView, activeViewId, view, refetchTableViews]);
+
+    // Removes the view from this block ("unpins" it); does NOT delete it from the registry.
+    // The section's view (anchor) cannot be removed.
+    const handleUnpinView = useCallback((v) => {
+        if (!v?.id || v.id === viewId) return;
+        setPinnedViewIds(prev => { const next = new Set(prev); next.delete(v.id); persistPinned(next); persistServerTabs(next); return next; });
+        if (activeViewId === v.id) setActiveViewId(viewId);
+    }, [viewId, activeViewId, persistPinned, persistServerTabs]);
+
+    const handleRenameView = useCallback((v) => {
+        if (!v?.id) return;
+        setRenameView(v);
+    }, []);
+
+    const doRename = useCallback(async (name) => {
+        const v = renameView;
+        setRenameView(null);
+        if (!v?.id) return;
+        if (!name || name === (v.name || v.heading)) return;
+        try {
+            await axios.put(`/api/vault/views/${encodeURIComponent(v.id)}`, { ...v, name });
+            await refetchTableViews();
+        } catch (e) { console.warn('rename view failed', e); }
+    }, [renameView, refetchTableViews]);
+
+    // Configures a SPECIFIC view (the one from the "..." menu, not necessarily the active one).
+    // Same logic as handleOpenConfig but parameterized by `v`: if it's the
+    // section's view, it opens the block as-is; if not, it passes a synthetic editingBlock
+    // with its view_id (when saving, it re-anchors the section to this view).
+    const handleConfigureView = useCallback((v) => {
+        if (!onOpenPageViewModal || !tableId) return;
+        const sectionVid = block?.props?.view_id || '';
+        if (!v?.id || v.id === sectionVid) {
+            onOpenPageViewModal(tableId, block);
+        } else {
+            onOpenPageViewModal(tableId, {
+                id: block?.id,
+                props: { view_id: v.id, heading: headingProp || '', heading_level: headingLevelProp || 1 },
+            });
+        }
+    }, [onOpenPageViewModal, tableId, block, headingProp, headingLevelProp]);
+
+    // Duplicates a view in the registry (a new view with the same filters/sort/
+    // columns) and pins it as this block's tab.
+    const handleDuplicateView = useCallback(async (v) => {
+        if (!v?.id || !tableId) return;
+        try {
+            // FULL copy of the view (like the board's duplicate): copying
+            // only filters/sort/columns used to lose all the per-type options
+            // (chartType/xField, groupBy, dateField, cardSize…) and copying a
+            // chart used to come out empty. The identity fields are removed and
+            // rewrite their own.
+            const { id: _id, is_main: _im, is_default: _idf, ...rest } = v;
+            const sorts = v.sorts || (v.sort ? [v.sort] : []);
+            const res = await axios.post('/api/vault/views', {
+                ...rest,
+                table_id: tableId,
+                name: `${v.name || v.heading || 'Vista'} (còpia)`,
+                type: v.type || 'table',
+                filters: v.filters || [],
+                sorts,
+                sort: sorts[0] || null,
+                visibleProperties: v.visibleProperties || columns || ['title'],
+                // It originates as a tab of this block, not of the board
+                // (isPageEmbedView filters it out of the table tabs).
+                embedded: true,
+            });
+            await refetchTableViews();
+            if (res.data?.id) { pinView(res.data.id); setActiveViewId(res.data.id); }
+        } catch (e) { console.warn('duplicate view failed', e); }
+    }, [tableId, columns, refetchTableViews, pinView]);
+
+    // Editor↔view bridge: registers this view in the context under `block.id` so that
+    // the editor can enter it with the keyboard. The actual API (focusFirstCell/Last)
+    // la proporciona la VaultTable via `registerNavApi` → tableNavApiRef.
+    useEffect(() => {
+        if (!ctx.registerEmbedNav || !block?.id) return undefined;
+        // Entry with ↓ from the editor:
+        //  - Table/list → first/last CELL (VaultTable registers it).
+        //  - Rest of the views (gallery, feed, kanban, timeline) → the SHELL of the
+        //    the embed (widget), so the user can see it's there and can leave it
+        //    with ↑/↓/Esc or drop down into the records with Space/Enter (gallery). Before,
+        //    for non-tables, we returned `false` and the cursor fell into a void block
+        //    without a visible caret or exit.
+        const isCellNav = viewType === 'table' || viewType === 'list';
+        ctx.registerEmbedNav(block.id, {
+            focusFirstCell: () => {
+                if (!isCellNav) return focusShell();
+                const r = tableNavApiRef.current?.focusFirstCell?.();
+                return (r !== undefined && r !== false) ? true : focusShell();
+            },
+            focusLastCell: () => {
+                if (!isCellNav) return focusShell();
+                const r = tableNavApiRef.current?.focusLastCell?.();
+                return (r !== undefined && r !== false) ? true : focusShell();
+            },
+        });
+        return () => ctx.registerEmbedNav(block.id, null);
+    }, [ctx, block?.id, viewType, focusShell]);
+
+    // --- PHASE 1: full EDITABLE table inside the embed reusing VaultTable ---
+    // DEFINED BEFORE the early returns (loading/error) so as not to violate the
+    // Rules of Hooks. The table and schema come from the context's registry.
+    const table = (ctx.registry?.tables || ctx.allTables || []).find(t => String(t.id) === String(tableId)) || null;
+    const embeddedSchema = useMemo(() => {
+        const props = [...(table?.properties || [])];
+        if (effectiveView?.joins && Array.isArray(effectiveView.joins)) {
+            const allTbls = ctx.registry?.tables || ctx.allTables || [];
+            effectiveView.joins.forEach(j => {
+                const jt = allTbls.find(t => String(t.id) === String(j.tableId));
+                if (jt && jt.properties) {
+                    jt.properties.forEach(p => {
+                        if (!props.some(x => x.name === p.name)) {
+                            props.push(p);
+                        }
+                    });
+                }
+            });
+        }
+        return buildSchemaFromTableProperties(props);
+    }, [table, effectiveView?.joins, ctx.registry?.tables, ctx.allTables]);
+    // The embedded section → the "view" model that VaultTable expects. The filters
+    // (including `this` → pageId) and sorting are ALREADY applied to `rows`, so
+    // we don't pass them again as filters (VaultTable doesn't know how to resolve `this`);
+    // editing filters/sorting is delegated to the configuration modal of
+    // the embed (onEditSchema('filters'|'sorts') → handleOpenConfig).
+    const embeddedView = useMemo(() => ({
+        id: effectiveView?.id || effectiveView?.view_id || 'embedded',
+        name: effectiveView?.name || effectiveView?.heading || t('views_header.default_view_name', "View"),
+        type: viewType === 'list' ? 'list' : 'table',
+        filters: [],
+        sort: (effectiveView?.sorts && effectiveView.sorts.length) ? effectiveView.sorts : (effectiveView?.sort ? [effectiveView.sort] : []),
+        visibleProperties: columnsAsKeys,
+        // Reflects the real signal: if the active tab is the MAIN view,
+        // the table shows the entire live schema; otherwise, it respects visibleProperties.
+        is_main: !!(effectiveView?.is_main || effectiveView?.is_default),
+        // Type-specific options (gallery/kanban/calendar/timeline). In the
+        // embed props were lost; we propagate them from the effective view (registry
+        // or section) so the render honors them the same as on the table page.
+        cardSize: effectiveView?.cardSize,
+        galleryPreview: effectiveView?.galleryPreview,
+        coverField: effectiveView?.coverField || effectiveView?.cover_field,
+        imageFit: effectiveView?.imageFit || effectiveView?.image_fit,
+        groupBy: effectiveView?.groupBy || effectiveView?.group_by,
+        groupSort: effectiveView?.groupSort || effectiveView?.group_sort,
+        groupSortDir: effectiveView?.groupSortDir || effectiveView?.group_sort_dir,
+        dateField: effectiveView?.dateField || effectiveView?.date_field,
+        endDateField: effectiveView?.endDateField || effectiveView?.end_date_field,
+        calendarView: effectiveView?.calendarView || effectiveView?.calendar_view,
+        colorField: effectiveView?.colorField || effectiveView?.color_field,
+        rowHeight: effectiveView?.rowHeight || effectiveView?.row_height,
+        enableSubitems: effectiveView?.enableSubitems ?? effectiveView?.enable_subitems,
+        columnWidths: effectiveView?.columnWidths || effectiveView?.column_widths,
+        // Chart options (embedded 'chart' view).
+        chartType: effectiveView?.chartType || effectiveView?.chart_type,
+        xField: effectiveView?.xField || effectiveView?.x_field,
+        yField: effectiveView?.yField || effectiveView?.y_field,
+        aggregation: effectiveView?.aggregation,
+    }), [effectiveView, viewType, columns, t]);
+
+    if (loading) {
+        return (
+            <div className={`vault-view-skeleton vault-view-skeleton--${viewType} my-4`} role="status" aria-label={t('views_header.loading_view', "Loading view...")}>
+                <div className="vault-view-skeleton__toolbar">
+                    <span className="vault-skeleton-block w-24" />
+                    <span className="vault-skeleton-block w-32" />
+                </div>
+                <div className="vault-view-skeleton__cards" aria-hidden="true">
+                    {[0, 1, 2].map((item) => (
+                        <div key={item} className="vault-view-skeleton__card">
+                            <span className="vault-skeleton-block w-2/3" />
+                            <span className="vault-skeleton-block w-1/3" />
+                            <span className="vault-skeleton-block w-full" />
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="my-4 p-3 bg-[var(--status-error)]/5 border border-[var(--status-error)]/20 rounded-lg flex items-start gap-2.5">
+                <AlertCircle size={16} className="text-[var(--status-error)] mt-0.5 shrink-0" />
+                <div className="text-xs text-[var(--status-error)]">{error}</div>
+            </div>
+        );
+    }
+
+    const commonProps = { rows, columns: columnsAsKeys, view, onOpenPage, onCreate: tableId ? handleCreate : null, blockId: block?.id };
+
+    // Shared callback adapters for ALL real view components
+    // (table/list/kanban/gallery/timeline/feed/calendar).
+    const onEditSchemaAdapter = (type) => {
+        if (type === 'filters' || type === 'sorts') handleOpenConfig();
+        else if (ctx.onEditSchema && table) ctx.onEditSchema(table);
+    };
+    const onCreateRecordAdapter = (templateId) => {
+        const tpl = templates.find(t => t.id === templateId) || null;
+        handleCreate({}, tpl);
+    };
+    // We notify VaultDashboard of the deleted ids so it records them in the
+    // its undo stack (the global Cmd+Z lives there). The soft-delete of the view
+    // embedded one goes through direct axios and, without this signal, it wasn't undoable.
+    const announceDeleted = (ids) => {
+        const clean = [...(ids || [])].filter(Boolean);
+        if (!clean.length) return;
+        window.dispatchEvent(new CustomEvent('gnosi:records-deleted', { detail: { ids: clean } }));
+    };
+    const onDeletePageAdapter = (id, title) => { ctx.onDeletePage?.(id, title); if (id) announceDeleted([id]); setTimeout(reload, 400); };
+    const onDeleteSelectedAdapter = (ids) => {
+        Promise.allSettled([...ids].map(id => axios.delete(`/api/vault/pages/${encodeURIComponent(id)}`)))
+            .then((results) => {
+                const ok = [...ids].filter((_, i) => results[i]?.status === 'fulfilled'
+                    || results[i]?.reason?.response?.status === 404);
+                announceDeleted(ok);
+                reload();
+            });
+    };
+    const onApplyTemplateAdapter = async (ids, templateId) => {
+        await axios.post('/api/vault/bulk-apply-template', {
+            page_ids: [...ids],
+            template_id: templateId,
+        });
+        reload();
+    };
+    const onUpdateViewAdapter = async (nextView) => {
+        if (!pageId) return;
+        const sorts = Array.isArray(nextView?.sort) ? nextView.sort : (nextView?.sort ? [nextView.sort] : []);
+        // Map updated string columns back to composite objects if the original view used them
+        let newVisible = nextView?.visibleProperties;
+        if (newVisible && Array.isArray(columns) && columns.some(c => typeof c === 'object')) {
+            newVisible = newVisible.map(k => columnSpec.find(c => c.fieldKey === k) || { tableId, fieldKey: k });
+        } else if (!newVisible) {
+            newVisible = columns;
+        }
+        
+        // `columnWidths` is sent by VaultTable when resizing a column: without
+        // persist it, the widths would revert on every reload (the
+        // main view does save them via VaultDashboard).
+        const isSection = !view ? false : (activeViewId === view.view_id);
+        if (isSection || !activeViewId) {
+            // The active tab is the block's section → patch to the section.
+            const next = await patchSectionConfig(pageId, view, {
+                visible_properties: newVisible,
+                sorts,
+                sort: sorts[0] || null,
+                group_by: nextView?.group_by ?? view?.group_by,
+                ...(nextView?.columnWidths ? { columnWidths: nextView.columnWidths } : {}),
+            });
+            setView(next);
+        } else {
+            // Tab of a registry view → direct PUT to /api/vault/views.
+            const current = tableViews.find(v => v.id === activeViewId) || {};
+            try {
+                await axios.put(`/api/vault/views/${encodeURIComponent(activeViewId)}`, {
+                    ...current,
+                    visibleProperties: newVisible,
+                    sorts,
+                    sort: sorts[0] || null,
+                    ...(nextView?.group_by !== undefined ? { group_by: nextView.group_by } : {}),
+                    ...(nextView?.columnWidths ? { columnWidths: nextView.columnWidths } : {}),
+                });
+                await refetchTableViews();
+            } catch (e) { console.warn('update view failed', e); }
+        }
+    };
+    const onUpdateNoteAdapter = async (id, patch) => {
+        await patchPageMetadata(id, patch?.metadata || patch || {});
+        reload();
+    };
+    // Common props for rich components that share the same signature.
+    const sharedViewProps = {
+        notes: rows,
+        schema: embeddedSchema,
+        idToTitle: ctx.idToTitle || {},
+        allNotes: allRows,
+        activeView: embeddedView,
+        // Maximum cap on the embedded table/list height: below that, it grows with
+        // the content (without empty space); above that it scrolls internally.
+        maxHeight: '70vh',
+        searchTerm,
+        onSearchChange: setSearchTerm,
+        feedGroupMode,
+        onNoteSelect: (id) => onOpenPage?.(id),
+        onCreateRecord: onCreateRecordAdapter,
+        onDeletePage: onDeletePageAdapter,
+        onDeleteSelected: onDeleteSelectedAdapter,
+        onApplyTemplate: onApplyTemplateAdapter,
+        onEditSchema: onEditSchemaAdapter,
+        onUpdateView: onUpdateViewAdapter,
+        // Editor↔view keyboard navigation bridge. The table/list register the
+        // cell navigation; the gallery, the card one (handleShellKeyDown uses it to
+        // descend into it with Space/Enter). `onFocusShell` returns focus to the shell
+        // (Esc from the gallery records).
+        registerNavApi: (api) => { tableNavApiRef.current = api; },
+        onExitTop: () => ctx.exitEmbedToEditor?.(block?.id, 'up'),
+        onExitBottom: () => ctx.exitEmbedToEditor?.(block?.id, 'down'),
+        onEscape: () => ctx.exitEmbedToEditor?.(block?.id, 'escape'),
+        onFocusShell: focusShell,
+        feedDensity,
+    };
+    const renderBody = () => {
+        // The `graph` has no equivalent editable component → bespoke render.
+        if (viewType === 'graph') return <GraphRender {...commonProps} />;
+        // The rest of the types are delegated to the shared body (VaultViewBody), which
+        // same one used by the full table. The table/list use a
+        // container that lets it do the internal scroll (sticky column); the
+        // for the rest, a box with its own scroll.
+        const Box = (viewType === 'table' || viewType === 'list') ? TableBox
+            : (viewType === 'feed') ? FeedFlowBox
+            : ScrollBox;
+        return (
+            <Box>
+                <VaultViewBody
+                    type={viewType}
+                    {...sharedViewProps}
+                    templates={templates}
+                    isEmbedded={true}
+                    onOpenParallel={ctx.onOpenParallel}
+                    onCellSaved={() => reload()}
+                    onTranslated={() => reload()}
+                    onUpdateFieldOptions={ctx.onAddSchemaOption}
+                    onUpdateNote={onUpdateNoteAdapter}
+                    actionRules={table?.action_rules}
+                    functionalities={table?.functionalities}
+                />
+            </Box>
+        );
+    };
+    const visibleTabs = tableViews.filter(v => v.id === viewId || pinnedViewIds.has(v.id));
+
+    return (
+        // `min-w-0 w-full`: the block's container (.bn-block-content) is flex;
+        // without `min-w-0` this div doesn't shrink below the content's width
+        // (wide table) and overflows the editor with horizontal scroll on the page.
+        <div
+            ref={embedContainerRef}
+            tabIndex={isInEditor ? -1 : undefined}
+            onKeyDown={isInEditor ? handleShellKeyDown : undefined}
+            className="mt-0 mb-4 min-w-0 w-full gnosi-view-embed-container rounded-lg outline-none focus:outline-none focus:ring-2 focus:ring-[var(--gnosi-primary)]/40"
+        >
+            <div className="vault-view-toolbar flex items-center justify-between gap-3 mb-2">
+                <div className="flex items-baseline gap-2 min-w-0">
+                    {displayHeading && <Heading level={displayLevel}>{displayHeading}</Heading>}
+                    <span className="text-[11px] text-[var(--text-tertiary)] font-medium whitespace-nowrap">
+                        {t('views_header.records_count', { count: rows.length })}
+                    </span>
+                </div>
+                <ViewActionsBar
+                    onCreate={tableId ? handleCreate : null}
+                    onAddView={tableId ? () => handleAddView('table') : null}
+                    templates={templates}
+                    onOpenConfig={onOpenPageViewModal && tableId ? handleOpenConfig : null}
+                    searchTerm={searchTerm}
+                    setSearchTerm={setSearchTerm}
+                    showSearch={showSearch}
+                    setShowSearch={setShowSearch}
+                    density={feedDensity}
+                    onToggleDensity={viewType === 'feed' ? toggleFeedDensity : null}
+                    activeFilterCount={activeFilterCount}
+                    resultCount={rows.length}
+                    totalCount={rawRecords.length}
+                    presets={quickPresets}
+                    onSavePreset={saveQuickPreset}
+                    onApplyPreset={applyQuickPreset}
+                    onRenamePreset={renameQuickPreset}
+                    onDeletePreset={deleteQuickPreset}
+                    onExportPresets={exportQuickPresets}
+                    onImportPresets={() => setIsImportQuickPresetOpen(true)}
+                    groupMode={feedGroupMode}
+                    onToggleGroup={viewType === 'feed' ? toggleFeedGroupMode : null}
+                    loadDuration={loadDuration}
+                />
+            </div>
+            {/* Tabs of views for THIS block: the section's view (anchor)
+                + those that have been explicitly pinned to it. Not all the
+                table's views are shown. The bar uses `flex-wrap` (not `overflow`) so as
+                not to clip the × and + dropdowns. */}
+            {(() => {
+                if (visibleTabs.length <= 1) return null;
+                return (
+                <div className="relative z-30 flex flex-wrap items-center gap-0.5 border-b border-[var(--border-primary)] mb-2">
+                    {visibleTabs.map(v => {
+                        const isActive = v.id === activeViewId;
+                        const isAnchor = v.id === viewId; // section's view (cannot be removed)
+                        return (
+                            <div
+                                key={v.id}
+                                className={`group relative flex items-center gap-1 px-2.5 py-1 text-xs whitespace-nowrap border-b-2 cursor-pointer ${isActive ? 'border-[var(--gnosi-primary)] text-[var(--gnosi-primary)] font-semibold' : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
+                                onClick={() => {
+                                    setActiveViewId(v.id);
+                                    try { localStorage.setItem(`gnosi_embed_view_${pageId}_${viewId}`, v.id); } catch { /* noop */ }
+                                }}
+                                onDoubleClick={() => handleRenameView(v)}
+                                title={t('views_header.tab_tooltip', "Click to switch · double-click to rename")}
+                            >
+                                <span>{v.name || v.heading || t('views_header.default_view_name', "View")}</span>
+                                <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); decideMenuDir(e); setTabMenuFor(m => m === v.id ? null : v.id); }}
+                                    className={`${tabMenuFor === v.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} text-[var(--text-tertiary)] hover:text-[var(--text-primary)]`}
+                                    title={t('views_header.view_options', "View options")}
+                                    aria-label={t('views_header.view_options', "View options")}
+                                >
+                                    <MoreHorizontal size={13} />
+                                </button>
+                                {tabMenuFor === v.id && (
+                                    <>
+                                        <div className="fixed inset-0 z-[55]" onClick={(e) => { e.stopPropagation(); setTabMenuFor(null); }} />
+                                        <div className={`absolute z-[60] left-0 ${menuUp ? "bottom-full mb-1" : "top-full mt-1"} w-56 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-lg py-1 text-[var(--text-primary)] font-normal`}>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setTabMenuFor(null); handleConfigureView(v); }}
+                                                className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-xs hover:bg-[var(--bg-tertiary)]"
+                                            >
+                                                <Settings size={13} className="text-[var(--text-tertiary)]" />
+                                                {t('views_header.configure', "Configure")}
+                                            </button>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setTabMenuFor(null); handleRenameView(v); }}
+                                                className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-xs hover:bg-[var(--bg-tertiary)]"
+                                            >
+                                                <Edit2 size={13} className="text-[var(--text-tertiary)]" />
+                                                {t('views_header.rename', "Rename")}
+                                            </button>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setTabMenuFor(null); handleDuplicateView(v); }}
+                                                className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-xs hover:bg-[var(--bg-tertiary)]"
+                                            >
+                                                <Copy size={13} className="text-[var(--text-tertiary)]" />
+                                                {t('views_header.duplicate', "Duplicate")}
+                                            </button>
+                                            {!isAnchor && (
+                                                <>
+                                                    <div className="h-px bg-[var(--border-primary)] my-1 mx-2" />
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); setTabMenuFor(null); handleUnpinView(v); }}
+                                                        className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-xs hover:bg-[var(--bg-tertiary)]"
+                                                    >
+                                                        <X size={13} className="text-[var(--text-tertiary)]" />
+                                                        {t('views_header.remove_from_page', "Remove from this page")}
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); setTabMenuFor(null); handleDeleteView(v); }}
+                                                        className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-xs text-red-500 hover:bg-[var(--bg-tertiary)]"
+                                                    >
+                                                        <Trash2 size={13} />
+                                                        {t('views_header.delete_everywhere', "Delete everywhere…")}
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+                );
+            })()}
+            {renderBody()}
+            <ConfirmModal
+                isOpen={confirmDeleteView != null}
+                onClose={() => { setConfirmDeleteView(null); setDeleteViewUsage(null); }}
+                onConfirm={doDeleteView}
+                title={t('views_header.delete_view_title', "Delete view")}
+                message={
+                    confirmDeleteView
+                        ? deleteViewUsage && deleteViewUsage.count > 0
+                            ? `${t('views_header.delete_linked_view_confirm', { count: deleteViewUsage.count, name: confirmDeleteView.name || confirmDeleteView.heading || '', defaultValue: "Aquesta vista està enllaçada a {{count}} pàgina(es):" })}\n\n${deleteViewUsage.pages.map(p => `• ${p.title}`).join('\n')}\n\n${t('views_header.confirm_delete_anyway', { defaultValue: "Segur que la vols eliminar de totes maneres?" })}`
+                            : t('views_header.delete_view_confirm', "Delete the view \"{{name}}\" EVERYWHERE? It will disappear from all pages.", { name: confirmDeleteView.name || confirmDeleteView.heading || '' })
+                        : ''
+                }
+                confirmText={t('common.delete', "Delete")}
+                cancelText={t('common.cancel', "Cancel")}
+                isDestructive
+            />
+            <PromptModal
+                isOpen={renameView != null}
+                onClose={() => setRenameView(null)}
+                onSubmit={doRename}
+                title={t('views_header.rename_view_title', "Rename view")}
+                label={t('views_header.new_view_name_label', "New view name")}
+                defaultValue={renameView ? (renameView.name || renameView.heading || '') : ''}
+                confirmText={t('common.rename', "Rename")}
+                cancelText={t('common.cancel', "Cancel")}
+            />
+            <PromptModal
+                isOpen={isImportQuickPresetOpen}
+                onClose={() => setIsImportQuickPresetOpen(false)}
+                onSubmit={importQuickPresets}
+                title={t('views_header.import_quick_views', 'Import configuration')}
+                message={t('views_header.import_quick_views_hint', 'Paste a configuration copied from another view.')}
+                defaultValue=""
+                confirmText={t('views_header.import_quick_views', 'Import configuration')}
+            />
+            <PromptModal
+                isOpen={renameQuickPresetId != null}
+                onClose={() => setRenameQuickPresetId(null)}
+                onSubmit={submitQuickPresetRename}
+                title={t('views_header.rename_view_title', "Rename view")}
+                label={t('views_header.new_view_name_label', "New view name")}
+                defaultValue={quickPresets.find((preset) => preset.id === renameQuickPresetId)?.label || ''}
+                confirmText={t('common.rename', "Rename")}
+                cancelText={t('common.cancel', "Cancel")}
+            />
+        </div>
+    );
+}

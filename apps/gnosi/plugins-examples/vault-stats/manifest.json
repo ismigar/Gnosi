@@ -1,0 +1,11 @@
+{
+  "id": "vault-stats",
+  "apiVersion": 1,
+  "version": "1.0.0",
+  "name": "Estadístiques del vault",
+  "description": "Afegeix una comanda que compta les taules i les files del vault i desa l'últim recompte a la seva configuració.",
+  "icon": "Puzzle",
+  "author": "Gnosi",
+  "main": "main.js",
+  "permissions": ["ui:command", "vault:read", "settings"]
+}

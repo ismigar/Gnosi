@@ -1,0 +1,104 @@
+/* CalendarStyles.css - Subtile and Minimalist Calendar Styles (Notion Style) */
+
+/* 1. Reset FullCalendar defaults to be more minimalist */
+.fc {
+    --fc-border-color: rgba(var(--gnosi-primary-rgb), 0.08);
+    --fc-today-bg-color: rgba(var(--gnosi-primary-rgb), 0.03);
+    font-size: 0.85rem;
+}
+
+/* 2. Grid styling - Make lines nearly invisible */
+.fc-theme-standard td, 
+.fc-theme-standard th,
+.fc-theme-standard .fc-scrollgrid {
+    border-color: var(--border-primary) !important;
+    opacity: 0.8;
+}
+
+.fc-daygrid-day-top {
+    flex-direction: row;
+    padding: 8px 8px 0 0;
+}
+
+.fc-daygrid-day-number {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.fc-day-today .fc-daygrid-day-number {
+    background-color: var(--gnosi-primary);
+    color: white !important;
+}
+
+/* 3. Event spacing and base styling */
+.fc-daygrid-event-h-harness {
+    margin: 1px 4px !important;
+}
+
+.fc-event {
+    border: none !important;
+    background: transparent !important;
+    border-radius: 4px !important;
+}
+
+/* 4. Custom event appearance */
+.fc-event-main {
+    padding: 0 !important;
+}
+
+/* Timed events (non-all-day) specific tweaks */
+.timed-event-colored {
+    background-color: transparent !important;
+}
+
+.timed-event-colored .fc-event-main-frame {
+    background-color: transparent !important;
+}
+
+/* 5. More link styling (the "+X more") */
+.fc-daygrid-more-link {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-secondary) !important;
+    padding: 2px 6px;
+    margin: 2px 4px;
+    border-radius: 4px;
+    background-color: var(--bg-secondary);
+    display: inline-block;
+    cursor: pointer;
+}
+
+.fc-daygrid-more-link:hover {
+    background-color: var(--bg-tertiary);
+    color: var(--gnosi-primary) !important;
+}
+
+/* 6. Header/HeaderToolbar styling */
+.fc .fc-toolbar-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+/* 7. Column headers (Days of week) */
+.fc-col-header-cell {
+    padding: 10px 0 !important;
+    background-color: var(--bg-secondary);
+    border: none !important;
+}
+
+.fc-col-header-cell-cushion {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+}
+
+/* 8. Slot/Time styling in timeGrid views */
+.fc .fc-timegrid-slot-label-cushion {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+}
