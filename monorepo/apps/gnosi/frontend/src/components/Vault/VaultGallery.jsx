@@ -22,6 +22,7 @@ import {
     unlinkRelationFromRecord,
 } from './relationItemUtils';
 import { GalleryContentPreview, GalleryOpenButton } from './GalleryCardPreview';
+import { AutoriaDisplay } from './AutoriaField';
 
 export function VaultGallery({ notes, onNoteSelect, onOpenParallel, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onEditSchema, onCreateRecord, onDeleteSelected, onDeletePage, onApplyTemplate, templates = [], onUpdateNote, searchTerm: externalSearchTerm, registerNavApi, onExitTop, onExitBottom, onFocusShell }) {
     const { t } = useTranslation();
@@ -439,6 +440,8 @@ export function VaultGallery({ notes, onNoteSelect, onOpenParallel, schema = {},
                 const fmt = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);
                 return <span className="tabular-nums">{formatNumber(value, { kind: fmt.kind, decimals: fmt.decimals, currencyCode: fmt.currencyCode, locale: fmt.numberLocale })}</span>;
             }
+            case 'autoria':
+                return <AutoriaDisplay value={value} />;
             case 'status':
             case 'select':
                 return (
