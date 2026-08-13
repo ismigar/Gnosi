@@ -1,5 +1,5 @@
-<article{{ attributes }}>
-
+<page {{ attributes }}>
+    <h1 class="title">{{ label }}</h1>
 
     {# Imatge al principi #}
     {% if content.field_image %}
@@ -11,7 +11,7 @@
     {# Autoria i data després de la imatge #}
     {% if display_submitted %}
         <div class="submitted">
-            {{ 'Escrit per'|t }} 
+            {{ 'Escrit per'|t }}
             <span class="field-nom-i-cognoms">
                 {% if node.uid.entity.field_nom_i_cognoms.value is not empty %}
                     {{ node.uid.entity.field_nom_i_cognoms.value }}
@@ -33,5 +33,4 @@
     <div class="content-extra">
         {{ content|without('field_image', 'body') }}
     </div>
-
-</article>
+</page>

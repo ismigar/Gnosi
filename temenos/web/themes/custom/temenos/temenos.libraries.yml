@@ -9,7 +9,7 @@ global-css:
     js/sticky-header.js: {}
     includes/flexslider/jquery.flexslider.js: {}
   dependencies:
-    - elraco/bootstrap-lib
+    - temenos/bootstrap-lib
     - core/jquery
     - core/drupal.ajax
     - core/drupal

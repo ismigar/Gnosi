@@ -1,5 +1,5 @@
  document.addEventListener('DOMContentLoaded', () => {
-  const wrap  = document.getElementById('block-elraco-formularidecerca');
+  const wrap  = document.getElementById('block-temenos-formularidecerca');
   const btn   = document.getElementById('button-search-toggle');
   const form  = document.getElementById('search-block-form');
   const input = document.getElementById('edit-keys');

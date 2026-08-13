@@ -16,7 +16,6 @@ Para evitar la intervención manual en comandos que requieren escalada de privil
 - **Agente**: `scripts/remote_agent.py`
 - **Tests**:
   - `tests/test_drupal_auth.py`
-  - `tests/test_n8n_helper.py`
 - **Clase**: `DrupalRemoteAgent`
 
 ### Dependencias
@@ -85,6 +84,13 @@ when the downloaded code archive has already passed validation, and add
 `--reuse-database` or `--reuse-site` only when those earlier phases completed
 before a later step failed.
 
+### 5. Retirar módulos custom obsoletos
+
+Ejecutar `scripts/retire_unused_modules.php` mediante `drush php:script` mientras el
+código de los módulos todavía exista. El script desinstala de forma idempotente
+`n8n_helper` y `notion_bridge`. Reconstruir la caché y verificar el sitio antes de
+eliminar sus directorios del servidor.
+
 ## Restricciones y Troubleshooting (Aprendizaje Continuo)
 
 - **Timeouts**: `composer` es lento. Configurar timeout de `run_command` a 600s+.
@@ -106,15 +112,11 @@ before a later step failed.
 ### ServiceNotFoundException tras Update
 Si tras actualizar el core/módulos, Drupal lanza excepciones fatales (y cierra conexión SSH/MCP) por servicios faltantes (ej: `token.entity_hooks`):
 1. **Diagnóstico**: `drush php:eval "print \Drupal::service('nombre.servicio') ? 'OK' : 'FAIL';"`
-2. **Solución Emergency**: Inyectar un servicio "Dummy" en `n8n_helper` para satisfacer la dependencia.
-   - Definir en `n8n_helper.services.yml`:
-     ```yaml
-     nombre.servicio.roto:
-       class: Drupal\n8n_helper\DummyClass
-     ```
-   - Crear clase Dummy con `__call` para absorber uso.
-3. **Limpieza**: Usar `drush cr` para reconstruir container.
-4. **Script de Referencia**: `scripts/adhoc/hotfix_token_service.py`
+2. **Resolución**: actualizar o parchear el módulo propietario del servicio. No inyectar
+   servicios dummy desde un módulo ajeno: puede ocultar incompatibilidades y romper la
+   compilación del contenedor tras una actualización.
+3. **Limpieza**: usar `drush cr` para reconstruir el contenedor y volver a comprobar el
+   servicio real.
 
 ### Error MCP: "RpcResponseFactory returned invalid output data"
 Este error indica que la validación JSON Schema de las respuestas MCP está fallando.

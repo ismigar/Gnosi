@@ -83,7 +83,7 @@
           <div class="second_header">{{ page.header2 }}</div>
         {% endif %}
         {% if page.header3 %}
-  	  <div class="third_header">{{ page.header3 }}</div>
+      <div class="third_header">{{ page.header3 }}</div>
         {% endif %}
         {{ page.primary_menu }}
     </div>
@@ -107,8 +107,8 @@
 
   {% if page.highlighted and is_front %}
     <div id="highlighted"><div class="container">
-	<div class="row">{{ page.highlighted }}</div>
-	</div></div>
+  <div class="row">{{ page.highlighted }}</div>
+  </div></div>
   {% endif %}
   {# Home Highlight regions. #}
   {% if page.home_high1 or page.home_high2 or page.home_high3 %}
@@ -127,12 +127,12 @@
 
   <main id="main" class="clearfix">
     <div class="container">
-	<div class="row">{% if page.sidebar_first %}
+  <div class="row">{% if page.sidebar_first %}
       <div id="sidebar-first" class="sidebar {{ sidebarfirst }}" role="complementary">
-	          {{ page.sidebar_first }}
-			  	{{ page.secondary_menu }}
+            {{ page.sidebar_first }}
+          {{ page.secondary_menu }}
 
-			  </div>
+        </div>
        <!-- /#sidebar-first -->
     {% endif %}
 

@@ -720,11 +720,11 @@ footer .container {
   justify-content: end;
 }
 
-#block-elraco-navegacioprincipal .navbar .navbar-collapse {
+#block-temenos-navegacioprincipal .navbar .navbar-collapse {
   padding: 0;
 }
 
-#block-elraco-navegacioprincipal .navbar .nav>li>a {
+#block-temenos-navegacioprincipal .navbar .nav>li>a {
   text-transform: uppercase;
   min-height: 44px;
   display: inline-flex;
@@ -732,9 +732,9 @@ footer .container {
   line-height: 1;
 }
 
-#block-elraco-navegacioprincipal .navbar .nav>li>a:focus,
-#block-elraco-navegacioprincipal .navbar .nav>li>a:hover,
-#block-elraco-navegacioprincipal .navbar .nav>li>a.is-active {
+#block-temenos-navegacioprincipal .navbar .nav>li>a:focus,
+#block-temenos-navegacioprincipal .navbar .nav>li>a:hover,
+#block-temenos-navegacioprincipal .navbar .nav>li>a.is-active {
   text-decoration: none;
   border-bottom: 1px solid var(--color-primary);
 }
@@ -744,7 +744,7 @@ footer .container {
 }
 
 /* Cerca → zona 'search' i alineada a la dreta */
-#block-elraco-formularidecerca {
+#block-temenos-formularidecerca {
   position: relative;
   grid-area: search;
   justify-self: end;
@@ -766,7 +766,7 @@ footer .container {
 }
 
 /* Header utilities / layout */
-#block-elraco-commutadordellenguatextdinterficie {
+#block-temenos-commutadordellenguatextdinterficie {
   margin: 0 0 1rem 2rem;
 }
 
@@ -789,7 +789,7 @@ footer .container {
   z-index: 1000;
 }
 
-#block-elraco-formularidecerca form {
+#block-temenos-formularidecerca form {
   display: none;
   transition: opacity 0.2s ease, transform 0.2s ease;
   background: var(--color-white);
@@ -799,25 +799,25 @@ footer .container {
   padding: .5rem;
 }
 
-#block-elraco-formularidecerca.form-visible form {
+#block-temenos-formularidecerca.form-visible form {
   display: flex !important;
   align-items: center;
   gap: .5rem;
   background-color: var(--color-secondary);
 }
 
-#block-elraco-formularidecerca.form-visible .form-type-search,
-#block-elraco-formularidecerca.form-visible .form-actions {
+#block-temenos-formularidecerca.form-visible .form-type-search,
+#block-temenos-formularidecerca.form-visible .form-actions {
   display: block;
 }
 
-#block-elraco-formularidecerca.form-visible .form-search {
+#block-temenos-formularidecerca.form-visible .form-search {
   height: 2.6em;
   width: clamp(16rem, 30vw, 30rem);
   border-radius: var(--radius-lg);
 }
 
-#block-elraco-formularidecerca.form-visible .button {
+#block-temenos-formularidecerca.form-visible .button {
   border: 0;
   margin: 0;
   padding: 0;
@@ -866,7 +866,7 @@ footer.site-footer ul a {
   text-transform: uppercase;
 }
 
-#block-elraco-collabora-2 a {
+#block-temenos-collabora-2 a {
   text-transform: uppercase;
 }
 
@@ -1018,7 +1018,7 @@ header ul.menu a {
   color: var(--color-black);
 }
 
-#block-elraco-fotosconeixme img {
+#block-temenos-fotosconeixme img {
   border-radius: var(--radius-md);
 }
 
@@ -1080,8 +1080,8 @@ header ul.menu a {
 }
 
 /* Collabora button */
-#block-elraco-collabora .colabora,
-#block-elraco-collabora a.colabora {
+#block-temenos-collabora .colabora,
+#block-temenos-collabora a.colabora {
   background-color: var(--color-primary);
   color: var(--color-white);
   padding: 0.6rem 1rem;
@@ -1091,13 +1091,13 @@ header ul.menu a {
   min-height: 44px;
 }
 
-#block-elraco-collabora a.colabora.is-active,
-#block-elraco-collabora a.colabora:hover,
-#block-elraco-collabora a.colabora:focus {
+#block-temenos-collabora a.colabora.is-active,
+#block-temenos-collabora a.colabora:hover,
+#block-temenos-collabora a.colabora:focus {
   text-decoration: underline;
 }
 
-#block-elraco-collabora-2 {
+#block-temenos-collabora-2 {
   margin: 6rem 2rem;
 }
 
@@ -1488,25 +1488,25 @@ header ul.menu a {
   /* Header regions alignment */
 
 
-  #block-elraco-collabora {
+  #block-temenos-collabora {
     justify-content: flex-start !important;
   }
 
-  #block-elraco-commutadordellenguatextdinterficie {
+  #block-temenos-commutadordellenguatextdinterficie {
     justify-content: flex-end !important;
   }
 
-  #block-elraco-commutadordellenguatextdinterficie ul.links {
+  #block-temenos-commutadordellenguatextdinterficie ul.links {
     white-space: nowrap;
   }
 
   /* Centered branding block */
-  #block-elraco-marcadellloc {
+  #block-temenos-marcadellloc {
     text-align: center !important;
   }
 
 
-  #block-elraco-marcadellloc .site-logo {
+  #block-temenos-marcadellloc .site-logo {
     margin-bottom: 0.5em;
   }
 
@@ -1571,19 +1571,19 @@ header ul.menu a {
     margin-bottom: 1.5em;
   }
 
-  #block-elraco-peu ul.menu {
+  #block-temenos-peu ul.menu {
     display: inline-block !important;
     margin: 0 auto !important;
     padding-left: 0;
   }
 
-  #block-elraco-collabora-2 {
+  #block-temenos-collabora-2 {
     text-align: center !important;
     display: inline-block !important;
     margin: 2rem 0 0 !important;
   }
 
-  #block-elraco-collabora-2 .colabora {
+  #block-temenos-collabora-2 .colabora {
     display: inline-block !important;
     margin: 0 auto !important;
   }
@@ -1592,7 +1592,7 @@ header ul.menu a {
     display: none;
   }
 
-  #block-elraco-lopd p {
+  #block-temenos-lopd p {
     text-align: center;
   }
 

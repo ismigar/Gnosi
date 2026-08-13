@@ -16,7 +16,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Frontend unit test files | 61 |
 | Registered FastAPI routers | 33 |
 | Runtime skill contracts | 23 |
-| Development-memory directives | 178 |
+| Development-memory directives | 179 |
 
 ## Owned application surfaces
 

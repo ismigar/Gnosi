@@ -20,8 +20,7 @@ def verify_config():
         'jsonapi': 'JSON:API',
         'basic_auth': 'Basic Authentication',
         'serialization': 'Serialization',
-        'mcp': 'MCP Server',
-        'n8n_helper': 'n8n Helper (Custom)'
+        'mcp': 'MCP Server'
     }
     
     missing = []

@@ -1,0 +1,84 @@
+temenos.settings:
+  type: theme_settings
+  label: 'Temenos settings'
+  mapping:
+    slideshow_display:
+      type: boolean
+      label: 'Show slideshow'
+      translatable: false
+
+    # Slide titles are translatable.
+    slide_title_1:
+      type: label
+      label: 'Slide 1 Title'
+      translatable: true
+    slide_title_2:
+      type: label
+      label: 'Slide 2 Title'
+      translatable: true
+    slide_title_3:
+      type: label
+      label: 'Slide 3 Title'
+      translatable: true
+    slide_title_4:
+      type: label
+      label: 'Slide 4 Title'
+      translatable: true
+    slide_title_5:
+      type: label
+      label: 'Slide 5 Title'
+      translatable: true
+
+    # Slide URLs are shared across languages.
+    slide_url_1:
+      type: string
+      label: 'Slide 1 URL'
+      translatable: false
+    slide_url_2:
+      type: string
+      label: 'Slide 2 URL'
+      translatable: false
+    slide_url_3:
+      type: string
+      label: 'Slide 3 URL'
+      translatable: false
+    slide_url_4:
+      type: string
+      label: 'Slide 4 URL'
+      translatable: false
+    slide_url_5:
+      type: string
+      label: 'Slide 5 URL'
+      translatable: false
+
+    # File identifiers are not translatable.
+    slide_image_1:
+      type: sequence
+      label: 'Slide 1 Image'
+      translatable: false
+      sequence:
+        type: integer
+    slide_image_2:
+      type: sequence
+      label: 'Slide 2 Image'
+      translatable: false
+      sequence:
+        type: integer
+    slide_image_3:
+      type: sequence
+      label: 'Slide 3 Image'
+      translatable: false
+      sequence:
+        type: integer
+    slide_image_4:
+      type: sequence
+      label: 'Slide 4 Image'
+      translatable: false
+      sequence:
+        type: integer
+    slide_image_5:
+      type: sequence
+      label: 'Slide 5 Image'
+      translatable: false
+      sequence:
+        type: integer

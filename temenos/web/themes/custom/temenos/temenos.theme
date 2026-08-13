@@ -4,7 +4,7 @@
  * @file
  * Functions to support theming in the Btheme.
  */
-define('THEME_PATH', base_path() . \Drupal::service('extension.list.theme')->getPath('elraco'));
+define('THEME_PATH', base_path() . \Drupal::service('extension.list.theme')->getPath('temenos'));
 // Change the value to increase the slideshow.
 define('SLIDESHOW_COUNT', 5);
 
@@ -19,9 +19,9 @@ use Drupal\Core\Url;
 /**
  * Preprocess per construir el carrusel de la home.
  */
-function elraco_preprocess_page(array &$variables) {
+function temenos_preprocess_page(array &$variables) {
   $is_front = \Drupal::service('path.matcher')->isFrontPage();
-  $enabled  = (bool) theme_get_setting('slideshow_display', 'elraco');
+  $enabled  = (bool) theme_get_setting('slideshow_display', 'temenos');
   if (!$is_front || !$enabled) { return; }
 
   $allowed = ['br','strong','em','b','i','u','a'];  // ajusta si vols
@@ -30,18 +30,18 @@ function elraco_preprocess_page(array &$variables) {
   $file_url_generator = \Drupal::service('file_url_generator');
 
   for ($i = 1; $i <= $max; $i++) {
-    $fid_arr = theme_get_setting("slide_image_{$i}", 'elraco');
+    $fid_arr = theme_get_setting("slide_image_{$i}", 'temenos');
     $fid = is_array($fid_arr) && !empty($fid_arr[0]) ? (int) $fid_arr[0] : (is_numeric($fid_arr) ? (int) $fid_arr : NULL);
     if (!$fid) { continue; }
     if ($file = File::load($fid)) {
       $uri = $file->getFileUri();
       // Captura la frase; permet etiquetes bàsiques i transforma \n a <br>
-      $raw_caption = theme_get_setting("slide_title_{$i}", 'elraco') ?: '';
+      $raw_caption = theme_get_setting("slide_title_{$i}", 'temenos') ?: '';
       $clean_caption = Xss::filter(nl2br($raw_caption), $allowed);
 
       $slides[] = [
         'src'     => $file_url_generator->generateString($uri),
-        'url'     => theme_get_setting("slide_url_{$i}", 'elraco') ?: '#',
+        'url'     => theme_get_setting("slide_url_{$i}", 'temenos') ?: '#',
         'caption' => $clean_caption,   // <-- ja “segur” per a |raw
       ];
     }
@@ -55,7 +55,7 @@ function elraco_preprocess_page(array &$variables) {
  * @param array $variables
  * @return void
  */
-function elraco_preprocess_links__language_block(array &$variables) {
+function temenos_preprocess_links__language_block(array &$variables) {
   foreach ($variables['links'] as &$link) {
     if (empty($link['link']['#options']['attributes']['class']) || !is_array($link['link']['#options']['attributes']['class'])) {
       $link['link']['#options']['attributes']['class'] = [];
@@ -73,7 +73,7 @@ function elraco_preprocess_links__language_block(array &$variables) {
  * @param array $variables
  * @return void
  */
-function elraco_preprocess_container(array &$variables) {
+function temenos_preprocess_container(array &$variables) {
   // --- 1) Comprova que el container tingui la classe "more-link" ---
   $has_more_link = false;
   if (isset($variables['attributes'])) {
@@ -99,7 +99,7 @@ function elraco_preprocess_container(array &$variables) {
 
   // --- 2) Intent Drupal-way: tocar el primer link del render array ---
   if (is_array($variables['children'])) {
-    if (elraco__add_btn_classes_to_first_link($variables['children'])) {
+    if (temenos__add_btn_classes_to_first_link($variables['children'])) {
       // Ja hem modificat el render array correctament.
       return;
     }
@@ -170,7 +170,7 @@ function elraco_preprocess_container(array &$variables) {
  * Recorre un render array i afegeix 'btn' 'btn-secondary' al primer link que trobi.
  * Retorna TRUE si ha modificat algun link; FALSE si no n'ha trobat cap.
  */
-function elraco__add_btn_classes_to_first_link(array &$element): bool
+function temenos__add_btn_classes_to_first_link(array &$element): bool
 {
   // Detecta un link segons patrons típics de render arrays de link.
   $is_link = (isset($element['#type']) && $element['#type'] === 'link')
@@ -201,7 +201,7 @@ function elraco__add_btn_classes_to_first_link(array &$element): bool
       continue;
     }
     if (is_array($child)) {
-      if (elraco__add_btn_classes_to_first_link($child)) {
+      if (temenos__add_btn_classes_to_first_link($child)) {
         return true;
       }
     }
@@ -217,7 +217,7 @@ function elraco__add_btn_classes_to_first_link(array &$element): bool
  * @param array $variables
  * @return void
  */
-function elraco_preprocess_links__locale_block(array &$variables) {
+function temenos_preprocess_links__locale_block(array &$variables) {
   foreach ($variables['links'] as &$link) {
     if (isset($link['link']['#attributes']['class']) && is_array($link['link']['#attributes']['class'])) {
       $link['link']['#attributes']['class'][] = 'btn';
@@ -236,7 +236,7 @@ function elraco_preprocess_links__locale_block(array &$variables) {
  * @param $form_state
  *   The form state.
  */
-function elraco_form_system_theme_settings_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_state) {
+function temenos_form_system_theme_settings_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_state) {
     $form['busi_settings']['slideshow'] = array(
         '#type' => 'details',
         '#title' => t('Front Page Slideshow'),
@@ -246,7 +246,7 @@ function elraco_form_system_theme_settings_alter(&$form, \Drupal\Core\Form\FormS
     $form['busi_settings']['slideshow']['slideshow_display'] = array(
         '#type' => 'checkbox',
         '#title' => t('Show slideshow'),
-        '#default_value' => theme_get_setting('slideshow_display', 'elraco'),
+        '#default_value' => theme_get_setting('slideshow_display', 'temenos'),
         '#description' => t("Check this option to show Slideshow in front page. Uncheck to hide."),
     );
     $form['busi_settings']['slideshow']['slide'] = array(
@@ -263,30 +263,30 @@ function elraco_form_system_theme_settings_alter(&$form, \Drupal\Core\Form\FormS
         $form['busi_settings']['slideshow']['slide' . $i]['slide_title_' . $i] = array(
             '#type' => 'textfield',
             '#title' => t('Slide ' . $i . ' Title'),
-            '#default_value' => theme_get_setting("slide_title_{$i}", "elraco"),
+            '#default_value' => theme_get_setting("slide_title_{$i}", "temenos"),
         );
         $form['busi_settings']['slideshow']['slide' . $i]['slide_image_' . $i] = array(
             '#type' => 'managed_file',
             '#title' => t('Slide ' . $i . ' Image'),
             '#description' => t('Use same size for all the slideshow images(Recommented size : 1920 X 603).'),
-            '#default_value' => theme_get_setting("slide_image_{$i}", "elraco"),
+            '#default_value' => theme_get_setting("slide_image_{$i}", "temenos"),
             '#upload_location' => 'public://',
         );
         $form['busi_settings']['slideshow']['slide' . $i]['slide_url_' . $i] = array(
             '#type' => 'textfield',
             '#title' => t('Slide ' . $i . ' URL'),
-            '#default_value' => theme_get_setting("slide_url_{$i}", "elraco"),
+            '#default_value' => theme_get_setting("slide_url_{$i}", "temenos"),
         );
     }
 
     // Custom submit to save the file permenant.
-    $form['#submit'][] = 'elraco_settings_form_submit';
+    $form['#submit'][] = 'temenos_settings_form_submit';
 }
 
 /**
  * Custom submit handler for integrity settings form.
  */
-function elraco_settings_form_submit(&$form, \Drupal\Core\Form\FormStateInterface $form_state) {
+function temenos_settings_form_submit(&$form, \Drupal\Core\Form\FormStateInterface $form_state) {
     $account = \Drupal::currentUser();
     $values = $form_state->getValues();
     for ($i = 0; $i <= SLIDESHOW_COUNT; $i++) {

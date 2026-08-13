@@ -1,12 +1,12 @@
 {
-    "name": "drupal/d8_blog_theme",
-    "description": "This drupal theme is very useful if you want to use drupal 8,9,10 to create your powerful blogging website.",
+    "name": "drupal/temenos",
+    "description": "Custom Drupal theme for Temenos de Ismael.",
     "type": "drupal-theme",
     "keywords": [
       "Drupal",
       "Theme"
     ],
-    "homepage": "https://www.drupal.org/project/d8_blog_theme",
+    "homepage": "https://www.temenosdeismael.org",
     "license": "GPL-2.0-or-later",
     "authors": [
       {
@@ -30,12 +30,8 @@
         "role": "Maintainer"
       }
     ],
-    "support": {
-      "issues": "https://www.drupal.org/project/issues/d8_blog_theme",
-      "source": "http://cgit.drupalcode.org/d8_blog_theme"
-    },
     "require": {
-      "drupal/core": "^9 || ^10",
-      "drupal/classy": "^1.0"
+      "drupal/core": "^10 || ^11",
+      "drupal/classy": "^2.0"
     }
   }

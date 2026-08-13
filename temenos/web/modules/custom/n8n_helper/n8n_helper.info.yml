@@ -1,8 +1,0 @@
-name: 'n8n Helper'
-type: module
-description: 'API endpoint per a crear traduccions des de n8n (bypassing WAF PATCH block).'
-core_version_requirement: ^9 || ^10 || ^11
-package: Custom
-dependencies:
-  - drupal:node
-  - drupal:jsonapi

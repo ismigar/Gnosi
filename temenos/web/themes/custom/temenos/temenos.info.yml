@@ -1,12 +1,12 @@
-name: 'El racó'
+name: 'Temenos'
 type: theme
 base theme: classy
 description: 'Plantilla de Temenos de Ismael'
-core_version_requirement: ^8 || ^9 || ^10
+core_version_requirement: ^10 || ^11
 libraries:
-  - elraco/bootstrap-lib
-  - elraco/global-css
-  - elraco/search_toggle
+  - temenos/bootstrap-lib
+  - temenos/global-css
+  - temenos/search_toggle
 
 # Regions
 regions:
@@ -44,4 +44,4 @@ features:
   - 'secondary_menu'
 
 breakpoints:
-- elraco.breakpoints.yml
+- temenos.breakpoints.yml
