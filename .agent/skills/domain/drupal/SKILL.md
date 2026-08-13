@@ -65,6 +65,26 @@ Usar el script consolidado `scripts/update_core.py`
 2. `drush updb -y`
 3. `drush cr`
 
+### 4. Local staging clone
+
+Use `scripts/local_staging.py` to maintain a loopback-only production clone for
+Drupal upgrade rehearsals without consuming hosting database quota.
+
+```bash
+python3 .agent/skills/domain/drupal/scripts/local_staging.py refresh
+python3 .agent/skills/domain/drupal/scripts/local_staging.py harden
+python3 .agent/skills/domain/drupal/scripts/local_staging.py rotate_credentials
+python3 .agent/skills/domain/drupal/scripts/local_staging.py start
+python3 .agent/skills/domain/drupal/scripts/local_staging.py verify
+python3 .agent/skills/domain/drupal/scripts/local_staging.py stop
+```
+
+The helper requires Homebrew PHP 8.4, Composer, and MariaDB 11.4. Its ignored
+runtime lives under `.local/drupal-staging/`. Use `--reuse-code` during a retry
+when the downloaded code archive has already passed validation, and add
+`--reuse-database` or `--reuse-site` only when those earlier phases completed
+before a later step failed.
+
 ## Restricciones y Troubleshooting (Aprendizaje Continuo)
 
 - **Timeouts**: `composer` es lento. Configurar timeout de `run_command` a 600s+.

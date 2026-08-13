@@ -64,6 +64,9 @@ monorepo/apps/gnosi/plugins-examples/dist-plugins/
 # Plans i backups de sessió d'eines d'agent (locals, per màquina).
 .zcode/
 
+# Machine-local service rehearsals and database clones.
+.local/
+
 # The website lives in its own repo (ismigar/ismigar.github.io) and is worked
 # through PRs there. The nested checkout stays on disk but is no longer
 # shadow-tracked here: the stale tracked copy nearly resurrected deleted pages,
