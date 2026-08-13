@@ -40,6 +40,7 @@ import {
     RefreshCw,
     SpellCheck2,
     PanelBottomOpen,
+    Info,
 } from 'lucide-react';
 import axios from 'axios';
 import {
@@ -1251,11 +1252,14 @@ export function EditorInner({
                 propSchema: {
                     type: { default: "info", values: ["info", "warning", "error", "success"] },
                 },
-                content: "inline",
+                content: "none",
             }, {
                 render: (props) => (
-                    <div className={`bn-alert bn-alert-${props.block.props.type} p-4 rounded-lg flex gap-3 my-4 bg-[var(--bg-secondary)] border-l-4 border-[var(--gnosi-primary)]`}>
-                        <div className="flex-1" ref={props.contentRef} />
+                    <div
+                        className={`bn-alert bn-alert-${props.block.props.type}`}
+                        aria-hidden="true"
+                    >
+                        <Info size={17} strokeWidth={2} />
                     </div>
                 )
             }),
@@ -1386,7 +1390,19 @@ export function EditorInner({
                 sanitizedBlock.type = 'numberedListItem';
             }
 
-            if (['columnList', 'column', 'database', 'transclusion', 'gnosi_view', 'embed'].includes(sanitizedBlock.type)) {
+            if (sanitizedBlock.type === 'alert') {
+                const legacyContent = Array.isArray(sanitizedBlock.content)
+                    ? sanitizedBlock.content
+                    : [];
+                delete sanitizedBlock.content;
+                if (!Array.isArray(sanitizedBlock.children) || sanitizedBlock.children.length === 0) {
+                    sanitizedBlock.children = [{
+                        type: 'paragraph',
+                        props: { backgroundColor: 'default', textColor: 'default', textAlignment: 'left' },
+                        content: legacyContent,
+                    }];
+                }
+            } else if (['columnList', 'column', 'database', 'transclusion', 'gnosi_view', 'embed'].includes(sanitizedBlock.type)) {
                 delete sanitizedBlock.content;
             }
             
@@ -3304,6 +3320,48 @@ export function EditorInner({
                     padding-left: 1.5rem !important;
                 }
 
+                /* Callouts are structural containers: the marker block and its
+                   complete child block group share one visual shell. Children
+                   keep their native BlockNote behavior, including columns,
+                   files, embeds, tables, and further nested callouts. */
+                .bn-editor .bn-block-outer:has(> .bn-block > .react-renderer > .bn-block-content[data-content-type="alert"]),
+                .bn-container .bn-block-outer:has(> .bn-block > .react-renderer > .bn-block-content[data-content-type="alert"]) {
+                    position: relative;
+                    margin-block: 0.75rem;
+                    border: 1px solid var(--border-primary);
+                    border-inline-start: 4px solid var(--gnosi-primary);
+                    border-radius: 10px;
+                    padding: 0.7rem 0.85rem 0.7rem 2.35rem;
+                    background: var(--bg-secondary);
+                }
+                .bn-editor .bn-block-outer:has(> .bn-block > .react-renderer > .bn-block-content[data-content-type="alert"]) > .bn-block > .react-renderer,
+                .bn-container .bn-block-outer:has(> .bn-block > .react-renderer > .bn-block-content[data-content-type="alert"]) > .bn-block > .react-renderer {
+                    position: absolute;
+                    inset-block-start: 0.9rem;
+                    inset-inline-start: 0.75rem;
+                    width: 1.25rem;
+                    min-height: 1.25rem;
+                }
+                .bn-editor .bn-block-content[data-content-type="alert"],
+                .bn-container .bn-block-content[data-content-type="alert"] {
+                    padding: 0 !important;
+                    background: transparent !important;
+                }
+                .bn-alert {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: var(--gnosi-primary);
+                }
+                .bn-editor .bn-block-outer:has(> .bn-block > .react-renderer > .bn-block-content[data-content-type="alert"]) > .bn-block > .bn-block-group,
+                .bn-container .bn-block-outer:has(> .bn-block > .react-renderer > .bn-block-content[data-content-type="alert"]) > .bn-block > .bn-block-group {
+                    margin-inline-start: 0 !important;
+                }
+                .bn-editor .bn-block-outer:has(> .bn-block > .react-renderer > .bn-block-content[data-content-type="alert"]) > .bn-block > .bn-block-group > .bn-block-outer:last-child,
+                .bn-container .bn-block-outer:has(> .bn-block > .react-renderer > .bn-block-content[data-content-type="alert"]) > .bn-block > .bn-block-group > .bn-block-outer:last-child {
+                    margin-bottom: 0 !important;
+                }
+
                 .bn-editor .bn-block-group .bn-block-group > .bn-block-outer::before,
                 .bn-container .bn-block-group .bn-block-group > .bn-block-outer::before {
                     border-left: none !important;
@@ -3623,6 +3681,22 @@ export function EditorInner({
                             },
                         ];
                         const insertBlockItems = [
+                            {
+                                title: t('editor.callout', { defaultValue: "Callout" }),
+                                onItemClick: () => {
+                                    const callout = insertOrUpdateBlockForSlashMenu(editor, {
+                                        type: 'alert',
+                                        props: { type: 'info' },
+                                        children: [{ type: 'paragraph' }],
+                                    });
+                                    const firstChild = callout?.children?.[0];
+                                    if (firstChild) editor.setTextCursorPosition(firstChild, 'start');
+                                },
+                                aliases: ["callout", "aviso", "avis", "caixa", "caja", "encadré", "info"],
+                                group: t('editor.blocks_group', { defaultValue: "Blocks" }),
+                                icon: <Info size={18} />,
+                                subtext: t('editor.callout_subtext', { defaultValue: "Container for any kind of block" }),
+                            },
                             {
                                 title: t('editor.toc', { defaultValue: "Table of contents" }),
                                 onItemClick: () => insertOrUpdateBlockForSlashMenu(editor, { type: 'tableOfContents', props: {} }),

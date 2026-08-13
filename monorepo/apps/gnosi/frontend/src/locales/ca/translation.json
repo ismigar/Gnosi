@@ -1042,6 +1042,8 @@
     "column_layout_2": "2 columnes",
     "column_layout_3": "3 columnes",
     "column_layout_subtext": "Insereix un disseny en columnes",
+    "callout": "Callout",
+    "callout_subtext": "Contenidor per a qualsevol tipus de bloc",
     "synced_block_label": "Bloc sincronitzat",
     "synced_done": "Fet",
     "synced_placeholder": "Contingut compartit (Markdown)…",
