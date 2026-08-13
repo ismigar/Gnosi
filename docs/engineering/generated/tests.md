@@ -11,7 +11,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
 | Playwright | 13 | 35 |
-| Vitest | 65 | 243 |
+| Vitest | 66 | 246 |
 | pytest | 182 | 1497 |
 
 ## Files
@@ -56,6 +56,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/components/Vault/groupOrderUtils.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/groupOrderUtils.test.js) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/hoverPreviewLayout.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/hoverPreviewLayout.test.js) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/managedMarkdownUtils.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/managedMarkdownUtils.test.js) | 4 | call-pattern estimate |
+| Vitest | [`frontend/src/components/Vault/markdown-mapper.callout.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/markdown-mapper.callout.test.js) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/markdown-mapper.inline-icon.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/markdown-mapper.inline-icon.test.js) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/metadataVisibilityUtils.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/metadataVisibilityUtils.test.js) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/propertyNavigationUtils.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/propertyNavigationUtils.test.js) | 2 | call-pattern estimate |

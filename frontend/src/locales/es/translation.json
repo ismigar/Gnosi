@@ -1043,6 +1043,8 @@
     "column_layout_2": "2 columnas",
     "column_layout_3": "3 columnas",
     "column_layout_subtext": "Insertar un diseño en columnas",
+    "callout": "Callout",
+    "callout_subtext": "Contenedor para cualquier tipo de bloque",
     "synced_block_label": "Bloque sincronizado",
     "synced_done": "Hecho",
     "synced_placeholder": "Contenido compartido (Markdown)…",
