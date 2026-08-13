@@ -524,18 +524,23 @@ def composer_install() -> None:
     )
 
 
+def drush_command(*arguments: str) -> list[str]:
+    """Build a Drush command for the deterministic PHP runtime."""
+    return [
+        str(PHP_BIN),
+        "-d",
+        "error_reporting=24575",
+        str(SITE_ROOT / "vendor" / "drush" / "drush" / "drush.php"),
+        "--root",
+        str(SITE_ROOT / "web"),
+        *arguments,
+    ]
+
+
 def drush(*arguments: str, capture: bool = False, check: bool = True):
     """Run cloned-site Drush with the deterministic PHP runtime."""
     return run(
-        [
-            str(PHP_BIN),
-            "-d",
-            "error_reporting=24575",
-            str(SITE_ROOT / "vendor" / "bin" / "drush"),
-            "--root",
-            str(SITE_ROOT / "web"),
-            *arguments,
-        ],
+        drush_command(*arguments),
         cwd=SITE_ROOT,
         capture=capture,
         timeout=300,

@@ -55,6 +55,17 @@ clone to contact production integrations.
 - Do not use SQLite because MySQL-specific schema and update behavior must be
   exercised.
 - Do not rely on the shell `php`; invoke the absolute PHP 8.4 keg path.
+- Do not invoke `vendor/bin/drush` through PHP because Composer installs it as
+  a Bash wrapper and PHP prints the wrapper instead of running Drush. Invoke
+  `vendor/drush/drush/drush.php` when an explicit PHP runtime is required.
+- Run the helper from the intended repository root. An isolated Git worktree
+  resolves its own `.local/drupal-staging` directory; when operating the main
+  clone from a worktree, set both Drupal project and staging root overrides
+  explicitly.
+- A command-line memory override on the parent Drush process is not inherited
+  by update batch subprocesses. For large database updates, provide the memory
+  limit through a temporary PHP configuration selected by `PHPRC` so every
+  child process receives it.
 - Do not use Drush status JSON because it may expose database secrets.
 - SCP can return a non-zero status after a complete transfer on this host;
   validate the artifact itself before deciding the transfer failed.
@@ -83,3 +94,27 @@ clone to contact production integrations.
 4. SMTP and automated cron resolve to disabled values.
 5. Homepage and JSON:API return successful responses through loopback.
 6. Browser DOM inspection confirms the clone renders with the staging label.
+
+## Drupal 11 rehearsal result (2026-08-13)
+
+- The isolated clone upgraded from Drupal 10.6.15 to 11.4.5 on PHP 8.4.24 and
+  MariaDB 11.4 without modifying production.
+- Composer resolved the enabled contributed projects after retiring the unused
+  File Delete UI and Layout Builder ST packages, moving Webform to 6.3 and the
+  reSmush.it adapter to its Drupal 11 beta release.
+- The three translated menu URL records survived the database updates.
+- The custom Temenos theme produced no known Upgrade Status findings and loaded
+  its CSS and JavaScript successfully in the browser after the upgrade.
+- The packaged metadata for Multilingual Menu URLs 1.2 supports Drupal 11, but
+  its Composer constraint still declares Drupal 10. The lenient Composer plugin
+  was allowed only for that package in this local rehearsal; do not carry this
+  exception into production without reviewing a corrected upstream release.
+- AI Agents 1.3.4 exposes the `ai_agent_override` configuration entity without
+  an update hook that registers it for an existing installation. The rehearsal
+  installed that single definition through Drupal's entity definition update
+  manager; recheck upstream before production and repeat the targeted action
+  only if the status report still identifies that entity.
+- Upgrade Status reported manual-review findings in optional and test areas of
+  AI 1.4.6 while running against Drupal 10, including Drupal 11 hook attributes
+  that the Drupal 10 analyzer could not resolve. The installed AI and AI Agents
+  projects subsequently bootstrapped successfully on Drupal 11.

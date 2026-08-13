@@ -46,6 +46,16 @@ class LocalStagingUnitTest(unittest.TestCase):
         self.assertEqual(command[document_root_index], str(MODULE.SITE_ROOT / "web"))
         self.assertEqual(command[-1], str(MODULE.STAGING_ROOT / "router.php"))
 
+    def test_drush_uses_php_entrypoint_instead_of_shell_wrapper(self):
+        command = MODULE.drush_command("status")
+
+        self.assertEqual(command[0], str(MODULE.PHP_BIN))
+        self.assertEqual(
+            command[3],
+            str(MODULE.SITE_ROOT / "vendor" / "drush" / "drush" / "drush.php"),
+        )
+        self.assertNotIn(str(MODULE.SITE_ROOT / "vendor" / "bin" / "drush"), command)
+
     def test_router_decodes_url_encoded_static_file_paths(self):
         router = MODULE.router_contents()
 
