@@ -1082,6 +1082,8 @@
     "turn_into_subtext": "Convert the current block",
     "column_layout_2": "2 columns",
     "column_layout_3": "3 columns",
+    "column_layout_4": "4 columns",
+    "column_layout_5": "5 columns",
     "column_layout_subtext": "Insert a column layout",
     "callout": "Callout",
     "callout_subtext": "Container for any kind of block",

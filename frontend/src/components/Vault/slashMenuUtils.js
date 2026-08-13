@@ -94,10 +94,10 @@ export function buildTurnIntoCatalog({ editor } = {}) {
  * @returns {Array}
  */
 export function buildColumnLayoutCatalog({ editor } = {}) {
-    const layouts = [
-        { title: i18n.t('editor.column_layout_2', "2 columns"), columns: 2 },
-        { title: i18n.t('editor.column_layout_3', "3 columns"), columns: 3 },
-    ];
+    const layouts = [2, 3, 4, 5].map(columns => ({
+        title: i18n.t(`editor.column_layout_${columns}`, `${columns} columns`),
+        columns,
+    }));
 
     return layouts.map(layout => ({
         title: layout.title,
