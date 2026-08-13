@@ -81,6 +81,13 @@ An empty vault body does not clear Drupal body content.
 ## Restrictions
 
 - Required Drupal image fields must be mapped before creation.
+- When patching frontmatter scalars in an operational backfill, do not insert
+  the YAML serializer's standalone document-end marker after a value; serialize
+  only the scalar line and validate the complete frontmatter before delivery.
+- Do not treat a direct frontmatter backfill as complete while the live table
+  still serves a stale page-index entry. Refresh the page index through the
+  normal API/background scan, then verify both the by-table response and the
+  visible grid before reporting success.
 - Shrink only the upload copy to remain below Drupal limits; keep the vault
   original unchanged.
 - Resolve regional Drupal language codes from configured languages. Do not
