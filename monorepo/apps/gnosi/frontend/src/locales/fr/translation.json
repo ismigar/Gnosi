@@ -3314,6 +3314,8 @@
     "turn_into_subtext": "Convertir le bloc actuel",
     "column_layout_2": "2 colonnes",
     "column_layout_3": "3 colonnes",
+    "column_layout_4": "4 colonnes",
+    "column_layout_5": "5 colonnes",
     "column_layout_subtext": "Insérer une disposition en colonnes",
     "callout": "Encadré",
     "callout_subtext": "Conteneur pour tout type de bloc",
