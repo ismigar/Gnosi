@@ -170,7 +170,7 @@ function RelationValuePicker({ value, onChange, options, loading, thisLabel, pla
             {open && rect && createPortal(
                 <div
                     ref={panelRef}
-                    style={{ position: 'fixed', top: rect.top, left: rect.left, width: Math.max(rect.width, 220), zIndex: 300 }}
+                    style={{ position: 'fixed', top: rect.top, left: rect.left, width: Math.max(rect.width, 220), zIndex: 'var(--z-modal-dropdown)' }}
                     className="max-h-60 overflow-auto rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-2xl"
                 >
                     <input
@@ -1931,7 +1931,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
 
     return (
         <div
-            className="fixed inset-0 bg-black/60 flex items-center justify-center z-[200] p-4 backdrop-blur-sm"
+            className="fixed inset-0 bg-black/60 flex items-center justify-center z-[var(--z-modal)] p-4 backdrop-blur-sm"
             onClick={handleOverlayClick}
         >
             <div ref={panelRef} className="bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-2xl border border-[var(--border-primary)] flex flex-col max-h-[85vh]">
