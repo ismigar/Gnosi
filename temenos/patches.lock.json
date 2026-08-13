@@ -1,0 +1,17 @@
+{
+    "_hash": "e6b0eadea727f90fd6ac52ad5968f0cce239574b42e09dc13a86789f3791a490",
+    "patches": {
+        "drupal/mcp": [
+            {
+                "package": "drupal/mcp",
+                "description": "Fix empty inputSchema validation",
+                "url": "patches/mcp-toolslist-inputschema-fix.patch",
+                "sha256": "65218721702d3a6e74051ac37c835b121513b5505a911fc7a6310d4e9f04a985",
+                "depth": 1,
+                "extra": {
+                    "provenance": "root"
+                }
+            }
+        ]
+    }
+}

@@ -84,6 +84,19 @@ when the downloaded code archive has already passed validation, and add
 `--reuse-database` or `--reuse-site` only when those earlier phases completed
 before a later step failed.
 
+Run the deterministic two-stage Drupal 11 rehearsal only against that ignored
+clone:
+
+```bash
+DRUPAL_LOCAL_STAGE_ROOT="$PWD/.local/drupal-staging" \
+  python3 .agent/skills/domain/drupal/scripts/upgrade_local_to_drupal11.py
+```
+
+The upgrade helper refuses any site root outside the configured local staging
+directory, verifies the isolation overrides, preserves translated menu URLs and
+block configuration counts, and leaves maintenance mode disabled after all
+Composer, database, entity, and plugin-discovery checks pass.
+
 ### 5. Retirar módulos custom obsoletos
 
 Ejecutar `scripts/retire_unused_modules.php` mediante `drush php:script` mientras el

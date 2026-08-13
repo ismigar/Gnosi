@@ -16,20 +16,55 @@
     ],
     "require": {
         "composer/installers": "^2.0",
+        "cweagans/composer-patches": "^2.0",
         "drupal/addtoany": "^2.0",
         "drupal/admin_toolbar": "^3.6",
-        "drupal/core-composer-scaffold": "^10.5.2",
-        "drupal/core-project-message": "^10.5.2",
-        "drupal/core-recommended": "^10.5.2",
+        "drupal/ai": "^1.2",
+        "drupal/ai_agents": "^1.2",
+        "drupal/ckeditor5_fullscreen": "^1",
+        "drupal/ckeditor5_plugin_pack": "^1",
+        "drupal/ckeditor5_premium_features": "^1",
+        "drupal/classy": "^2",
+        "drupal/contact_block": "^2.0",
+        "drupal/core-composer-scaffold": "^11",
+        "drupal/core-project-message": "^11",
+        "drupal/core-recommended": "^11",
+        "drupal/crop": "^2",
+        "drupal/devel": "^5.1",
         "drupal/eu_cookie_compliance": "^1.25",
+        "drupal/file_delete": "^3",
+        "drupal/focal_point": "^2",
         "drupal/honeypot": "^2.2",
+        "drupal/imageapi_optimize": "^4.1",
+        "drupal/imageapi_optimize_resmushit": "^2.1@beta",
+        "drupal/imce": "^3",
+        "drupal/key": "^1.20",
+        "drupal/layout_builder_at": "^3.0",
+        "drupal/mcp": "1.x-dev",
         "drupal/metatag": "^2.1",
+        "drupal/multilingual_menu_urls": "^1.2",
+        "drupal/node_revision_delete": "^2",
+        "drupal/orphaned_files": "^1",
         "drupal/paragraphs": "^1.19",
         "drupal/pathauto": "^1.13",
+        "drupal/realname": "^2",
+        "drupal/redirect": "^1.12",
+        "drupal/remove_unused_files": "^2",
+        "drupal/simple_sitemap": "^4.2",
         "drupal/simplenews": "^4.1",
+        "drupal/sitemap": "^2",
         "drupal/smtp": "^1.4",
-        "drupal/webform": "^6.2",
-        "drush/drush": "^13.6"
+        "drupal/social_media_links": "^2",
+        "drupal/stable": "^2",
+        "drupal/token": "^1.17",
+        "drupal/tool": "^1.0@alpha",
+        "drupal/tvp": "^1.1",
+        "drupal/twig_tweak": "^3.4",
+        "drupal/ultimate_cron": "^2@beta",
+        "drupal/views_bulk_operations": "^4",
+        "drupal/webform": "^6.3",
+        "drush/drush": "^13",
+        "mglaman/composer-drupal-lenient": "^2.0"
     },
     "conflict": {
         "drupal/drupal": "*"
@@ -39,18 +74,31 @@
     "config": {
         "allow-plugins": {
             "composer/installers": true,
+            "cweagans/composer-patches": true,
+            "dealerdirect/phpcodesniffer-composer-installer": true,
             "drupal/core-composer-scaffold": true,
             "drupal/core-project-message": true,
+            "mglaman/composer-drupal-lenient": true,
+            "php-http/discovery": true,
             "phpstan/extension-installer": true,
-            "dealerdirect/phpcodesniffer-composer-installer": true,
-            "php-http/discovery": true
+            "symfony/runtime": true,
+            "tbachert/spi": true
         },
-        "sort-packages": true
+        "sort-packages": true,
+        "cache-dir": "./.cache/composer",
+        "platform": {
+            "php": "8.3"
+        },
+        "discard-changes": true
     },
     "extra": {
         "drupal-scaffold": {
             "locations": {
                 "web-root": "web/"
+            },
+            "file-mapping": {
+                "[web-root]/.htaccess": false,
+                "[web-root]/robots.txt": false
             }
         },
         "installer-paths": {
@@ -102,6 +150,20 @@
                 "  * Remove the plugin that prints this message:",
                 "      composer remove drupal/core-project-message"
             ]
+        },
+        "patches": {
+            "drupal/mcp": {
+                "Fix empty inputSchema validation": "patches/mcp-toolslist-inputschema-fix.patch"
+            }
+        },
+        "drupal-lenient": {
+            "allowed-list": [
+                "drupal/multilingual_menu_urls"
+            ]
         }
+    },
+    "require-dev": {
+        "drupal/core-dev": "^11",
+        "drupal/upgrade_status": "^4.3"
     }
 }
