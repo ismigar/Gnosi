@@ -6,6 +6,13 @@
 import { normalizeManagedBlockSpacing } from './managedMarkdownUtils';
 import { citationSentinelToHref, protectCitationMarkdownLinks } from '../../lib/citationDeepLink';
 
+const CALLOUT_TYPES = new Set(["info", "warning", "error", "success"]);
+
+const normalizeCalloutType = (value) => {
+    const normalized = String(value || "").trim().toLowerCase();
+    return CALLOUT_TYPES.has(normalized) ? normalized : "info";
+};
+
 // Sentinel for file:// links inside the editor.
 //
 // BlockNote/Tiptap (extension-link) blanks out any href whose protocol
@@ -158,6 +165,21 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
         return res;
     }
 
+    // A callout is a structural container. Its body must stay as child blocks
+    // so headings, columns, files, views, and nested callouts survive the
+    // Markdown round trip without being flattened into inline text.
+    if (block.type === "alert") {
+        const calloutType = normalizeCalloutType(block.props?.type);
+        let res = `${indent}:::callout{type=${calloutType}}\n`;
+        if (block.children) {
+            block.children.forEach(child => {
+                res += blockToMarkdown(child, editor, indentLevel + 1);
+            });
+        }
+        res += `${indent}:::\n`;
+        return res;
+    }
+
     // Serializes a toggle to a `:::toggle` fence, with the children indented
     // inside. The fence maps to BlockNote's built-in `toggleListItem` on
     // re-reading (see promoteCustomFences). Both `toggle` (legacy, removed) and
@@ -212,7 +234,7 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
         if (!payload.view_id && block.props?.section) {
             try {
                 Object.assign(payload, JSON.parse(block.props.section));
-            } catch (e) {
+            } catch {
                 payload.section = block.props.section;
             }
         }
@@ -311,13 +333,6 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
             const caption = block.props.caption ? `|${block.props.caption}` : "";
             content = block.type === "image" ? `![${caption}](${url})` : `[${block.type}: ${url}](${url})`;
             break;
-        }
-        case "alert": { // BlockNote calls callouts 'alert'
-            const alertType = block.props?.type || "info";
-            // The callout body is re-read raw (its own `> [!type]` parser), not via
-            // markdown-it, so it is NOT escaped (it is already round-trip safe by design).
-            const alertContent = inlineContentToMarkdown(block.content, { escape: false });
-            return `> [!${alertType}]\n> ${alertContent.replace(/\n/g, "\n> ")}`;
         }
         case "quote": {
             // Block quote → Markdown blockquote (`> …`). BlockNote supports the
@@ -689,6 +704,42 @@ const promoteEmbedBlocks = (blocks) => {
     });
 };
 
+// Restores the native file/audio/video blocks emitted by blockToMarkdown.
+// Markdown parsers see `[file: URL](URL)` as an ordinary paragraph link, so
+// without this promotion every saved media block becomes a plain link after a
+// reload. Recursing through children is required for media inside callouts,
+// columns, toggles, and list items.
+const promoteLinkedMediaBlocks = (blocks) => {
+    if (!blocks || !Array.isArray(blocks)) return blocks;
+    return blocks.map(block => {
+        let newBlock = block;
+        if (newBlock?.children && Array.isArray(newBlock.children)) {
+            newBlock = { ...newBlock, children: promoteLinkedMediaBlocks(newBlock.children) };
+        }
+        if (newBlock?.type !== 'paragraph') return newBlock;
+        const content = Array.isArray(newBlock.content) ? newBlock.content : null;
+        if (!content || content.length !== 1) return newBlock;
+        const item = content[0];
+        if (!item || item.type !== 'link' || !Array.isArray(item.content) || !item.href) return newBlock;
+        const label = item.content.map(c => (c && typeof c.text === 'string' ? c.text : '')).join('');
+        const match = label.match(/^(file|audio|video):\s*(.+)$/i);
+        if (!match) return newBlock;
+        const mediaType = match[1].toLowerCase();
+        const labelValue = match[2].trim();
+        return {
+            ...newBlock,
+            type: mediaType,
+            props: {
+                url: String(item.href),
+                name: labelValue === String(item.href) ? '' : labelValue,
+                caption: '',
+                ...(mediaType === 'file' ? {} : { showPreview: true }),
+            },
+            content: undefined,
+        };
+    });
+};
+
 // Converts paragraphs that contain only `[bookmark: URL](URL)` into
 // `linkcard` blocks (preview card). Mirror of `promoteEmbedBlocks`.
 const promoteLinkCards = (blocks) => {
@@ -781,12 +832,12 @@ const promoteCustomFences = (blocks) => {
         }
         if (lang === 'gnosi-synced') {
             // Fence ```gnosi-synced → `synced` block (content from a shared source).
-            let sid = '';
+            let sid;
             try { sid = String(JSON.parse(codeBlockText(block))?.sync_id || ''); } catch { sid = codeBlockText(block).trim(); }
             return { type: 'synced', props: { sync_id: sid } };
         }
         if (lang !== 'gnosi-view' && lang !== 'gnosi-database') return block;
-        let payload = null;
+        let payload;
         try { payload = JSON.parse(codeBlockText(block)); } catch { return block; }
         if (!payload || typeof payload !== 'object') return block;
         if (lang === 'gnosi-database') {
@@ -1435,7 +1486,7 @@ const parsePlainMarkdownBlock = async (text, editor) => {
         return result;
     })();
 
-    let blocks = [];
+    let blocks;
     if (editor?.tryParseMarkdownToBlocks) {
         try {
             // Race with timeout: if the BlockNote/markdown-it parser enters
@@ -1532,7 +1583,7 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
             const trimmed = line.trim();
 
             // STRICT RULE: The directive must be the only thing on the trimmed line
-            const startMatch = trimmed.match(/^(:{3,})(column-list|column|toggle-heading|toggle|gnosi-ignore)(.*)$/);
+            const startMatch = trimmed.match(/^(:{3,})(column-list|column|callout|toggle-heading|toggle|gnosi-ignore)(.*)$/);
             
             if (startMatch) {
                 const typeRaw = startMatch[2];
@@ -1554,6 +1605,7 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
                 }
 
                 let type = typeRaw === "column-list" ? "columnList" : typeRaw;
+                if (typeRaw === "callout") type = "alert";
                 if (typeRaw === "toggle-heading") type = "heading";
                 // `:::toggle` maps to BlockNote's built-in `toggleListItem`, which
                 // uses `createToggleWrapper` (vanilla, working) to render the
@@ -1569,7 +1621,7 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
                 
                 while (j < inputLines.length && depth > 0) {
                     const currentTrimmed = inputLines[j].trim();
-                    if (currentTrimmed.match(/^:{3,}(column-list|column|toggle-heading|toggle)\b/)) depth++;
+                    if (currentTrimmed.match(/^:{3,}(column-list|column|callout|toggle-heading|toggle|gnosi-ignore)\b/)) depth++;
                     else if (currentTrimmed.match(/^:{3,}$/)) depth--;
                     
                     if (depth > 0) innerLines.push(inputLines[j]);
@@ -1595,6 +1647,18 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
                     props: { backgroundColor: "default" },
                     children: await parseRecursive(_innerDedented)
                 };
+
+                if (type === "alert") {
+                    const typeMatch = label.match(/\{[^}]*\btype\s*=\s*([^\s}]+)[^}]*\}/i);
+                    block.props.type = normalizeCalloutType(typeMatch?.[1]);
+                    if (!block.children || block.children.length === 0) {
+                        block.children = [{
+                            type: "paragraph",
+                            props: { backgroundColor: "default", textColor: "default", textAlignment: "left" },
+                            content: [],
+                        }];
+                    }
+                }
 
                 // For the "column" type, the width must be added according to the @blocknote/xl-multi-column schema
                 if (type === "column") {
@@ -1681,24 +1745,23 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
                         i++;
                     }
                     
-                    // We parse the callout content as INLINE markdown
-                    // (same path as normal text) so that **bold**, _italics_,
-                    // `code`, [links](url) and [[wikilinks]] survive the
-                    // round-trip. It used to be saved as PLAIN text → on reload it
-                    // saw the literal markdown ("**bold**") instead of the formatting.
-                    const innerText = calloutLines.join("\n");
-                    let alertContent = [{ type: "text", text: innerText, styles: {} }];
-                    try {
-                        const innerParsed = await parsePlainMarkdownBlock(innerText, editor);
-                        const inline = innerParsed?.[0]?.content;
-                        if (Array.isArray(inline) && inline.length > 0) alertContent = inline;
-                    } catch { /* we keep the plain text as a fallback */ }
+                    // Legacy Obsidian callouts are promoted to the same nested
+                    // representation as fenced Gnosi callouts. This preserves
+                    // block structure instead of collapsing the body to one line.
+                    let children = await parseRecursive(calloutLines);
+                    if (!children.length) {
+                        children = [{
+                            type: "paragraph",
+                            props: { backgroundColor: "default", textColor: "default", textAlignment: "left" },
+                            content: [],
+                        }];
+                    }
 
                     blocks.push({
                         id: Math.random().toString(36).substring(7),
                         type: "alert",
-                        props: { type: calloutType },
-                        content: alertContent
+                        props: { type: normalizeCalloutType(calloutType) },
+                        children,
                     });
                     continue;
                 }
@@ -1769,7 +1832,7 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
             let textBuffer = [];
             while (i < inputLines.length) {
                 const nextTrimmed = inputLines[i].trim();
-                if (nextTrimmed.match(/^:{3,}(column-list|column|toggle-heading|toggle)\b/)) break;
+                if (nextTrimmed.match(/^:{3,}(column-list|column|callout|toggle-heading|toggle|gnosi-ignore)\b/)) break;
                 textBuffer.push(inputLines[i]);
                 i++;
             }
@@ -1825,7 +1888,7 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
     return promoteFootnotes(
         promoteHeadingParagraphs(
             promoteToc(
-                restoreImageCaptions(promoteCustomFences(promoteBibliographyBlocks(promoteLinkCards(promoteEmbedBlocks(parsed)))))
+                restoreImageCaptions(promoteCustomFences(promoteBibliographyBlocks(promoteLinkCards(promoteLinkedMediaBlocks(promoteEmbedBlocks(parsed))))))
             )
         ),
         footnoteDefs,
