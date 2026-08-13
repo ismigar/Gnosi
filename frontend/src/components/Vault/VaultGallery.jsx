@@ -21,6 +21,7 @@ import {
     normalizeRelationValues,
     unlinkRelationFromRecord,
 } from './relationItemUtils';
+import { AutoriaDisplay } from './AutoriaField';
 import { GalleryContentPreview, GalleryOpenButton } from './GalleryCardPreview';
 
 export function VaultGallery({ notes, onNoteSelect, onOpenParallel, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onEditSchema, onCreateRecord, onDeleteSelected, onDeletePage, onApplyTemplate, templates = [], onUpdateNote, searchTerm: externalSearchTerm, registerNavApi, onExitTop, onExitBottom, onFocusShell }) {
@@ -486,6 +487,8 @@ export function VaultGallery({ notes, onNoteSelect, onOpenParallel, schema = {},
                     </div>
                 );
             }
+            case 'autoria':
+                return <AutoriaDisplay value={value} />;
             case 'url':
                 return (
                     <a href={value} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-[var(--gnosi-primary)] hover:underline flex items-center gap-1 truncate text-xs">
