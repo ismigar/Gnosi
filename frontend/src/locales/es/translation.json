@@ -1042,6 +1042,8 @@
     "turn_into_subtext": "Convierte el bloque actual",
     "column_layout_2": "2 columnas",
     "column_layout_3": "3 columnas",
+    "column_layout_4": "4 columnas",
+    "column_layout_5": "5 columnas",
     "column_layout_subtext": "Insertar un diseño en columnas",
     "callout": "Callout",
     "callout_subtext": "Contenedor para cualquier tipo de bloque",

@@ -102,6 +102,37 @@ describe('nested callout Markdown mapping', () => {
         expect(blocksToRichMarkdown(restored)).toContain(':::callout{type=warning}');
     });
 
+    it('round-trips a five-column layout inside a callout', async () => {
+        const source = [{
+            type: 'alert',
+            props: { type: 'info' },
+            children: [{
+                type: 'columnList',
+                children: Array.from({ length: 5 }, (_, index) => ({
+                    type: 'column',
+                    props: { width: 1 },
+                    children: [{
+                        type: 'paragraph',
+                        content: text(`Column ${index + 1}`),
+                    }],
+                })),
+            }],
+        }];
+
+        const markdown = blocksToRichMarkdown(source);
+        const restored = await richMarkdownToBlocks(markdown, parserEditor);
+        const columns = restored[0].children[0].children;
+
+        expect(columns).toHaveLength(5);
+        expect(columns.map(column => column.children[0].content[0].text)).toEqual([
+            'Column 1',
+            'Column 2',
+            'Column 3',
+            'Column 4',
+            'Column 5',
+        ]);
+    });
+
     it('falls back to an editable info callout for invalid or empty input', async () => {
         const restored = await richMarkdownToBlocks(
             ':::callout{type=unknown}\n:::',

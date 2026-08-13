@@ -1041,6 +1041,8 @@
     "turn_into_subtext": "Converteix el bloc actual",
     "column_layout_2": "2 columnes",
     "column_layout_3": "3 columnes",
+    "column_layout_4": "4 columnes",
+    "column_layout_5": "5 columnes",
     "column_layout_subtext": "Insereix un disseny en columnes",
     "callout": "Callout",
     "callout_subtext": "Contenidor per a qualsevol tipus de bloc",
