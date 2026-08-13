@@ -4379,7 +4379,7 @@ export default function VaultDashboard() {
             {
                 promptModal.isOpen && (
                     <div
-                        className="fixed inset-0 bg-black/60 backdrop-blur-[2px] z-[100] flex items-center justify-center p-4"
+                        className="fixed inset-0 bg-black/60 backdrop-blur-[2px] z-[var(--z-modal)] flex items-center justify-center p-4"
                     >
                         <form
                             onSubmit={executeCreateContent}
