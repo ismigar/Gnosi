@@ -39,6 +39,18 @@ class LocalStagingUnitTest(unittest.TestCase):
         self.assertIn("proxy'] = 'http://127.0.0.1:9'", settings)
         self.assertNotIn("temenosismael.org", settings)
 
+    def test_web_server_uses_drupal_web_document_root(self):
+        command = MODULE.web_server_command()
+
+        document_root_index = command.index("-t") + 1
+        self.assertEqual(command[document_root_index], str(MODULE.SITE_ROOT / "web"))
+        self.assertEqual(command[-1], str(MODULE.STAGING_ROOT / "router.php"))
+
+    def test_router_decodes_url_encoded_static_file_paths(self):
+        router = MODULE.router_contents()
+
+        self.assertIn("rawurldecode(parse_url", router)
+
 
 if __name__ == "__main__":
     unittest.main()

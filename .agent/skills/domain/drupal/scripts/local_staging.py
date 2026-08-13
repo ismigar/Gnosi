@@ -483,6 +483,18 @@ $config['smtp.settings']['smtp_port'] = 9;
 """
 
 
+def router_contents() -> str:
+    """Return the PHP built-in-server router for the local Drupal clone."""
+    return """<?php
+$path = rawurldecode(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH));
+$file = __DIR__ . '/site/web' . $path;
+if ($path !== '/' && is_file($file)) {
+  return FALSE;
+}
+require __DIR__ . '/site/web/index.php';
+"""
+
+
 def write_local_configuration(state: dict[str, str]) -> None:
     """Write local Drupal settings and the built-in-server router."""
     settings = SITE_ROOT / "web" / "sites" / "default" / "settings.local.php"
@@ -493,17 +505,7 @@ def write_local_configuration(state: dict[str, str]) -> None:
     settings.chmod(0o600)
     (STAGING_ROOT / "private").mkdir(parents=True, exist_ok=True)
     (STAGING_ROOT / "tmp").mkdir(parents=True, exist_ok=True)
-    (STAGING_ROOT / "router.php").write_text(
-        """<?php
-$path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-$file = __DIR__ . '/site/web' . $path;
-if ($path !== '/' && is_file($file)) {
-  return FALSE;
-}
-require __DIR__ . '/site/web/index.php';
-""",
-        encoding="utf-8",
-    )
+    (STAGING_ROOT / "router.php").write_text(router_contents(), encoding="utf-8")
 
 
 def composer_install() -> None:
@@ -675,20 +677,27 @@ def web_is_running() -> bool:
         return False
 
 
+def web_server_command() -> list[str]:
+    """Build the loopback web command with Drupal's web root as document root."""
+    return [
+        str(PHP_BIN),
+        "-d",
+        "sendmail_path=/usr/bin/false",
+        "-S",
+        f"{LOCAL_HOST}:{LOCAL_WEB_PORT}",
+        "-t",
+        str(SITE_ROOT / "web"),
+        str(STAGING_ROOT / "router.php"),
+    ]
+
+
 def start() -> None:
     """Start the loopback-only PHP server in the background."""
     verify()
     if web_is_running():
         print(f"Local staging is already running at http://{LOCAL_HOST}:{LOCAL_WEB_PORT}")
         return
-    command = [
-        str(PHP_BIN),
-        "-d",
-        "sendmail_path=/usr/bin/false",
-        "-S",
-        f"{LOCAL_HOST}:{LOCAL_WEB_PORT}",
-        str(STAGING_ROOT / "router.php"),
-    ]
+    command = web_server_command()
     with WEB_LOG.open("a", encoding="utf-8") as log:
         process = subprocess.Popen(
             command,

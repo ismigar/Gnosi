@@ -42,6 +42,11 @@ clone to contact production integrations.
 - Never expose a dump through the production document root.
 - Block Drupal outbound HTTP by default and disable PHP sendmail.
 - Do not start the local web server until database safety updates complete.
+- Set PHP's document root explicitly to the cloned `site/web` directory. The
+  router returns `FALSE` for static files, so a server rooted at the staging
+  metadata directory returns 404 for every theme CSS, JavaScript, and image.
+- URL-decode the router path before checking the filesystem so public assets
+  with spaces or other encoded characters are served as static files.
 - Do not export configuration or write any data back to production.
 - Make the clone visible by overriding the site name with a local-stage label.
 
