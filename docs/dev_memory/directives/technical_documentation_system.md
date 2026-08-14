@@ -46,11 +46,13 @@ portal automatically.
 
 The canonical public URL is `https://gnosi.temenosismael.org/engineering/`, using
 the custom domain configured for the public `ismigar/Gnosi` GitHub Pages site.
-`scripts/sync_repos.py` exports `monorepo/` to the root of `ismigar/Gnosi`, so
-the Pages workflow belongs at
-`monorepo/.github/workflows/documentation-pages.yml`. In the public repository
-it becomes `.github/workflows/documentation-pages.yml` and builds the MkDocs
-project from `apps/gnosi/`.
+`scripts/sync_repos.py` exports an explicit public allowlist from `monorepo/`
+to the root of `ismigar/Gnosi`. The allowlist includes the Gnosi application,
+its shared packages, and public repository metadata, but excludes unrelated
+applications and private workspace projects. The Pages workflow therefore
+belongs at `monorepo/.github/workflows/documentation-pages.yml`. In the public
+repository it becomes `.github/workflows/documentation-pages.yml` and builds
+the MkDocs project from `apps/gnosi/`.
 
 The workflow publishes `apps/gnosi/site/`, not only
 `apps/gnosi/site/engineering/`, so the repository Pages base path retains the

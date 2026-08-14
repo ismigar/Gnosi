@@ -95,7 +95,6 @@ apps/gnosi/          # The Gnosi app
 ├── electron/        # Electron desktop wrapper (packaged installers)
 └── pipeline/        # Python skills/scripts (analysis, integrations, tools)
 packages/            # Shared MCP servers and packages
-scripts/             # Repo tooling
 ```
 
 ## 🤝 Contributing
