@@ -1,11 +1,13 @@
 """Safety and catalog tests for first-party Gnosi agent tools."""
 import asyncio
 import json
+from types import SimpleNamespace
 
 import pytest
 from fastapi import BackgroundTasks, HTTPException
 
 from backend.agent import gnosi_tools
+from backend.agent import vault_admin_tools
 from backend.agent.action_confirmations import confirmation_context
 from backend.agent.gnosi_tools import (
     CONFIRMED_WRITE_TOOLS,
@@ -96,6 +98,75 @@ def test_tool_result_limits_are_bounded():
     assert _bounded_limit(0) == 20
     assert _bounded_limit(-3) == 1
     assert _bounded_limit(10_000) == 100
+
+
+def test_vault_table_query_uses_the_table_index_for_structured_authors(
+    monkeypatch,
+):
+    from backend.api import vault_routes
+
+    pages = [
+        SimpleNamespace(
+            id="mine",
+            title="My resource",
+            metadata={
+                "id": "mine",
+                "title": "My resource",
+                "table_id": "resources",
+                "Autoría": [{
+                    "nom": "Ismael",
+                    "cognom1": "García",
+                    "cognom2": "Fernández",
+                }],
+            },
+        ),
+        SimpleNamespace(
+            id="other",
+            title="Other resource",
+            metadata={
+                "id": "other",
+                "title": "Other resource",
+                "table_id": "resources",
+                "Autoría": [{
+                    "nom": "Someone",
+                    "cognom1": "Else",
+                    "cognom2": "",
+                }],
+            },
+        ),
+    ]
+    refreshed = []
+    monkeypatch.setattr(
+        gnosi_tools,
+        "_table",
+        lambda _identifier: {"id": "resources", "name": "Resources"},
+    )
+    monkeypatch.setattr(
+        vault_routes,
+        "_get_pages_for_table",
+        lambda table_id: pages if table_id == "resources" else [],
+    )
+    monkeypatch.setattr(
+        vault_routes,
+        "_refresh_table_pages_metadata",
+        lambda selected: refreshed.append(selected),
+    )
+    monkeypatch.setattr(
+        gnosi_tools,
+        "_page_files",
+        lambda: (_ for _ in ()).throw(
+            AssertionError("The indexed query must not scan Vault files")
+        ),
+    )
+
+    payload = json.loads(vault_admin_tools.query_vault_table.invoke({
+        "table_id_or_name": "Resources",
+        "property_filters": {"Autoría": "Ismael García Fernández"},
+        "limit": 100,
+    }))
+
+    assert refreshed == [pages]
+    assert [row["id"] for row in payload["rows"]] == ["mine"]
 
 
 def test_read_tools_operate_on_the_active_vault(tmp_path, monkeypatch):

@@ -1435,6 +1435,8 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                                     || t('errors.unknown', 'Unknown error');
                                 if (data.code === 'agent_model_unavailable') {
                                     errorContent = t('chat.agent_model_unavailable', 'The selected agent model is unavailable. Configure the agent and try again.');
+                                } else if (data.code === 'agent_turn_timeout') {
+                                    errorContent = t('chat.turn_timeout', 'The response exceeded the 120-second processing limit. Please try again.');
                                 }
                                 if (errorContent.includes('rate_limit_exceeded')) {
                                     errorContent = t('chat.rate_limit_message', "You've exceeded this agent model's quota. Try a different agent or wait a few minutes.");

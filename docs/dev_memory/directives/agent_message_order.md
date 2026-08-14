@@ -277,3 +277,14 @@ such as Mistral.
   repeating successful read tools. It increases latency and context volume
   without guaranteeing an answer; switch to a tool-free synthesis invocation
   after the bounded read budget instead.
+- Do not implement a table query by iterating and opening every Vault page. On a
+  File Provider mount, a selective filter may need the complete scan and exhaust
+  the whole-turn deadline. Read the per-table page-index snapshot, refresh only
+  that table's incomplete metadata stubs, and filter the bounded rows in memory.
+- Do not compare a model-visible scalar with a relation-like list or object by
+  Python type identity alone. Apply deterministic normalized equality to each
+  structured item so a full person name can match its stored name components.
+- Do not register the module-context event listener in a parent passive effect
+  when a child publishes its initial context from a passive effect. Install the
+  listener in the layout phase; otherwise the first event can be lost and the
+  agent falls back from an exact active view to a broad Vault query.

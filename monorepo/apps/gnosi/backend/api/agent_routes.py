@@ -224,6 +224,13 @@ CHAT_ATTACHMENT_TYPES = {
 _THREAD_LOCKS: weakref.WeakValueDictionary[str, asyncio.Lock] = weakref.WeakValueDictionary()
 
 
+def _agent_stream_error_code(error: BaseException) -> Optional[str]:
+    """Return a stable client code for locally enforced stream failures."""
+    if isinstance(error, TimeoutError):
+        return "agent_turn_timeout"
+    return None
+
+
 def _validated_identifier(value: str, label: str) -> str:
     candidate = (value or "").strip()
     if not IDENTIFIER_RE.fullmatch(candidate):
@@ -1638,6 +1645,7 @@ async def chat_endpoint(
             total_in_tok = 0
             total_out_tok = 0
             usage_recorded = False
+            active_tool_names: set[str] = set()
             confirmation_token = bind_confirmation_context(
                 vault_scope=vault_scope,
                 workspace_id=workspace_context.workspace_id,
@@ -1723,18 +1731,26 @@ async def chat_endpoint(
                                         tool_calls = getattr(msg, "tool_calls", None) or []
                                         if tool_calls:
                                             for tool_call in tool_calls:
+                                                tool_name = str(
+                                                    tool_call.get("name") or ""
+                                                ).strip()
+                                                if tool_name:
+                                                    active_tool_names.add(tool_name)
                                                 yield _tool_stream_event(
                                                     "tool_start",
-                                                    tool_call.get("name"),
+                                                    tool_name,
                                                     node_name,
                                                     tool_metadata_by_name.get(
-                                                        tool_call.get("name"),
+                                                        tool_name,
                                                     ),
                                                 )
                                             continue
 
                                         content = _message_text(getattr(msg, "content", ""))
                                         if msg.type == "tool":
+                                            active_tool_names.discard(
+                                                str(msg.name or "").strip(),
+                                            )
                                             pending_confirmation = confirmation_event(
                                                 content,
                                             )
@@ -1784,8 +1800,9 @@ async def chat_endpoint(
             except Exception as e:
                 error_str = str(e)
                 log.exception(
-                    "Agent event generator failed (%s): %s",
+                    "Agent event generator failed (%s; active_tools=%s): %s",
                     type(e).__name__,
+                    sorted(active_tool_names),
                     error_str or "no exception message",
                 )
 
@@ -1802,7 +1819,7 @@ async def chat_endpoint(
                 ))
                 reason = (
                     None
-                    if isinstance(e, SessionBusyError)
+                    if isinstance(e, (SessionBusyError, TimeoutError))
                     else record_failure(
                         provider,
                         model_id,
@@ -1811,7 +1828,13 @@ async def chat_endpoint(
                     )
                 )
 
-                if reason and reason in FAILURE_MESSAGES:
+                error_code = _agent_stream_error_code(e)
+                if isinstance(e, TimeoutError):
+                    friendly_error = (
+                        f"The response exceeded the {TURN_TIMEOUT_SECONDS}-second "
+                        "processing limit. Try again."
+                    )
+                elif reason and reason in FAILURE_MESSAGES:
                     friendly_error = FAILURE_MESSAGES[reason]
                     if blames_the_model(reason):
                         evidence = model_evidence(
@@ -1836,7 +1859,10 @@ async def chat_endpoint(
                 if not friendly_error:
                     friendly_error = "An unexpected agent error occurred."
 
-                yield json.dumps({"type": "error", "content": friendly_error}) + "\n"
+                error_payload = {"type": "error", "content": friendly_error}
+                if error_code:
+                    error_payload["code"] = error_code
+                yield json.dumps(error_payload) + "\n"
                 yield json.dumps({
                     "type": "done",
                     "has_response": True,

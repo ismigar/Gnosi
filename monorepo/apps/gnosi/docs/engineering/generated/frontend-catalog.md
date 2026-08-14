@@ -31,8 +31,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
-| `application root` | 3 | 278 | 0 |
-| `components` | 201 | 78765 | 199 |
+| `application root` | 3 | 281 | 0 |
+| `components` | 201 | 78767 | 199 |
 | `context` | 1 | 177 | 6 |
 | `hooks` | 16 | 1239 | 7 |
 | `lib` | 18 | 2022 | 6 |
@@ -45,7 +45,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Source | Lines | Export signals | Literal API paths |
 | --- | ---: | --- | --- |
-| [`frontend/src/App.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/App.jsx) | 198 | `App` | — |
+| [`frontend/src/App.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/App.jsx) | 201 | `App` | — |
 | [`frontend/src/i18n.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/i18n.js) | 41 | `i18n` | — |
 | [`frontend/src/main.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/main.jsx) | 39 | — | — |
 
@@ -60,7 +60,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/AI/useAIResources.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AI/useAIResources.js) | 303 | `useAIResources` | `/api/ai/approvals`, `/api/ai/automations`, `/api/ai/capability-audit`, `/api/ai/jobs`, `/api/ai/skills`, `/api/ai/tools` |
 | [`frontend/src/components/AIModelComparisonModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AIModelComparisonModal.jsx) | 917 | `AIModelComparisonModal` | `/api/ai/model-catalog`, `/api/ai/model-comparison`, `/api/ai/models`, `/api/ai/providers/artificial_analysis/credentials` |
 | [`frontend/src/components/AIUsageHistoryModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AIUsageHistoryModal.jsx) | 323 | `AIUsageHistoryModal` | `/api/ai/usage/history` |
-| [`frontend/src/components/AgentChat.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AgentChat.jsx) | 2083 | `AgentChat` | `/api/chat`, `/api/chat/attachments`, `/api/config`, `/api/vault/databases`, `/api/vault/pages`, `/api/vault/tables` |
+| [`frontend/src/components/AgentChat.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AgentChat.jsx) | 2085 | `AgentChat` | `/api/chat`, `/api/chat/attachments`, `/api/config`, `/api/vault/databases`, `/api/vault/pages`, `/api/vault/tables` |
 | [`frontend/src/components/AgentContextSources.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AgentContextSources.jsx) | 566 | `AgentContextSources`, `function` | `/api/agent/context-sources`, `/api/agent/internal-sources`, `/api/vault/assets/upload`, `/api/vault/pages`, `/api/vault/tables` |
 | [`frontend/src/components/ApiTokensSettings.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/ApiTokensSettings.jsx) | 134 | `ApiTokensSettings`, `function` | `/api/tokens` |
 | [`frontend/src/components/AppHeader.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AppHeader.jsx) | 32 | `AppHeader` | — |

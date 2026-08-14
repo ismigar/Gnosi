@@ -45,3 +45,8 @@ ToolMessage. Reserve `RuntimeError` for no available provider. Map timeouts in
 - Do not implement a provider-agnostic `ThreadPoolExecutor` timeout. It leaves
   the underlying HTTP thread and connection running after the future times
   out. Client-level timeouts abort the request and release resources.
+- Distinguish the locally enforced whole-turn `TimeoutError` from a provider
+  timeout. Do not record it as provider reliability evidence and do not collapse
+  its empty exception text into a generic error. Stream the stable
+  `agent_turn_timeout` code so every client locale can explain the 120-second
+  processing limit.

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, Suspense, lazy } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useState, Suspense, lazy } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AppSidebar } from './components/AppSidebar';
@@ -106,12 +106,15 @@ function App() {
     ? moduleContextOverride.refs
     : defaultModuleContextRefs;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const updateModuleContext = (event) => {
       if (Array.isArray(event.detail)) {
         setModuleContextOverride({ locationKey: location.key, refs: event.detail });
       }
     };
+    // VaultDashboard publishes its initial context from a passive effect. Install
+    // the parent listener during the layout phase so that first event cannot race
+    // ahead and leave the assistant with only the broad route fallback.
     window.addEventListener('gnosi:module-context', updateModuleContext);
     return () => window.removeEventListener('gnosi:module-context', updateModuleContext);
   }, [location.key]);
