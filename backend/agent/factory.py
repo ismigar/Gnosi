@@ -5,7 +5,7 @@ import json
 from typing import Annotated, Any, Iterable, TypedDict, List, Sequence, Optional
 import logging
 import time
-from langchain_core.messages import BaseMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, BaseMessage, SystemMessage, ToolMessage
 from langgraph.graph import StateGraph, END, START
 from langgraph.prebuilt import ToolNode
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
@@ -633,18 +633,29 @@ def _reader_context_analysis_requested(message: str) -> bool:
     )
 
 
+def _latest_context_tool_since_latest_user(
+    messages: Iterable[Any],
+    context_tool_names: set[str],
+) -> str:
+    """Return the newest context tool used during the current human turn."""
+    for message in reversed(list(messages)):
+        message_type = str(getattr(message, "type", "") or "")
+        if message_type == "human":
+            return ""
+        tool_name = str(getattr(message, "name", "") or "")
+        if message_type == "tool" and tool_name in context_tool_names:
+            return tool_name
+    return ""
+
+
 def _context_tool_used_since_latest_user(
     messages: Iterable[Any],
     context_tool_names: set[str],
 ) -> bool:
     """Return whether the current human turn already inspected attached context."""
-    for message in reversed(list(messages)):
-        message_type = str(getattr(message, "type", "") or "")
-        if message_type == "human":
-            return False
-        if message_type == "tool" and str(getattr(message, "name", "") or "") in context_tool_names:
-            return True
-    return False
+    return bool(
+        _latest_context_tool_since_latest_user(messages, context_tool_names)
+    )
 
 
 def _latest_reader_analysis_job_id(messages: Iterable[Any]) -> str:
@@ -696,6 +707,60 @@ def _required_reader_context_tool(message: str) -> str:
     ):
         return "inspect_reader_context"
     return "search_reader_context"
+
+
+def _required_vault_context_tool(
+    message: str,
+    context_refs: Iterable[dict],
+) -> str:
+    """Choose the first deterministic operation for attached Vault context."""
+    refs = list(context_refs or [])
+    text = " ".join((message or "").strip().lower().split())
+    has_table = any(ref.get("type") == "table" for ref in refs)
+    exhaustive = re.search(
+        r"\b(?:tot(?:s|es)?|all|every|entire|llista|llistar|list|"
+        r"quants?|quantes?|cu[aá]nt[oa]s?|combien|count|registres?|"
+        r"registros?|records?|rows?)\b",
+        text,
+        re.IGNORECASE,
+    )
+    if has_table and exhaustive:
+        return "query_context_table"
+    if len(refs) == 1 and refs[0].get("type") == "page":
+        return "read_context_source"
+    return "search_context"
+
+
+def _deterministic_vault_context_call(
+    tool_name: str,
+    context_refs: Iterable[dict],
+) -> Optional[dict]:
+    """Build an exact initial Vault read without relying on model tool choice."""
+    source_type = {
+        "query_context_table": "table",
+        "read_context_source": "page",
+    }.get(tool_name)
+    if not source_type:
+        return None
+    source_ref = next(
+        (
+            str(ref.get("id") or ref.get("ref") or "").strip()
+            for ref in (context_refs or [])
+            if ref.get("type") == source_type and ref.get("ref")
+        ),
+        "",
+    )
+    if not source_ref:
+        return None
+    arguments = {"source_id": source_ref}
+    if tool_name == "query_context_table":
+        arguments.update({"offset": 0, "limit": 100})
+    return {
+        "name": tool_name,
+        "args": arguments,
+        "id": f"gnosi-context-{time.time_ns()}",
+        "type": "tool_call",
+    }
 
 
 def _authorized_brain_write_tools(names: set[str]) -> List[Any]:
@@ -1956,10 +2021,11 @@ async def create_agent_workflow(
                 + ". Explain this limitation if the request depends on one of them."
             )
         selected_brain_llm = brain_llm
-        if context_tools and not _context_tool_used_since_latest_user(
+        latest_context_tool = _latest_context_tool_since_latest_user(
             messages,
             context_tool_names,
-        ):
+        )
+        if context_tools and not latest_context_tool:
             if any(
                 ref.get("type") == "internal" and ref.get("ref") == "reader"
                 for ref in context_refs
@@ -1974,7 +2040,22 @@ async def create_agent_workflow(
                     routing_message,
                 )
             else:
-                required_context_tool = "search_context"
+                required_context_tool = _required_vault_context_tool(
+                    latest_user,
+                    context_refs,
+                )
+                deterministic_call = _deterministic_vault_context_call(
+                    required_context_tool,
+                    context_refs,
+                )
+                if deterministic_call:
+                    return {
+                        "messages": [AIMessage(
+                            content="",
+                            tool_calls=[deterministic_call],
+                        )],
+                        "next": "supervisor",
+                    }
             selected_brain_llm = forced_context_llms.get(
                 required_context_tool,
                 next(iter(forced_context_llms.values()), brain_llm),
@@ -1984,6 +2065,20 @@ async def create_agent_workflow(
                 f"MUST call {required_context_tool} as an actual tool. Do not "
                 "answer, ask the user to attach data, or claim the source is "
                 "unavailable before that tool result is returned."
+            )
+        elif (
+            latest_context_tool in {"query_context_table", "read_context_source"}
+            and not current_authorized_names
+        ):
+            # A table query already returns an exact, bounded page plus total and
+            # pagination metadata. Removing tool bindings for the synthesis call
+            # guarantees termination even with models that compulsively repeat
+            # the same successful tool call.
+            selected_brain_llm = llm
+            brain_system += (
+                "\nThe exact table-query result is already present in this turn. "
+                "Answer directly from it now. Do not call another tool, repeat "
+                "the query, or claim that the attached table is unavailable."
             )
         response = selected_brain_llm.invoke(
             [SystemMessage(content=brain_system)] + _bounded_model_messages(messages, message_budget_chars),

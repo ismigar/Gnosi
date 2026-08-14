@@ -59,7 +59,7 @@ def test_internal_scope_is_bounded_and_normalized():
     assert notion["database_ids"] == ["db-1"]
 
 
-def test_turn_context_accepts_internal_sources_only():
+def test_turn_context_accepts_safe_gnosi_sources_only():
     request = ChatRequest(
         message="Summarize this Reader scope",
         context_refs=[{
@@ -71,6 +71,26 @@ def test_turn_context_accepts_internal_sources_only():
     )
 
     assert request.context_refs[0].scope["limit"] == internal_sources.MAX_RESULT_ITEMS
+
+    vault_request = ChatRequest(
+        message="Find records in the current table",
+        context_refs=[{
+            "id": "vault-table:resources",
+            "type": "table",
+            "ref": "resources",
+            "scope": {
+                "view_id": "my-resources",
+                "view_name": "My resources",
+                "ignored": True,
+            },
+        }],
+    )
+    assert vault_request.context_refs[0].type == "table"
+    assert vault_request.context_refs[0].scope == {
+        "view_id": "my-resources",
+        "view_name": "My resources",
+    }
+
     with pytest.raises(ValidationError):
         ChatRequest(
             message="Fetch an arbitrary URL",

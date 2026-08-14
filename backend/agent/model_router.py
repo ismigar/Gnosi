@@ -250,6 +250,68 @@ def apply_catalog_prices(registry: List[Dict[str, Any]],
     return priced
 
 
+def hydrate_registry_metadata(
+    registry: object,
+    metadata_index: Optional[Dict[str, Dict[str, Any]]] = None,
+) -> List[Dict[str, Any]]:
+    """Fill canonical metadata without broadening unknown custom models.
+
+    A historical budget-only save rewrote known routes with the placeholder
+    tuple ``tags=[]``, ``context_window=8192``, and ``quality=2``. Treat that
+    exact tuple, or genuinely omitted fields, as missing. Explicit agent-level
+    capability overrides remain authoritative in ``factory._model_supports_tools``.
+    """
+    rows = [dict(row) for row in (registry or []) if isinstance(row, dict)]
+    if metadata_index is None:
+        try:
+            from backend.agent.model_catalog import catalog_model_metadata_index
+
+            metadata_index = catalog_model_metadata_index()
+        except Exception:
+            metadata_index = {}
+    metadata_index = metadata_index or {}
+
+    hydrated: List[Dict[str, Any]] = []
+    for row in rows:
+        provider = str(row.get("provider") or "").strip().lower()
+        model_id = str(row.get("model_id") or "").strip()
+        metadata = metadata_index.get(f"{provider}:{model_id}")
+        if not metadata:
+            hydrated.append(row)
+            continue
+
+        try:
+            context_window = int(row.get("context_window") or 8192)
+        except (TypeError, ValueError):
+            context_window = 8192
+        try:
+            quality = int(row.get("quality") or 2)
+        except (TypeError, ValueError):
+            quality = 2
+        tags = row.get("tags")
+        legacy_placeholder = (
+            isinstance(tags, list)
+            and not tags
+            and context_window == 8192
+            and quality == 2
+        )
+
+        if "is_local" not in row:
+            row["is_local"] = bool(metadata.get("is_local", False))
+        if "cost_in" not in row:
+            row["cost_in"] = float(metadata.get("cost_in") or 0)
+        if "cost_out" not in row:
+            row["cost_out"] = float(metadata.get("cost_out") or 0)
+        if "context_window" not in row or context_window <= 0 or legacy_placeholder:
+            row["context_window"] = int(metadata.get("context_window") or 8192)
+        if "quality" not in row or quality <= 0 or legacy_placeholder:
+            row["quality"] = int(metadata.get("quality") or 2)
+        if not isinstance(tags, list) or legacy_placeholder:
+            row["tags"] = [str(tag) for tag in (metadata.get("tags") or [])]
+        hydrated.append(row)
+    return hydrated
+
+
 def load_registry(with_catalog_prices: bool = True) -> List[Dict[str, Any]]:
     """Read explicitly configured `ai.models` without runtime model seeds.
 
@@ -263,6 +325,7 @@ def load_registry(with_catalog_prices: bool = True) -> List[Dict[str, Any]]:
         registry = strip_legacy_registry_rows(models)
     except Exception:
         pass
+    registry = hydrate_registry_metadata(registry)
     if not with_catalog_prices:
         return registry
     try:

@@ -5,6 +5,7 @@ Pure functions only — no network, no disk (cf. memory
 """
 from backend.agent.model_catalog import (
     FEATURED_PROVIDERS,
+    build_model_metadata_index,
     build_price_index,
     OPENAI_COMPAT_URLS,
     build_catalog,
@@ -166,3 +167,16 @@ def test_build_price_index_flattens_catalog():
     assert "together:img-only" not in index
     assert build_price_index({}) == {}
     assert build_price_index({"providers": [{"models": [{"id": "x"}]}]}) == {}
+
+
+def test_build_model_metadata_index_keeps_runtime_capabilities():
+    catalog = build_catalog(_models_dev_sample())
+    metadata = build_model_metadata_index(catalog)["groq:llama-3.1-8b-instant"]
+    assert metadata == {
+        "is_local": False,
+        "cost_in": 0.05,
+        "cost_out": 0.08,
+        "context_window": 131072,
+        "quality": 1,
+        "tags": ["fast", "long", "tools"],
+    }

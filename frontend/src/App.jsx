@@ -41,6 +41,7 @@ import { LoginPage } from './components/Auth/LoginPage';
 import { GraphLoadingState } from './components/GraphLoadingState';
 import { DesktopUpdateNotice } from './components/DesktopUpdateNotice';
 import { ReleaseNotesWelcome } from './components/ReleaseNotesWelcome';
+import { vaultAgentContextRefs } from './lib/vaultAgentContext';
 
 // Fallback while the chunk for a lazy route is downloading. Discreet and centered,
 // reusing the auth bootstrap's style so there's no visual jump.
@@ -98,6 +99,7 @@ function App() {
       '/calendar': [{ id: 'route-calendar', type: 'internal', ref: 'calendar', label: t('sidebar.calendar', 'Calendars'), scope: {} }],
       '/contacts': [{ id: 'route-contacts', type: 'internal', ref: 'contacts', label: t('sidebar.contacts', 'Contacts'), scope: {} }],
     };
+    if (location.pathname.startsWith('/vault')) return vaultAgentContextRefs();
     return byRoute[location.pathname] || [];
   }, [location.pathname, t]);
   const moduleContextRefs = moduleContextOverride?.locationKey === location.key

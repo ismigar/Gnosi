@@ -14,6 +14,7 @@ import {
 } from './agentConfirmationUtils';
 import { chatScrollDeltaForComposerKey } from './agentChatKeyboardUtils';
 import { selectedMentionsInText, visibleMentionToken } from './agentChatMentionUtils';
+import { deriveAgentRuntimeStatus } from './agentRuntimeStatus';
 import { toast } from '../lib/toast';
 
 const CHAT_SESSIONS_KEY = 'agent_chat_sessions_v2';
@@ -176,7 +177,7 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
     const queueCheckpointDeletion = useCallback((session) => {
         if (!session?.agentId || !session?.id) return;
         const key = scopedStorageKey(CHAT_PENDING_CHECKPOINT_DELETES_KEY);
-        let pending = [];
+        let pending;
         try {
             pending = JSON.parse(localStorage.getItem(key) || '[]');
         } catch {
@@ -196,11 +197,11 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
         setSessionsHydrated(false);
         setHydratedStorageScope('');
         const savedAgentId = localStorage.getItem(scopedStorageKey(CHAT_SELECTED_AGENT_KEY)) || 'gnosy';
-        let sid = localStorage.getItem(scopedStorageKey('agent_session_id_v2'));
+        const sid = localStorage.getItem(scopedStorageKey('agent_session_id_v2'));
         const savedSessionsRaw = localStorage.getItem(scopedStorageKey(CHAT_SESSIONS_KEY));
         const savedActiveSession = localStorage.getItem(scopedStorageKey(CHAT_ACTIVE_SESSION_KEY));
 
-        let parsedSessions = [];
+        let parsedSessions;
         try {
             parsedSessions = savedSessionsRaw ? JSON.parse(savedSessionsRaw) : [];
         } catch {
@@ -244,9 +245,6 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
             activeSession = agentSessions.find((s) => !s.archived) || agentSessions[0];
         }
 
-        if (!sid) {
-            sid = activeSession.id;
-        }
         if (savedAgentId) {
             setSelectedAgentId(savedAgentId);
         }
@@ -1395,11 +1393,32 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
     const agentModel = agentHasModel
         ? `${agentConfig.provider} · ${agentConfig.model}`
         : t('chat.model_not_configured', 'Model not configured');
-    const runtimeLimited = Boolean(agentRuntime && (
-        (agentRuntime.active_skill_ids?.length && !agentRuntime.supports_tools)
-        || agentRuntime.missing_skill_ids?.length
-        || agentRuntime.unavailable_tool_ids?.length
-    ));
+    const runtimeStatus = deriveAgentRuntimeStatus(agentRuntime, agentHasModel);
+    const runtimeLimited = runtimeStatus.limited;
+    const runtimeStatusLabel = {
+        model_missing: t('chat.model_not_configured', 'Model not configured'),
+        model_no_tools: t('chat.runtime_model_no_tools', 'Connected · model without tools'),
+        missing_skills: t('chat.runtime_missing_skills', 'Connected · skills missing'),
+        unavailable_tools: t('chat.runtime_unavailable_tools', 'Connected · tools unavailable'),
+        ready: t('chat.runtime_ready', 'Connected · {{count}} tools', { count: runtimeStatus.count }),
+        online: t('chat.online', 'Online'),
+    }[runtimeStatus.kind];
+    const runtimeStatusHelp = {
+        model_no_tools: t(
+            'chat.runtime_model_no_tools_help',
+            'This model cannot execute the assigned skills. Choose a tool-capable model in Settings → AI.',
+        ),
+        missing_skills: t(
+            'chat.runtime_missing_skills_help',
+            '{{count}} assigned skill is missing or disabled.',
+            { count: runtimeStatus.count },
+        ),
+        unavailable_tools: t(
+            'chat.runtime_unavailable_tools_help',
+            '{{count}} assigned tool is unavailable in this runtime.',
+            { count: runtimeStatus.count },
+        ),
+    }[runtimeStatus.kind] || '';
     const sortedSessions = chatSessions
         .filter((session) => session.agentId === selectedAgentId)
         .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
@@ -1500,7 +1519,7 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                         </select>
                         {!isMinimized && <div style={{ fontSize: '0.7rem', color: runtimeLimited ? '#f59e0b' : (agentHasModel ? '#10b981' : '#ef4444'), display: 'flex', alignItems: 'center', gap: '4px' }}>
                             <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: runtimeLimited ? '#f59e0b' : (agentHasModel ? '#10b981' : '#ef4444') }}></span>
-                            {runtimeLimited ? t('chat.runtime_limited', 'Connected · tools limited') : (agentHasModel ? t('chat.online', "Online") : t('chat.model_not_configured', 'Model not configured'))}
+                            {runtimeStatusLabel}
                             {agentHasModel && <span style={{ color: 'var(--text-secondary)' }}>· {t('chat.agent_model', 'Model: {{model}}', { model: agentModel })}</span>}
                         </div>}
                     </div>
@@ -1514,6 +1533,41 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                     </button>
                 </div>
             </div>
+
+            {!isMinimized && runtimeLimited && (
+                <div
+                    role="status"
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px 16px',
+                        borderBottom: '1px solid var(--settings-border, #e5e7eb)',
+                        background: 'color-mix(in srgb, #f59e0b 12%, var(--bg-primary))',
+                        color: 'var(--text-primary)',
+                        fontSize: '0.75rem',
+                    }}
+                >
+                    <Info size={15} aria-hidden="true" style={{ flexShrink: 0, color: '#f59e0b' }} />
+                    <span style={{ flex: 1 }}>{runtimeStatusHelp}</span>
+                    <button
+                        type="button"
+                        onClick={() => window.dispatchEvent(new CustomEvent('open-settings', { detail: 'ai' }))}
+                        style={{
+                            border: 'none',
+                            background: 'transparent',
+                            color: 'var(--gnosi-blue)',
+                            cursor: 'pointer',
+                            padding: 0,
+                            font: 'inherit',
+                            fontWeight: 700,
+                            whiteSpace: 'nowrap',
+                        }}
+                    >
+                        {t('chat.runtime_review_settings', 'Review settings')}
+                    </button>
+                </div>
+            )}
 
             {!isMinimized && (
                 <>

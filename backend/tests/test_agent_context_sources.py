@@ -5,12 +5,19 @@ prompt gets an INVENTORY, never the content, and a tool can only reach a source
 the user actually attached — `source_id` comes from an LLM that reads untrusted
 material and is therefore prompt-injectable.
 """
+import json
+from types import SimpleNamespace
+
 import pytest
+
+from backend.agent import agent_context
 
 from backend.agent.agent_context import (
     build_context_tool_descriptors,
     build_context_tools,
+    dashboard_view_ids,
     describe_context_refs,
+    expand_dashboard_context_refs,
     excerpt_around,
     normalize_refs,
     score_text,
@@ -30,6 +37,60 @@ def test_malformed_refs_are_dropped_not_fatal():
 
 def test_refs_without_a_label_fall_back_to_the_ref():
     assert normalize_refs([{"type": "table", "ref": "t-1"}])[0]["label"] == "t-1"
+
+
+def test_table_ref_keeps_only_bounded_active_view_scope():
+    ref = normalize_refs([{
+        "type": "table",
+        "ref": "t-1",
+        "scope": {
+            "view_id": "v-1",
+            "view_name": "My records",
+            "untrusted": "ignored",
+        },
+    }])[0]
+    assert ref["scope"] == {"view_id": "v-1", "view_name": "My records"}
+
+
+def test_dashboard_with_one_view_expands_to_its_scoped_table(monkeypatch):
+    page_ref = {
+        "id": "vault-page:dashboard",
+        "type": "page",
+        "ref": "dashboard",
+        "label": "Resources",
+    }
+    monkeypatch.setattr(
+        agent_context,
+        "_read_source",
+        lambda _ref: '<!-- gnosi-view:def {"view_id":"mine"} -->',
+    )
+    monkeypatch.setattr(agent_context, "_registry", lambda: {
+        "tables": [{"id": "resources", "name": "Resources"}],
+        "views": [{
+            "id": "mine",
+            "table_id": "resources",
+            "name": "My resources",
+        }],
+    })
+
+    refs = expand_dashboard_context_refs([page_ref])
+
+    assert refs[0] == {
+        "id": "dashboard-table:dashboard:resources",
+        "type": "table",
+        "ref": "resources",
+        "label": "Resources",
+        "scope": {"view_id": "mine", "view_name": "My resources"},
+    }
+    assert refs[1] == page_ref
+
+
+def test_dashboard_view_markers_ignore_duplicates_and_malformed_json():
+    assert dashboard_view_ids("\n".join((
+        '<!-- gnosi-view:def {"view_id":"mine"} -->',
+        '<!-- gnosi-view:def {"view_id":"mine"} -->',
+        '<!-- gnosi-view:def {invalid} -->',
+    ))) == ["mine"]
 
 
 def test_the_prompt_block_lists_sources_without_their_content():
@@ -54,6 +115,46 @@ def test_an_unattached_source_id_is_refused():
     out = read.invoke({"source_id": "../../.env_shared"})
     assert "is not an attached source" in out
     assert "ctx-1" in out  # tells the model what it may actually read
+
+
+def test_attached_table_query_applies_active_view_and_returns_exact_count(monkeypatch):
+    monkeypatch.setattr(agent_context, "_registry", lambda: {
+        "tables": [{"id": "resources", "name": "Resources", "properties": []}],
+        "views": [{
+            "id": "mine",
+            "table_id": "resources",
+            "name": "My resources",
+            "filters": [{"field": "Archived", "operator": "equals", "value": "false"}],
+            "sorts": [{"field": "title", "direction": "asc"}],
+        }],
+    })
+    monkeypatch.setattr(agent_context, "_table_pages", lambda _table_id: [
+        SimpleNamespace(id="2", title="Zulu", metadata={"title": "Zulu", "Archived": False, "Type": "Essay"}),
+        SimpleNamespace(id="1", title="Alpha", metadata={"title": "Alpha", "Archived": False, "Type": "Book"}),
+        SimpleNamespace(id="3", title="Hidden", metadata={"title": "Hidden", "Archived": True, "Type": "Book"}),
+    ])
+    tools = {tool.name: tool for tool in build_context_tools([{
+        "id": "vault-table:resources",
+        "type": "table",
+        "ref": "resources",
+        "label": "Resources",
+        "scope": {"view_id": "mine", "view_name": "My resources"},
+    }])}
+
+    payload = json.loads(tools["query_context_table"].invoke({
+        "source_id": "vault-table:resources",
+        "offset": 0,
+        "limit": 100,
+        "fields": ["Type"],
+    }))
+
+    assert payload["matching_count"] == 2
+    assert payload["has_more"] is False
+    assert payload["active_view"] == {"id": "mine", "name": "My resources"}
+    assert payload["records"] == [
+        {"id": "1", "title": "Alpha", "fields": {"Type": "Book"}},
+        {"id": "2", "title": "Zulu", "fields": {"Type": "Essay"}},
+    ]
 
 
 def test_one_source_search_refuses_unattached_ids(monkeypatch):
