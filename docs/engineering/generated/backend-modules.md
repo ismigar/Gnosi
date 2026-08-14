@@ -10,8 +10,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Group | Modules | Lines |
 | --- | ---: | ---: |
-| `agent` | 36 | 13600 |
-| `api` | 36 | 36169 |
+| `agent` | 36 | 13647 |
+| `api` | 36 | 36195 |
 | `application root` | 6 | 629 |
 | `config` | 8 | 846 |
 | `data` | 2 | 295 |
@@ -25,7 +25,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **232 modules** and **93583 source lines**.
+Total: **232 modules** and **93656 source lines**.
 
 ## agent
 
@@ -64,7 +64,7 @@ Total: **232 modules** and **93583 source lines**.
 | [`backend/agent/system_tools.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/system_tools.py) | 430 | 0 | 13 | 0 | 13 | No module docstring |
 | [`backend/agent/tools.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/tools.py) | 75 | 0 | 2 | 0 | 2 | No module docstring |
 | [`backend/agent/translation_tools.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/translation_tools.py) | 70 | 0 | 3 | 3 | 3 | Governed adapters for the existing idempotent translation workflows. |
-| [`backend/agent/vault_admin_tools.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/vault_admin_tools.py) | 150 | 0 | 6 | 0 | 5 | Governed adapters for Vault schema discovery and page organization. |
+| [`backend/agent/vault_admin_tools.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/vault_admin_tools.py) | 197 | 0 | 8 | 0 | 7 | Governed adapters for Vault schema discovery and page organization. |
 | [`backend/agent/vault_tools.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/vault_tools.py) | 351 | 0 | 13 | 0 | 12 | Knowledge tool belt: gives the agent HANDS on the vault (not just search). |
 | [`backend/agent/web_context.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/web_context.py) | 144 | 0 | 3 | 0 | 3 | Fetching web pages attached to an agent's context (phase 2). |
 
@@ -73,7 +73,7 @@ Total: **232 modules** and **93583 source lines**.
 | Module | Lines | Classes | Functions | Async | Documented declarations | Purpose signal |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | [`backend/api/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/__init__.py) | 30 | 0 | 0 | 0 | 0 | No module docstring |
-| [`backend/api/agent_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py) | 1883 | 8 | 44 | 18 | 34 | No module docstring |
+| [`backend/api/agent_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py) | 1909 | 8 | 45 | 18 | 35 | No module docstring |
 | [`backend/api/agent_skills_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_skills_routes.py) | 635 | 4 | 28 | 0 | 9 | Settings APIs for governed agent skills and tools. |
 | [`backend/api/ai_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/ai_routes.py) | 800 | 6 | 18 | 13 | 15 | No module docstring |
 | [`backend/api/analytics_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/analytics_routes.py) | 376 | 0 | 12 | 7 | 12 | No module docstring |

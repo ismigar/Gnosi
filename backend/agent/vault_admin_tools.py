@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import re
+import unicodedata
 from pathlib import Path
 from typing import Any, Dict
 
@@ -52,7 +54,11 @@ def query_vault_table(
     limit: int = 50,
 ) -> str:
     """Query one exact Vault table using deterministic equality filters."""
-    from backend.agent.gnosi_tools import _page_files, _parse, _serialize_page, _table
+    from backend.agent.gnosi_tools import _bounded_json_value, _table
+    from backend.api.vault_routes import (
+        _get_pages_for_table,
+        _refresh_table_pages_metadata,
+    )
 
     table = _table(table_id_or_name)
     if not table:
@@ -62,28 +68,69 @@ def query_vault_table(
     title_needle = str(title_contains or "").casefold()
     bounded_limit = max(1, min(int(limit), 100))
     results = []
-    for path in _page_files():
-        try:
-            metadata, _body = _parse(path)
-        except Exception:
-            continue
-        current_table = str(
-            metadata.get("table_id") or metadata.get("database_table_id") or ""
+    pages = list(_get_pages_for_table(table_id) or [])
+    # The page index normally carries complete frontmatter. A cold or partially
+    # reconstructed cache can contain metadata stubs; refresh only this table in
+    # the existing bounded worker pool instead of opening every page in the Vault.
+    _refresh_table_pages_metadata(pages)
+    for page in pages:
+        metadata = dict(getattr(page, "metadata", None) or {})
+        title = str(
+            metadata.get("title")
+            or getattr(page, "title", "")
+            or ""
         )
-        if current_table != table_id:
-            continue
-        title = str(metadata.get("title") or path.stem)
         if title_needle and title_needle not in title.casefold():
             continue
-        if any(metadata.get(key) != value for key, value in filters.items()):
+        if any(
+            not _property_filter_matches(metadata.get(key), value)
+            for key, value in filters.items()
+        ):
             continue
-        results.append(_serialize_page(path))
+        results.append({
+            "id": str(getattr(page, "id", "") or metadata.get("id") or ""),
+            "title": title,
+            "table_id": table_id,
+            "metadata": _bounded_json_value(metadata),
+        })
         if len(results) >= bounded_limit:
             break
     return json.dumps({
         "table": {"id": table_id, "name": table.get("name")},
         "rows": results,
     }, ensure_ascii=False, default=str)
+
+
+def _normalized_filter_text(value: Any) -> str:
+    """Flatten one structured property into stable text for scalar equality."""
+    if isinstance(value, dict):
+        parts = [_normalized_filter_text(item) for item in value.values()]
+    elif isinstance(value, (list, tuple, set)):
+        parts = [_normalized_filter_text(item) for item in value]
+    elif value is None:
+        parts = []
+    else:
+        parts = [str(value)]
+    joined = " ".join(part for part in parts if part)
+    normalized = unicodedata.normalize("NFC", joined).casefold()
+    return re.sub(r"\s+", " ", normalized).strip()
+
+
+def _property_filter_matches(actual: Any, expected: Any) -> bool:
+    """Apply deterministic equality to scalar and structured table values.
+
+    Relation-like properties are commonly stored as lists of objects. A model
+    sees their human-readable values and naturally filters with a scalar such
+    as a person's full name, so compare that scalar with each structured item
+    after bounded text normalization instead of requiring Python type identity.
+    """
+    if actual == expected:
+        return True
+    if isinstance(actual, (list, tuple, set)):
+        return any(_property_filter_matches(item, expected) for item in actual)
+    if isinstance(expected, str):
+        return _normalized_filter_text(actual) == _normalized_filter_text(expected)
+    return False
 
 
 def _relocate_page(

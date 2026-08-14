@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 13 | 37 |
 | Vitest | 71 | 262 |
-| pytest | 185 | 1531 |
+| pytest | 185 | 1533 |
 
 ## Files
 
@@ -109,7 +109,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_action_rules.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_action_rules.py) | 14 | Python AST |
 | pytest | [`backend/tests/test_agent_action_confirmations.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_action_confirmations.py) | 23 | Python AST |
 | pytest | [`backend/tests/test_agent_chat_model_selection.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_chat_model_selection.py) | 3 | Python AST |
-| pytest | [`backend/tests/test_agent_chat_safety.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_chat_safety.py) | 39 | Python AST |
+| pytest | [`backend/tests/test_agent_chat_safety.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_chat_safety.py) | 40 | Python AST |
 | pytest | [`backend/tests/test_agent_context_sources.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_context_sources.py) | 23 | Python AST |
 | pytest | [`backend/tests/test_agent_create_page_containment.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_create_page_containment.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_agent_read_pdf_containment.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_read_pdf_containment.py) | 5 | Python AST |
@@ -161,7 +161,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_fx_rates.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_fx_rates.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_generated_tool_registry_separation.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_generated_tool_registry_separation.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_generated_tool_validator.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_generated_tool_validator.py) | 4 | Python AST |
-| pytest | [`backend/tests/test_gnosi_agent_tools.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_gnosi_agent_tools.py) | 25 | Python AST |
+| pytest | [`backend/tests/test_gnosi_agent_tools.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_gnosi_agent_tools.py) | 26 | Python AST |
 | pytest | [`backend/tests/test_google_calendar_event_updates.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_google_calendar_event_updates.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_graph_cluster_legend.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_graph_cluster_legend.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_graph_frontmatter_fallback.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_graph_frontmatter_fallback.py) | 4 | Python AST |
