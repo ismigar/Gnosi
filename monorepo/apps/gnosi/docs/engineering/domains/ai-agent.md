@@ -11,6 +11,7 @@ source_paths:
   - frontend/src/components/AI
 tests:
   - backend/tests/test_agent_chat_safety.py
+  - backend/tests/test_agent_context_sources.py
   - backend/tests/test_agent_skill_runtime.py
   - backend/tests/test_generated_tool_validator.py
   - backend/tests/test_agent_action_confirmations.py
@@ -106,6 +107,30 @@ executes the saved authorship view exactly once and formats its count and
 bounded record list directly from the governed result. This path performs no
 model call after the tool succeeds. Requests requiring interpretation or
 generation continue through normal model synthesis.
+
+The same deterministic contract now applies to arbitrary attached-Vault
+inventories rather than individual topics or tables. Before tool selection, the
+server classifies the operation as conversation, lookup, inventory, analysis,
+or governed action. Inventory requests receive an exhaustive structured scan
+with exact count, canonical record ids, live registry type resolution, type
+grouping, selected provenance metadata, and offset pagination. The subject is
+query data: adding a topic or a new table does not add an intent branch. The
+first page and continuation pages are formatted directly from the governed
+tool result without a model call.
+
+The request mode also prevents the default Knowledge attachment from hijacking
+unrelated work. Conversation mode performs no source read and binds no passive
+tools. Explicit mail, calendar, contacts, Reader, weather, web, Notion, or
+Zotero requests omit default Vault tools unless the same request also names a
+Vault object; the relevant assigned skill remains available.
+
+Exhaustive inventories reuse the locally persisted parsed-document and link
+indexes. Relation ids are expanded to indexed target titles, so a record linked
+to a matching project or source remains discoverable without reopening every
+OneDrive document. Normal Gnosi writes update these indexes; periodic index
+maintenance reconciles external edits. Records absent from the cache fall back
+to a direct bounded read. Semantic top-k search remains the evidence-discovery
+path for lookups and analyses and is never presented as a complete inventory.
 
 Other read-only turns have an independent three-result budget: if the model
 keeps requesting tools, the next Brain invocation receives the accumulated

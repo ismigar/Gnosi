@@ -148,6 +148,10 @@ TURN_TOOL_DOMAINS = {
         "aliases": ("web", "internet", "browser", "url", "navega"),
         "markers": ("web", "browser", "url", "http"),
     },
+    "weather": {
+        "aliases": ("weather", "forecast", "temps", "tiempo", "meteo"),
+        "markers": ("weather", "forecast", "meteo"),
+    },
 }
 
 
@@ -876,23 +880,254 @@ def _required_reader_context_tool(message: str) -> str:
     return "search_reader_context"
 
 
+def _normalized_request_text(message: str) -> str:
+    """Normalize multilingual request text for deterministic routing only."""
+    decomposed = unicodedata.normalize("NFKD", str(message or "").casefold())
+    return " ".join(
+        re.sub(
+            r"[^a-z0-9]+",
+            " ",
+            "".join(
+                character
+                for character in decomposed
+                if not unicodedata.combining(character)
+            ),
+        ).split()
+    )
+
+
+def _request_mode(message: str) -> str:
+    """Classify the operation independently from the request's subject."""
+    text = _normalized_request_text(message)
+    if not text:
+        return "conversation"
+    if _explicit_brain_write_tool_names(message) or re.match(
+        r"^(?:(?:si us plau|por favor|please|s il vous plait)\s+)?"
+        r"(?:delete|remove|send|publish|schedule|rename|move|archive|"
+        r"elimina|esborra|envia|publica|programa|reanomena|mou|arxiva|"
+        r"borra|manda|renombra|mueve|archiva|"
+        r"supprime|envoie|publie|planifie|renomme|deplace|archive)\b",
+        text,
+    ):
+        return "action"
+    if re.search(
+        r"\b(?:quins|quines|cuales|which|llista|lista|list|tots|totes|"
+        r"todos|todas|all)\b.{0,80}\b(?:contenen|contienen|contain|contains|"
+        r"mencionen|mencionan|mention|parlen|parlent|hablan|discuss)\b",
+        text,
+    ):
+        return "inventory"
+    if re.search(
+        r"\b(?:analitza|analitzar|analiza|analizar|analyze|analyse|"
+        r"resumeix|resum|resume|summari[sz]e|synthese|sintetitza|sintetiza|"
+        r"compara|compare|classifica|clasifica|classify|"
+        r"explica|explain|explique|interpreta|interpret|"
+        r"diuen|dicen|say|says|parlent|cont[eé]nen|contienen|contain|contains|"
+        r"tendencies|tendencias|trends|themes|temes|temas|"
+        r"connexions|conexiones|connections|relations|"
+        r"idees principals|ideas principales|main ideas|pros and cons)\b",
+        text,
+    ):
+        return "analysis"
+    if re.match(r"^(?:hola|hello|hi|bon dia|bona tarda|bona nit|salut|bonjour)\b", text) and (
+        len(text.split()) <= 6
+    ):
+        return "conversation"
+    record_terms = re.search(
+        r"\b(?:registre|registres|registro|registros|record|records|"
+        r"recurs|recursos|resource|resources|ressource|ressources|"
+        r"font|fonts|fuente|fuentes|source|sources|"
+        r"nota|notes|notas|article|articles|articulo|articulos|"
+        r"tasca|tasques|tarea|tareas|task|tasks|"
+        r"projecte|projectes|proyecto|proyectos|project|projects|"
+        r"area|areas|arees|pagina|pagines|paginas|page|pages|"
+        r"taula|taules|tabla|tablas|table|tables|fila|files|row|rows)\b",
+        text,
+    )
+    inventory_signal = re.search(
+        r"\b(?:quin|quina|quins|quines|que|which|what|combien|quels|quelles|"
+        r"quant|quants|quantes|cuanto|cuantos|cuantas|how many|count|total|"
+        r"tot|tots|totes|todo|todos|todas|all|every|entire|"
+        r"llista|llistar|lista|listar|list|enumera|enumerate|"
+        r"troba|cerca|busca|find|search|trouve|cherche)\b",
+        text,
+    )
+    age_lookup = re.search(
+        r"\b(?:quants anys te|cuantos anos tiene|how old is|quel age a)\b",
+        text,
+    )
+    strong_inventory_operation = re.search(
+        r"\b(?:llista|llistar|lista|listar|list|enumera|enumerate|"
+        r"quants|quantes|cuantos|cuantas|how many|count|combien|"
+        r"troba tots|troba totes|busca todos|busca todas|find all|search all|"
+        r"what do i have|mostra(?: m)?|ensenya(?: m)?|muestra(?: me)?|"
+        r"show(?: me)?|display|dona(?: m)?|dame|give(?: me)?|"
+        r"affiche(?: moi)?)\b"
+        r"|\b(?:quins|quines)\b.{0,64}\btinc\b"
+        r"|\bque\b.{0,64}\btengo\b"
+        r"|\bwhich\b.{0,64}\bdo i have\b"
+        r"|\b(?:quels|quelles)\b.{0,64}\bai je\b",
+        text,
+    )
+    if age_lookup:
+        return "lookup"
+    if strong_inventory_operation:
+        if re.search(
+            r"\b(?:mostra|ensenya|muestra|show|display|dona|dame|give|"
+            r"affiche)\b.{0,24}\b(?:com|como|how|comment)\b",
+            text,
+        ) and not record_terms:
+            return "lookup"
+        return "inventory"
+    if record_terms and inventory_signal:
+        return "inventory"
+    if re.search(
+        r"\b(?:qui|que|quin|quan|on|com|who|what|when|where|how|"
+        r"quien|cuando|donde|como|quel|quelle|quand|ou|comment|"
+        r"troba|cerca|busca|find|search|trouve|cherche)\b",
+        text,
+    ):
+        return "lookup"
+    return "conversation"
+
+
+INVENTORY_REQUEST_TYPE_PATTERNS = {
+    "source": (
+        r"\b(?:recurs(?:os)?|resource(?:s)?|ressource(?:s)?|font(?:s)?|"
+        r"fuente(?:s)?|source(?:s)?)\b"
+    ),
+    "note": r"\b(?:nota(?:s)?|note(?:s)?)\b",
+    "article": r"\b(?:article(?:s)?|articulo(?:s)?)\b",
+    "task": r"\b(?:tasca(?:s)?|tarea(?:s)?|task(?:s)?)\b",
+    "project": r"\b(?:projecte(?:s)?|proyecto(?:s)?|project(?:s)?|projet(?:s)?)\b",
+    "qualification": (
+        r"\b(?:titulacio(?:ns)?|titulacion(?:es)?|qualification(?:s)?|"
+        r"degree(?:s)?|diploma(?:s)?)\b"
+    ),
+    "area": r"\b(?:area(?:s)?|arees)\b",
+}
+
+INVENTORY_QUERY_STOPWORDS = {
+    "a", "ai", "aquesta", "aquest", "al", "all", "amb", "and", "author", "autor", "auteur", "avons", "busca", "cerca",
+    "cherche", "com", "con", "contain", "contains", "contenen", "contienen", "count", "cuantas", "cuantos", "de", "del", "dels", "dont",
+    "do", "el", "els", "en", "encuentra", "enumerate", "es", "every", "find", "have", "in",
+    "he", "hi", "how", "i", "jo", "la", "las", "le", "les", "list",
+    "affiche", "dame", "display", "dona", "ensenya", "give", "lista",
+    "j", "je", "llista", "m", "ma", "matching", "me", "mes", "meus", "meves",
+    "mi", "mia", "mias", "mio", "mios", "mis", "moi", "mon",
+    "mostra", "muestra", "show",
+    "literal", "literalment", "mencionan", "mencionen", "mention", "my", "of", "per", "que", "quantes", "quants", "quelles", "quels", "quines", "quins",
+    "quina", "quin", "related", "relacionades", "relacionados", "relatives", "una", "un",
+    "search", "soc", "sobre", "soy", "te", "tenemos", "tenim", "tengo",
+    "tienes", "the", "this", "tinc", "todas", "todo",
+    "todos", "totes", "tots", "troba", "trouve", "which", "with", "written",
+    "escrites", "escritos", "escriure", "wrote", "vaig", "y",
+}
+
+
+def _inventory_request_arguments(message: str) -> dict:
+    """Extract generic record types and subject terms from an inventory request."""
+    text = _normalized_request_text(message)
+    include_relations = not bool(re.search(
+        r"\b(?:literal|literalment|exact text|text exacte|texto exacto|"
+        r"contenen|contienen|contain|contains|mencionen|mencionan|mention)\b",
+        text,
+    ))
+    offset_match = re.search(r"\b(?:index|offset)\s+(\d{1,9})\b", text)
+    requested_offset = int(offset_match.group(1)) if offset_match else 0
+    text = re.sub(r"\b(?:index|offset)\s+\d{1,9}\b", " ", text)
+    record_types = [
+        record_type
+        for record_type, pattern in INVENTORY_REQUEST_TYPE_PATTERNS.items()
+        if re.search(pattern, text)
+    ]
+    # Remove actual type spans, then filter multilingual intent scaffolding.
+    subject = text
+    for pattern in INVENTORY_REQUEST_TYPE_PATTERNS.values():
+        subject = re.sub(pattern, " ", subject)
+    subject = re.sub(
+        r"\b(?:registre|registres|registro|registros|record|records|"
+        r"taula|taules|tabla|tablas|table|tables|fila|files|row|rows|"
+        r"pagina|pagines|paginas|page|pages)\b",
+        " ",
+        subject,
+    )
+    query_tokens = [
+        token
+        for token in subject.split()
+        if token not in INVENTORY_QUERY_STOPWORDS
+    ]
+    return {
+        "query": " ".join(query_tokens)[:500],
+        "record_types": record_types,
+        "include_relations": include_relations,
+        "offset": requested_offset,
+        "limit": 100,
+    }
+
+
+def _inventory_continuation_requested(message: str) -> bool:
+    """Recognize a request for the next page of the previous inventory."""
+    text = _normalized_request_text(message)
+    return bool(re.search(
+        r"\b(?:continua|continuar|seguents|seguent|next|more|siguientes|"
+        r"siguiente|continue|suite|encore)\b",
+        text,
+    ))
+
+
+def _reader_context_requested(message: str) -> bool:
+    """Return whether the turn explicitly targets an attached Reader source."""
+    text = _normalized_request_text(message)
+    return bool(re.search(
+        r"\b(?:reader|news|noticia|noticias|noticies|rss|feed|feeds|"
+        r"llegida|llegides|leida|leidas|unread)\b",
+        text,
+    ))
+
+
+def _vault_context_is_relevant(message: str) -> bool:
+    """Avoid forcing the default Vault onto an explicit non-Vault request."""
+    text = _normalized_request_text(message)
+    vault_signal = re.search(
+        r"\b(?:vault|wiki|pagina|pagines|page|pages|nota|notes|notas|"
+        r"document|documents|pdf|taula|taules|tabla|tablas|table|tables|"
+        r"database|registre|registres|registro|registros|record|records|"
+        r"recurs|recursos|resource|resources|font|fonts|fuente|fuentes|"
+        r"source|sources|projecte|projectes|proyecto|proyectos|project|"
+        r"projects|tasca|tasques|tarea|tareas|task|tasks|titulacio|"
+        r"titulacions|titulacion|titulaciones|qualification|qualifications)\b",
+        text,
+    )
+    if vault_signal:
+        return True
+    non_vault_signal = re.search(
+        r"\b(?:mail|email|correu|correus|correo|inbox|calendar|calendari|"
+        r"calendario|event|esdeveniment|evento|contact|contacte|contacto|"
+        r"weather|forecast|temps|tiempo|meteo|notion|zotero|internet|"
+        r"browser|navegador|reader|news|noticia|noticias|noticies|rss|"
+        r"feed|feeds)\b",
+        text,
+    )
+    return not bool(non_vault_signal)
+
+
 def _required_vault_context_tool(
     message: str,
     context_refs: Iterable[dict],
+    inventory_continuation: bool = False,
 ) -> str:
     """Choose the first deterministic operation for attached Vault context."""
     refs = list(context_refs or [])
     text = " ".join((message or "").strip().lower().split())
-    has_table = any(ref.get("type") == "table" for ref in refs)
-    exhaustive = re.search(
-        r"\b(?:tot(?:s|es)?|all|every|entire|llista|llistar|list|"
-        r"quants?|quantes?|cu[aá]nt[oa]s?|combien|count|registres?|"
-        r"registros?|records?|rows?)\b",
-        text,
-        re.IGNORECASE,
+    has_inventory_source = any(
+        ref.get("type") in {"table", "database", "vault"}
+        for ref in refs
     )
-    if has_table and exhaustive:
-        return "query_context_table"
+    if has_inventory_source and (
+        inventory_continuation or _request_mode(message) == "inventory"
+    ):
+        return "inventory_context"
     if len(refs) == 1 and refs[0].get("type") == "page":
         return "read_context_source"
     return "search_context"
@@ -901,8 +1136,22 @@ def _required_vault_context_tool(
 def _deterministic_vault_context_call(
     tool_name: str,
     context_refs: Iterable[dict],
+    message: str = "",
+    inventory_arguments: Optional[dict] = None,
 ) -> Optional[dict]:
     """Build an exact initial Vault read without relying on model tool choice."""
+    if tool_name == "inventory_context" and any(
+        ref.get("type") in {"table", "database", "vault"}
+        for ref in (context_refs or [])
+    ):
+        return {
+            "name": tool_name,
+            "args": dict(
+                inventory_arguments or _inventory_request_arguments(message)
+            ),
+            "id": f"gnosi-context-inventory-{time.time_ns()}",
+            "type": "tool_call",
+        }
     source_type = {
         "query_context_table": "table",
         "read_context_source": "page",
@@ -976,6 +1225,45 @@ def _latest_tool_message_since_latest_user(
     return None
 
 
+def _previous_inventory_arguments(messages: Iterable[Any]) -> Optional[dict]:
+    """Recover the next exact page from the immediately preceding turn."""
+    passed_current_user = False
+    for message in reversed(list(messages)):
+        message_type = str(getattr(message, "type", "") or "")
+        if message_type == "human":
+            if not passed_current_user:
+                passed_current_user = True
+                continue
+            return None
+        if not passed_current_user or message_type != "tool":
+            continue
+        if str(getattr(message, "name", "") or "") != "inventory_context":
+            continue
+        try:
+            payload = json.loads(str(getattr(message, "content", "") or ""))
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return None
+        if not isinstance(payload, dict) or not payload.get("has_more"):
+            return None
+        try:
+            offset = max(0, int(payload.get("next_offset")))
+            limit = max(1, min(100, int(payload.get("limit", 100))))
+        except (TypeError, ValueError):
+            return None
+        return {
+            "query": str(payload.get("query") or "")[:500],
+            "record_types": [
+                str(value)[:128]
+                for value in (payload.get("record_types_requested") or [])[:12]
+                if str(value or "").strip()
+            ],
+            "include_relations": bool(payload.get("include_relations", True)),
+            "offset": offset,
+            "limit": limit,
+        }
+    return None
+
+
 def _response_language(message: str) -> str:
     """Resolve a deterministic response language from strong request markers."""
     decomposed = unicodedata.normalize("NFKD", str(message or "").casefold())
@@ -990,11 +1278,27 @@ def _response_language(message: str) -> str:
             ),
         ).split()
     )
-    if re.search(r"\b(?:soc|troba|dels|quals|meus|meves)\b", text):
+    if re.search(
+        r"\b(?:soc|troba|cerca|llista|mostra|ensenya|dona|dels|quals|meus|"
+        r"meves|quin|quins|quina|quines|quant|quants|quantes|tinc|amb|"
+        r"relacionades|continua|seguents|titulacio|titulacions|tasca|tasques|"
+        r"projecte|projectes|font|fonts|pagina|pagines|registre|registres)\b",
+        text,
+    ):
         return "ca"
-    if re.search(r"\b(?:je|mes|ressources|trouve|auteur)\b", text):
+    if re.search(
+        r"\b(?:je|mes|ressources|trouve|cherche|affiche|auteur|combien|"
+        r"quels|quelles|projets)\b",
+        text,
+    ):
         return "fr"
-    if re.search(r"\b(?:soy|mis|recursos|encuentra|autor)\b", text):
+    if re.search(
+        r"\b(?:soy|mis|recursos|encuentra|busca|lista|muestra|dame|autor|"
+        r"cuanto|cuantos|cuantas|tengo|relacionadas|titulacion|titulaciones|"
+        r"tarea|tareas|proyecto|proyectos|fuente|fuentes|pagina|paginas|"
+        r"registro|registros)\b",
+        text,
+    ):
         return "es"
     return "en"
 
@@ -1073,6 +1377,197 @@ def _authored_resources_response(tool_content: Any, user_message: str) -> str:
             "",
             strings["more"].format(shown=len(records), count=count),
         ])
+    return "\n".join(lines)
+
+
+def _inventory_context_response(tool_content: Any, user_message: str) -> str:
+    """Format one exact, paginated Vault inventory without an LLM call."""
+    language = _response_language(user_message)
+    strings = {
+        "ca": {
+            "found_one": "He trobat {count} registre que coincideix amb {subject}.",
+            "found_many": "He trobat {count} registres que coincideixen amb {subject}.",
+            "empty": "No he trobat cap registre que coincideixi amb {subject}.",
+            "all_subject": "la petició",
+            "types": "Per tipus",
+            "evidence": "Coincidències: {direct} directes · {relation} per relació.",
+            "relation": "relació",
+            "unresolved": "No hi ha cap tipus adjunt que correspongui a: {types}.",
+            "more": "Es mostren {shown} de {count}; continua des de l’índex {offset}.",
+            "method": "Abast: cerca exhaustiva de text, metadades i relacions dins el Vault adjunt.",
+            "error": "No he pogut consultar l’inventari del Vault adjunt.",
+            "untitled": "Sense títol",
+            "id": "ID",
+            "year": "any",
+            "item_type": "tipus",
+            "verification_status": "verificació",
+            "author": "autoria",
+        },
+        "es": {
+            "found_one": "He encontrado {count} registro que coincide con {subject}.",
+            "found_many": "He encontrado {count} registros que coinciden con {subject}.",
+            "empty": "No he encontrado ningún registro que coincida con {subject}.",
+            "all_subject": "la petición",
+            "types": "Por tipo",
+            "evidence": "Coincidencias: {direct} directas · {relation} por relación.",
+            "relation": "relación",
+            "unresolved": "No hay ningún tipo adjunto que corresponda a: {types}.",
+            "more": "Se muestran {shown} de {count}; continúa desde el índice {offset}.",
+            "method": "Alcance: búsqueda exhaustiva de texto, metadatos y relaciones dentro del Vault adjunto.",
+            "error": "No he podido consultar el inventario del Vault adjunto.",
+            "untitled": "Sin título",
+            "id": "ID",
+            "year": "año",
+            "item_type": "tipo",
+            "verification_status": "verificación",
+            "author": "autoría",
+        },
+        "fr": {
+            "found_one": "J’ai trouvé {count} enregistrement correspondant à {subject}.",
+            "found_many": "J’ai trouvé {count} enregistrements correspondant à {subject}.",
+            "empty": "Je n’ai trouvé aucun enregistrement correspondant à {subject}.",
+            "all_subject": "la demande",
+            "types": "Par type",
+            "evidence": "Correspondances : {direct} directes · {relation} par relation.",
+            "relation": "relation",
+            "unresolved": "Aucun type joint ne correspond à : {types}.",
+            "more": "{shown} résultats sur {count} sont affichés ; continuez à l’index {offset}.",
+            "method": "Portée : recherche exhaustive du texte, des métadonnées et des relations du Vault joint.",
+            "error": "Je n’ai pas pu consulter l’inventaire du Vault joint.",
+            "untitled": "Sans titre",
+            "id": "ID",
+            "year": "année",
+            "item_type": "type",
+            "verification_status": "vérification",
+            "author": "auteur",
+        },
+        "en": {
+            "found_one": "I found {count} record matching {subject}.",
+            "found_many": "I found {count} records matching {subject}.",
+            "empty": "I found no records matching {subject}.",
+            "all_subject": "the request",
+            "types": "By type",
+            "evidence": "Matches: {direct} direct · {relation} through relations.",
+            "relation": "relation",
+            "unresolved": "No attached record type corresponds to: {types}.",
+            "more": "Showing {shown} of {count}; continue from index {offset}.",
+            "method": "Scope: exhaustive text, metadata, and relation search within the attached Vault data.",
+            "error": "I could not query the attached Vault inventory.",
+            "untitled": "Untitled",
+            "id": "ID",
+            "year": "year",
+            "item_type": "type",
+            "verification_status": "verification",
+            "author": "author",
+        },
+    }[language]
+    try:
+        payload = json.loads(str(tool_content or ""))
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return strings["error"]
+    if not isinstance(payload, dict) or payload.get("error"):
+        return strings["error"]
+    records = payload.get("records") or []
+    counts = payload.get("counts_by_type") or {}
+    match_counts = payload.get("counts_by_match_kind") or {}
+    if not isinstance(records, list) or not isinstance(counts, dict):
+        return strings["error"]
+    try:
+        count = max(0, int(payload.get("matching_count", len(records))))
+        offset = max(0, int(payload.get("offset", 0)))
+    except (TypeError, ValueError):
+        count, offset = len(records), 0
+    query = _escaped_markdown_text(payload.get("query"), "")
+    subject = f"«{query}»" if query else strings["all_subject"]
+    unresolved = [
+        _escaped_markdown_text(value, "")
+        for value in (payload.get("record_types_unresolved") or [])
+        if str(value or "").strip()
+    ]
+    if count == 0:
+        lines = [strings["empty"].format(subject=subject)]
+        if unresolved:
+            lines.append(strings["unresolved"].format(types=", ".join(unresolved)))
+        lines.append(strings["method"])
+        return "\n".join(lines)
+
+    found_key = "found_one" if count == 1 else "found_many"
+    lines = [strings[found_key].format(count=count, subject=subject)]
+    if counts:
+        type_counts = ", ".join(
+            f"{_escaped_markdown_text(name, 'Unknown')} ({value})"
+            for name, value in sorted(counts.items(), key=lambda item: item[0].casefold())
+        )
+        lines.append(f"{strings['types']}: {type_counts}.")
+    if int(match_counts.get("relation", 0) or 0) > 0:
+        lines.append(strings["evidence"].format(
+            direct=int(match_counts.get("direct", 0) or 0),
+            relation=int(match_counts.get("relation", 0) or 0),
+        ))
+    grouped: dict[str, List[dict]] = {}
+    for raw_record in records:
+        record = raw_record if isinstance(raw_record, dict) else {}
+        record_type = record.get("record_type") or {}
+        type_name = _escaped_markdown_text(
+            record_type.get("name") if isinstance(record_type, dict) else "",
+            "Unknown",
+        )
+        grouped.setdefault(type_name, []).append(record)
+    record_number = offset + 1
+    for type_name, type_records in grouped.items():
+        lines.extend(["", f"{type_name} ({counts.get(type_name, len(type_records))})"])
+        for record in type_records:
+            title = _escaped_markdown_text(record.get("title"), strings["untitled"])
+            record_id = _escaped_markdown_text(record.get("id"), "—")
+            metadata = record.get("metadata") if isinstance(record.get("metadata"), dict) else {}
+            details = [f"{strings['id']}: {record_id}"]
+            if (
+                record.get("match_kind") == "relation"
+                or set(record.get("match_basis") or []) == {"relations"}
+            ):
+                details.append(strings["relation"])
+            for key in ("year", "item_type", "verification_status", "author"):
+                if metadata.get(key) in (None, "", [], {}):
+                    continue
+                raw_value = metadata[key]
+                if isinstance(raw_value, list):
+                    display_items = []
+                    for item in raw_value[:20]:
+                        if isinstance(item, dict):
+                            person_name = " ".join(
+                                str(item.get(field) or "").strip()
+                                for field in ("nom", "cognom1", "cognom2")
+                                if str(item.get(field) or "").strip()
+                            )
+                            display_items.append(
+                                person_name
+                                or json.dumps(item, ensure_ascii=False, default=str)
+                            )
+                        else:
+                            display_items.append(str(item))
+                    raw_value = "; ".join(display_items)
+                elif isinstance(raw_value, dict):
+                    raw_value = json.dumps(
+                        raw_value,
+                        ensure_ascii=False,
+                        default=str,
+                    )
+                value = _escaped_markdown_text(raw_value, "")
+                details.append(f"{strings[key]}: {value}")
+            lines.append(f"{record_number}. {title} — " + " · ".join(details))
+            record_number += 1
+    if payload.get("has_more"):
+        lines.extend([
+            "",
+            strings["more"].format(
+                shown=len(records),
+                count=count,
+                offset=payload.get("next_offset"),
+            ),
+        ])
+    if unresolved:
+        lines.append(strings["unresolved"].format(types=", ".join(unresolved)))
+    lines.extend(["", strings["method"]])
     return "\n".join(lines)
 
 
@@ -2353,6 +2848,7 @@ async def create_agent_workflow(
             ),
             "",
         )
+        request_mode = _request_mode(latest_user)
         # Explicit skill assignments define the effective agent runtime. A
         # governed, tool-backed profile must therefore enter the tool-enabled
         # specialist directly; delegating that decision to a model can route
@@ -2366,6 +2862,10 @@ async def create_agent_workflow(
         )
         if obvious:
             return {"next": obvious}
+        if request_mode == "conversation":
+            return {"next": "General"}
+        if context_refs and request_mode in {"lookup", "inventory", "analysis"}:
+            return {"next": "Brain"}
         prompt = [SystemMessage(content=supervisor_prompt)] + _bounded_model_messages(messages, message_budget_chars)
         response = llm.invoke(prompt)
 
@@ -2407,12 +2907,31 @@ async def create_agent_workflow(
             ),
             "",
         )
+        request_mode = _request_mode(latest_user)
         current_authorized_names = _turn_authorized_tool_names(state)
+        inventory_continuation_arguments = (
+            _previous_inventory_arguments(messages)
+            if _inventory_continuation_requested(latest_user)
+            else None
+        )
         required_read_tool_names = set()
-        if context_tools:
-            if any(
-                ref.get("type") == "internal" and ref.get("ref") == "reader"
-                for ref in context_refs
+        required_context_tool = ""
+        required_context_is_reader = False
+        has_reader_context = any(
+            ref.get("type") == "internal" and ref.get("ref") == "reader"
+            for ref in context_refs
+        )
+        has_vault_context = any(
+            ref.get("type") in {"page", "table", "database", "vault"}
+            for ref in context_refs
+        )
+        if context_tools and (
+            inventory_continuation_arguments
+            or request_mode in {"lookup", "inventory", "analysis"}
+        ):
+            if has_reader_context and (
+                _reader_context_requested(latest_user)
+                or not has_vault_context
             ):
                 reader_job_id = _latest_reader_analysis_job_id(messages)
                 routing_message = (
@@ -2420,13 +2939,20 @@ async def create_agent_workflow(
                     if reader_job_id and reader_job_id not in latest_user.lower()
                     else latest_user
                 )
-                required_read_tool_names.add(
-                    _required_reader_context_tool(routing_message)
+                required_context_tool = _required_reader_context_tool(
+                    routing_message,
                 )
-            else:
-                required_read_tool_names.add(
-                    _required_vault_context_tool(latest_user, context_refs)
+                required_context_is_reader = True
+            elif has_vault_context and _vault_context_is_relevant(latest_user):
+                required_context_tool = _required_vault_context_tool(
+                    latest_user,
+                    context_refs,
+                    inventory_continuation=bool(
+                        inventory_continuation_arguments
+                    ),
                 )
+        if required_context_tool:
+            required_read_tool_names.add(required_context_tool)
         turn_brain_tools = _turn_model_tools(
             brain_tools,
             runtime_tool_metadata,
@@ -2435,6 +2961,18 @@ async def create_agent_workflow(
             narrow_passive_reads=legacy_bundle_active,
             required_read_tool_names=required_read_tool_names,
         )
+        if request_mode == "conversation" and not current_authorized_names:
+            turn_brain_tools = []
+        elif (
+            has_vault_context
+            and not required_context_tool
+            and not _vault_context_is_relevant(latest_user)
+        ):
+            turn_brain_tools = [
+                tool
+                for tool in turn_brain_tools
+                if _tool_name(tool) not in context_tool_names
+            ]
         selected_brain_llm = (
             llm.bind_tools(turn_brain_tools)
             if turn_brain_tools
@@ -2446,7 +2984,13 @@ async def create_agent_workflow(
         brain_system = (
             f"You are the Brain specialist for {agent_name} "
             "(Gnosi Vault and sovereign memory)."
+            f"\nThe server classified this turn as {request_mode}."
         )
+        if request_mode == "conversation":
+            brain_system += (
+                "\nThis conversational turn requires no source read. "
+                "Answer directly without calling a tool."
+            )
         if combined_persona:
             brain_system += (
                 "\n\nConfigured agent persona and instructions:\n"
@@ -2547,6 +3091,10 @@ async def create_agent_workflow(
             messages,
             "list_authored_vault_resources",
         )
+        inventory_message = _latest_tool_message_since_latest_user(
+            messages,
+            "inventory_context",
+        )
         repeated_tool_name = _repeated_tool_call_since_latest_user(messages)
         remaining_steps = int(state.get("remaining_steps", 0) or 0)
         if personal_resources_requested and not personal_resources_result:
@@ -2561,6 +3109,14 @@ async def create_agent_workflow(
             return {
                 "messages": [AIMessage(content=_authored_resources_response(
                     getattr(personal_resources_message, "content", ""),
+                    latest_user,
+                ))],
+                "next": "FINISH",
+            }
+        if inventory_message is not None and not current_authorized_names:
+            return {
+                "messages": [AIMessage(content=_inventory_context_response(
+                    getattr(inventory_message, "content", ""),
                     latest_user,
                 ))],
                 "next": "FINISH",
@@ -2590,28 +3146,13 @@ async def create_agent_workflow(
                 "\nThe graph is at its final safe synthesis step. Answer now from "
                 "the available evidence and do not call another tool."
             )
-        elif context_tools and not latest_context_tool:
-            if any(
-                ref.get("type") == "internal" and ref.get("ref") == "reader"
-                for ref in context_refs
-            ):
-                reader_job_id = _latest_reader_analysis_job_id(messages)
-                routing_message = (
-                    f"{latest_user} {reader_job_id}"
-                    if reader_job_id and reader_job_id not in latest_user.lower()
-                    else latest_user
-                )
-                required_context_tool = _required_reader_context_tool(
-                    routing_message,
-                )
-            else:
-                required_context_tool = _required_vault_context_tool(
-                    latest_user,
-                    context_refs,
-                )
+        elif required_context_tool and not latest_context_tool:
+            if not required_context_is_reader:
                 deterministic_call = _deterministic_vault_context_call(
                     required_context_tool,
                     context_refs,
+                    latest_user,
+                    inventory_arguments=inventory_continuation_arguments,
                 )
                 if deterministic_call:
                     return {
@@ -2632,7 +3173,9 @@ async def create_agent_workflow(
                 "unavailable before that tool result is returned."
             )
         elif (
-            latest_context_tool in {"query_context_table", "read_context_source"}
+            latest_context_tool in {
+                "inventory_context", "query_context_table", "read_context_source",
+            }
             and not current_authorized_names
         ):
             # A table query already returns an exact, bounded page plus total and

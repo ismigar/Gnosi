@@ -19,7 +19,7 @@ from fastapi import (
 )
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any, Tuple
+from typing import List, Optional, Dict, Any, Tuple, Iterable
 from datetime import datetime, timezone, timedelta
 import logging
 import urllib.parse
@@ -14353,6 +14353,63 @@ def _load_link_index_from_disk() -> bool:
     except Exception as e:
         log.error(f"❌ Error loading link-index cache: {e}")
         return False
+
+
+def get_link_index_terms(
+    page_ids: Iterable[str],
+) -> tuple[Dict[str, tuple[frozenset, frozenset]], float]:
+    """Return cached searchable terms for exact page ids without Vault reads.
+
+    The snapshot combines normalized body tokens and outgoing-reference text.
+    It is maintained by the same create/update/delete hooks as backlinks and is
+    persisted locally, so exhaustive agent inventories do not reopen every
+    OneDrive document. If no persisted index exists, callers receive an empty
+    mapping and may fall back to direct reads.
+    """
+    if not _link_index_built:
+        _load_link_index_from_disk()
+    requested = {str(page_id or "").strip() for page_id in page_ids if page_id}
+    with _link_index_lock:
+        snapshot = {}
+        for page_id in requested:
+            if page_id not in _tokens_by_source and page_id not in _outlinks_by_source:
+                continue
+            references = set(_outlinks_by_source.get(page_id, set()))
+            # Relation fields are canonicalized to ids before the page reaches
+            # most API consumers. Expand those ids back to their indexed titles
+            # so topic inventories can match the meaning of a relation without
+            # reopening either page from OneDrive.
+            for reference in tuple(references):
+                target = _page_meta_by_id.get(reference) or {}
+                target_title = str(target.get("title") or "").strip()
+                if target_title:
+                    references.add(target_title)
+            snapshot[page_id] = (
+                _tokens_by_source.get(page_id, frozenset()),
+                frozenset(references),
+            )
+        built_at = float(_link_index_build_ts or 0.0)
+    return snapshot, built_at
+
+
+def get_cached_document_texts(paths: Iterable[str]) -> Dict[str, str]:
+    """Return persisted canonical Markdown bodies without cloud file reads.
+
+    The parsed-document cache is refreshed by normal page writes and periodic
+    link-index rebuilds. Reading its in-memory snapshot is safe for exhaustive
+    discovery; callers fall back to direct reads only for paths absent from the
+    cache. This deliberately avoids per-file ``stat`` calls because those are
+    the dominant latency on macOS File Provider mounts.
+    """
+    if not _parsed_doc_cache:
+        _load_parsed_doc_cache_from_disk()
+    requested = {str(path or "").strip() for path in paths if path}
+    with _parsed_doc_lock:
+        return {
+            path: _parsed_doc_cache[path][2]
+            for path in requested
+            if path in _parsed_doc_cache
+        }
 
 
 def _normalize_ref_for_index(raw_ref: str) -> str:

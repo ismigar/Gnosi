@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 13 | 37 |
 | Vitest | 71 | 263 |
-| pytest | 185 | 1544 |
+| pytest | 185 | 1558 |
 
 ## Files
 
@@ -110,11 +110,11 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_agent_action_confirmations.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_action_confirmations.py) | 23 | Python AST |
 | pytest | [`backend/tests/test_agent_chat_model_selection.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_chat_model_selection.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_agent_chat_safety.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_chat_safety.py) | 41 | Python AST |
-| pytest | [`backend/tests/test_agent_context_sources.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_context_sources.py) | 23 | Python AST |
+| pytest | [`backend/tests/test_agent_context_sources.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_context_sources.py) | 26 | Python AST |
 | pytest | [`backend/tests/test_agent_create_page_containment.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_create_page_containment.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_agent_read_pdf_containment.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_read_pdf_containment.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_agent_skill_catalog.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_skill_catalog.py) | 16 | Python AST |
-| pytest | [`backend/tests/test_agent_skill_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_skill_runtime.py) | 27 | Python AST |
+| pytest | [`backend/tests/test_agent_skill_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_skill_runtime.py) | 36 | Python AST |
 | pytest | [`backend/tests/test_agent_skills_api.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_skills_api.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_ai_model_registry_api.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_ai_model_registry_api.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_ai_timeout.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_ai_timeout.py) | 6 | Python AST |
@@ -237,7 +237,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_references_io.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_references_io.py) | 14 | Python AST |
 | pytest | [`backend/tests/test_refresh_page_index_entry.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_refresh_page_index_entry.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_relation_sync.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_relation_sync.py) | 7 | Python AST |
-| pytest | [`backend/tests/test_relation_wikilinks.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_relation_wikilinks.py) | 19 | Python AST |
+| pytest | [`backend/tests/test_relation_wikilinks.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_relation_wikilinks.py) | 21 | Python AST |
 | pytest | [`backend/tests/test_restore_index_symlink_vault.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_restore_index_symlink_vault.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_rollup_percent_checked_parity.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_rollup_percent_checked_parity.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_rule_engine_derived_order.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_rule_engine_derived_order.py) | 7 | Python AST |
