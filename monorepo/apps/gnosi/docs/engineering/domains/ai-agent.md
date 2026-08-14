@@ -87,6 +87,13 @@ sources validate paths, size, file type, and workspace/vault scope. Large
 external sources use searchable representations instead of injecting unlimited
 raw text into every turn.
 
+The durable checkpoint remains the complete audit record, but provider prompts
+use a bounded projection. Earlier user and final assistant messages remain as
+conversation memory, while historical tool-call groups and raw tool payloads
+are omitted. The current turn retains complete call/result protocol groups, and
+the aggregate conversational projection has a hard character ceiling even when
+the selected model advertises a much larger context window.
+
 Vault navigation contributes turn-scoped page, table, and active-view context.
 The server expands a dashboard with one embedded view to the canonical table
 view, reapplies its filters and sorting, and exposes an exact bounded row query
@@ -94,15 +101,33 @@ with count and pagination. Exact page and table reads are server-authored tool
 calls; after a complete result, synthesis runs without tool bindings so a
 tool-eager model cannot repeat the call until the graph recursion limit.
 
+The canonical self-authored Resources request is also server-routed. Gnosi
+executes the saved authorship view exactly once and formats its count and
+bounded record list directly from the governed result. This path performs no
+model call after the tool succeeds. Requests requiring interpretation or
+generation continue through normal model synthesis.
+
 Other read-only turns have an independent three-result budget: if the model
 keeps requesting tools, the next Brain invocation receives the accumulated
 evidence without tool bindings and must synthesize the response. The graph
 recursion ceiling therefore remains a final safety net rather than normal flow
 control.
 
+The ToolNode retains the complete active-skill runtime for execution and policy
+checks, while each model invocation binds only passive read tools plus guarded
+tools explicitly authorized by the current request. Legacy automatic profiles
+also narrow passive reads to multilingual request-domain matches and an exact
+required context operation, with a bounded maximum; explicitly scoped skills
+retain their already-small assigned read surface. Mandatory context reads bind
+only the required source tool for their first step. This per-turn binding is
+derived from request state and is never reused as cached authorization.
+
 The chat measures each response from request dispatch through stream
 completion. A live whole-second counter is replaced by the saved elapsed time
-on the completed response. Every visible message also exposes conversation
+on the completed response. The stream also reports server setup, routing,
+tool, model, residual, and total durations together with model/tool call and
+token counts; message details retain this bounded diagnostic breakdown. Every
+visible message also exposes conversation
 rewind: after confirmation, the server truncates the scoped canonical
 checkpoint at the complete turn boundary and returns its public projection.
 Rewind changes conversation memory only; completed confirmations and external

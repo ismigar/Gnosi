@@ -1,5 +1,11 @@
 const MAX_PROCESSING_MS = 24 * 60 * 60 * 1000;
-const PRESENTATION_FIELDS = ['processingMs', 'feedback', 'saved'];
+const TURN_TIMING_MS_FIELDS = [
+    'setup_ms', 'routing_ms', 'model_ms', 'tools_ms', 'other_ms', 'total_ms',
+];
+const TURN_TIMING_COUNT_FIELDS = [
+    'input_tokens', 'output_tokens', 'model_calls', 'tool_calls',
+];
+const PRESENTATION_FIELDS = ['processingMs', 'timings', 'feedback', 'saved'];
 
 export const boundedProcessingMs = (value) => {
     if (value === null || value === undefined || value === '') return null;
@@ -12,6 +18,22 @@ export const processingSeconds = (processingMs) => {
     const bounded = boundedProcessingMs(processingMs);
     if (bounded === null) return null;
     return Math.max(1, Math.ceil(bounded / 1000));
+};
+
+export const boundedTurnMetrics = (value) => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    const metrics = {};
+    TURN_TIMING_MS_FIELDS.forEach((field) => {
+        const bounded = boundedProcessingMs(value[field]);
+        if (bounded !== null) metrics[field] = bounded;
+    });
+    TURN_TIMING_COUNT_FIELDS.forEach((field) => {
+        const numeric = Number(value[field]);
+        if (Number.isFinite(numeric) && numeric >= 0) {
+            metrics[field] = Math.min(Number.MAX_SAFE_INTEGER, Math.floor(numeric));
+        }
+    });
+    return Object.keys(metrics).length ? metrics : null;
 };
 
 export const conversationRewindPlan = (messages, messageIndex) => {
@@ -72,6 +94,9 @@ export const mergeCanonicalMessageMetadata = (canonical, cached) => {
         });
         if (metadata.processingMs !== undefined) {
             metadata.processingMs = boundedProcessingMs(metadata.processingMs);
+        }
+        if (metadata.timings !== undefined) {
+            metadata.timings = boundedTurnMetrics(metadata.timings);
         }
         return { ...normalizedMessage, ...metadata };
     });

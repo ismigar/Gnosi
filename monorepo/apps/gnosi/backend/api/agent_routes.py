@@ -1535,6 +1535,7 @@ async def chat_endpoint(
     """
     Main endpoint for chatting with a specific agent.
     """
+    request_started_at = time.monotonic()
     try:
         agent_id = _validated_identifier(chat_req.agent_id, "agent_id")
         session_id = _validated_identifier(chat_req.session_id, "session_id")
@@ -1589,6 +1590,7 @@ async def chat_endpoint(
                 for item in chat_req.context_refs
             ],
         )
+        workflow_ready_at = time.monotonic()
 
         authorized_tool_names = _explicit_brain_write_tool_names(
             chat_req.message,
@@ -1648,7 +1650,46 @@ async def chat_endpoint(
             total_in_tok = 0
             total_out_tok = 0
             usage_recorded = False
+            metrics_emitted = False
+            phase_ms = {
+                "routing": 0.0,
+                "model": 0.0,
+                "tools": 0.0,
+            }
+            model_calls = 0
+            tool_calls_count = 0
             active_tool_names: set[str] = set()
+
+            def metrics_payload() -> Dict[str, Any]:
+                total_ms = max(
+                    0,
+                    int((time.monotonic() - request_started_at) * 1000),
+                )
+                setup_ms = max(
+                    0,
+                    int((workflow_ready_at - request_started_at) * 1000),
+                )
+                routing_ms = max(0, int(phase_ms["routing"]))
+                model_ms = max(0, int(phase_ms["model"]))
+                tools_ms = max(0, int(phase_ms["tools"]))
+                other_ms = max(
+                    0,
+                    total_ms - setup_ms - routing_ms - model_ms - tools_ms,
+                )
+                return {
+                    "type": "turn_metrics",
+                    "setup_ms": setup_ms,
+                    "routing_ms": routing_ms,
+                    "model_ms": model_ms,
+                    "tools_ms": tools_ms,
+                    "other_ms": other_ms,
+                    "total_ms": total_ms,
+                    "input_tokens": total_in_tok,
+                    "output_tokens": total_out_tok,
+                    "model_calls": model_calls,
+                    "tool_calls": tool_calls_count,
+                }
+
             confirmation_token = bind_confirmation_context(
                 vault_scope=vault_scope,
                 workspace_id=workspace_context.workspace_id,
@@ -1668,6 +1709,8 @@ async def chat_endpoint(
                         deterministic_confirmation,
                         ensure_ascii=False,
                     ) + "\n"
+                    yield json.dumps(metrics_payload()) + "\n"
+                    metrics_emitted = True
                     yield json.dumps({
                         "type": "done",
                         "has_response": True,
@@ -1717,6 +1760,7 @@ async def chat_endpoint(
                     async with asyncio.timeout(TURN_TIMEOUT_SECONDS):
                         async with AsyncSqliteSaver.from_conn_string(str(db_path)) as saver:
                             agent_app = workflow.compile(checkpointer=saver)
+                            previous_update_at = time.monotonic()
                             async for event in agent_app.astream(
                                 inputs,
                                 config=config,
@@ -1725,15 +1769,37 @@ async def chat_endpoint(
                                 if await request.is_disconnected():
                                     return
                                 for node_name, state_update in event.items():
-                                    for msg in state_update.get("messages", []):
-                                        turn_usage = usage_from_message(msg)
+                                    update_at = time.monotonic()
+                                    update_elapsed_ms = max(
+                                        0.0,
+                                        (update_at - previous_update_at) * 1000,
+                                    )
+                                    previous_update_at = update_at
+                                    update_messages = state_update.get("messages", [])
+                                    update_usages = [
+                                        usage_from_message(message)
+                                        for message in update_messages
+                                    ]
+                                    if node_name in {"brain_tools", "coder_tools"}:
+                                        phase_ms["tools"] += update_elapsed_ms
+                                    elif any(update_usages):
+                                        phase_ms["model"] += update_elapsed_ms
+                                    else:
+                                        phase_ms["routing"] += update_elapsed_ms
+
+                                    for msg, turn_usage in zip(
+                                        update_messages,
+                                        update_usages,
+                                    ):
                                         if turn_usage:
                                             total_in_tok += turn_usage[0]
                                             total_out_tok += turn_usage[1]
+                                            model_calls += 1
 
                                         tool_calls = getattr(msg, "tool_calls", None) or []
                                         if tool_calls:
                                             for tool_call in tool_calls:
+                                                tool_calls_count += 1
                                                 tool_name = str(
                                                     tool_call.get("name") or ""
                                                 ).strip()
@@ -1794,6 +1860,8 @@ async def chat_endpoint(
                         total_out_tok,
                     )
                     usage_recorded = True
+                yield json.dumps(metrics_payload()) + "\n"
+                metrics_emitted = True
                 yield json.dumps({
                     "type": "done",
                     "has_response": answer_count > 0,
@@ -1874,6 +1942,9 @@ async def chat_endpoint(
                 if error_code:
                     error_payload["code"] = error_code
                 yield json.dumps(error_payload) + "\n"
+                if not metrics_emitted:
+                    yield json.dumps(metrics_payload()) + "\n"
+                    metrics_emitted = True
                 yield json.dumps({
                     "type": "done",
                     "has_response": True,

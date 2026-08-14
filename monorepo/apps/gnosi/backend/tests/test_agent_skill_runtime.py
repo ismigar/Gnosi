@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from types import SimpleNamespace
 
+import pytest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langchain_core.tools import tool
 
@@ -263,6 +264,190 @@ def test_personal_resource_authorship_builds_one_exact_server_call():
     assert call["args"] == {"offset": 0, "limit": 100}
 
 
+def test_provider_prompt_omits_historical_tool_payloads_only():
+    messages = [
+        HumanMessage(content="Earlier question"),
+        AIMessage(content="", tool_calls=[{
+            "name": "search_vault",
+            "args": {"query": "earlier"},
+            "id": "old-call",
+            "type": "tool_call",
+        }]),
+        ToolMessage(
+            content="HISTORICAL_RAW_PAYLOAD" * 1_000,
+            name="search_vault",
+            tool_call_id="old-call",
+        ),
+        AIMessage(content="Earlier final answer"),
+        HumanMessage(content="Current question"),
+        AIMessage(content="", tool_calls=[{
+            "name": "query_vault_table",
+            "args": {"table_id_or_name": "Resources"},
+            "id": "current-call",
+            "type": "tool_call",
+        }]),
+        ToolMessage(
+            content="CURRENT_EXACT_PAYLOAD",
+            name="query_vault_table",
+            tool_call_id="current-call",
+        ),
+    ]
+
+    bounded = factory._bounded_model_messages(messages, max_chars=500_000)
+    contents = [str(message.content) for message in bounded]
+
+    assert "Earlier final answer" in contents
+    assert "CURRENT_EXACT_PAYLOAD" in contents
+    assert not any("HISTORICAL_RAW_PAYLOAD" in content for content in contents)
+    assert sum(len(content) for content in contents) <= factory.MAX_MODEL_MESSAGE_CHARS
+
+
+def test_provider_prompt_never_evicts_current_request_for_large_tool_results():
+    messages = [HumanMessage(content="CURRENT_REQUEST")]
+    for index in range(4):
+        call_id = f"current-call-{index}"
+        messages.extend([
+            AIMessage(content="", tool_calls=[{
+                "name": "query_vault_table",
+                "args": {"offset": index},
+                "id": call_id,
+                "type": "tool_call",
+            }]),
+            ToolMessage(
+                content=f"RESULT_{index}_" + ("x" * 20_000),
+                name="query_vault_table",
+                tool_call_id=call_id,
+            ),
+        ])
+
+    bounded = factory._bounded_model_messages(messages, max_chars=24_000)
+
+    assert any(message.content == "CURRENT_REQUEST" for message in bounded)
+    assert sum(len(str(message.content)) for message in bounded) <= 24_000
+    tool_call_ids = {
+        str(call.get("id") or "")
+        for message in bounded
+        for call in (getattr(message, "tool_calls", None) or [])
+    }
+    assert {
+        str(getattr(message, "tool_call_id", "") or "")
+        for message in bounded
+        if isinstance(message, ToolMessage)
+    } == tool_call_ids
+
+
+def test_turn_model_tools_bind_reads_and_exact_guarded_grants_only():
+    @tool
+    def read_tool() -> str:
+        """Read test state."""
+        return "read"
+
+    @tool
+    def write_tool() -> str:
+        """Write test state."""
+        return "write"
+
+    @tool
+    def search_mail() -> str:
+        """Search the mailbox."""
+        return "mail"
+
+    @tool
+    def list_table_rows() -> str:
+        """List table rows."""
+        return "rows"
+
+    metadata = [
+        {
+            "name": "read_tool",
+            "effects": ["read", "personal_data"],
+            "confirmation": "none",
+        },
+        {
+            "name": "write_tool",
+            "effects": ["local_write"],
+            "confirmation": "explicit_request",
+        },
+        {
+            "name": "search_mail",
+            "effects": ["read", "personal_data"],
+            "confirmation": "none",
+        },
+        {
+            "name": "list_table_rows",
+            "effects": ["read", "personal_data"],
+            "confirmation": "none",
+        },
+    ]
+
+    passive = factory._turn_model_tools(
+        [read_tool, write_tool, search_mail, list_table_rows], metadata, [],
+    )
+    authorized = factory._turn_model_tools(
+        [read_tool, write_tool, search_mail, list_table_rows],
+        metadata,
+        ["write_tool"],
+        user_message="Busca els correus pendents",
+        narrow_passive_reads=True,
+    )
+
+    assert [item.name for item in passive] == [
+        "read_tool", "search_mail", "list_table_rows",
+    ]
+    assert [item.name for item in authorized] == ["write_tool", "search_mail"]
+
+
+@pytest.mark.parametrize(
+    ("message", "expected"),
+    [
+        ("Troba tots els recursos dels quals soc autor", "authored"),
+        ("List all rows in this table", "query_context_table"),
+        ("Summarize this page", "read_context_source"),
+        ("Quantes notícies pendents tinc?", "inspect_reader_context"),
+        ("Busca notícies sobre accessibilitat", "search_reader_context"),
+        ("Analitza totes les notícies per temes", "start_reader_context_analysis"),
+        (
+            "Com va l'anàlisi? abcdef0123456789abcdef0123456789",
+            "reader_context_analysis_status",
+        ),
+    ],
+)
+def test_representative_read_request_matrix(message, expected):
+    if expected == "authored":
+        assert factory._personal_resource_authorship_requested(message)
+    elif "reader" in expected:
+        assert factory._required_reader_context_tool(message) == expected
+    else:
+        ref_type = "table" if expected == "query_context_table" else "page"
+        assert factory._required_vault_context_tool(
+            message,
+            [{"type": ref_type, "ref": "example"}],
+        ) == expected
+
+
+@pytest.mark.parametrize(
+    ("message", "expected_fragment"),
+    [
+        ("Troba els recursos dels quals soc autor", "S'ha trobat 1 recurs"),
+        ("Encuentra los recursos de los que soy autor", "Se ha encontrado 1 recurso"),
+        ("Find resources authored by me", "Found 1 resource"),
+        ("Trouve mes ressources dont je suis auteur", "1 ressource a été trouvée"),
+    ],
+)
+def test_authored_resource_response_is_localized_and_escaped(
+    message,
+    expected_fragment,
+):
+    content = factory._authored_resources_response(
+        '{"active_view":{"name":"Mine"},"matching_count":1,'
+        '"records":[{"id":"one","title":"*Unsafe* title"}]}',
+        message,
+    )
+
+    assert expected_fragment in content
+    assert "\\*Unsafe\\* title" in content
+
+
 def test_identical_tool_calls_are_detected_only_in_the_current_turn():
     repeated_call = {
         "name": "query_vault_table",
@@ -288,7 +473,7 @@ def test_identical_tool_calls_are_detected_only_in_the_current_turn():
     ) == ""
 
 
-def test_authored_resources_route_once_then_synthesize_without_tools(monkeypatch):
+def test_authored_resources_route_once_then_formats_without_model(monkeypatch):
     calls = []
 
     @tool
@@ -332,8 +517,10 @@ def test_authored_resources_route_once_then_synthesize_without_tools(monkeypatch
     })
 
     assert calls == [(0, 100)]
-    assert result["messages"][-1].content == "done"
-    assert "exact saved self-authorship view result" in llm.system_prompts[-1]
+    assert result["messages"][-1].content == (
+        "S'ha trobat 1 recurs a la vista «Resources»:\n1. Mine"
+    )
+    assert llm.system_prompts == []
 
 
 def test_repeat_guard_precedes_missing_context_forcing(monkeypatch):
@@ -532,20 +719,18 @@ def test_legacy_bundle_exposes_core_gnosi_tools_without_query_wiki(
     finally:
         active_vault_path.reset(token)
 
-    workflow, _selection = _workflow(monkeypatch, agent, runtime, llm)
+    workflow, selection = _workflow(monkeypatch, agent, runtime, llm)
 
     assert workflow is not None
-    assert llm.bound_tool_names
-    assert all(
-        "query_wiki" not in tool_names
-        for tool_names in llm.bound_tool_names
-    )
-    brain_tool_names = max(llm.bound_tool_names, key=len)
+    brain_tool_names = {
+        item["name"] for item in selection["tools"]
+    }
+    assert "query_wiki" not in brain_tool_names
     assert {
         "list_table_rows",
         "create_table_row",
         "send_mail",
-    } <= set(brain_tool_names)
+    } <= brain_tool_names
 
 
 def test_assigned_skill_does_not_inherit_unrelated_core_gnosi_tools(monkeypatch):
@@ -573,12 +758,18 @@ def test_assigned_skill_does_not_inherit_unrelated_core_gnosi_tools(monkeypatch)
     )
     llm = RecordingLlm()
 
-    _workflow(
+    workflow, _selection = _workflow(
         monkeypatch,
         _agent(skill_ids=["plugin.example.query"]),
         runtime,
         llm,
     )
+    workflow.compile().invoke({
+        "messages": [HumanMessage(content="Search the assigned source")],
+        "turn_authorized_tool_names": [],
+        "active_skill_ids": ["plugin.example.query"],
+        "current_user_role": "owner",
+    })
 
     assert len(llm.bound_tool_names) == 1
     bound_names = set(llm.bound_tool_names[0])
@@ -684,12 +875,18 @@ def test_plain_callable_tool_handler_is_not_dropped(monkeypatch):
     )
     llm = RecordingLlm()
 
-    _workflow(
+    workflow, _selection = _workflow(
         monkeypatch,
         _agent(skill_ids=["plugin.example.callable"]),
         runtime,
         llm,
     )
+    workflow.compile().invoke({
+        "messages": [HumanMessage(content="Search the assigned source")],
+        "turn_authorized_tool_names": [],
+        "active_skill_ids": ["plugin.example.callable"],
+        "current_user_role": "owner",
+    })
 
     assert len(llm.bound_tool_names) == 1
     assert "callable_query" in llm.bound_tool_names[0]

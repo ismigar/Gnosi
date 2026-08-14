@@ -71,20 +71,96 @@ BASE_DIR = cfg.paths.get("PROJECT_DIR") or Path(__file__).resolve().parent.paren
 INSTRUCTIONS_DIR = cfg.paths.get("AGENT_INSTRUCTIONS") or (Path(__file__).resolve().parent / "instructions")
 log = logging.getLogger(__name__)
 
-MAX_MODEL_MESSAGE_CHARS = 60_000
+MAX_MODEL_MESSAGE_CHARS = 48_000
 MAX_MODEL_MESSAGE_COUNT = 32
 MAX_SINGLE_MESSAGE_CHARS = 16_000
+MAX_HISTORICAL_MESSAGE_CHARS = 4_000
 MAX_SKILL_INSTRUCTION_CHARS = 24_000
 MAX_SYSTEM_PROMPT_CHARS = 32_000
 MAX_BOUND_TOOLS = 64
+MAX_RELEVANT_READ_TOOLS = 16
 DEFAULT_CONTEXT_WINDOW_TOKENS = 8_192
+GUARDED_TOOL_EFFECTS = frozenset({
+    "local_write",
+    "external_write",
+    "destructive",
+    "code_execution",
+    "ai_cost",
+    "bulk_write",
+    "financial_cost",
+    "data_egress",
+})
+TURN_TOOL_DOMAINS = {
+    "mail": {
+        "aliases": (
+            "mail", "email", "correu", "correo", "courriel", "inbox",
+            "bustia", "buzon",
+        ),
+        "markers": ("mail", "email", "inbox", "draft"),
+    },
+    "calendar": {
+        "aliases": (
+            "calendar", "calendari", "calendario", "calendrier", "event",
+            "esdeveniment", "evento",
+        ),
+        "markers": ("calendar", "event"),
+    },
+    "contacts": {
+        "aliases": ("contact", "contacte", "contacto"),
+        "markers": ("contact",),
+    },
+    "tasks": {
+        "aliases": ("task", "tasca", "tarea", "todo", "pendent"),
+        "markers": ("task", "todo"),
+    },
+    "reader": {
+        "aliases": (
+            "reader", "news", "noticia", "article", "rss", "llegida",
+            "unread",
+        ),
+        "markers": ("reader", "article", "news", "rss"),
+    },
+    "tables": {
+        "aliases": (
+            "table", "taula", "tabla", "database", "recurs", "resource",
+            "row", "fila", "registre", "registro",
+        ),
+        "markers": ("table", "database", "row", "resource"),
+    },
+    "vault": {
+        "aliases": (
+            "vault", "wiki", "page", "pagina", "nota", "note", "document",
+            "pdf", "memory", "memoria",
+        ),
+        "markers": (
+            "vault", "wiki", "page", "note", "document", "pdf", "memory",
+            "search",
+        ),
+    },
+    "files": {
+        "aliases": (
+            "file", "fitxer", "archivo", "fichier", "folder", "carpeta",
+            "directori", "directory",
+        ),
+        "markers": ("file", "folder", "directory"),
+    },
+    "web": {
+        "aliases": ("web", "internet", "browser", "url", "navega"),
+        "markers": ("web", "browser", "url", "http"),
+    },
+}
 
 
 def _bounded_model_messages(
     messages: Sequence[BaseMessage],
     max_chars: int = MAX_MODEL_MESSAGE_CHARS,
 ) -> List[BaseMessage]:
-    """Keep newest complete assistant/tool protocol groups within the budget."""
+    """Project checkpoint history into a bounded, valid provider prompt.
+
+    Historical tool calls remain available in the durable checkpoint and chat
+    transcript, but their raw payloads are not useful evidence for a later turn.
+    The current turn keeps complete assistant/tool protocol groups.
+    """
     source = list(messages)[-MAX_MODEL_MESSAGE_COUNT:]
     units: List[List[BaseMessage]] = []
     index = 0
@@ -125,9 +201,36 @@ def _bounded_model_messages(
             index += 1
         units.append(unit)
 
-    bounded_units: List[List[BaseMessage]] = []
-    remaining = max(1, int(max_chars))
-    for unit in reversed(units):
+    human_unit_indexes = [
+        unit_index
+        for unit_index, unit in enumerate(units)
+        if any(
+            str(getattr(message, "type", "") or "") == "human"
+            for message in unit
+        )
+    ]
+    latest_human_unit = max(human_unit_indexes) if human_unit_indexes else None
+    projected_units: List[tuple[int, List[BaseMessage], bool]] = []
+    for unit_index, unit in enumerate(units):
+        historical = (
+            latest_human_unit is not None
+            and unit_index < latest_human_unit
+        )
+        has_tool_protocol = any(
+            isinstance(message, ToolMessage)
+            or bool(getattr(message, "tool_calls", None) or [])
+            for message in unit
+        )
+        if historical and has_tool_protocol:
+            continue
+        projected_units.append((unit_index, unit, historical))
+
+    limit = min(
+        MAX_MODEL_MESSAGE_CHARS,
+        max(1, int(max_chars)),
+    )
+    prepared_units = []
+    for unit_index, unit, historical in projected_units:
         prepared = []
         unit_chars = 0
         for message in unit:
@@ -135,15 +238,65 @@ def _bounded_model_messages(
             text = content if isinstance(content, str) else json.dumps(
                 content, ensure_ascii=False, default=str,
             )
-            if len(text) > MAX_SINGLE_MESSAGE_CHARS:
-                text = text[:MAX_SINGLE_MESSAGE_CHARS]
+            message_limit = (
+                MAX_HISTORICAL_MESSAGE_CHARS
+                if historical
+                else MAX_SINGLE_MESSAGE_CHARS
+            )
+            if len(text) > message_limit:
+                text = text[:message_limit]
                 message = message.model_copy(update={"content": text})
             unit_chars += len(text)
             prepared.append(message)
-        if unit_chars > remaining and bounded_units:
+        prepared_units.append((unit_index, prepared, unit_chars, historical))
+
+    # Reserve space for the current request before adding any evidence. Without
+    # this reservation, several large current-turn tool results can evict the
+    # very HumanMessage they are supposed to answer.
+    selected_units: List[tuple[int, List[BaseMessage]]] = []
+    remaining = limit
+    if latest_human_unit is not None:
+        latest_human = next(
+            (
+                item for item in prepared_units
+                if item[0] == latest_human_unit
+            ),
+            None,
+        )
+        if latest_human is not None:
+            unit_index, prepared, unit_chars, _historical = latest_human
+            if unit_chars > remaining:
+                available = remaining
+                bounded = []
+                for message in prepared:
+                    text = (
+                        message.content
+                        if isinstance(message.content, str)
+                        else json.dumps(
+                            message.content,
+                            ensure_ascii=False,
+                            default=str,
+                        )
+                    )
+                    kept = text[:available]
+                    bounded.append(
+                        message
+                        if kept == text
+                        else message.model_copy(update={"content": kept})
+                    )
+                    available -= len(kept)
+                prepared = bounded
+                unit_chars = remaining
+            selected_units.append((unit_index, prepared))
+            remaining -= unit_chars
+
+    for unit_index, prepared, unit_chars, historical in reversed(prepared_units):
+        if unit_index == latest_human_unit:
+            continue
+        if unit_chars > remaining and (historical or remaining <= 0):
             continue
         if unit_chars > remaining:
-            available = max(0, remaining)
+            available = remaining
             truncated = []
             for message in prepared:
                 content = message.content
@@ -159,13 +312,13 @@ def _bounded_model_messages(
                 available -= len(kept)
             prepared = truncated
             unit_chars = remaining
-        bounded_units.append(prepared)
+        selected_units.append((unit_index, prepared))
         remaining -= unit_chars
         if remaining <= 0:
             break
     return [
         message
-        for unit in reversed(bounded_units)
+        for _unit_index, unit in sorted(selected_units, key=lambda item: item[0])
         for message in unit
     ]
 
@@ -806,6 +959,123 @@ def _deterministic_personal_resources_call() -> dict:
     }
 
 
+def _latest_tool_message_since_latest_user(
+    messages: Iterable[Any],
+    tool_name: str,
+) -> Optional[Any]:
+    """Return one exact current-turn tool result without scanning old turns."""
+    for message in reversed(list(messages)):
+        message_type = str(getattr(message, "type", "") or "")
+        if message_type == "human":
+            return None
+        if (
+            message_type == "tool"
+            and str(getattr(message, "name", "") or "") == tool_name
+        ):
+            return message
+    return None
+
+
+def _response_language(message: str) -> str:
+    """Resolve a deterministic response language from strong request markers."""
+    decomposed = unicodedata.normalize("NFKD", str(message or "").casefold())
+    text = " ".join(
+        re.sub(
+            r"[^a-z0-9]+",
+            " ",
+            "".join(
+                character
+                for character in decomposed
+                if not unicodedata.combining(character)
+            ),
+        ).split()
+    )
+    if re.search(r"\b(?:soc|troba|dels|quals|meus|meves)\b", text):
+        return "ca"
+    if re.search(r"\b(?:je|mes|ressources|trouve|auteur)\b", text):
+        return "fr"
+    if re.search(r"\b(?:soy|mis|recursos|encuentra|autor)\b", text):
+        return "es"
+    return "en"
+
+
+def _escaped_markdown_text(value: Any, fallback: str) -> str:
+    """Render an untrusted record label as one inert Markdown line."""
+    text = " ".join(str(value or "").split())[:500] or fallback
+    return re.sub(r"([\\`*_[\]<>])", r"\\\1", text)
+
+
+def _authored_resources_response(tool_content: Any, user_message: str) -> str:
+    """Format the exact self-authorship payload without another model call."""
+    language = _response_language(user_message)
+    strings = {
+        "ca": {
+            "found_one": "S'ha trobat {count} recurs a la vista «{view}»:",
+            "found_many": "S'han trobat {count} recursos a la vista «{view}»:",
+            "empty": "No s'ha trobat cap recurs a la vista «{view}».",
+            "error": "No he pogut consultar la vista de recursos d'autoria pròpia.",
+            "untitled": "Sense títol",
+            "more": "Es mostren {shown} de {count} recursos; encara n'hi ha més.",
+        },
+        "es": {
+            "found_one": "Se ha encontrado {count} recurso en la vista «{view}»:",
+            "found_many": "Se han encontrado {count} recursos en la vista «{view}»:",
+            "empty": "No se ha encontrado ningún recurso en la vista «{view}».",
+            "error": "No he podido consultar la vista de recursos de autoría propia.",
+            "untitled": "Sin título",
+            "more": "Se muestran {shown} de {count} recursos; todavía hay más.",
+        },
+        "fr": {
+            "found_one": "{count} ressource a été trouvée dans la vue «{view}» :",
+            "found_many": "{count} ressources ont été trouvées dans la vue «{view}» :",
+            "empty": "Aucune ressource n'a été trouvée dans la vue «{view}».",
+            "error": "Je n'ai pas pu consulter la vue des ressources dont vous êtes l'auteur.",
+            "untitled": "Sans titre",
+            "more": "{shown} ressources sur {count} sont affichées ; il en reste d'autres.",
+        },
+        "en": {
+            "found_one": "Found {count} resource in the “{view}” view:",
+            "found_many": "Found {count} resources in the “{view}” view:",
+            "empty": "No resources were found in the “{view}” view.",
+            "error": "I could not query the self-authored Resources view.",
+            "untitled": "Untitled",
+            "more": "Showing {shown} of {count} resources; more remain.",
+        },
+    }[language]
+    try:
+        payload = json.loads(str(tool_content or ""))
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return strings["error"]
+    if not isinstance(payload, dict) or payload.get("error"):
+        return strings["error"]
+    records = payload.get("records") or []
+    if not isinstance(records, list):
+        return strings["error"]
+    try:
+        count = max(0, int(payload.get("matching_count", len(records))))
+    except (TypeError, ValueError):
+        count = len(records)
+    active_view = payload.get("active_view") or {}
+    view_name = _escaped_markdown_text(
+        active_view.get("name") if isinstance(active_view, dict) else "",
+        "Resources",
+    )
+    if count == 0:
+        return strings["empty"].format(view=view_name)
+    found_key = "found_one" if count == 1 else "found_many"
+    lines = [strings[found_key].format(count=count, view=view_name)]
+    for index, record in enumerate(records, start=1):
+        row = record if isinstance(record, dict) else {}
+        title = _escaped_markdown_text(row.get("title"), strings["untitled"])
+        lines.append(f"{index}. {title}")
+    if payload.get("has_more"):
+        lines.extend([
+            "",
+            strings["more"].format(shown=len(records), count=count),
+        ])
+    return "\n".join(lines)
+
+
 def _repeated_tool_call_since_latest_user(
     messages: Iterable[Any],
     minimum_repetitions: int = 2,
@@ -1086,7 +1356,7 @@ def _runtime_tool_metadata(runtime: Any) -> tuple[list[dict], set[str]]:
             _descriptor_value(descriptor, "minimum_role", "viewer")
             or "viewer"
         )
-        if any(effect != "read" for effect in effects) or confirmation not in {
+        if GUARDED_TOOL_EFFECTS.intersection(effects) or confirmation not in {
             "",
             "never",
             "none",
@@ -1107,6 +1377,121 @@ def _runtime_tool_metadata(runtime: Any) -> tuple[list[dict], set[str]]:
             "_descriptor": descriptor,
         })
     return metadata, guarded_names
+
+
+def _turn_model_tools(
+    tools: Iterable[Any],
+    metadata: Iterable[dict],
+    authorized_tool_names: Iterable[str],
+    *,
+    user_message: str = "",
+    narrow_passive_reads: bool = False,
+    required_read_tool_names: Iterable[str] = (),
+) -> List[Any]:
+    """Bind relevant passive reads and exact current-turn guarded grants."""
+    policies = {
+        str(item.get("name") or ""): item
+        for item in metadata
+        if item.get("name")
+    }
+    authorized = {
+        str(name)
+        for name in authorized_tool_names
+        if str(name)
+    }
+    required_reads = {
+        str(name)
+        for name in required_read_tool_names
+        if str(name)
+    }
+    normalized_message = unicodedata.normalize(
+        "NFKD",
+        str(user_message or "").casefold(),
+    )
+    normalized_message = " ".join(
+        re.sub(
+            r"[^a-z0-9]+",
+            " ",
+            "".join(
+                character
+                for character in normalized_message
+                if not unicodedata.combining(character)
+            ),
+        ).split()
+    )
+    message_tokens = {
+        token for token in normalized_message.split() if len(token) >= 3
+    }
+    domain_markers = set()
+    for domain in TURN_TOOL_DOMAINS.values():
+        if any(
+            token == alias or token.startswith(alias)
+            for alias in domain["aliases"]
+            for token in message_tokens
+        ):
+            domain_markers.update(domain["markers"])
+    if not domain_markers and any(
+        token.startswith(alias)
+        for alias in ("cerca", "busca", "search", "find", "troba")
+        for token in message_tokens
+    ):
+        domain_markers.update(("search", "query"))
+
+    def passive_tool_is_relevant(tool: Any, policy: dict) -> bool:
+        if not narrow_passive_reads:
+            return True
+        searchable = " ".join((
+            _tool_name(tool),
+            str(getattr(tool, "description", "") or ""),
+            str(policy.get("id") or ""),
+            " ".join(str(value) for value in (policy.get("skill_ids") or [])),
+        ))
+        decomposed = unicodedata.normalize("NFKD", searchable.casefold())
+        searchable_tokens = {
+            token
+            for token in re.sub(
+                r"[^a-z0-9]+",
+                " ",
+                "".join(
+                    character
+                    for character in decomposed
+                    if not unicodedata.combining(character)
+                ),
+            ).split()
+            if len(token) >= 3
+        }
+        return bool(
+            message_tokens.intersection(searchable_tokens)
+            or domain_markers.intersection(searchable_tokens)
+        )
+
+    selected = []
+    selected_passive_reads = 0
+    for tool in tools:
+        name = _tool_name(tool)
+        policy = policies.get(name)
+        if not policy:
+            continue
+        confirmation = str(policy.get("confirmation") or "none")
+        effects = {str(value) for value in (policy.get("effects") or [])}
+        passive_read = (
+            confirmation in {"", "never", "none"}
+            and not GUARDED_TOOL_EFFECTS.intersection(effects)
+        )
+        if name in authorized:
+            selected.append(tool)
+            continue
+        if (
+            passive_read
+            and selected_passive_reads < MAX_RELEVANT_READ_TOOLS
+            and (
+                name in required_reads
+                or passive_tool_is_relevant(tool, policy)
+            )
+        ):
+            selected.append(tool)
+            selected_passive_reads += 1
+    return selected
 
 
 # --- 1. Define the State ---
@@ -1836,6 +2221,24 @@ async def create_agent_workflow(
         item["name"]: dict(item)
         for item in runtime_tool_metadata
     }
+    if legacy_bundle_active:
+        for mcp_tool in mcp_langchain_tools:
+            mcp_name = _tool_name(mcp_tool)
+            if not mcp_name or mcp_name in tool_policies:
+                continue
+            mcp_metadata = {
+                "id": f"mcp.{mcp_name}",
+                "name": mcp_name,
+                "effects": ["read", "external_read"],
+                "skill_ids": ["core.legacy-default-v1"],
+                "minimum_role": "viewer",
+                "confirmation": "none",
+                "prepares_confirmation": False,
+                "mcp": True,
+                "_descriptor": None,
+            }
+            runtime_tool_metadata.append(mcp_metadata)
+            tool_policies[mcp_name] = dict(mcp_metadata)
 
     # Coder & Brain specialists.
     coder_tools = (
@@ -1874,11 +2277,7 @@ async def create_agent_workflow(
         runtime_tool_metadata.append(context_tool_metadata)
         tool_policies[context_tool_metadata["name"]] = dict(context_tool_metadata)
         if (
-            any(effect in {
-                "local_write", "external_write", "destructive",
-                "code_execution", "ai_cost", "bulk_write",
-                "financial_cost", "data_egress",
-            } for effect in effects)
+            bool(GUARDED_TOOL_EFFECTS.intersection(effects))
             or context_tool_metadata["confirmation"] not in {"", "never", "none"}
         ):
             guarded_tool_names.add(context_tool_metadata["name"])
@@ -1923,7 +2322,6 @@ async def create_agent_workflow(
             - reserved_output_chars,
         ),
     )
-    brain_llm = llm.bind_tools(brain_tools) if brain_tools else llm
     context_tool_names = {_tool_name(item) for item in context_tools}
     forced_context_llms = {
         _tool_name(item): llm.bind_tools([item], tool_choice="required")
@@ -2010,6 +2408,41 @@ async def create_agent_workflow(
             "",
         )
         current_authorized_names = _turn_authorized_tool_names(state)
+        required_read_tool_names = set()
+        if context_tools:
+            if any(
+                ref.get("type") == "internal" and ref.get("ref") == "reader"
+                for ref in context_refs
+            ):
+                reader_job_id = _latest_reader_analysis_job_id(messages)
+                routing_message = (
+                    f"{latest_user} {reader_job_id}"
+                    if reader_job_id and reader_job_id not in latest_user.lower()
+                    else latest_user
+                )
+                required_read_tool_names.add(
+                    _required_reader_context_tool(routing_message)
+                )
+            else:
+                required_read_tool_names.add(
+                    _required_vault_context_tool(latest_user, context_refs)
+                )
+        turn_brain_tools = _turn_model_tools(
+            brain_tools,
+            runtime_tool_metadata,
+            current_authorized_names,
+            user_message=latest_user,
+            narrow_passive_reads=legacy_bundle_active,
+            required_read_tool_names=required_read_tool_names,
+        )
+        selected_brain_llm = (
+            llm.bind_tools(turn_brain_tools)
+            if turn_brain_tools
+            else llm
+        )
+        turn_bound_tool_names = {
+            _tool_name(item) for item in turn_brain_tools
+        }
         brain_system = (
             f"You are the Brain specialist for {agent_name} "
             "(Gnosi Vault and sovereign memory)."
@@ -2019,9 +2452,9 @@ async def create_agent_workflow(
                 "\n\nConfigured agent persona and instructions:\n"
                 + combined_persona
             )
-        if brain_tools:
+        if turn_brain_tools:
             tool_names = ", ".join(
-                sorted({_tool_name(item) for item in brain_tools})
+                sorted(turn_bound_tool_names)
             )
             brain_system += (
                 "\nYou may use only these tools: "
@@ -2045,6 +2478,7 @@ async def create_agent_workflow(
                 item["name"]
                 for item in runtime_tool_metadata
                 if item.get("confirmation") == "always"
+                and item["name"] in turn_bound_tool_names
             }
             if always_confirmed_names:
                 brain_system += (
@@ -2096,7 +2530,6 @@ async def create_agent_workflow(
                 + ", ".join(rejected_mcp_names)
                 + ". Explain this limitation if the request depends on one of them."
             )
-        selected_brain_llm = brain_llm
         latest_context_tool = _latest_context_tool_since_latest_user(
             messages,
             context_tool_names,
@@ -2110,6 +2543,10 @@ async def create_agent_workflow(
             messages,
             {"list_authored_vault_resources"},
         )
+        personal_resources_message = _latest_tool_message_since_latest_user(
+            messages,
+            "list_authored_vault_resources",
+        )
         repeated_tool_name = _repeated_tool_call_since_latest_user(messages)
         remaining_steps = int(state.get("remaining_steps", 0) or 0)
         if personal_resources_requested and not personal_resources_result:
@@ -2121,13 +2558,13 @@ async def create_agent_workflow(
                 "next": "supervisor",
             }
         if personal_resources_result and not current_authorized_names:
-            selected_brain_llm = llm
-            brain_system += (
-                "\nThe exact saved self-authorship view result is already present "
-                "in this turn. Answer directly from its matching count and records. "
-                "Do not infer an identity, guess a property name, call another tool, "
-                "or repeat the query."
-            )
+            return {
+                "messages": [AIMessage(content=_authored_resources_response(
+                    getattr(personal_resources_message, "content", ""),
+                    latest_user,
+                ))],
+                "next": "FINISH",
+            }
         elif repeated_tool_name and not current_authorized_names:
             selected_brain_llm = llm
             brain_system += (
@@ -2186,7 +2623,7 @@ async def create_agent_workflow(
                     }
             selected_brain_llm = forced_context_llms.get(
                 required_context_tool,
-                next(iter(forced_context_llms.values()), brain_llm),
+                next(iter(forced_context_llms.values()), selected_brain_llm),
             )
             brain_system += (
                 "\nThis answer depends on attached context. Your first response "
