@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langgraph.checkpoint.base import empty_checkpoint
 from pydantic import ValidationError
 
 from backend.agent import gnosi_tools, system_tools
@@ -19,6 +20,7 @@ from backend.agent.factory import (
     _obvious_route,
     _rejected_mcp_names,
     _safe_mcp_definitions,
+    _tool_results_since_latest_user,
 )
 from backend.api import agent_routes
 
@@ -431,6 +433,154 @@ def test_session_delete_removes_checkpoint_thread(tmp_path, monkeypatch):
         )
 
     assert asyncio.run(exercise()) == {"deleted": True}
+
+
+def test_rewound_checkpoint_messages_removes_complete_turn_suffix():
+    stored = [
+        HumanMessage(
+            content="First",
+            additional_kwargs={"gnosi_turn_id": "turn-1"},
+        ),
+        AIMessage(content="Answer one"),
+        HumanMessage(
+            content="Second",
+            additional_kwargs={"gnosi_turn_id": "turn-2"},
+        ),
+        AIMessage(
+            content="",
+            tool_calls=[{
+                "name": "read_page",
+                "args": {},
+                "id": "call-2",
+                "type": "tool_call",
+            }],
+        ),
+        ToolMessage(content="private result", tool_call_id="call-2"),
+        AIMessage(content="Answer two"),
+    ]
+
+    retained = agent_routes._rewound_checkpoint_messages(
+        stored,
+        before_turn_id="turn-2",
+        keep_messages=4,
+    )
+
+    assert retained == stored[:2]
+    assert agent_routes._public_checkpoint_messages(retained) == [
+        {"role": "user", "content": "First", "turn_id": "turn-1"},
+        {"role": "assistant", "content": "Answer one", "turn_id": "turn-1"},
+    ]
+
+
+def test_legacy_rewind_count_ends_at_assistant_boundary():
+    stored = [
+        HumanMessage(content="First"),
+        AIMessage(content="Answer one"),
+        HumanMessage(content="Second"),
+    ]
+
+    retained = agent_routes._rewound_checkpoint_messages(
+        stored,
+        before_turn_id=None,
+        keep_messages=3,
+    )
+
+    assert retained == stored[:2]
+
+
+def test_rewind_rejects_an_unknown_client_turn_id():
+    with pytest.raises(ValueError):
+        agent_routes._rewound_checkpoint_messages(
+            [HumanMessage(content="First"), AIMessage(content="Answer")],
+            before_turn_id="unknown-turn",
+            keep_messages=0,
+        )
+
+
+def test_session_rewind_replaces_canonical_checkpoint(tmp_path, monkeypatch):
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    checkpoints = tmp_path / "checkpoints"
+    checkpoints.mkdir()
+    monkeypatch.setattr(
+        agent_routes,
+        "_vault_scope",
+        lambda: (vault, "vault-scope"),
+    )
+    monkeypatch.setattr(
+        agent_routes,
+        "cancel_scope_confirmations",
+        lambda _scope: 0,
+    )
+    monkeypatch.setitem(agent_routes.cfg.paths, "CHECKPOINTS", checkpoints)
+    checkpoint_key = agent_routes._checkpoint_key(
+        vault_scope="vault-scope",
+        workspace_id="personal",
+        user_id="user-a",
+        agent_id="agent",
+    )
+    thread_id = agent_routes._chat_thread_id(
+        vault_scope="vault-scope",
+        workspace_id="personal",
+        user_id="user-a",
+        agent_id="agent",
+        session_id="session",
+    )
+    db_path = checkpoints / f"agent_{checkpoint_key}.sqlite"
+    workspace_context = agent_routes.WorkspaceContext(
+        workspace_id="personal",
+        user_id="user-a",
+        role="owner",
+        vault_path=vault,
+    )
+    messages = [
+        HumanMessage(
+            content="First",
+            additional_kwargs={"gnosi_turn_id": "turn-1"},
+        ),
+        AIMessage(content="Answer one"),
+        HumanMessage(
+            content="Second",
+            additional_kwargs={"gnosi_turn_id": "turn-2"},
+        ),
+        AIMessage(content="Answer two"),
+    ]
+
+    async def exercise():
+        checkpoint = empty_checkpoint()
+        checkpoint["channel_values"] = {"messages": messages}
+        config = {
+            "configurable": {
+                "thread_id": thread_id,
+                "checkpoint_ns": "",
+            },
+        }
+        async with agent_routes.AsyncSqliteSaver.from_conn_string(str(db_path)) as saver:
+            await saver.aput(config, checkpoint, {"step": 1}, {})
+        result = await agent_routes.rewind_chat_session(
+            "agent",
+            "session",
+            agent_routes.ChatRewindRequest(before_turn_id="turn-2"),
+            workspace_context,
+        )
+        canonical = await agent_routes.get_chat_session(
+            "agent",
+            "session",
+            workspace_context,
+        )
+        return result, canonical
+
+    result, canonical = asyncio.run(exercise())
+    expected = {
+        "messages": [
+            {"role": "user", "content": "First", "turn_id": "turn-1"},
+            {"role": "assistant", "content": "Answer one", "turn_id": "turn-1"},
+        ],
+    }
+    assert result == expected
+    assert canonical == expected
+
+
 def test_context_compaction_preserves_tool_protocol_groups():
     messages = [
         HumanMessage(content="x" * 70_000),
@@ -515,6 +665,38 @@ def test_legacy_checkpoint_history_strips_internal_enrichment():
     assert agent_routes._public_checkpoint_messages(stored) == [
         {"role": "user", "content": "Visible request"},
     ]
+
+
+def test_read_tool_round_budget_counts_only_the_current_turn():
+    messages = [
+        HumanMessage(content="Earlier"),
+        ToolMessage(content="old", tool_call_id="old"),
+        AIMessage(content="Earlier answer"),
+        HumanMessage(content="Current"),
+        AIMessage(content="", tool_calls=[{
+            "name": "query_vault_table",
+            "args": {},
+            "id": "call-1",
+            "type": "tool_call",
+        }]),
+        ToolMessage(content="first", tool_call_id="call-1"),
+        AIMessage(content="", tool_calls=[{
+            "name": "query_vault_table",
+            "args": {},
+            "id": "call-2",
+            "type": "tool_call",
+        }]),
+        ToolMessage(content="second", tool_call_id="call-2"),
+        AIMessage(content="", tool_calls=[{
+            "name": "query_vault_table",
+            "args": {},
+            "id": "call-3",
+            "type": "tool_call",
+        }]),
+        ToolMessage(content="third", tool_call_id="call-3"),
+    ]
+
+    assert _tool_results_since_latest_user(messages) == 3
 
 
 def test_unknown_model_uses_small_context_fallback(monkeypatch):

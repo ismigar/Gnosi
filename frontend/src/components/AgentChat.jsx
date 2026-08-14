@@ -13,6 +13,12 @@ import {
     startConfirmationRefresh,
 } from './agentConfirmationUtils';
 import { chatScrollDeltaForComposerKey } from './agentChatKeyboardUtils';
+import {
+    boundedProcessingMs,
+    conversationRewindPlan,
+    mergeCanonicalMessageMetadata,
+    processingSeconds,
+} from './agentChatMessageUtils';
 import { selectedMentionsInText, visibleMentionToken } from './agentChatMentionUtils';
 import { deriveAgentRuntimeStatus } from './agentRuntimeStatus';
 import { toast } from '../lib/toast';
@@ -77,6 +83,7 @@ const boundedChatSessions = (sessions) => [...(Array.isArray(sessions) ? session
                                 .slice(0, MAX_STORED_MESSAGE_CHARS)
                     ),
                 confirmation: confirmationForStorage(message?.confirmation),
+                processingMs: boundedProcessingMs(message?.processingMs),
             })),
     }));
 
@@ -143,6 +150,9 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
     const [pendingConfirmation, setPendingConfirmation] = useState(null);
     const [agentRuntime, setAgentRuntime] = useState(null);
     const [detailsMessageIndex, setDetailsMessageIndex] = useState(null);
+    const [processingElapsedSeconds, setProcessingElapsedSeconds] = useState(0);
+    const [pendingRewindIndex, setPendingRewindIndex] = useState(null);
+    const [isRewinding, setIsRewinding] = useState(false);
     const [isDockOpen, setIsDockOpen] = useFloatingActionDock();
     useExclusiveFloatingPanel('chat', isOpen, setIsOpen);
 
@@ -152,6 +162,7 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
     const inputRef = useRef(null);
     const fileInputRef = useRef(null);
     const requestAbortRef = useRef(null);
+    const processingStartedAtRef = useRef(null);
     const historyHydrationRef = useRef(0);
     const activeScopeRef = useRef('');
     const activeVaultStorageScope = localStorage.getItem('gnosi_active_vault') || 'default';
@@ -345,6 +356,24 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
     useEffect(() => () => requestAbortRef.current?.abort(), []);
 
     useEffect(() => {
+        if (!isLoading || processingStartedAtRef.current === null) {
+            setProcessingElapsedSeconds(0);
+            return undefined;
+        }
+        const updateElapsed = () => {
+            setProcessingElapsedSeconds(Math.max(
+                0,
+                Math.floor(
+                    (performance.now() - processingStartedAtRef.current) / 1000,
+                ),
+            ));
+        };
+        updateElapsed();
+        const timer = window.setInterval(updateElapsed, 250);
+        return () => window.clearInterval(timer);
+    }, [isLoading]);
+
+    useEffect(() => {
         const nextScope = `${browserStorageScope}:${selectedAgentId}:${sessionId}`;
         if (activeScopeRef.current && activeScopeRef.current !== nextScope) {
             requestAbortRef.current?.abort();
@@ -512,10 +541,14 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                 const canonical = await response.json();
                 if (historyHydrationRef.current !== hydrationId) return;
                 if (Array.isArray(canonical.messages) && canonical.messages.length) {
-                    setMessages(canonical.messages);
+                    const hydratedMessages = mergeCanonicalMessageMetadata(
+                        canonical.messages,
+                        target.messages,
+                    );
+                    setMessages(hydratedMessages);
                     setChatSessions((prev) => prev.map((session) => (
                         session.id === target.id
-                            ? { ...session, messages: canonical.messages }
+                            ? { ...session, messages: hydratedMessages }
                             : session
                     )));
                 }
@@ -1161,10 +1194,70 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
         return '';
     }, [messages]);
 
+    const confirmConversationRewind = useCallback(async () => {
+        if (pendingRewindIndex === null || isLoading || isRewinding) return;
+        const plan = conversationRewindPlan(messages, pendingRewindIndex);
+        if (!plan) return;
+
+        setIsRewinding(true);
+        try {
+            const response = await fetch(
+                `/api/chat/sessions/${encodeURIComponent(selectedAgentId)}/${encodeURIComponent(sessionId)}/rewind`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        before_turn_id: plan.beforeTurnId,
+                        keep_messages: plan.keepMessages,
+                    }),
+                },
+            );
+            if (!response.ok) {
+                throw new Error(`Conversation rewind failed (${response.status})`);
+            }
+            const canonical = await response.json();
+            const localPrefix = messages.slice(0, plan.localKeepCount);
+            const rewoundMessages = mergeCanonicalMessageMetadata(
+                canonical.messages,
+                localPrefix,
+            );
+            historyHydrationRef.current += 1;
+            setMessages(rewoundMessages);
+            setPendingConfirmation(null);
+            setDetailsMessageIndex(null);
+            setPendingRewindIndex(null);
+            if (plan.prompt) focusComposerWith(plan.prompt);
+            toast.success(t(
+                'chat.rewind_complete',
+                'Conversation rewound. Completed external actions were not reversed.',
+            ));
+        } catch (error) {
+            console.error('Could not rewind assistant conversation', error);
+            toast.error(t(
+                'chat.rewind_failed',
+                'The conversation could not be rewound.',
+            ));
+        } finally {
+            setIsRewinding(false);
+        }
+    }, [
+        focusComposerWith,
+        isLoading,
+        isRewinding,
+        messages,
+        pendingRewindIndex,
+        selectedAgentId,
+        sessionId,
+        t,
+    ]);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         if ((!inputValue.trim() && attachments.length === 0) || isLoading || !agentHasModel) return;
 
+        const turnId = crypto.randomUUID();
+        const processingStartedAt = performance.now();
+        processingStartedAtRef.current = processingStartedAt;
         const mentions = selectedMentionsInText(inputValue, selectedMentions);
         const attachmentsPayload = attachments.map((item) => ({
             name: item.name,
@@ -1179,6 +1272,7 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
         const userMsg = {
             role: 'user',
             content: visibleContent,
+            turnId,
             mentions,
             attachments: attachmentsPayload,
         };
@@ -1205,6 +1299,7 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                     mentions,
                     attachments: attachmentsPayload,
                     context_refs: contextRefs,
+                    turn_id: turnId,
                 }),
                 signal: controller.signal,
             });
@@ -1302,13 +1397,22 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                                     prev,
                                     [data],
                                     confirmationSummary,
-                                );
+                                ).map((message) => (
+                                    message?.confirmation?.confirmation_id === data.confirmation_id
+                                        ? { ...message, turnId }
+                                        : message
+                                ));
                             }
                             const newMsgs = [...prev];
 
                             // Metadata never creates an empty assistant bubble.
                             if (addAssistant) {
-                                newMsgs.push({ role: 'assistant', content: '', llm: selectedLlm });
+                                newMsgs.push({
+                                    role: 'assistant',
+                                    content: '',
+                                    llm: selectedLlm,
+                                    turnId,
+                                });
                             }
 
                             const lastIdx = newMsgs.length - 1;
@@ -1351,6 +1455,7 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                     return [...prev, {
                         role: 'system',
                         content: `${t('chat.error_prefix', 'Error')}: ${t('chat.empty_response', 'The assistant finished without returning a response. Please try again.')}`,
+                        turnId,
                     }];
                 });
             }
@@ -1362,10 +1467,27 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                 setMessages(prev => [...prev, {
                     role: 'system',
                     content: `${t('chat.error_prefix', 'Error')}: ${errorMessage || t('errors.unknown', 'Unknown error')}`,
+                    turnId,
                 }]);
             }
         } finally {
+            const elapsedMs = boundedProcessingMs(
+                performance.now() - processingStartedAt,
+            );
+            setMessages((previous) => {
+                if (activeScopeRef.current !== requestScope) return previous;
+                const responseIndex = previous.findLastIndex((message) => (
+                    message?.turnId === turnId && message?.role !== 'user'
+                ));
+                if (responseIndex < 0) return previous;
+                return previous.map((message, index) => (
+                    index === responseIndex
+                        ? { ...message, processingMs: elapsedMs }
+                        : message
+                ));
+            });
             requestAbortRef.current = null;
+            processingStartedAtRef.current = null;
             setIsLoading(false);
             if (inputRef.current) {
                 inputRef.current.style.height = 'auto';
@@ -1717,6 +1839,16 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                                     {msg.undo?.available && idx === messages.length - 1 && (
                                         <button type="button" onClick={msg.undo.run} aria-label={t('chat.undo_last_action', 'Undo last action')} title={t('chat.undo_last_action', 'Undo last action')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Undo2 size={13} /></button>
                                     )}
+                                    <button
+                                        type="button"
+                                        onClick={() => setPendingRewindIndex(idx)}
+                                        disabled={isLoading || isRewinding}
+                                        aria-label={t('chat.rewind_from_message', 'Undo from this message')}
+                                        title={t('chat.rewind_from_message', 'Undo from this message')}
+                                        style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: isLoading || isRewinding ? 'default' : 'pointer', padding: '3px', opacity: isLoading || isRewinding ? 0.45 : 1 }}
+                                    >
+                                        <Undo2 size={13} />
+                                    </button>
                                     <button type="button" onClick={() => setDetailsMessageIndex(detailsMessageIndex === idx ? null : idx)} aria-label={t('chat.message_details', 'Message details')} title={t('chat.message_details', 'Message details')} aria-expanded={detailsMessageIndex === idx} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Info size={13} /></button>
                                 </div>
                                 {detailsMessageIndex === idx && (
@@ -1730,12 +1862,15 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                                     {msg.role === 'user'
                                         ? t('chat.you', "You")
                                         : `${agentName}${msg.llm?.model ? ` - ${msg.llm.model}` : ''}`}
+                                    {msg.role !== 'user' && processingSeconds(msg.processingMs) !== null
+                                        ? ` · ${t('chat.processing_seconds', '{{count}} s', { count: processingSeconds(msg.processingMs) })}`
+                                        : ''}
                                 </span>
                             </div>
                         ))}
                         {!showSessionsView && isLoading && (
                             <div style={{ alignSelf: 'flex-start', display: 'flex', gap: '8px', alignItems: 'center', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
-                                <Sparkles size={14} className="spin-slow" /> {t('chat.processing', "Processing...")}
+                                <Sparkles size={14} className="spin-slow" /> {t('chat.processing_with_seconds', 'Processing... {{count}} s', { count: processingElapsedSeconds })}
                                 <button
                                     type="button"
                                     onClick={() => requestAbortRef.current?.abort()}
@@ -1925,6 +2060,21 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                 autofocusConfirm={false}
                 requireAcknowledgement
                 acknowledgementLabel={t('chat.confirmations.acknowledgement', 'I have reviewed this action and want to continue.')}
+            />
+            <ConfirmModal
+                isOpen={pendingRewindIndex !== null}
+                onClose={() => { if (!isRewinding) setPendingRewindIndex(null); }}
+                onConfirm={confirmConversationRewind}
+                title={t('chat.rewind_title', 'Undo conversation from here?')}
+                message={t(
+                    'chat.rewind_warning',
+                    'This removes this turn and every later turn from the conversation memory. Completed external actions are not reversed.',
+                )}
+                confirmText={t('chat.rewind_confirm', 'Undo messages')}
+                cancelText={t('common.cancel', 'Cancel')}
+                isDestructive
+                confirmOnEnter={false}
+                autofocusConfirm={false}
             />
         </div>
     );

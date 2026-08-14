@@ -94,6 +94,20 @@ with count and pagination. Exact page and table reads are server-authored tool
 calls; after a complete result, synthesis runs without tool bindings so a
 tool-eager model cannot repeat the call until the graph recursion limit.
 
+Other read-only turns have an independent three-result budget: if the model
+keeps requesting tools, the next Brain invocation receives the accumulated
+evidence without tool bindings and must synthesize the response. The graph
+recursion ceiling therefore remains a final safety net rather than normal flow
+control.
+
+The chat measures each response from request dispatch through stream
+completion. A live whole-second counter is replaced by the saved elapsed time
+on the completed response. Every visible message also exposes conversation
+rewind: after confirmation, the server truncates the scoped canonical
+checkpoint at the complete turn boundary and returns its public projection.
+Rewind changes conversation memory only; completed confirmations and external
+side effects are never presented as reversed.
+
 Editable model-registry rows are hydrated from the canonical catalog before
 they reach Settings or runtime routing. Partial budget/settings updates merge
 with existing capability, context-window, cost, and quality metadata. Provider

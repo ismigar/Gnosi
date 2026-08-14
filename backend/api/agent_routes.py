@@ -1,3 +1,17 @@
+import asyncio
+import copy
+import hashlib
+import json
+import logging
+import os
+import re
+import time
+import uuid
+import weakref
+from contextlib import asynccontextmanager, suppress
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
 from fastapi import (
     APIRouter,
     BackgroundTasks,
@@ -9,26 +23,12 @@ from fastapi import (
     Request,
     UploadFile,
 )
-from pydantic import BaseModel, Field, model_validator
-from typing import List, Dict, Any, Optional
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import HumanMessage
-import json
-import asyncio
-import logging
-import os
-import hashlib
-import re
-import uuid
-import time
-import weakref
-from contextlib import asynccontextmanager, suppress
-from pathlib import Path
-from backend.agent.factory import (
-    _explicit_brain_write_tool_names,
-    create_agent_workflow,
-    prepare_agent_runtime,
-)
+from langgraph.checkpoint.base import create_checkpoint
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+from pydantic import BaseModel, Field, model_validator
+
 from backend.agent.action_confirmations import (
     _descriptor_digest,
     bind_confirmation_context,
@@ -43,6 +43,11 @@ from backend.agent.action_confirmations import (
     list_confirmations,
     reset_confirmation_context,
 )
+from backend.agent.factory import (
+    _explicit_brain_write_tool_names,
+    create_agent_workflow,
+    prepare_agent_runtime,
+)
 from backend.agent.gnosi_tools import (
     ActionConflictError,
     execute_confirmed_action,
@@ -52,15 +57,14 @@ from backend.agent.model_router import record_llm_usage, usage_from_message
 from backend.agent.model_reliability import (
     blames_the_model, model_evidence, record_failure, reliability_report,
 )
-from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from backend.config.app_config import load_params
-from backend.utils.errors import safe_error_detail
-from backend.services.workspace_service import require_role, WorkspaceContext
-from backend.services.context_vars import get_active_vault_path
 from backend.services.capability_audit import (
     list_capability_events,
     record_capability_event,
 )
+from backend.services.context_vars import get_active_vault_path
+from backend.services.workspace_service import WorkspaceContext, require_role
+from backend.utils.errors import safe_error_detail
 
 cfg = load_params()
 
@@ -159,6 +163,12 @@ class ChatRequest(BaseModel):
     attachments: List[AttachmentRef] = Field(default_factory=list, max_length=8)
     active_skill_ids: Optional[List[str]] = Field(default=None, max_length=64)
     context_refs: List[TurnContextRef] = Field(default_factory=list, max_length=8)
+    turn_id: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        max_length=64,
+        pattern=r"^[A-Za-z0-9_-]+$",
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -169,6 +179,18 @@ class ChatRequest(BaseModel):
                 "Client-provided tool confirmations are not accepted."
             )
         return value
+
+
+class ChatRewindRequest(BaseModel):
+    """Select the canonical turn boundary that should become the new tail."""
+
+    before_turn_id: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        max_length=64,
+        pattern=r"^[A-Za-z0-9_-]+$",
+    )
+    keep_messages: int = Field(default=0, ge=0, le=200)
 
 
 class AttachmentDeleteRequest(BaseModel):
@@ -467,15 +489,27 @@ def _prepare_index_title_replacements(message: str) -> Optional[Dict[str, Any]]:
     }
 
 
-def _public_checkpoint_messages(stored_messages: List[Any]) -> List[Dict[str, str]]:
-    """Serialize only user-visible transcript messages from checkpoint state."""
-    messages = []
-    for message in stored_messages[-200:]:
+def _public_checkpoint_message_entries(
+    stored_messages: List[Any],
+) -> List[tuple[int, Dict[str, str]]]:
+    """Return bounded public messages together with their raw positions."""
+    entries = []
+    current_turn_id = ""
+    start = max(0, len(stored_messages) - 200)
+    for raw_index, message in enumerate(stored_messages[start:], start=start):
         role = getattr(message, "type", "")
         if role not in {"human", "ai"}:
             continue
         if role == "ai" and getattr(message, "tool_calls", None):
             continue
+        if role == "human":
+            current_turn_id = str(
+                getattr(message, "additional_kwargs", {}).get(
+                    "gnosi_turn_id",
+                    "",
+                )
+                or ""
+            )
         visible_content = (
             getattr(message, "additional_kwargs", {}).get(
                 "gnosi_visible_content",
@@ -500,11 +534,53 @@ def _public_checkpoint_messages(stored_messages: List[Any]) -> List[Dict[str, st
             if marker_positions:
                 content = content[:min(marker_positions)]
         if content.strip():
-            messages.append({
+            public_message = {
                 "role": "user" if role == "human" else "assistant",
                 "content": content,
-            })
-    return messages
+            }
+            if current_turn_id:
+                public_message["turn_id"] = current_turn_id
+            entries.append((raw_index, public_message))
+    return entries
+
+
+def _public_checkpoint_messages(stored_messages: List[Any]) -> List[Dict[str, str]]:
+    """Serialize only user-visible transcript messages from checkpoint state."""
+    return [
+        message
+        for _raw_index, message in _public_checkpoint_message_entries(
+            stored_messages,
+        )
+    ]
+
+
+def _rewound_checkpoint_messages(
+    stored_messages: List[Any],
+    *,
+    before_turn_id: Optional[str],
+    keep_messages: int,
+) -> List[Any]:
+    """Return a prefix ending at a complete canonical conversation turn."""
+    entries = _public_checkpoint_message_entries(stored_messages)
+    if before_turn_id:
+        for raw_index, message in entries:
+            if (
+                message.get("role") == "user"
+                and message.get("turn_id") == before_turn_id
+            ):
+                return list(stored_messages[:raw_index])
+        raise ValueError("The requested conversation turn is unavailable.")
+
+    retained_count = min(max(0, keep_messages), len(entries))
+    while (
+        retained_count > 0
+        and entries[retained_count - 1][1].get("role") != "assistant"
+    ):
+        retained_count -= 1
+    if retained_count == 0:
+        return []
+    cutoff = entries[retained_count - 1][0]
+    return list(stored_messages[:cutoff + 1])
 
 
 def _thread_lock(thread_id: str) -> asyncio.Lock:
@@ -1249,6 +1325,118 @@ async def delete_chat_session(
     return {"deleted": True}
 
 
+@router.post(
+    "/chat/sessions/{agent_id}/{session_id}/rewind",
+)
+async def rewind_chat_session(
+    agent_id: str,
+    session_id: str,
+    payload: ChatRewindRequest,
+    workspace_context: WorkspaceContext = Depends(require_role("editor")),
+):
+    """Remove one turn and its suffix from the scoped canonical checkpoint."""
+    safe_agent_id = _validated_identifier(agent_id, "agent_id")
+    safe_session_id = _validated_identifier(session_id, "session_id")
+    _vault, vault_scope = _vault_scope()
+    thread_id = _chat_thread_id(
+        vault_scope=vault_scope,
+        workspace_id=workspace_context.workspace_id,
+        user_id=workspace_context.user_id,
+        agent_id=safe_agent_id,
+        session_id=safe_session_id,
+    )
+    checkpoint_key = _checkpoint_key(
+        vault_scope=vault_scope,
+        workspace_id=workspace_context.workspace_id,
+        user_id=workspace_context.user_id,
+        agent_id=safe_agent_id,
+    )
+    db_path = cfg.paths["CHECKPOINTS"] / f"agent_{checkpoint_key}.sqlite"
+    public_messages: List[Dict[str, str]] = []
+
+    if db_path.exists():
+        async with _thread_lock(thread_id):
+            async with AsyncSqliteSaver.from_conn_string(str(db_path)) as saver:
+                checkpoint_tuple = await saver.aget_tuple(
+                    {"configurable": {"thread_id": thread_id}},
+                )
+                if checkpoint_tuple:
+                    stored_messages = list(
+                        checkpoint_tuple.checkpoint.get(
+                            "channel_values",
+                            {},
+                        ).get("messages", [])
+                    )
+                    try:
+                        retained_messages = _rewound_checkpoint_messages(
+                            stored_messages,
+                            before_turn_id=payload.before_turn_id,
+                            keep_messages=payload.keep_messages,
+                        )
+                    except ValueError as error:
+                        raise HTTPException(
+                            status_code=409,
+                            detail={"code": "conversation_turn_unavailable"},
+                        ) from error
+                    if retained_messages:
+                        rewound = copy.deepcopy(checkpoint_tuple.checkpoint)
+                        rewound["channel_values"] = dict(
+                            rewound.get("channel_values", {}),
+                            messages=retained_messages,
+                        )
+                        rewound["pending_sends"] = []
+                        metadata = dict(checkpoint_tuple.metadata or {})
+                        step = int(metadata.get("step", -1)) + 1
+                        rewound = create_checkpoint(rewound, None, step)
+                        metadata.update({"source": "update", "step": step})
+                        checkpoint_ns = str(
+                            checkpoint_tuple.config.get(
+                                "configurable",
+                                {},
+                            ).get("checkpoint_ns", "")
+                        )
+                        base_config = {
+                            "configurable": {
+                                "thread_id": thread_id,
+                                "checkpoint_ns": checkpoint_ns,
+                            },
+                        }
+                        await saver.adelete_thread(thread_id)
+                        try:
+                            await saver.aput(
+                                base_config,
+                                rewound,
+                                metadata,
+                                {},
+                            )
+                        except Exception:
+                            await saver.aput(
+                                base_config,
+                                checkpoint_tuple.checkpoint,
+                                checkpoint_tuple.metadata,
+                                {},
+                            )
+                            raise
+                    else:
+                        await saver.adelete_thread(thread_id)
+                    public_messages = _public_checkpoint_messages(
+                        retained_messages,
+                    )
+
+    await asyncio.to_thread(
+        cancel_scope_confirmations,
+        {
+            "vault_scope": vault_scope,
+            "workspace_id": workspace_context.workspace_id,
+            "user_id": workspace_context.user_id,
+            "role": workspace_context.role,
+            "agent_id": safe_agent_id,
+            "session_id": safe_session_id,
+        },
+    )
+    return {"messages": public_messages}
+
+
 @router.get("/chat/sessions/{agent_id}/{session_id}")
 async def get_chat_session(
     agent_id: str,
@@ -1404,6 +1592,11 @@ async def chat_endpoint(
                 content=user_content,
                 additional_kwargs={
                     "gnosi_visible_content": chat_req.message,
+                    **(
+                        {"gnosi_turn_id": chat_req.turn_id}
+                        if chat_req.turn_id
+                        else {}
+                    ),
                 },
             )],
             # Always overwrite these request-scoped channels, including with
