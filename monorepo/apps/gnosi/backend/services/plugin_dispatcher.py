@@ -191,15 +191,58 @@ def _handle_network_fetch(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any
     if not ok:
         raise ValueError(f"url not allowed: {reason}")
     opts = args.get("opts") or {}
+    if not isinstance(opts, dict):
+        raise ValueError("network options must be an object")
     method = str(opts.get("method") or "GET").upper()
+    if method not in {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"}:
+        raise ValueError("unsupported network method")
+    headers = opts.get("headers") or {}
+    if not isinstance(headers, dict) or len(headers) > 50:
+        raise ValueError("network headers must be a bounded object")
+    normalized_headers = {}
+    for name, value in headers.items():
+        key = str(name)
+        text = str(value)
+        if len(key) > 100 or len(text) > 8_192 or "\r" in key + text or "\n" in key + text:
+            raise ValueError("network header is invalid or too large")
+        normalized_headers[key] = text
+    body = opts.get("body")
+    if body is not None and not isinstance(body, (str, bytes)):
+        raise ValueError("network request body must be text")
+    if body is not None and len(body) > 1_000_000:
+        raise ValueError("network request body exceeds the 1 MB limit")
     resp = requests.request(
         method, url,
-        headers=opts.get("headers") or None,
-        data=opts.get("body"),
+        headers=normalized_headers or None,
+        data=body,
         timeout=10,
         allow_redirects=False,
+        stream=True,
     )
-    return {"status": resp.status_code, "body": resp.text[:1_000_000]}
+    try:
+        chunks = []
+        total = 0
+        for chunk in resp.iter_content(64 * 1024):
+            if not chunk:
+                continue
+            total += len(chunk)
+            if total > 1_000_000:
+                raise ValueError("network response exceeds the 1 MB limit")
+            chunks.append(chunk)
+        body = b"".join(chunks).decode(resp.encoding or "utf-8", errors="replace")
+        return {
+            "status": resp.status_code,
+            "body": body,
+            "contentType": str(resp.headers.get("Content-Type") or ""),
+        }
+    finally:
+        resp.close()
+
+
+def network_fetch(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
+    """Run the bounded host fetch used by sandboxed data plugins."""
+
+    return _handle_network_fetch(args, plugin_id)
 
 
 _HOST_HANDLERS = {

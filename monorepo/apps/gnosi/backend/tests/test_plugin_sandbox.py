@@ -128,6 +128,45 @@ def test_sandbox_network_hard_block(tmp_path):
     assert not any("NET_OK" in l["message"] for l in res["logs"])
 
 
+def test_sandbox_network_grant_still_blocks_raw_sockets(tmp_path):
+    calls = []
+
+    def fetch(args, plugin_id):
+        calls.append((args["url"], plugin_id))
+        return {"status": 200, "body": "ok"}
+
+    sb.set_host_handlers({"network.fetch": fetch})
+    code = """
+    export default { async onEvent(event, api) {
+      try { await import('node:net'); api.log('RAW_NET_OK'); }
+      catch (e) { api.log('raw-blocked'); }
+      const response = await api.fetch('https://example.test/data');
+      api.log('host-fetch', response.body);
+    } };
+    """
+    manifest = _install_backend_plugin(tmp_path, "net-host", code, ["network"], ["page:updated"])
+    res = sb.run_event(tmp_path, manifest, ["network"], "page:updated", {})
+
+    assert res["ok"] is True
+    assert calls == [("https://example.test/data", "net-host")]
+    assert any("raw-blocked" in line["message"] for line in res["logs"])
+    assert not any("RAW_NET_OK" in line["message"] for line in res["logs"])
+
+
+def test_sandbox_receives_minimal_environment(tmp_path, monkeypatch):
+    monkeypatch.setenv("UNEXPECTED_CREDENTIAL_NAME", "must-not-leak")
+    code = """
+    export default { async onEvent(event, api) {
+      api.log('credential', String(process.env.UNEXPECTED_CREDENTIAL_NAME));
+    } };
+    """
+    manifest = _install_backend_plugin(tmp_path, "env-check", code, [], ["page:updated"])
+    res = sb.run_event(tmp_path, manifest, [], "page:updated", {})
+
+    assert res["ok"] is True
+    assert any("credential undefined" in line["message"] for line in res["logs"])
+
+
 def test_sandbox_permission_denied(tmp_path):
     def read_page(args):
         raise AssertionError("no s'hauria de cridar sense permís")

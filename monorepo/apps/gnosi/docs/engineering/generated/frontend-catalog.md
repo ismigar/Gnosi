@@ -32,13 +32,13 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `application root` | 3 | 278 | 0 |
-| `components` | 200 | 78435 | 197 |
+| `components` | 201 | 78765 | 199 |
 | `context` | 1 | 177 | 6 |
 | `hooks` | 16 | 1239 | 7 |
 | `lib` | 18 | 2022 | 6 |
 | `locales` | 3 | 565 | 0 |
 | `pages` | 16 | 12313 | 52 |
-| `plugins` | 4 | 528 | 5 |
+| `plugins` | 4 | 513 | 5 |
 | `utils` | 14 | 1703 | 0 |
 
 ## application root
@@ -103,7 +103,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/NodeDetailsPanel.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/NodeDetailsPanel.jsx) | 145 | `NodeDetailsPanel` | — |
 | [`frontend/src/components/NotionImportSettings.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/NotionImportSettings.jsx) | 834 | `NotionImportSettings`, `function` | `/api/notion-oauth/login`, `/api/notion-oauth/status`, `/api/notion/clone`, `/api/notion/clone/abort`, `/api/notion/clone/progress`, `/api/notion/databases`, `/api/notion/import-config`, `/api/notion/linked-databases`, `/api/notion/loose-pages`, `/api/notion/status`, `/api/notion/token`, `/api/notion/verify-clone`, `/api/vault/registry`, `/api/vaults` |
 | [`frontend/src/components/PageOutline.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/PageOutline.jsx) | 299 | `PageOutline`, `function` | — |
-| [`frontend/src/components/PluginsSettings.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/PluginsSettings.jsx) | 2115 | `PluginsSettings` | `/api/planning/assignments`, `/api/planning/calendars`, `/api/planning/calendars/project-default`, `/api/planning/leveling/proposal`, `/api/planning/resources`, `/api/planning/state`, `/api/vault/llm-wiki/brain/create`, `/api/vault/llm-wiki/config`, `/api/vault/llm-wiki/maintenance?semantic=false`, `/api/vault/llm-wiki/maintenance?semantic=true`, `/api/vault/llm-wiki/suggestions`, `/api/vault/plugins/catalog`, `/api/vault/plugins/catalog/install`, `/api/vault/plugins/catalog/list`, `/api/vault/plugins/install`, `/api/vault/plugins/installed`, `/api/vault/plugins/registry-url`, `/api/vault/plugins/trust`, `/api/vault/tables` |
+| [`frontend/src/components/PluginsSettings.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/PluginsSettings.jsx) | 2187 | `PluginsSettings` | `/api/planning/assignments`, `/api/planning/calendars`, `/api/planning/calendars/project-default`, `/api/planning/leveling/proposal`, `/api/planning/resources`, `/api/planning/state`, `/api/vault/llm-wiki/brain/create`, `/api/vault/llm-wiki/config`, `/api/vault/llm-wiki/maintenance?semantic=false`, `/api/vault/llm-wiki/maintenance?semantic=true`, `/api/vault/llm-wiki/suggestions`, `/api/vault/plugins/catalog`, `/api/vault/plugins/catalog/install`, `/api/vault/plugins/catalog/list`, `/api/vault/plugins/install`, `/api/vault/plugins/installed`, `/api/vault/plugins/registry-url`, `/api/vault/plugins/trust`, `/api/vault/tables` |
 | [`frontend/src/components/PromptModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/PromptModal.jsx) | 153 | `PromptModal` | — |
 | [`frontend/src/components/ReleaseNotesDialog.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/ReleaseNotesDialog.jsx) | 113 | `ReleaseNotesDialog` | — |
 | [`frontend/src/components/ReleaseNotesWelcome.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/ReleaseNotesWelcome.jsx) | 30 | `ReleaseNotesWelcome` | — |
@@ -239,7 +239,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Vault/zoteroLocale.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/zoteroLocale.js) | 10 | `uiLangToZoteroLocale` | — |
 | [`frontend/src/components/Vault/zoteroSchema.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/zoteroSchema.js) | 517 | `ALL_ITEM_TYPES`, `ITEM_TYPE_FIELDS`, `LABEL_TO_ZOTERO_TYPE`, `SCHEMA_SOURCE_SHA`, `SCHEMA_VERSION`, `ZOTERO_TO_CSL_TYPE`, `ZOTERO_TYPE_LABELS` | — |
 | [`frontend/src/components/VaultMenu.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/VaultMenu.jsx) | 114 | `VaultMenu`, `function` | `/api/vaults` |
-| [`frontend/src/components/VaultSwitcher.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/VaultSwitcher.jsx) | 125 | `VaultSwitcher`, `function` | `/api/vaults` |
+| [`frontend/src/components/VaultSwitcher.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/VaultSwitcher.jsx) | 145 | `VaultSwitcher`, `function` | `/api/vaults` |
+| [`frontend/src/components/VaultTemplateMarketplace.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/VaultTemplateMarketplace.jsx) | 238 | `VaultTemplateMarketplace`, `function` | `/api/vaults/from-template`, `/api/vaults/templates/catalog` |
 | [`frontend/src/components/VisualizationSection.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/VisualizationSection.jsx) | 135 | `VisualizationSection` | — |
 | [`frontend/src/components/Workspace/WorkspaceMembersPanel.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Workspace/WorkspaceMembersPanel.jsx) | 333 | `WorkspaceMembersPanel` | — |
 | [`frontend/src/components/agentChatKeyboardUtils.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/agentChatKeyboardUtils.js) | 13 | `chatScrollDeltaForComposerKey` | — |
@@ -337,7 +338,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Source | Lines | Export signals | Literal API paths |
 | --- | ---: | --- | --- |
-| [`frontend/src/plugins/host.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/plugins/host.js) | 325 | `getContributions`, `isLoaded`, `loadPlugins`, `runCommand`, `subscribeHost` | `/api/vault/pages`, `/api/vault/plugins`, `/api/vault/tables` |
+| [`frontend/src/plugins/host.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/plugins/host.js) | 310 | `getContributions`, `isLoaded`, `loadPlugins`, `runCommand`, `subscribeHost` | `/api/vault/pages`, `/api/vault/plugins`, `/api/vault/tables` |
 | [`frontend/src/plugins/registry.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/plugins/registry.js) | 64 | `BUILTIN_PLUGINS`, `PLUGIN_IDS` | — |
 | [`frontend/src/plugins/usePluginHost.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/plugins/usePluginHost.js) | 33 | `reloadPlugins`, `usePluginHost` | — |
 | [`frontend/src/plugins/usePlugins.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/plugins/usePlugins.js) | 106 | `usePlugins` | `/api/vault/plugins`, `/api/vault/plugins/llm-wiki/lifecycle` |

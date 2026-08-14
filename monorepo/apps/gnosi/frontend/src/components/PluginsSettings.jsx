@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { useTranslation, Trans } from 'react-i18next';
-import { CalendarDays, CalendarRange, Hash, MessageSquare, Share2, LayoutDashboard, BrainCircuit, Puzzle, Settings, Trash2, Upload, Download, ShieldCheck, Globe, KeyRound, Scissors, PackageCheck, Store, RefreshCw, Search } from 'lucide-react';
+import { CalendarDays, CalendarRange, Hash, MessageSquare, Share2, LayoutDashboard, BrainCircuit, Puzzle, Settings, Trash2, Upload, Download, ShieldCheck, Globe, KeyRound, Scissors, PackageCheck, Store, RefreshCw, Search, Send } from 'lucide-react';
 import { BUILTIN_PLUGINS } from '../plugins/registry';
 import { usePlugins } from '../plugins/usePlugins';
 import { reloadPlugins } from '../plugins/usePluginHost';
@@ -1490,6 +1490,7 @@ function ThirdPartyPlugins({ section, installedFilter }) {
     const [loading, setLoading] = useState(true);
     const [busy, setBusy] = useState('');
     const [error, setError] = useState('');
+    const [notice, setNotice] = useState('');
     const [trustKeys, setTrustKeys] = useState([]);
     const [registryUrl, setRegistryUrl] = useState('');
     const [newKey, setNewKey] = useState({ name: '', public_key: '' });
@@ -1592,6 +1593,37 @@ function ThirdPartyPlugins({ section, installedFilter }) {
         } finally { setBusy(''); }
     };
 
+    const onExport = async (id, version) => {
+        setError(''); setNotice(''); setBusy(`export:${id}`);
+        try {
+            const response = await axios.post(
+                `/api/vault/plugins/${encodeURIComponent(id)}/export`,
+                {},
+                { responseType: 'blob' },
+            );
+            const url = URL.createObjectURL(response.data);
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.download = `${id}-${version}.gnosi-plugin.zip`;
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            setError(err?.response?.data?.detail || tp('error_export'));
+        } finally { setBusy(''); }
+    };
+
+    const onSubmit = async (id) => {
+        setError(''); setNotice(''); setBusy(`submit:${id}`);
+        try {
+            await axios.post(`/api/vault/plugins/${encodeURIComponent(id)}/submissions`);
+            setNotice(tp('submitted_for_review'));
+        } catch (err) {
+            setError(err?.response?.data?.detail || tp('error_submit'));
+        } finally { setBusy(''); }
+    };
+
     const visibleInstalled = installed.filter((plugin) => {
         const pluginId = plugin.manifest?.id || plugin.id;
         if (installedFilter === 'enabled') return isEnabled(pluginId);
@@ -1628,6 +1660,11 @@ function ThirdPartyPlugins({ section, installedFilter }) {
             {error && (
                 <div style={{ fontSize: 12, color: '#dc2626', marginBottom: 10, padding: '8px 10px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca' }}>
                     {error}
+                </div>
+            )}
+            {notice && (
+                <div style={{ fontSize: 12, color: '#15803d', marginBottom: 10, padding: '8px 10px', borderRadius: 8, background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                    {notice}
                 </div>
             )}
 
@@ -1672,6 +1709,11 @@ function ThirdPartyPlugins({ section, installedFilter }) {
                                     <div style={{ fontSize: 12, color: 'var(--text-tertiary, #94a3b8)' }}>
                                         {m.description || tp('no_description')}{m.author ? ` · ${m.author}` : ''}
                                     </div>
+                                    {p.provenance?.signedBy && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 3, fontSize: 11, color: '#16a34a' }}>
+                                            <ShieldCheck size={11} /> {tp('signed_by', { publisher: p.provenance.signedBy })}
+                                        </div>
+                                    )}
                                 </div>
                                 <button
                                     type="button" role="switch" aria-checked={enabled}
@@ -1687,6 +1729,36 @@ function ThirdPartyPlugins({ section, installedFilter }) {
                                         position: 'absolute', top: 2, left: enabled ? 20 : 2, width: 20, height: 20,
                                         borderRadius: '50%', background: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
                                     }} />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => onExport(m.id, m.version)}
+                                    disabled={busy === `export:${m.id}`}
+                                    aria-label={tp('export_package')}
+                                    title={tp('export_package')}
+                                    style={{
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+                                        border: '1px solid var(--border-primary, #e2e8f0)', cursor: 'pointer',
+                                        background: 'transparent', color: 'var(--text-secondary)',
+                                    }}
+                                >
+                                    {busy === `export:${m.id}` ? <RefreshCw size={14} className="animate-spin" /> : <Download size={14} />}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => onSubmit(m.id)}
+                                    disabled={busy === `submit:${m.id}`}
+                                    aria-label={tp('submit_repository')}
+                                    title={tp('submit_repository')}
+                                    style={{
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+                                        border: '1px solid var(--border-primary, #e2e8f0)', cursor: 'pointer',
+                                        background: 'transparent', color: '#6366f1',
+                                    }}
+                                >
+                                    {busy === `submit:${m.id}` ? <RefreshCw size={14} className="animate-spin" /> : <Send size={14} />}
                                 </button>
                                 <button
                                     type="button"

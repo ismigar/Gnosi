@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
-import { Vault, Plus, Check, Loader, Trash2 } from 'lucide-react';
+import { Vault, Plus, Check, Loader, Trash2, Store, PackagePlus } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
+import VaultTemplateMarketplace from './VaultTemplateMarketplace';
 
 /**
  * Vault selector (personal multi-vault mode). Lists the vaults, allows creating new ones, and
@@ -18,6 +19,7 @@ export default function VaultSwitcher() {
     const [newName, setNewName] = useState('');
     const [error, setError] = useState('');
     const [confirmTarget, setConfirmTarget] = useState(null);
+    const [marketplaceSection, setMarketplaceSection] = useState('');
 
     const load = async () => {
         try {
@@ -103,10 +105,20 @@ export default function VaultSwitcher() {
                         <button onClick={() => { setCreating(false); setNewName(''); }} style={{ ...inp, cursor: 'pointer' }}>{t('common.cancel', "Cancel")}</button>
                     </span>
                 ) : (
-                    <button onClick={() => setCreating(true)}
-                        style={{ ...inp, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-secondary)' }}>
-                        <Plus size={14} /> {t('vault_switcher.new_vault', "New vault")}
-                    </button>
+                    <>
+                        <button onClick={() => setCreating(true)}
+                            style={{ ...inp, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-secondary)' }}>
+                            <Plus size={14} /> {t('vault_switcher.new_vault', "New vault")}
+                        </button>
+                        <button onClick={() => setMarketplaceSection('catalog')}
+                            style={{ ...inp, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-secondary)' }}>
+                            <Store size={14} /> {t('vault_templates.from_repository')}
+                        </button>
+                        <button onClick={() => setMarketplaceSection('publish')}
+                            style={{ ...inp, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-secondary)' }}>
+                            <PackagePlus size={14} /> {t('vault_templates.publish_action')}
+                        </button>
+                    </>
                 )}
             </div>
             {error && <div style={{ marginTop: 6, color: '#e05252', fontSize: '0.8rem' }}>{error}</div>}
@@ -120,6 +132,14 @@ export default function VaultSwitcher() {
                 cancelText={t('common.cancel', "Cancel")}
                 isDestructive
             />
+            {marketplaceSection && (
+                <VaultTemplateMarketplace
+                    vaults={vaults}
+                    initialSection={marketplaceSection}
+                    onClose={() => setMarketplaceSection('')}
+                    onCreated={load}
+                />
+            )}
         </div>
     );
 }

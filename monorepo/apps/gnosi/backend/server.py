@@ -48,6 +48,7 @@ from backend.api import (
     notion_routes,
     notion_oauth_routes,
     vaults_routes,
+    vault_templates_routes,
     handwriting_routes,
     planning_routes,
 )
@@ -472,6 +473,7 @@ app.include_router(agent_skills_routes.router, prefix="/api", tags=["AI Skills"]
 app.include_router(notion_routes.router, prefix="/api", tags=["Notion Import"])
 app.include_router(notion_oauth_routes.router, prefix="/api", tags=["Notion MCP OAuth"])
 app.include_router(vaults_routes.router, prefix="/api", tags=["Vaults"])
+app.include_router(vault_templates_routes.router, prefix="/api", tags=["Vault templates"])
 app.include_router(identity_routes.router, tags=["Identity"])
 
 @app.get("/api/health")

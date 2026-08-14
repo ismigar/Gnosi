@@ -7,6 +7,8 @@ source_paths:
   - backend/services/graph_service.py
   - backend/services/page_sidecar.py
   - backend/services/files_provider
+  - backend/services/vault_templates.py
+  - backend/api/vault_templates_routes.py
   - frontend/src/pages/VaultDashboard.jsx
   - frontend/src/components/Vault
 tests:
@@ -87,6 +89,27 @@ and inverse relations. Vault registry deletion removes the logical registry row
 by default; physical folder deletion requires a separate explicit signal and
 stronger containment checks.
 
+## Vault templates
+
+The template repository is a signed runtime catalog; package assets are not
+tracked in the application Git repository. Creating from a template verifies
+the detached index signature, package SHA-256, publisher signature, manifest,
+file inventory, archive limits, paths, file types, and links before writing.
+Extraction occurs in a sibling staging directory under the Vaults root. The
+completed directory is moved into place atomically and only then registered in
+the management database, so a failure cannot expose a partial Vault.
+
+Export is allowlist-based and deterministic. It excludes `.gnosi`, plugins,
+trust stores, mail, trash, history, executable content, environment files,
+links, unreadable files, and oversized content. A preview lists every included
+and excluded file and scans bounded text files for credential-like values.
+Findings require explicit acknowledgement. Recommended plugins are identifiers
+in the manifest; executable plugin code never travels inside a Vault template.
+
+Public submission is separate from export and requires administrator access.
+It uses an optional moderation broker rather than a GitHub credential embedded
+in Gnosi.
+
 ## Concurrency invariants
 
 - Stale ETags reject overwrites.
@@ -95,6 +118,8 @@ stronger containment checks.
   rename or deletion.
 - Absolute paths received from a client are resolved under approved roots.
 - Symlinks and path traversal cannot escape the selected vault boundary.
+- Template extraction cannot publish a partial directory or register it early.
+- Template exports cannot include runtime state or executable plugin content.
 - Markdown round trips preserve escape-sensitive content and wikilink syntax.
 
 ## Frontend

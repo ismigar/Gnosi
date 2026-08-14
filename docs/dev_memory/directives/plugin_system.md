@@ -1,6 +1,6 @@
 # Directive: Gnosi plugin system
 
-**Status:** Third-party plugin v2 implemented and verified on 2026-07-02.
+**Status:** Third-party plugin v2 implemented; marketplace hardening verified on 2026-08-14.
 
 Gnosi supports its own UI and data plugins. It does not promise binary or API
 compatibility with Obsidian plugins, whose editor and metadata abstractions do
@@ -56,7 +56,7 @@ Reject manifests that require a newer major version.
 ## UI sandbox
 
 UI code runs in an isolated iframe and communicates only through the host
-bridge. It cannot directly access Gnosi's DOM. `registerCommand`,
+bridge. It cannot directly access Gnosi's DOM or the network. `registerCommand`,
 `registerView`, sidebar, settings, Vault methods, and network access are
 permission-gated.
 
@@ -68,7 +68,9 @@ addons, and direct filesystem access.
 
 ESM registration hooks reject network modules including `node:net`,
 `http`, `https`, `tls`, `dgram`, and `http2`; browser-like network globals
-are neutralized. Plugins with network permission use the filtered host API.
+are neutralized even when the network permission is granted. Plugin processes
+receive a minimal allowlist of environment variables. Plugins with network
+permission use the filtered, public-address-only, bounded host API.
 
 All Vault access goes through host methods so normal containment, online-file
 materialization, indexing, permissions, and sidecar behavior remain intact.
@@ -92,10 +94,15 @@ automations and action rules; do not collapse their separate responsibilities.
 
 ## Installation and catalog
 
-- ZIP installation validates the manifest before writing and prevents
-  zip-slip and zip-bomb extraction.
+- ZIP installation validates the manifest and declared entry files before
+  writing, prevents zip-slip and zip-bomb extraction, stages the complete
+  plugin, and atomically replaces the installed version.
 - Catalog sources include bundled examples and a configurable remote index.
-- Remote packages require matching SHA-256 when supplied.
+- The official remote index has a mandatory trusted detached signature.
+- Remote catalog packages require both a matching SHA-256 and a trusted
+  detached signature; their source, hash, and signer are persisted.
+- Installed plugins can be exported as deterministic review bundles and sent
+  to the same optional moderated submission broker as Vault templates.
 - Removal deletes the plugin directory and its saved state.
 
 Official release automation builds plugin ZIPs and
@@ -109,7 +116,8 @@ Remote ZIP signatures are detached Ed25519 signatures over exact bytes.
 
 - Trusted valid signature → install and record `signedBy`.
 - Present but invalid or untrusted signature → reject.
-- No signature → install as unverified.
+- Missing signature or checksum in an official/remote catalog → reject.
+- A manually uploaded local ZIP may remain unsigned and is clearly local.
 
 The trust store is `.gnosi/plugins_trust.json`; the bundled
 `gnosi-official` public key verifies official packages. Its private key stays
@@ -124,6 +132,9 @@ Author tooling can generate key pairs and signed catalog entries.
 - Plugins may access only declared and granted capabilities.
 - Do not expose raw filesystem paths, environment variables, `fs`, or network
   modules to data plugins.
+- Do not enable direct iframe or Node networking after a grant; route it
+  through the permission-gated host API so redirects, SSRF, methods, and
+  response size stay bounded.
 - Multi-user installations must restrict installation and execution through
   administrative grants and Vault access.
 - Plugin directories synchronized through OneDrive can arrive online-only;

@@ -15,20 +15,29 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import os
 import zipfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import requests
-
 from backend.config.logger_config import get_logger
 from backend.services import plugin_system as ps
 from backend.services import plugin_signing
+from backend.services.marketplace_http import MarketplaceHTTPError, fetch_public_bytes
 
 logger = get_logger(__name__)
 
 _MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024
 _MAX_INDEX_BYTES = 2 * 1024 * 1024
+_DEFAULT_REGISTRY_URL = (
+    "https://github.com/ismigar/Gnosi/releases/latest/download/plugins-index.json"
+)
+
+
+def default_registry_url() -> str:
+    """Return the official plugin index URL, with a deployment override."""
+
+    return os.environ.get("GNOSI_PLUGIN_REGISTRY_URL", _DEFAULT_REGISTRY_URL).strip()
 
 
 def _examples_dir() -> Path:
@@ -48,7 +57,16 @@ def _load_bundled_catalog() -> List[Dict[str, Any]]:
     return data if isinstance(data, list) else []
 
 
-def fetch_remote_index(url: str) -> List[Dict[str, Any]]:
+def _index_signature_url(url: str) -> str:
+    return f"{url[:-5]}.sig" if url.lower().endswith(".json") else f"{url}.sig"
+
+
+def fetch_remote_index(
+    url: str,
+    config_dir: Optional[Path] = None,
+    *,
+    require_signature: bool = False,
+) -> List[Dict[str, Any]]:
     """Downloads a remote plugin index (JSON: list of `url` entries).
 
     Each entry may carry `id`, `name`, `description`, `url` (zip), `sha256` and
@@ -56,19 +74,19 @@ def fetch_remote_index(url: str) -> List[Dict[str, Any]]:
     never take down the local gallery).
     
     """
-    if not url or not url.lower().startswith(("http://", "https://")):
-        return []
     try:
-        resp = requests.get(url, timeout=15, stream=True)
-        resp.raise_for_status()
-        raw = b""
-        for chunk in resp.iter_content(64 * 1024):
-            raw += chunk
-            if len(raw) > _MAX_INDEX_BYTES:
-                logger.warning("Remote index is too large; ignoring it")
-                return []
-        data = json.loads(raw.decode("utf-8"))
-    except Exception as e:  # noqa: BLE001
+        raw = fetch_public_bytes(url, max_bytes=_MAX_INDEX_BYTES, timeout=15).body
+        if require_signature:
+            signature = fetch_public_bytes(
+                _index_signature_url(url), max_bytes=4_096, timeout=15
+            ).body.decode("ascii").strip()
+            if plugin_signing.verify_against_trust(
+                config_dir or Path(), signature, raw
+            ) is None:
+                raise ValueError("remote plugin index signature is invalid or untrusted")
+        decoded = json.loads(raw.decode("utf-8"))
+        data = decoded.get("plugins", []) if isinstance(decoded, dict) else decoded
+    except (MarketplaceHTTPError, UnicodeDecodeError, ValueError) as e:
         logger.warning("Could not load the remote index: %s", e)
         return []
     if not isinstance(data, list):
@@ -80,7 +98,12 @@ def fetch_remote_index(url: str) -> List[Dict[str, Any]]:
     return out
 
 
-def load_catalog(registry_url: Optional[str] = None) -> List[Dict[str, Any]]:
+def load_catalog(
+    registry_url: Optional[str] = None,
+    config_dir: Optional[Path] = None,
+    *,
+    require_index_signature: bool = False,
+) -> List[Dict[str, Any]]:
     """Full catalog: `bundled` examples + (optional) remote index.
 
     If `registry_url` is given, the remote entries are merged in; the local
@@ -90,7 +113,11 @@ def load_catalog(registry_url: Optional[str] = None) -> List[Dict[str, Any]]:
     catalog = _load_bundled_catalog()
     if registry_url:
         seen = {e.get("id") for e in catalog}
-        for e in fetch_remote_index(registry_url):
+        for e in fetch_remote_index(
+            registry_url,
+            config_dir,
+            require_signature=require_index_signature,
+        ):
             if e.get("id") not in seen:
                 catalog.append(e)
     return catalog
@@ -128,6 +155,8 @@ def install_from_url(
     url: str,
     expected_sha256: Optional[str] = None,
     signature: Optional[str] = None,
+    *,
+    require_integrity: bool = False,
 ) -> Dict[str, Any]:
     """Downloads a .zip and installs it (admin action; requires network access).
 
@@ -139,20 +168,14 @@ def install_from_url(
         it's installed but the returned manifest is marked with `signedBy=None`.
     
     """
-    if not url.lower().startswith(("http://", "https://")):
-        raise ps.PluginError("URL must use HTTP or HTTPS")
+    if require_integrity and (not expected_sha256 or not signature):
+        raise ps.PluginError("remote catalog plugins require a checksum and trusted signature")
     try:
-        resp = requests.get(url, timeout=20, stream=True)
-        resp.raise_for_status()
-    except Exception as e:  # noqa: BLE001
+        data = fetch_public_bytes(url, max_bytes=_MAX_DOWNLOAD_BYTES, timeout=20).body
+    except MarketplaceHTTPError as e:
         raise ps.PluginError(f"could not download: {e}") from e
-    data = b""
-    for chunk in resp.iter_content(64 * 1024):
-        data += chunk
-        if len(data) > _MAX_DOWNLOAD_BYTES:
-            raise ps.PluginError("download is too large")
+    actual = hashlib.sha256(data).hexdigest()
     if expected_sha256:
-        actual = hashlib.sha256(data).hexdigest()
         if actual.lower() != str(expected_sha256).strip().lower():
             raise ps.PluginError(
                 f"SHA-256 checksum mismatch (expected {expected_sha256[:12]}…, got {actual[:12]}…)"
@@ -167,17 +190,32 @@ def install_from_url(
             )
     manifest = ps.install_from_zip(config_dir, data, overwrite=True)
     manifest["signedBy"] = signed_by
+    ps.write_provenance(config_dir, manifest["id"], {
+        "sourceUrl": url,
+        "sha256": actual,
+        "signedBy": signed_by,
+    })
     return manifest
 
 
-def install_catalog_entry(config_dir: Path, entry_id: str) -> Dict[str, Any]:
+def install_catalog_entry(
+    config_dir: Path,
+    entry_id: str,
+    registry_url: Optional[str] = None,
+    *,
+    require_index_signature: bool = False,
+) -> Dict[str, Any]:
     """Installs a catalog entry by its id, whether `bundled` or `url`.
 
     For `url` entries, if the catalog declares `sha256` and/or `signature`,
     they are verified before installing.
     
     """
-    entry = next((e for e in load_catalog() if e.get("id") == entry_id), None)
+    entry = next((e for e in load_catalog(
+        registry_url,
+        config_dir,
+        require_index_signature=require_index_signature,
+    ) if e.get("id") == entry_id), None)
     if not entry:
         raise ps.PluginError(f"unknown catalog entry: {entry_id!r}")
     source = entry.get("source")
@@ -187,5 +225,11 @@ def install_catalog_entry(config_dir: Path, entry_id: str) -> Dict[str, Any]:
         url = str(entry.get("url") or "")
         if not url:
             raise ps.PluginError("the `url` entry does not declare a URL")
-        return install_from_url(config_dir, url, entry.get("sha256"), entry.get("signature"))
+        return install_from_url(
+            config_dir,
+            url,
+            entry.get("sha256"),
+            entry.get("signature"),
+            require_integrity=True,
+        )
     raise ps.PluginError(f"unknown entry source: {source!r}")

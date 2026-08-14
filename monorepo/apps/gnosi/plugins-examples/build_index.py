@@ -94,7 +94,10 @@ def build(plugins_dir: Path, base_url: str, out: Path, include: list) -> dict:
               file=sys.stderr)
 
     index_path = out / "plugins-index.json"
-    index_path.write_text(json.dumps(entries, indent=2, ensure_ascii=False), encoding="utf-8")
+    index_bytes = json.dumps(entries, indent=2, ensure_ascii=False).encode("utf-8")
+    index_path.write_bytes(index_bytes)
+    if signer:
+        (out / "plugins-index.sig").write_text(signer(index_bytes), encoding="ascii")
     print(f"📦 índex escrit a {index_path} ({len(entries)} plugins, "
           f"{'signat' if signer else 'sense signatura'})", file=sys.stderr)
     return {"entries": entries, "index": str(index_path), "signed": bool(signer)}

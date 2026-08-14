@@ -121,16 +121,15 @@ function _runtimeSource() {
     })();`;
 }
 
-function _buildSrcdoc(pluginCode, granted) {
-    const net = granted.includes('network');
-    // Without network permission: connect-src 'none' cuts off fetch/XHR/WebSocket.
-    // (Calls to the host go through postMessage, which the CSP does not affect.)
+function _buildSrcdoc(pluginCode) {
+    // Direct network access is always blocked. A plugin with the network
+    // capability uses the host bridge, which applies the backend SSRF guard.
     const csp = [
         "default-src 'none'",
         "script-src 'unsafe-inline'",
         "style-src 'unsafe-inline'",
-        net ? "connect-src https: http:" : "connect-src 'none'",
-        net ? "img-src https: http: data:" : "img-src data:",
+        "connect-src 'none'",
+        "img-src data:",
     ].join('; ');
     // Prevents a `</script>` inside the plugin's code from breaking the document.
     const safeRuntime = _runtimeSource().replace(/<\/(script)/gi, '<\\/$1');
@@ -196,26 +195,12 @@ const _HOST_METHODS = {
         const res = await axios.put(`/api/vault/plugins/${encodeURIComponent(pluginId)}/settings`, { settings: args.settings || {} });
         return { settings: res.data?.settings || {} };
     } },
-    'network.fetch': { perm: 'network', run: async (args) => {
-        // A plugin with the `network` permission must not reach the backend's own
-        // same-origin API with the user's session cookie (that would bypass the
-        // vault:read / vault:write / settings gating). Require an absolute
-        // cross-origin http(s) URL and send no ambient credentials.
-        let parsed;
-        try {
-            parsed = new URL(args.url, window.location.origin);
-        } catch {
-            throw new Error('network.fetch: invalid URL');
-        }
-        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-            throw new Error('network.fetch: only http(s) URLs are allowed');
-        }
-        if (parsed.origin === window.location.origin) {
-            throw new Error('network.fetch: same-origin requests are not allowed');
-        }
-        const opts = { ...(args.opts || {}), credentials: 'omit' };
-        const res = await fetch(parsed.toString(), opts);
-        return { status: res.status, body: await res.text() };
+    'network.fetch': { perm: 'network', run: async (args, pluginId) => {
+        const res = await axios.post(
+            `/api/vault/plugins/${encodeURIComponent(pluginId)}/network/fetch`,
+            { url: args.url, opts: args.opts || {} },
+        );
+        return res.data;
     } },
 };
 
@@ -262,7 +247,7 @@ function _mountPlugin(manifest, granted, code) {
     iframe.setAttribute('title', `plugin:${pid}`);
     iframe.setAttribute('aria-hidden', 'true');
     iframe.style.cssText = 'position:absolute;width:0;height:0;border:0;visibility:hidden;';
-    iframe.srcdoc = _buildSrcdoc(code, granted);
+    iframe.srcdoc = _buildSrcdoc(code);
     const entry = { iframe, manifest, granted };
     const listener = (ev) => _onMessage(entry, ev);
     entry.listener = listener;
@@ -293,7 +278,7 @@ export function runCommand(pluginId, commandId, arg) {
 
 /** Loads (or reloads) all installed and active third-party plugins. */
 export async function loadPlugins() {
-    let installed = [];
+    let installed;
     try {
         const res = await axios.get(`${API}/installed`);
         installed = res.data?.plugins || [];

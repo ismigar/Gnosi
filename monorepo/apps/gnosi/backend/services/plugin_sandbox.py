@@ -115,13 +115,18 @@ def run_event(
         f"--allow-fs-read={pdir}",
         str(_RUNNER),
     ]
-    env = dict(os.environ)
+    # Construct the child environment from an explicit runtime allowlist. Name-based
+    # secret filtering is not sufficient because credentials can use arbitrary names.
+    env = {
+        key: os.environ[key]
+        for key in (
+            "PATH", "SYSTEMROOT", "WINDIR", "PATHEXT", "LANG", "LC_ALL",
+            "TMPDIR", "TEMP", "TMP",
+        )
+        if os.environ.get(key)
+    }
     env["GNOSI_PLUGIN_MAIN"] = str(main_path)
     env["GNOSI_PLUGIN_NET"] = net
-    # We don't filter out the whole env (node needs part of it), but we strip obvious secrets.
-    for k in list(env.keys()):
-        if any(s in k.upper() for s in ("SECRET", "TOKEN", "PASSWORD", "API_KEY")):
-            env.pop(k, None)
 
     logs: List[Dict[str, str]] = []
     rpc_count = 0

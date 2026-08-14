@@ -17,8 +17,8 @@ from fastapi import (
     Depends,
     Request,
 )
-from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from fastapi.responses import FileResponse, Response
+from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime, timezone, timedelta
 import logging
@@ -5183,6 +5183,7 @@ async def get_installed_plugins():
                 "manifest": manifest,
                 "enabled": pid not in disabled,
                 "granted": ps.granted_permissions(state, pid),
+                "provenance": entry.get("provenance") or None,
             })
         return {"plugins": out}
 
@@ -5217,6 +5218,13 @@ async def set_plugin_permissions(plugin_id: str, request: PluginPermissionsReque
 class PluginSettingsRequest(BaseModel):
     # Patch to merge with the plugin's own configuration (key `settings`).
     settings: dict = {}
+
+
+class PluginNetworkFetchRequest(BaseModel):
+    """Permission-gated network request from a UI plugin frame."""
+
+    url: str
+    opts: dict = Field(default_factory=dict)
 
 
 class VaultSummaryRequest(BaseModel):
@@ -5275,6 +5283,37 @@ async def set_plugin_settings(plugin_id: str, request: PluginSettingsRequest):
         return {"settings": settings[plugin_id]}
     async with _plugins_mutation_lock:
         return await asyncio.to_thread(_work)
+
+
+@router.post(
+    "/plugins/{plugin_id}/network/fetch",
+    dependencies=[Depends(require_role("editor"))],
+)
+async def fetch_for_ui_plugin(plugin_id: str, request: PluginNetworkFetchRequest):
+    """Proxy UI plugin networking through the backend SSRF and size guard."""
+
+    from backend.services import plugin_dispatcher
+    from backend.services import plugin_system as ps
+
+    def _work():
+        config_dir = get_p("GNOSI_CONFIG")
+        manifest = ps.read_manifest(config_dir, plugin_id)
+        state = _load_plugins_state()
+        if "network" not in (manifest.get("permissions") or []):
+            raise HTTPException(status_code=403, detail="Plugin does not declare network access")
+        if not ps.has_permission(state, plugin_id, "network"):
+            raise HTTPException(status_code=403, detail="Plugin network permission is not granted")
+        return plugin_dispatcher.network_fetch(
+            {"url": request.url, "opts": request.opts or {}},
+            plugin_id,
+        )
+
+    try:
+        return await asyncio.to_thread(_work)
+    except ps.PluginError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post(
@@ -5419,6 +5458,56 @@ async def uninstall_plugin(plugin_id: str):
     return {"uninstalled": plugin_id}
 
 
+@router.post(
+    "/plugins/{plugin_id}/export",
+    dependencies=[Depends(require_role("editor"))],
+)
+async def export_plugin_package(plugin_id: str):
+    """Download a deterministic package for an installed third-party plugin."""
+
+    from backend.services import plugin_system as ps
+
+    try:
+        data = await asyncio.to_thread(ps.package_plugin, get_p("GNOSI_CONFIG"), plugin_id)
+    except ps.PluginError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return Response(
+        content=data,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="{plugin_id}.gnosi-plugin.zip"',
+            "X-Content-SHA256": hashlib.sha256(data).hexdigest(),
+        },
+    )
+
+
+@router.post(
+    "/plugins/{plugin_id}/submissions",
+    dependencies=[Depends(require_role("admin"))],
+)
+async def submit_plugin_package(plugin_id: str):
+    """Upload an installed plugin to the configured moderation broker."""
+
+    from backend.services import marketplace_submission
+    from backend.services import plugin_system as ps
+
+    def _work():
+        config_dir = get_p("GNOSI_CONFIG")
+        manifest = ps.read_manifest(config_dir, plugin_id)
+        data = ps.package_plugin(config_dir, plugin_id)
+        return marketplace_submission.submit_package(
+            kind="plugin",
+            filename=f"{plugin_id}-{manifest['version']}.gnosi-plugin.zip",
+            package=data,
+            metadata=manifest,
+        )
+
+    try:
+        return await asyncio.to_thread(_work)
+    except (ps.PluginError, marketplace_submission.MarketplaceSubmissionError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 class CatalogInstallRequest(BaseModel):
     # Installs a `bundled` plugin from the catalog by its id, OR from a remote .zip.
     id: Optional[str] = None
@@ -5448,7 +5537,12 @@ async def list_plugin_catalog():
             e["manifest"]["id"] for e in ps.discover_plugins(config_dir) if e.get("manifest")
         }
         out = []
-        for entry in pc.load_catalog(state.get("registry_url")):
+        registry_url = state.get("registry_url") or pc.default_registry_url()
+        for entry in pc.load_catalog(
+            registry_url,
+            config_dir,
+            require_index_signature=True,
+        ):
             out.append({
                 **entry,
                 "installed": entry.get("id") in installed_ids,
@@ -5469,9 +5563,22 @@ async def install_from_catalog(request: CatalogInstallRequest):
     def _install():
         config_dir = get_p("GNOSI_CONFIG")
         if request.url:
-            return pc.install_from_url(config_dir, request.url, request.sha256, request.signature)
+            return pc.install_from_url(
+                config_dir,
+                request.url,
+                request.sha256,
+                request.signature,
+                require_integrity=True,
+            )
         if request.id:
-            return pc.install_catalog_entry(config_dir, request.id)
+            state = _load_plugins_state()
+            registry_url = state.get("registry_url") or pc.default_registry_url()
+            return pc.install_catalog_entry(
+                config_dir,
+                request.id,
+                registry_url,
+                require_index_signature=True,
+            )
         raise ps.PluginError("`id` or `url` is required")
 
     try:
@@ -5542,9 +5649,11 @@ async def remove_trusted_key(name: str):
 
 @router.get("/plugins/registry-url")
 async def get_registry_url():
-    """URL of the configured remote plugin index (empty if there isn't one)."""
+    """URL of the configured remote plugin index, or the official default."""
+    from backend.services import plugin_catalog as pc
+
     def _work():
-        return {"url": _load_plugins_state().get("registry_url") or ""}
+        return {"url": _load_plugins_state().get("registry_url") or pc.default_registry_url()}
     return await asyncio.to_thread(_work)
 
 
@@ -5553,7 +5662,7 @@ async def set_registry_url(request: RegistryUrlRequest):
     """Configures (or clears) the URL of the remote plugin index."""
     url = (request.url or "").strip()
     if url and not url.lower().startswith(("http://", "https://")):
-        raise HTTPException(status_code=400, detail="url ha de ser http(s)")
+        raise HTTPException(status_code=400, detail="Registry URL must use HTTP or HTTPS")
 
     def _work():
         state = _load_plugins_state()

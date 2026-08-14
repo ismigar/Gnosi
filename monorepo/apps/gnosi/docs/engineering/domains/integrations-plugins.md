@@ -6,6 +6,8 @@ source_paths:
   - backend/services/integration_manager.py
   - backend/services/plugin_system.py
   - backend/services/plugin_sandbox.py
+  - backend/services/marketplace_http.py
+  - backend/services/marketplace_submission.py
   - plugins-examples
   - mcp-servers
   - integrations
@@ -61,6 +63,26 @@ Executable plugin behavior runs through a sandbox boundary with a constrained
 environment and timeout. Plugins do not receive the complete host environment
 or arbitrary secret access.
 
+Direct networking stays disabled in both plugin runtimes. A granted `network`
+capability exposes only the host RPC, which rejects private destinations and
+bounds methods, redirects, time, and response size. UI frames keep
+`connect-src 'none'`; the parent calls the same backend boundary after checking
+the plugin's declared and granted permissions.
+
+## Marketplace distribution
+
+The official plugin index and its detached signature are published as GitHub
+Release assets. Remote catalog installation requires a trusted signed index and
+every selected package requires both SHA-256 integrity and a trusted detached
+Ed25519 signature. Installed provenance records the source URL, checksum, and
+verified publisher. Local ZIP installation remains available for development,
+but starts disabled with no grants.
+
+Installed plugins can be exported as deterministic ZIPs. Public submission is
+an administrator operation sent to an explicitly configured moderation broker;
+Gnosi never embeds a GitHub write token. The broker quarantines the package and
+publishes it only after CI and human review.
+
 ## MCP boundary
 
 Configured MCP servers are independent processes or remote endpoints. Startup
@@ -83,6 +105,8 @@ credential access automatically.
 - Plugin-managed and user-managed values remain distinguishable.
 - Archive extraction and plugin paths cannot escape their installation root.
 - Compatibility and permission validation occurs before activation.
+- Official indexes and remote packages fail closed when integrity metadata is missing.
+- Direct plugin sockets and browser connections never bypass the host RPC.
 - MCP tool origin and effect remain visible after catalog normalization.
 
 ## Verification focus

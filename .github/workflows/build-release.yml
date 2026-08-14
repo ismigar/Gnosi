@@ -212,11 +212,9 @@ jobs:
       - name: List artifacts
         run: ls -laR artifacts/
 
-      # Construeix i SIGNA l'índex remot de plugins oficials. La clau privada
-      # arriba per secret (GNOSI_PLUGIN_SIGNING_KEY) i no toca mai el disc del
-      # repo; si no està configurada, l'índex es genera sense signatura (l'app
-      # els marcaria "no verificat"). Les entrades apunten a
-      # releases/latest/download → l'app hi accedeix un cop publiques el release.
+      # Build and sign the official remote indexes. The private key arrives only
+      # through GNOSI_PLUGIN_SIGNING_KEY and never belongs in the repository.
+      # Missing signatures fail the release because official catalogs fail closed.
       - name: Setup Python (per a l'índex de plugins)
         uses: actions/setup-python@v7
         with:
@@ -230,7 +228,17 @@ jobs:
           python monorepo/apps/gnosi/plugins-examples/build_index.py \
             --base-url https://github.com/ismigar/Gnosi/releases/latest/download \
             --out artifacts/plugins
+          test -s artifacts/plugins/plugins-index.sig
           ls -la artifacts/plugins/
+
+      - name: Construeix les plantilles de Vault signades
+        env:
+          GNOSI_PLUGIN_SIGNING_KEY: ${{ secrets.GNOSI_PLUGIN_SIGNING_KEY }}
+        run: |
+          python monorepo/apps/gnosi/marketplace/build_vault_templates.py \
+            --base-url https://github.com/ismigar/Gnosi/releases/latest/download \
+            --out artifacts/vault-templates
+          ls -la artifacts/vault-templates/
 
       - name: Render public release notes
         run: |
@@ -266,3 +274,7 @@ jobs:
             artifacts/latest*.yml
             artifacts/plugins/*.zip
             artifacts/plugins/plugins-index.json
+            artifacts/plugins/plugins-index.sig
+            artifacts/vault-templates/*.zip
+            artifacts/vault-templates/vault-templates-index.json
+            artifacts/vault-templates/vault-templates-index.sig
