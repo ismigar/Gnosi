@@ -4762,6 +4762,7 @@
     "tool_pending_confirmation": "🟡 *L'eina {{tool}} està pendent de confirmació.*",
     "rate_limit_message": "Has superat la quota del model de l'agent. Prova un altre agent o espera uns minuts.",
     "turn_timeout": "La resposta ha superat el límit de processament de 120 segons. Torna-ho a provar.",
+    "agent_loop_exhausted": "L'agent ha repetit la mateixa operació i s'ha aturat de manera segura. Concreta la petició o torna-ho a provar.",
     "error_prefix": "Error",
     "open_chat": "Obrir xat",
     "online": "En línia",

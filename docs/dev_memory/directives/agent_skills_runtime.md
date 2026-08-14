@@ -271,6 +271,13 @@ during migration.
   the answer with tool bindings removed. Do not rely on the model to select a mandatory
   tool or let tool-eager models call the same complete query again; one bounded result is
   sufficient and the following model response must terminate the graph.
+- Model a recurring personal-data workflow as an atomic governed tool plus a concise skill
+  instruction. For self-authored resources, resolve the canonical saved authorship view on
+  the server and dispatch `list_authored_vault_resources`; do not make the model infer the
+  current person's display name or guess a localized author-property name.
+- A skill explains when and how to use tools but does not own graph termination. Keep
+  repeat detection, bounded read rounds, and final-step degradation in the runtime so a
+  non-compliant tool-calling model cannot turn a valid skill into an unbounded loop.
 - Deterministic context calls must pass the attached inventory id (for example,
   `dashboard-table:<page>:<table>`), not the underlying page/table UUID. Context tools
   authorize their public inventory ids and reject raw refs by design.

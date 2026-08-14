@@ -50,3 +50,7 @@ ToolMessage. Reserve `RuntimeError` for no available provider. Map timeouts in
   its empty exception text into a generic error. Stream the stable
   `agent_turn_timeout` code so every client locale can explain the 120-second
   processing limit.
+- Distinguish LangGraph's `GraphRecursionError` from provider failure as well. It
+  signals a local agent loop, must not penalize model reliability, and streams the
+  stable `agent_loop_exhausted` code with a localized safe-stop explanation instead
+  of exposing the internal exception or correlation identifier.

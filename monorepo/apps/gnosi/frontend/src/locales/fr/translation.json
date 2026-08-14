@@ -4762,6 +4762,7 @@
     "tool_pending_confirmation": "🟡 *L'outil {{tool}} est en attente de confirmation.*",
     "rate_limit_message": "Vous avez dépassé le quota du modèle de cet agent. Essayez un autre agent ou attendez quelques minutes.",
     "turn_timeout": "La réponse a dépassé la limite de traitement de 120 secondes. Veuillez réessayer.",
+    "agent_loop_exhausted": "L'agent a répété la même opération et s'est arrêté en toute sécurité. Précisez la demande ou réessayez.",
     "error_prefix": "Erreur",
     "open_chat": "Ouvrir le chat",
     "online": "En ligne",

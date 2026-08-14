@@ -706,6 +706,16 @@ def test_agent_turn_timeout_has_a_stable_client_error_code():
     assert agent_routes._agent_stream_error_code(RuntimeError("failed")) is None
 
 
+def test_graph_recursion_has_a_stable_client_error_code():
+    from langgraph.errors import GraphRecursionError
+
+    error = GraphRecursionError("repeated graph operation")
+
+    assert agent_routes._agent_stream_error_code(error) == (
+        "agent_loop_exhausted"
+    )
+
+
 def test_unknown_model_uses_small_context_fallback(monkeypatch):
     monkeypatch.setattr(
         "backend.agent.model_router.load_registry",

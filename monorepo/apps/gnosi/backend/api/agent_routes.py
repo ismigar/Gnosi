@@ -27,6 +27,7 @@ from fastapi.responses import StreamingResponse
 from langchain_core.messages import HumanMessage
 from langgraph.checkpoint.base import create_checkpoint
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+from langgraph.errors import GraphRecursionError
 from pydantic import BaseModel, Field, model_validator
 
 from backend.agent.action_confirmations import (
@@ -228,6 +229,8 @@ def _agent_stream_error_code(error: BaseException) -> Optional[str]:
     """Return a stable client code for locally enforced stream failures."""
     if isinstance(error, TimeoutError):
         return "agent_turn_timeout"
+    if isinstance(error, GraphRecursionError):
+        return "agent_loop_exhausted"
     return None
 
 
@@ -1819,7 +1822,10 @@ async def chat_endpoint(
                 ))
                 reason = (
                     None
-                    if isinstance(e, (SessionBusyError, TimeoutError))
+                    if isinstance(
+                        e,
+                        (SessionBusyError, TimeoutError, GraphRecursionError),
+                    )
                     else record_failure(
                         provider,
                         model_id,
@@ -1833,6 +1839,11 @@ async def chat_endpoint(
                     friendly_error = (
                         f"The response exceeded the {TURN_TIMEOUT_SECONDS}-second "
                         "processing limit. Try again."
+                    )
+                elif isinstance(e, GraphRecursionError):
+                    friendly_error = (
+                        "The agent repeated the same operation and stopped safely. "
+                        "Refine the request or try again."
                     )
                 elif reason and reason in FAILURE_MESSAGES:
                     friendly_error = FAILURE_MESSAGES[reason]

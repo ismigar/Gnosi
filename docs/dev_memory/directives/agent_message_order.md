@@ -277,6 +277,14 @@ such as Mistral.
   repeating successful read tools. It increases latency and context volume
   without guaranteeing an answer; switch to a tool-free synthesis invocation
   after the bounded read budget instead.
+- Evaluate the identical-call guard and bounded read budget before forcing a missing
+  attached-context tool. A broad Vault attachment can remain technically unread while a
+  model repeatedly calls a different registry tool; context forcing must not mask the
+  loop guard. Two identical tool names plus canonical arguments end read-tool use for the
+  turn, and `RemainingSteps` reserves the final graph step for tool-free synthesis.
+- Do not classify a `GraphRecursionError` as provider/model reliability evidence. It is a
+  local orchestration failure and must be translated to the stable
+  `agent_loop_exhausted` client code if a final safety net is ever reached.
 - Do not implement a table query by iterating and opening every Vault page. On a
   File Provider mount, a selective filter may need the complete scan and exhaust
   the whole-turn deadline. Read the per-table page-index snapshot, refresh only
