@@ -248,6 +248,157 @@ def test_exact_vault_reads_build_deterministic_tool_calls():
     ) is None
 
 
+def test_personal_resource_authorship_builds_one_exact_server_call():
+    assert factory._personal_resource_authorship_requested(
+        "Troba tots els recursos dels quals soc autor"
+    )
+    assert factory._personal_resource_authorship_requested(
+        "List all resources authored by me"
+    )
+    assert not factory._personal_resource_authorship_requested(
+        "Qui és l'autor d'aquest recurs?"
+    )
+    call = factory._deterministic_personal_resources_call()
+    assert call["name"] == "list_authored_vault_resources"
+    assert call["args"] == {"offset": 0, "limit": 100}
+
+
+def test_identical_tool_calls_are_detected_only_in_the_current_turn():
+    repeated_call = {
+        "name": "query_vault_table",
+        "args": {"table_id_or_name": "Recursos", "limit": 100},
+        "type": "tool_call",
+    }
+    messages = [
+        HumanMessage(content="Earlier"),
+        AIMessage(content="", tool_calls=[{**repeated_call, "id": "old"}]),
+        ToolMessage(content="[]", tool_call_id="old"),
+        HumanMessage(content="Current"),
+        AIMessage(content="", tool_calls=[{**repeated_call, "id": "one"}]),
+        ToolMessage(content="[]", tool_call_id="one"),
+        AIMessage(content="", tool_calls=[{**repeated_call, "id": "two"}]),
+        ToolMessage(content="[]", tool_call_id="two"),
+    ]
+
+    assert factory._repeated_tool_call_since_latest_user(messages) == (
+        "query_vault_table"
+    )
+    assert factory._repeated_tool_call_since_latest_user(
+        messages + [HumanMessage(content="Next")]
+    ) == ""
+
+
+def test_authored_resources_route_once_then_synthesize_without_tools(monkeypatch):
+    calls = []
+
+    @tool
+    def list_authored_vault_resources(offset: int = 0, limit: int = 100) -> str:
+        """List resources from the saved self-authorship view."""
+        calls.append((offset, limit))
+        return '{"matching_count":1,"records":[{"id":"one","title":"Mine"}]}'
+
+    descriptor = SimpleNamespace(
+        id="core.gnosi.list-authored-vault-resources",
+        effects=["read"],
+        confirmation="none",
+    )
+    skill_descriptor = SimpleNamespace(
+        id="core.gnosi-vault",
+        tool_ids=[descriptor.id],
+    )
+    runtime = _runtime(
+        assigned=("core.gnosi-vault",),
+        active=("core.gnosi-vault",),
+        instructions=("Use the saved authorship view.",),
+        tools=(list_authored_vault_resources,),
+        descriptors=(descriptor,),
+        skills=(SimpleNamespace(descriptor=skill_descriptor),),
+    )
+    llm = RecordingLlm()
+    workflow, _selection = _workflow(
+        monkeypatch,
+        _agent(skill_ids=["core.gnosi-vault"]),
+        runtime,
+        llm,
+    )
+
+    result = workflow.compile().invoke({
+        "messages": [HumanMessage(
+            content="Troba tots els recursos dels quals soc autor",
+        )],
+        "turn_authorized_tool_names": [],
+        "active_skill_ids": ["core.gnosi-vault"],
+        "current_user_role": "owner",
+    })
+
+    assert calls == [(0, 100)]
+    assert result["messages"][-1].content == "done"
+    assert "exact saved self-authorship view result" in llm.system_prompts[-1]
+
+
+def test_repeat_guard_precedes_missing_context_forcing(monkeypatch):
+    @tool
+    def query_vault_table(table_id_or_name: str) -> str:
+        """Query an exact test Vault table."""
+        return "[]"
+
+    descriptor = SimpleNamespace(
+        id="core.gnosi.query-vault-table",
+        effects=["read"],
+        confirmation="none",
+    )
+    skill_descriptor = SimpleNamespace(
+        id="core.gnosi-vault",
+        tool_ids=[descriptor.id],
+    )
+    runtime = _runtime(
+        assigned=("core.gnosi-vault",),
+        active=("core.gnosi-vault",),
+        tools=(query_vault_table,),
+        descriptors=(descriptor,),
+        skills=(SimpleNamespace(descriptor=skill_descriptor),),
+    )
+    llm = RecordingLlm()
+    workflow, _selection = _workflow(
+        monkeypatch,
+        _agent(
+            skill_ids=["core.gnosi-vault"],
+            context_refs=[{
+                "id": "active-vault",
+                "type": "vault",
+                "ref": "active-vault",
+                "label": "Knowledge",
+            }],
+        ),
+        runtime,
+        llm,
+    )
+    arguments = {"table_id_or_name": "Recursos"}
+    messages = [HumanMessage(content="Troba els meus recursos")]
+    for call_id in ("one", "two"):
+        messages.extend([
+            AIMessage(content="", tool_calls=[{
+                "name": "query_vault_table",
+                "args": arguments,
+                "id": call_id,
+                "type": "tool_call",
+            }]),
+            ToolMessage(content="[]", tool_call_id=call_id),
+        ])
+
+    result = workflow.compile().invoke({
+        "messages": messages,
+        "turn_authorized_tool_names": [],
+        "active_skill_ids": ["core.gnosi-vault"],
+        "current_user_role": "owner",
+    })
+
+    assert result["messages"][-1].content == "done"
+    assert "same tool call and arguments were already repeated" in (
+        llm.system_prompts[-1]
+    )
+
+
 def test_reader_context_builds_required_single_tool_bindings(monkeypatch):
     llm = RecordingLlm()
     _workflow(

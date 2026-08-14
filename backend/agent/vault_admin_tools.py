@@ -101,6 +101,141 @@ def query_vault_table(
     }, ensure_ascii=False, default=str)
 
 
+def _normalized_identifier(value: Any) -> str:
+    """Return accent-insensitive text for stable registry-name matching."""
+    decomposed = unicodedata.normalize("NFKD", str(value or ""))
+    ascii_text = "".join(
+        character
+        for character in decomposed
+        if not unicodedata.combining(character)
+    )
+    return re.sub(r"[^a-z0-9]+", " ", ascii_text.casefold()).strip()
+
+
+def _self_authorship_view(table_id: str, views: list[dict]) -> dict | None:
+    """Resolve a saved first-person authorship view inside one table."""
+    exact_names = {
+        "soc autor",
+        "soc autora",
+        "soy autor",
+        "soy autora",
+        "i am author",
+        "i am the author",
+        "authored by me",
+        "mes ressources",
+        "je suis auteur",
+        "je suis l auteur",
+    }
+    candidates = [
+        view
+        for view in views
+        if str(view.get("table_id") or "") == table_id
+    ]
+    for view in candidates:
+        if _normalized_identifier(view.get("name")) in exact_names:
+            return view
+    return next((
+        view
+        for view in candidates
+        if any(
+            _normalized_identifier(item.get("field"))
+            in {"autor", "autora", "autoria", "author", "auteur"}
+            for item in (view.get("filters") or [])
+            if isinstance(item, dict)
+        )
+        and re.search(
+            r"\b(?:soc|soy|my|me|mes|je suis)\b",
+            _normalized_identifier(view.get("name")),
+        )
+    ), None)
+
+
+@tool
+def list_authored_vault_resources(
+    offset: int = 0,
+    limit: int = 100,
+) -> str:
+    """List exact resources from the Vault's saved first-person author view.
+
+    Use this for requests about resources authored by the current Vault owner.
+    The server resolves the canonical saved view, so callers must not guess an
+    author property name or derive a personal identity from model context.
+    """
+    from backend.agent.agent_context import _table_rows
+    from backend.api.vault_routes import load_registry
+
+    registry = load_registry() or {}
+    resource_names = {"recursos", "resources", "ressources"}
+    table = next((
+        item
+        for item in (registry.get("tables") or [])
+        if _normalized_identifier(item.get("name")) in resource_names
+    ), None)
+    if not table:
+        return json.dumps({
+            "error": "The active Vault has no Resources table.",
+            "available_tables": [
+                {
+                    "id": str(item.get("id") or ""),
+                    "name": str(item.get("name") or "")[:300],
+                }
+                for item in (registry.get("tables") or [])[:100]
+            ],
+        }, ensure_ascii=False)
+
+    table_id = str(table.get("id") or "")
+    table_views = [
+        item
+        for item in (registry.get("views") or [])
+        if str(item.get("table_id") or "") == table_id
+    ]
+    view = _self_authorship_view(table_id, table_views)
+    if not view:
+        return json.dumps({
+            "error": "The Resources table has no saved self-authorship view.",
+            "table": {"id": table_id, "name": table.get("name")},
+            "available_views": [
+                {
+                    "id": str(item.get("id") or ""),
+                    "name": str(item.get("name") or "")[:300],
+                }
+                for item in table_views[:100]
+            ],
+        }, ensure_ascii=False)
+
+    rows, resolved_view = _table_rows(
+        table_id,
+        {"view_id": str(view.get("id") or "")},
+    )
+    bounded_offset = max(0, min(int(offset), len(rows)))
+    bounded_limit = max(1, min(int(limit), 100))
+    page = rows[bounded_offset:bounded_offset + bounded_limit]
+    records = [
+        {
+            "id": str(row.get("id") or ""),
+            "title": str(row.get("title") or "")[:500],
+        }
+        for row in page
+    ]
+    return json.dumps({
+        "table": {"id": table_id, "name": table.get("name")},
+        "active_view": {
+            "id": str((resolved_view or view).get("id") or ""),
+            "name": str((resolved_view or view).get("name") or "")[:300],
+        },
+        "matching_count": len(rows),
+        "offset": bounded_offset,
+        "limit": bounded_limit,
+        "has_more": bounded_offset + len(records) < len(rows),
+        "next_offset": (
+            bounded_offset + len(records)
+            if bounded_offset + len(records) < len(rows)
+            else None
+        ),
+        "records": records,
+    }, ensure_ascii=False)
+
+
 def _normalized_filter_text(value: Any) -> str:
     """Flatten one structured property into stable text for scalar equality."""
     if isinstance(value, dict):
@@ -193,5 +328,6 @@ VAULT_ADMIN_READ_TOOLS = [
     list_vault_tables,
     read_vault_table_schema,
     query_vault_table,
+    list_authored_vault_resources,
 ]
 VAULT_ADMIN_WRITE_TOOLS = [move_vault_page, rename_vault_page]

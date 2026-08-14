@@ -378,7 +378,11 @@ def core_gnosi_skill_descriptors(
         "vault": (
             "Operate only on the active Gnosi Vault. Preserve page and row "
             "metadata, use exact IDs from tools, and never imply an operation "
-            "completed before its tool result."
+            "completed before its tool result. For a request about resources "
+            "authored by the current Vault owner, use "
+            "list_authored_vault_resources; never guess the person's identity "
+            "or an author property name. For other table filters, inspect the "
+            "exact schema first. Never repeat an identical empty read."
         ),
         "mail": (
             "Use only configured personal-workspace mail accounts. Search is "

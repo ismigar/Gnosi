@@ -169,6 +169,54 @@ def test_vault_table_query_uses_the_table_index_for_structured_authors(
     assert [row["id"] for row in payload["rows"]] == ["mine"]
 
 
+def test_authored_resources_use_the_saved_self_authorship_view(monkeypatch):
+    from backend.agent import agent_context
+    from backend.api import vault_routes
+
+    resources = {
+        "id": "resources",
+        "name": "Recursos",
+        "database_id": "knowledge",
+    }
+    authored_view = {
+        "id": "mine",
+        "name": "Soc autor",
+        "table_id": "resources",
+        "filters": [{
+            "field": "Autoría",
+            "operator": "contains",
+            "value": {"nom": "Vault", "cognom1": "Owner"},
+        }],
+    }
+    rows = [
+        {"id": f"resource-{index}", "title": f"Resource {index}", "metadata": {}}
+        for index in range(55)
+    ]
+    calls = []
+    monkeypatch.setattr(
+        vault_routes,
+        "load_registry",
+        lambda: {"tables": [resources], "views": [authored_view]},
+    )
+
+    def table_rows(table_id, scope):
+        calls.append((table_id, scope))
+        return rows, authored_view
+
+    monkeypatch.setattr(agent_context, "_table_rows", table_rows)
+
+    payload = json.loads(vault_admin_tools.list_authored_vault_resources.invoke({
+        "offset": 0,
+        "limit": 100,
+    }))
+
+    assert calls == [("resources", {"view_id": "mine"})]
+    assert payload["active_view"] == {"id": "mine", "name": "Soc autor"}
+    assert payload["matching_count"] == 55
+    assert len(payload["records"]) == 55
+    assert payload["has_more"] is False
+
+
 def test_read_tools_operate_on_the_active_vault(tmp_path, monkeypatch):
     page = tmp_path / "Projects" / "Alpha.md"
     page.parent.mkdir()

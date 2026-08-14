@@ -2,11 +2,13 @@ import os
 import operator
 import re
 import json
+import unicodedata
 from typing import Annotated, Any, Iterable, TypedDict, List, Sequence, Optional
 import logging
 import time
 from langchain_core.messages import AIMessage, BaseMessage, SystemMessage, ToolMessage
 from langgraph.graph import StateGraph, END, START
+from langgraph.managed import RemainingSteps
 from langgraph.prebuilt import ToolNode
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
@@ -775,6 +777,67 @@ def _deterministic_vault_context_call(
     }
 
 
+def _personal_resource_authorship_requested(message: str) -> bool:
+    """Recognize a first-person authored-resources request across UI locales."""
+    decomposed = unicodedata.normalize("NFKD", str(message or "").casefold())
+    text = "".join(
+        character
+        for character in decomposed
+        if not unicodedata.combining(character)
+    )
+    text = re.sub(r"[^a-z0-9]+", " ", text).strip()
+    if not re.search(r"\b(?:recurs\w*|resource\w*|ressource\w*)\b", text):
+        return False
+    return bool(re.search(
+        r"\b(?:soc|soy|jo|meus|meves|mis|mios|mias|my|mine|i am|"
+        r"authored by me|mes|je suis)\b.{0,48}\b(?:autor\w*|author\w*|auteur\w*)\b"
+        r"|\b(?:autor\w*|author\w*|auteur\w*)\b.{0,48}\b(?:me|my|mine|mes)\b",
+        text,
+    ))
+
+
+def _deterministic_personal_resources_call() -> dict:
+    """Build the server-owned self-authorship operation for the current turn."""
+    return {
+        "name": "list_authored_vault_resources",
+        "args": {"offset": 0, "limit": 100},
+        "id": f"gnosi-authored-resources-{time.time_ns()}",
+        "type": "tool_call",
+    }
+
+
+def _repeated_tool_call_since_latest_user(
+    messages: Iterable[Any],
+    minimum_repetitions: int = 2,
+) -> str:
+    """Return a tool whose exact arguments repeat during the current turn."""
+    current_turn = []
+    for message in reversed(list(messages)):
+        if str(getattr(message, "type", "") or "") == "human":
+            break
+        current_turn.append(message)
+    counts: dict[str, int] = {}
+    names: dict[str, str] = {}
+    for message in reversed(current_turn):
+        if str(getattr(message, "type", "") or "") != "ai":
+            continue
+        for tool_call in (getattr(message, "tool_calls", None) or []):
+            name = str(tool_call.get("name") or "").strip()
+            if not name:
+                continue
+            signature = json.dumps(
+                {"name": name, "args": tool_call.get("args") or {}},
+                ensure_ascii=False,
+                sort_keys=True,
+                default=str,
+            )
+            counts[signature] = counts.get(signature, 0) + 1
+            names[signature] = name
+            if counts[signature] >= max(2, int(minimum_repetitions)):
+                return names[signature]
+    return ""
+
+
 def _authorized_brain_write_tools(names: set[str]) -> List[Any]:
     """Resolve only the explicitly authorized write-tool names."""
     tools_by_name = {
@@ -1053,6 +1116,7 @@ class AgentState(TypedDict):
     turn_authorized_tool_names: Sequence[str]
     active_skill_ids: Sequence[str]
     current_user_role: str
+    remaining_steps: RemainingSteps
 
 
 def _turn_authorized_tool_names(state: Any) -> set[str]:
@@ -2038,7 +2102,58 @@ async def create_agent_workflow(
             context_tool_names,
         )
         read_tool_results = _tool_results_since_latest_user(messages)
-        if context_tools and not latest_context_tool:
+        personal_resources_requested = (
+            "list_authored_vault_resources" in bound_tool_names
+            and _personal_resource_authorship_requested(latest_user)
+        )
+        personal_resources_result = _latest_context_tool_since_latest_user(
+            messages,
+            {"list_authored_vault_resources"},
+        )
+        repeated_tool_name = _repeated_tool_call_since_latest_user(messages)
+        remaining_steps = int(state.get("remaining_steps", 0) or 0)
+        if personal_resources_requested and not personal_resources_result:
+            return {
+                "messages": [AIMessage(
+                    content="",
+                    tool_calls=[_deterministic_personal_resources_call()],
+                )],
+                "next": "supervisor",
+            }
+        if personal_resources_result and not current_authorized_names:
+            selected_brain_llm = llm
+            brain_system += (
+                "\nThe exact saved self-authorship view result is already present "
+                "in this turn. Answer directly from its matching count and records. "
+                "Do not infer an identity, guess a property name, call another tool, "
+                "or repeat the query."
+            )
+        elif repeated_tool_name and not current_authorized_names:
+            selected_brain_llm = llm
+            brain_system += (
+                "\nThe same tool call and arguments were already repeated in this "
+                f"turn ({repeated_tool_name}). Stop the loop and answer directly "
+                "from the available tool evidence, including an explicit limitation "
+                "if it is empty. Do not call another tool."
+            )
+        elif read_tool_results >= 3 and not current_authorized_names:
+            # Some tool-eager models repeat broad successful reads instead of
+            # synthesizing their evidence. The recursion limit is only a final
+            # safety net; removing tool bindings here guarantees a user-visible
+            # response before the graph reaches it.
+            selected_brain_llm = llm
+            brain_system += (
+                "\nThe bounded read-tool budget for this turn is complete. "
+                "Answer directly from the tool evidence already present now. "
+                "Do not call another tool, repeat a query, or ask to continue."
+            )
+        elif remaining_steps and remaining_steps <= 2 and not current_authorized_names:
+            selected_brain_llm = llm
+            brain_system += (
+                "\nThe graph is at its final safe synthesis step. Answer now from "
+                "the available evidence and do not call another tool."
+            )
+        elif context_tools and not latest_context_tool:
             if any(
                 ref.get("type") == "internal" and ref.get("ref") == "reader"
                 for ref in context_refs
@@ -2092,17 +2207,6 @@ async def create_agent_workflow(
                 "\nThe exact table-query result is already present in this turn. "
                 "Answer directly from it now. Do not call another tool, repeat "
                 "the query, or claim that the attached table is unavailable."
-            )
-        elif read_tool_results >= 3 and not current_authorized_names:
-            # Some tool-eager models repeat broad successful reads instead of
-            # synthesizing their evidence. The recursion limit is only a final
-            # safety net; removing tool bindings here guarantees a user-visible
-            # response before the graph reaches it.
-            selected_brain_llm = llm
-            brain_system += (
-                "\nThe bounded read-tool budget for this turn is complete. "
-                "Answer directly from the tool evidence already present now. "
-                "Do not call another tool, repeat a query, or ask to continue."
             )
         response = selected_brain_llm.invoke(
             [SystemMessage(content=brain_system)] + _bounded_model_messages(messages, message_budget_chars),
