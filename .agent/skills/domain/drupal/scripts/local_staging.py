@@ -473,6 +473,7 @@ $settings['file_temp_path'] = '{php_literal(str(STAGING_ROOT / 'tmp'))}';
 $settings['skip_permissions_hardening'] = TRUE;
 $settings['deployment_identifier'] = 'local-staging';
 $settings['http_client_config']['proxy'] = 'http://127.0.0.1:9';
+$settings['enable_html5_validation'] = FALSE;
 
 $config['system.site']['name'] = 'LOCAL STAGING · Temenos de Ismael';
 $config['system.logging']['error_level'] = 'verbose';
@@ -586,6 +587,10 @@ def harden() -> None:
     """Reapply safety settings to an imported local clone."""
     ensure_prerequisites()
     start_database()
+    state = load_state()
+    if not state:
+        raise RuntimeError("Local staging has not been refreshed")
+    write_local_configuration(state)
     harden_active_configuration()
     verify()
 

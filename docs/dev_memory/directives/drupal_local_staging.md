@@ -127,6 +127,10 @@ clone to contact production integrations.
 - Production currently stores the Catalan legal menu link as an unencoded
   non-ASCII internal URI. Normalize such links only in the clone before cache
   rebuild; otherwise Drupal 10.6 logs an `InvalidArgumentException`.
+- Do not assume `harden` can reuse a previously generated settings override
+  unchanged. New safety settings would remain absent until a full refresh.
+  Regenerate `settings.local.php` from the stored clone-only state every time
+  hardening runs.
 
 ## Verification
 

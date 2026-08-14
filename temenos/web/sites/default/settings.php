@@ -726,6 +726,9 @@ $settings['file_private_path'] = '../drupal_private_files';
 # $config['system.site']['name'] = 'My Drupal site';
 # $config['user.settings']['anonymous'] = 'Visitor';
 
+// Match Drupal 12 now and keep server-side Form API validation authoritative.
+$settings['enable_html5_validation'] = FALSE;
+
 /**
  * Load services definition file.
  */
@@ -915,5 +918,4 @@ $settings['php_settings']['memory_limit'] = '512M';
 if (file_exists($app_root . '/' . $site_path . '/settings.local.php')) {
    include $app_root . '/' . $site_path . '/settings.local.php';
 }
-
 

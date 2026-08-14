@@ -37,6 +37,7 @@ class LocalStagingUnitTest(unittest.TestCase):
         self.assertIn("['smtp_on'] = FALSE", settings)
         self.assertIn("['interval'] = 0", settings)
         self.assertIn("proxy'] = 'http://127.0.0.1:9'", settings)
+        self.assertIn("['enable_html5_validation'] = FALSE", settings)
         self.assertNotIn("temenosismael.org", settings)
 
     def test_web_server_uses_drupal_web_document_root(self):
@@ -45,6 +46,13 @@ class LocalStagingUnitTest(unittest.TestCase):
         document_root_index = command.index("-t") + 1
         self.assertEqual(command[document_root_index], str(MODULE.SITE_ROOT / "web"))
         self.assertEqual(command[-1], str(MODULE.STAGING_ROOT / "router.php"))
+
+    def test_harden_rewrites_local_settings(self):
+        source = SCRIPT.read_text(encoding="utf-8")
+        harden = source[source.index("def harden()") : source.index("def rotate_credentials()")]
+
+        self.assertIn("state = load_state()", harden)
+        self.assertIn("write_local_configuration(state)", harden)
 
     def test_drush_uses_php_entrypoint_instead_of_shell_wrapper(self):
         command = MODULE.drush_command("status")
