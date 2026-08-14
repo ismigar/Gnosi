@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import EmojiPicker from 'emoji-picker-react';
-import { icons } from 'lucide-react';
+import { DynamicIcon, iconNames } from 'lucide-react/dynamic';
 import { Search, Upload, Link2, X, Loader2, Smile } from 'lucide-react';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
@@ -34,6 +34,15 @@ const FALLBACK_LUCIDE_ICONS = [
     'Building2', 'Users', 'User', 'Key', 'Shield', 'Wrench', 'Settings',
     'Database', 'BarChart3', 'PieChart', 'Activity', 'Zap', 'Sparkles',
 ];
+
+const toPascalCase = (name) => name
+    .split('-')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join('');
+
+const normalizeLucideIconName = (name) => name
+    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+    .toLowerCase();
 
 const CUSTOM_ICON_STORAGE_KEY = 'gnosi.vault.custom-icons';
 const MAX_CUSTOM_ICONS = 30;
@@ -144,16 +153,14 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
 
     // Get all available Lucide icons dynamically
     const availableIcons = useMemo(() => {
-        const iconNames = Object.keys(icons)
-            .filter((key) => key[0] && key[0].match(/[A-Z]/))
-            .sort();
+        const iconNamesPascal = [...new Set(iconNames.map(toPascalCase))].sort();
 
-        if (iconNames.length === 0) {
+        if (iconNamesPascal.length === 0) {
             console.warn('IconPicker: lucide icon registry is empty, using fallback list.');
             return FALLBACK_LUCIDE_ICONS;
         }
 
-        return iconNames;
+        return iconNamesPascal;
     }, []);
 
     useEffect(() => {
@@ -332,7 +339,6 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
                             <div className="flex-1 overflow-y-auto p-2">
                                 <div className="grid grid-cols-6 gap-1">
                                     {filteredIcons.map(name => {
-                                        const IconComp = icons[name];
                                         const colorObj = VAULT_COLORS.find(c => c.name === selectedColor);
                                         return (
                                             <button
@@ -344,7 +350,11 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
                                                 className="aspect-square flex items-center justify-center rounded hover:bg-[var(--bg-secondary)] transition-colors text-[var(--text-secondary)] p-2"
                                                 title={name}
                                             >
-                                                {IconComp && <IconComp size={20} color={colorObj?.color} />}
+                                                <DynamicIcon
+                                                    name={normalizeLucideIconName(name)}
+                                                    size={20}
+                                                    color={colorObj?.color}
+                                                />
                                             </button>
                                         );
                                     })}

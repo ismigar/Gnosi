@@ -46,6 +46,8 @@ const FULL_MSG = {
 };
 
 test.describe('Mail reply amb cid: citat', () => {
+  test.describe.configure({ timeout: 90_000 });
+
   test.beforeEach(async ({ page }) => {
     await page.route('**/api/integrations**', (route) =>
       route.fulfill({
@@ -115,27 +117,34 @@ test.describe('Mail reply amb cid: citat', () => {
 
     // Open the mocked message
     const listItem = page.getByText(SUBJECT).first();
-    await expect(listItem, `pageerrors: ${pageErrors.join(' | ')}`).toBeVisible({ timeout: 15_000 });
+    await expect(listItem, `pageerrors: ${pageErrors.join(' | ')}`).toBeVisible({ timeout: 30_000 });
     await listItem.click();
-    const replyBtn = page.getByTitle(/^(resposta|reply|respuesta|réponse)$/i);
-    await expect(replyBtn).toBeVisible({ timeout: 15_000 });
+    const replyBtn = page.getByRole('button', {
+      name: /resposta|respondre|reply|respuesta|réponse/i,
+    }).first();
+    await expect(replyBtn).toBeVisible({ timeout: 20_000 });
     await replyBtn.click();
 
     // Composer open with the quote loaded. The quoted image is there as a URL
     // /cid/ from the API (served by the mock): BlockNote keeps it and it's displayed.
     const editor = page.locator('.mail-block-editor [contenteditable="true"]').first();
-    await expect(editor).toBeVisible({ timeout: 10_000 });
-    await expect(editor.getByText('Hola, aquí teniu el logo:')).toBeVisible({ timeout: 10_000 });
+    await expect(editor).toBeVisible({ timeout: 20_000 });
+    await expect(editor.getByText('Hola, aquí teniu el logo:')).toBeVisible({ timeout: 20_000 });
     const quotedImg = page.locator(
       `.mail-block-editor img[src*="/api/mail/messages/${MSG_ID}/cid/"]`,
     ).first();
     await expect(quotedImg).toBeAttached({ timeout: 10_000 });
+    // Let MailBlockEditor's delayed auto-focus settle before moving the caret.
+    await page.waitForTimeout(300);
 
-    // Write the reply at the beginning (cursor already at the top)
-    await editor.click();
+    // Write the reply at the beginning. Clicking the editor's centre can place
+    // the caret inside the quoted content, so position it explicitly.
+    await editor.press('ControlOrMeta+Home');
     await page.keyboard.type('Gràcies pel logo!');
 
-    const sendBtn = page.getByRole('button', { name: /envia|send|enviar|envoyer/i });
+    const sendBtn = page.getByRole('button', {
+      name: /^(enviar correu|send email|enviar correo|envoyer l'email)$/i,
+    });
     const [replyReq] = await Promise.all([
       page.waitForRequest(
         (r) => r.url().includes(`/api/mail/messages/${MSG_ID}/reply`) && r.method() === 'POST',

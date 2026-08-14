@@ -34,7 +34,10 @@ async function openDrawingCard(page: Page, id: string, title: string) {
     );
     await releaseNotesClose.first().click({ timeout: 10_000, force: true }).catch(() => {});
     const card = page.locator(`h3:has-text("${title}")`).first();
-    await card.waitFor({ state: 'visible', timeout: 15_000 });
+    // The Vault route is intentionally lazy-loaded and its first visit also
+    // downloads the Tldraw/Mermaid chunks. A clean CI browser can need close
+    // to a minute before the drawing cards are mounted.
+    await card.waitFor({ state: 'visible', timeout: 75_000 });
     await releaseNotesClose.first().click({ timeout: 2_000, force: true }).catch(() => {});
     await card.click();
 }
@@ -60,7 +63,7 @@ async function interceptDrawing(
 }
 
 test.describe('TldrawEditor: cap PUT destructiu si la càrrega falla', () => {
-    test.describe.configure({ timeout: 60_000 });
+    test.describe.configure({ timeout: 180_000 });
 
     test('GET 500 ⇒ overlay, cap PUT, i el reintent recupera', async ({ page }) => {
         const ID = 'guard-e2e-500';
@@ -75,7 +78,7 @@ test.describe('TldrawEditor: cap PUT destructiu si la càrrega falla', () => {
         await openDrawingCard(page, ID, 'Guard 500');
 
         // Error overlay visible, with saving blocked
-        await expect(page.getByText("No s'ha pogut carregar el dibuix")).toBeVisible({ timeout: 20_000 });
+        await expect(page.getByText("No s'ha pogut carregar el dibuix")).toBeVisible({ timeout: 30_000 });
 
         // Neither autosave (1 s) nor Ctrl+S should be able to save
         await page.keyboard.press('ControlOrMeta+s');
@@ -85,8 +88,8 @@ test.describe('TldrawEditor: cap PUT destructiu si la càrrega falla', () => {
         // The backend "comes back" → the retry must load the editor
         backendUp = true;
         await page.getByRole('button', { name: 'Torna-ho a provar' }).click();
-        await expect(page.getByText("No s'ha pogut carregar el dibuix")).not.toBeVisible({ timeout: 10_000 });
-        await expect(page.locator(CANVAS).first()).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByText("No s'ha pogut carregar el dibuix")).not.toBeVisible({ timeout: 30_000 });
+        await expect(page.locator(CANVAS).first()).toBeVisible({ timeout: 60_000 });
     });
 
     test('format legacy Excalidraw ⇒ overlay incompatible i cap PUT (no eclipsa)', async ({ page }) => {
@@ -106,7 +109,7 @@ test.describe('TldrawEditor: cap PUT destructiu si la càrrega falla', () => {
 
         await openDrawingCard(page, ID, 'Guard Legacy');
 
-        await expect(page.getByText('Format de dibuix no compatible')).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByText('Format de dibuix no compatible')).toBeVisible({ timeout: 30_000 });
 
         await page.keyboard.press('ControlOrMeta+s');
         await page.waitForTimeout(3_000);
@@ -120,7 +123,7 @@ test.describe('TldrawEditor: cap PUT destructiu si la càrrega falla', () => {
         await openDrawingCard(page, ID, 'Guard Happy');
 
         const canvas = page.locator(CANVAS).first();
-        await expect(canvas).toBeVisible({ timeout: 15_000 });
+        await expect(canvas).toBeVisible({ timeout: 60_000 });
 
         // The initial mount may generate at most one PUT (tldraw creates the
         // default document records in an empty store). We wait for it

@@ -119,23 +119,40 @@ export default function PageOutline() {
     // and when the content DOM changes (dynamic dashboards).
     useEffect(() => {
         const timers = [0, 300, 1000].map((d) => setTimeout(scan, d));
-
-        const container = document.querySelector(CONTENT_SELECTOR);
         let debounce;
-        const observer = container
-            ? new MutationObserver(() => {
+        let observer = null;
+        let bodyObserver = null;
+
+        const attachContentObserver = () => {
+            if (observer) return true;
+            const container = document.querySelector(CONTENT_SELECTOR);
+            if (!container) return false;
+            observer = new MutationObserver(() => {
                 clearTimeout(debounce);
                 debounce = setTimeout(scan, 250);
-            })
-            : null;
-        if (observer && container) {
+            });
             observer.observe(container, { childList: true, subtree: true });
+            return true;
+        };
+
+        if (!attachContentObserver()) {
+            // The shell mounts the content container asynchronously on some routes.
+            // Watch the body until it exists so dynamic headings are not missed.
+            bodyObserver = new MutationObserver(() => {
+                if (attachContentObserver()) {
+                    bodyObserver.disconnect();
+                    bodyObserver = null;
+                    scan();
+                }
+            });
+            bodyObserver.observe(document.body, { childList: true, subtree: true });
         }
 
         return () => {
             timers.forEach(clearTimeout);
             clearTimeout(debounce);
             if (observer) observer.disconnect();
+            if (bodyObserver) bodyObserver.disconnect();
         };
     }, [location.pathname, scan]);
 

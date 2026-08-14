@@ -31,14 +31,39 @@ async function injectHeadings(page: import('@playwright/test').Page) {
 }
 
 test.describe('PageOutline section navigator', () => {
+  test.describe.configure({ timeout: 90_000 });
+
+  test.beforeEach(async ({ page }) => {
+    await page.route('**/api/health', (route) => route.fulfill({
+      json: { status: 'ok', gnosi_mode: 'personal', require_auth: false },
+    }));
+    await page.route('**/api/auth/me', (route) => route.fulfill({
+      status: 401,
+      contentType: 'application/json',
+      body: JSON.stringify({ detail: 'Not authenticated' }),
+    }));
+  });
+
   test('appears, lists injected sections, jumps and closes', async ({ page }) => {
     // PageOutline is gated to content routes (vault / mail / reader); use /reader.
     await page.goto('/reader', { waitUntil: 'domcontentloaded' });
 
+    // Fresh CI profiles may show the release-notes modal on first load.
+    const releaseNotesClose = page.getByRole('button', { name: /close release notes|tanca|cerrar|fermer/i });
+    await releaseNotesClose.waitFor({ state: 'visible', timeout: 3_000 })
+      .then(() => releaseNotesClose.click())
+      .catch(() => {});
+
     // The container is part of the App shell and always present.
-    await expect(page.locator('#page-content-scroll')).toBeVisible();
+    await expect(page.locator('#page-content-scroll')).toBeVisible({ timeout: 30_000 });
 
     await injectHeadings(page);
+
+    // Floating actions are intentionally hidden behind the global dock. Open
+    // the dock at the DOM boundary so this test stays focused on PageOutline.
+    await page.evaluate(() => {
+      document.body.dataset.gnosiFloatingDock = 'open';
+    });
 
     // MutationObserver-driven scan (debounced ~250ms) should reveal the toggle.
     const toggle = page.getByTestId('page-outline-toggle');
@@ -65,12 +90,15 @@ test.describe('PageOutline section navigator', () => {
     // Escape closes the panel.
     await page.keyboard.press('Escape');
     await expect(panel).toBeHidden();
+    await page.evaluate(() => {
+      document.body.dataset.gnosiFloatingDock = 'open';
+    });
     await expect(toggle).toBeVisible();
   });
 
   test('does not appear on excluded routes (Control Center / dashboard)', async ({ page }) => {
     await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
-    await expect(page.locator('#page-content-scroll')).toBeVisible();
+    await expect(page.locator('#page-content-scroll')).toBeVisible({ timeout: 30_000 });
 
     await injectHeadings(page);
 

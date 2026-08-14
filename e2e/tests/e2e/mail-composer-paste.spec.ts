@@ -20,14 +20,15 @@ const PNG_BASE64 =
 
 async function openComposer(page) {
   await page.goto('/mail', { waitUntil: 'domcontentloaded' });
-  const composeBtn = page
-    .locator('button:visible')
-    .filter({ has: page.locator('svg') })
-    .and(page.getByTitle(/(redactar|compose|nou missatge|new message)/i));
-  await expect(composeBtn).toBeVisible({ timeout: 15_000 });
+  const composeBtn = page.getByRole('button', {
+    name: /redactar|compose|nou missatge|new message/i,
+  }).first();
+  // Mail is mounted only after the shared auth/shell bootstrap; a clean native
+  // backend can take close to a minute while the global shell requests settle.
+  await expect(composeBtn).toBeVisible({ timeout: 60_000 });
   await composeBtn.click();
   const editor = page.locator('.mail-block-editor [contenteditable="true"]').first();
-  await expect(editor).toBeVisible({ timeout: 10_000 });
+  await expect(editor).toBeVisible({ timeout: 20_000 });
   return editor;
 }
 
@@ -50,6 +51,8 @@ function pasteFile(editor, name: string, mime: string, base64: string) {
 }
 
 test.describe('Mail composer paste', () => {
+  test.describe.configure({ timeout: 90_000 });
+
   test.beforeEach(async ({ page }) => {
     // Mock upload: keep the real vault clean and the test deterministic
     await page.route('**/api/vault/assets/upload**', (route) =>

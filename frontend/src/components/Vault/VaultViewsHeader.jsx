@@ -34,6 +34,7 @@ import { IconRenderer } from './IconRenderer';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import { viewMatchesFilters, isFilterGroup } from '../../utils/vaultFilters';
 import { getViewPopoverLayout } from './viewPopoverLayout';
+import { getTemplateMenuIcon } from './templateMenuUtils';
 
 function SortableTab({ view, tableViews, isActive, onSelect, onAction }) {
     const { t } = useTranslation();
@@ -493,6 +494,7 @@ export function VaultViewsHeader({
     const [isAddingView, setIsAddingView] = useState(false);
     const [viewPopoverLayout, setViewPopoverLayout] = useState(null);
     const [showNewMenu, setShowNewMenu] = useState(false);
+    const [newMenuMaxHeight, setNewMenuMaxHeight] = useState(null);
     // "..." submenu of a specific template inside the "+ New" menu.
     // Stores { id, tpl, top, right } (fixed coords computed from the "..." button).
     const [templateMenuFor, setTemplateMenuFor] = useState(null);
@@ -577,6 +579,22 @@ export function VaultViewsHeader({
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
     }, [closeNewMenus, showNewMenu]);
+
+    useEffect(() => {
+        if (!showNewMenu || !newMenuRef.current) return undefined;
+        const updateNewMenuHeight = () => {
+            const triggerBounds = newMenuRef.current?.getBoundingClientRect();
+            if (!triggerBounds) return;
+            setNewMenuMaxHeight(Math.max(0, window.innerHeight - triggerBounds.bottom - 12));
+        };
+        updateNewMenuHeight();
+        window.addEventListener('resize', updateNewMenuHeight);
+        window.addEventListener('scroll', updateNewMenuHeight, true);
+        return () => {
+            window.removeEventListener('resize', updateNewMenuHeight);
+            window.removeEventListener('scroll', updateNewMenuHeight, true);
+        };
+    }, [showNewMenu]);
 
     // Esc closes each of this header's dropdowns.
     useModalKeyboard({ isOpen: showNewMenu, onClose: closeNewMenus });
@@ -881,17 +899,20 @@ export function VaultViewsHeader({
                         </button>
 
                         {showNewMenu && (
-                            <div className="vault-new-record-menu absolute top-full right-0 mt-1 w-56 border rounded-lg shadow-xl py-1 animate-in fade-in zoom-in-95 duration-100">
+                            <div
+                                className="vault-new-record-menu absolute top-full right-0 mt-1 w-56 border rounded-lg shadow-xl py-1 !text-xs animate-in fade-in zoom-in-95 duration-100"
+                                style={newMenuMaxHeight == null ? undefined : { maxHeight: `${newMenuMaxHeight}px` }}
+                            >
                                 <button
                                     onClick={() => { setShowNewMenu(false); onCreateRecord?.(); }}
-                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
+                                    className="w-full flex items-center gap-2 px-3 py-2 !text-xs text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
                                 >
                                     <Plus size={14} className="text-[var(--text-tertiary)]" />
                                     <span>{t('views_header.new_empty_record')}</span>
                                 </button>
                                 <button
                                     onClick={() => { setShowNewMenu(false); onCreateTemplate?.(); }}
-                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
+                                    className="w-full flex items-center gap-2 px-3 py-2 !text-xs text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
                                 >
                                     <LayoutTemplate size={14} className="text-[var(--text-tertiary)]" />
                                     <span>{t('views_header.new_template')}</span>
@@ -900,7 +921,7 @@ export function VaultViewsHeader({
                                 {referenceTableId && onCreateFromSource && (
                                     <button
                                         onClick={() => { setShowNewMenu(false); onCreateFromSource(); }}
-                                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
+                                        className="w-full flex items-center gap-2 px-3 py-2 !text-xs text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
                                     >
                                         <Search size={14} className="text-[var(--text-tertiary)]" />
                                         <span>{t('views_header.new_from_source', { defaultValue: "Create from a source…" })}</span>
@@ -911,7 +932,9 @@ export function VaultViewsHeader({
                                     <>
                                         <div className="h-px bg-[var(--border-primary)] my-1 mx-2" />
                                         <div className="px-3 py-1 text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-tighter">{t('views_header.templates_title')}</div>
-                                        {templates.map(tpl => {
+                                        {[...templates]
+                                            .sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), undefined, { sensitivity: 'base', numeric: true }))
+                                            .map(tpl => {
                                             const isDefault = !!tpl.metadata?.is_default_template;
                                             return (
                                                 <div
@@ -920,13 +943,9 @@ export function VaultViewsHeader({
                                                 >
                                                     <button
                                                         onClick={() => { setShowNewMenu(false); onCreateRecord?.(tpl.id); }}
-                                                        className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-primary)] text-left"
+                                                        className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2 !text-xs text-[var(--text-primary)] text-left"
                                                     >
-                                                        {tpl.metadata?.icon ? (
-                                                            <IconRenderer icon={tpl.metadata.icon} size={16} className="shrink-0" />
-                                                        ) : (
-                                                            <LayoutTemplate size={14} className="shrink-0 text-[var(--text-tertiary)] group-hover/tpl:text-[var(--gnosi-primary)]" />
-                                                        )}
+                                                        <IconRenderer icon={getTemplateMenuIcon(tpl)} size={16} className="shrink-0" />
                                                         <span className="truncate">{tpl.title || t('common.untitled')}</span>
                                                         {isDefault && (
                                                             <span className="ml-auto shrink-0 text-[9px] bg-[var(--status-success)]/20 text-[var(--status-success)] px-1 rounded">{t('views_header.default_badge')}</span>

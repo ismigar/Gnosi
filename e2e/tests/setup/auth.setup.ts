@@ -32,5 +32,10 @@ setup('seed workspace localStorage', async ({ page }) => {
   await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
   await expect(page.locator('#root')).not.toBeEmpty({ timeout: 15_000 });
 
+  const releaseNotesClose = page.getByRole('button', { name: /close release notes|tanca|cerrar|fermer/i });
+  await releaseNotesClose.waitFor({ state: 'visible', timeout: 3_000 })
+    .then(() => releaseNotesClose.click())
+    .catch(() => {});
+
   await page.context().storageState({ path: STORAGE_STATE });
 });

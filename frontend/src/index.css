@@ -545,6 +545,9 @@ textarea,
   background-color: var(--bg-primary);
   color: var(--text-primary);
   opacity: 1;
+  max-height: min(70vh, 34rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .vault-feed-card__identity {

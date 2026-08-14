@@ -11,6 +11,8 @@ import { VIEW_TYPES } from './viewConstants';
 import ConfirmModal from '../ConfirmModal';
 import PromptModal from '../PromptModal';
 import { toast } from '../../lib/toast';
+import { IconRenderer } from './IconRenderer';
+import { getTemplateMenuIcon } from './templateMenuUtils';
 
 // Scrollable container to fit the full view components (which
 // assume a height) within the embed's document flow. At module level
@@ -192,6 +194,7 @@ async function patchSectionConfig(pageId, section, patch) {
 
 function ViewActionsBar({
     onCreate,
+    onCreateTemplate,
     onAddView,
     templates = [],
     onOpenConfig,
@@ -217,6 +220,7 @@ function ViewActionsBar({
 }) {
     const { t } = useTranslation();
     const [showNewMenu, setShowNewMenu] = useState(false);
+    const [newMenuMaxHeight, setNewMenuMaxHeight] = useState(null);
     const [showTools, setShowTools] = useState(false);
     const menuRef = useRef(null);
     const toolsRef = useRef(null);
@@ -225,6 +229,21 @@ function ViewActionsBar({
         const handler = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setShowNewMenu(false); };
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
+    }, [showNewMenu]);
+    useEffect(() => {
+        if (!showNewMenu || !menuRef.current) return undefined;
+        const updateNewMenuHeight = () => {
+            const triggerBounds = menuRef.current?.getBoundingClientRect();
+            if (!triggerBounds) return;
+            setNewMenuMaxHeight(Math.max(0, window.innerHeight - triggerBounds.bottom - 12));
+        };
+        updateNewMenuHeight();
+        window.addEventListener('resize', updateNewMenuHeight);
+        window.addEventListener('scroll', updateNewMenuHeight, true);
+        return () => {
+            window.removeEventListener('resize', updateNewMenuHeight);
+            window.removeEventListener('scroll', updateNewMenuHeight, true);
+        };
     }, [showNewMenu]);
     useEffect(() => {
         if (!showTools) return undefined;
@@ -475,28 +494,42 @@ function ViewActionsBar({
                         </button>
                     </div>
                     {showNewMenu && (
-                        <div className="absolute top-full right-0 mt-1 w-56 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[var(--z-popover)] py-1">
+                        <div
+                            className="vault-new-record-menu absolute top-full right-0 mt-1 w-56 border rounded-lg shadow-xl py-1 !text-xs"
+                            style={newMenuMaxHeight == null ? undefined : { maxHeight: `${newMenuMaxHeight}px` }}
+                        >
                             <button
                                 onClick={() => { setShowNewMenu(false); onCreate(); }}
-                                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] text-left"
+                                className="w-full flex items-center gap-2 px-3 py-2 !text-xs text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] text-left"
                             >
                                 <Plus size={14} className="text-[var(--text-tertiary)]" />
                                 <span>{t('views_header.new_empty_record', "New record")}</span>
                             </button>
+                            {onCreateTemplate && (
+                                <button
+                                    onClick={() => { setShowNewMenu(false); onCreateTemplate(); }}
+                                    className="w-full flex items-center gap-2 px-3 py-2 !text-xs text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] text-left"
+                                >
+                                    <LayoutTemplate size={14} className="text-[var(--text-tertiary)]" />
+                                    <span>{t('views_header.new_template', "New template")}</span>
+                                </button>
+                            )}
                             {templates.length > 0 && (
                                 <>
                                     <div className="h-px bg-[var(--border-primary)] my-1 mx-2" />
                                     <div className="px-3 py-1 text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-tighter">{t('views_header.templates_title', "Templates")}</div>
-                                    {templates.map(tpl => (
+                                    {[...templates]
+                                        .sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), undefined, { sensitivity: 'base', numeric: true }))
+                                        .map(tpl => (
                                         <button
                                             key={tpl.id}
                                             onClick={() => { setShowNewMenu(false); onCreate({}, tpl); }}
-                                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] text-left group"
+                                            className="w-full flex items-center gap-2 px-3 py-2 !text-xs text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] text-left group"
                                         >
-                                            <LayoutTemplate size={14} className="text-[var(--text-tertiary)] group-hover:text-[var(--gnosi-primary)]" />
+                                            <IconRenderer icon={getTemplateMenuIcon(tpl)} size={16} className="shrink-0" />
                                             <span className="truncate">{tpl.title || t('view.untitled', "(untitled)")}</span>
                                         </button>
-                                    ))}
+                                        ))}
                                 </>
                             )}
                         </div>
@@ -1865,6 +1898,7 @@ export function DbViewEmbed({ block }) {
                 </div>
                 <ViewActionsBar
                     onCreate={tableId ? handleCreate : null}
+                    onCreateTemplate={tableId ? () => ctx.onCreateTemplate?.(tableId) : null}
                     onAddView={tableId ? () => handleAddView('table') : null}
                     templates={templates}
                     onOpenConfig={onOpenPageViewModal && tableId ? handleOpenConfig : null}
