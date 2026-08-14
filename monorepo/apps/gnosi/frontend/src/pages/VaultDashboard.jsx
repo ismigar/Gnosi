@@ -43,6 +43,7 @@ import {
     RELATION_VALUE_APPLIED_EVENT,
 } from '../components/Vault/relationItemUtils';
 import { documentTabId } from '../lib/fileResource';
+import { vaultAgentContextRefs, vaultPageViewIds } from '../lib/vaultAgentContext';
 // The drawing editor (tldraw) is very heavy and is only used in 'drawing' mode:
 // we load it lazily so it doesn't end up in the Vault chunk.
 const TldrawEditor = lazy(() => import('../components/Vault/TldrawEditor'));
@@ -3960,6 +3961,42 @@ export default function VaultDashboard() {
     };
 
     const activeTable = registry.tables?.find(t => t.id === activeTableId);
+    const activeContextTab = activeTabId
+        ? tabs.find(tab => tab.id === activeTabId) || null
+        : null;
+    const activeContextTabTableId = getTableIdFromTab(activeContextTab);
+    const activeContextEmbeddedViewIds = vaultPageViewIds(activeContextTab);
+    const activeContextEmbeddedView = activeContextEmbeddedViewIds.length === 1
+        ? (registry.views || []).find(
+            view => view.id === activeContextEmbeddedViewIds[0],
+        ) || null
+        : null;
+    const activeContextPage = activeTabId
+        && !activeContextTabTableId
+        && !activeContextEmbeddedView
+        ? activeContextTab || pages.find(page => page.id === activeTabId) || null
+        : null;
+    const activeContextTableId = activeContextTabTableId
+        || activeContextEmbeddedView?.table_id
+        || (viewMode === 'table' ? activeTableId : resolvePageTableId(activeContextPage));
+    const activeContextTable = registry.tables?.find(
+        table => table.id === activeContextTableId,
+    ) || null;
+    const activeContextView = activeContextEmbeddedView || (activeContextTableId
+        ? (registry.views || []).find(
+            view => view.id === activeViewId && view.table_id === activeContextTableId,
+        ) || null
+        : null);
+
+    useEffect(() => {
+        window.dispatchEvent(new CustomEvent('gnosi:module-context', {
+            detail: vaultAgentContextRefs({
+                page: activeContextPage,
+                table: activeContextTable,
+                view: activeContextView,
+            }),
+        }));
+    }, [activeContextPage, activeContextTable, activeContextView]);
 
     return (
         <VaultShell

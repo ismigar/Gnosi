@@ -460,8 +460,32 @@ def build_price_index(catalog: Dict[str, Any]) -> Dict[str, Dict[str, float]]:
     return index
 
 
+def build_model_metadata_index(catalog: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    """Flatten canonical runtime metadata for every exact provider/model route."""
+    index: Dict[str, Dict[str, Any]] = {}
+    for provider in (catalog or {}).get("providers", []):
+        provider_id = str(provider.get("id") or "").strip().lower()
+        if not provider_id:
+            continue
+        for model in provider.get("models") or []:
+            model_id = str(model.get("id") or "").strip()
+            if not model_id:
+                continue
+            index[f"{provider_id}:{model_id}"] = {
+                "is_local": bool(provider.get("is_local", False)),
+                "cost_in": float(model.get("cost_in") or 0),
+                "cost_out": float(model.get("cost_out") or 0),
+                "context_window": int(model.get("context_window") or 8192),
+                "quality": int(model.get("quality") or 2),
+                "tags": [str(tag) for tag in (model.get("tags") or [])],
+            }
+    return index
+
+
 _price_index_cache: Optional[Dict[str, Dict[str, float]]] = None
 _price_index_src: Optional[int] = None
+_metadata_index_cache: Optional[Dict[str, Dict[str, Any]]] = None
+_metadata_index_src: Optional[int] = None
 
 
 def catalog_price_index() -> Dict[str, Dict[str, float]]:
@@ -480,6 +504,19 @@ def catalog_price_index() -> Dict[str, Dict[str, float]]:
         _price_index_cache = build_price_index(catalog)
         _price_index_src = id(catalog)
     return _price_index_cache
+
+
+def catalog_model_metadata_index() -> Dict[str, Dict[str, Any]]:
+    """Cached canonical runtime metadata keyed by ``provider:model_id``."""
+    global _metadata_index_cache, _metadata_index_src
+    try:
+        catalog = load_catalog()
+    except Exception:
+        return {}
+    if _metadata_index_cache is None or _metadata_index_src != id(catalog):
+        _metadata_index_cache = build_model_metadata_index(catalog)
+        _metadata_index_src = id(catalog)
+    return _metadata_index_cache
 
 
 def catalog_model_cost(provider_id: str, model_id: str) -> Optional[Dict[str, float]]:

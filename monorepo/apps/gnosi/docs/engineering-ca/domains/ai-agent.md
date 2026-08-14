@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-14
 source_paths:
   - backend/agent
   - backend/api/agent_routes.py
@@ -67,6 +67,22 @@ Les habilitats en temps integrat viuen en `pipeline/skills/`Els paquets d' usuar
 ## Context i memòria
 
 L' estat de la conversa es pot trobar per agent i sessió. L' ordenació del missatge de la IU fa servir identificadors estables en comptes de l' hora d' arribada. Adjunts i fonts de context validant camins, mida, tipus de fitxer i àmbit de treball/ vviult. Les fonts externes grans usen representacions cercables en comptes d' injectar text sense límit en cada torn.
+
+La navegació del Vault aporta context de pàgina, taula i vista activa només per
+al torn actual. El servidor amplia un dashboard amb una sola vista incrustada a
+la vista canònica de la taula, reaplica els filtres i l'ordenació i exposa una
+consulta exacta i acotada amb recompte i paginació. Les lectures exactes de
+pàgina i taula són crides d'eina creades pel servidor; després d'un resultat
+complet, la síntesi s'executa sense eines perquè un model insistent no repeteixi
+la crida fins al límit de recursió del graf.
+
+Els registres editables de models s'hidraten des del catàleg canònic abans
+d'arribar a Configuració o a l'encaminament d'execució. Les actualitzacions
+parcials de pressupost i configuració es fusionen amb les capacitats, la finestra
+de context, el cost i la qualitat existents. Els canvis de proveïdor o model
+invaliden els grafs en memòria perquè el suport d'eines i les credencials siguin
+efectius al torn següent. La capçalera del xat mostra el model seleccionat, el
+nombre exacte d'eines i motius accionables per a qualsevol degradació.
 
 ## Ha fallat i seguretat envaris
 

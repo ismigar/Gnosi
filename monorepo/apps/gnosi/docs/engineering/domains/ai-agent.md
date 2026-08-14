@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-14
 source_paths:
   - backend/agent
   - backend/api/agent_routes.py
@@ -86,6 +86,20 @@ stable identifiers rather than arrival time alone. Attachments and context
 sources validate paths, size, file type, and workspace/vault scope. Large
 external sources use searchable representations instead of injecting unlimited
 raw text into every turn.
+
+Vault navigation contributes turn-scoped page, table, and active-view context.
+The server expands a dashboard with one embedded view to the canonical table
+view, reapplies its filters and sorting, and exposes an exact bounded row query
+with count and pagination. Exact page and table reads are server-authored tool
+calls; after a complete result, synthesis runs without tool bindings so a
+tool-eager model cannot repeat the call until the graph recursion limit.
+
+Editable model-registry rows are hydrated from the canonical catalog before
+they reach Settings or runtime routing. Partial budget/settings updates merge
+with existing capability, context-window, cost, and quality metadata. Provider
+or model changes invalidate cached graphs so tool support and credentials take
+effect on the next turn. The chat header reports the selected model, exact tool
+count, and actionable reasons for any degraded runtime.
 
 ## Failure and safety invariants
 

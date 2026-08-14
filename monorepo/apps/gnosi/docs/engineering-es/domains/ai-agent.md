@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-14
 source_paths:
   - backend/agent
   - backend/api/agent_routes.py
@@ -67,6 +67,23 @@ Las habilidades de ejecución incorporadas viven en `pipeline/skills/`. Los paqu
 ## Contexto y memoria
 
 El estado de conversación está visionado por agente y sesión. El pedido de mensajes de interfaz de usuario utiliza identificadores estables en lugar de solo la hora de llegada. Los adjuntos y fuentes de contexto validan rutas, tamaño, tipo de archivo y ámbito de trabajo/vault.
+
+La navegación del Vault aporta contexto de página, tabla y vista activa solo para
+el turno actual. El servidor amplía un dashboard con una única vista incrustada a
+la vista canónica de la tabla, reaplica sus filtros y ordenación y expone una
+consulta exacta y acotada con recuento y paginación. Las lecturas exactas de
+página y tabla son llamadas de herramienta creadas por el servidor; después de
+un resultado completo, la síntesis se ejecuta sin herramientas para que un
+modelo insistente no repita la llamada hasta el límite de recursión del grafo.
+
+Los registros editables de modelos se hidratan desde el catálogo canónico antes
+de llegar a Configuración o al enrutamiento de ejecución. Las actualizaciones
+parciales de presupuesto y configuración se fusionan con las capacidades, la
+ventana de contexto, el coste y la calidad existentes. Los cambios de proveedor
+o modelo invalidan los grafos en memoria para que el soporte de herramientas y
+las credenciales surtan efecto en el turno siguiente. La cabecera del chat
+muestra el modelo seleccionado, el número exacto de herramientas y motivos
+accionables para cualquier degradación.
 
 ## Fallo y invariantes de seguridad
 

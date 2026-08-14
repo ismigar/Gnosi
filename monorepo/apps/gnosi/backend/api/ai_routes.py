@@ -3,7 +3,7 @@ import os
 from typing import Optional
 
 import yaml
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from backend.config.app_config import load_params
@@ -22,6 +22,13 @@ from backend.utils.safe_io import safe_write_text
 
 
 router = APIRouter(prefix="/ai", tags=["AI Settings"])
+
+
+def _evict_agent_graphs(request: Request) -> None:
+    """Drop workflows that embed model, provider, and tool capability state."""
+    cache = getattr(request.app.state, "agent_cache", None)
+    if cache:
+        cache.clear()
 
 from backend.agent.factory import get_llm
 
@@ -142,7 +149,11 @@ async def get_ai_catalog():
 
 
 @router.post("/providers/{provider_id}/credentials", dependencies=[Depends(require_role("admin"))])
-async def set_provider_credentials(provider_id: str, payload: ProviderCredentialPayload):
+async def set_provider_credentials(
+    provider_id: str,
+    payload: ProviderCredentialPayload,
+    request: Request,
+):
     provider = (provider_id or "").strip().lower()
     if not provider:
         raise HTTPException(status_code=400, detail="provider_id is required")
@@ -181,6 +192,7 @@ async def set_provider_credentials(provider_id: str, payload: ProviderCredential
         allow_unicode=True, sort_keys=False,
     )
     safe_write_text(params_path, yaml_text)
+    _evict_agent_graphs(request)
 
     return {
         "status": "success",
@@ -206,7 +218,7 @@ def _registry_rows_without_provider(effective_registry: list, provider: str) -> 
 
 
 @router.delete("/providers/{provider_id}", dependencies=[Depends(require_role("admin"))])
-async def delete_provider(provider_id: str):
+async def delete_provider(provider_id: str, request: Request):
     """Disconnect a provider: config entry, its stored credential AND its
     router-registry rows.
 
@@ -278,11 +290,17 @@ async def delete_provider(provider_id: str):
                 "env_keys_deleted": env_keys_deleted}
 
     # to_thread: params.yaml I/O + registry load + keychain access are blocking
-    return await asyncio.to_thread(_delete)
+    result = await asyncio.to_thread(_delete)
+    _evict_agent_graphs(request)
+    return result
 
 
 @router.patch("/providers/{provider_id}/status", dependencies=[Depends(require_role("admin"))])
-async def update_provider_status(provider_id: str, payload: ProviderStatusPayload):
+async def update_provider_status(
+    provider_id: str,
+    payload: ProviderStatusPayload,
+    request: Request,
+):
     provider = (provider_id or "").strip().lower()
     if not provider:
         raise HTTPException(status_code=400, detail="provider_id is required")
@@ -310,6 +328,7 @@ async def update_provider_status(provider_id: str, payload: ProviderStatusPayloa
         allow_unicode=True, sort_keys=False,
     )
     safe_write_text(params_path, yaml_text)
+    _evict_agent_graphs(request)
 
     return {"status": "success", "provider": provider, "enabled": payload.enabled}
 
@@ -335,6 +354,7 @@ async def get_model_registry():
     """
     from backend.agent.model_router import (
         DEFAULT_REGISTRY,
+        hydrate_registry_metadata,
         load_registry,
         strip_legacy_registry_rows,
     )
@@ -343,9 +363,14 @@ async def get_model_registry():
     ai_cfg = dict(cfg.get("ai", {}) or {})
     configured_models = ai_cfg.get("models")
     currency = rate_info(parse_currency_code((cfg.get("settings", {}) or {}).get("currency")))
+    effective_models = await asyncio.to_thread(load_registry)
+    configured_models = await asyncio.to_thread(
+        hydrate_registry_metadata,
+        strip_legacy_registry_rows(configured_models),
+    )
     return {
-        "models": await asyncio.to_thread(load_registry),
-        "configured_models": strip_legacy_registry_rows(configured_models),
+        "models": effective_models,
+        "configured_models": configured_models,
         "budget": dict(ai_cfg.get("budget") or {}),
         "default": DEFAULT_REGISTRY,
         "currency": currency,
@@ -502,7 +527,7 @@ def _sanitize_budget(raw: dict) -> dict:
 
 
 @router.put("/models", dependencies=[Depends(require_role("admin"))])
-async def set_model_registry(payload: ModelsPayload):
+async def set_model_registry(payload: ModelsPayload, request: Request):
     """Saves the model registry and the budget policy to params.yaml.
 
     Prices are NOT taken from the payload: the catalog owns them (the UI shows
@@ -513,8 +538,34 @@ async def set_model_registry(payload: ModelsPayload):
     if not isinstance(payload.models, list):
         raise HTTPException(status_code=400, detail="models ha de ser una llista")
 
-    from backend.agent.model_catalog import catalog_price_index
-    price_index = await asyncio.to_thread(catalog_price_index)
+    from backend.agent.model_catalog import (
+        catalog_model_metadata_index,
+        catalog_price_index,
+    )
+    from backend.agent.model_router import hydrate_registry_metadata
+
+    cfg = load_params(strict_env=False)
+    params_path = cfg.params_source
+    current_config = {}
+    if params_path.exists():
+        with open(params_path, "r", encoding="utf-8") as f:
+            current_config = yaml.safe_load(f) or {}
+    ai_cfg = dict(current_config.get("ai") or {})
+    current_rows = [
+        dict(row) for row in (ai_cfg.get("models") or [])
+        if isinstance(row, dict)
+    ]
+    current_by_key = {
+        (
+            str(row.get("provider") or "").strip().lower(),
+            str(row.get("model_id") or "").strip(),
+        ): row
+        for row in current_rows
+    }
+    price_index, metadata_index = await asyncio.gather(
+        asyncio.to_thread(catalog_price_index),
+        asyncio.to_thread(catalog_model_metadata_index),
+    )
 
     # Minimal validation of each entry
     cleaned = []
@@ -523,30 +574,31 @@ async def set_model_registry(payload: ModelsPayload):
             raise HTTPException(status_code=400, detail="cada model necessita provider i model_id")
         provider = str(m["provider"]).strip().lower()
         model_id = str(m["model_id"]).strip()
+        candidate = {
+            **current_by_key.get((provider, model_id), {}),
+            **m,
+            "provider": provider,
+            "model_id": model_id,
+        }
+        effective = hydrate_registry_metadata(
+            [candidate],
+            metadata_index,
+        )[0]
         rates = price_index.get(f"{provider}:{model_id}")
         cleaned.append({
             "provider": provider,
             "model_id": model_id,
-            "is_local": bool(m.get("is_local", False)),
-            "enabled": bool(m.get("enabled", True)),
-            "priority": int(m.get("priority") or 100),
-            "cost_in": rates["cost_in"] if rates else float(m.get("cost_in") or 0),
-            "cost_out": rates["cost_out"] if rates else float(m.get("cost_out") or 0),
-            "context_window": int(m.get("context_window") or 8192),
-            "quality": int(m.get("quality") or 2),
-            "tags": [str(t) for t in (m.get("tags") or [])],
-            **({"monthly_quota": int(m["monthly_quota"])} if m.get("monthly_quota") else {}),
-            **({"endpoint": str(m["endpoint"])} if m.get("endpoint") else {}),
+            "is_local": bool(effective.get("is_local", False)),
+            "enabled": bool(effective.get("enabled", True)),
+            "priority": int(effective.get("priority") or 100),
+            "cost_in": rates["cost_in"] if rates else float(effective.get("cost_in") or 0),
+            "cost_out": rates["cost_out"] if rates else float(effective.get("cost_out") or 0),
+            "context_window": int(effective.get("context_window") or 8192),
+            "quality": int(effective.get("quality") or 2),
+            "tags": [str(t) for t in (effective.get("tags") or [])],
+            **({"monthly_quota": int(effective["monthly_quota"])} if effective.get("monthly_quota") else {}),
+            **({"endpoint": str(effective["endpoint"])} if effective.get("endpoint") else {}),
         })
-
-    cfg = load_params(strict_env=False)
-    params_path = cfg.params_source
-    current_config = {}
-    if params_path.exists():
-        with open(params_path, "r", encoding="utf-8") as f:
-            current_config = yaml.safe_load(f) or {}
-
-    ai_cfg = dict(current_config.get("ai") or {})
     ai_cfg["models"] = cleaned
     if payload.budget is not None:
         ai_cfg["budget"] = _sanitize_budget(dict(payload.budget))
@@ -556,6 +608,7 @@ async def set_model_registry(payload: ModelsPayload):
         current_config, default_flow_style=False, allow_unicode=True, sort_keys=False,
     )
     safe_write_text(params_path, yaml_text)
+    _evict_agent_graphs(request)
     return {"status": "success", "count": len(cleaned)}
 
 

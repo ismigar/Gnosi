@@ -45,6 +45,8 @@ VALID_TYPES = {
 MAX_INVENTORY_ROWS = 40
 MAX_SOURCE_CHARS = 12000
 MAX_SEARCH_HITS = 8
+MAX_CONTEXT_TABLE_ROWS = 100
+MAX_CONTEXT_TABLE_FIELDS = 12
 
 
 # ===========================================================================
@@ -85,6 +87,15 @@ def normalize_refs(raw: Any) -> List[Dict[str, Any]]:
                 )
             except (TypeError, ValueError):
                 continue
+        elif rtype == "table":
+            scope = item.get("scope") if isinstance(item.get("scope"), dict) else {}
+            view_id = str(scope.get("view_id") or "").strip()[:64]
+            view_name = str(scope.get("view_name") or "").strip()[:256]
+            if view_id:
+                normalized["scope"] = {
+                    "view_id": view_id,
+                    "view_name": view_name or view_id,
+                }
         out.append(normalized)
     return out
 
@@ -98,6 +109,22 @@ def merge_context_refs(
         *(turn_refs or []),
         *(persistent_refs or []),
     ])
+
+
+def dashboard_view_ids(content: str) -> List[str]:
+    """Extract unique registry view ids embedded in a dashboard page."""
+    view_ids: List[str] = []
+    for raw_payload in re.findall(
+        r"<!--\s*gnosi-view:def\s+(\{[\s\S]*?\})\s*-->",
+        str(content or ""),
+    ):
+        try:
+            view_id = str(json.loads(raw_payload).get("view_id") or "").strip()
+        except (AttributeError, TypeError, ValueError):
+            continue
+        if view_id and view_id not in view_ids:
+            view_ids.append(view_id)
+    return view_ids
 
 
 def describe_context_refs(refs: List[Dict[str, Any]]) -> str:
@@ -126,6 +153,11 @@ def describe_context_refs(refs: List[Dict[str, Any]]) -> str:
             line += f" — source_id: {r['ref']}"
         elif r["type"] == "internal":
             line += f" — internal_source_id: {r['ref']}"
+        elif r["type"] == "table" and (r.get("scope") or {}).get("view_id"):
+            line += (
+                " — active view: "
+                f"{(r.get('scope') or {}).get('view_name') or (r.get('scope') or {}).get('view_id')}"
+            )
         lines.append(line)
     lines.append(
         "\nYou do NOT have these sources' content in the conversation, only the inventory. "
@@ -149,6 +181,13 @@ def describe_context_refs(refs: List[Dict[str, Any]]) -> str:
             "Use search_context for bounded discovery and read_context_record for "
             "an exact record id returned by search. Never invent record ids or imply "
             "that a read changed application data."
+        )
+    if any(r["type"] == "table" for r in refs):
+        lines.append(
+            "For exhaustive questions about rows in an attached database or its active "
+            "view, use query_context_table. It returns the exact matching count and up "
+            "to 100 rows per call with offset pagination. Do not repeatedly use semantic "
+            "search to enumerate a database."
         )
     if any(
         r["type"] == "internal" and r["ref"] == "reader"
@@ -265,24 +304,94 @@ def _tables_of_database(database_id: str) -> List[dict]:
     return [t for t in _registry().get("tables", []) if t.get("database_id") == database_id]
 
 
-def _describe_table(table: dict, *, with_rows: bool = True) -> str:
+def _table_view(table_id: str, scope: Any) -> Optional[dict]:
+    """Resolve an attached active view only inside its declared table."""
+    scope = scope if isinstance(scope, dict) else {}
+    view_id = str(scope.get("view_id") or "").strip()
+    if not view_id:
+        return None
+    return next((
+        view
+        for view in _registry().get("views", [])
+        if str(view.get("id") or "") == view_id
+        and str(view.get("table_id") or "") == table_id
+    ), None)
+
+
+def _page_row(page: Any) -> Dict[str, Any]:
+    metadata = (
+        page.get("metadata")
+        if isinstance(page, dict)
+        else getattr(page, "metadata", None)
+    ) or {}
+    page_id = (
+        page.get("id")
+        if isinstance(page, dict)
+        else getattr(page, "id", "")
+    )
+    return {
+        "id": str(page_id or ""),
+        "title": _page_title(page),
+        "metadata": dict(metadata),
+    }
+
+
+def _table_rows(table_id: str, scope: Any = None) -> Tuple[List[Dict[str, Any]], Optional[dict]]:
+    rows = []
+    for page in _table_pages(table_id):
+        row = _page_row(page)
+        if not (row.get("metadata") or {}).get("is_template"):
+            rows.append(row)
+    view = _table_view(table_id, scope)
+    if view:
+        from backend.services.view_snapshot import resolve_rows
+
+        rows = resolve_rows(rows, view, None)
+    return rows, view
+
+
+def _describe_table(
+    table: dict,
+    *,
+    with_rows: bool = True,
+    scope: Any = None,
+) -> str:
     props = [p.get("name") for p in table.get("properties", []) if p.get("name")]
-    pages = _table_pages(str(table.get("id")))
+    rows, view = _table_rows(str(table.get("id")), scope)
     out = [
         f"Database «{table.get('name')}» (id: {table.get('id')})",
         f"Fields: {', '.join(props) if props else '(none)'}",
-        f"Rows: {len(pages)}",
+        f"Rows: {len(rows)}",
     ]
-    if with_rows and pages:
-        shown = pages[:MAX_INVENTORY_ROWS]
+    if view:
+        out.insert(
+            1,
+            f"Active view: {view.get('name') or view.get('id')} (id: {view.get('id')})",
+        )
+    if with_rows and rows:
+        shown = rows[:MAX_INVENTORY_ROWS]
         out.append("Rows (title — id):")
-        out += [f"- {_page_title(p)} — {getattr(p, 'id', '')}" for p in shown]
-        if len(pages) > len(shown):
+        out += [f"- {row['title']} — {row['id']}" for row in shown]
+        if len(rows) > len(shown):
             out.append(
-                f"… and {len(pages) - len(shown)} more rows. Use `search_context` "
-                "to find what you need instead of listing everything."
+                f"… and {len(rows) - len(shown)} more rows. Use `query_context_table` "
+                "with pagination to enumerate the exact attached view."
             )
     return "\n".join(out)
+
+
+def _bounded_context_value(value: Any) -> Any:
+    """Bound one selected table value before returning it to the model."""
+    if isinstance(value, dict):
+        return {
+            str(key)[:128]: _bounded_context_value(item)
+            for key, item in list(value.items())[:20]
+        }
+    if isinstance(value, list):
+        return [_bounded_context_value(item) for item in value[:50]]
+    if isinstance(value, str):
+        return value[:2_000]
+    return value
 
 
 # ===========================================================================
@@ -300,7 +409,11 @@ def _read_source(ref: Dict[str, Any]) -> str:
 
     if rtype == "table":
         table = _table_entry(target)
-        return _describe_table(table) if table else f"Database {target} no longer exists."
+        return (
+            _describe_table(table, scope=ref.get("scope"))
+            if table
+            else f"Database {target} no longer exists."
+        )
 
     if rtype == "database":
         tables = _tables_of_database(target)
@@ -345,7 +458,52 @@ def _read_source(ref: Dict[str, Any]) -> str:
     return f"Unknown source type: {rtype}"
 
 
-def _searchable_pages(refs: List[Dict[str, str]]) -> List[Any]:
+def expand_dashboard_context_refs(raw_refs: Any) -> List[Dict[str, Any]]:
+    """Attach the one exact table view embedded by a dashboard page."""
+    refs = normalize_refs(raw_refs)
+    registry = _registry()
+    views_by_id = {
+        str(view.get("id") or ""): view
+        for view in registry.get("views", [])
+        if isinstance(view, dict) and view.get("id")
+    }
+    tables_by_id = {
+        str(table.get("id") or ""): table
+        for table in registry.get("tables", [])
+        if isinstance(table, dict) and table.get("id")
+    }
+    expanded: List[Dict[str, Any]] = []
+    for ref in refs:
+        if ref.get("type") == "page":
+            matching_views = [
+                views_by_id[view_id]
+                for view_id in dashboard_view_ids(_read_source(ref))
+                if view_id in views_by_id
+            ]
+            if len(matching_views) == 1:
+                view = matching_views[0]
+                table_id = str(view.get("table_id") or "").strip()
+                table = tables_by_id.get(table_id)
+                if table:
+                    expanded.append({
+                        "id": f"dashboard-table:{ref['ref']}:{table_id}",
+                        "type": "table",
+                        "ref": table_id,
+                        "label": str(
+                            table.get("name") or table.get("title") or table_id
+                        ),
+                        "scope": {
+                            "view_id": str(view.get("id") or ""),
+                            "view_name": str(
+                                view.get("name") or view.get("id") or ""
+                            ),
+                        },
+                    })
+        expanded.append(ref)
+    return normalize_refs(expanded)
+
+
+def _searchable_pages(refs: List[Dict[str, Any]]) -> List[Any]:
     """Every page reachable from the attached refs (de-duplicated by path)."""
     pages: List[Any] = []
     seen = set()
@@ -356,17 +514,40 @@ def _searchable_pages(refs: List[Dict[str, str]]) -> List[Any]:
             seen.add(key)
             pages.append(page)
 
-    table_ids: List[str] = []
+    table_scopes: List[Tuple[str, Any]] = []
     for ref in refs:
         if ref["type"] == "table":
-            table_ids.append(ref["ref"])
+            table_scopes.append((ref["ref"], ref.get("scope")))
         elif ref["type"] == "database":
-            table_ids += [str(t.get("id")) for t in _tables_of_database(ref["ref"])]
+            table_scopes += [
+                (str(table.get("id")), None)
+                for table in _tables_of_database(ref["ref"])
+            ]
         elif ref["type"] == "vault":
-            table_ids += [str(t.get("id")) for t in _registry().get("tables", [])]
+            table_scopes += [
+                (str(table.get("id")), None)
+                for table in _registry().get("tables", [])
+            ]
 
-    for table_id in dict.fromkeys(table_ids):
-        for page in _table_pages(table_id):
+    seen_tables = set()
+    for table_id, scope in table_scopes:
+        table_key = (table_id, json.dumps(scope or {}, sort_keys=True, default=str))
+        if table_key in seen_tables:
+            continue
+        seen_tables.add(table_key)
+        table_pages = _table_pages(table_id)
+        view = _table_view(table_id, scope)
+        if view:
+            allowed_ids = {
+                row["id"]
+                for row in _table_rows(table_id, scope)[0]
+            }
+            table_pages = [
+                page
+                for page in table_pages
+                if _page_row(page)["id"] in allowed_ids
+            ]
+        for page in table_pages:
             _add(page)
     return pages
 
@@ -384,6 +565,7 @@ def build_context_tools(raw_refs: Any) -> List[Any]:
     by_id = {r["id"]: r for r in refs}
     external_ids = [r["ref"] for r in refs if r["type"] == "source"]
     internal_refs = [r for r in refs if r["type"] == "internal"]
+    table_refs = [r for r in refs if r["type"] == "table"]
     reader_ref = next(
         (r for r in internal_refs if r["ref"] == "reader"),
         None,
@@ -408,6 +590,75 @@ def build_context_tools(raw_refs: Any) -> List[Any]:
         except Exception as exc:  # noqa: BLE001
             log.exception("Failed to read context source %s", source_id)
             return f"Error reading source «{ref['label']}»: {exc}"
+
+    def query_context_table(
+        source_id: str,
+        offset: int = 0,
+        limit: int = MAX_CONTEXT_TABLE_ROWS,
+        fields: Optional[List[str]] = None,
+    ) -> str:
+        """List exact rows from one attached table or its active view.
+
+        Use the source id from list_context_sources. Results are deterministic,
+        include the exact matching count and support offset pagination. With no
+        fields, each row contains only id and title; request at most 12 metadata
+        field names when their values are needed.
+        """
+        ref = by_id.get(str(source_id).strip())
+        if not ref or ref["type"] != "table":
+            available = ", ".join(item["id"] for item in table_refs) or "(none)"
+            return (
+                f"«{source_id}» is not an attached table source. "
+                f"Available: {available}"
+            )
+        table = _table_entry(ref["ref"])
+        if not table:
+            return json.dumps({"error": "The attached table no longer exists."})
+        rows, view = _table_rows(ref["ref"], ref.get("scope"))
+        bounded_offset = max(0, min(int(offset), len(rows)))
+        bounded_limit = max(1, min(int(limit), MAX_CONTEXT_TABLE_ROWS))
+        selected_fields = []
+        seen_fields = set()
+        for raw_field in fields or []:
+            field = str(raw_field or "").strip()[:128]
+            key = field.casefold()
+            if not field or key in seen_fields:
+                continue
+            seen_fields.add(key)
+            selected_fields.append(field)
+            if len(selected_fields) >= MAX_CONTEXT_TABLE_FIELDS:
+                break
+        page = rows[bounded_offset:bounded_offset + bounded_limit]
+        records = []
+        for row in page:
+            record = {"id": row["id"], "title": row["title"]}
+            if selected_fields:
+                metadata = row.get("metadata") or {}
+                record["fields"] = {
+                    field: _bounded_context_value(metadata.get(field))
+                    for field in selected_fields
+                }
+            records.append(record)
+        payload = {
+            "source_id": ref["id"],
+            "table": {"id": table.get("id"), "name": table.get("name")},
+            "active_view": (
+                {"id": view.get("id"), "name": view.get("name")}
+                if view
+                else None
+            ),
+            "matching_count": len(rows),
+            "offset": bounded_offset,
+            "limit": bounded_limit,
+            "has_more": bounded_offset + len(records) < len(rows),
+            "next_offset": (
+                bounded_offset + len(records)
+                if bounded_offset + len(records) < len(rows)
+                else None
+            ),
+            "records": records,
+        }
+        return json.dumps(payload, ensure_ascii=False, default=str)
 
     def search_context(query: str) -> str:
         """Searches ALL attached sources and returns relevant excerpts.
@@ -764,6 +1015,8 @@ def build_context_tools(raw_refs: Any) -> List[Any]:
         StructuredTool.from_function(search_context),
         StructuredTool.from_function(search_context_source),
     ]
+    if table_refs:
+        tools.append(StructuredTool.from_function(query_context_table))
     if external_ids:
         tools.append(StructuredTool.from_function(read_external_source))
     if internal_refs:

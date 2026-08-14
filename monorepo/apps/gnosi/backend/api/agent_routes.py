@@ -105,7 +105,7 @@ class AttachmentRef(BaseModel):
 
 
 class TurnContextRef(BaseModel):
-    """One read-only internal source supplied by trusted module UI state."""
+    """One read-only Gnosi source supplied by current module UI state."""
 
     id: str = Field(max_length=128)
     type: str = Field(default="internal", max_length=32)
@@ -114,14 +114,37 @@ class TurnContextRef(BaseModel):
     scope: Dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_internal_source(self):
+    def validate_context_source(self):
         from backend.agent.internal_sources import normalize_internal_scope
 
-        if self.type.strip().lower() != "internal":
-            raise ValueError("Turn context accepts internal Gnosi sources only.")
-        self.type = "internal"
-        self.ref = self.ref.strip().lower()
-        self.scope = normalize_internal_scope(self.ref, self.scope)
+        source_type = self.type.strip().lower()
+        source_ref = self.ref.strip()
+        if source_type == "internal":
+            self.type = source_type
+            self.ref = source_ref.lower()
+            self.scope = normalize_internal_scope(self.ref, self.scope)
+            return self
+        if source_type not in {"page", "table", "database", "vault"}:
+            raise ValueError(
+                "Turn context accepts read-only Gnosi module sources only."
+            )
+        if not source_ref:
+            raise ValueError("Turn context source reference cannot be empty.")
+        self.type = source_type
+        self.ref = source_ref
+        if source_type == "table":
+            view_id = str(self.scope.get("view_id") or "").strip()[:64]
+            view_name = str(self.scope.get("view_name") or "").strip()[:256]
+            self.scope = {
+                key: value
+                for key, value in {
+                    "view_id": view_id,
+                    "view_name": view_name,
+                }.items()
+                if value
+            }
+        else:
+            self.scope = {}
         return self
 
 class ChatRequest(BaseModel):
@@ -492,6 +515,34 @@ def _thread_lock(thread_id: str) -> asyncio.Lock:
     return lock
 
 
+def _ai_runtime_revision(ai_cfg: Dict[str, Any]) -> str:
+    """Hash model/provider state that is embedded in a cached workflow."""
+    providers = {}
+    for provider_id, raw in dict((ai_cfg or {}).get("providers") or {}).items():
+        config = dict(raw or {}) if isinstance(raw, dict) else {}
+        providers[str(provider_id)] = {
+            key: config.get(key)
+            for key in ("enabled", "base_url", "credential_ref")
+            if key in config
+        }
+    payload = {
+        "models": list((ai_cfg or {}).get("models") or []),
+        "providers": providers,
+        "disconnected_providers": sorted(
+            str(item)
+            for item in ((ai_cfg or {}).get("disconnected_providers") or [])
+        ),
+    }
+    return hashlib.sha256(
+        json.dumps(
+            payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            default=str,
+        ).encode("utf-8")
+    ).hexdigest()[:16]
+
+
 class SessionBusyError(RuntimeError):
     """Raised when another turn still owns the same session."""
 
@@ -552,12 +603,17 @@ async def get_agent_workflow(
         active_skill_ids=active_skill_ids,
     )
     if turn_context_refs:
-        from backend.agent.agent_context import merge_context_refs
+        from backend.agent.agent_context import (
+            expand_dashboard_context_refs,
+            merge_context_refs,
+        )
 
         agent_data = dict(agent_data or {})
-        agent_data["context_refs"] = merge_context_refs(
-            agent_data.get("context_refs") or [],
-            turn_context_refs,
+        agent_data["context_refs"] = expand_dashboard_context_refs(
+            merge_context_refs(
+                agent_data.get("context_refs") or [],
+                turn_context_refs,
+            ),
         )
     runtime_active_ids = list(
         getattr(runtime_capabilities, "active_skill_ids", ()) or ()
@@ -578,6 +634,7 @@ async def get_agent_workflow(
             {
                 "active_skill_ids": runtime_active_ids,
                 "catalog_revision": catalog_revision,
+                "ai_runtime_revision": _ai_runtime_revision(ai_cfg),
             },
             sort_keys=True,
             separators=(",", ":"),

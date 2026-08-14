@@ -238,6 +238,52 @@ during migration.
 - Keep `pipeline/skills/catalog.yaml` in exact one-to-one correspondence with
   directories containing `SKILL.md`. Do not retain catalog entries after a package
   is removed, and do not add a package without its explicit non-runtime kind.
+- Do not treat an identity-only model-registry update as a complete replacement of
+  model capability metadata. Budget and enable/disable controls may send only
+  provider, model id, and state; merge those fields with the persisted row and the
+  canonical catalog metadata before saving. Otherwise a tool-capable model is
+  rewritten with empty tags and an 8,192-token placeholder and every assigned skill
+  becomes unusable.
+- Repair the legacy placeholder tuple (empty tags, 8,192-token context, default
+  quality) from the canonical catalog when the exact provider/model route exists.
+  Explicit agent-level `capabilities.tools` remains the supported override; unknown
+  or custom models still fail closed.
+- The model-registry read API and the agent runtime must consume the same effective
+  metadata. Do not show raw degraded rows to Settings while the runtime sees a
+  hydrated row, or vice versa.
+- Include the effective model/provider configuration in agent graph cache identity
+  and evict the cache after AI configuration mutations. A cached graph must not keep
+  an old model client, tool-support decision, base URL, or credential state.
+- Vault routes must publish the current page or table as turn-scoped context. Do not
+  force users to mention information that the active screen already identifies, and
+  do not persist this navigation context on the agent profile.
+- Per-turn module context may include only read-only first-party sources (`internal`,
+  `page`, `table`, `database`, or `vault`). Do not accept arbitrary files, URLs, or
+  external sources from the chat client; those require persisted agent configuration.
+- A table turn context must retain a bounded active-view identifier. Resolve that view
+  server-side, reapply its canonical filter/sort semantics, and expose an exact bounded
+  row query with count and offset pagination. Do not make the model enumerate a filtered
+  view through repeated semantic searches; this loops until the graph recursion limit.
+- Treat a dashboard page with exactly one embedded registry view as both the page and that
+  scoped table view. Expand it server-side as well as in the client so stale tabs or older
+  clients cannot reduce the active dashboard to unstructured Markdown.
+- Start exact page reads and table queries as server-authored tool calls, then synthesize
+  the answer with tool bindings removed. Do not rely on the model to select a mandatory
+  tool or let tool-eager models call the same complete query again; one bounded result is
+  sufficient and the following model response must terminate the graph.
+- Deterministic context calls must pass the attached inventory id (for example,
+  `dashboard-table:<page>:<table>`), not the underlying page/table UUID. Context tools
+  authorize their public inventory ids and reject raw refs by design.
+- Do not collapse all runtime degradation into an unexplained “tools limited” label.
+  Report whether the selected model lacks tool calling, assigned skills are missing,
+  or registered tools are unavailable, while keeping the exact model and tool count
+  visible.
+- Do not add count-aware runtime messages with only `one` and `other` variants.
+  Gnosi's i18n gate also requires the CLDR `many` form for Catalan, Spanish, and
+  French; add every locale-specific plural required by `check:i18n`.
+- Do not run a filtered frontend Vitest command from `monorepo/apps/gnosi`.
+  npm forwards it to unrelated monorepo workspaces, where the frontend file filters
+  are invalid; run it from `monorepo/apps/gnosi/frontend`.
 
 ## 11. Verification
 
@@ -255,3 +301,8 @@ Completion requires:
   deletion conflicts;
 - browser E2E from skill creation through assignment and an observable chat invocation;
 - native backend verification and Docker-compatible path/config tests.
+- regression tests proving a budget-only registry save preserves or repairs catalog
+  tags, context, and quality; a known tool-capable model binds its assigned tools;
+  model/provider configuration changes produce a new graph cache identity; Vault
+  navigation emits bounded page/table context; and the chat renders an actionable,
+  localized runtime status in all four locales.

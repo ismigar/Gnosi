@@ -1533,9 +1533,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         // Feeds the agent-creation model dropdown. Only enabled rows: a disabled
         // model in the registry is not a valid target for a new agent.
         try {
-            const [modelsRes, catalogRes, comparisonRes, usageRes] = await Promise.all([
+            const [modelsRes, comparisonRes, usageRes] = await Promise.all([
                 fetch('/api/ai/models'),
-                fetch('/api/ai/model-catalog'),
                 fetch('/api/ai/model-comparison'),
                 fetch('/api/ai/usage')
             ]);
@@ -1619,13 +1618,10 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             let currentBudget = {};
             if (modelsRes.ok) {
                 const payload = await modelsRes.json();
-                currentModels = (payload?.configured_models || []).map(m => ({
-                    provider: m.provider,
-                    model_id: m.model_id,
-                    enabled: m.enabled !== false,
-                    is_local: Boolean(m.is_local),
-                    priority: m.priority || 100,
-                }));
+                // Preserve capability, context, and quality metadata. The
+                // budget control changes policy only; reducing each row to an
+                // identity used to rewrite tool-capable models as tool-less.
+                currentModels = payload?.configured_models || [];
                 currentBudget = payload?.budget || {};
             }
             

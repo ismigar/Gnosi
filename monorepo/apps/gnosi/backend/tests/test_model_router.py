@@ -6,7 +6,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from agent.model_router import (  # noqa: E402
-    apply_catalog_prices, classify_request, route_model as _route_model, model_cost_rates,
+    apply_catalog_prices, classify_request, hydrate_registry_metadata,
+    route_model as _route_model, model_cost_rates,
     usage_from_message, UsageStore, LEGACY_DEFAULT_REGISTRY as DEFAULT_REGISTRY,
 )
 
@@ -205,12 +206,51 @@ def _patch_catalog(providers):
     mc.load_catalog = lambda force_refresh=False: {"providers": providers}
     mc._price_index_cache = None
     mc._price_index_src = None
+    mc._metadata_index_cache = None
+    mc._metadata_index_src = None
 
     def restore():
         mc.load_catalog = original
         mc._price_index_cache = None
         mc._price_index_src = None
+        mc._metadata_index_cache = None
+        mc._metadata_index_src = None
     return restore
+
+
+def test_hydrate_registry_repairs_budget_save_placeholders():
+    row = hydrate_registry_metadata([{
+        "provider": "mistral",
+        "model_id": "devstral-latest",
+        "enabled": True,
+        "priority": 100,
+        "tags": [],
+        "context_window": 8192,
+        "quality": 2,
+    }], {
+        "mistral:devstral-latest": {
+            "is_local": False,
+            "cost_in": 0.4,
+            "cost_out": 2.0,
+            "context_window": 262144,
+            "quality": 2,
+            "tags": ["code", "long", "tools"],
+        },
+    })[0]
+
+    assert row["tags"] == ["code", "long", "tools"]
+    assert row["context_window"] == 262144
+    assert row["cost_in"] == 0.4
+
+
+def test_hydrate_registry_keeps_unknown_custom_models_fail_closed():
+    row = {
+        "provider": "custom",
+        "model_id": "private-model",
+        "tags": [],
+        "context_window": 4096,
+    }
+    assert hydrate_registry_metadata([row], {}) == [row]
 
 
 def test_model_cost_rates_prefers_catalog_over_stored():

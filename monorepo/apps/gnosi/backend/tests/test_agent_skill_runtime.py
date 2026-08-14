@@ -162,6 +162,92 @@ def test_reader_requests_select_the_required_first_context_operation():
     ) == "reader_context_analysis_status"
 
 
+def test_vault_requests_select_deterministic_first_context_operation():
+    table_ref = [{"type": "table", "ref": "resources"}]
+    assert factory._required_vault_context_tool(
+        "Troba tots els recursos dels quals soc autor",
+        table_ref,
+    ) == "query_context_table"
+    assert factory._required_vault_context_tool(
+        "Cerca recursos sobre accessibilitat",
+        table_ref,
+    ) == "search_context"
+    assert factory._required_vault_context_tool(
+        "Resumeix aquesta pàgina",
+        [{"type": "page", "ref": "page-1"}],
+    ) == "read_context_source"
+
+
+def test_latest_context_tool_is_scoped_to_current_human_turn():
+    names = {"search_context", "query_context_table"}
+    messages = [
+        HumanMessage(content="Earlier request"),
+        ToolMessage(
+            content="earlier result",
+            tool_call_id="earlier-call",
+            name="search_context",
+        ),
+        HumanMessage(content="Current request"),
+        AIMessage(
+            content="",
+            tool_calls=[{
+                "name": "query_context_table",
+                "args": {"source_id": "resources"},
+                "id": "current-call",
+                "type": "tool_call",
+            }],
+        ),
+        ToolMessage(
+            content="current result",
+            tool_call_id="current-call",
+            name="query_context_table",
+        ),
+    ]
+
+    assert factory._latest_context_tool_since_latest_user(
+        messages,
+        names,
+    ) == "query_context_table"
+    assert factory._latest_context_tool_since_latest_user(
+        messages + [HumanMessage(content="Next request")],
+        names,
+    ) == ""
+
+
+def test_exact_vault_reads_build_deterministic_tool_calls():
+    table_call = factory._deterministic_vault_context_call(
+        "query_context_table",
+        [{
+            "id": "vault-table:resources",
+            "type": "table",
+            "ref": "resources",
+        }],
+    )
+    assert table_call["name"] == "query_context_table"
+    assert table_call["args"] == {
+        "source_id": "vault-table:resources",
+        "offset": 0,
+        "limit": 100,
+    }
+
+    page_call = factory._deterministic_vault_context_call(
+        "read_context_source",
+        [{
+            "id": "vault-page:resource-dashboard",
+            "type": "page",
+            "ref": "resource-dashboard",
+        }],
+    )
+    assert page_call["name"] == "read_context_source"
+    assert page_call["args"] == {
+        "source_id": "vault-page:resource-dashboard",
+    }
+    assert factory._deterministic_vault_context_call(
+        "search_context",
+        [{"type": "vault", "ref": "active-vault"}],
+    ) is None
+
+
 def test_reader_context_builds_required_single_tool_bindings(monkeypatch):
     llm = RecordingLlm()
     _workflow(
@@ -510,6 +596,54 @@ def test_workflow_cache_key_includes_catalog_revision(monkeypatch, tmp_path):
     async def create(*_args, **_kwargs):
         builds.append(1)
         return object(), {"provider": "test", "model": "model"}
+
+    monkeypatch.setattr(agent_routes, "prepare_agent_runtime", prepare)
+    monkeypatch.setattr(agent_routes, "create_agent_workflow", create)
+
+    async def scenario():
+        await agent_routes.get_agent_workflow(
+            request,
+            "agent",
+            vault_scope="vault",
+            vault_path=tmp_path,
+        )
+        await agent_routes.get_agent_workflow(
+            request,
+            "agent",
+            vault_scope="vault",
+            vault_path=tmp_path,
+        )
+
+    asyncio.run(scenario())
+    assert len(builds) == 2
+
+
+def test_workflow_cache_key_includes_model_runtime_revision(monkeypatch, tmp_path):
+    request = SimpleNamespace(
+        app=SimpleNamespace(
+            state=SimpleNamespace(
+                agent_cache={},
+                mcp_client=SimpleNamespace(get_all_tools=lambda: []),
+                tools_list=[{"name": "ready"}],
+            )
+        )
+    )
+    model_rows = iter((
+        [{"provider": "mistral", "model_id": "devstral-latest", "tags": []}],
+        [{"provider": "mistral", "model_id": "devstral-latest", "tags": ["tools"]}],
+    ))
+    builds = []
+
+    def prepare(*_args, **_kwargs):
+        return (
+            {"providers": {}, "models": next(model_rows)},
+            _agent(skill_ids=[]),
+            _runtime(revision="same-catalog"),
+        )
+
+    async def create(*_args, **_kwargs):
+        builds.append(1)
+        return object(), {"provider": "mistral", "model": "devstral-latest"}
 
     monkeypatch.setattr(agent_routes, "prepare_agent_runtime", prepare)
     monkeypatch.setattr(agent_routes, "create_agent_workflow", create)
