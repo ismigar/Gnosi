@@ -1,0 +1,16 @@
+[project]
+name = "drupal-mcp-proxy"
+version = "0.1.0"
+description = "A dynamic MCP proxy for Drupal that exposes meta-tools like search and execute."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp>=1.0.0",
+    "pyyaml",
+    "thefuzz",
+    "python-levenshtein",
+    "httpx"
+]
+
+[project.scripts]
+drupal-proxy = "drupal_proxy.server:main"

@@ -1,0 +1,30 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Runtime tools: Docker CLI for MCP, Pandoc for document exports,
+# Ghostscript for PDF compression, and the local multimodal LLM Wiki adapters.
+RUN apt-get update \
+    && apt-get install -y \
+        docker.io \
+        ffmpeg \
+        ghostscript \
+        pandoc \
+        tesseract-ocr \
+        tesseract-ocr-cat \
+        tesseract-ocr-eng \
+        tesseract-ocr-fra \
+        tesseract-ocr-spa \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the rest of the application
+COPY . .
+
+# Expose port
+EXPOSE 5002
+
+# Command to run the application
+CMD ["uvicorn", "backend.server:app", "--host", "0.0.0.0", "--port", "5002"]

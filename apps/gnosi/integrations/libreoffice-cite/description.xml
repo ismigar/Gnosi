@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<description
+    xmlns="http://openoffice.org/extensions/description/2006"
+    xmlns:d="http://openoffice.org/extensions/description/2006"
+    xmlns:l="http://libreoffice.org/extensions/description/2011"
+    xmlns:xlink="http://www.w3.org/1999/xlink">
+
+  <identifier value="com.gnosi.cite"/>
+  <version value="0.1.3"/>
+
+  <display-name>
+    <name lang="ca">Gnosi Cite</name>
+    <name lang="es">Gnosi Cite</name>
+    <name lang="en">Gnosi Cite</name>
+  </display-name>
+
+  <publisher>
+    <name xlink:href="https://github.com/ismigar" lang="en">Gnosi</name>
+  </publisher>
+
+  <!-- LibreOffice 5.0+ (l'API de reference marks i UNO dialogs hi és
+       estable des de fa molt). Cal usar LibreOffice-minimal-version i NO
+       OpenOffice.org-minimal-version: OpenOffice.org no va passar de la 4.1,
+       de manera que declarar "OOo 5.0" deixa la dependència eternament
+       insatisfeta (fins i tot a LibreOffice 26.x) i unopkg falla amb
+       "unsatisfied dependencies". -->
+  <dependencies>
+    <l:LibreOffice-minimal-version value="5.0" d:name="LibreOffice 5.0"/>
+  </dependencies>
+
+</description>

@@ -1,0 +1,164 @@
+"""
+API Routes for Generated Tools Management.
+Provides endpoints for the Dashboard to approve/reject pending tools.
+"""
+from pathlib import Path
+
+from fastapi import Depends, APIRouter, HTTPException
+from pydantic import BaseModel
+from typing import List, Optional
+
+from backend.agent.generated_tools.registry import registry, ToolStatus
+from backend.config.app_config import load_params
+from backend.services.workspace_service import require_role
+
+router = APIRouter(prefix="/api/tools", tags=["tools"])
+
+
+def _get_tools_base() -> Path:
+    """Directory where pending/approved/rejected live — must match what
+    `loader.ToolLoader.__init__` reads (cfg.paths.AGENT_TOOLS). Otherwise,
+    approving/rejecting moves files to a place nobody reads."""
+    cfg = load_params(strict_env=False)
+    tools_base = cfg.paths.get("AGENT_TOOLS")
+    if tools_base:
+        return tools_base
+    return Path(__file__).resolve().parents[1] / "agent" / "generated_tools"
+
+
+class ToolResponse(BaseModel):
+    name: str
+    description: str
+    code: str
+    status: str
+    risk_level: str
+    created_at: str
+    approved_at: Optional[str] = None
+    rejected_at: Optional[str] = None
+    rejection_reason: Optional[str] = None
+    path: Optional[str] = None
+
+
+class ApproveRequest(BaseModel):
+    name: str
+
+
+class RejectRequest(BaseModel):
+    name: str
+    reason: Optional[str] = ""
+
+
+@router.get("/pending", response_model=List[ToolResponse])
+async def get_pending_tools():
+    """Get all tools pending approval."""
+    pending = registry.list_pending()
+    return [
+        ToolResponse(
+            name=t.name,
+            description=t.description,
+            code=t.code,
+            status=t.status.value,
+            risk_level=t.risk_level,
+            created_at=t.created_at,
+            approved_at=t.approved_at,
+            rejected_at=t.rejected_at,
+            rejection_reason=t.rejection_reason,
+            path=t.path
+        )
+        for t in pending
+    ]
+
+
+@router.get("/approved", response_model=List[ToolResponse])
+async def get_approved_tools():
+    """Get all approved tools."""
+    approved = registry.list_approved()
+    return [
+        ToolResponse(
+            name=t.name,
+            description=t.description,
+            code=t.code,
+            status=t.status.value,
+            risk_level=t.risk_level,
+            created_at=t.created_at,
+            approved_at=t.approved_at,
+            rejected_at=t.rejected_at,
+            rejection_reason=t.rejection_reason,
+            path=t.path
+        )
+        for t in approved
+    ]
+
+
+@router.post("/approve", dependencies=[Depends(require_role("admin"))])
+async def approve_tool(request: ApproveRequest):
+    """
+    Approve a pending tool.
+    Moves it from pending to approved status.
+    """
+    success = registry.approve(request.name)
+    
+    if not success:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Tool '{request.name}' not found or not pending"
+        )
+    
+    # Move file from pending to approved
+    base_dir = _get_tools_base()
+    (base_dir / "approved").mkdir(parents=True, exist_ok=True)
+    pending_file = base_dir / "pending" / f"{request.name}.py"
+    approved_file = base_dir / "approved" / f"{request.name}.py"
+
+    if pending_file.exists():
+        pending_file.rename(approved_file)
+
+    return {"status": "approved", "name": request.name}
+
+
+@router.post("/reject", dependencies=[Depends(require_role("admin"))])
+async def reject_tool(request: RejectRequest):
+    """
+    Reject a pending tool.
+    Moves it from pending to rejected status.
+    """
+    success = registry.reject(request.name, request.reason or "")
+    
+    if not success:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Tool '{request.name}' not found or not pending"
+        )
+    
+    # Move file from pending to rejected
+    base_dir = _get_tools_base()
+    (base_dir / "rejected").mkdir(parents=True, exist_ok=True)
+    pending_file = base_dir / "pending" / f"{request.name}.py"
+    rejected_file = base_dir / "rejected" / f"{request.name}.py"
+
+    if pending_file.exists():
+        pending_file.rename(rejected_file)
+    
+    return {"status": "rejected", "name": request.name, "reason": request.reason}
+
+
+@router.get("/{name}", response_model=ToolResponse)
+async def get_tool(name: str):
+    """Get a specific tool by name."""
+    tool = registry.get_by_name(name)
+    
+    if not tool:
+        raise HTTPException(status_code=404, detail=f"Tool '{name}' not found")
+    
+    return ToolResponse(
+        name=tool.name,
+        description=tool.description,
+        code=tool.code,
+        status=tool.status.value,
+        risk_level=tool.risk_level,
+        created_at=tool.created_at,
+        approved_at=tool.approved_at,
+        rejected_at=tool.rejected_at,
+        rejection_reason=tool.rejection_reason,
+        path=tool.path
+    )
