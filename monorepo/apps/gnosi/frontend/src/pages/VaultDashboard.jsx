@@ -230,7 +230,7 @@ export default function VaultDashboard() {
     const [viewToDelete, setViewToDelete] = useState(null);
     const [viewToDeleteUsage, setViewToDeleteUsage] = useState(null);
     const [templateToDelete, setTemplateToDelete] = useState(null);
-    const [promptModal, setPromptModal] = useState({ isOpen: false, defaultTitle: '', parentId: null, isDatabase: false, isDrawing: false, isDashboard: false, isView: false, isRename: false, isTemplate: false, targetView: null, viewType: null, inputValue: '', isLoading: false });
+    const [promptModal, setPromptModal] = useState({ isOpen: false, defaultTitle: '', parentId: null, isDatabase: false, isDrawing: false, isDashboard: false, isView: false, isRename: false, isTemplate: false, templateTableId: null, targetView: null, viewType: null, inputValue: '', isLoading: false });
 
     // Plugins (optional features): per-vault activation (internal registry).
     const { isEnabled: isPluginEnabled } = usePlugins();
@@ -2496,7 +2496,7 @@ export default function VaultDashboard() {
 
     const executeCreateContent = async (e) => {
         if (e) e.preventDefault();
-        const { inputValue, parentId, isDatabase, isDrawing, isDashboard, isRename, isTemplate, isApp, databaseId } = promptModal;
+        const { inputValue, parentId, isDatabase, isDrawing, isDashboard, isRename, isTemplate, templateTableId, isApp, databaseId } = promptModal;
         const title = inputValue?.trim();
 
         if (!title) {
@@ -2514,8 +2514,8 @@ export default function VaultDashboard() {
                     is_database: false,
                     metadata: {
                         is_template: true,
-                        table_id: activeTableId,
-                        database_table_id: activeTableId
+                        table_id: templateTableId || activeTableId,
+                        database_table_id: templateTableId || activeTableId
                     }
                 });
                 await fetchPages();
@@ -3807,6 +3807,7 @@ export default function VaultDashboard() {
                 onAddSchemaOption={handleAddSchemaOption}
                 onDeletePage={handleDeletePage}
                 onCreateRecord={handleAddNewNote}
+                onCreateTemplate={(tableId) => setPromptModal({ isOpen: true, defaultTitle: t('common.new_template'), parentId: null, isDatabase: false, isDrawing: false, isView: false, isTemplate: true, templateTableId: tableId, inputValue: t('common.new_template'), isLoading: false })}
                 onOpenViewConfig={handleConfigureView}
                 pageActions={pageActions}
                 isActivePage={tab.id === activeTabId}
@@ -4117,7 +4118,7 @@ export default function VaultDashboard() {
                                     <VaultViewsHeader
                                         tableName={activeTable ? (activeTable.title || activeTable.name) : t('common.table')}
                                         recordCount={(tableNotes || []).length}
-                                        notes={(console.log('[DashboardJoins] Active view filters:', displayViews.find(v => v.id === activeViewId)?.filterTree, displayViews.find(v => v.id === activeViewId)?.filters), tableNotes || [])}
+                                        notes={tableNotes || []}
                                         referenceTableId={refTableId && refTableId === activeTableId ? activeTableId : undefined}
                                         brainTableId={brainTableId && brainTableId === activeTableId ? activeTableId : undefined}
                                         onReferencesImported={fetchPages}

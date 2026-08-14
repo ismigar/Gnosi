@@ -74,6 +74,14 @@ file.
 - Two backend PUTs create one cooldown-respecting history version containing
   the previous data.
 
+After changing frontend dependencies, lockfiles, or reconciling branches,
+restart `com.gnosi.frontend-native` before browser QA. Do not rely on HMR for
+dependency graph changes: a long-lived Vite process can serve the old React
+renderer while a lazy Tldraw import reads newly optimized React chunks from
+disk, producing `Invalid hook call` and a blank editor. Use one Vite process,
+restart it, and wait for dependency optimization to finish before running the
+Tldraw E2E cases.
+
 ## Core rule
 
 Never interpret “could not load” as “new empty document.” Block writes until
