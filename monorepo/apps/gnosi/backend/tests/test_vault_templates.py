@@ -168,3 +168,30 @@ def test_release_builder_emits_signed_valid_starter(tmp_path, monkeypatch):
     assert plugin_signing.verify(keypair["public"], entry["signature"], package)
     manifest, _infos = vault_templates.validate_package(package)
     assert manifest["id"] == "starter-vault"
+    assert manifest["version"] == "2.0.0"
+    assert manifest["languages"] == ["ca", "en", "es"]
+    assert manifest["categories"] == ["starter", "research", "writing"]
+
+    archive = zipfile.ZipFile(io.BytesIO(package))
+    names = set(archive.namelist())
+    assert "vault/Wiki/Start here.md" in names
+    assert "vault/Wiki/Comença aquí.md" in names
+    assert "vault/Wiki/Empieza aquí.md" in names
+    assert "vault/BD/vault_db_registry.json" in names
+    assert "vault/BD/Research/Sources/Gnosi research workflow.md" in names
+    registry = json.loads(archive.read("vault/BD/vault_db_registry.json"))
+    source_table = registry["tables"][0]
+    assert source_table["id"] == "research-sources"
+    assert "Citation Key" in {
+        property_["name"] for property_ in source_table["properties"]
+    }
+    source = archive.read(
+        "vault/BD/Research/Sources/Gnosi research workflow.md"
+    ).decode("utf-8")
+    assert "Citation Key: gnosi2026" in source
+    for path in (
+        "vault/Wiki/Manuscript - First paragraph.md",
+        "vault/Wiki/Manuscrit - Primer paràgraf.md",
+        "vault/Wiki/Manuscrito - Primer párrafo.md",
+    ):
+        assert "[@gnosi2026]" in archive.read(path).decode("utf-8")

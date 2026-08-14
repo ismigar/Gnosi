@@ -1,110 +1,146 @@
 # Gnosi
 
-**Gnosi is a local-first, open-source workspace — a self-hostable alternative to Notion and Obsidian.**
+[English](README.md) · [Català](README.ca.md) · [Español](README.es.md)
 
-It turns a plain folder of Markdown files into a connected workspace: a block editor, database-style table views, an interactive knowledge graph, an integrated reference manager, and email/calendar/contacts — all running on **your** machine, against **your** files.
+**From source to manuscript, with your knowledge always yours.**
+
+Gnosi is a local-first, open-source research workspace. It connects references,
+PDF/EPUB/web evidence, Markdown notes, project structure, knowledge graphs and
+verifiable citations without making a SaaS the owner of your work.
 
 > [!IMPORTANT]
-> **Data sovereignty by design.** Gnosi is local-first and operates directly on your filesystem. Your notes stay as portable Markdown you can read, back up, and version with any tool. No vendor lock-in.
+> Gnosi uses regular Markdown and YAML files as its source of truth. Your notes
+> remain readable, portable, versionable and recoverable outside the app.
 
-## Why Gnosi
+## The research workflow
 
-Most "second brain" tools are either closed SaaS (your data lives on someone else's servers) or single-user desktop apps (no real collaboration). Gnosi aims for a third path: **a workspace that teams and cooperatives can self-host and own**, released under the AGPL so that any hosted version stays free software for its users.
+1. **Capture or import** — DOI, ISBN, arXiv, PMID, BibTeX, RIS, web pages,
+   PDFs, EPUBs, feeds and other research material.
+2. **Read with evidence** — preserve annotations and quotations with page,
+   paragraph, chapter, line or timestamp provenance.
+3. **Connect and structure** — turn reading notes into human-authored synthesis
+   using wikilinks, the graph, typed databases, boards, calendars and timelines.
+4. **Write and cite** — insert active citations into Word or LibreOffice and
+   generate bibliographies with CSL/citeproc.
 
-It is being prepared for use by cooperatives that want a shared, auditable, vendor-neutral knowledge base.
+AI can help ingest, search and organize sources through local or cloud models,
+but it is optional. Gnosi distinguishes evidence-bearing reading notes from the
+permanent notes that express your own conclusions.
 
-## ✨ Features
+## Why Gnosi exists
 
-- **Block editor** — a Notion-style WYSIWYG editor (BlockNote) over standard Markdown files. Slash commands, multi-column layouts, embeds.
-- **Database / table views** — turn folders of notes into filterable, sortable tables with typed columns and saved views (table, gallery, kanban, calendar, timeline).
-- **Knowledge graph** — an interactive graph (Sigma.js) of wikilinks and tags, with optional AI-assisted semantic connections.
-- **Integrated reference manager** — a Zotero-compatible citation engine (CSL/citeproc), import by DOI/ISBN/arXiv/PMID, web capture, an in-app **PDF/EPUB reader**, and PDF annotations that become citable quotes. Word & LibreOffice cite add-ins included.
-- **Mail, Calendar & Contacts** — IMAP/SMTP mail with real-time push (IMAP IDLE), calendar, and contacts; Google and Microsoft OAuth supported.
-- **AI agent** — a multi-agent workflow (LangGraph) that can use tools via the Model Context Protocol (MCP) and local or cloud LLMs. Bring your own provider (Ollama, OpenAI, Anthropic, Groq, Gemini…).
-- **Translation & publishing** — translate notes and whole pages (Softcatalà, local OPUS-MT, DeepL), sync content to Drupal, and post to Mastodon, Bluesky and Telegram.
-- **Real-time collaboration** *(early)* — live presence on a page; the channel is designed to carry full CRDT editing next.
-- **Multi-user & workspaces** *(opt-in)* — JWT authentication, workspaces, and role-based access control (owner / admin / editor / viewer). Disabled by default in single-user "personal" mode.
+Gnosi began as a personal answer to a fragmented workflow: Notion offered
+structured databases and project views; Obsidian offered Markdown and a graph;
+Mendeley managed references. The same sources and ideas had to be duplicated,
+while years of knowledge depended on closed products and changing policies.
 
-## 🏗️ Architecture
+Gnosi brings that chain together in an open system. It is shared as a community
+project, not presented as a finished company or a universal replacement for
+every tool.
 
-- **Backend** — Python **FastAPI** (served by `uvicorn`), with a SQLite "management" database for users/workspaces and an on-disk Markdown vault as the source of truth.
-- **Frontend** — **React + Vite** (BlockNote editor, Sigma.js graph).
-- **Reference capture** — a Zotero `translation-server` sidecar powers web import (run it natively or via Docker).
+## Core capabilities
 
-The application lives in [`apps/gnosi/`](apps/gnosi/). See [ARCHITECTURE.md](apps/gnosi/ARCHITECTURE.md) for the full picture and [CONTRIBUTING.md](apps/gnosi/CONTRIBUTING.md) to start hacking.
+- Block editor over portable Markdown and YAML.
+- Typed databases with relations, formulas, rollups and saved views.
+- Interactive knowledge graph and optional semantic suggestions.
+- Native reference manager with Zotero-compatible capture and CSL citations.
+- Integrated PDF/EPUB reader with evidence-preserving annotations.
+- Word and LibreOffice citation add-ins.
+- Research planning with dependencies, resources, deadlines and timelines.
+- Multi-provider agents, plugins and MCP tools with explicit governance.
+- Personal local-first mode and optional self-hosted organization mode.
 
-## 🚀 Quick start
+Mail, calendar, contacts, feeds, translation and publishing integrations also
+exist, but the primary product path is research: source → evidence → synthesis →
+citation.
 
-> **Just want to use Gnosi?** Download the **desktop app** (macOS, Windows, Linux) from the [Releases](https://github.com/ismigar/Gnosi/releases) page — it bundles the backend, so there's nothing to set up. *(Beta; builds are currently unsigned.)* The steps below are for development and self-hosting.
+## Try the multilingual research workspace
 
-**Prerequisites:** Python 3.10+, Node.js & npm. *(Optional)* Docker, and [Ollama](https://ollama.com/) or any OpenAI-compatible API for local AI features.
+The official signed template demonstrates the full path in English, Catalan and
+Spanish without requiring an AI provider or an external account.
 
-First-time setup builds the Zotero PDF/EPUB reader bundle once (build artifacts are not committed):
+1. Open **Settings → General → Files**.
+2. Under Vaults, choose **From repository**.
+3. Select **Research Starter Workspace** and create the new Vault.
+4. Open the “Start here” note in your language.
+
+## Download the desktop app
+
+Download the latest macOS, Windows or Linux build from
+[GitHub Releases](https://github.com/ismigar/Gnosi/releases/latest). The backend
+is bundled, so the desktop path does not require a Python or Node setup.
+
+> [!WARNING]
+> Desktop builds are currently beta and unsigned. On macOS, use right-click →
+> Open the first time. Review the release notes before using Gnosi with your
+> only copy of important material.
+
+## Self-host or contribute
+
+The commands below are for development and self-hosting. Native execution is
+recommended; Docker remains a supported deployment option for servers.
+
+### Prerequisites
+
+- Python 3.10+
+- Node.js and npm
+- Optional: Docker for the containerized deployment
+- Optional: Ollama or another supported model provider for AI features
+
+Initialize the reader bundle once:
 
 ```bash
 git submodule update --init --recursive
 sh apps/gnosi/sh/build-zotero-reader.sh
 ```
 
-### Run natively (recommended)
+### Run natively
 
 ```bash
-# Backend — FastAPI on uvicorn (port 5002)
 cd apps/gnosi
-python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn backend.server:app --host 0.0.0.0 --port 5002 --reload
+```
 
-# Frontend — Vite dev server (port 5173), in another terminal
+In another terminal:
+
+```bash
 cd apps/gnosi/frontend
 npm install
 npm run dev
 ```
 
-Then open `http://localhost:5173`.
+Open `http://localhost:5173`.
 
 ### Run with Docker (optional)
-
-Prefer a single command, or deploying on a server?
 
 ```bash
 cd apps/gnosi
 docker compose up -d --build
 ```
 
-This bundles the backend, frontend, and the Zotero translation-server together.
+## Architecture and documentation
 
-## ⚙️ Configuration
+- Application: [`apps/gnosi/`](apps/gnosi/)
+- Architecture: [`apps/gnosi/ARCHITECTURE.md`](apps/gnosi/ARCHITECTURE.md)
+- Contribution guide: [`apps/gnosi/CONTRIBUTING.md`](apps/gnosi/CONTRIBUTING.md)
+- Public engineering portal: [gnosi.temenosismael.org/engineering](https://gnosi.temenosismael.org/engineering/)
 
-- **Vault path** — copy `apps/gnosi/config/params.yaml.example` to `params.yaml` and set `paths.vault`, or point Gnosi at your folder via the `VAULT_HOST_PATH` / `DIGITAL_BRAIN_VAULT_PATH` environment variable. Keep the vault out of the local-only data directory; never put the SQLite database on cloud-synced storage.
-- **Credentials** — API keys and integration tokens (mail, Google/Microsoft, AI providers) are managed from **Settings → Credentials** in the UI, and can also be provided via environment variables (`.env_shared` for shared values, `.env` for local overrides).
+## Feedback and contribution
 
-### Personal vs. Organization mode
+If you try Gnosi, the most useful feedback is where the chain breaks: install,
+source import, evidence traceability, synthesis, or citation. Open a
+[feedback issue](https://github.com/ismigar/Gnosi/issues/new?labels=feedback&title=%5BFeedback%5D%20My%20first%20Gnosi%20workflow)
+or see the [contribution guide](apps/gnosi/CONTRIBUTING.md). Maintainers can use
+the ready-to-publish [community release kit](apps/gnosi/docs/community/community-release.md).
 
-Gnosi runs in one of two modes (`gnosi_mode`):
+## License
 
-- **`personal`** *(default)* — a single user, no login, zero auth overhead. Collaboration and workspace gating are off.
-- **`org`** — multi-user: login is required, requests are authenticated with a JWT session cookie, and workspace membership / roles are enforced. Real-time presence activates here.
+Copyright © 2024–2026 Ismael García Fernández.
 
-## 📂 Repository layout
-
-```
-apps/gnosi/          # The Gnosi app
-├── backend/         # FastAPI: routes (api/), services, models, agent, scheduler
-├── frontend/        # React + Vite (BlockNote editor, Sigma.js graph)
-├── electron/        # Electron desktop wrapper (packaged installers)
-└── pipeline/        # Python skills/scripts (analysis, integrations, tools)
-packages/            # Shared MCP servers and packages
-```
-
-## 🤝 Contributing
-
-Contributions are welcome — see [CONTRIBUTING.md](apps/gnosi/CONTRIBUTING.md) for setup, conventions, and the review process.
-
-## 📄 License
-
-Copyright © 2024-2026 Ismael García Fernández.
-
-Distributed under the **GNU Affero General Public License v3.0 or later** (AGPL-3.0-or-later). See [LICENSE](LICENSE) for the full text.
-
-In short: Gnosi is free software. You may use, modify, and redistribute it, including running it as a network service, **provided that any modifications you publish — or expose to users over a network — are also released under the same license**, with the corresponding source code available to those users. This is the same license Zotero, Mastodon, and Nextcloud use.
+Gnosi is distributed under the
+[GNU Affero General Public License v3.0 or later](LICENSE). You may use, modify
+and redistribute it under the terms of that license, including its source
+availability obligations for network use.
