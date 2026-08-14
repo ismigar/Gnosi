@@ -2,9 +2,8 @@ diff --git a/src/Plugin/McpJsonRpc/ToolsList.php b/src/Plugin/McpJsonRpc/ToolsLi
 index 937b2d7..fad6da3 100644
 --- a/src/Plugin/McpJsonRpc/ToolsList.php
 +++ b/src/Plugin/McpJsonRpc/ToolsList.php
-@@ -56,3 +56,11 @@ class ToolsList extends McpJsonRpcMethodBase {
+@@ -56,2 +56,11 @@ class ToolsList extends McpJsonRpcMethodBase {
          function ($tool) use ($instance) {
--
 +          // Normalize inputSchema to ensure it always has 'type' => 'object'.
 +          $normalizedInputSchema = $tool->inputSchema;
 +          if ($normalizedInputSchema instanceof \stdClass) {

@@ -1,6 +1,7 @@
 """Unit tests for the deterministic local Drupal 11 upgrade."""
 
 import importlib.util
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -12,6 +13,8 @@ SCRIPT = (
     / "scripts"
     / "upgrade_local_to_drupal11.py"
 )
+REPOSITORY_ROOT = Path(__file__).resolve().parents[5]
+MCP_PATCH = REPOSITORY_ROOT / "temenos/patches/mcp-toolslist-inputschema-fix.patch"
 SPEC = importlib.util.spec_from_file_location("upgrade_local_to_drupal11", SCRIPT)
 MODULE = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
@@ -63,6 +66,41 @@ class UpgradeLocalToDrupal11Test(unittest.TestCase):
 
             with self.assertRaisesRegex(RuntimeError, "stale MCP patch"):
                 MODULE.validate_patch(site_root)
+
+    def test_mcp_patch_applies_to_clean_upstream_source(self):
+        """Reject patches generated from an already patched MCP checkout."""
+        source = "\n".join(
+            ["// Padding"] * 55
+            + [
+                "        function ($tool) use ($instance) {",
+                "          $toolData = new Tool(",
+                "            name: $instance->generateToolId(",
+                "              $instance->getPluginId(),",
+                "              $tool->name",
+                "            ),",
+                "            description: $tool->description,",
+                "            inputSchema: $tool->inputSchema,",
+                "            title: $tool->title ?? NULL,",
+                "          );",
+                "        }",
+                "",
+            ]
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            package_root = Path(directory)
+            target = package_root / "src/Plugin/McpJsonRpc/ToolsList.php"
+            target.parent.mkdir(parents=True)
+            target.write_text(source, encoding="utf-8")
+
+            result = subprocess.run(
+                ["git", "apply", "--check", str(MCP_PATCH)],
+                cwd=package_root,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_safety_check_rejects_nonstandard_root(self):
         with tempfile.TemporaryDirectory() as directory:

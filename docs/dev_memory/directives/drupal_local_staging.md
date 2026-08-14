@@ -92,6 +92,18 @@ clone to contact production integrations.
 - Do not reuse a Composer patch lock after correcting a patch file. Run
   `composer patches-relock` before the dependency update so Composer cannot
   apply a cached digest for the stale patch.
+- Do not generate a Composer patch from an already patched package checkout.
+  The resulting hunk can depend on lines introduced by the previous patch and
+  fail against a clean distribution. Validate every local patch with Git's
+  strict apply check against the exact clean package revision. A successful
+  Unix `patch --dry-run` is insufficient because it may accept fuzz.
+- After a Composer patch failure, do not assume a successful subsequent update
+  retried the patch. Reinstall the affected package and verify a distinctive
+  patched-code marker before accepting the dependency state.
+- Do not infer the production web runtime from command-line PHP. Query a
+  temporary non-secret web probe before maintenance mode and remove it
+  immediately. On Pangea, the per-webapp PHP-FPM pool can remain on PHP 8.2
+  while the shell defaults to PHP 8.4.
 - Do not rely on a routine cache rebuild immediately after replacing Drupal
   core. Partially populated block and formatter discovery entries can survive
   the update and cause HTTP 500 responses even when Drush bootstraps. Truncate
