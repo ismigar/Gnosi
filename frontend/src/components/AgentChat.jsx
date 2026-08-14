@@ -15,6 +15,7 @@ import {
 import { chatScrollDeltaForComposerKey } from './agentChatKeyboardUtils';
 import {
     boundedProcessingMs,
+    boundedTurnMetrics,
     conversationRewindPlan,
     mergeCanonicalMessageMetadata,
     processingSeconds,
@@ -84,6 +85,7 @@ const boundedChatSessions = (sessions) => [...(Array.isArray(sessions) ? session
                     ),
                 confirmation: confirmationForStorage(message?.confirmation),
                 processingMs: boundedProcessingMs(message?.processingMs),
+                timings: boundedTurnMetrics(message?.timings),
             })),
     }));
 
@@ -1283,6 +1285,7 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
         setShowMentionMenu(false);
         setIsLoading(true);
         const requestScope = `${browserStorageScope}:${selectedAgentId}:${sessionId}`;
+        let turnMetrics = null;
 
         try {
             requestAbortRef.current?.abort();
@@ -1358,6 +1361,10 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                         }
                         if (data.type === 'agent_runtime') {
                             setAgentRuntime(data);
+                            continue;
+                        }
+                        if (data.type === 'turn_metrics') {
+                            turnMetrics = boundedTurnMetrics(data);
                             continue;
                         }
                         if (data.type === 'done') {
@@ -1486,7 +1493,11 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                 if (responseIndex < 0) return previous;
                 return previous.map((message, index) => (
                     index === responseIndex
-                        ? { ...message, processingMs: elapsedMs }
+                        ? {
+                            ...message,
+                            processingMs: elapsedMs,
+                            ...(turnMetrics ? { timings: turnMetrics } : {}),
+                        }
                         : message
                 ));
             });
@@ -1858,6 +1869,22 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                                 {detailsMessageIndex === idx && (
                                     <div style={{ alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', margin: '0 4px', padding: '6px 8px', borderRadius: '8px', background: 'var(--settings-sidebar-bg, #f3f4f6)', color: 'var(--text-secondary)', fontSize: '0.68rem' }}>
                                         {msg.llm?.model && <div>{t('chat.agent_model', 'Model: {{model}}', { model: msg.llm.model })}</div>}
+                                        {msg.timings && (
+                                            <>
+                                                <div>{t('chat.timing_total', 'Server total: {{count}} ms', { count: msg.timings.total_ms ?? 0 })}</div>
+                                                <div>{t('chat.timing_setup', 'Setup: {{count}} ms', { count: msg.timings.setup_ms ?? 0 })}</div>
+                                                <div>{t('chat.timing_routing', 'Routing: {{count}} ms', { count: msg.timings.routing_ms ?? 0 })}</div>
+                                                <div>{t('chat.timing_tools', 'Tools: {{count}} ms', { count: msg.timings.tools_ms ?? 0 })}</div>
+                                                <div>{t('chat.timing_model', 'Model: {{count}} ms', { count: msg.timings.model_ms ?? 0 })}</div>
+                                                <div>{t('chat.timing_misc', 'Other: {{count}} ms', { count: msg.timings.other_ms ?? 0 })}</div>
+                                                <div>{t('chat.timing_usage', '{{input}} input tokens · {{output}} output tokens · {{models}} model calls · {{tools}} tool calls', {
+                                                    input: msg.timings.input_tokens ?? 0,
+                                                    output: msg.timings.output_tokens ?? 0,
+                                                    models: msg.timings.model_calls ?? 0,
+                                                    tools: msg.timings.tool_calls ?? 0,
+                                                })}</div>
+                                            </>
+                                        )}
                                         {msg.confirmation && <div>{t('chat.message_has_confirmation', 'This message includes a governed action confirmation.')}</div>}
                                         {Array.isArray(msg.attachments) && msg.attachments.length > 0 && <div>{t('chat.message_attachments_count', '{{count}} attachment(s)', { count: msg.attachments.length })}</div>}
                                     </div>

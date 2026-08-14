@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
     boundedProcessingMs,
+    boundedTurnMetrics,
     conversationRewindPlan,
     mergeCanonicalMessageMetadata,
     processingSeconds,
@@ -15,6 +16,23 @@ describe('assistant message presentation metadata', () => {
         expect(processingSeconds(null)).toBeNull();
         expect(boundedProcessingMs(Number.POSITIVE_INFINITY)).toBeNull();
         expect(boundedProcessingMs(90_000_000)).toBe(86_400_000);
+    });
+
+    it('keeps only bounded numeric server timing fields', () => {
+        expect(boundedTurnMetrics({
+            total_ms: 1_250.4,
+            model_ms: -1,
+            tools_ms: 12,
+            input_tokens: 51_543.9,
+            model_calls: 0,
+            unexpected: 'ignored',
+        })).toEqual({
+            total_ms: 1_250,
+            tools_ms: 12,
+            input_tokens: 51_543,
+            model_calls: 0,
+        });
+        expect(boundedTurnMetrics(null)).toBeNull();
     });
 
     it('rewinds the complete turn containing either message', () => {
@@ -49,6 +67,7 @@ describe('assistant message presentation metadata', () => {
                 role: 'assistant',
                 content: 'Canonical answer',
                 processingMs: 1_250,
+                timings: { total_ms: 1_200, tool_calls: 1 },
                 feedback: 'up',
                 saved: true,
             },
@@ -60,6 +79,7 @@ describe('assistant message presentation metadata', () => {
                 ...canonical[1],
                 turnId: 'server-turn',
                 processingMs: 1_250,
+                timings: { total_ms: 1_200, tool_calls: 1 },
                 feedback: 'up',
                 saved: true,
             },
