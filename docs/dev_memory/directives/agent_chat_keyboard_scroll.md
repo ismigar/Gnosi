@@ -34,7 +34,41 @@ Every chat message exposes safe local actions below its bubble: copy, quote
 into the composer, inspect bounded metadata, and (for user messages) edit the
 next prompt. Assistant messages additionally allow the preceding user prompt
 to be prepared again, local feedback, and a local saved marker. These actions
-must not expose tool arguments or tool results. A visible undo control is
-allowed only for the final message of an operation that supplies an explicit,
-server-backed reversal; it must not claim to undo model text, a completed
-confirmation, or an external side effect.
+must not expose tool arguments or tool results.
+
+Every visible message also offers a conversation rewind action. Rewinding one
+message removes its complete turn and every later turn from both the browser
+cache and the scoped server checkpoint. The UI must explain that this changes
+conversation memory only: a completed confirmation or external side effect is
+not reversed. Ask for confirmation before applying the destructive history
+change, cancel pending confirmations in the rewound session, and restore the
+removed user prompt to the composer when possible.
+
+An operation-specific undo control remains distinct from conversation rewind.
+It is allowed only for the final message of an operation that supplies an
+explicit, server-backed reversal; it must not claim to undo model text, a
+completed confirmation, or an external side effect.
+
+## Response processing time
+
+Start a monotonic timer immediately before sending a chat request. While the
+response is streaming, show a live whole-second counter next to the processing
+state. When the stream ends, attach the elapsed duration to the response bubble
+that completed the turn and persist the bounded millisecond value with the
+browser session cache. Show the saved duration in seconds on every completed
+assistant or system response. Canonical history hydration may merge this
+presentation metadata from the local cache, but it must never replace canonical
+message roles or content with browser values.
+
+## Additional restrictions and edge cases
+
+- Do not implement rewind by hiding local bubbles only: the model would still
+  receive the removed checkpoint history on the next request.
+- Rewind only at complete user-turn boundaries so strict providers never resume
+  from an orphan assistant/tool protocol group or an unanswered user message.
+- Do not trust a client-supplied transcript during rewind. The server derives
+  the retained prefix from the scoped canonical checkpoint and returns its
+  public projection.
+- Do not describe conversation rewind as reversing a completed external action.
+- Cap stored processing durations and ignore malformed legacy values so browser
+  persistence cannot accumulate invalid metadata.

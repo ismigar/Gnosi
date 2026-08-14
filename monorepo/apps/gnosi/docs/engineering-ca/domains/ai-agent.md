@@ -76,6 +76,20 @@ pàgina i taula són crides d'eina creades pel servidor; després d'un resultat
 complet, la síntesi s'executa sense eines perquè un model insistent no repeteixi
 la crida fins al límit de recursió del graf.
 
+La resta de torns de només lectura tenen un pressupost independent de tres
+resultats: si el model continua demanant eines, la següent invocació de Cervell
+rep les evidències acumulades sense eines vinculades i ha de sintetitzar la
+resposta. Així, el límit de recursió del graf continua sent una xarxa de
+seguretat final i no un control normal del flux.
+
+El xat mesura cada resposta des de l'enviament de la petició fins al final del
+flux. Un comptador viu de segons enters es reemplaça pel temps transcorregut
+desat a la resposta completada. Cada missatge visible també permet rebobinar la
+conversa: després de confirmar-ho, el servidor retalla el checkpoint canònic de
+l'àmbit en el límit complet del torn i retorna la seva projecció pública. El
+rebobinat només canvia la memòria de conversa; mai no es presenta com si hagués
+revertit confirmacions completades o efectes externs.
+
 Els registres editables de models s'hidraten des del catàleg canònic abans
 d'arribar a Configuració o a l'encaminament d'execució. Les actualitzacions
 parcials de pressupost i configuració es fusionen amb les capacitats, la finestra

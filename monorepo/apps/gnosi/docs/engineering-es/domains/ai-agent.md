@@ -76,6 +76,21 @@ página y tabla son llamadas de herramienta creadas por el servidor; después de
 un resultado completo, la síntesis se ejecuta sin herramientas para que un
 modelo insistente no repita la llamada hasta el límite de recursión del grafo.
 
+Los demás turnos de solo lectura tienen un presupuesto independiente de tres
+resultados: si el modelo continúa solicitando herramientas, la siguiente
+invocación de Cerebro recibe las evidencias acumuladas sin herramientas
+vinculadas y debe sintetizar la respuesta. Así, el límite de recursión del
+grafo sigue siendo una red de seguridad final y no un control normal del flujo.
+
+El chat mide cada respuesta desde el envío de la petición hasta el final del
+flujo. Un contador en vivo de segundos enteros se sustituye por el tiempo
+transcurrido guardado en la respuesta completada. Cada mensaje visible también
+permite rebobinar la conversación: tras confirmarlo, el servidor recorta el
+checkpoint canónico del ámbito en el límite completo del turno y devuelve su
+proyección pública. El rebobinado solo cambia la memoria de conversación;
+nunca se presenta como si hubiera revertido confirmaciones completadas o
+efectos externos.
+
 Los registros editables de modelos se hidratan desde el catálogo canónico antes
 de llegar a Configuración o al enrutamiento de ejecución. Las actualizaciones
 parciales de presupuesto y configuración se fusionan con las capacidades, la

@@ -658,6 +658,18 @@ def _context_tool_used_since_latest_user(
     )
 
 
+def _tool_results_since_latest_user(messages: Iterable[Any]) -> int:
+    """Count completed tool calls in the current human turn."""
+    count = 0
+    for message in reversed(list(messages)):
+        message_type = str(getattr(message, "type", "") or "")
+        if message_type == "human":
+            break
+        if message_type == "tool":
+            count += 1
+    return count
+
+
 def _latest_reader_analysis_job_id(messages: Iterable[Any]) -> str:
     """Return the newest durable Reader job id visible in conversation history."""
     for message in reversed(list(messages)):
@@ -2025,6 +2037,7 @@ async def create_agent_workflow(
             messages,
             context_tool_names,
         )
+        read_tool_results = _tool_results_since_latest_user(messages)
         if context_tools and not latest_context_tool:
             if any(
                 ref.get("type") == "internal" and ref.get("ref") == "reader"
@@ -2079,6 +2092,17 @@ async def create_agent_workflow(
                 "\nThe exact table-query result is already present in this turn. "
                 "Answer directly from it now. Do not call another tool, repeat "
                 "the query, or claim that the attached table is unavailable."
+            )
+        elif read_tool_results >= 3 and not current_authorized_names:
+            # Some tool-eager models repeat broad successful reads instead of
+            # synthesizing their evidence. The recursion limit is only a final
+            # safety net; removing tool bindings here guarantees a user-visible
+            # response before the graph reaches it.
+            selected_brain_llm = llm
+            brain_system += (
+                "\nThe bounded read-tool budget for this turn is complete. "
+                "Answer directly from the tool evidence already present now. "
+                "Do not call another tool, repeat a query, or ask to continue."
             )
         response = selected_brain_llm.invoke(
             [SystemMessage(content=brain_system)] + _bounded_model_messages(messages, message_budget_chars),

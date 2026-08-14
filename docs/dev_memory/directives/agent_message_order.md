@@ -138,6 +138,10 @@ such as Mistral.
 48. Revalidate workspace-scoped integration access and configured accounts both
     while preparing and while executing mail or calendar actions. Calling route
     functions directly never bypasses request dependencies or account grants.
+49. Bound read-tool rounds independently of the graph recursion ceiling. Once
+    the turn reaches the read budget without a guarded write authorization,
+    remove tool bindings for the next Brain invocation and require a final
+    synthesis from the evidence already returned.
 
 ## Restrictions / Edge Cases
 
@@ -269,3 +273,7 @@ such as Mistral.
   must open its review card, and the positive action requires a deliberate click.
 - Do not overwrite one pending confirmation with another. Preserve every
   server-issued action as an independently cancellable queue item.
+- Do not increase the graph recursion ceiling to accommodate a model that keeps
+  repeating successful read tools. It increases latency and context volume
+  without guaranteeing an answer; switch to a tool-free synthesis invocation
+  after the bounded read budget instead.

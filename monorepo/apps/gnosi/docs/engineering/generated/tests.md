@@ -10,9 +10,9 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
-| Playwright | 13 | 35 |
-| Vitest | 69 | 256 |
-| pytest | 182 | 1509 |
+| Playwright | 13 | 37 |
+| Vitest | 70 | 259 |
+| pytest | 182 | 1514 |
 
 ## Files
 
@@ -20,7 +20,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | --- | ---: | --- |
 | Playwright | [`e2e/tests/anon/page-outline.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/e2e/tests/anon/page-outline.spec.ts) | 2 | call-pattern estimate |
 | Playwright | [`e2e/tests/anon/smoke.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/e2e/tests/anon/smoke.spec.ts) | 5 | call-pattern estimate |
-| Playwright | [`e2e/tests/e2e/ai-chat.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/e2e/tests/e2e/ai-chat.spec.ts) | 6 | call-pattern estimate |
+| Playwright | [`e2e/tests/e2e/ai-chat.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/e2e/tests/e2e/ai-chat.spec.ts) | 8 | call-pattern estimate |
 | Playwright | [`e2e/tests/e2e/automation-scout.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/e2e/tests/e2e/automation-scout.spec.ts) | 1 | call-pattern estimate |
 | Playwright | [`e2e/tests/e2e/calendar.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/e2e/tests/e2e/calendar.spec.ts) | 3 | call-pattern estimate |
 | Playwright | [`e2e/tests/e2e/contacts.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/e2e/tests/e2e/contacts.spec.ts) | 3 | call-pattern estimate |
@@ -73,6 +73,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/components/Vault/zoteroLocale.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/zoteroLocale.test.js) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/components/agentChatKeyboardUtils.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/agentChatKeyboardUtils.test.js) | 0 | call-pattern estimate |
 | Vitest | [`frontend/src/components/agentChatMentionUtils.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/agentChatMentionUtils.test.js) | 2 | call-pattern estimate |
+| Vitest | [`frontend/src/components/agentChatMessageUtils.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/agentChatMessageUtils.test.js) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/components/agentRuntimeStatus.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/agentRuntimeStatus.test.js) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/lib/citationDeepLink.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/citationDeepLink.test.js) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/lib/fileResourceCitation.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/fileResourceCitation.test.js) | 4 | call-pattern estimate |
@@ -107,7 +108,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_action_rules.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_action_rules.py) | 14 | Python AST |
 | pytest | [`backend/tests/test_agent_action_confirmations.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_action_confirmations.py) | 23 | Python AST |
 | pytest | [`backend/tests/test_agent_chat_model_selection.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_chat_model_selection.py) | 3 | Python AST |
-| pytest | [`backend/tests/test_agent_chat_safety.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_chat_safety.py) | 34 | Python AST |
+| pytest | [`backend/tests/test_agent_chat_safety.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_chat_safety.py) | 39 | Python AST |
 | pytest | [`backend/tests/test_agent_context_sources.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_context_sources.py) | 23 | Python AST |
 | pytest | [`backend/tests/test_agent_create_page_containment.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_create_page_containment.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_agent_read_pdf_containment.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_read_pdf_containment.py) | 5 | Python AST |
