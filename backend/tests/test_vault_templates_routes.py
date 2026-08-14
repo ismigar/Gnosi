@@ -130,7 +130,8 @@ def test_preview_and_export_round_trip(api):
     assert manifest["id"] == "active-template"
 
 
-def test_submission_without_broker_fails_closed(api):
+def test_submission_without_broker_fails_closed(api, monkeypatch):
+    monkeypatch.delenv("GNOSI_MARKETPLACE_SUBMISSION_URL", raising=False)
     client, _session_factory, _active, _vaults_root = api
 
     response = client.post("/api/vaults/active-vault/template-submissions", json={
