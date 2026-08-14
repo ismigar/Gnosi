@@ -1,5 +1,21 @@
 [
   {
+    "version": "1.0.0-rc.3",
+    "date": "2026-08-14",
+    "channel": "prerelease",
+    "sections": {
+      "highlights": [
+        "release_notes.entries.v1_0_0_rc_3.highlights.vault_marketplace",
+        "release_notes.entries.v1_0_0_rc_3.highlights.plugin_marketplace"
+      ],
+      "improvements": [
+        "release_notes.entries.v1_0_0_rc_3.improvements.signed_packages",
+        "release_notes.entries.v1_0_0_rc_3.improvements.moderated_publishing"
+      ],
+      "fixes": []
+    }
+  },
+  {
     "version": "1.0.0-rc.2",
     "date": "2026-08-03",
     "channel": "prerelease",
