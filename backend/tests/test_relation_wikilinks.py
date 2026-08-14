@@ -139,6 +139,34 @@ def test_decorate_is_idempotent():
     assert md == once
 
 
+def test_agent_text_snapshot_expands_relation_ids_to_titles(monkeypatch):
+    subject_id = "subject"
+    monkeypatch.setattr(vr, "_link_index_built", True)
+    monkeypatch.setattr(vr, "_tokens_by_source", {subject_id: frozenset({"practice"})})
+    monkeypatch.setattr(vr, "_outlinks_by_source", {subject_id: {RID}})
+    monkeypatch.setattr(vr, "_page_meta_by_id", {RID: {"title": "Coaching course"}})
+    monkeypatch.setattr(vr, "_link_index_build_ts", 123.0)
+
+    snapshot, built_at = vr.get_link_index_terms([subject_id])
+
+    assert snapshot[subject_id][0] == frozenset({"practice"})
+    assert "Coaching course" in snapshot[subject_id][1]
+    assert built_at == 123.0
+
+
+def test_agent_document_snapshot_uses_persisted_body_without_path_stat(monkeypatch):
+    missing_path = "/cloud/offline/note.md"
+    monkeypatch.setattr(
+        vr,
+        "_parsed_doc_cache",
+        {missing_path: (123, {"title": "Note"}, "cached body")},
+    )
+
+    assert vr.get_cached_document_texts([missing_path]) == {
+        missing_path: "cached body",
+    }
+
+
 def test_decorate_only_acts_on_schema_relation_keys():
     """A field is only decorated if it's in the schema; others are left untouched."""
     md = {"Relacionats": [RID], "Notes": [RID]}

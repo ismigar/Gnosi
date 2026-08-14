@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import unicodedata
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -47,6 +48,33 @@ MAX_SOURCE_CHARS = 12000
 MAX_SEARCH_HITS = 8
 MAX_CONTEXT_TABLE_ROWS = 100
 MAX_CONTEXT_TABLE_FIELDS = 12
+MAX_CONTEXT_INVENTORY_ROWS = 100
+MAX_CONTEXT_INVENTORY_QUERY_CHARS = 500
+
+INVENTORY_TYPE_ALIASES = {
+    "source": {
+        "font", "fonts", "fuente", "fuentes", "source", "sources",
+        "ressource", "ressources", "recurs", "recursos", "resource",
+        "resources",
+    },
+    "note": {
+        "nota", "notas", "note", "notes", "cervell digital",
+        "digital brain",
+    },
+    "article": {"article", "articles", "articulo", "articulos"},
+    "task": {"tasca", "tasques", "tarea", "tareas", "task", "tasks"},
+    "project": {
+        "projecte", "projectes", "proyecto", "proyectos", "project",
+        "projects", "projet", "projets",
+    },
+    "qualification": {
+        "titulacio", "titulacions", "titulacion", "titulaciones",
+        "qualification", "qualifications", "degree", "degrees", "diploma",
+        "diplomas",
+    },
+    "area": {"area", "areas", "arees"},
+    "blog": {"blog", "blogs", "bitacora", "journal"},
+}
 
 
 # ===========================================================================
@@ -162,6 +190,7 @@ def describe_context_refs(refs: List[Dict[str, Any]]) -> str:
     lines.append(
         "\nYou do NOT have these sources' content in the conversation, only the inventory. "
         "Use list_context_sources, read_context_source, and search_context to read them. "
+        "Use inventory_context for exact counts or record lists across attached Vault data. "
         "Use search_context_source when the question targets one attached source. "
         "ALWAYS invoke these as actual tools; never write the call as response text. "
         "Prioritize these sources over your general knowledge and cite the source "
@@ -188,6 +217,12 @@ def describe_context_refs(refs: List[Dict[str, Any]]) -> str:
             "view, use query_context_table. It returns the exact matching count and up "
             "to 100 rows per call with offset pagination. Do not repeatedly use semantic "
             "search to enumerate a database."
+        )
+    if any(r["type"] in {"table", "database", "vault"} for r in refs):
+        lines.append(
+            "For exhaustive record discovery across attached Vault databases, use "
+            "inventory_context. It performs a deterministic full authorized scan, resolves "
+            "record types against the live registry, and returns exact counts with pagination."
         )
     if any(
         r["type"] == "internal" and r["ref"] == "reader"
@@ -227,6 +262,111 @@ def excerpt_around(text: str, query: str, width: int = 400) -> str:
             start = max(0, pos - width // 2)
             return ("…" if start else "") + body[start:start + width].strip() + "…"
     return body[:width]
+
+
+def _normalized_words(text: Any, *, minimum_length: int = 2) -> List[str]:
+    """Return accent-insensitive words for deterministic inventory matching."""
+    decomposed = unicodedata.normalize("NFKD", str(text or "").casefold())
+    normalized = "".join(
+        character
+        for character in decomposed
+        if not unicodedata.combining(character)
+    )
+    return [
+        token
+        for token in re.findall(r"[a-z0-9]+", normalized)
+        if len(token) >= minimum_length
+    ]
+
+
+def _normalized_phrase(text: Any) -> str:
+    """Return a stable searchable representation without locale-specific accents."""
+    return " ".join(_normalized_words(text, minimum_length=1))
+
+
+def _inventory_match(
+    query: str,
+    title: str,
+    body: str,
+    metadata: Any,
+    related_text: str = "",
+) -> Tuple[int, List[str], str]:
+    """Score one canonical record and identify where every query token matched."""
+    query_tokens = list(dict.fromkeys(_normalized_words(query)))
+    if not query_tokens:
+        return 1, ["all"], "direct"
+    normalized_title = _normalized_phrase(title)
+    normalized_body = _normalized_phrase(body)
+    normalized_relations = _normalized_phrase(related_text)
+    normalized_metadata = _normalized_phrase(json.dumps(
+        metadata or {},
+        ensure_ascii=False,
+        default=str,
+    ))
+    title_tokens = set(normalized_title.split())
+    body_tokens = set(normalized_body.split())
+    metadata_tokens = set(normalized_metadata.split())
+    relation_tokens = set(normalized_relations.split())
+    direct_tokens = title_tokens | body_tokens | metadata_tokens
+    combined_tokens = direct_tokens | relation_tokens
+    if not all(token in combined_tokens for token in query_tokens):
+        return 0, [], ""
+    match_kind = (
+        "direct"
+        if all(token in direct_tokens for token in query_tokens)
+        else "relation"
+    )
+    basis = []
+    if any(token in title_tokens for token in query_tokens):
+        basis.append("title")
+    if any(token in body_tokens for token in query_tokens):
+        basis.append("body")
+    if any(token in metadata_tokens for token in query_tokens):
+        basis.append("metadata")
+    if any(token in relation_tokens for token in query_tokens):
+        basis.append("relations")
+    normalized_query = " ".join(query_tokens)
+    score = (
+        (100 if normalized_query and normalized_query in normalized_title else 0)
+        + (40 * sum(token in title_tokens for token in query_tokens))
+        + (8 * sum(token in metadata_tokens for token in query_tokens))
+        + (4 * sum(token in relation_tokens for token in query_tokens))
+        + sum(token in body_tokens for token in query_tokens)
+    )
+    return max(1, score), basis, match_kind
+
+
+def _canonical_metadata(metadata: Any) -> Dict[str, Any]:
+    """Project heterogeneous Vault fields into bounded provenance metadata."""
+    source = metadata if isinstance(metadata, dict) else {}
+    normalized = {
+        _normalized_phrase(key): value
+        for key, value in source.items()
+    }
+    candidates = {
+        "year": ("any", "ano", "year", "annee"),
+        "item_type": ("item type", "tipus", "tipo", "type"),
+        "verification_status": (
+            "estat de verificacio", "estat verificacio", "verification status",
+            "estado de verificacion", "statut de verification",
+        ),
+        "author": ("autoria", "autor", "author", "auteur"),
+        "url": ("url", "source url", "enllac", "enlace", "link"),
+    }
+    projected: Dict[str, Any] = {}
+    for canonical, aliases in candidates.items():
+        value = next(
+            (
+                normalized[alias]
+                for alias in aliases
+                if alias in normalized
+                and normalized[alias] not in (None, "", [], {})
+            ),
+            None,
+        )
+        if value is not None:
+            projected[canonical] = _bounded_context_value(value)
+    return projected
 
 
 # ===========================================================================
@@ -503,38 +643,58 @@ def expand_dashboard_context_refs(raw_refs: Any) -> List[Dict[str, Any]]:
     return normalize_refs(expanded)
 
 
-def _searchable_pages(refs: List[Dict[str, Any]]) -> List[Any]:
-    """Every page reachable from the attached refs (de-duplicated by path)."""
-    pages: List[Any] = []
-    seen = set()
-
-    def _add(page: Any) -> None:
-        key = getattr(page, "path", None) or _page_title(page)
-        if key and key not in seen:
-            seen.add(key)
-            pages.append(page)
-
-    table_scopes: List[Tuple[str, Any]] = []
+def _authorized_inventory_tables(refs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Resolve attached refs to unique authorized table scopes."""
+    tables_by_id = {
+        str(table.get("id") or ""): table
+        for table in _registry().get("tables", [])
+        if isinstance(table, dict) and table.get("id")
+    }
+    table_scopes: List[Tuple[str, Any, str]] = []
     for ref in refs:
         if ref["type"] == "table":
-            table_scopes.append((ref["ref"], ref.get("scope")))
+            table_scopes.append((ref["ref"], ref.get("scope"), ref["id"]))
         elif ref["type"] == "database":
             table_scopes += [
-                (str(table.get("id")), None)
+                (str(table.get("id")), None, ref["id"])
                 for table in _tables_of_database(ref["ref"])
             ]
         elif ref["type"] == "vault":
             table_scopes += [
-                (str(table.get("id")), None)
-                for table in _registry().get("tables", [])
+                (str(table.get("id")), None, ref["id"])
+                for table in tables_by_id.values()
             ]
-
+    authorized = []
     seen_tables = set()
-    for table_id, scope in table_scopes:
+    for table_id, scope, source_id in table_scopes:
         table_key = (table_id, json.dumps(scope or {}, sort_keys=True, default=str))
         if table_key in seen_tables:
             continue
         seen_tables.add(table_key)
+        table = tables_by_id.get(table_id) or _table_entry(table_id) or {}
+        authorized.append({
+            "table": table,
+            "table_id": table_id,
+            "scope": scope,
+            "source_id": source_id,
+        })
+    return authorized
+
+
+def _searchable_page_records(
+    refs: List[Dict[str, Any]],
+    requested_types: Optional[List[str]] = None,
+) -> List[Dict[str, Any]]:
+    """Return canonical pages plus their authorized table provenance."""
+    records: List[Dict[str, Any]] = []
+    seen = set()
+    for authorized in _authorized_inventory_tables(refs):
+        table = authorized["table"]
+        table_id = authorized["table_id"]
+        scope = authorized["scope"]
+        source_id = authorized["source_id"]
+        if requested_types and not _inventory_table_matches(table, requested_types):
+            continue
         table_pages = _table_pages(table_id)
         view = _table_view(table_id, scope)
         if view:
@@ -548,8 +708,80 @@ def _searchable_pages(refs: List[Dict[str, Any]]) -> List[Any]:
                 if _page_row(page)["id"] in allowed_ids
             ]
         for page in table_pages:
-            _add(page)
-    return pages
+            row = _page_row(page)
+            if (row.get("metadata") or {}).get("is_template"):
+                continue
+            path = getattr(page, "path", None) or (
+                page.get("path") if isinstance(page, dict) else None
+            )
+            canonical_id = str(row.get("id") or "").strip()
+            key = canonical_id or str(path or "").strip() or (
+                f"{table_id}:{row.get('title') or ''}"
+            )
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            records.append({
+                "page": page,
+                "id": canonical_id,
+                "title": row.get("title") or "",
+                "metadata": row.get("metadata") or {},
+                "path": str(path or ""),
+                "source_id": source_id,
+                "table": {
+                    "id": table_id,
+                    "name": str(table.get("name") or table.get("title") or table_id),
+                },
+            })
+    return records
+
+
+def _searchable_pages(refs: List[Dict[str, Any]]) -> List[Any]:
+    """Every page reachable from the attached refs, de-duplicated canonically."""
+    return [record["page"] for record in _searchable_page_records(refs)]
+
+
+def _inventory_table_matches(table: Dict[str, Any], requested_types: List[str]) -> bool:
+    """Resolve user-facing type labels against canonical registry tables."""
+    if not requested_types:
+        return True
+    table_words = set(_normalized_words(
+        f"{table.get('id') or ''} {table.get('name') or ''}",
+        minimum_length=1,
+    ))
+    table_phrase = " ".join(sorted(table_words))
+    for requested in requested_types:
+        requested_phrase = _normalized_phrase(requested)
+        requested_words = set(_normalized_words(requested, minimum_length=1))
+        if requested_phrase and (
+            requested_words.issubset(table_words)
+            or requested_phrase in table_phrase
+        ):
+            return True
+        for category, aliases in INVENTORY_TYPE_ALIASES.items():
+            normalized_aliases = {_normalized_phrase(alias) for alias in aliases}
+            if requested_phrase not in normalized_aliases:
+                continue
+            if category == "source" and table_words.intersection({
+                "font", "fonts", "fuente", "fuentes", "source", "sources",
+                "ressource", "ressources", "recurs", "recursos", "resource",
+                "resources",
+            }):
+                return True
+            if category == "note" and (
+                table_words.intersection({"nota", "notas", "note", "notes"})
+                or {"cervell", "digital"}.issubset(table_words)
+            ):
+                return True
+            if category != "source" and category != "note" and any(
+                alias_words.issubset(table_words)
+                for alias_words in (
+                    set(_normalized_words(alias, minimum_length=1))
+                    for alias in aliases
+                )
+            ):
+                return True
+    return False
 
 
 # ===========================================================================
@@ -566,6 +798,9 @@ def build_context_tools(raw_refs: Any) -> List[Any]:
     external_ids = [r["ref"] for r in refs if r["type"] == "source"]
     internal_refs = [r for r in refs if r["type"] == "internal"]
     table_refs = [r for r in refs if r["type"] == "table"]
+    inventory_refs = [
+        r for r in refs if r["type"] in {"table", "database", "vault"}
+    ]
     reader_ref = next(
         (r for r in internal_refs if r["ref"] == "reader"),
         None,
@@ -657,6 +892,216 @@ def build_context_tools(raw_refs: Any) -> List[Any]:
                 else None
             ),
             "records": records,
+        }
+        return json.dumps(payload, ensure_ascii=False, default=str)
+
+    def inventory_context(
+        query: str = "",
+        record_types: Optional[List[str]] = None,
+        include_relations: bool = True,
+        offset: int = 0,
+        limit: int = MAX_CONTEXT_INVENTORY_ROWS,
+    ) -> str:
+        """Enumerate exact matching records across attached Vault sources.
+
+        Use this for requests asking which records exist, a count, a list, all
+        matches, or records of one or more types. The scan is exhaustive inside
+        the attached table, active view, database group, or Vault. Results are
+        canonical, type-grouped, and paginated. `record_types` accepts live
+        table names or common localized labels such as sources, notes, articles,
+        tasks, projects, and areas. An empty query lists every record in scope.
+        Set `include_relations` to false when the request asks for a literal
+        occurrence rather than records conceptually related through links.
+        """
+        bounded_query = " ".join(str(query or "").split())[
+            :MAX_CONTEXT_INVENTORY_QUERY_CHARS
+        ]
+        requested_types = []
+        seen_requested = set()
+        for raw_type in record_types or []:
+            value = " ".join(str(raw_type or "").split())[:128]
+            key = _normalized_phrase(value)
+            if not value or not key or key in seen_requested:
+                continue
+            seen_requested.add(key)
+            requested_types.append(value)
+            if len(requested_types) >= 12:
+                break
+
+        authorized_tables = [
+            item["table"]
+            for item in _authorized_inventory_tables(inventory_refs)
+        ]
+        if not requested_types and bounded_query:
+            query_words = _normalized_words(bounded_query, minimum_length=1)
+            query_word_set = set(query_words)
+            dynamic_types = []
+            dynamic_type_words = set()
+            for table in authorized_tables:
+                table_name = str(table.get("name") or table.get("title") or "").strip()
+                table_words = set(_normalized_words(table_name, minimum_length=1))
+                if table_name and table_words and table_words.issubset(query_word_set):
+                    dynamic_types.append(table_name)
+                    dynamic_type_words.update(table_words)
+            if dynamic_types:
+                requested_types.extend(dynamic_types[:12])
+                bounded_query = " ".join(
+                    word for word in query_words if word not in dynamic_type_words
+                )[:MAX_CONTEXT_INVENTORY_QUERY_CHARS]
+
+        canonical_records = _searchable_page_records(
+            inventory_refs,
+            requested_types=requested_types,
+        )
+        cached_documents: Dict[str, str] = {}
+        indexed_terms: Dict[str, Tuple[frozenset, frozenset]] = {}
+        text_index_built_at = 0.0
+        try:
+            from backend.api.vault_routes import (
+                get_cached_document_texts,
+                get_link_index_terms,
+            )
+
+            cached_documents = get_cached_document_texts(
+                record["path"] for record in canonical_records
+            )
+            indexed_terms, text_index_built_at = get_link_index_terms(
+                record["id"] for record in canonical_records
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Could not read the cached Vault text index: %s", exc)
+        available_tables = []
+        seen_table_ids = set()
+        for table in authorized_tables:
+            table_id = str(table.get("id") or "")
+            if table_id and table_id not in seen_table_ids:
+                seen_table_ids.add(table_id)
+                available_tables.append(table)
+        resolved_tables = [
+            table
+            for table in available_tables
+            if _inventory_table_matches(table, requested_types)
+        ]
+        resolved_table_ids = {
+            str(table.get("id") or "") for table in resolved_tables
+        }
+        unresolved_types = [
+            requested
+            for requested in requested_types
+            if not any(
+                _inventory_table_matches(table, [requested])
+                for table in available_tables
+            )
+        ]
+
+        matches = []
+        direct_body_reads = 0
+        root = _vault_root()
+        for record in canonical_records:
+            table = record["table"]
+            if requested_types and str(table.get("id") or "") not in resolved_table_ids:
+                continue
+            cached_body = cached_documents.get(record["path"])
+            cached_terms = indexed_terms.get(record["id"])
+            if cached_body is not None or cached_terms is not None:
+                body = cached_body or (
+                    " ".join(cached_terms[0])
+                    if cached_terms is not None
+                    else ""
+                )
+                related_text = (
+                    " ".join(cached_terms[1])
+                    if cached_terms is not None and include_relations
+                    else ""
+                )
+            else:
+                body = _page_body(record["page"])
+                related_text = ""
+                direct_body_reads += 1
+            score, match_basis, match_kind = _inventory_match(
+                bounded_query,
+                record["title"],
+                body,
+                record["metadata"],
+                related_text,
+            )
+            if not score:
+                continue
+            relative_path = ""
+            path_text = str(record.get("path") or "")
+            if path_text:
+                try:
+                    path = Path(path_text).resolve()
+                    relative_path = str(path.relative_to(root)) if root else path.name
+                except (OSError, ValueError):
+                    relative_path = Path(path_text).name
+            matches.append({
+                "score": score,
+                "id": record["id"],
+                "title": record["title"],
+                "source_id": record["source_id"],
+                "record_type": table,
+                "path": relative_path,
+                "match_basis": match_basis,
+                "match_kind": match_kind,
+                "metadata": _canonical_metadata(record["metadata"]),
+            })
+        matches.sort(key=lambda item: (
+            -int(item["score"]),
+            _normalized_phrase(item["record_type"].get("name")),
+            _normalized_phrase(item["title"]),
+            item["id"],
+        ))
+        counts_by_type: Dict[str, int] = {}
+        counts_by_match_kind = {"direct": 0, "relation": 0}
+        for match in matches:
+            type_name = str(match["record_type"].get("name") or "Unknown")
+            counts_by_type[type_name] = counts_by_type.get(type_name, 0) + 1
+            if match.get("match_kind") == "relation":
+                counts_by_match_kind["relation"] += 1
+            else:
+                counts_by_match_kind["direct"] += 1
+        bounded_offset = max(0, min(int(offset), len(matches)))
+        bounded_limit = max(1, min(int(limit), MAX_CONTEXT_INVENTORY_ROWS))
+        page = matches[bounded_offset:bounded_offset + bounded_limit]
+        for record in page:
+            record.pop("score", None)
+        payload = {
+            "query": bounded_query,
+            "include_relations": bool(include_relations),
+            "match_semantics": (
+                "all normalized query tokens must occur in canonical text, metadata, "
+                "or resolved relation titles"
+            ),
+            "record_types_requested": requested_types,
+            "record_types_resolved": [
+                str(table.get("name") or table.get("id") or "")
+                for table in resolved_tables
+            ],
+            "record_types_unresolved": unresolved_types,
+            "available_record_types": [
+                str(table.get("name") or table.get("id") or "")
+                for table in available_tables
+            ],
+            "searched_count": len(canonical_records),
+            "text_index": {
+                "cached_document_count": len(cached_documents),
+                "cached_term_count": len(indexed_terms),
+                "direct_body_reads": direct_body_reads,
+                "built_at": text_index_built_at or None,
+            },
+            "matching_count": len(matches),
+            "counts_by_type": counts_by_type,
+            "counts_by_match_kind": counts_by_match_kind,
+            "offset": bounded_offset,
+            "limit": bounded_limit,
+            "has_more": bounded_offset + len(page) < len(matches),
+            "next_offset": (
+                bounded_offset + len(page)
+                if bounded_offset + len(page) < len(matches)
+                else None
+            ),
+            "records": page,
         }
         return json.dumps(payload, ensure_ascii=False, default=str)
 
@@ -1015,6 +1460,8 @@ def build_context_tools(raw_refs: Any) -> List[Any]:
         StructuredTool.from_function(search_context),
         StructuredTool.from_function(search_context_source),
     ]
+    if inventory_refs:
+        tools.append(StructuredTool.from_function(inventory_context))
     if table_refs:
         tools.append(StructuredTool.from_function(query_context_table))
     if external_ids:

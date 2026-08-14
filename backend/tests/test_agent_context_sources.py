@@ -157,6 +157,224 @@ def test_attached_table_query_applies_active_view_and_returns_exact_count(monkey
     ]
 
 
+def test_vault_inventory_is_exhaustive_typed_and_paginated(monkeypatch, tmp_path):
+    resource_path = tmp_path / "resource.md"
+    resource_path.write_text(
+        "---\ntitle: Coaching source\n---\nA coaching reference.",
+        encoding="utf-8",
+    )
+    note_path = tmp_path / "note.md"
+    note_path.write_text(
+        "A detailed note about coaching practice.",
+        encoding="utf-8",
+    )
+    unrelated_path = tmp_path / "other.md"
+    unrelated_path.write_text("Unrelated material.", encoding="utf-8")
+    monkeypatch.setattr(agent_context, "_vault_root", lambda: tmp_path)
+    monkeypatch.setattr(agent_context, "_registry", lambda: {
+        "tables": [
+            {"id": "resources", "name": "Recursos", "properties": []},
+            {"id": "brain", "name": "Cervell digital", "properties": []},
+        ],
+        "views": [],
+    })
+    pages = {
+        "resources": [
+            SimpleNamespace(
+                id="resource-1",
+                title="Coaching source",
+                path=resource_path,
+                metadata={"Any": 2017, "Item Type": "Tesi"},
+            ),
+            SimpleNamespace(
+                id="resource-2",
+                title="Other source",
+                path=unrelated_path,
+                metadata={},
+            ),
+        ],
+        "brain": [
+            SimpleNamespace(
+                id="note-1",
+                title="Practice notes",
+                path=note_path,
+                metadata={"Estat de verificació": "Provisional"},
+            ),
+        ],
+    }
+    monkeypatch.setattr(
+        agent_context,
+        "_table_pages",
+        lambda table_id: pages.get(table_id, []),
+    )
+    tools = {tool.name: tool for tool in build_context_tools([{
+        "id": "active-vault",
+        "type": "vault",
+        "ref": "active-vault",
+        "label": "Knowledge",
+    }])}
+
+    first = json.loads(tools["inventory_context"].invoke({
+        "query": "coaching",
+        "record_types": ["source", "note"],
+        "offset": 0,
+        "limit": 1,
+    }))
+
+    assert first["searched_count"] == 3
+    assert first["matching_count"] == 2
+    assert first["counts_by_type"] == {"Recursos": 1, "Cervell digital": 1}
+    assert first["record_types_resolved"] == ["Recursos", "Cervell digital"]
+    assert first["has_more"] is True
+    assert first["next_offset"] == 1
+    assert first["records"][0]["id"] == "resource-1"
+    assert first["records"][0]["metadata"] == {
+        "year": 2017,
+        "item_type": "Tesi",
+    }
+
+    second = json.loads(tools["inventory_context"].invoke({
+        "query": "coaching",
+        "record_types": ["source", "note"],
+        "offset": 1,
+        "limit": 100,
+    }))
+    assert second["records"][0]["id"] == "note-1"
+    assert second["records"][0]["metadata"] == {
+        "verification_status": "Provisional",
+    }
+    assert second["has_more"] is False
+
+
+def test_inventory_resolves_new_registry_table_names_without_code_aliases(
+    monkeypatch,
+    tmp_path,
+):
+    from backend.api import vault_routes
+
+    qualification_path = tmp_path / "qualification.md"
+    qualification_path.write_text("Advanced coaching course.", encoding="utf-8")
+    resource_path = tmp_path / "resource.md"
+    resource_path.write_text("Another coaching record.", encoding="utf-8")
+    monkeypatch.setattr(agent_context, "_vault_root", lambda: tmp_path)
+    monkeypatch.setattr(agent_context, "_registry", lambda: {
+        "tables": [
+            {"id": "qualifications", "name": "Titulacions", "properties": []},
+            {"id": "resources", "name": "Recursos", "properties": []},
+        ],
+        "views": [],
+    })
+    monkeypatch.setattr(agent_context, "_table_pages", lambda table_id: {
+        "qualifications": [SimpleNamespace(
+            id="qualification-1",
+            title="Advanced coaching",
+            path=qualification_path,
+            metadata={},
+        )],
+        "resources": [SimpleNamespace(
+            id="resource-1",
+            title="Other coaching",
+            path=resource_path,
+            metadata={},
+        )],
+    }.get(table_id, []))
+    monkeypatch.setattr(vault_routes, "get_cached_document_texts", lambda _paths: {})
+    monkeypatch.setattr(vault_routes, "get_link_index_terms", lambda _ids: ({}, 0.0))
+    inventory = next(
+        tool
+        for tool in build_context_tools([{
+            "id": "active-vault",
+            "type": "vault",
+            "ref": "active-vault",
+            "label": "Knowledge",
+        }])
+        if tool.name == "inventory_context"
+    )
+
+    payload = json.loads(inventory.invoke({
+        "query": "titulacions coaching",
+        "record_types": [],
+    }))
+
+    assert payload["query"] == "coaching"
+    assert payload["record_types_resolved"] == ["Titulacions"]
+    assert payload["matching_count"] == 1
+    assert payload["records"][0]["id"] == "qualification-1"
+
+
+def test_inventory_can_distinguish_direct_text_from_related_records(
+    monkeypatch,
+    tmp_path,
+):
+    from backend.api import vault_routes
+
+    note_path = tmp_path / "note.md"
+    note_path.write_text("Unrelated direct text.", encoding="utf-8")
+    monkeypatch.setattr(agent_context, "_vault_root", lambda: tmp_path)
+    monkeypatch.setattr(agent_context, "_registry", lambda: {
+        "tables": [{"id": "brain", "name": "Cervell digital", "properties": []}],
+        "views": [],
+    })
+    monkeypatch.setattr(agent_context, "_table_pages", lambda _table_id: [
+        SimpleNamespace(
+            id="note-1",
+            title="Practice",
+            path=note_path,
+            metadata={},
+        ),
+    ])
+    monkeypatch.setattr(
+        vault_routes,
+        "get_cached_document_texts",
+        lambda _paths: {str(note_path): "Unrelated direct text."},
+    )
+    monkeypatch.setattr(
+        vault_routes,
+        "get_link_index_terms",
+        lambda _ids: ({
+            "note-1": (frozenset({"unrelated"}), frozenset({"Coaching course"})),
+        }, 123.0),
+    )
+    inventory = next(
+        tool
+        for tool in build_context_tools([{
+            "id": "active-vault",
+            "type": "vault",
+            "ref": "active-vault",
+            "label": "Knowledge",
+        }])
+        if tool.name == "inventory_context"
+    )
+
+    related = json.loads(inventory.invoke({
+        "query": "coaching",
+        "record_types": ["note"],
+        "include_relations": True,
+    }))
+    literal = json.loads(inventory.invoke({
+        "query": "coaching",
+        "record_types": ["note"],
+        "include_relations": False,
+    }))
+
+    assert related["matching_count"] == 1
+    assert related["counts_by_match_kind"] == {"direct": 0, "relation": 1}
+    assert related["records"][0]["match_basis"] == ["relations"]
+    assert related["records"][0]["match_kind"] == "relation"
+    assert literal["matching_count"] == 0
+
+    mixed = json.loads(inventory.invoke({
+        "query": "practice coaching",
+        "record_types": ["note"],
+        "include_relations": True,
+    }))
+
+    assert mixed["matching_count"] == 1
+    assert mixed["counts_by_match_kind"] == {"direct": 0, "relation": 1}
+    assert mixed["records"][0]["match_basis"] == ["title", "relations"]
+    assert mixed["records"][0]["match_kind"] == "relation"
+
+
 def test_one_source_search_refuses_unattached_ids(monkeypatch):
     tools = {tool.name: tool for tool in build_context_tools([
         {"id": "one", "type": "page", "ref": "p1", "label": "One"},

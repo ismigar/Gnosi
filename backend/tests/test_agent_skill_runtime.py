@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -168,11 +169,11 @@ def test_vault_requests_select_deterministic_first_context_operation():
     assert factory._required_vault_context_tool(
         "Troba tots els recursos dels quals soc autor",
         table_ref,
-    ) == "query_context_table"
+    ) == "inventory_context"
     assert factory._required_vault_context_tool(
         "Cerca recursos sobre accessibilitat",
         table_ref,
-    ) == "search_context"
+    ) == "inventory_context"
     assert factory._required_vault_context_tool(
         "Resumeix aquesta pàgina",
         [{"type": "page", "ref": "page-1"}],
@@ -247,6 +248,20 @@ def test_exact_vault_reads_build_deterministic_tool_calls():
         "search_context",
         [{"type": "vault", "ref": "active-vault"}],
     ) is None
+
+    inventory_call = factory._deterministic_vault_context_call(
+        "inventory_context",
+        [{"id": "active-vault", "type": "vault", "ref": "active-vault"}],
+        "Busca quines fonts i notes tinc relacionades amb coaching",
+    )
+    assert inventory_call["name"] == "inventory_context"
+    assert inventory_call["args"] == {
+        "query": "coaching",
+        "record_types": ["source", "note"],
+        "include_relations": True,
+        "offset": 0,
+        "limit": 100,
+    }
 
 
 def test_personal_resource_authorship_builds_one_exact_server_call():
@@ -401,7 +416,7 @@ def test_turn_model_tools_bind_reads_and_exact_guarded_grants_only():
     ("message", "expected"),
     [
         ("Troba tots els recursos dels quals soc autor", "authored"),
-        ("List all rows in this table", "query_context_table"),
+        ("List all rows in this table", "inventory_context"),
         ("Summarize this page", "read_context_source"),
         ("Quantes notícies pendents tinc?", "inspect_reader_context"),
         ("Busca notícies sobre accessibilitat", "search_reader_context"),
@@ -418,11 +433,151 @@ def test_representative_read_request_matrix(message, expected):
     elif "reader" in expected:
         assert factory._required_reader_context_tool(message) == expected
     else:
-        ref_type = "table" if expected == "query_context_table" else "page"
+        ref_type = "table" if expected == "inventory_context" else "page"
         assert factory._required_vault_context_tool(
             message,
             [{"type": ref_type, "ref": "example"}],
         ) == expected
+
+
+@pytest.mark.parametrize(
+    ("message", "expected"),
+    [
+        ("Hola, com estàs?", "conversation"),
+        ("Qui és l'autor d'aquesta nota?", "lookup"),
+        ("Busca quines fonts i notes tinc relacionades amb coaching", "inventory"),
+        ("Quants projectes tinc?", "inventory"),
+        ("Quines titulacions tinc?", "inventory"),
+        ("Mostra'm els llibres", "inventory"),
+        ("Show my books", "inventory"),
+        ("Show me how to archive email", "lookup"),
+        ("Llista les notes que contenen coaching", "inventory"),
+        ("Quines notes parlen de coaching?", "inventory"),
+        ("How many qualifications do I have?", "inventory"),
+        ("Quants anys té aquesta persona?", "lookup"),
+        ("Com puc arxivar els correus?", "lookup"),
+        ("Quines notes contenen literalment coaching?", "inventory"),
+        ("Què diuen les meves notes sobre coaching?", "analysis"),
+        ("Compare all notes about coaching", "analysis"),
+        ("Crea una nota sobre coaching", "action"),
+    ],
+)
+def test_universal_request_mode_is_independent_from_the_topic(message, expected):
+    assert factory._request_mode(message) == expected
+
+
+def test_inventory_argument_extraction_removes_request_scaffolding():
+    assert factory._inventory_request_arguments(
+        "Llista tots els projectes de salut mental"
+    ) == {
+        "query": "salut mental",
+        "record_types": ["project"],
+        "include_relations": True,
+        "offset": 0,
+        "limit": 100,
+    }
+    assert factory._inventory_request_arguments(
+        "Quants recursos tinc?"
+    )["query"] == ""
+    assert factory._inventory_request_arguments(
+        "Mostra'm les titulacions"
+    )["query"] == ""
+    assert factory._inventory_request_arguments(
+        "¿Qué titulaciones tengo?"
+    )["query"] == ""
+    assert factory._inventory_request_arguments(
+        "Quelles qualifications ai-je ?"
+    )["query"] == ""
+    assert factory._inventory_request_arguments(
+        "List all rows in this table"
+    )["query"] == ""
+    literal = factory._inventory_request_arguments(
+        "Quines notes contenen literalment coaching?"
+    )
+    assert literal["query"] == "coaching"
+    assert literal["include_relations"] is False
+    assert factory._inventory_request_arguments(
+        "Llista els registres des de l'índex 200"
+    )["offset"] == 200
+    assert factory._response_language("Mostra'm les titulacions") == "ca"
+
+
+def test_inventory_continuation_reuses_the_exact_previous_cursor():
+    payload = {
+        "query": "coaching",
+        "record_types_requested": ["source", "note"],
+        "matching_count": 140,
+        "offset": 0,
+        "limit": 100,
+        "has_more": True,
+        "next_offset": 100,
+        "records": [],
+    }
+    messages = [
+        HumanMessage(content="Busca fonts i notes sobre coaching"),
+        AIMessage(content="", tool_calls=[{
+            "name": "inventory_context",
+            "args": {},
+            "id": "inventory-call",
+            "type": "tool_call",
+        }]),
+        ToolMessage(
+            content=json.dumps(payload),
+            name="inventory_context",
+            tool_call_id="inventory-call",
+        ),
+        AIMessage(content="Showing the first page"),
+        HumanMessage(content="Continua amb els següents"),
+    ]
+
+    assert factory._inventory_continuation_requested(messages[-1].content)
+    assert factory._previous_inventory_arguments(messages) == {
+        "query": "coaching",
+        "record_types": ["source", "note"],
+        "include_relations": True,
+        "offset": 100,
+        "limit": 100,
+    }
+    assert factory._required_vault_context_tool(
+        messages[-1].content,
+        [{"type": "vault", "ref": "active-vault"}],
+        inventory_continuation=True,
+    ) == "inventory_context"
+
+
+def test_inventory_response_is_localized_grouped_and_explicitly_paginated():
+    response = factory._inventory_context_response(json.dumps({
+        "query": "coaching",
+        "matching_count": 3,
+        "counts_by_type": {"Recursos": 2, "Cervell digital": 1},
+        "counts_by_match_kind": {"direct": 2, "relation": 1},
+        "offset": 0,
+        "has_more": True,
+        "next_offset": 2,
+        "records": [
+            {
+                "id": "resource-1",
+                "title": "Coaching x valores",
+                "record_type": {"id": "resources", "name": "Recursos"},
+                "metadata": {"year": 2015, "item_type": "Formació"},
+            },
+            {
+                "id": "note-1",
+                "title": "*Unsafe* note",
+                "record_type": {"id": "brain", "name": "Cervell digital"},
+                "match_basis": ["relations"],
+                "metadata": {"verification_status": "Provisional"},
+            },
+        ],
+    }), "Busca quines fonts i notes tinc relacionades amb coaching")
+
+    assert "He trobat 3 registres" in response
+    assert "Per tipus: Cervell digital (1), Recursos (2)." in response
+    assert "Coincidències: 2 directes · 1 per relació." in response
+    assert "Recursos (2)" in response and "Cervell digital (1)" in response
+    assert "\\*Unsafe\\* note" in response
+    assert "Es mostren 2 de 3; continua des de l’índex 2." in response
+    assert "cerca exhaustiva de text, metadades i relacions" in response
 
 
 @pytest.mark.parametrize(
@@ -521,6 +676,231 @@ def test_authored_resources_route_once_then_formats_without_model(monkeypatch):
         "S'ha trobat 1 recurs a la vista «Resources»:\n1. Mine"
     )
     assert llm.system_prompts == []
+
+
+def test_generic_inventory_routes_once_then_formats_without_model(monkeypatch):
+    calls = []
+
+    @tool
+    def inventory_context(
+        query: str = "",
+        record_types: list[str] | None = None,
+        include_relations: bool = True,
+        offset: int = 0,
+        limit: int = 100,
+    ) -> str:
+        """Enumerate exact matching records from the attached test Vault."""
+        calls.append((query, record_types, include_relations, offset, limit))
+        return json.dumps({
+            "query": query,
+            "matching_count": 1,
+            "counts_by_type": {"Cervell digital": 1},
+            "offset": offset,
+            "has_more": False,
+            "records": [{
+                "id": "note-1",
+                "title": "Coaching practice",
+                "record_type": {"id": "brain", "name": "Cervell digital"},
+                "metadata": {},
+            }],
+        })
+
+    monkeypatch.setattr(factory, "build_context_tools", lambda _refs: [inventory_context])
+    llm = RecordingLlm()
+    workflow, _selection = _workflow(
+        monkeypatch,
+        _agent(context_refs=[{
+            "id": "active-vault",
+            "type": "vault",
+            "ref": "active-vault",
+            "label": "Knowledge",
+        }]),
+        _runtime(),
+        llm,
+    )
+
+    result = workflow.compile().invoke({
+        "messages": [HumanMessage(content=(
+            "Busca quines fonts i notes tinc relacionades amb coaching"
+        ))],
+        "turn_authorized_tool_names": [],
+        "active_skill_ids": [],
+        "current_user_role": "owner",
+    })
+
+    assert calls == [("coaching", ["source", "note"], True, 0, 100)]
+    assert "He trobat 1 registre" in result["messages"][-1].content
+    assert "Coaching practice" in result["messages"][-1].content
+    assert llm.system_prompts == []
+
+
+def test_conversation_with_vault_context_does_not_force_a_read(monkeypatch):
+    calls = []
+
+    @tool
+    def search_context(query: str) -> str:
+        """Search attached test context."""
+        calls.append(query)
+        return "unexpected"
+
+    monkeypatch.setattr(factory, "build_context_tools", lambda _refs: [search_context])
+    llm = RecordingLlm()
+    workflow, _selection = _workflow(
+        monkeypatch,
+        _agent(context_refs=[{
+            "id": "active-vault",
+            "type": "vault",
+            "ref": "active-vault",
+            "label": "Knowledge",
+        }]),
+        _runtime(),
+        llm,
+    )
+
+    result = workflow.compile().invoke({
+        "messages": [HumanMessage(content="Hola, com estàs?")],
+        "turn_authorized_tool_names": [],
+        "active_skill_ids": [],
+        "current_user_role": "owner",
+    })
+
+    assert calls == []
+    assert result["messages"][-1].content == "done"
+    assert len(llm.system_prompts) == 1
+
+
+def test_conversation_with_assigned_runtime_does_not_bind_passive_tools(
+    monkeypatch,
+):
+    context_calls = []
+
+    @tool
+    def search_context(query: str) -> str:
+        """Search attached test context."""
+        context_calls.append(query)
+        return "unexpected"
+
+    @tool
+    def inspect_assigned_source() -> str:
+        """Inspect an assigned source."""
+        return "unexpected"
+
+    descriptor = SimpleNamespace(
+        id="custom.inspect-source",
+        effects=["read"],
+        confirmation="none",
+    )
+    skill_descriptor = SimpleNamespace(
+        id="custom.runtime",
+        tool_ids=[descriptor.id],
+    )
+    runtime = _runtime(
+        assigned=("custom.runtime",),
+        active=("custom.runtime",),
+        tools=(inspect_assigned_source,),
+        descriptors=(descriptor,),
+        skills=(SimpleNamespace(descriptor=skill_descriptor),),
+    )
+    monkeypatch.setattr(factory, "build_context_tools", lambda _refs: [search_context])
+    llm = RecordingLlm()
+    workflow, _selection = _workflow(
+        monkeypatch,
+        _agent(
+            skill_ids=["custom.runtime"],
+            context_refs=[{
+                "id": "active-vault",
+                "type": "vault",
+                "ref": "active-vault",
+                "label": "Knowledge",
+            }],
+        ),
+        runtime,
+        llm,
+    )
+
+    result = workflow.compile().invoke({
+        "messages": [HumanMessage(content="Hola, com estàs?")],
+        "turn_authorized_tool_names": [],
+        "active_skill_ids": ["custom.runtime"],
+        "current_user_role": "owner",
+    })
+
+    assert result["messages"][-1].content == "done"
+    assert context_calls == []
+    assert llm.bound_tool_names == [["search_context"]]
+    assert "classified this turn as conversation" in llm.system_prompts[0]
+    assert "MUST call" not in llm.system_prompts[0]
+
+
+def test_explicit_non_vault_domain_does_not_force_default_vault_context():
+    assert factory._vault_context_is_relevant("Quines titulacions tinc?")
+    assert not factory._vault_context_is_relevant("Quin temps farà demà?")
+    assert not factory._vault_context_is_relevant("Busca al meu correu")
+    assert factory._vault_context_is_relevant(
+        "Busca notes relacionades amb el correu"
+    )
+
+
+def test_non_vault_runtime_request_does_not_expose_default_vault_tools(
+    monkeypatch,
+):
+    context_calls = []
+
+    @tool
+    def search_context(query: str) -> str:
+        """Search attached test context."""
+        context_calls.append(query)
+        return "unexpected"
+
+    @tool
+    def inspect_weather(location: str) -> str:
+        """Read a weather forecast."""
+        return location
+
+    descriptor = SimpleNamespace(
+        id="custom.inspect-weather",
+        effects=["read"],
+        confirmation="none",
+    )
+    skill_descriptor = SimpleNamespace(
+        id="custom.weather",
+        tool_ids=[descriptor.id],
+    )
+    runtime = _runtime(
+        assigned=("custom.weather",),
+        active=("custom.weather",),
+        tools=(inspect_weather,),
+        descriptors=(descriptor,),
+        skills=(SimpleNamespace(descriptor=skill_descriptor),),
+    )
+    monkeypatch.setattr(factory, "build_context_tools", lambda _refs: [search_context])
+    llm = RecordingLlm()
+    workflow, _selection = _workflow(
+        monkeypatch,
+        _agent(
+            skill_ids=["custom.weather"],
+            context_refs=[{
+                "id": "active-vault",
+                "type": "vault",
+                "ref": "active-vault",
+                "label": "Knowledge",
+            }],
+        ),
+        runtime,
+        llm,
+    )
+
+    result = workflow.compile().invoke({
+        "messages": [HumanMessage(content="Quin temps farà demà?")],
+        "turn_authorized_tool_names": [],
+        "active_skill_ids": ["custom.weather"],
+        "current_user_role": "owner",
+    })
+
+    assert result["messages"][-1].content == "done"
+    assert context_calls == []
+    assert llm.bound_tool_names[-1] == ["inspect_weather"]
+    assert "MUST call search_context" not in llm.system_prompts[0]
 
 
 def test_repeat_guard_precedes_missing_context_forcing(monkeypatch):
