@@ -36,6 +36,8 @@ The existing landing pages remain static and do not link to the dashboard.
 
 - A tracked redirect records download or repository intent, not a confirmed
   GitHub download.
+- Landing CTA clicks and platform-specific installer-link clicks are separate
+  GA4 intent signals. Neither may be presented as a confirmed download.
 - Confirmed downloads are calculated from release asset counter deltas.
 - GitHub traffic is retained as daily snapshots because the upstream API only
   exposes the last fourteen days.
@@ -88,6 +90,10 @@ The existing landing pages remain static and do not link to the dashboard.
 - Do not declare `limits.cpu_ms` on a Free-plan Worker. Cloudflare applies the
   free CPU ceiling automatically and rejects deployments that set this paid-only
   configuration field.
+- Do not pass an unchecked Worker response directly into React state. Pages and
+  Worker deployments can be temporarily out of step, which can make a missing
+  array crash rendering into a blank screen. Normalize optional fields, preserve
+  honest unavailable values, and reject unrelated error payloads explicitly.
 
 ## Validation
 
