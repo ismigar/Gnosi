@@ -16,6 +16,7 @@ ELECTRON_DIR="$SCRIPT_DIR"
 MONOREPO_DIR="$(dirname "$(dirname "$(dirname "$ELECTRON_DIR")")")"
 FRONTEND_DIR="$ELECTRON_DIR/../frontend"
 MONOREPO_LOCK="$MONOREPO_DIR/package-lock.json"
+VERSION_SYNC_SCRIPT="$ELECTRON_DIR/scripts/sync-release-version.cjs"
 
 echo "Release version: $VERSION"
 echo "Electron dir: $ELECTRON_DIR"
@@ -38,12 +39,11 @@ fi
 
 echo ""
 echo "2. Updating synchronized package versions..."
-cd "$ELECTRON_DIR"
-npm pkg set version="$VERSION"
-cd "$FRONTEND_DIR"
-npm pkg set version="$VERSION"
-cd "$MONOREPO_DIR"
-npm install --package-lock-only --ignore-scripts
+node "$VERSION_SYNC_SCRIPT" \
+    "$VERSION" \
+    "$ELECTRON_DIR/package.json" \
+    "$FRONTEND_DIR/package.json" \
+    "$MONOREPO_LOCK"
 
 ELECTRON_VERSION=$(node -p "require('$ELECTRON_DIR/package.json').version")
 FRONTEND_VERSION=$(node -p "require('$FRONTEND_DIR/package.json').version")
@@ -69,12 +69,10 @@ cd "$FRONTEND_DIR"
 npm run build
 
 echo ""
-echo "4. Building Python bundle..."
+# Each platform build runs build:python before electron-builder. Do not build
+# Python separately here or every local release repeats the clean bundle build.
+echo "4. Building Electron apps for current platform..."
 cd "$ELECTRON_DIR"
-./build-python.sh
-
-echo ""
-echo "5. Building Electron apps for current platform..."
 PLATFORM=$(uname -s)
 case "$PLATFORM" in
     Darwin*)
@@ -94,7 +92,7 @@ case "$PLATFORM" in
 esac
 
 echo ""
-echo "6. Listing built artifacts..."
+echo "5. Listing built artifacts..."
 ls -lh "$ELECTRON_DIR/dist/"*.{dmg,AppImage,deb,exe,zip} 2>/dev/null || ls -lh "$ELECTRON_DIR/dist/"
 
 echo ""

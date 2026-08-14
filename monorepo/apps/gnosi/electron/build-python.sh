@@ -91,6 +91,10 @@ echo "4. Running PyInstaller..."
 mkdir -p "$PYTHON_BUILD_DIR"
 cd "$PYTHON_BUILD_DIR"
 
+# PyInstaller otherwise prompts before replacing a previous COLLECT directory.
+# Release builds must be non-interactive and must never reuse a stale bundle.
+rm -rf "$PYTHON_BUILD_DIR/build" "$PYTHON_BUILD_DIR/dist"
+
 $PYTHON_VENV << PYSCRIPT
 import os
 import platform
@@ -168,7 +172,7 @@ with open('backend.spec', 'w') as f:
 print(f"Created backend.spec with BACKEND_DIR={backend_dir}")
 PYSCRIPT
 
-$PYTHON_VENV -m PyInstaller backend.spec --clean 2>&1 || true
+$PYTHON_VENV -m PyInstaller backend.spec --clean --noconfirm
 
 echo ""
 echo "5. Copying build to dist-python..."
@@ -183,9 +187,10 @@ elif [ -d "$PYTHON_BUILD_DIR/build/cervell_backend" ]; then
     echo "   Python bundle created at: $DIST_DIR"
     du -sh "$DIST_DIR"
 else
-    echo "Warning: Python bundle not found"
+    echo "Error: Python bundle not found"
     ls -la "$PYTHON_BUILD_DIR/dist/" 2>/dev/null || true
     ls -la "$PYTHON_BUILD_DIR/build/" 2>/dev/null || true
+    exit 1
 fi
 
 echo ""

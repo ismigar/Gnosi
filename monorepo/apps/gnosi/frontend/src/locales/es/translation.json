@@ -5184,6 +5184,17 @@
     "section_improvements": "Mejoras",
     "section_fixes": "Correcciones",
     "entries": {
+      "v1_0_0_rc_3": {
+        "highlights": {
+          "vault_marketplace": "Crea Vaults desde un repositorio oficial de plantillas directamente en la aplicación.",
+          "plugin_marketplace": "Los plugins comparten una experiencia de repositorio con información de procedencia verificable."
+        },
+        "improvements": {
+          "signed_packages": "Los índices y paquetes oficiales se verifican con SHA-256 y firmas Ed25519 antes de instalarlos.",
+          "moderated_publishing": "Los Vaults y plugins se pueden exportar como paquetes filtrados y preparar para una publicación moderada."
+        },
+        "fixes": {}
+      },
       "v1_0_0_rc_2": {
         "highlights": {
           "desktop_branding": "Las aplicaciones de escritorio ahora utilizan el icono oficial de Gnosi en macOS, Windows y Linux."

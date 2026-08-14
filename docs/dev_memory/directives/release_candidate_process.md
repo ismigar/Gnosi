@@ -61,8 +61,16 @@ until a maintainer publishes them.
 
 - Do not create the release tag from a feature branch because the tag must
   identify reviewed code that exists on `main`.
+- Add the matching release-note entry and run `npm run changelog:write` before
+  running the preparation script. The script builds the frontend immediately
+  after changing package versions, and its validator rejects either a missing
+  version entry or a stale `CHANGELOG.md`.
 - Do not update only Electron because the Control Center reads the frontend
   package version and would display a different release.
+- Do not use `npm install` or `npm pkg set` to synchronize release metadata.
+  Different npm versions can reorder manifests and refresh unrelated lockfile
+  dependencies. Use the deterministic release-version synchronizer, which
+  changes only the two manifest versions and the frontend workspace lock entry.
 - Do not publish the draft automatically. The workflow deliberately leaves the
   public release in draft state for final artifact inspection.
 - Do not point Electron publishing metadata at the private source repository.
@@ -88,11 +96,21 @@ until a maintainer publishes them.
   as damaged. Until Developer ID signing and notarization are configured, apply
   a complete ad-hoc signature and require `codesign --verify --deep --strict` on
   every generated DMG before uploading it.
+- Do not sign a framework's `Versions/Current` symlink before its nested Mach-O
+  helpers. Sign Mach-O files first, then nested app/XPC bundles and concrete
+  framework version directories from deepest to shallowest, and the outer app
+  last. Skip symlinks, `Versions/Current`, and root-level framework aliases;
+  PyInstaller can materialize those aliases as real paths rather than symlinks.
 - Do not reference the sibling frontend build as if it were inside the Electron
   project. electron-builder silently skips the missing path and produces an app
   that cannot load its renderer. Copy the sibling `frontend/dist` directory into
   application resources and load it through `process.resourcesPath`; assert that
   its `index.html` exists inside every inspected macOS package.
+- Do not let PyInstaller reuse or silently skip an existing COLLECT directory.
+  Clear its generated `build` and `dist` outputs, use non-interactive overwrite,
+  and propagate any PyInstaller failure before copying `dist-python`.
+- Do not build the clean Python bundle once in `release.sh` and again through
+  `npm run build:<platform>`; the platform scripts already own that prerequisite.
 
 ## Error protocol and learning
 
@@ -103,6 +121,12 @@ until a maintainer publishes them.
 | 2026-08-01 | The Control Center still displayed `v0.2.0` after the manifests changed | Vite had injected the package version at its previous startup | Restart the native frontend and confirm the version visually |
 | 2026-08-03 | The RC used Electron branding and macOS reported the app as damaged | Desktop icons were absent and certificate discovery was disabled without sealing the bundle | Generate explicit cross-platform icons, ad-hoc sign the complete macOS bundle, and verify every DMG in CI |
 | 2026-08-03 | The packaged app omitted the frontend bundle | The file pattern targeted `electron/frontend/dist`, but the build lives in the sibling `frontend/dist` directory | Package the sibling build as an extra resource, load it through `process.resourcesPath`, and assert the packaged index exists |
+| 2026-08-14 | A repeated local release kept a stale Python bundle | PyInstaller prompted before overwriting COLLECT, while `build-python.sh` swallowed the abort and copied the old output | Remove generated PyInstaller outputs first, pass `--noconfirm`, propagate failure, and avoid the duplicate Python build |
+| 2026-08-14 | The platform build resolved against the frontend workspace | Removing the duplicate Python phase also removed its incidental `cd` back to Electron | Change to the Electron directory explicitly immediately before `npm run build:<platform>` |
+| 2026-08-14 | Ad-hoc signing failed on Electron Framework `Versions/Current` | The framework symlink was signed before its nested crashpad helper, so codesign rejected the unsigned child | Sign nested Mach-O files and bundles bottom-up, skip symlinks and framework roots, then verify the complete app with `--deep --strict` |
+| 2026-08-14 | Preparing the release rewrote thousands of lockfile lines | The local npm version refreshed and reformatted the workspace dependency graph during a version-only operation | Synchronize the three release-version fields with the deterministic helper and leave dependency resolution untouched |
+| 2026-08-14 | The committed monorepo lockfile could not be parsed as JSON | A previous dependency update lost the boundary between frontend dependencies and dev dependencies, duplicated one key, and left stale workspace constraints | Restore the object boundary, mirror the frontend manifest constraints exactly, and require JSON parsing in release preparation |
+| 2026-08-14 | All frontend tests failed after a clean `npm ci` because Vitest could not import jsdom | npm hoisted Vitest to the monorepo root but kept the workspace-only jsdom package nested below the frontend | Declare the shared test runtime at the monorepo root and verify tests after a clean lockfile install |
 
 ## Verification checklist
 

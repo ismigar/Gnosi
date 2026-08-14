@@ -1,5 +1,19 @@
 # Gnosi changelog
 
+## Gnosi 1.0.0-rc.3
+
+_2026-08-14 · Release candidate_
+
+### Highlights
+
+- Create Vaults from an official template repository directly in the application.
+- Plugins share a repository experience with verifiable provenance information.
+
+### Improvements
+
+- Official indexes and packages are verified with SHA-256 and Ed25519 signatures before installation.
+- Vaults and plugins can be exported as filtered packages and prepared for moderated publishing.
+
 ## Gnosi 1.0.0-rc.2
 
 _2026-08-03 · Release candidate_
