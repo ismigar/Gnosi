@@ -68,10 +68,12 @@ def test_verify_against_trust(tmp_path):
 
 # --- Remote installation with signing ---------------------------------------
 def _fake_download(monkeypatch, data: bytes):
-    class _Resp:
-        def raise_for_status(self): pass
-        def iter_content(self, n): yield data
-    monkeypatch.setattr(pc.requests, "get", lambda *a, **k: _Resp())
+    from backend.services.marketplace_http import PublicResponse
+    monkeypatch.setattr(
+        pc,
+        "fetch_public_bytes",
+        lambda url, **kwargs: PublicResponse(data, url, 200, "application/zip"),
+    )
 
 
 def test_install_signed_trusted(tmp_path, monkeypatch):
@@ -118,10 +120,13 @@ def test_install_unsigned_allowed_marked(tmp_path, monkeypatch):
 def test_fetch_remote_index_merges(monkeypatch):
     remote = [{"id": "remot-1", "name": "Remot", "url": "https://x/r1.zip"}]
 
-    class _Resp:
-        def raise_for_status(self): pass
-        def iter_content(self, n): yield json.dumps(remote).encode()
-    monkeypatch.setattr(pc.requests, "get", lambda *a, **k: _Resp())
+    from backend.services.marketplace_http import PublicResponse
+    payload = json.dumps(remote).encode()
+    monkeypatch.setattr(
+        pc,
+        "fetch_public_bytes",
+        lambda url, **kwargs: PublicResponse(payload, url, 200, "application/json"),
+    )
 
     entries = pc.fetch_remote_index("https://x/index.json")
     assert entries and entries[0]["id"] == "remot-1"
@@ -130,6 +135,30 @@ def test_fetch_remote_index_merges(monkeypatch):
     merged = pc.load_catalog("https://x/index.json")
     ids = {e["id"] for e in merged}
     assert "remot-1" in ids and "hello-command" in ids  # remot + bundled
+
+
+def test_fetch_remote_index_requires_trusted_detached_signature(tmp_path, monkeypatch):
+    from backend.services.marketplace_http import PublicResponse
+
+    keypair = psign.generate_keypair()
+    psign.add_trusted_key(tmp_path, "catalog-publisher", keypair["public"])
+    payload = json.dumps([
+        {"id": "signed-index", "url": "https://example.test/plugin.zip"},
+    ]).encode()
+    signature = psign.sign(keypair["private"], payload).encode()
+
+    def fake_fetch(url, **kwargs):
+        body = signature if url.endswith(".sig") else payload
+        return PublicResponse(body, url, 200, "application/json")
+
+    monkeypatch.setattr(pc, "fetch_public_bytes", fake_fetch)
+    entries = pc.fetch_remote_index(
+        "https://example.test/plugins-index.json",
+        tmp_path,
+        require_signature=True,
+    )
+
+    assert entries[0]["id"] == "signed-index"
 
 
 def test_end_to_end_signing_tool_flow(tmp_path, monkeypatch):

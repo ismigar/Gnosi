@@ -252,11 +252,12 @@ def test_install_from_url_checksum_mismatch(tmp_path, monkeypatch):
 
     data = _make_zip({"manifest.json": json.dumps({"id": "remot", "version": "1.0.0"})})
 
-    class _Resp:
-        def raise_for_status(self): pass
-        def iter_content(self, n): yield data
-
-    monkeypatch.setattr(pc.requests, "get", lambda *a, **k: _Resp())
+    from backend.services.marketplace_http import PublicResponse
+    monkeypatch.setattr(
+        pc,
+        "fetch_public_bytes",
+        lambda url, **kwargs: PublicResponse(data, url, 200, "application/zip"),
+    )
 
     good = hashlib.sha256(data).hexdigest()
     # Checksum correcte → instal·la.

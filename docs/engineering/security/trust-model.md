@@ -7,6 +7,8 @@ source_paths:
   - backend/security/keychain_manager.py
   - backend/security/ai_credentials.py
   - backend/services/plugin_sandbox.py
+  - backend/services/vault_templates.py
+  - backend/services/marketplace_http.py
   - backend/agent/generated_tools/validator.py
   - backend/api/share_routes.py
 tests:
@@ -112,6 +114,8 @@ screenshots, logs, fixtures, or shared plugin packages.
 | Credential disclosure | Local secret storage, masking, generic errors, log discipline. |
 | Agent performs unintended action | Tool allowlist, effect classification, argument validation, confirmations. |
 | Malicious plugin | Manifest/signature checks, permissions, scoped install root, sandbox, timeout. |
+| Malicious marketplace package | Signed index, checksum, publisher signature, bounded staging extraction, atomic publish. |
+| Private data leaked through a template | Export allowlist, hard exclusions, secret-like scan, preview, acknowledgement, admin submission. |
 | Stale overwrite | ETags, schema revisions, atomic writes, conflict responses. |
 | SQLite corruption | Local-only storage; no cloud synchronization. |
 

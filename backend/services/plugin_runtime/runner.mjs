@@ -33,32 +33,28 @@ function send(obj) {
   process.stdout.write(JSON.stringify(obj) + '\n');
 }
 
-// --- HARD network block if the `network` permission has not been granted -----------
-if (!NET_ALLOWED) {
-  const BLOCKED = new Set([
-    'net', 'node:net', 'http', 'node:http', 'https', 'node:https',
-    'tls', 'node:tls', 'dgram', 'node:dgram', 'http2', 'node:http2',
-    'module', 'node:module', // closes over createRequire → require('net')
-  ]);
-  registerHooks({
-    resolve(spec, ctx, next) {
-      if (BLOCKED.has(spec)) throw new Error(`network blocked by sandbox: ${spec}`);
-      return next(spec, ctx);
-    },
-  });
-  const denied = () => { throw new Error('network permission not granted'); };
-  try { globalThis.fetch = denied; } catch { /* read-only */ }
-  try { globalThis.WebSocket = undefined; } catch { /* noop */ }
-  try { globalThis.XMLHttpRequest = undefined; } catch { /* noop */ }
-  try { globalThis.EventSource = undefined; } catch { /* noop */ }
-  // Defense-in-depth: the module-resolution hook and global shadowing above do
-  // not cover Node's internal C++ bindings (`process.binding` /
-  // `process._linkedBinding` → 'tcp_wrap', 'udp_wrap', ...), through which a
-  // plugin could open a socket without ever importing 'net'. Neutralize them.
-  // The real boundary should still be an OS-level egress restriction.
-  try { process.binding = () => { throw new Error('network blocked by sandbox'); }; } catch { /* noop */ }
-  try { process._linkedBinding = () => { throw new Error('network blocked by sandbox'); }; } catch { /* noop */ }
-}
+// Direct networking is always blocked. The `network` capability exposes only
+// the host RPC below, where SSRF, redirects, response size, and timeouts are
+// enforced. Granting a capability must not expose raw sockets or browser-like
+// globals that bypass the host boundary.
+const BLOCKED = new Set([
+  'net', 'node:net', 'http', 'node:http', 'https', 'node:https',
+  'tls', 'node:tls', 'dgram', 'node:dgram', 'http2', 'node:http2',
+  'dns', 'node:dns', 'module', 'node:module',
+]);
+registerHooks({
+  resolve(spec, ctx, next) {
+    if (BLOCKED.has(spec)) throw new Error(`direct network access blocked by sandbox: ${spec}`);
+    return next(spec, ctx);
+  },
+});
+const denied = () => { throw new Error('direct network access is blocked; use api.fetch'); };
+try { globalThis.fetch = denied; } catch { /* read-only */ }
+try { globalThis.WebSocket = undefined; } catch { /* noop */ }
+try { globalThis.XMLHttpRequest = undefined; } catch { /* noop */ }
+try { globalThis.EventSource = undefined; } catch { /* noop */ }
+try { process.binding = () => { throw new Error('internal bindings are blocked'); }; } catch { /* noop */ }
+try { process._linkedBinding = () => { throw new Error('internal bindings are blocked'); }; } catch { /* noop */ }
 
 // --- Bridge RPC to the host --------------------------------------------------
 let _rpcSeq = 0;

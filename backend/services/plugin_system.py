@@ -23,7 +23,9 @@ import io
 import json
 import re
 import shutil
+import tempfile
 import threading
+import uuid
 import zipfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -66,6 +68,7 @@ PLUGIN_API_VERSION = 2
 _PLUGIN_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{1,63}$")
 _SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+([-.+][0-9A-Za-z.-]+)?$")
 _RESERVED_PLUGIN_IDS = frozenset({"llm-wiki"})
+_PROVENANCE_FILE = ".gnosi-provenance.json"
 
 _state_lock = threading.Lock()
 
@@ -255,7 +258,16 @@ def discover_plugins(config_dir: Path) -> List[Dict[str, Any]]:
             out.append({"id": pid, "error": "id de carpeta invàlid"})
             continue
         try:
-            out.append({"manifest": read_manifest(config_dir, pid)})
+            item = {"manifest": read_manifest(config_dir, pid)}
+            provenance_path = entry / _PROVENANCE_FILE
+            if provenance_path.exists():
+                try:
+                    provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+                    if isinstance(provenance, dict):
+                        item["provenance"] = provenance
+                except (OSError, ValueError):
+                    logger.warning("Plugin provenance is unreadable for %s", pid)
+            out.append(item)
         except PluginError as e:
             out.append({"id": pid, "error": str(e)})
     return out
@@ -333,30 +345,79 @@ def install_from_zip(config_dir: Path, data: bytes, *, overwrite: bool = True) -
     pid = manifest["id"]
 
     dest = plugin_dir(config_dir, pid)  # validates the id against path-traversal
-    if dest.exists():
-        if not overwrite:
-            raise PluginError(f"el plugin {pid!r} ja està instal·lat")
-        shutil.rmtree(dest)
-    dest.mkdir(parents=True, exist_ok=True)
-    dest_resolved = dest.resolve()
+    if dest.exists() and not overwrite:
+        raise PluginError(f"el plugin {pid!r} ja està instal·lat")
 
-    for info in infos:
-        name = info.filename
-        if prefix and not name.startswith(prefix):
-            continue
-        rel = name[len(prefix):]
-        if not rel or rel.endswith("/"):
-            continue
-        # Anti zip-slip: the resolved path must stay INSIDE dest.
-        out = (dest / rel).resolve()
-        if dest_resolved not in out.parents and out != dest_resolved:
-            shutil.rmtree(dest, ignore_errors=True)
-            raise PluginError(f"entrada de zip insegura: {name}")
-        out.parent.mkdir(parents=True, exist_ok=True)
-        with zf.open(info) as src, open(out, "wb") as dst:
-            shutil.copyfileobj(src, dst)
+    base = plugins_dir(config_dir)
+    base.mkdir(parents=True, exist_ok=True)
+    stage = Path(tempfile.mkdtemp(prefix=f".{pid}-stage-", dir=base))
+    stage_resolved = stage.resolve()
+    backup: Optional[Path] = None
+    try:
+        for info in infos:
+            name = info.filename
+            if prefix and not name.startswith(prefix):
+                continue
+            rel = name[len(prefix):]
+            if not rel or rel.endswith("/"):
+                continue
+            # Anti zip-slip: the resolved path must stay INSIDE the staging directory.
+            out = (stage / rel).resolve()
+            if stage_resolved not in out.parents and out != stage_resolved:
+                raise PluginError(f"entrada de zip insegura: {name}")
+            out.parent.mkdir(parents=True, exist_ok=True)
+            with zf.open(info) as src, open(out, "wb") as dst:
+                shutil.copyfileobj(src, dst)
 
-    return manifest
+        for entry_name in (manifest.get("main"), manifest.get("backend")):
+            if entry_name and not (stage / entry_name).is_file():
+                raise PluginError(f"plugin entry is missing from the ZIP: {entry_name}")
+
+        if dest.exists():
+            backup = base / f".{pid}-backup-{uuid.uuid4().hex}"
+            dest.replace(backup)
+        stage.replace(dest)
+        if backup:
+            shutil.rmtree(backup, ignore_errors=True)
+        return manifest
+    except Exception:
+        if backup and backup.exists() and not dest.exists():
+            backup.replace(dest)
+        raise
+    finally:
+        shutil.rmtree(stage, ignore_errors=True)
+
+
+def write_provenance(config_dir: Path, plugin_id: str, provenance: Dict[str, Any]) -> None:
+    """Persist verified installation provenance inside the plugin directory."""
+
+    target = plugin_dir(config_dir, plugin_id) / _PROVENANCE_FILE
+    payload = {
+        "sourceUrl": str(provenance.get("sourceUrl") or ""),
+        "sha256": str(provenance.get("sha256") or ""),
+        "signedBy": provenance.get("signedBy"),
+    }
+    target.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def package_plugin(config_dir: Path, plugin_id: str) -> bytes:
+    """Return a deterministic ZIP for an installed, validated plugin."""
+
+    manifest = read_manifest(config_dir, plugin_id)
+    source = plugin_dir(config_dir, plugin_id)
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for path in sorted(source.rglob("*"), key=lambda item: item.as_posix().casefold()):
+            if not path.is_file() or path.name == _PROVENANCE_FILE or path.is_symlink():
+                continue
+            relative = path.relative_to(source).as_posix()
+            info = zipfile.ZipInfo(relative, date_time=(1980, 1, 1, 0, 0, 0))
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.external_attr = 0o100644 << 16
+            archive.writestr(info, path.read_bytes())
+    if manifest["id"] != plugin_id:
+        raise PluginError("plugin manifest changed while packaging")
+    return buffer.getvalue()
 
 
 def uninstall(config_dir: Path, plugin_id: str) -> None:
