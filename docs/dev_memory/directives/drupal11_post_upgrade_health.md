@@ -137,7 +137,9 @@ crontab entry.
   SMTP, AI Chatbot, AI Content Suggestions, and AI Logging are uninstalled.
 - Composer removed SMTP, Contact Block, and PHPMailer, then installed
   `drupal/ai_provider_groq` 1.2.0-rc1. Groq is locally usable through Key entity
-  `ai_agent`; no provider request or credential transmission was performed.
+  `ai_agent`, but an explicitly authorized minimal model request was rejected by
+  Groq as an invalid API key. The configured value was never displayed or
+  logged; replace the Key entity value before treating AI as operational.
 - The one-minute marked cron dispatcher preserved the existing crontab and
   reduced Ultimate Cron's behind count to zero on the next system minute.
 - Drupal's status requirements returned no errors or warnings. Composer audit
@@ -145,5 +147,6 @@ crontab entry.
 - The public homepage, three contact-form locales, and JSON:API returned HTTP
   200. Browser QA confirmed the Temenos theme, translated form labels and
   privacy links, explicit `novalidate`, and no console errors.
-- Mail transport now uses the Pangea host's `php_mail` path. Actual receipt is
-  deliberately unverified until one real test message is explicitly approved.
+- Mail transport now uses the Pangea host's `php_mail` path. One explicitly
+  authorized test message was accepted by the local transport; end-to-end
+  delivery remains unverified until the maintainer confirms receipt.
