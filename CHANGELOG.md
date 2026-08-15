@@ -1,5 +1,14 @@
 # Gnosi changelog
 
+## Gnosi 1.0.4
+
+_2026-08-15 · Stable_
+
+### Fixes
+
+- Desktop packages once again include the native-menu module, so the application starts correctly after installation.
+- The packaged application starts its complete bundled backend from the correct executable path and stores runtime data in the user’s writable application folder.
+
 ## Gnosi 1.0.3
 
 _2026-08-15 · Stable_

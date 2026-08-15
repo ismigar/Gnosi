@@ -26,6 +26,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 
 from backend.config.app_config import load_params
+from backend.config.env_config import is_frozen_runtime
 from backend.config.logger_config import setup_logging
 from backend.config.mcp_config import MCP_SERVERS
 from backend.mcp.client import MultiServerMCPClient
@@ -500,4 +501,9 @@ if __name__ == "__main__":
     server_cfg = getattr(cfg, "server", {}) or cfg.get("server", {}) or {}
     HOST = server_cfg.get("host", "0.0.0.0")
     PORT = int(server_cfg.get("backend_port", 5002))
-    uvicorn.run("backend.server:app", host=HOST, port=PORT, reload=True)
+    uvicorn.run(
+        "backend.server:app",
+        host=HOST,
+        port=PORT,
+        reload=not is_frozen_runtime(),
+    )

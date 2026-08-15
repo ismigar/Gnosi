@@ -2,17 +2,31 @@
 status: implemented
 last_verified: 2026-08-15
 source_paths:
+  - backend/config/env_config.py
+  - backend/server.py
+  - electron/application-menu.js
+  - electron/backend-launch.js
   - electron/main.js
   - electron/preload.js
+  - electron/update-policy.js
   - electron/electron-builder.yml
   - electron/package.json
   - electron/release.sh
+  - electron/scripts/after-pack.cjs
+  - electron/scripts/packaging-contract.cjs
+  - electron/scripts/smoke-packaged-backend.py
+  - requirements-e2e.txt
   - frontend/package.json
   - frontend/src/content/releases.json
   - web-clipper
   - integrations/libreoffice-cite
   - integrations/word-cite-pin
 tests:
+  - backend/tests/test_env_config_runtime.py
+  - electron/application-menu.test.js
+  - electron/backend-launch.test.js
+  - electron/packaging-contract.test.js
+  - electron/update-policy.test.js
   - integrations/libreoffice-cite/tests
 ---
 
@@ -42,6 +56,30 @@ stateDiagram-v2
 Las comprobaciones están deshabilitadas en el desarrollo. Las descargas nunca comienzan simplemente porque existe una versión. El proceso principal almacena el estado del actualizador más reciente para que un renderizador que se suscribe tarde pueda recuperarlo a través de IPC.
 
 Los artefactos de lanzamiento incluyen instaladores y metadatos de actualización para macOS, Windows y Linux. La preparación de la versión mantiene alineados los frontend y los manifiestos de Electron; las etiquetas se crean sólo a partir de la revisión `main` se compromete.
+
+La lista de archivos del constructor de Electron es un límite explícito del
+runtime. El hook multiplataforma `afterPack` inspecciona el `app.asar` final y
+rechaza un paquete que omita el proceso principal, el preload, el módulo del
+menú nativo, el iniciador del backend o la política de actualización. Esta comprobación del artefacto
+instalado complementa las pruebas de código fuente e impide que un árbol de
+fuentes válido produzca una aplicación que falle antes de abrir la primera
+ventana.
+
+La ruta del backend empaquetado resuelve el propio ejecutable de PyInstaller en
+macOS y Linux, y su equivalente `.exe` en Windows. El proceso principal ejecuta
+directamente ese archivo resuelto y no lo trata como otro nivel de directorio.
+La construcción limpia instala los requisitos canónicos del runtime E2E,
+incluidas las dependencias de proveedores y API, e inicia el ejecutable
+congelado como prueba de humo multiplataforma antes de continuar con el paquete
+de escritorio.
+
+El proceso de escritorio instalado define `GNOSI_LOCAL_DATA` dentro de la
+carpeta de datos de aplicación del usuario que proporciona Electron, salvo que
+exista una sobrescritura explícita. Así los paquetes nativos no usan la ruta
+exclusiva de Docker `/app/data`. La comprobación de arranque consulta el endpoint
+público `/api/health` y no queda bloqueada por un endpoint protegido. El backend
+congelado desactiva el observador de recarga de archivos de Uvicorn; el
+desarrollo nativo desde código fuente conserva la recarga.
 
 ## Preparación de versiones
 

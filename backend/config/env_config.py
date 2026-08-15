@@ -80,6 +80,11 @@ def _is_docker() -> bool:
     return Path("/.dockerenv").exists() or bool(os.environ.get("DOCKER_CONTAINER"))
 
 
+def is_frozen_runtime() -> bool:
+    """Return whether the backend is running from a frozen desktop bundle."""
+    return bool(getattr(sys, "frozen", False))
+
+
 def default_host_helper_url(path: str) -> str:
     """Default URL for the host helper services (host_open_helper, port 5099).
 

@@ -22,6 +22,8 @@ dmg:
 files:
   - main.js
   - preload.js
+  - application-menu.js
+  - backend-launch.js
   - update-policy.js
   # Runtime dependencies used by main.js (electron-log drives the auto-updater
   # logger; electron-updater is the updater itself). electron-builder follows

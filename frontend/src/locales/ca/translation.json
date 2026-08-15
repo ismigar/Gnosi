@@ -5266,6 +5266,14 @@
     "section_improvements": "Millores",
     "section_fixes": "Correccions",
     "entries": {
+      "v1_0_4": {
+        "highlights": {},
+        "improvements": {},
+        "fixes": {
+          "packaged_application_menu": "Els paquets d’escriptori tornen a incloure el mòdul del menú natiu i l’aplicació arrenca correctament després d’instal·lar-la.",
+          "packaged_backend_launch": "L’aplicació empaquetada inicia el backend complet des del camí executable correcte i desa les dades d’execució a la carpeta d’aplicació de l’usuari."
+        }
+      },
       "v1_0_3": {
         "highlights": {},
         "improvements": {

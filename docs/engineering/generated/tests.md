@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 13 | 37 |
 | Vitest | 73 | 271 |
-| pytest | 187 | 1579 |
+| pytest | 188 | 1581 |
 
 ## Files
 
@@ -160,6 +160,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_e2e_import_references_item_type.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_e2e_import_references_item_type.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_e2e_option_catalogs.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_e2e_option_catalogs.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_e2e_tables_assets.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_e2e_tables_assets.py) | 4 | Python AST |
+| pytest | [`backend/tests/test_env_config_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_env_config_runtime.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_feed_ingester_savepoint.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_feed_ingester_savepoint.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_files_provider.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_files_provider.py) | 38 | Python AST |
 | pytest | [`backend/tests/test_fx_rates.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_fx_rates.py) | 6 | Python AST |
