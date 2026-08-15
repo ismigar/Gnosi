@@ -57,6 +57,15 @@ Les comprovacions estan deshabilitades en el desenvolupament. Les baixades mai c
 
 Els artefactes de llançament inclouen instal· lats i metadades actualitzadores per a MacOS, Windows i Linux. La versió de preparació manté la Frontal i els manifests electrònica alineats; les etiquetes només es creen des de revisades. `main` Comencions.
 
+El workflow privat de release empaqueta macOS Intel i Apple Silicon en jobs
+separats d'una matriu. Cada job s'executa sobre l'arquitectura corresponent de
+macOS 15 i construeix un únic backend natiu amb PyInstaller abans d'invocar
+electron-builder per al mateix objectiu. Això evita copiar un executable Python
+natiu del host dins l'aplicació de l'altra arquitectura. Els runners de release
+estan fixats en comptes d'usar `macos-latest`, perquè la seva migració a macOS 26
+va canviar la creació del DMG a APFS i va trencar la fase de muntatge i
+personalització d'electron-builder.
+
 La llista de fitxers del constructor d'Electron és un límit explícit del runtime.
 El hook multiplataforma `afterPack` inspecciona l'`app.asar` final i rebutja un
 paquet que ometi el procés principal, el preload, el mòdul del menú natiu,
