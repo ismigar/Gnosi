@@ -65,18 +65,19 @@ describe('ReleaseNotesDialog', () => {
   });
 
   it('does not render download links when downloadUrl is omitted', async () => {
-    await renderDialog();
-    expect(findReleaseArticle(RELEASES[0].version)?.querySelector('a')).toBeNull();
+    const downloadUrl = RELEASES[0].downloadUrl;
+    delete RELEASES[0].downloadUrl;
+    try {
+      await renderDialog();
+      expect(findReleaseArticle(RELEASES[0].version)?.querySelector('a')).toBeNull();
+    } finally {
+      RELEASES[0].downloadUrl = downloadUrl;
+    }
   });
 
   it('renders download links only when downloadUrl is provided', async () => {
-    RELEASES[0].downloadUrl = 'https://github.com/ismigar/Gnosi/releases/tag/v1.0.0';
-    try {
-      await renderDialog();
-      const downloadLink = findReleaseArticle(RELEASES[0].version)?.querySelector('a');
-      expect(downloadLink?.href).toBe(RELEASES[0].downloadUrl);
-    } finally {
-      delete RELEASES[0].downloadUrl;
-    }
+    await renderDialog();
+    const downloadLink = findReleaseArticle(RELEASES[0].version)?.querySelector('a');
+    expect(downloadLink?.href).toBe(RELEASES[0].downloadUrl);
   });
 });
