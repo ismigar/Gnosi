@@ -6,5 +6,5 @@
     </linearGradient>
   </defs>
   <rect width="64" height="64" rx="14" fill="url(#gnosiGradient)"/>
-  <text x="32" y="46" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="36" font-weight="800" fill="white">G</text>
+  <text x="32" y="43" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="800" fill="white">G</text>
 </svg>

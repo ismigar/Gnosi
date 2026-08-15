@@ -103,6 +103,9 @@ until a maintainer publishes them.
 - Do not omit explicit Electron desktop icons. Without generated ICNS, ICO, and
   PNG resources, electron-builder falls back to Electron branding. Generate all
   formats from the canonical Gnosi application artwork before packaging.
+- Keep the desktop glyph scale aligned with the canonical application mark. Do
+  not enlarge the glyph until it nearly touches the icon edges: the approved
+  Gnosi mark is a centered white G with clear blue margin on every side.
 - Do not distribute an unsealed macOS application bundle. Disabling certificate
   discovery without a replacement signature causes Gatekeeper to report the app
   as damaged. Until Developer ID signing and notarization are configured, apply
