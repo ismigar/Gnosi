@@ -5228,6 +5228,13 @@
     "section_improvements": "Améliorations",
     "section_fixes": "Corrections",
     "entries": {
+      "v1_0_1": {
+        "highlights": {},
+        "improvements": {},
+        "fixes": {
+          "desktop_icon": "L’icône Gnosi affiche désormais un G blanc centré, avec la marge bleue correcte, dans l’application de bureau et sur le web."
+        }
+      },
       "v1_0_0": {
         "highlights": {
           "research_workflow": "Gnosi 1.0 réunit les sources, les notes de preuve, la synthèse connectée et le transfert des citations dans un espace de recherche local-first.",

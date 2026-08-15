@@ -1,5 +1,13 @@
 # Gnosi changelog
 
+## Gnosi 1.0.1
+
+_2026-08-15 · Stable_
+
+### Fixes
+
+- The Gnosi icon now shows a centered white G with the correct blue margin in the desktop application and on the web.
+
 ## Gnosi 1.0.0
 
 _2026-08-15 · Stable_

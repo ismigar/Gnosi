@@ -55,6 +55,11 @@ Release artifacts include installers and updater metadata for macOS, Windows,
 and Linux. Version preparation keeps frontend and Electron manifests aligned;
 tags are created only from reviewed `main` commits.
 
+The release catalog, localized notes, generated changelog, Electron manifest,
+frontend manifest, and monorepo lockfile form one versioned unit. The
+deterministic synchronizer updates the three version fields only after the
+catalog and changelog validate.
+
 ## Application mark
 
 `frontend/public/favicon.svg` defines the Gnosi application mark: a centered

@@ -5228,6 +5228,13 @@
     "section_improvements": "Millores",
     "section_fixes": "Correccions",
     "entries": {
+      "v1_0_1": {
+        "highlights": {},
+        "improvements": {},
+        "fixes": {
+          "desktop_icon": "La icona de Gnosi mostra ara una G blanca centrada, amb el marge blau correcte, a l’aplicació d’escriptori i al web."
+        }
+      },
       "v1_0_0": {
         "highlights": {
           "research_workflow": "Gnosi 1.0 reuneix fonts, notes d’evidència, síntesi connectada i transferència de citacions en un únic espai de recerca local-first.",

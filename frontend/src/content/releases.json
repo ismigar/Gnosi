@@ -1,5 +1,17 @@
 [
   {
+    "version": "1.0.1",
+    "date": "2026-08-15",
+    "channel": "stable",
+    "sections": {
+      "highlights": [],
+      "improvements": [],
+      "fixes": [
+        "release_notes.entries.v1_0_1.fixes.desktop_icon"
+      ]
+    }
+  },
+  {
     "version": "1.0.0",
     "date": "2026-08-15",
     "channel": "stable",

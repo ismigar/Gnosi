@@ -5177,6 +5177,13 @@
     "section_improvements": "Improvements",
     "section_fixes": "Fixes",
     "entries": {
+      "v1_0_1": {
+        "highlights": {},
+        "improvements": {},
+        "fixes": {
+          "desktop_icon": "The Gnosi icon now shows a centered white G with the correct blue margin in the desktop application and on the web."
+        }
+      },
       "v1_0_0": {
         "highlights": {
           "research_workflow": "Gnosi 1.0 brings sources, evidence notes, connected synthesis and citation handoff together in one local-first research workspace.",
