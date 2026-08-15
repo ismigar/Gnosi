@@ -5215,6 +5215,14 @@
     "section_improvements": "Improvements",
     "section_fixes": "Fixes",
     "entries": {
+      "v1_0_4": {
+        "highlights": {},
+        "improvements": {},
+        "fixes": {
+          "packaged_application_menu": "Desktop packages once again include the native-menu module, so the application starts correctly after installation.",
+          "packaged_backend_launch": "The packaged application starts its complete bundled backend from the correct executable path and stores runtime data in the user’s writable application folder."
+        }
+      },
       "v1_0_3": {
         "highlights": {},
         "improvements": {

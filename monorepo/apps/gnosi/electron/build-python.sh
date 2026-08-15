@@ -78,13 +78,7 @@ echo "3. Installing dependencies into the virtual environment..."
 $PYTHON_VENV -m pip install --upgrade pip setuptools wheel
 $PYTHON_VENV -m pip install pyinstaller
 
-$PYTHON_VENV -m pip install PyYAML python-dotenv Flask flask-cors requests httpx fastapi uvicorn pydantic psutil
-$PYTHON_VENV -m pip install notion-client networkx numpy sqlalchemy python-multipart feedparser beautifulsoup4
-$PYTHON_VENV -m pip install google-auth-oauthlib google-auth-httplib2 google-api-python-client
-$PYTHON_VENV -m pip install gTTS icalendar
-$PYTHON_VENV -m pip install --no-deps langchain langchain-openai langgraph langchain-chroma langgraph-checkpoint-sqlite
-$PYTHON_VENV -m pip install --no-deps groq cloudinary simpleeval
-$PYTHON_VENV -m pip install chromadb || echo "Warning: ChromaDB may have issues"
+$PYTHON_VENV -m pip install -r "$GNOSI_DIR/requirements-e2e.txt"
 
 echo ""
 echo "4. Running PyInstaller..."
@@ -104,20 +98,21 @@ system = platform.system().lower()
 
 hiddenimports = [
     'flask', 'flask_cors', 'fastapi', 'uvicorn', 'psutil', 'pydantic',
-    'numpy', 'networkx', 'requests', 'httpx', 'notion_client', 'sqlalchemy',
-    'beautifulsoup4', 'feedparser', 'dotenv', 'PyYAML', 'google_auth_httplib2',
-    'google_api_python_client', 'google_auth_oauthlib', 'gtts', 'icalendar',
-    'langchain', 'langchain_openai', 'langgraph', 'langchain_chroma',
-    'langgraph_checkpoints_sqlite', 'chromadb', 'groq', 'cloudinary', 'simpleeval',
-    'jinja2', 'itsdangerous', 'click', 'werkzeug', 'blinker', 'flask_cors',
+    'numpy', 'networkx', 'requests', 'httpx', 'sqlalchemy',
+    'bs4', 'feedparser', 'dotenv', 'yaml', 'google_auth_httplib2',
+    'googleapiclient', 'google_auth_oauthlib', 'gtts', 'icalendar',
+    'langchain', 'langchain_core', 'langchain_openai', 'langchain_ollama',
+    'langchain_groq', 'langchain_anthropic', 'langgraph', 'langchain_chroma',
+    'langgraph.checkpoint.sqlite.aio', 'chromadb', 'groq', 'cloudinary', 'simpleeval',
+    'jinja2', 'itsdangerous', 'click', 'werkzeug', 'blinker',
     'dateutil', 'six', 'pytz', 'tzdata',
     'pydantic_core', 'pydantic_settings',
     'cryptography', 'cffi', 'pyasn1', 'pyasn1_modules',
-    'httpx', 'httpcore', 'h11', 'anyio',
-    'grpcio', 'protobuf', 'googleapis_common_protos',
+    'httpcore', 'h11', 'anyio',
+    'grpc', 'google.protobuf', 'google.api',
     'starlette', 'typing_extensions',
     'importlib_metadata', 'importlib_resources', 'zipp',
-    'jsonschema', 'jsonschema_specifications', 'referencing', 'rpds_py',
+    'jsonschema', 'jsonschema_specifications', 'referencing', 'rpds',
     'pkg_resources', 'setuptools',
 ]
 
@@ -136,7 +131,7 @@ a = Analysis(
     hiddenimports={hiddenimports},
     hookspath=[],
     runtime_hooks=[],
-    excludes=['tkinter', 'test', 'unittest', 'matplotlib', 'pandas', 'scipy', 'PIL'],
+    excludes=['tkinter', 'test', 'matplotlib', 'pandas', 'scipy'],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
@@ -192,6 +187,8 @@ else
     ls -la "$PYTHON_BUILD_DIR/build/" 2>/dev/null || true
     exit 1
 fi
+
+"$PYTHON_VENV" "$ELECTRON_DIR/scripts/smoke-packaged-backend.py" "$DIST_DIR"
 
 echo ""
 echo "=== Python Build Complete ==="

@@ -4,6 +4,10 @@ const fs = require('fs');
 const { spawn } = require('child_process');
 const { autoUpdater } = require('electron-updater');
 const { createApplicationMenuTemplate, normalizeMenuLabels } = require('./application-menu');
+const {
+  getPackagedBackendEnvironment,
+  getPackagedBackendExecutable,
+} = require('./backend-launch');
 const { buildMacInstallerUrl, getUpdateInstallMode } = require('./update-policy');
 
 const isDev = process.argv.includes('--dev');
@@ -171,11 +175,7 @@ function registerAppProtocol() {
 }
 
 function getPythonBundlePath() {
-  if (process.platform === 'win32') {
-    return path.join(process.resourcesPath, 'python', 'cervell_backend.exe');
-  } else {
-    return path.join(process.resourcesPath, 'python', 'cervell_backend');
-  }
+  return getPackagedBackendExecutable(process.resourcesPath, process.platform);
 }
 
 function getPythonSystemCmd() {
@@ -194,7 +194,7 @@ function waitForBackend(maxRetries = 60, interval = 2000) {
     
     const check = () => {
       const http = require('http');
-      const req = http.get(`${getBackendURL()}/api/system/stats`, (res) => {
+      const req = http.get(`${getBackendURL()}/api/health`, (res) => {
         if (res.statusCode === 200) {
           log('Backend is ready!');
           resolve();
@@ -234,12 +234,7 @@ async function startBackend() {
   if (!isDev && bundleExists) {
     log('Using Python bundle...');
     
-    let pythonExe;
-    if (process.platform === 'win32') {
-      pythonExe = pythonBundle;
-    } else {
-      pythonExe = path.join(process.resourcesPath, 'python', 'cervell_backend', 'cervell_backend');
-    }
+    const pythonExe = pythonBundle;
     
     log(`Executable: ${pythonExe}`);
     
@@ -247,11 +242,11 @@ async function startBackend() {
       backendProcess = spawn(pythonExe, [], {
         cwd: path.join(__dirname, '..'),
         stdio: ['pipe', 'pipe', 'pipe'],
-        env: {
-          ...process.env,
-          LOGGING_LEVEL: 'info',
-          BACKEND_PORT: BACKEND_PORT.toString()
-        },
+        env: getPackagedBackendEnvironment(
+          process.env,
+          app.getPath('userData'),
+          BACKEND_PORT,
+        ),
         detached: false
       });
       

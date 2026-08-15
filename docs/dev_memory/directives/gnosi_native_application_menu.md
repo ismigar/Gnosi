@@ -43,6 +43,8 @@ wait for it to finish loading.
 
 - Unit-test menu translation normalization, menu shape, production exclusion of
   development actions, settings delivery, and multi-window lifecycle helpers.
+- Treat every local module loaded by the Electron main process as a packaged
+  runtime dependency. Verify the final `app.asar` contents on every platform.
 - Build the frontend so i18n completeness and release catalog checks run.
 - Launch the desktop app in development mode and inspect the native menu,
   Settings command, New Window, Close Window, and Dock reactivation behavior.
@@ -60,3 +62,6 @@ wait for it to finish loading.
 - Do not duplicate translated strings in the Electron process: use the four
   frontend locale catalogs and validate the renderer payload at the IPC
   boundary.
+- Do not add a sibling module to the Electron main process without listing it
+  in `electron-builder.yml` and the packaged-runtime contract. A source-level
+  test is insufficient because an omitted module fails only after installation.

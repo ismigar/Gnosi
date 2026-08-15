@@ -5266,6 +5266,14 @@
     "section_improvements": "Mejoras",
     "section_fixes": "Correcciones",
     "entries": {
+      "v1_0_4": {
+        "highlights": {},
+        "improvements": {},
+        "fixes": {
+          "packaged_application_menu": "Los paquetes de escritorio vuelven a incluir el módulo del menú nativo y la aplicación se inicia correctamente después de instalarla.",
+          "packaged_backend_launch": "La aplicación empaquetada inicia el backend completo desde la ruta de ejecutable correcta y guarda los datos de ejecución en la carpeta de aplicación del usuario."
+        }
+      },
       "v1_0_3": {
         "highlights": {},
         "improvements": {

@@ -2,17 +2,31 @@
 status: implemented
 last_verified: 2026-08-15
 source_paths:
+  - backend/config/env_config.py
+  - backend/server.py
+  - electron/application-menu.js
+  - electron/backend-launch.js
   - electron/main.js
   - electron/preload.js
+  - electron/update-policy.js
   - electron/electron-builder.yml
   - electron/package.json
   - electron/release.sh
+  - electron/scripts/after-pack.cjs
+  - electron/scripts/packaging-contract.cjs
+  - electron/scripts/smoke-packaged-backend.py
+  - requirements-e2e.txt
   - frontend/package.json
   - frontend/src/content/releases.json
   - web-clipper
   - integrations/libreoffice-cite
   - integrations/word-cite-pin
 tests:
+  - backend/tests/test_env_config_runtime.py
+  - electron/application-menu.test.js
+  - electron/backend-launch.test.js
+  - electron/packaging-contract.test.js
+  - electron/update-policy.test.js
   - integrations/libreoffice-cite/tests
 ---
 
@@ -42,6 +56,28 @@ stateDiagram-v2
 Les comprovacions estan deshabilitades en el desenvolupament. Les baixades mai comencen simplement perquè existeix un alliberament. El procés principal desa l' estat d' actualització, de manera que un renderitzador que subscripti fins tard es pot recuperar a través del PCPC.
 
 Els artefactes de llançament inclouen instal· lats i metadades actualitzadores per a MacOS, Windows i Linux. La versió de preparació manté la Frontal i els manifests electrònica alineats; les etiquetes només es creen des de revisades. `main` Comencions.
+
+La llista de fitxers del constructor d'Electron és un límit explícit del runtime.
+El hook multiplataforma `afterPack` inspecciona l'`app.asar` final i rebutja un
+paquet que ometi el procés principal, el preload, el mòdul del menú natiu,
+l'iniciador del backend o la política d'actualització. Aquesta comprovació de l'artefacte instal·lat
+complementa les proves de codi font i evita que un arbre de fonts vàlid produeixi
+una aplicació que falla abans d'obrir la primera finestra.
+
+El camí del backend empaquetat resol l'executable de PyInstaller mateix a macOS
+i Linux, i el seu equivalent `.exe` a Windows. El procés principal executa
+directament aquest fitxer resolt i no el tracta com un nivell de directori més.
+La construcció neta instal·la els requisits canònics del runtime E2E, incloses
+les dependències de proveïdors i API, i inicia l'executable congelat com a prova
+de fum multiplataforma abans de continuar amb el paquet d'escriptori.
+
+El procés d'escriptori instal·lat defineix `GNOSI_LOCAL_DATA` dins la carpeta de
+dades d'aplicació de l'usuari que proporciona Electron, tret que hi hagi una
+sobreescriptura explícita. Això evita que els paquets natius utilitzin el camí
+exclusiu de Docker `/app/data`. La comprovació d'arrencada consulta el punt
+públic `/api/health` i no queda bloquejada per un punt protegit de l'aplicació.
+El backend congelat desactiva el vigilant de recàrrega de fitxers d'Uvicorn; el
+desenvolupament natiu des del codi font conserva la recàrrega.
 
 ## Preparació de versions
 

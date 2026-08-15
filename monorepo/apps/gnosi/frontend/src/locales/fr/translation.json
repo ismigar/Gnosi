@@ -5266,6 +5266,14 @@
     "section_improvements": "Améliorations",
     "section_fixes": "Corrections",
     "entries": {
+      "v1_0_4": {
+        "highlights": {},
+        "improvements": {},
+        "fixes": {
+          "packaged_application_menu": "Les paquets de bureau incluent à nouveau le module du menu natif et l’application démarre correctement après son installation.",
+          "packaged_backend_launch": "L’application empaquetée démarre son backend complet depuis le bon chemin d’exécutable et stocke les données d’exécution dans le dossier d’application accessible à l’utilisateur."
+        }
+      },
       "v1_0_3": {
         "highlights": {},
         "improvements": {

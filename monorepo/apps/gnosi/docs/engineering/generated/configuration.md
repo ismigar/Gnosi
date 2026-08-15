@@ -16,7 +16,7 @@ Discovered **114 variables** across **193 source references**.
 | `ARTIFICIAL_ANALYSIS_API_KEY` | Python | redacted | [`backend/services/artificial_analysis.py:581`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/artificial_analysis.py#L581) |
 | `BACKUP_DEST_DIR` | Python | unset | [`pipeline/skills/backup_projectes/scripts/backup_projectes.py:14`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/backup_projectes/scripts/backup_projectes.py#L14) |
 | `BASE_URL` | Vite | runtime-provided | [`frontend/src/lib/spellcheck/nspellManager.js:101`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/spellcheck/nspellManager.js#L101) |
-| `CORS_ORIGINS` | Python | '' | [`backend/server.py:365`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L365) |
+| `CORS_ORIGINS` | Python | '' | [`backend/server.py:366`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L366) |
 | `DEEPL_API_KEY` | Python | redacted | [`pipeline/skills/translate_row/scripts/translate_text.py:252`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/translate_row/scripts/translate_text.py#L252)<br>[`pipeline/skills/translate_row/scripts/translate_text.py:279`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/translate_row/scripts/translate_text.py#L279) |
 | `DEEPL_API_URL` | Python | DEFAULT_DEEPL_URL | [`pipeline/skills/translate_row/scripts/translate_text.py:389`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/translate_row/scripts/translate_text.py#L389) |
 | `DEV` | Vite | runtime-provided | [`frontend/src/components/Vault/VaultShell.jsx:45`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultShell.jsx#L45) |
@@ -88,7 +88,7 @@ Discovered **114 variables** across **193 source references**.
 | `NOTION_DB_TITULACIONS` | Python | unset | [`pipeline/legacy/import/notion/notion_to_gnosi_full_import.py:95`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/legacy/import/notion/notion_to_gnosi_full_import.py#L95) |
 | `NOTION_DB_XXSS` | Python | unset | [`pipeline/legacy/import/notion/notion_to_gnosi_full_import.py:96`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/legacy/import/notion/notion_to_gnosi_full_import.py#L96) |
 | `OAUTHLIB_RELAX_TOKEN_SCOPE` | Python | redacted | [`backend/api/google_auth_routes.py:5`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/google_auth_routes.py#L5) |
-| `OLLAMA_BASE_URL` | Python | unset | [`backend/config/env_config.py:105`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/config/env_config.py#L105) |
+| `OLLAMA_BASE_URL` | Python | unset | [`backend/config/env_config.py:110`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/config/env_config.py#L110) |
 | `ONEDRIVE_AUTO_RESTART` | Python | '1' | [`backend/services/files_provider/onedrive.py:139`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/files_provider/onedrive.py#L139) |
 | `ONEDRIVE_RESTART_COOLDOWN` | Python | '300' | [`backend/services/files_provider/onedrive.py:142`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/files_provider/onedrive.py#L142) |
 | `ONEDRIVE_RESTART_WAIT` | Python | '30' | [`backend/services/files_provider/onedrive.py:143`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/files_provider/onedrive.py#L143) |
@@ -115,7 +115,7 @@ Discovered **114 variables** across **193 source references**.
 | `TEMENOS_MASTODON_INSTANCE` | Python | 'https://mastodon.social' | [`backend/services/social_clients.py:21`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/social_clients.py#L21) |
 | `THUMB_CACHE_DIR` | Python | str(Path.home() / '.cache' / 'gnosi' / 'thumbs') | [`sh/onedrive_warmup_daemon.py:117`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/sh/onedrive_warmup_daemon.py#L117) |
 | `THUMB_DAEMON_TIMEOUT` | Python | '45' | [`backend/api/vault_routes.py:12686`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/vault_routes.py#L12686) |
-| `THUMB_DAEMON_URL` | Python | unset | [`backend/config/env_config.py:121`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/config/env_config.py#L121) |
+| `THUMB_DAEMON_URL` | Python | unset | [`backend/config/env_config.py:126`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/config/env_config.py#L126) |
 | `THUMB_QLMANAGE_TIMEOUT` | Python | '30' | [`sh/onedrive_warmup_daemon.py:119`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/sh/onedrive_warmup_daemon.py#L119) |
 | `TRANSLATION_SERVER_URL` | Python | 'http://translation-server:1969' | [`backend/api/vault_routes.py:9391`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/vault_routes.py#L9391) |
 | `UNSPLASH_ACCESS_KEY` | Python | unset | [`backend/api/vault_routes.py:13616`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/vault_routes.py#L13616) |

@@ -143,11 +143,32 @@ until a maintainer publishes them.
   that cannot load its renderer. Copy the sibling `frontend/dist` directory into
   application resources and load it through `process.resourcesPath`; assert that
   its `index.html` exists inside every inspected macOS package.
+- Do not assume that a local Electron module is packaged merely because source
+  tests pass. Keep every main-process runtime module in the explicit builder
+  file list and fail `afterPack` on every platform unless the final `app.asar`
+  contains the complete runtime contract.
 - Do not let PyInstaller reuse or silently skip an existing COLLECT directory.
   Clear its generated `build` and `dist` outputs, use non-interactive overwrite,
   and propagate any PyInstaller failure before copying `dist-python`.
 - Do not build the clean Python bundle once in `release.sh` and again through
   `npm run build:<platform>`; the platform scripts already own that prerequisite.
+- Do not maintain a partial, hand-written dependency list for the frozen
+  backend or install LangChain with `--no-deps`. It omits transitive and API
+  dependencies such as `langchain_core` and `email_validator`. Install the
+  canonical E2E runtime requirements and smoke-test the frozen executable after
+  every build.
+- Do not exclude `unittest` or `PIL` from the frozen backend. Transitive runtime
+  modules load `unittest`, and Gnosi's media features require Pillow even when
+  the top-level imports are guarded.
+- Do not let an installed native backend inherit Docker's `/app/data` fallback.
+  Electron must provide a writable per-user `GNOSI_LOCAL_DATA` path, and the
+  frozen-backend smoke test must run with an isolated writable data directory.
+- Do not poll an authenticated application endpoint for desktop readiness. Use
+  `/api/health`; a protected response otherwise delays the first window until
+  the retry budget expires even when the backend is healthy.
+- Do not enable Uvicorn filesystem reload inside a frozen backend. PyInstaller
+  bundles are installed, read-only runtime artifacts; retain reload only for
+  source-based native development.
 
 ## Error protocol and learning
 
@@ -167,6 +188,12 @@ until a maintainer publishes them.
 | 2026-08-15 | Every public tag started a second stale release workflow and the RC3 public build failed on all platforms | The synchronized public workflow still owned a tag trigger and release job even though the private source workflow already publishes the official public draft; it also used missing frontend lockfiles and an unavailable Ubuntu Python package | Keep the public workflow manual-only, use the exported workspace install model and `actions/setup-python`, and leave official release publication to the private workflow |
 | 2026-08-15 | The public Windows packaging check rejected a current changelog while macOS and Linux accepted it | The release-note validator compared the LF rendering byte-for-byte with a CRLF checkout on Windows | Normalize line endings only for changelog comparison and cover LF, CRLF, and legacy CR with unit tests |
 | 2026-08-15 | The macOS updater downloaded `1.0.1`, but “Restart and install” did nothing | Both bundles were validly ad-hoc signed, but their designated requirements contained different per-build code-directory hashes, so Squirrel.Mac rejected the replacement | Use a compact direct-DMG flow on macOS and reserve automatic replacement for stable Developer ID signing and notarization |
+| 2026-08-15 | The installed `1.0.3` application failed at startup with `Cannot find module './application-menu'` | The new main-process module was required by source code but omitted from electron-builder's explicit `files` list | Package every local runtime module and inspect the final `app.asar` from `afterPack` on every platform |
+| 2026-08-15 | A packaged macOS application logged `spawn ENOTDIR` while starting its bundled backend | The packaged executable was already a file, but the main process appended a second `cervell_backend` path component | Resolve the platform-specific executable once, spawn that exact file, and unit-test every platform path |
+| 2026-08-15 | The frozen backend exited successively with missing `langchain_core` and `email_validator` imports | The packaging script maintained a partial dependency list and installed LangChain with `--no-deps`, while PyInstaller did not reject missing runtime imports | Install the canonical E2E runtime requirements and run the frozen executable through the complete startup import window |
+| 2026-08-15 | The installed native backend exited while creating `/app/data/secrets`, then the first window waited two minutes | The desktop process supplied no native local-data path and polled a protected statistics endpoint for readiness | Set `GNOSI_LOCAL_DATA` under Electron's per-user data directory, isolate the frozen smoke test, and poll `/api/health` |
+| 2026-08-15 | The isolated frozen-backend smoke test failed in `pyparsing.testing` with `No module named 'unittest'` | The PyInstaller spec excluded a standard-library module used by an included Google API dependency | Keep `unittest` and the feature-required `PIL` package in the frozen runtime and lock the exclusion policy with a source test |
+| 2026-08-15 | The frozen backend imported successfully but exited with `Operation not permitted` while starting Uvicorn | The installed PyInstaller process enabled `reload=True` and attempted to watch its read-only application bundle | Detect `sys.frozen`, disable Uvicorn reload only in packaged runtimes, and keep it enabled for native source development |
 
 ## Verification checklist
 
@@ -175,6 +202,8 @@ until a maintainer publishes them.
 - [ ] The release catalog contains the intended version in all four locales.
 - [ ] The generated changelog and public release notes match the catalog.
 - [ ] Frontend lint, unit tests, i18n validation, and build pass.
+- [ ] Every platform package contains the complete Electron runtime contract in `app.asar`.
+- [ ] The frozen backend executable survives its startup smoke test on every platform.
 - [ ] Native browser smoke test passes without blocking dialogs.
 - [ ] Backend tests pass in an isolated local-data directory.
 - [ ] The reviewed commit has synchronized to public `main`, and the public

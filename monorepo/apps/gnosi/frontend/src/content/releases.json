@@ -1,5 +1,18 @@
 [
   {
+    "version": "1.0.4",
+    "date": "2026-08-15",
+    "channel": "stable",
+    "sections": {
+      "highlights": [],
+      "improvements": [],
+      "fixes": [
+        "release_notes.entries.v1_0_4.fixes.packaged_application_menu",
+        "release_notes.entries.v1_0_4.fixes.packaged_backend_launch"
+      ]
+    }
+  },
+  {
     "version": "1.0.3",
     "date": "2026-08-15",
     "channel": "stable",

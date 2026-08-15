@@ -2,14 +2,22 @@
 status: implemented
 last_verified: 2026-08-15
 source_paths:
+  - backend/config/env_config.py
+  - backend/server.py
+  - electron/application-menu.js
+  - electron/backend-launch.js
   - electron/main.js
   - electron/preload.js
   - electron/update-policy.js
   - electron/electron-builder.yml
   - electron/package.json
   - electron/release.sh
+  - electron/scripts/after-pack.cjs
+  - electron/scripts/packaging-contract.cjs
+  - electron/scripts/smoke-packaged-backend.py
   - electron/scripts/generate-icons.py
   - electron/build/icon.icns
+  - requirements-e2e.txt
   - frontend/public/favicon.svg
   - frontend/package.json
   - frontend/src/content/releases.json
@@ -17,6 +25,10 @@ source_paths:
   - integrations/libreoffice-cite
   - integrations/word-cite-pin
 tests:
+  - backend/tests/test_env_config_runtime.py
+  - electron/application-menu.test.js
+  - electron/backend-launch.test.js
+  - electron/packaging-contract.test.js
   - electron/update-policy.test.js
   - integrations/libreoffice-cite/tests
 ---
@@ -70,6 +82,27 @@ match the currently installed application.
 Release artifacts include installers and updater metadata for macOS, Windows,
 and Linux. Version preparation keeps frontend and Electron manifests aligned;
 tags are created only from reviewed `main` commits.
+
+Electron's builder file list is an explicit runtime boundary. The cross-platform
+`afterPack` hook inspects the final `app.asar` and rejects a package that omits
+the main process, preload, native-menu, backend-launch, or update-policy module. This installed-
+artifact check complements source tests and prevents a valid source tree from
+producing an application that fails before its first window opens.
+
+The packaged backend path resolves to the PyInstaller executable itself on
+macOS and Linux, and to its `.exe` counterpart on Windows. The main process
+spawns that resolved file directly; it never treats the executable as another
+directory level. The clean build installs the canonical E2E runtime
+requirements, including provider and API dependencies, then starts the frozen
+executable as a cross-platform smoke test before the desktop package can
+proceed.
+
+The installed desktop process supplies `GNOSI_LOCAL_DATA` under Electron's
+per-user application-data directory, unless an explicit override exists. This
+keeps native packages away from Docker-only `/app/data`. Readiness polling uses
+the unauthenticated `/api/health` endpoint so startup does not wait on a
+protected application endpoint. Frozen backends disable Uvicorn's filesystem
+reload watcher; native source development retains reload behavior.
 
 The release catalog, localized notes, generated changelog, Electron manifest,
 frontend manifest, and monorepo lockfile form one versioned unit. The
