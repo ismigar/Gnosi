@@ -94,6 +94,11 @@ Every release job also passes the Python command provisioned by
 `actions/setup-python` explicitly to the backend builder. This keeps binary
 extensions and their collected OpenSSL libraries on one interpreter ABI instead
 of allowing a newer runner-level Python to override the release environment.
+Because `cryptography` 49 and later no longer publish macOS x86_64 wheels, the
+Intel package uses the final compatible universal2 line (`48.0.1`) while other
+platforms retain the current dependency floor. The frozen-backend installer
+requires a binary `cryptography` distribution; it must fail rather than compile
+against a runner OpenSSL that can collide with PyInstaller's collected library.
 
 Electron's builder file list is an explicit runtime boundary. The cross-platform
 `afterPack` hook inspects the final `app.asar` and rejects a package that omits

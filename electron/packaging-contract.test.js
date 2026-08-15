@@ -15,6 +15,7 @@ const releaseWorkflowPath = path.resolve(
   '../../../..',
   '.github/workflows/build-release.yml',
 );
+const gnosiRoot = path.dirname(electronRoot);
 
 function localRuntimeRequires(source) {
   const requiredFiles = new Set();
@@ -100,8 +101,25 @@ test('the frozen backend keeps required standard-library and media modules', () 
   assert.match(buildScript, /requirements-e2e\.txt/);
   assert.match(buildScript, /GNOSI_PYTHON_CMD/);
   assert.match(buildScript, /requested Python command not found/);
+  assert.match(buildScript, /--only-binary=cryptography/);
   assert.doesNotMatch(buildScript, /excludes=\[[^\]]*['"]unittest['"]/s);
   assert.doesNotMatch(buildScript, /excludes=\[[^\]]*['"]PIL['"]/s);
+});
+
+test('macOS Intel uses the final cryptography universal2 wheel release', () => {
+  for (const requirementsFile of ['requirements.txt', 'requirements-e2e.txt']) {
+    const requirements = fs.readFileSync(path.join(gnosiRoot, requirementsFile), 'utf8');
+    assert.match(
+      requirements,
+      /cryptography>=48\.0\.1,<49\.0\.0; sys_platform == "darwin" and platform_machine == "x86_64"/,
+      `${requirementsFile} must retain the macOS Intel wheel constraint`,
+    );
+    assert.match(
+      requirements,
+      /cryptography>=49\.0\.0; sys_platform != "darwin" or platform_machine != "x86_64"/,
+      `${requirementsFile} must retain current cryptography elsewhere`,
+    );
+  }
 });
 
 test('macOS release jobs match each frozen backend to its target architecture', () => {

@@ -85,7 +85,10 @@ echo "3. Installing dependencies into the virtual environment..."
 $PYTHON_VENV -m pip install --upgrade pip setuptools wheel
 $PYTHON_VENV -m pip install pyinstaller
 
-$PYTHON_VENV -m pip install -r "$GNOSI_DIR/requirements-e2e.txt"
+# A source-built cryptography can link to a runner-level OpenSSL while
+# PyInstaller collects another libssl with the same filename. Require the
+# published platform wheel so packaged binaries never mix those libraries.
+$PYTHON_VENV -m pip install --only-binary=cryptography -r "$GNOSI_DIR/requirements-e2e.txt"
 
 echo ""
 echo "4. Running PyInstaller..."

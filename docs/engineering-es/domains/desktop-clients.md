@@ -70,6 +70,12 @@ comando Python proporcionado por `actions/setup-python`. Esto mantiene las
 extensiones binarias y las bibliotecas OpenSSL recopiladas sobre un único ABI
 de intérprete y evita que un Python más nuevo del runner sustituya el entorno
 de release.
+Como `cryptography` 49 y posteriores ya no publican wheels macOS x86_64, el
+paquete Intel usa la última línea universal2 compatible (`48.0.1`) y las demás
+plataformas conservan el requisito actual. El instalador del backend congelado
+exige una distribución binaria de `cryptography`: debe fallar en lugar de
+compilar contra un OpenSSL del runner que pueda colisionar con la biblioteca
+recopilada por PyInstaller.
 
 La lista de archivos del constructor de Electron es un límite explícito del
 runtime. El hook multiplataforma `afterPack` inspecciona el `app.asar` final y
