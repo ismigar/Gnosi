@@ -5228,6 +5228,22 @@
     "section_improvements": "Millores",
     "section_fixes": "Correccions",
     "entries": {
+      "v1_0_0": {
+        "highlights": {
+          "research_workflow": "Gnosi 1.0 reuneix fonts, notes d’evidència, síntesi connectada i transferència de citacions en un únic espai de recerca local-first.",
+          "grounded_assistant": "Les respostes de l’assistent poden vincular les afirmacions fonamentades amb fonts exactes del Vault, el Lector o el web."
+        },
+        "improvements": {
+          "starter_workspace": "Un espai inicial de recerca multilingüe mostra tot el recorregut sense exigir cap proveïdor d’IA ni compte extern.",
+          "deterministic_inventories": "Els inventaris del Vault retornen resultats complets, paginats i deduplicats sense crides innecessàries al model.",
+          "resilient_jobs": "Les anàlisis en segon pla es poden actualitzar, reprendre o cancel·lar, amb reintents limitats i recuperació després d’un reinici.",
+          "response_transparency": "Els detalls de cada resposta mostren el pla, el límit de privacitat, l’evidència, l’estat de verificació i el temps de processament."
+        },
+        "fixes": {
+          "agent_loops": "Les peticions al Vault ja no repeteixen les mateixes eines fins que s’esgota el temps o el límit de recursió.",
+          "actionable_failures": "Les peticions fallides o incompletes conserven diagnòstics útils i ofereixen accions clares de recuperació."
+        }
+      },
       "v1_0_0_rc_3": {
         "highlights": {
           "vault_marketplace": "Crea Vaults des d'un repositori oficial de plantilles directament des de l'aplicació.",

@@ -1,7 +1,7 @@
 # User-visible release notes
 
 > ID: GNOSI_USER_VISIBLE_RELEASE_NOTES_2026_08
-> Last Update: 2026-08-03
+> Last Update: 2026-08-15
 > Status: ACTIVE
 
 ## Objective and scope
@@ -61,6 +61,12 @@ same catalog and must remain synchronized.
 - Do not derive a release URL from the catalog version because notes can be
   prepared before their tag and public release exist. Add `downloadUrl` only
   after verifying the published release and its artifacts.
+- Do not assert the total number of links in the complete release-history
+  dialog because verified historical releases legitimately add their own
+  links. Scope download-link tests to the article for the release under test.
+- Do not validate documentation impact from committed changes alone during a
+  local pre-PR run because release documentation may still be staged,
+  unstaged, or newly created. The local gate must include all four states.
 
 ## Verification checklist
 

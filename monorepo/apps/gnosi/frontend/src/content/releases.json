@@ -1,8 +1,30 @@
 [
   {
+    "version": "1.0.0",
+    "date": "2026-08-15",
+    "channel": "stable",
+    "sections": {
+      "highlights": [
+        "release_notes.entries.v1_0_0.highlights.research_workflow",
+        "release_notes.entries.v1_0_0.highlights.grounded_assistant"
+      ],
+      "improvements": [
+        "release_notes.entries.v1_0_0.improvements.starter_workspace",
+        "release_notes.entries.v1_0_0.improvements.deterministic_inventories",
+        "release_notes.entries.v1_0_0.improvements.resilient_jobs",
+        "release_notes.entries.v1_0_0.improvements.response_transparency"
+      ],
+      "fixes": [
+        "release_notes.entries.v1_0_0.fixes.agent_loops",
+        "release_notes.entries.v1_0_0.fixes.actionable_failures"
+      ]
+    }
+  },
+  {
     "version": "1.0.0-rc.3",
     "date": "2026-08-14",
     "channel": "prerelease",
+    "downloadUrl": "https://github.com/ismigar/Gnosi/releases/tag/v1.0.0-rc.3",
     "sections": {
       "highlights": [
         "release_notes.entries.v1_0_0_rc_3.highlights.vault_marketplace",
@@ -19,6 +41,7 @@
     "version": "1.0.0-rc.2",
     "date": "2026-08-03",
     "channel": "prerelease",
+    "downloadUrl": "https://github.com/ismigar/Gnosi/releases/tag/v1.0.0-rc.2",
     "sections": {
       "highlights": [
         "release_notes.entries.v1_0_0_rc_2.highlights.desktop_branding"
@@ -36,6 +59,7 @@
     "version": "1.0.0-rc.1",
     "date": "2026-08-03",
     "channel": "prerelease",
+    "downloadUrl": "https://github.com/ismigar/Gnosi/releases/tag/v1.0.0-rc.1",
     "sections": {
       "highlights": [
         "release_notes.entries.v1_0_0_rc_1.highlights.settings",
@@ -55,6 +79,7 @@
     "version": "0.3.0-rc.1",
     "date": "2026-08-01",
     "channel": "prerelease",
+    "downloadUrl": "https://github.com/ismigar/Gnosi/releases/tag/v0.3.0-rc.1",
     "sections": {
       "highlights": [
         "release_notes.entries.v0_3_0_rc_1.highlights.desktop"

@@ -137,17 +137,29 @@ def validate_change_set(paths: set[str]) -> list[str]:
 
 
 def changed_files(base_ref: str) -> set[str]:
-    """Return repository-relative paths changed from a Git base reference."""
+    """Return committed and local repository paths changed from a base ref."""
     if not base_ref or set(base_ref) == {"0"}:
         return set()
-    result = subprocess.run(
-        ["git", "diff", "--name-only", f"{base_ref}...HEAD"],
-        cwd=REPOSITORY_ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
+
+    commands = (
+        ("git", "diff", "--name-only", f"{base_ref}...HEAD"),
+        ("git", "diff", "--name-only"),
+        ("git", "diff", "--name-only", "--cached"),
+        ("git", "ls-files", "--others", "--exclude-standard"),
     )
-    return {line.strip() for line in result.stdout.splitlines() if line.strip()}
+    paths: set[str] = set()
+    for command in commands:
+        result = subprocess.run(
+            command,
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        paths.update(
+            line.strip() for line in result.stdout.splitlines() if line.strip()
+        )
+    return paths
 
 
 def main() -> int:

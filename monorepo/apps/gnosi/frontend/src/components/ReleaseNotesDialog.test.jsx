@@ -39,6 +39,12 @@ async function renderDialog(props = {}) {
   ));
 }
 
+function findReleaseArticle(version) {
+  const heading = [...container.querySelectorAll('h3')]
+    .find((candidate) => candidate.textContent === `Gnosi ${version}`);
+  return heading?.closest('article') || null;
+}
+
 describe('ReleaseNotesDialog', () => {
   it('shows the requested version first and keeps the full history visible', async () => {
     await renderDialog({ initialVersion: '0.3.0-rc.1' });
@@ -60,15 +66,15 @@ describe('ReleaseNotesDialog', () => {
 
   it('does not render download links when downloadUrl is omitted', async () => {
     await renderDialog();
-    expect(container.querySelectorAll('a')).toHaveLength(0);
+    expect(findReleaseArticle(RELEASES[0].version)?.querySelector('a')).toBeNull();
   });
 
   it('renders download links only when downloadUrl is provided', async () => {
-    RELEASES[0].downloadUrl = 'https://github.com/ismigar/Gnosi/releases/tag/v1.0.0-rc.2';
+    RELEASES[0].downloadUrl = 'https://github.com/ismigar/Gnosi/releases/tag/v1.0.0';
     try {
       await renderDialog();
-      expect(container.querySelectorAll('a')).toHaveLength(1);
-      expect(container.querySelector('a').href).toBe(RELEASES[0].downloadUrl);
+      const downloadLink = findReleaseArticle(RELEASES[0].version)?.querySelector('a');
+      expect(downloadLink?.href).toBe(RELEASES[0].downloadUrl);
     } finally {
       delete RELEASES[0].downloadUrl;
     }

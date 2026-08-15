@@ -1,6 +1,9 @@
 """Tests for functional-change documentation enforcement."""
 
+from subprocess import CompletedProcess
+
 from pipeline.skills.technical_documentation.scripts.check_change_impact import (
+    changed_files,
     is_implementation_path,
     requires_documentation_path,
     validate_change_set,
@@ -82,3 +85,40 @@ def test_runtime_and_deployment_files_are_functional():
     assert is_implementation_path("monorepo/apps/gnosi/Dockerfile.backend")
     assert requires_documentation_path("monorepo/apps/gnosi/sh/run_native_dev.sh")
     assert requires_documentation_path("monorepo/apps/gnosi/Dockerfile.backend")
+
+
+def test_changed_files_includes_committed_and_local_changes(monkeypatch):
+    """Local gates must see committed, staged, unstaged, and untracked evidence."""
+    outputs = {
+        ("git", "diff", "--name-only", "origin/main...HEAD"): (
+            "monorepo/apps/gnosi/frontend/package.json\n"
+        ),
+        ("git", "diff", "--name-only"): (
+            "monorepo/apps/gnosi/docs/engineering/domains/desktop-clients.md\n"
+        ),
+        ("git", "diff", "--name-only", "--cached"): (
+            "monorepo/apps/gnosi/docs/engineering-ca/domains/desktop-clients.md\n"
+        ),
+        ("git", "ls-files", "--others", "--exclude-standard"): (
+            "monorepo/apps/gnosi/docs/engineering-es/domains/desktop-clients.md\n"
+        ),
+    }
+
+    def fake_run(command, **kwargs):
+        assert kwargs["cwd"].name == "Projectes"
+        assert kwargs["check"] is True
+        assert kwargs["capture_output"] is True
+        assert kwargs["text"] is True
+        return CompletedProcess(command, 0, stdout=outputs[tuple(command)])
+
+    monkeypatch.setattr(
+        "pipeline.skills.technical_documentation.scripts.check_change_impact.subprocess.run",
+        fake_run,
+    )
+
+    assert changed_files("origin/main") == {
+        "monorepo/apps/gnosi/frontend/package.json",
+        "monorepo/apps/gnosi/docs/engineering/domains/desktop-clients.md",
+        "monorepo/apps/gnosi/docs/engineering-ca/domains/desktop-clients.md",
+        "monorepo/apps/gnosi/docs/engineering-es/domains/desktop-clients.md",
+    }
