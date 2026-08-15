@@ -3,6 +3,7 @@
     "version": "1.0.1",
     "date": "2026-08-15",
     "channel": "stable",
+    "downloadUrl": "https://github.com/ismigar/Gnosi/releases/tag/v1.0.1",
     "sections": {
       "highlights": [],
       "improvements": [],
