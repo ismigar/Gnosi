@@ -1,11 +1,14 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-15
 source_paths:
   - electron/main.js
   - electron/preload.js
   - electron/electron-builder.yml
+  - electron/package.json
   - electron/release.sh
+  - frontend/package.json
+  - frontend/src/content/releases.json
   - web-clipper
   - integrations/libreoffice-cite
   - integrations/word-cite-pin
@@ -39,6 +42,22 @@ stateDiagram-v2
 Las comprobaciones están deshabilitadas en el desarrollo. Las descargas nunca comienzan simplemente porque existe una versión. El proceso principal almacena el estado del actualizador más reciente para que un renderizador que se suscribe tarde pueda recuperarlo a través de IPC.
 
 Los artefactos de lanzamiento incluyen instaladores y metadatos de actualización para macOS, Windows y Linux. La preparación de la versión mantiene alineados los frontend y los manifiestos de Electron; las etiquetas se crean sólo a partir de la revisión `main` se compromete.
+
+## Preparación de versiones
+
+`frontend/src/content/releases.json` es el historial canónico de versiones
+incluido en el paquete. El sincronizador mantiene idénticas las versiones del
+manifiesto del frontend, del manifiesto de Electron y de la entrada del
+frontend en el lockfile del monorepo. Una entrada estable preparada antes de
+publicarse omite expresamente `downloadUrl`; este campo solo se añade cuando
+existen la etiqueta inmutable y los artefactos de cada plataforma.
+
+Antes de crear la etiqueta, la PR de release debe superar la validación del
+frontend, los tests backend, la QA nativa en el navegador y la puerta de
+documentación de ingeniería. Después del merge, el workflow de sincronización
+debe llevar el commit revisado al repositorio público, donde debe superar el
+release readiness. Finalmente, el workflow de release crea un borrador y los
+artefactos de macOS, Windows y Linux se revisan antes de publicarlo.
 
 ## Cortapapeles web
 

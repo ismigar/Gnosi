@@ -1,11 +1,14 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-15
 source_paths:
   - electron/main.js
   - electron/preload.js
   - electron/electron-builder.yml
+  - electron/package.json
   - electron/release.sh
+  - frontend/package.json
+  - frontend/src/content/releases.json
   - web-clipper
   - integrations/libreoffice-cite
   - integrations/word-cite-pin
@@ -39,6 +42,22 @@ stateDiagram-v2
 Les comprovacions estan deshabilitades en el desenvolupament. Les baixades mai comencen simplement perquè existeix un alliberament. El procés principal desa l' estat d' actualització, de manera que un renderitzador que subscripti fins tard es pot recuperar a través del PCPC.
 
 Els artefactes de llançament inclouen instal· lats i metadades actualitzadores per a MacOS, Windows i Linux. La versió de preparació manté la Frontal i els manifests electrònica alineats; les etiquetes només es creen des de revisades. `main` Comencions.
+
+## Preparació de versions
+
+`frontend/src/content/releases.json` és l'historial canònic de versions inclòs
+al paquet. El sincronitzador manté idèntiques les versions del manifest del
+frontend, del manifest d'Electron i de l'entrada del frontend al lockfile del
+monorepo. Una entrada estable preparada abans de publicar-se omet expressament
+`downloadUrl`; aquest camp només s'afegeix quan existeixen l'etiqueta immutable
+i els artefactes de cada plataforma.
+
+Abans de crear l'etiqueta, la PR de release ha de superar la validació del
+frontend, els tests backend, la QA nativa al navegador i la porta de
+documentació d'enginyeria. Després del merge, el workflow de sincronització ha
+de portar el commit revisat al repositori públic, on ha de superar el release
+readiness. Finalment, el workflow de release crea un esborrany i els artefactes
+de macOS, Windows i Linux es revisen abans de publicar-lo.
 
 ## clipper web
 

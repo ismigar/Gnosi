@@ -1,6 +1,6 @@
 {
   "name": "gnosi",
-  "version": "1.0.0-rc.3",
+  "version": "1.0.0",
   "description": "Gnosi — local-first, open-source knowledge workspace",
   "homepage": "https://github.com/ismigar/Gnosi",
   "main": "main.js",

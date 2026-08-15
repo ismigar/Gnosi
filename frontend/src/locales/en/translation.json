@@ -5177,6 +5177,22 @@
     "section_improvements": "Improvements",
     "section_fixes": "Fixes",
     "entries": {
+      "v1_0_0": {
+        "highlights": {
+          "research_workflow": "Gnosi 1.0 brings sources, evidence notes, connected synthesis and citation handoff together in one local-first research workspace.",
+          "grounded_assistant": "Assistant responses can link supported claims to exact Vault, Reader or web sources."
+        },
+        "improvements": {
+          "starter_workspace": "A multilingual Research Starter Workspace demonstrates the complete path without requiring an AI provider or external account.",
+          "deterministic_inventories": "Vault inventories return complete, paginated and deduplicated results without unnecessary model calls.",
+          "resilient_jobs": "Background analyses can be refreshed, resumed or cancelled, with bounded retries and recovery after a restart.",
+          "response_transparency": "Response details expose the plan, privacy boundary, evidence, verification status and processing time."
+        },
+        "fixes": {
+          "agent_loops": "Vault requests no longer repeat the same tools until they time out or exhaust the recursion limit.",
+          "actionable_failures": "Failed or incomplete requests now preserve useful diagnostics and offer clear recovery actions."
+        }
+      },
       "v1_0_0_rc_3": {
         "highlights": {
           "vault_marketplace": "Create Vaults from an official template repository directly in the application.",

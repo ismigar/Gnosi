@@ -1,5 +1,26 @@
 # Gnosi changelog
 
+## Gnosi 1.0.0
+
+_2026-08-15 · Stable_
+
+### Highlights
+
+- Gnosi 1.0 brings sources, evidence notes, connected synthesis and citation handoff together in one local-first research workspace.
+- Assistant responses can link supported claims to exact Vault, Reader or web sources.
+
+### Improvements
+
+- A multilingual Research Starter Workspace demonstrates the complete path without requiring an AI provider or external account.
+- Vault inventories return complete, paginated and deduplicated results without unnecessary model calls.
+- Background analyses can be refreshed, resumed or cancelled, with bounded retries and recovery after a restart.
+- Response details expose the plan, privacy boundary, evidence, verification status and processing time.
+
+### Fixes
+
+- Vault requests no longer repeat the same tools until they time out or exhaust the recursion limit.
+- Failed or incomplete requests now preserve useful diagnostics and offer clear recovery actions.
+
 ## Gnosi 1.0.0-rc.3
 
 _2026-08-14 · Release candidate_

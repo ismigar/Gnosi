@@ -1,11 +1,14 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-15
 source_paths:
   - electron/main.js
   - electron/preload.js
   - electron/electron-builder.yml
+  - electron/package.json
   - electron/release.sh
+  - frontend/package.json
+  - frontend/src/content/releases.json
   - web-clipper
   - integrations/libreoffice-cite
   - integrations/word-cite-pin
@@ -48,6 +51,20 @@ that subscribes late can recover it through IPC.
 Release artifacts include installers and updater metadata for macOS, Windows,
 and Linux. Version preparation keeps frontend and Electron manifests aligned;
 tags are created only from reviewed `main` commits.
+
+## Release preparation
+
+`frontend/src/content/releases.json` is the canonical bundled release history.
+The version synchronizer keeps the frontend manifest, Electron manifest, and
+frontend workspace entry in the monorepo lockfile identical. A stable entry
+prepared before publication deliberately omits `downloadUrl`; that field is
+added only after the immutable tag and its platform artifacts exist.
+
+Before tagging, the release PR must pass frontend validation, backend tests,
+native browser QA, and the engineering-documentation gate. After merge, the
+reviewed commit must reach the public repository through the sync workflow and
+pass release readiness there. The release workflow then creates a draft whose
+macOS, Windows, and Linux artifacts are inspected before publication.
 
 ## Web clipper
 
