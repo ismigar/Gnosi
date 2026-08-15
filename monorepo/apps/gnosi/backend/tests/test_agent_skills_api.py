@@ -158,3 +158,69 @@ def test_skill_write_rejects_unregistered_tool(monkeypatch, tmp_path):
     assert response.json()["detail"]["missing_tool_ids"] == [
         "core.not-registered"
     ]
+
+
+def test_provider_neutral_job_status_result_resume_and_cancel_routes(monkeypatch, tmp_path):
+    context = WorkspaceContext(
+        workspace_id="personal",
+        user_id="owner",
+        role="owner",
+        vault_path=tmp_path,
+    )
+    calls = []
+
+    def status(vault_path, job_id):
+        calls.append(("status", vault_path, job_id))
+        if job_id == "reader:missing-job":
+            raise KeyError(job_id)
+        return {"job_id": job_id, "status": "running"}
+
+    def result(vault_path, job_id):
+        calls.append(("result", vault_path, job_id))
+        if job_id == "reader:running-job":
+            raise ValueError("The job is not complete.")
+        return {"job_id": job_id, "status": "complete", "result": "ready"}
+
+    def cancel(vault_path, job_id):
+        calls.append(("cancel", vault_path, job_id))
+        return {"job_id": job_id, "status": "cancel_requested"}
+
+    def resume(vault_path, job_id):
+        calls.append(("resume", vault_path, job_id))
+        return {"job_id": job_id, "status": "queued"}
+
+    monkeypatch.setattr(agent_skills_routes, "get_capability_job_status", status)
+    monkeypatch.setattr(agent_skills_routes, "read_capability_job_result", result)
+    monkeypatch.setattr(agent_skills_routes, "cancel_capability_job", cancel)
+    monkeypatch.setattr(agent_skills_routes, "resume_capability_job", resume)
+
+    app = FastAPI()
+    app.include_router(agent_skills_routes.router, prefix="/api")
+    app.dependency_overrides[get_workspace_context] = lambda: context
+    client = TestClient(app)
+
+    job_id = "reader:ready-job"
+    status_response = client.get(f"/api/ai/jobs/{job_id}")
+    result_response = client.get(f"/api/ai/jobs/{job_id}/result")
+    cancel_response = client.post(f"/api/ai/jobs/{job_id}/cancel")
+    resume_response = client.post(f"/api/ai/jobs/{job_id}/resume")
+
+    assert status_response.status_code == 200
+    assert status_response.json()["status"] == "running"
+    assert result_response.status_code == 200
+    assert result_response.json()["result"] == "ready"
+    assert cancel_response.status_code == 200
+    assert cancel_response.json()["status"] == "cancel_requested"
+    assert resume_response.status_code == 200
+    assert resume_response.json()["status"] == "queued"
+    assert calls == [
+        ("status", tmp_path, job_id),
+        ("result", tmp_path, job_id),
+        ("cancel", tmp_path, job_id),
+        ("resume", tmp_path, job_id),
+    ]
+
+    assert client.get("/api/ai/jobs/reader:missing-job").status_code == 404
+    incomplete = client.get("/api/ai/jobs/reader:running-job/result")
+    assert incomplete.status_code == 409
+    assert incomplete.json()["detail"] == "The job is not complete."

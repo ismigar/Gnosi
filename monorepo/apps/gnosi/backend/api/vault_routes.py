@@ -14392,6 +14392,63 @@ def get_link_index_terms(
     return snapshot, built_at
 
 
+def get_agent_index_freshness(
+    *,
+    requested_count: int,
+    covered_count: int,
+    direct_reads: int,
+    stale_after_seconds: int = 1_800,
+) -> Dict[str, Any]:
+    """Return bounded freshness metadata and schedule stale revalidation.
+
+    Page writes update the index surgically, while the timestamp represents the
+    last full reconciliation with edits made outside Gnosi. Coverage and age are
+    therefore reported independently. Revalidation is always non-blocking.
+    """
+    if not _link_index_built:
+        _load_link_index_from_disk()
+    with _link_index_lock:
+        built_at = float(_link_index_build_ts or 0.0)
+    with _link_index_rebuild_state_lock:
+        rebuilding = bool(_link_index_rebuild_in_progress)
+    now = time.time()
+    age_seconds = max(0, int(now - built_at)) if built_at else None
+    stale_after = max(60, min(int(stale_after_seconds), 86_400))
+    status = (
+        "missing"
+        if not built_at
+        else "fresh"
+        if age_seconds is not None and age_seconds < stale_after
+        else "stale_while_revalidate"
+    )
+    refresh_scheduled = False
+    if status != "fresh" and _current_vault_key():
+        kickoff_link_index_rebuild()
+        refresh_scheduled = True
+        with _link_index_rebuild_state_lock:
+            rebuilding = bool(_link_index_rebuild_in_progress)
+    bounded_requested = max(0, int(requested_count))
+    bounded_covered = max(0, min(int(covered_count), bounded_requested))
+    coverage_ratio = (
+        round(bounded_covered / bounded_requested, 4)
+        if bounded_requested
+        else 1.0
+    )
+    return {
+        "status": status,
+        "checked_at": int(now),
+        "index_built_at": int(built_at) if built_at else None,
+        "age_seconds": age_seconds,
+        "stale_after_seconds": stale_after,
+        "requested_records": bounded_requested,
+        "cached_records": bounded_covered,
+        "coverage_ratio": coverage_ratio,
+        "direct_reads": max(0, int(direct_reads)),
+        "refresh_scheduled": refresh_scheduled,
+        "refresh_running": rebuilding,
+    }
+
+
 def get_cached_document_texts(paths: Iterable[str]) -> Dict[str, str]:
     """Return persisted canonical Markdown bodies without cloud file reads.
 

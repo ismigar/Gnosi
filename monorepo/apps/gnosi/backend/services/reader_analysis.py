@@ -7,7 +7,7 @@ import re
 import threading
 import uuid
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
@@ -27,9 +27,18 @@ MAX_REDUCE_CHARS = 48_000
 MAX_GUIDANCE_CHARS = 2_000
 RUNNING_STATES = {"queued", "snapshotting", "mapping", "reducing"}
 TERMINAL_STATES = {"completed", "failed", "cancelled", "interrupted"}
+DEFAULT_MAX_ATTEMPTS = 3
+DEFAULT_RETRY_BASE_SECONDS = 2
+DEFAULT_RETRY_MAX_SECONDS = 30
+DEFAULT_MODEL_CALL_BUDGET = 64
 
 _THREADS: Dict[str, threading.Thread] = {}
+_RETRY_TIMERS: Dict[str, threading.Timer] = {}
 _LOCK = threading.RLock()
+
+
+class JobRetryBudgetError(RuntimeError):
+    """Raised before a model call would exceed the persisted job budget."""
 
 
 def _utc_now() -> str:
@@ -117,8 +126,129 @@ def _public_job(job: Dict[str, Any]) -> Dict[str, Any]:
         "completed_at",
         "error",
         "result_available",
+        "retry",
     }
     return {key: job.get(key) for key in allowed if key in job}
+
+
+def _parse_utc(value: Any) -> Optional[datetime]:
+    try:
+        parsed = datetime.fromisoformat(str(value or ""))
+    except (TypeError, ValueError):
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _default_retry_policy() -> Dict[str, Any]:
+    return {
+        "automatic_enabled": True,
+        "attempt": 0,
+        "max_attempts": DEFAULT_MAX_ATTEMPTS,
+        "base_delay_seconds": DEFAULT_RETRY_BASE_SECONDS,
+        "max_delay_seconds": DEFAULT_RETRY_MAX_SECONDS,
+        "next_retry_at": None,
+        "model_call_budget": DEFAULT_MODEL_CALL_BUDGET,
+        "model_calls_used": 0,
+        "last_retry_reason": None,
+        "last_resume_kind": "initial",
+        "budget_exhausted": False,
+    }
+
+
+def _retry_policy(job: Dict[str, Any]) -> Dict[str, Any]:
+    policy = _default_retry_policy()
+    stored = job.get("retry")
+    if isinstance(stored, dict):
+        policy.update(stored)
+    policy["attempt"] = max(0, int(policy.get("attempt") or 0))
+    policy["max_attempts"] = max(1, min(int(policy.get("max_attempts") or 1), 10))
+    policy["base_delay_seconds"] = max(
+        0, min(int(policy.get("base_delay_seconds") or 0), 3_600)
+    )
+    policy["max_delay_seconds"] = max(
+        policy["base_delay_seconds"],
+        min(int(policy.get("max_delay_seconds") or 0), 86_400),
+    )
+    policy["model_call_budget"] = max(
+        1, min(int(policy.get("model_call_budget") or 1), 10_000)
+    )
+    policy["model_calls_used"] = max(
+        0, int(policy.get("model_calls_used") or 0)
+    )
+    policy["budget_exhausted"] = bool(
+        policy["attempt"] >= policy["max_attempts"]
+        or policy["model_calls_used"] >= policy["model_call_budget"]
+    )
+    return policy
+
+
+def _is_transient_failure(error: BaseException) -> bool:
+    if isinstance(error, (TimeoutError, ConnectionError)):
+        return True
+    normalized = str(error or "").casefold()
+    return any(marker in normalized for marker in (
+        "timed out",
+        "timeout",
+        "temporarily unavailable",
+        "temporary failure",
+        "connection reset",
+        "connection refused",
+        "rate limit",
+        "too many requests",
+        "http 429",
+        "http 502",
+        "http 503",
+        "http 504",
+    ))
+
+
+def _consume_model_call_budget(vault_path: Path, job_id: str) -> None:
+    with _LOCK:
+        job = _load_json(_job_path(vault_path, job_id))
+        if not isinstance(job, dict):
+            raise KeyError(job_id)
+        policy = _retry_policy(job)
+        if policy["model_calls_used"] >= policy["model_call_budget"]:
+            policy["budget_exhausted"] = True
+            _save_job(vault_path, {**job, "retry": policy})
+            raise JobRetryBudgetError("Reader analysis model-call budget exhausted.")
+        policy["model_calls_used"] += 1
+        policy["budget_exhausted"] = bool(
+            policy["model_calls_used"] >= policy["model_call_budget"]
+            or policy["attempt"] >= policy["max_attempts"]
+        )
+        _save_job(vault_path, {**job, "retry": policy})
+
+
+def _cancel_retry_timer(job_id: str) -> None:
+    with _LOCK:
+        timer = _RETRY_TIMERS.pop(job_id, None)
+    if timer:
+        timer.cancel()
+
+
+def _schedule_retry(
+    vault_path: Path,
+    job_id: str,
+    *,
+    delay_seconds: int,
+    model_call: Callable[[str, str], str],
+) -> None:
+    """Schedule one in-process retry; persisted status reconciles restarts."""
+    _cancel_retry_timer(job_id)
+
+    def launch_due_retry() -> None:
+        with _LOCK:
+            _RETRY_TIMERS.pop(job_id, None)
+        _launch(vault_path, job_id, model_call=model_call)
+
+    timer = threading.Timer(max(0, delay_seconds), launch_due_retry)
+    timer.daemon = True
+    with _LOCK:
+        _RETRY_TIMERS[job_id] = timer
+    timer.start()
 
 
 def _article_text(article: Any) -> str:
@@ -484,7 +614,19 @@ def _run_job(
     from backend.services.context_vars import active_vault_path
 
     vault_token = active_vault_path.set(Path(vault_path).resolve())
+    retry_delay_seconds: Optional[int] = None
     try:
+        stored_job = _load_json(_job_path(vault_path, job_id))
+        if not isinstance(stored_job, dict):
+            raise KeyError(job_id)
+        retry = _retry_policy(stored_job)
+        if retry["attempt"] >= retry["max_attempts"]:
+            retry["budget_exhausted"] = True
+            _save_job(vault_path, {**stored_job, "retry": retry})
+            raise JobRetryBudgetError("Reader analysis retry-attempt budget exhausted.")
+        retry["attempt"] += 1
+        retry["next_retry_at"] = None
+        retry["budget_exhausted"] = False
         job = _update_job(
             vault_path,
             job_id,
@@ -492,7 +634,14 @@ def _run_job(
             phase="snapshotting",
             progress=1,
             error=None,
+            completed_at=None,
+            retry=retry,
         )
+
+        def budgeted_model_call(prompt: str, user_message: str) -> str:
+            _consume_model_call_budget(vault_path, job_id)
+            return model_call(prompt, user_message)
+
         snapshot = _load_json(_snapshot_path(vault_path, job_id))
         if not isinstance(snapshot, list):
             snapshot = _snapshot_articles(vault_path, dict(job.get("scope") or {}))
@@ -540,7 +689,7 @@ def _run_job(
                     batch,
                     language=str(job["language"]),
                     guidance=str(job.get("guidance") or ""),
-                    model_call=model_call,
+                    model_call=budgeted_model_call,
                 )
                 safe_write_json(checkpoint_path, summary)
             summaries.append(summary)
@@ -571,7 +720,7 @@ def _run_job(
                 by_topic[topic],
                 language=str(job["language"]),
                 guidance=str(job.get("guidance") or ""),
-                model_call=model_call,
+                model_call=budgeted_model_call,
             )
             for topic in sorted(by_topic, key=str.casefold)
         ]
@@ -597,21 +746,79 @@ def _run_job(
             completed_at=result["completed_at"],
             processed_articles=len(snapshot),
             result_available=True,
+            retry={
+                **_retry_policy(
+                    _load_json(_job_path(vault_path, job_id)) or {}
+                ),
+                "next_retry_at": None,
+                "last_retry_reason": None,
+            },
         )
     except Exception as error:  # noqa: BLE001
         log.exception("Reader analysis job %s failed", job_id)
-        _update_job(
-            vault_path,
-            job_id,
-            state="failed",
-            phase="failed",
-            error=str(error)[:2_000],
-            completed_at=_utc_now(),
+        current = _load_json(_job_path(vault_path, job_id)) or {}
+        retry = _retry_policy(current)
+        transient = _is_transient_failure(error)
+        can_retry = bool(
+            transient
+            and retry.get("automatic_enabled")
+            and retry["attempt"] < retry["max_attempts"]
+            and retry["model_calls_used"] < retry["model_call_budget"]
+            and not current.get("cancel_requested")
         )
+        if can_retry:
+            retry_delay_seconds = min(
+                retry["max_delay_seconds"],
+                retry["base_delay_seconds"] * (2 ** max(0, retry["attempt"] - 1)),
+            )
+            retry.update({
+                "next_retry_at": (
+                    datetime.now(timezone.utc)
+                    + timedelta(seconds=retry_delay_seconds)
+                ).isoformat(),
+                "last_retry_reason": type(error).__name__,
+                "last_resume_kind": "automatic",
+                "budget_exhausted": False,
+            })
+            _update_job(
+                vault_path,
+                job_id,
+                state="retry_wait",
+                phase="retry_wait",
+                error=str(error)[:2_000],
+                completed_at=None,
+                retry=retry,
+            )
+        else:
+            retry.update({
+                "next_retry_at": None,
+                "last_retry_reason": type(error).__name__,
+                "budget_exhausted": bool(
+                    retry["attempt"] >= retry["max_attempts"]
+                    or retry["model_calls_used"] >= retry["model_call_budget"]
+                    or isinstance(error, JobRetryBudgetError)
+                ),
+            })
+            _update_job(
+                vault_path,
+                job_id,
+                state="failed",
+                phase="failed",
+                error=str(error)[:2_000],
+                completed_at=_utc_now(),
+                retry=retry,
+            )
     finally:
         active_vault_path.reset(vault_token)
         with _LOCK:
             _THREADS.pop(job_id, None)
+        if retry_delay_seconds is not None:
+            _schedule_retry(
+                vault_path,
+                job_id,
+                delay_seconds=retry_delay_seconds,
+                model_call=model_call,
+            )
 
 
 def _launch(
@@ -664,6 +871,7 @@ def start_analysis(
         "result_available": False,
         "cancel_requested": False,
         "error": None,
+        "retry": _default_retry_policy(),
         "created_at": _utc_now(),
         "updated_at": _utc_now(),
     }
@@ -707,12 +915,19 @@ def list_analyses(vault_path: Path, limit: int = 20) -> List[Dict[str, Any]]:
         if isinstance((job := _load_json(path)), dict)
     ]
     jobs.sort(key=lambda job: str(job.get("created_at") or ""), reverse=True)
-    return [_public_job(job) for job in jobs[:max(1, min(int(limit), 100))]]
+    visible = []
+    for job in jobs[:max(1, min(int(limit), 100))]:
+        try:
+            visible.append(get_status(vault_path, str(job.get("job_id") or "")))
+        except (KeyError, ValueError):
+            continue
+    return visible
 
 
 def get_status(vault_path: Path, job_id: str) -> Dict[str, Any]:
     """Return durable job state, marking orphaned running jobs interrupted."""
     job_id = _validate_job_id(job_id)
+    launch_due = False
     with _LOCK:
         job = _load_json(_job_path(vault_path, job_id))
         if not isinstance(job, dict):
@@ -725,7 +940,14 @@ def get_status(vault_path: Path, job_id: str) -> Dict[str, Any]:
                 "phase": "interrupted",
                 "error": "The backend stopped before the job completed. Resume the job.",
             })
-        return _public_job(job)
+        elif job.get("state") == "retry_wait" and not (thread and thread.is_alive()):
+            retry = _retry_policy(job)
+            retry_at = _parse_utc(retry.get("next_retry_at"))
+            launch_due = retry_at is None or retry_at <= datetime.now(timezone.utc)
+        public = _public_job(job)
+    if launch_due:
+        _launch(vault_path, job_id, model_call=_default_model_call)
+    return public
 
 
 def read_result(vault_path: Path, job_id: str) -> Dict[str, Any]:
@@ -748,8 +970,20 @@ def resume_analysis(
 ) -> Dict[str, Any]:
     """Resume an interrupted or failed job from its persisted batch checkpoints."""
     status = get_status(vault_path, job_id)
-    if status.get("state") not in {"interrupted", "failed"}:
+    if status.get("state") not in {"interrupted", "failed", "retry_wait"}:
         return status
+    retry = _retry_policy(status)
+    if (
+        retry["attempt"] >= retry["max_attempts"]
+        or retry["model_calls_used"] >= retry["model_call_budget"]
+    ):
+        raise RuntimeError("Reader analysis retry budget is exhausted.")
+    _cancel_retry_timer(job_id)
+    retry.update({
+        "next_retry_at": None,
+        "last_resume_kind": "manual",
+        "budget_exhausted": False,
+    })
     job = _update_job(
         vault_path,
         _validate_job_id(job_id),
@@ -758,6 +992,7 @@ def resume_analysis(
         error=None,
         cancel_requested=False,
         completed_at=None,
+        retry=retry,
     )
     _launch(vault_path, job_id, model_call=model_call or _default_model_call)
     return _public_job(job)
@@ -769,4 +1004,17 @@ def cancel_analysis(vault_path: Path, job_id: str) -> Dict[str, Any]:
     status = get_status(vault_path, job_id)
     if status.get("state") in TERMINAL_STATES:
         return status
+    _cancel_retry_timer(job_id)
+    if status.get("state") == "retry_wait":
+        retry = _retry_policy(status)
+        retry["next_retry_at"] = None
+        return _public_job(_update_job(
+            vault_path,
+            job_id,
+            state="cancelled",
+            phase="cancelled",
+            cancel_requested=True,
+            completed_at=_utc_now(),
+            retry=retry,
+        ))
     return _public_job(_update_job(vault_path, job_id, cancel_requested=True))

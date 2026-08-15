@@ -62,6 +62,7 @@ from backend.agent.agent_context import (
     describe_context_refs,
 )
 from backend.agent.tools import get_mcp_tools
+from backend.agent.turn_contract import build_turn_plan, verify_response
 from backend.config.app_config import load_params
 from backend.security.ai_credentials import resolve_provider_api_key
 from backend.services.capability_audit import record_capability_event
@@ -901,6 +902,8 @@ def _request_mode(message: str) -> str:
     text = _normalized_request_text(message)
     if not text:
         return "conversation"
+    if _reader_context_analysis_requested(message):
+        return "analysis"
     if _explicit_brain_write_tool_names(message) or re.match(
         r"^(?:(?:si us plau|por favor|please|s il vous plait)\s+)?"
         r"(?:delete|remove|send|publish|schedule|rename|move|archive|"
@@ -922,7 +925,7 @@ def _request_mode(message: str) -> str:
         r"resumeix|resum|resume|summari[sz]e|synthese|sintetitza|sintetiza|"
         r"compara|compare|classifica|clasifica|classify|"
         r"explica|explain|explique|interpreta|interpret|"
-        r"diuen|dicen|say|says|parlent|cont[eé]nen|contienen|contain|contains|"
+        r"diu|diuen|dice|dicen|say|says|parlent|cont[eé]nen|contienen|contain|contains|"
         r"tendencies|tendencias|trends|themes|temes|temas|"
         r"connexions|conexiones|connections|relations|"
         r"idees principals|ideas principales|main ideas|pros and cons)\b",
@@ -979,6 +982,13 @@ def _request_mode(message: str) -> str:
         ) and not record_terms:
             return "lookup"
         return "inventory"
+    if re.search(
+        r"\b(?:notion|zotero|mail|email|correu|correo|calendar|calendari|"
+        r"calendario|contact|contacte|contacto|reader|weather|meteo|web|"
+        r"internet)\b",
+        text,
+    ) and inventory_signal:
+        return "lookup"
     if record_terms and inventory_signal:
         return "inventory"
     if re.search(
@@ -989,6 +999,56 @@ def _request_mode(message: str) -> str:
     ):
         return "lookup"
     return "conversation"
+
+
+def build_agent_turn_plan(
+    message: str,
+    *,
+    context_refs: Iterable[dict] = (),
+    tool_metadata: Iterable[dict] = (),
+    authorized_tool_names: Iterable[str] = (),
+    provider: str = "",
+    required_tool_name: str = "",
+    route: str = "",
+) -> dict:
+    """Build the effective universal plan from current request and runtime."""
+    refs = list(context_refs or ())
+    mode = _request_mode(message)
+    required = str(required_tool_name or "")
+    has_reader_context = any(
+        ref.get("type") == "internal" and ref.get("ref") == "reader"
+        for ref in refs
+    )
+    has_vault_context = any(
+        ref.get("type") in {"page", "table", "database", "vault"}
+        for ref in refs
+    )
+    has_other_context = any(
+        ref.get("type") in {"file", "url", "source"}
+        for ref in refs
+    )
+    if not required and mode in {"lookup", "inventory", "analysis"}:
+        if has_reader_context and (
+            _reader_context_requested(message) or not has_vault_context
+        ):
+            required = _required_reader_context_tool(message)
+        elif has_vault_context and _vault_context_is_relevant(message):
+            required = _required_vault_context_tool(message, refs)
+        elif has_other_context:
+            required = _required_generic_context_tool(refs)
+    effective_route = route or _obvious_route(message, has_context=bool(refs))
+    if not effective_route and not refs and mode != "action":
+        effective_route = "General"
+    return build_turn_plan(
+        message,
+        mode=mode,
+        context_refs=refs,
+        tool_metadata=tool_metadata,
+        authorized_tool_names=authorized_tool_names,
+        provider=provider,
+        required_tool_name=required,
+        route=effective_route or "",
+    )
 
 
 INVENTORY_REQUEST_TYPE_PATTERNS = {
@@ -1089,6 +1149,23 @@ def _reader_context_requested(message: str) -> bool:
 def _vault_context_is_relevant(message: str) -> bool:
     """Avoid forcing the default Vault onto an explicit non-Vault request."""
     text = _normalized_request_text(message)
+    non_vault_signal = re.search(
+        r"\b(?:mail|email|correu|correus|correo|inbox|calendar|calendari|"
+        r"calendario|event|esdeveniment|evento|contact|contacte|contacto|"
+        r"weather|forecast|temps|tiempo|meteo|notion|zotero|internet|"
+        r"browser|navegador|reader|news|noticia|noticias|noticies|rss|"
+        r"feed|feeds)\b",
+        text,
+    )
+    explicit_vault_container = re.search(
+        r"\b(?:vault|wiki|taula|taules|tabla|tablas|table|tables|database|"
+        r"registre|registres|registro|registros|record|records|recurs|"
+        r"recursos|resource|resources|pagina|pagines|page|pages|nota|notes|"
+        r"notas|document|documents|pdf)\b",
+        text,
+    )
+    if non_vault_signal and not explicit_vault_container:
+        return False
     vault_signal = re.search(
         r"\b(?:vault|wiki|pagina|pagines|page|pages|nota|notes|notas|"
         r"document|documents|pdf|taula|taules|tabla|tablas|table|tables|"
@@ -1101,14 +1178,6 @@ def _vault_context_is_relevant(message: str) -> bool:
     )
     if vault_signal:
         return True
-    non_vault_signal = re.search(
-        r"\b(?:mail|email|correu|correus|correo|inbox|calendar|calendari|"
-        r"calendario|event|esdeveniment|evento|contact|contacte|contacto|"
-        r"weather|forecast|temps|tiempo|meteo|notion|zotero|internet|"
-        r"browser|navegador|reader|news|noticia|noticias|noticies|rss|"
-        r"feed|feeds)\b",
-        text,
-    )
     return not bool(non_vault_signal)
 
 
@@ -1130,6 +1199,19 @@ def _required_vault_context_tool(
         return "inventory_context"
     if len(refs) == 1 and refs[0].get("type") == "page":
         return "read_context_source"
+    return "search_context"
+
+
+def _required_generic_context_tool(context_refs: Iterable[dict]) -> str:
+    """Choose first evidence access for file, URL, or searchable source refs."""
+    refs = [
+        ref for ref in (context_refs or [])
+        if ref.get("type") in {"file", "url", "source"}
+    ]
+    if len(refs) == 1 and refs[0].get("type") in {"file", "url"}:
+        return "read_context_source"
+    if len(refs) == 1 and refs[0].get("type") == "source":
+        return "search_context_source"
     return "search_context"
 
 
@@ -1175,6 +1257,43 @@ def _deterministic_vault_context_call(
         "name": tool_name,
         "args": arguments,
         "id": f"gnosi-context-{time.time_ns()}",
+        "type": "tool_call",
+    }
+
+
+def _deterministic_reader_context_call(
+    tool_name: str,
+    message: str,
+) -> Optional[dict]:
+    """Build safe server-owned Reader calls that need no model extraction."""
+    arguments: dict[str, Any]
+    if tool_name == "inspect_reader_context":
+        arguments = {}
+    elif tool_name == "start_reader_context_analysis":
+        languages = {
+            "ca": "Catalan",
+            "es": "Spanish",
+            "fr": "French",
+            "en": "English",
+        }
+        arguments = {
+            "request": str(message or "").strip()[:12_000],
+            "language": languages.get(_response_language(message), "English"),
+        }
+    elif tool_name in {
+        "reader_context_analysis_status",
+        "read_reader_context_analysis",
+    }:
+        match = re.search(r"(?:reader:)?([a-f0-9]{32})", str(message or "").lower())
+        if not match:
+            return None
+        arguments = {"job_id": match.group(1)}
+    else:
+        return None
+    return {
+        "name": tool_name,
+        "args": arguments,
+        "id": f"gnosi-reader-{time.time_ns()}",
         "type": "tool_call",
     }
 
@@ -1281,7 +1400,7 @@ def _response_language(message: str) -> str:
     if re.search(
         r"\b(?:soc|troba|cerca|llista|mostra|ensenya|dona|dels|quals|meus|"
         r"meves|quin|quins|quina|quines|quant|quants|quantes|tinc|amb|"
-        r"relacionades|continua|seguents|titulacio|titulacions|tasca|tasques|"
+        r"analitza|noticies|totes|temes|relacionades|continua|seguents|titulacio|titulacions|tasca|tasques|"
         r"projecte|projectes|font|fonts|pagina|pagines|registre|registres)\b",
         text,
     ):
@@ -1569,6 +1688,73 @@ def _inventory_context_response(tool_content: Any, user_message: str) -> str:
         lines.append(strings["unresolved"].format(types=", ".join(unresolved)))
     lines.extend(["", strings["method"]])
     return "\n".join(lines)
+
+
+def _reader_job_response(tool_content: Any, user_message: str) -> str:
+    """Format a durable Reader job receipt without another model call."""
+    language = _response_language(user_message)
+    strings = {
+        "ca": {
+            "started": "L'anàlisi s'ha iniciat en segon pla.",
+            "not_started": "L'anàlisi no s'ha pogut iniciar.",
+            "status": "Estat de l'anàlisi: {status}.",
+            "job": "ID de la feina: `{job_id}`.",
+            "progress": "Progrés: {progress}%.",
+            "error": "No he pogut consultar la feina d'anàlisi del Reader.",
+        },
+        "es": {
+            "started": "El análisis se ha iniciado en segundo plano.",
+            "not_started": "El análisis no se ha podido iniciar.",
+            "status": "Estado del análisis: {status}.",
+            "job": "ID del trabajo: `{job_id}`.",
+            "progress": "Progreso: {progress}%.",
+            "error": "No he podido consultar el trabajo de análisis de Reader.",
+        },
+        "fr": {
+            "started": "L'analyse a démarré en arrière-plan.",
+            "not_started": "L'analyse n'a pas pu démarrer.",
+            "status": "État de l'analyse : {status}.",
+            "job": "ID de la tâche : `{job_id}`.",
+            "progress": "Progression : {progress} %.",
+            "error": "Je n'ai pas pu consulter la tâche d'analyse de Reader.",
+        },
+        "en": {
+            "started": "The analysis started in the background.",
+            "not_started": "The analysis could not be started.",
+            "status": "Analysis status: {status}.",
+            "job": "Job id: `{job_id}`.",
+            "progress": "Progress: {progress}%.",
+            "error": "I could not inspect the Reader analysis job.",
+        },
+    }[language]
+    try:
+        payload = json.loads(str(tool_content or ""))
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return strings["error"]
+    if not isinstance(payload, dict) or payload.get("error"):
+        return strings["error"]
+    local_id = _escaped_markdown_text(
+        payload.get("job_id") or payload.get("id"),
+        "",
+    )
+    if not local_id:
+        return strings["error"]
+    job_id = local_id if ":" in local_id else f"reader:{local_id}"
+    status = _escaped_markdown_text(
+        payload.get("status") or payload.get("state"),
+        "queued",
+    )
+    opening = (
+        strings["not_started"]
+        if status.casefold() in {"cancelled", "canceled", "failed", "error"}
+        else strings["started"]
+    )
+    lines = [opening, strings["job"].format(job_id=job_id)]
+    lines.append(strings["status"].format(status=status))
+    progress = payload.get("progress")
+    if isinstance(progress, (int, float)):
+        lines.append(strings["progress"].format(progress=max(0, min(100, int(progress)))))
+    return " ".join(lines)
 
 
 def _repeated_tool_call_since_latest_user(
@@ -1996,6 +2182,7 @@ class AgentState(TypedDict):
     turn_authorized_tool_names: Sequence[str]
     active_skill_ids: Sequence[str]
     current_user_role: str
+    turn_plan: dict
     remaining_steps: RemainingSteps
 
 
@@ -2895,6 +3082,11 @@ async def create_agent_workflow(
         response = coder_llm.invoke(
             [SystemMessage(content=coder_system)] + _bounded_model_messages(messages, message_budget_chars)
         )
+        response = verify_response(
+            response,
+            messages=messages,
+            plan=state.get("turn_plan") or {},
+        )
         return {"messages": [response], "next": "supervisor"}
 
     def brain_node(state: AgentState):
@@ -2917,12 +3109,17 @@ async def create_agent_workflow(
         required_read_tool_names = set()
         required_context_tool = ""
         required_context_is_reader = False
+        reader_routing_message = latest_user
         has_reader_context = any(
             ref.get("type") == "internal" and ref.get("ref") == "reader"
             for ref in context_refs
         )
         has_vault_context = any(
             ref.get("type") in {"page", "table", "database", "vault"}
+            for ref in context_refs
+        )
+        has_other_context = any(
+            ref.get("type") in {"file", "url", "source"}
             for ref in context_refs
         )
         if context_tools and (
@@ -2939,6 +3136,7 @@ async def create_agent_workflow(
                     if reader_job_id and reader_job_id not in latest_user.lower()
                     else latest_user
                 )
+                reader_routing_message = routing_message
                 required_context_tool = _required_reader_context_tool(
                     routing_message,
                 )
@@ -2951,8 +3149,21 @@ async def create_agent_workflow(
                         inventory_continuation_arguments
                     ),
                 )
+            elif has_other_context:
+                required_context_tool = _required_generic_context_tool(
+                    context_refs,
+                )
         if required_context_tool:
             required_read_tool_names.add(required_context_tool)
+        turn_plan = build_agent_turn_plan(
+            latest_user,
+            context_refs=context_refs,
+            tool_metadata=runtime_tool_metadata,
+            authorized_tool_names=current_authorized_names,
+            provider=provider_name,
+            required_tool_name=required_context_tool,
+            route="Brain",
+        )
         turn_brain_tools = _turn_model_tools(
             brain_tools,
             runtime_tool_metadata,
@@ -2961,6 +3172,12 @@ async def create_agent_workflow(
             narrow_passive_reads=legacy_bundle_active,
             required_read_tool_names=required_read_tool_names,
         )
+        planned_tool_names = set(turn_plan.get("allowed_tool_names") or ())
+        turn_brain_tools = [
+            tool
+            for tool in turn_brain_tools
+            if _tool_name(tool) in planned_tool_names
+        ]
         if request_mode == "conversation" and not current_authorized_names:
             turn_brain_tools = []
         elif (
@@ -2986,6 +3203,16 @@ async def create_agent_workflow(
             "(Gnosi Vault and sovereign memory)."
             f"\nThe server classified this turn as {request_mode}."
         )
+        if request_mode in {"lookup", "inventory", "analysis"}:
+            brain_system += (
+                "\nWhen a successful tool result supplies canonical source ids, "
+                "append [[cite:SOURCE_ID]] to every factual sentence supported "
+                "by that source. Use only exact ids present in this turn's tool "
+                "results, place the marker before the sentence-ending punctuation, "
+                "and cite multiple ids when a claim combines sources. The server "
+                "validates and removes these markers before display. Never invent "
+                "a source id."
+            )
         if request_mode == "conversation":
             brain_system += (
                 "\nThis conversational turn requires no source read. "
@@ -3095,6 +3322,10 @@ async def create_agent_workflow(
             messages,
             "inventory_context",
         )
+        reader_job_message = _latest_tool_message_since_latest_user(
+            messages,
+            "start_reader_context_analysis",
+        )
         repeated_tool_name = _repeated_tool_call_since_latest_user(messages)
         remaining_steps = int(state.get("remaining_steps", 0) or 0)
         if personal_resources_requested and not personal_resources_result:
@@ -3106,19 +3337,42 @@ async def create_agent_workflow(
                 "next": "supervisor",
             }
         if personal_resources_result and not current_authorized_names:
+            response = AIMessage(content=_authored_resources_response(
+                getattr(personal_resources_message, "content", ""),
+                latest_user,
+            ))
             return {
-                "messages": [AIMessage(content=_authored_resources_response(
-                    getattr(personal_resources_message, "content", ""),
-                    latest_user,
-                ))],
+                "messages": [verify_response(
+                    response,
+                    messages=messages,
+                    plan=turn_plan,
+                )],
                 "next": "FINISH",
             }
         if inventory_message is not None and not current_authorized_names:
+            response = AIMessage(content=_inventory_context_response(
+                getattr(inventory_message, "content", ""),
+                latest_user,
+            ))
             return {
-                "messages": [AIMessage(content=_inventory_context_response(
-                    getattr(inventory_message, "content", ""),
-                    latest_user,
-                ))],
+                "messages": [verify_response(
+                    response,
+                    messages=messages,
+                    plan=turn_plan,
+                )],
+                "next": "FINISH",
+            }
+        if reader_job_message is not None:
+            response = AIMessage(content=_reader_job_response(
+                getattr(reader_job_message, "content", ""),
+                latest_user,
+            ))
+            return {
+                "messages": [verify_response(
+                    response,
+                    messages=messages,
+                    plan=turn_plan,
+                )],
                 "next": "FINISH",
             }
         elif repeated_tool_name and not current_authorized_names:
@@ -3147,7 +3401,20 @@ async def create_agent_workflow(
                 "the available evidence and do not call another tool."
             )
         elif required_context_tool and not latest_context_tool:
-            if not required_context_is_reader:
+            if required_context_is_reader:
+                deterministic_call = _deterministic_reader_context_call(
+                    required_context_tool,
+                    reader_routing_message,
+                )
+                if deterministic_call:
+                    return {
+                        "messages": [AIMessage(
+                            content="",
+                            tool_calls=[deterministic_call],
+                        )],
+                        "next": "supervisor",
+                    }
+            else:
                 deterministic_call = _deterministic_vault_context_call(
                     required_context_tool,
                     context_refs,
@@ -3175,6 +3442,8 @@ async def create_agent_workflow(
         elif (
             latest_context_tool in {
                 "inventory_context", "query_context_table", "read_context_source",
+                "inspect_reader_context", "start_reader_context_analysis",
+                "reader_context_analysis_status", "read_reader_context_analysis",
             }
             and not current_authorized_names
         ):
@@ -3191,6 +3460,11 @@ async def create_agent_workflow(
         response = selected_brain_llm.invoke(
             [SystemMessage(content=brain_system)] + _bounded_model_messages(messages, message_budget_chars),
         )
+        response = verify_response(
+            response,
+            messages=messages,
+            plan=turn_plan,
+        )
         return {"messages": [response], "next": "supervisor"}
 
     def general_node(state: AgentState):
@@ -3198,6 +3472,11 @@ async def create_agent_workflow(
         # Use explicit persona for general conversation
         response = llm.invoke(
             [SystemMessage(content=general_prompt)] + _bounded_model_messages(messages, message_budget_chars)
+        )
+        response = verify_response(
+            response,
+            messages=messages,
+            plan=state.get("turn_plan") or {},
         )
         return {"messages": [response], "next": "FINISH"}
 
@@ -3293,4 +3572,13 @@ async def create_agent_workflow(
             for item in runtime_tool_metadata
         ],
         "turn_grant_tool_names": sorted(explicitly_activated_tool_names),
+        "context_refs": [
+            {
+                key: ref.get(key)
+                for key in ("id", "type", "ref", "label", "scope")
+                if ref.get(key) not in (None, "", {})
+            }
+            for ref in context_refs[:16]
+            if isinstance(ref, dict)
+        ],
     }

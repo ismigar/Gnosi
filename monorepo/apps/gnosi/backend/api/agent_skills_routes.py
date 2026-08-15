@@ -49,7 +49,18 @@ from backend.services.capability_automations import (
     save_automation,
 )
 from backend.services.capability_audit import list_workspace_capability_events
-from backend.services.capability_jobs import list_jobs as list_capability_jobs
+from backend.services.agent_quality_telemetry import (
+    list_evaluation_candidates,
+    review_evaluation_candidate,
+    reviewed_evaluation_cases,
+)
+from backend.services.capability_jobs import (
+    cancel_job as cancel_capability_job,
+    get_job_status as get_capability_job_status,
+    list_jobs as list_capability_jobs,
+    read_job_result as read_capability_job_result,
+    resume_job as resume_capability_job,
+)
 
 
 router = APIRouter(prefix="/ai", tags=["AI Skills"])
@@ -105,6 +116,12 @@ class AutomationWritePayload(BaseModel):
     expected_revision: Optional[str] = None
 
 
+class EvaluationCandidateReviewPayload(BaseModel):
+    """Administrative decision for one privacy-safe evaluation candidate."""
+
+    decision: str = Field(pattern=r"^(pending_review|accepted|rejected)$")
+
+
 def _metadata(payload: UserSkillWritePayload) -> Dict[str, Any]:
     return {
         "schema_version": 1,
@@ -158,6 +175,62 @@ def list_governed_jobs(
     return {"jobs": list_capability_jobs(Path(context.vault_path))}
 
 
+@router.get("/jobs/{job_id}")
+def get_governed_job(
+    job_id: str,
+    context: WorkspaceContext = Depends(get_workspace_context),
+):
+    """Read one durable job's current provider-neutral status."""
+    try:
+        return get_capability_job_status(Path(context.vault_path), job_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Capability job not found.") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/jobs/{job_id}/result")
+def get_governed_job_result(
+    job_id: str,
+    context: WorkspaceContext = Depends(get_workspace_context),
+):
+    """Read the durable result when the owning provider exposes it."""
+    try:
+        return read_capability_job_result(Path(context.vault_path), job_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Capability job not found.") from exc
+    except (RuntimeError, ValueError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/jobs/{job_id}/resume")
+def resume_governed_job(
+    job_id: str,
+    context: WorkspaceContext = Depends(require_role("editor")),
+):
+    """Resume a provider-owned failed or interrupted durable job."""
+    try:
+        return resume_capability_job(Path(context.vault_path), job_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Capability job not found.") from exc
+    except (RuntimeError, ValueError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/jobs/{job_id}/cancel")
+def cancel_governed_job(
+    job_id: str,
+    context: WorkspaceContext = Depends(require_role("editor")),
+):
+    """Request cooperative cancellation of a cancellable durable job."""
+    try:
+        return cancel_capability_job(Path(context.vault_path), job_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Capability job not found.") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
 @router.get("/capability-audit")
 def list_workspace_capability_audit(
     limit: int = Query(default=200, ge=1, le=500),
@@ -169,6 +242,60 @@ def list_workspace_capability_audit(
             _automation_scope(context), limit=limit
         )
     }
+
+
+@router.get("/evals/candidates")
+def list_agent_evaluation_candidates(
+    limit: int = Query(default=200, ge=1, le=500),
+    context: WorkspaceContext = Depends(require_role("admin")),
+):
+    """List deduplicated metadata-only regression candidates."""
+    return {
+        "candidates": list_evaluation_candidates(
+            _automation_scope(context), limit=limit
+        )
+    }
+
+
+@router.post("/evals/candidates/{candidate_id}/review")
+def review_agent_evaluation_candidate(
+    candidate_id: str,
+    payload: EvaluationCandidateReviewPayload,
+    context: WorkspaceContext = Depends(require_role("admin")),
+):
+    """Accept, reject, or reopen one synthetic evaluation case."""
+    try:
+        return review_evaluation_candidate(
+            _automation_scope(context), candidate_id, payload.decision
+        )
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=404, detail="Evaluation candidate not found."
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/evals/candidates/run")
+def run_reviewed_agent_evaluation_candidates(
+    context: WorkspaceContext = Depends(require_role("admin")),
+):
+    """Run accepted synthetic cases without constructing a model."""
+    from backend.agent.evals.runner import run_evaluations
+
+    cases = reviewed_evaluation_cases(_automation_scope(context))
+    if not cases:
+        return {
+            "schema_version": 1,
+            "suite": "reviewed-agent-quality-candidates",
+            "passed": 0,
+            "total": 0,
+            "score": 1.0,
+            "results": [],
+        }
+    report = run_evaluations(cases)
+    report["suite"] = "reviewed-agent-quality-candidates"
+    return report
 
 
 @router.get("/approvals")

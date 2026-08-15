@@ -996,6 +996,7 @@ def build_context_tools(raw_refs: Any) -> List[Any]:
 
         matches = []
         direct_body_reads = 0
+        cache_covered_records = 0
         root = _vault_root()
         for record in canonical_records:
             table = record["table"]
@@ -1004,6 +1005,7 @@ def build_context_tools(raw_refs: Any) -> List[Any]:
             cached_body = cached_documents.get(record["path"])
             cached_terms = indexed_terms.get(record["id"])
             if cached_body is not None or cached_terms is not None:
+                cache_covered_records += 1
                 body = cached_body or (
                     " ".join(cached_terms[0])
                     if cached_terms is not None
@@ -1066,6 +1068,23 @@ def build_context_tools(raw_refs: Any) -> List[Any]:
         page = matches[bounded_offset:bounded_offset + bounded_limit]
         for record in page:
             record.pop("score", None)
+        try:
+            from backend.api.vault_routes import get_agent_index_freshness
+
+            freshness = get_agent_index_freshness(
+                requested_count=len(canonical_records),
+                covered_count=cache_covered_records,
+                direct_reads=direct_body_reads,
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Could not resolve Vault index freshness: %s", exc)
+            freshness = {
+                "status": "unknown",
+                "requested_records": len(canonical_records),
+                "cached_records": cache_covered_records,
+                "direct_reads": direct_body_reads,
+                "refresh_scheduled": False,
+            }
         payload = {
             "query": bounded_query,
             "include_relations": bool(include_relations),
@@ -1090,6 +1109,7 @@ def build_context_tools(raw_refs: Any) -> List[Any]:
                 "direct_body_reads": direct_body_reads,
                 "built_at": text_index_built_at or None,
             },
+            "freshness": freshness,
             "matching_count": len(matches),
             "counts_by_type": counts_by_type,
             "counts_by_match_kind": counts_by_match_kind,

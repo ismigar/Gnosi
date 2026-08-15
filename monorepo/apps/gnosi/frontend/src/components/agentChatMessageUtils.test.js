@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
     boundedProcessingMs,
+    boundedTransparencyMetadata,
     boundedTurnMetrics,
     conversationRewindPlan,
     mergeCanonicalMessageMetadata,
@@ -33,6 +34,76 @@ describe('assistant message presentation metadata', () => {
             model_calls: 0,
         });
         expect(boundedTurnMetrics(null)).toBeNull();
+    });
+
+    it('keeps only bounded operational transparency metadata', () => {
+        const metadata = boundedTransparencyMetadata({
+            plan: {
+                plan_id: 'plan-1',
+                mode: 'analysis',
+                domains: ['reader', ...Array(20).fill('ignored')],
+                route: 'Brain',
+                execution: 'background',
+                allowed_tool_names: ['must-not-be-persisted'],
+            },
+            privacy: {
+                classification: 'private_remote_processing',
+                private_source_count: 2,
+                private_evidence_to_remote_model: true,
+                raw_evidence: 'must-not-be-persisted',
+            },
+            verification: {
+                status: 'passed',
+                evidence_count: 64,
+                tool_names: ['inventory_context'],
+                raw_payload: 'must-not-be-persisted',
+            },
+            citations: {
+                status: 'complete',
+                sources: [
+                    { citation_id: 'src-1', source_id: 'note-1', title: 'Note one', source_type: 'vault_record', href: '/vault/page/note-1', raw_excerpt: 'private' },
+                    { citation_id: 'src-2', source_id: 'bad', title: 'Bad link', source_type: 'source', href: 'javascript:alert(1)' },
+                ],
+                claims: [
+                    { claim_id: 'claim-1', line_index: 0, text: 'Grounded claim', citation_ids: ['src-1', 'unknown'] },
+                ],
+                raw_payload: 'must-not-be-persisted',
+            },
+            job: {
+                job_id: 'reader:job-1',
+                provider: 'reader',
+                state: 'failed',
+                result_available: false,
+                capabilities: { status: true, result: true, resume: true, cancel: true },
+                result: 'must-not-be-persisted',
+            },
+        });
+
+        expect(metadata.plan).toMatchObject({
+            plan_id: 'plan-1',
+            mode: 'analysis',
+            route: 'Brain',
+            execution: 'background',
+        });
+        expect(metadata.plan.domains).toHaveLength(12);
+        expect(metadata.plan).not.toHaveProperty('allowed_tool_names');
+        expect(metadata.privacy).not.toHaveProperty('raw_evidence');
+        expect(metadata.verification).not.toHaveProperty('raw_payload');
+        expect(metadata.citations).toMatchObject({
+            status: 'complete',
+            claim_count: 1,
+            source_count: 1,
+        });
+        expect(metadata.citations.claims[0].citation_ids).toEqual(['src-1']);
+        expect(metadata.citations.sources[0]).not.toHaveProperty('raw_excerpt');
+        expect(metadata.citations.sources[1].href).toBe('');
+        expect(metadata.citations).not.toHaveProperty('raw_payload');
+        expect(metadata.job).toMatchObject({
+            status: 'failed',
+            result_available: false,
+            capabilities: { status: true, result: true, resume: true, cancel: true },
+        });
+        expect(metadata.job).not.toHaveProperty('result');
     });
 
     it('rewinds the complete turn containing either message', () => {

@@ -41,7 +41,7 @@ def test_manual_boundary_is_preserved_and_critical_path_is_exposed():
     schedule = build_schedule([
         task("a", {"start": "2026-07-27T09:00", "durationDays": 1, "startMode": "manual"}),
         task("b", {"durationDays": 2, "dependencies": [{"predecessorId": "a"}]}),
-    ], CALENDAR)
+    ], CALENDAR, status_date="2026-07-01T09:00")
     results = {item["id"]: item for item in schedule["tasks"]}
     assert results["a"]["start"] == "2026-07-27T09:00"
     assert results["b"]["id"] in schedule["criticalTaskIds"]
