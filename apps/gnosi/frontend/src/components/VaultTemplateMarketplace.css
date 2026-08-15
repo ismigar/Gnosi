@@ -1,0 +1,74 @@
+.vault-template-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 10050;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(15, 23, 42, 0.58);
+    backdrop-filter: blur(3px);
+}
+
+.vault-template-modal__content {
+    width: min(92vw, 820px);
+    max-height: 88vh;
+    overflow: auto;
+    padding: 22px;
+    border: 1px solid var(--settings-border, #dbe2ea);
+    border-radius: 16px;
+    background: var(--bg-primary, #fff);
+    color: var(--text-primary, #0f172a);
+    box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
+}
+
+.vault-template-modal__close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--settings-border, #dbe2ea);
+    border-radius: 9px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+
+.vault-template-notice {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 12px;
+    padding: 9px 11px;
+    border: 1px solid #f59e0b55;
+    border-radius: 9px;
+    background: #fef3c722;
+    color: #b45309;
+    font-size: 13px;
+}
+
+.vault-template-notice.is-error {
+    border-color: #ef444455;
+    background: #fee2e222;
+    color: #dc2626;
+}
+
+.vault-template-notice.is-success {
+    border-color: #22c55e55;
+    background: #dcfce722;
+    color: #15803d;
+}
+
+@media (max-width: 640px) {
+    .vault-template-modal {
+        align-items: flex-end;
+        padding: 0;
+    }
+
+    .vault-template-modal__content {
+        width: 100%;
+        max-height: 92vh;
+        border-radius: 16px 16px 0 0;
+    }
+}
