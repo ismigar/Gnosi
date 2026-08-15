@@ -60,6 +60,9 @@ jobs:
           # The afterPack hook seals the complete bundle deterministically.
           # Do not auto-select unrelated local or development identities.
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          # build-python.sh must use the interpreter provisioned above instead
+          # of discovering a newer runner-level Python with different dylibs.
+          GNOSI_PYTHON_CMD: python
         run: |
           cd monorepo/apps/gnosi/electron
           npm run build:mac -- --${{ matrix.arch }}
@@ -123,6 +126,8 @@ jobs:
           npm run build
 
       - name: Build Python bundle
+        env:
+          GNOSI_PYTHON_CMD: python
         run: |
           cd monorepo/apps/gnosi/electron
           ./build-python.sh
@@ -178,6 +183,8 @@ jobs:
           npm run build
 
       - name: Build Python bundle
+        env:
+          GNOSI_PYTHON_CMD: python
         run: |
           cd monorepo/apps/gnosi/electron
           ./build-python.sh

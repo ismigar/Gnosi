@@ -98,6 +98,8 @@ test('the frozen backend keeps required standard-library and media modules', () 
   const buildScript = fs.readFileSync(path.join(__dirname, 'build-python.sh'), 'utf8');
 
   assert.match(buildScript, /requirements-e2e\.txt/);
+  assert.match(buildScript, /GNOSI_PYTHON_CMD/);
+  assert.match(buildScript, /requested Python command not found/);
   assert.doesNotMatch(buildScript, /excludes=\[[^\]]*['"]unittest['"]/s);
   assert.doesNotMatch(buildScript, /excludes=\[[^\]]*['"]PIL['"]/s);
 });
@@ -111,6 +113,11 @@ test('macOS release jobs match each frozen backend to its target architecture', 
   assert.match(workflow, /runs-on: \$\{\{ matrix\.runner \}\}/);
   assert.match(workflow, /npm run build:mac -- --\$\{\{ matrix\.arch \}\}/);
   assert.match(workflow, /name: macos-\$\{\{ matrix\.arch \}\}/);
+  assert.equal(
+    workflow.match(/GNOSI_PYTHON_CMD: python/g)?.length,
+    3,
+    'every platform must use the Python provisioned by its setup action',
+  );
 
   const macJob = workflow.match(/  build-macos:\n([\s\S]*?)\n  build-linux:/)?.[1];
   assert.ok(macJob, 'the release workflow must define a macOS build job');

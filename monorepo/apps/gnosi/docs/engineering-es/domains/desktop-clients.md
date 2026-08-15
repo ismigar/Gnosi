@@ -65,6 +65,11 @@ un ejecutable Python nativo del host dentro de la aplicación de la otra
 arquitectura. Los runners de release están fijados en lugar de usar
 `macos-latest`, cuya migración a macOS 26 cambió la creación del DMG a APFS y
 rompió la fase de montaje y personalización de electron-builder.
+Cada job de release también pasa explícitamente al constructor del backend el
+comando Python proporcionado por `actions/setup-python`. Esto mantiene las
+extensiones binarias y las bibliotecas OpenSSL recopiladas sobre un único ABI
+de intérprete y evita que un Python más nuevo del runner sustituya el entorno
+de release.
 
 La lista de archivos del constructor de Electron es un límite explícito del
 runtime. El hook multiplataforma `afterPack` inspecciona el `app.asar` final y
