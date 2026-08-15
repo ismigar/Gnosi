@@ -1,0 +1,449 @@
+<!doctype html>
+<!--
+  Host HTML per a embedar el zotero-reader dins una pestanya del Vault de Gnosi.
+  No reaprofitem `reader.html` (el shell que ve amb el build) perquè aquest no
+  invoca createReader; només defineix els divs base. Aquí afegim el handshake
+  postMessage que parla amb el component React parent.
+
+  Protocol:
+    parent → iframe   { target: 'zotero-reader', type: 'init',
+                         payload: { pdfUrl, annotations, options } }
+    iframe → parent   { source: 'zotero-reader', type: 'host-ready' | 'ready'
+                                                 | 'error' | 'save-annotations'
+                                                 | 'delete-annotations'
+                                                 | 'view-state' | 'open-link' }
+-->
+<html lang="ca" dir="ltr"
+      style="--sidebar-width: 240px; --split-view-size: 50%;
+             --bottom-placeholder-height: 50px; --toolbar-placeholder-width: 0px">
+<head>
+    <meta charset="UTF-8">
+    <title>Zotero Reader · Gnosi</title>
+    <link href="reader.css" rel="stylesheet">
+    <style>
+        html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+        #gnosi-error {
+            position: fixed; inset: 0; display: none;
+            align-items: center; justify-content: center;
+            background: #525659; color: #f88;
+            font: 14px -apple-system, sans-serif;
+            padding: 24px; text-align: center;
+        }
+        #gnosi-error.visible { display: flex; }
+
+        /* Menu contextual ('three dots' i secundaris del reader). Zotero
+           crida onOpenContextMenu amb { x, y, itemGroups } i espera que
+           el host el renderitzi. itemGroups és array d'arrays: cada array
+           intern és un grup separat per un divider. */
+        #gnosi-ctx-menu {
+            position: fixed; z-index: 100000;
+            background: #2b2d2e; border: 1px solid #555; border-radius: 6px;
+            padding: 4px 0; box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            min-width: 200px; max-width: 320px;
+            color: #ddd;
+            font: 13px -apple-system, BlinkMacSystemFont, sans-serif;
+            user-select: none;
+        }
+        #gnosi-ctx-menu.hidden { display: none; }
+        .gctx-item {
+            padding: 6px 12px; cursor: pointer; display: flex;
+            align-items: center; gap: 8px;
+        }
+        .gctx-item:hover:not(.disabled) { background: #3a3d3e; }
+        .gctx-item.disabled { opacity: 0.4; cursor: default; }
+        .gctx-check { width: 12px; text-align: center; color: #66bb6a; }
+        .gctx-color {
+            width: 12px; height: 12px; border-radius: 2px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .gctx-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .gctx-sep { height: 1px; background: #444; margin: 4px 0; }
+        .gctx-slider { padding: 8px 12px; }
+        .gctx-slider input { width: 100%; }
+    </style>
+</head>
+<body class="sidebar-open">
+    <div id="reader-ui"></div>
+    <div id="split-view">
+        <div id="primary-view" class="primary-view"></div>
+        <div id="secondary-view" class="secondary-view"></div>
+    </div>
+    <div id="printContainer"></div>
+    <div id="gnosi-error"></div>
+    <div id="gnosi-ctx-menu" class="hidden"></div>
+
+    <script src="reader.js"></script>
+    <script>
+    (function () {
+        // El protocol és same-origin (l'iframe viu al mateix domain que el
+        // parent), així que restringim el targetOrigin a la nostra origin.
+        // Així evitem que el missatge sigui entregat a qualsevol altre
+        // window que algun dia embedi aquesta pàgina cross-origin.
+        const PARENT_ORIGIN = window.location.origin;
+        const post = (msg) => {
+            try { window.parent.postMessage({ source: 'zotero-reader', ...msg }, PARENT_ORIGIN); }
+            catch (e) { /* parent gone */ }
+        };
+        const showError = (msg) => {
+            const el = document.getElementById('gnosi-error');
+            el.textContent = msg;
+            el.classList.add('visible');
+            post({ type: 'error', message: msg });
+        };
+
+        let reader = null;
+        let navigationSequence = 0;
+
+        function highlightQuery(text) {
+            const normalized = String(text || '').replace(/\s+/g, ' ').trim();
+            if (normalized.length <= 48) return normalized;
+            const shortened = normalized.slice(0, 48);
+            const lastSpace = shortened.lastIndexOf(' ');
+            return lastSpace > 24 ? shortened.slice(0, lastSpace) : shortened;
+        }
+
+        async function navigateToLocation(location) {
+            if (!reader || !location) return;
+            try {
+                if (location.pageNumber) {
+                    await reader.navigate({ pageNumber: String(location.pageNumber) });
+                }
+                const query = highlightQuery(location.highlightText);
+                if (query) {
+                    const findState = {
+                        ...(reader._state?.primaryViewFindState || {}),
+                        active: true,
+                        query,
+                        highlightAll: false,
+                        caseSensitive: false,
+                        entireWord: false,
+                        index: null,
+                        result: null,
+                    };
+                    if (reader._handleFindStateChange) {
+                        reader._handleFindStateChange(true, findState);
+                    } else if (reader.setFindState) {
+                        await reader.setFindState(findState);
+                    }
+                }
+            } catch (err) {
+                console.warn('Citation navigation failed', err);
+            }
+        }
+
+        function scheduleNavigation(location) {
+            const sequence = ++navigationSequence;
+            if (!location) return;
+            const run = () => {
+                if (sequence === navigationSequence) void navigateToLocation(location);
+            };
+            run();
+            for (const delay of [500, 1500, 4000]) setTimeout(run, delay);
+            if (reader?.initializedPromise) {
+                reader.initializedPromise.then(run).catch((err) => {
+                    console.warn('Reader initialization failed', err);
+                });
+            }
+        }
+
+        async function waitForCreateReader(timeoutMs = 15000) {
+            const t0 = Date.now();
+            while (typeof window.createReader !== 'function') {
+                if (Date.now() - t0 > timeoutMs) {
+                    throw new Error('createReader not available after ' + timeoutMs + 'ms');
+                }
+                await new Promise(r => setTimeout(r, 50));
+            }
+        }
+
+        // Carrega les traduccions Fluent (.ftl) per a un idioma concret.
+        // Si el fitxer no existeix per a la locale demanada (cap traducció
+        // disponible), fallback a en-US per a aquell strand. El brand.ftl
+        // és genèric i només viu a en-US.
+        async function loadFtls(locale) {
+            const base = './locales';
+            // Important: el reader fa `addResource(..., { allowOverrides: true })`
+            // per a cada bundle del array `ftl`, així que l'ÚLTIM bundle
+            // afegit guanya per a una clau donada. Posem `gnosi-overlay.ftl`
+            // al final perquè sobreescrigui els strings que Zotero encara
+            // no ha traduït. Si la locale no té overlay, no passa res.
+            const wanted = [
+                { path: locale + '/zotero.ftl', fallback: 'en-US/zotero.ftl' },
+                { path: locale + '/reader.ftl', fallback: 'en-US/reader.ftl' },
+                { path: 'en-US/brand.ftl', fallback: null },
+                { path: locale + '/gnosi-overlay.ftl', fallback: null, optional: true },
+            ];
+            const texts = [];
+            for (const { path, fallback, optional } of wanted) {
+                let txt = null;
+                try {
+                    const r = await fetch(base + '/' + path);
+                    if (r.ok) txt = await r.text();
+                } catch (e) { /* fall through */ }
+                if (txt == null && fallback) {
+                    try {
+                        const r = await fetch(base + '/' + fallback);
+                        if (r.ok) txt = await r.text();
+                    } catch (e) { /* fall through */ }
+                }
+                if (txt != null) texts.push(txt);
+                // Optional files (overlays) no aborten la càrrega si no
+                // existeixen — la locale potser no en té.
+                if (txt == null && !optional && !fallback) {
+                    console.warn('zotero-host: missing FTL', path);
+                }
+            }
+            return texts.length > 0 ? texts : undefined;
+        }
+
+        async function init({ pdfUrl, kind, annotations, options, language, direction, location }) {
+            try {
+                await waitForCreateReader();
+                document.documentElement.lang = language || 'en-US';
+                document.documentElement.dir = direction === 'rtl' ? 'rtl' : 'ltr';
+                if (!pdfUrl) throw new Error('Missing pdfUrl');
+
+                const res = await fetch(pdfUrl, { credentials: 'same-origin' });
+                if (!res.ok) throw new Error('Document fetch failed: HTTP ' + res.status);
+                const buf = new Uint8Array(await res.arrayBuffer());
+
+                const opts = options || {};
+                const docType = kind || 'pdf';
+                // Tradueix els strings del reader. Si la locale demanada
+                // no existeix al disc, el bundle té el seu propi default
+                // (en-US) ja embedat — passem `undefined` perquè s'usi.
+                const ftl = language ? await loadFtls(language) : undefined;
+
+                reader = window.createReader({
+                    type: docType,
+                    data: { buf },
+                    ftl,
+                    annotations: annotations || [],
+                    primaryViewState: opts.primaryViewState || null,
+                    readOnly: !!opts.readOnly,
+                    authorName: opts.authorName || 'User',
+                    showAnnotations: true,
+                    rtl: false,
+
+                    // --- Callbacks que reemetem al parent ---
+                    onSaveAnnotations: async (anns) => {
+                        post({ type: 'save-annotations', annotations: anns });
+                    },
+                    onDeleteAnnotations: (ids) => {
+                        post({ type: 'delete-annotations', ids });
+                    },
+                    onChangeViewState: (state, primary) => {
+                        post({ type: 'view-state', state, primary });
+                    },
+                    onOpenLink: (url) => {
+                        post({ type: 'open-link', url });
+                    },
+
+                    // --- Callbacks de popups inline ---
+                    // Quan l'usuari fa una selecció o selecciona una
+                    // anotació al PDF, Zotero vol mostrar popups inline
+                    // (selecció: color picker; anotació: color + comentari
+                    // + tags). Els deixem com a no-ops i delegem als
+                    // equivalents via menu contextual (clic dret / 3
+                    // puntets), que ja funciona. Limit conegut del MVP.
+                    onChangeFindState: () => {},
+                    onOpenContextMenu: (params) => openContextMenu(params),
+                    // Tag popup mínim via prompt natiu. Zotero crida això
+                    // quan l'usuari clica un chip de tag d'una anotació.
+                    // Sense una UI pròpia, fallback al diàleg del navegador
+                    // per no perdre la funcionalitat.
+                    onOpenTagsPopup: (annotation /* , x, y */) => {
+                        if (!annotation || !reader) return;
+                        const current = (annotation.tags || []).map(t => t.name).join(', ');
+                        const next = window.prompt('Tags (separades per coma):', current);
+                        if (next === null) return;
+                        const tags = next.split(',')
+                            .map(s => s.trim()).filter(Boolean)
+                            .map(name => ({ name }));
+                        try { reader.setAnnotations && reader.setAnnotations([{ id: annotation.id, tags }]); }
+                        catch (e) { console.warn('setAnnotations failed', e); }
+                    },
+                    onAddToNote: () => {},
+                    onClosePopup: () => {},
+                    onToggleSidebar: () => {},
+                    onChangeSidebarWidth: () => {},
+                    onChangeSidebarView: () => {},
+                    onSetDataTransferAnnotations: () => {},
+                    onConfirm: () => true,
+                    onCopyImage: () => {},
+                    onSaveImageAs: () => {},
+                    onSetSelectionPopup: () => {},
+                    onSetAnnotationPopup: () => {},
+                    onSetOverlayPopup: () => {},
+                    onSetFindState: () => {},
+                });
+
+                scheduleNavigation(location);
+                post({ type: 'ready' });
+            } catch (err) {
+                showError('Init error: ' + (err && err.message ? err.message : String(err)));
+            }
+        }
+
+        window.addEventListener('message', (e) => {
+            // Origin guard: només acceptar missatges del parent (mateixa origin).
+            // Sense això, qualsevol iframe popup amb noopener podria injectar
+            // ordres `init` o `set-annotations`.
+            if (e.origin !== window.location.origin) return;
+            if (e.source !== window.parent) return;
+            const data = e.data || {};
+            if (data.target !== 'zotero-reader') return;
+            if (data.type === 'init') {
+                init(data.payload || {});
+            } else if (data.type === 'navigate' && reader) {
+                scheduleNavigation(data.location || null);
+            } else if (data.type === 'set-annotations' && reader) {
+                try { reader.setAnnotations && reader.setAnnotations(data.annotations || []); }
+                catch (err) { console.warn('set-annotations failed', err); }
+            } else if (data.type === 'update-annotation-ids' && reader) {
+                // El parent ens notifica que algunes anotacions noves ja
+                // tenen dbId al backend. Substituïm l'id Zotero al state
+                // del reader perquè els saves següents siguin PATCH i els
+                // deletes encertin la fila correcta.
+                const mapPairs = Array.isArray(data.idMap) ? data.idMap : [];
+                if (!mapPairs.length) return;
+                try {
+                    const cur = reader._state?.annotations || [];
+                    const oldToNew = new Map(mapPairs.map(p => [p.oldId, p.newId]));
+                    const patches = cur
+                        .filter(a => oldToNew.has(a.id))
+                        .map(a => ({ id: a.id, _newId: oldToNew.get(a.id) }));
+                    // Zotero no exposa una API pública per renombrar id, així
+                    // que esborrem i recreem amb el nou id. Internalment és
+                    // un swap de referencia.
+                    if (patches.length) {
+                        const recreated = patches.map(p => {
+                            const a = cur.find(x => x.id === p.id);
+                            return { ...a, id: p._newId };
+                        });
+                        reader.unsetAnnotations && reader.unsetAnnotations(patches.map(p => p.id));
+                        reader.setAnnotations && reader.setAnnotations(recreated);
+                    }
+                } catch (err) { console.warn('update-annotation-ids failed', err); }
+            }
+        });
+
+        // -------------------------------------------------------------
+        // Menu contextual (per als 3 puntets d'una anotació, color picker
+        // d'una eina, etc.). Zotero ens passa { x, y, itemGroups } amb
+        // funcions `onCommand` directament invocables. Aquestes funcions
+        // viuen DINS aquest iframe (closures sobre el reader), per això
+        // el menu s'ha de renderitzar aquí, no al parent React.
+        // -------------------------------------------------------------
+        const menuEl = document.getElementById('gnosi-ctx-menu');
+
+        function closeContextMenu() {
+            menuEl.classList.add('hidden');
+            menuEl.innerHTML = '';
+        }
+
+        function openContextMenu(params) {
+            menuEl.innerHTML = '';
+            const groups = Array.isArray(params?.itemGroups) ? params.itemGroups : [];
+            groups.forEach((items, gi) => {
+                if (gi > 0) {
+                    const sep = document.createElement('div');
+                    sep.className = 'gctx-sep';
+                    menuEl.appendChild(sep);
+                }
+                items.forEach((item) => {
+                    if (!item) return;
+                    if (item.slider) {
+                        // Slider de tamany (ink width, text fontSize). UI mínima.
+                        const row = document.createElement('div');
+                        row.className = 'gctx-slider' + (item.disabled ? ' disabled' : '');
+                        const slider = document.createElement('input');
+                        slider.type = 'range';
+                        slider.disabled = !!item.disabled;
+                        const steps = item.steps || [];
+                        if (steps.length > 0) {
+                            slider.min = '0';
+                            slider.max = String(steps.length - 1);
+                            slider.step = '1';
+                            const idx = Math.max(0, steps.indexOf(item.size));
+                            slider.value = String(idx === -1 ? 0 : idx);
+                            if (!item.disabled) {
+                                slider.addEventListener('input', () => {
+                                    const v = steps[Number(slider.value)];
+                                    try { item.onCommand && item.onCommand(v); } catch (e) {}
+                                });
+                            }
+                        }
+                        row.appendChild(slider);
+                        menuEl.appendChild(row);
+                        return;
+                    }
+                    const el = document.createElement('div');
+                    el.className = 'gctx-item' + (item.disabled ? ' disabled' : '');
+                    const check = document.createElement('span');
+                    check.className = 'gctx-check';
+                    check.textContent = item.checked ? '✓' : '';
+                    el.appendChild(check);
+                    if (item.color) {
+                        const sw = document.createElement('span');
+                        sw.className = 'gctx-color';
+                        sw.style.background = item.color;
+                        el.appendChild(sw);
+                    }
+                    const lbl = document.createElement('span');
+                    lbl.className = 'gctx-label';
+                    lbl.textContent = item.label || '';
+                    el.appendChild(lbl);
+                    if (!item.disabled && typeof item.onCommand === 'function') {
+                        el.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            try { item.onCommand(); }
+                            catch (err) { console.warn('context menu onCommand failed', err); }
+                            // `persistent: true` de Zotero significa que el item
+                            // s'ha de mantenir visible (no filtrat) quan està
+                            // disabled — NO necessàriament que el menu hagi de
+                            // restar obert després del click. Items com Delete
+                            // o "Convert to underline" tenen persistent:true
+                            // perquè el menu els pugui mostrar inactius
+                            // contextualment, però un cop els cliques han
+                            // d'amagar el menu. Només sliders i color pickers
+                            // tenen sentit mantenir-los oberts (l'usuari pot
+                            // voler fer canvis múltiples consecutius).
+                            const stayOpen = item.persistent && (item.color || item.slider);
+                            if (!stayOpen) closeContextMenu();
+                        });
+                    }
+                    menuEl.appendChild(el);
+                });
+            });
+            // Posicionar dins el viewport.
+            menuEl.style.left = '0px';
+            menuEl.style.top = '0px';
+            menuEl.classList.remove('hidden');
+            const rect = menuEl.getBoundingClientRect();
+            const x = Math.min(params.x ?? 0, window.innerWidth - rect.width - 8);
+            const y = Math.min(params.y ?? 0, window.innerHeight - rect.height - 8);
+            menuEl.style.left = Math.max(8, x) + 'px';
+            menuEl.style.top = Math.max(8, y) + 'px';
+        }
+
+        // Tancar al click fora (capture per agafar el primer click) o Esc.
+        document.addEventListener('mousedown', (e) => {
+            if (!menuEl.classList.contains('hidden') && !menuEl.contains(e.target)) {
+                closeContextMenu();
+            }
+        }, true);
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !menuEl.classList.contains('hidden')) {
+                e.stopPropagation();
+                closeContextMenu();
+            }
+        });
+
+        // Senyalitzem que estem llest per rebre `init` (el parent pot estar
+        // esperant aquest event abans d'enviar les opcions).
+        post({ type: 'host-ready' });
+    })();
+    </script>
+</body>
+</html>

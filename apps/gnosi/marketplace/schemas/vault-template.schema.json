@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ismigar/Gnosi/schemas/vault-template.schema.json",
+  "title": "Gnosi Vault template manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "version", "schemaVersion", "name", "files"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{1,63}$" },
+    "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+([-.+][0-9A-Za-z.-]+)?$" },
+    "schemaVersion": { "const": 1 },
+    "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "description": { "type": "string", "maxLength": 2000 },
+    "author": { "type": "string", "maxLength": 120 },
+    "license": { "type": "string", "maxLength": 80 },
+    "minGnosiVersion": { "type": "string", "maxLength": 40 },
+    "categories": { "type": "array", "maxItems": 32, "items": { "type": "string", "maxLength": 80 } },
+    "languages": { "type": "array", "maxItems": 32, "items": { "type": "string", "maxLength": 80 } },
+    "recommendedPlugins": { "type": "array", "maxItems": 32, "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{1,63}$" } },
+    "preview": { "type": "string", "maxLength": 240 },
+    "files": {
+      "type": "array",
+      "maxItems": 20000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "size", "sha256"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1, "maxLength": 300 },
+          "size": { "type": "integer", "minimum": 0, "maximum": 52428800 },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        }
+      }
+    }
+  }
+}
