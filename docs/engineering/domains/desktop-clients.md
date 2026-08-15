@@ -7,6 +7,9 @@ source_paths:
   - electron/electron-builder.yml
   - electron/package.json
   - electron/release.sh
+  - electron/scripts/generate-icons.py
+  - electron/build/icon.icns
+  - frontend/public/favicon.svg
   - frontend/package.json
   - frontend/src/content/releases.json
   - web-clipper
@@ -51,6 +54,15 @@ that subscribes late can recover it through IPC.
 Release artifacts include installers and updater metadata for macOS, Windows,
 and Linux. Version preparation keeps frontend and Electron manifests aligned;
 tags are created only from reviewed `main` commits.
+
+## Application mark
+
+`frontend/public/favicon.svg` defines the Gnosi application mark: a centered
+white G with clear blue margin inside a rounded blue gradient. The Electron
+icon generator produces the PNG, ICNS, and ICO variants from the same visual
+proportions so the browser, macOS, Windows, and Linux clients do not present a
+different or edge-to-edge glyph. Regenerate these derived resources whenever
+the canonical mark changes; do not edit a packaged application bundle.
 
 ## Release preparation
 

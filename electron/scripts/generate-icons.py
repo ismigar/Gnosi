@@ -65,8 +65,8 @@ def _build_logo_svg() -> str:
     """Rebuild the favicon as a 1024 SVG with the G converted to paths."""
     font = _load_bold_font()
     g_path = _glyph_path(font, "G")
-    # Helvetica's G advances ~702 units at a 1000 em; center it on the 1024
-    # icon and scale it to match the favicon's visual weight.
+    # Keep a generous blue margin around the centered glyph, matching the
+    # canonical Gnosi mark rather than filling the whole rounded square.
     return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <defs>
     <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -75,7 +75,7 @@ def _build_logo_svg() -> str:
     </linearGradient>
   </defs>
   <rect width="1024" height="1024" rx="224" fill="url(#g)"/>
-  <g transform="translate(512 512) scale(1.15) translate(-351 -360)">
+  <g transform="translate(512 512) scale(0.50) translate(-351 -360)">
     <path d="{g_path}" fill="white"/>
   </g>
 </svg>"""
