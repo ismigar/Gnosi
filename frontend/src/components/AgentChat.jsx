@@ -15,6 +15,8 @@ import {
 import { chatScrollDeltaForComposerKey } from './agentChatKeyboardUtils';
 import {
     boundedProcessingMs,
+    boundedJob,
+    boundedTransparencyMetadata,
     boundedTurnMetrics,
     conversationRewindPlan,
     mergeCanonicalMessageMetadata,
@@ -73,20 +75,24 @@ const boundedChatSessions = (sessions) => [...(Array.isArray(sessions) ? session
         ...session,
         messages: (Array.isArray(session.messages) ? session.messages : [])
             .slice(-MAX_STORED_MESSAGES)
-            .map((message) => ({
-                ...message,
-                content: message?.confirmation
-                    ? ''
-                    : (
-                        typeof message?.content === 'string'
-                            ? message.content.slice(0, MAX_STORED_MESSAGE_CHARS)
-                            : String(message?.content || '')
-                                .slice(0, MAX_STORED_MESSAGE_CHARS)
-                    ),
-                confirmation: confirmationForStorage(message?.confirmation),
-                processingMs: boundedProcessingMs(message?.processingMs),
-                timings: boundedTurnMetrics(message?.timings),
-            })),
+            .map((message) => {
+                const transparency = boundedTransparencyMetadata(message);
+                return {
+                    ...message,
+                    content: message?.confirmation
+                        ? ''
+                        : (
+                            typeof message?.content === 'string'
+                                ? message.content.slice(0, MAX_STORED_MESSAGE_CHARS)
+                                : String(message?.content || '')
+                                    .slice(0, MAX_STORED_MESSAGE_CHARS)
+                        ),
+                    confirmation: confirmationForStorage(message?.confirmation),
+                    processingMs: boundedProcessingMs(message?.processingMs),
+                    timings: boundedTurnMetrics(message?.timings),
+                    ...transparency,
+                };
+            }),
     }));
 
 const safeLocalStorageSet = (key, value) => {
@@ -127,7 +133,7 @@ const deleteSessionCheckpoint = async (session) => {
 };
 
 const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const defaultSessionTitle = t('chat.default_session_title', 'New conversation');
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState([]);
@@ -1187,6 +1193,66 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
         )));
     }, []);
 
+    const submitMessageFeedback = useCallback(async (index, rating) => {
+        const message = messages[index];
+        if (!message?.turnId || message.role !== 'assistant') return;
+        const previousRating = message.feedback || null;
+        const nextRating = rating === previousRating ? null : rating;
+        markMessage(index, 'feedback', nextRating);
+        try {
+            const response = await fetch('/api/chat/feedback', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    agent_id: selectedAgentId,
+                    session_id: sessionId,
+                    turn_id: message.turnId,
+                    rating: nextRating || 'clear',
+                    language: String(i18n.resolvedLanguage || i18n.language || 'en').slice(0, 8),
+                    mode: message.plan?.mode || message.explanation?.mode || 'analysis',
+                    domains: message.plan?.domains || [],
+                    route: message.plan?.route || message.explanation?.route || 'General',
+                    execution: message.plan?.execution || message.explanation?.execution || 'foreground',
+                    output_strategy: message.plan?.output_strategy || message.explanation?.output_strategy || 'model_synthesis',
+                    required_tool: message.plan?.required_tool || '',
+                    verification_status: message.verification?.status || '',
+                    limitations: message.verification?.limitations || [],
+                    tool_names: message.verification?.tool_names || [],
+                    duration_ms: message.timings?.total_ms || message.processingMs || 0,
+                    error_code: message.errorCode || '',
+                }),
+            });
+            if (!response.ok) throw new Error(`Assistant feedback failed (${response.status})`);
+        } catch (error) {
+            console.error('Could not record assistant feedback', error);
+            markMessage(index, 'feedback', previousRating);
+            toast.error(t('chat.feedback_failed', 'Could not record response feedback.'));
+        }
+    }, [i18n.language, i18n.resolvedLanguage, markMessage, messages, selectedAgentId, sessionId, t]);
+
+    const refreshMessageJob = useCallback(async (index, action = 'status') => {
+        const job = messages[index]?.job;
+        if (!job?.job_id) return;
+        try {
+            const suffix = action === 'status' ? '' : `/${action}`;
+            const response = await fetch(
+                `/api/ai/jobs/${encodeURIComponent(job.job_id)}${suffix}`,
+                { method: action === 'status' ? 'GET' : 'POST' },
+            );
+            if (!response.ok) throw new Error(`Capability job request failed (${response.status})`);
+            const payload = await response.json();
+            const nextJob = boundedJob({
+                ...job,
+                ...payload,
+                capabilities: payload.capabilities || job.capabilities,
+            });
+            if (nextJob) markMessage(index, 'job', nextJob);
+        } catch (error) {
+            console.error('Could not update capability job', error);
+            toast.error(t('chat.job_update_failed', 'Could not update the background job.'));
+        }
+    }, [markMessage, messages, t]);
+
     const previousUserPrompt = useCallback((index) => {
         for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
             if (messages[cursor]?.role === 'user' && messages[cursor]?.content) {
@@ -1286,6 +1352,7 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
         setIsLoading(true);
         const requestScope = `${browserStorageScope}:${selectedAgentId}:${sessionId}`;
         let turnMetrics = null;
+        let turnTransparency = boundedTransparencyMetadata({});
 
         try {
             requestAbortRef.current?.abort();
@@ -1363,6 +1430,14 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                             setAgentRuntime(data);
                             continue;
                         }
+                        if (data.type === 'turn_plan') {
+                            turnTransparency = boundedTransparencyMetadata({
+                                plan: data.plan,
+                                privacy: data.privacy,
+                                job: data.job?.job_id ? data.job : null,
+                            });
+                            continue;
+                        }
                         if (data.type === 'turn_metrics') {
                             turnMetrics = boundedTurnMetrics(data);
                             continue;
@@ -1419,6 +1494,10 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                                     content: '',
                                     llm: selectedLlm,
                                     turnId,
+                                    ...Object.fromEntries(
+                                        Object.entries(turnTransparency)
+                                            .filter(([, value]) => value !== null),
+                                    ),
                                 });
                             }
 
@@ -1433,6 +1512,18 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                                     : t('chat.tool_end', "✅ *Tool {{tool}} finished.*", { tool: data.tool });
                             } else if (data.type === 'message' || data.type === 'thought') {
                                 if (data.content) lastMsg.content = data.content;
+                                const responseTransparency = boundedTransparencyMetadata({
+                                    plan: data.plan || lastMsg.plan || turnTransparency.plan,
+                                    privacy: data.privacy || lastMsg.privacy || turnTransparency.privacy,
+                                    verification: data.verification,
+                                    citations: data.citations,
+                                    freshness: data.freshness,
+                                    job: data.job,
+                                    explanation: data.explanation,
+                                });
+                                Object.entries(responseTransparency).forEach(([field, value]) => {
+                                    if (value !== null) lastMsg[field] = value;
+                                });
                             } else if (data.type === 'error') {
                                 // Translation and improvement of common messages
                                 const streamedError = typeof data.content === 'string'
@@ -1451,6 +1542,7 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                                     errorContent = t('chat.rate_limit_message', "You've exceeded this agent model's quota. Try a different agent or wait a few minutes.");
                                 }
                                 lastMsg.content = `❌ ${t('chat.error_prefix', 'Error')}: ${errorContent}`;
+                                lastMsg.errorCode = data.code || 'agent_error';
                             }
                             newMsgs[lastIdx] = lastMsg;
                             return newMsgs;
@@ -1497,6 +1589,10 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                             ...message,
                             processingMs: elapsedMs,
                             ...(turnMetrics ? { timings: turnMetrics } : {}),
+                            ...Object.fromEntries(
+                                Object.entries(turnTransparency)
+                                    .filter(([field, value]) => value !== null && message[field] == null),
+                            ),
                         }
                         : message
                 ));
@@ -1780,6 +1876,45 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                                     whiteSpace: 'pre-wrap'
                                 }}>
                                     {msg.content}
+                                    {msg.role === 'assistant' && msg.citations?.claims?.length > 0 && (
+                                        <details style={{ marginTop: '10px', whiteSpace: 'normal' }}>
+                                            <summary style={{ cursor: 'pointer', color: 'var(--gnosi-blue, #2563eb)', fontSize: '0.74rem', fontWeight: 600 }}>
+                                                {t('chat.citations_summary', '{{claims}} grounded claim(s) · {{sources}} source(s)', {
+                                                    claims: msg.citations.claim_count,
+                                                    sources: msg.citations.source_count,
+                                                })}
+                                            </summary>
+                                            <div style={{ marginTop: '7px', display: 'flex', flexDirection: 'column', gap: '7px', maxHeight: '220px', overflowY: 'auto' }}>
+                                                {msg.citations.claims.map((claim) => {
+                                                    const citedSources = claim.citation_ids
+                                                        .map(citationId => msg.citations.sources.find(source => source.citation_id === citationId))
+                                                        .filter(Boolean);
+                                                    return (
+                                                        <div key={claim.claim_id} style={{ paddingLeft: '8px', borderLeft: '2px solid var(--border-primary)', fontSize: '0.7rem' }}>
+                                                            <div style={{ color: 'var(--text-secondary)' }}>{claim.text}</div>
+                                                            <div style={{ marginTop: '3px', display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                                                                {citedSources.map(source => source.href ? (
+                                                                    <a
+                                                                        key={source.citation_id}
+                                                                        href={source.href}
+                                                                        target={source.href.startsWith('http') ? '_blank' : undefined}
+                                                                        rel={source.href.startsWith('http') ? 'noreferrer' : undefined}
+                                                                        style={{ color: 'var(--gnosi-blue, #2563eb)', textDecoration: 'underline' }}
+                                                                    >
+                                                                        {source.title}
+                                                                    </a>
+                                                                ) : (
+                                                                    <span key={source.citation_id} title={t('chat.citation_link_unavailable', 'This evidence has no direct link.')}>
+                                                                        {source.title}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </details>
+                                    )}
                                     {msg.confirmation && (
                                         <div style={{
                                             marginTop: '10px',
@@ -1846,8 +1981,8 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                                     )}
                                     {msg.role === 'assistant' && (
                                         <>
-                                            <button type="button" onClick={() => markMessage(idx, 'feedback', msg.feedback === 'up' ? null : 'up')} aria-label={t('chat.helpful_response', 'Helpful response')} title={t('chat.helpful_response', 'Helpful response')} aria-pressed={msg.feedback === 'up'} style={{ background: 'none', border: 'none', color: msg.feedback === 'up' ? 'var(--gnosi-blue, #2563eb)' : 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><ThumbsUp size={13} /></button>
-                                            <button type="button" onClick={() => markMessage(idx, 'feedback', msg.feedback === 'down' ? null : 'down')} aria-label={t('chat.unhelpful_response', 'Unhelpful response')} title={t('chat.unhelpful_response', 'Unhelpful response')} aria-pressed={msg.feedback === 'down'} style={{ background: 'none', border: 'none', color: msg.feedback === 'down' ? 'var(--status-error, #dc2626)' : 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><ThumbsDown size={13} /></button>
+                                            <button type="button" onClick={() => submitMessageFeedback(idx, 'up')} aria-label={t('chat.helpful_response', 'Helpful response')} title={t('chat.helpful_response', 'Helpful response')} aria-pressed={msg.feedback === 'up'} style={{ background: 'none', border: 'none', color: msg.feedback === 'up' ? 'var(--gnosi-blue, #2563eb)' : 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><ThumbsUp size={13} /></button>
+                                            <button type="button" onClick={() => submitMessageFeedback(idx, 'down')} aria-label={t('chat.unhelpful_response', 'Unhelpful response')} title={t('chat.unhelpful_response', 'Unhelpful response')} aria-pressed={msg.feedback === 'down'} style={{ background: 'none', border: 'none', color: msg.feedback === 'down' ? 'var(--status-error, #dc2626)' : 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><ThumbsDown size={13} /></button>
                                             <button type="button" onClick={() => markMessage(idx, 'saved', !msg.saved)} aria-label={t('chat.save_message', 'Save message')} title={t('chat.save_message', 'Save message')} aria-pressed={Boolean(msg.saved)} style={{ background: 'none', border: 'none', color: msg.saved ? 'var(--gnosi-blue, #2563eb)' : 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Bookmark size={13} fill={msg.saved ? 'currentColor' : 'none'} /></button>
                                         </>
                                     )}
@@ -1884,6 +2019,91 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                                                     tools: msg.timings.tool_calls ?? 0,
                                                 })}</div>
                                             </>
+                                        )}
+                                        {msg.explanation && (
+                                            <div style={{ marginTop: '5px' }}>
+                                                <strong>{t('chat.explanation_title', 'How this response was produced')}</strong>
+                                                <div>{t('chat.explanation_plan', 'Mode: {{mode}} · Route: {{route}} · Execution: {{execution}}', {
+                                                    mode: t(`chat.mode.${msg.explanation.mode}`, msg.explanation.mode),
+                                                    route: t(`chat.route.${msg.explanation.route}`, msg.explanation.route),
+                                                    execution: t(`chat.execution.${msg.explanation.execution}`, msg.explanation.execution),
+                                                })}</div>
+                                                <div>{t('chat.explanation_evidence', '{{count}} evidence item(s) · {{tools}} tool(s)', {
+                                                    count: msg.explanation.evidence_count ?? 0,
+                                                    tools: msg.explanation.tools_used?.length ?? 0,
+                                                })}</div>
+                                            </div>
+                                        )}
+                                        {msg.privacy && (
+                                            <div style={{ marginTop: '5px' }}>
+                                                <strong>{t('chat.privacy_title', 'Privacy')}</strong>
+                                                <div>{t('chat.privacy_summary', '{{classification}} · {{count}} private source(s) · data minimized: {{minimized}}', {
+                                                    classification: t(`chat.privacy_classification.${msg.privacy.classification}`, msg.privacy.classification),
+                                                    count: msg.privacy.private_source_count ?? 0,
+                                                    minimized: msg.privacy.data_minimized ? t('common.yes', 'Yes') : t('common.no', 'No'),
+                                                })}</div>
+                                                {msg.privacy.private_evidence_to_remote_model && (
+                                                    <div>{t('chat.privacy_remote_processing', 'Required private evidence may be processed by the configured remote model.')}</div>
+                                                )}
+                                            </div>
+                                        )}
+                                        {msg.verification && (
+                                            <div style={{ marginTop: '5px' }}>
+                                                <strong>{t('chat.verification_title', 'Verification')}</strong>
+                                                <div>{t('chat.verification_summary', '{{status}} · {{count}} evidence item(s)', {
+                                                    status: t(`chat.verification_status.${msg.verification.status}`, msg.verification.status),
+                                                    count: msg.verification.evidence_count ?? 0,
+                                                })}</div>
+                                                {msg.verification.limitations?.length > 0 && (
+                                                    <div>{t('chat.verification_limitations', 'Limitations: {{limitations}}', {
+                                                        limitations: msg.verification.limitations.map(value => t(`chat.verification_limitation.${value}`, value)).join(', '),
+                                                    })}</div>
+                                                )}
+                                            </div>
+                                        )}
+                                        {msg.freshness && (
+                                            <div style={{ marginTop: '5px' }}>
+                                                <strong>{t('chat.freshness_title', 'Index freshness')}</strong>
+                                                <div>{t('chat.freshness_summary', '{{status}} · age {{age}} s · {{coverage}}% cached · {{direct}} direct read(s)', {
+                                                    status: t(`chat.freshness_status.${msg.freshness.status}`, msg.freshness.status),
+                                                    age: msg.freshness.age_seconds ?? 0,
+                                                    coverage: Math.round((msg.freshness.coverage_ratio ?? 0) * 100),
+                                                    direct: msg.freshness.direct_reads ?? 0,
+                                                })}</div>
+                                                {msg.freshness.refresh_scheduled && <div>{t('chat.freshness_refresh', 'A non-blocking refresh was requested.')}</div>}
+                                            </div>
+                                        )}
+                                        {msg.job && (
+                                            <div style={{ marginTop: '5px' }}>
+                                                <strong>{t('chat.job_title', 'Background job')}</strong>
+                                                <div>{t('chat.job_summary', '{{id}} · {{status}}', { id: msg.job.job_id, status: t(`chat.job_status.${msg.job.status}`, msg.job.status) })}</div>
+                                                {msg.job.retry && (
+                                                    <div>
+                                                        {t('chat.job_retry_budget', 'Attempt {{attempt}}/{{maxAttempts}} · model calls {{used}}/{{budget}}', {
+                                                            attempt: msg.job.retry.attempt,
+                                                            maxAttempts: msg.job.retry.max_attempts,
+                                                            used: msg.job.retry.model_calls_used,
+                                                            budget: msg.job.retry.model_call_budget,
+                                                        })}
+                                                        {msg.job.retry.next_retry_at && (
+                                                            <> · {t('chat.job_retry_scheduled', 'next retry {{time}}', { time: new Date(msg.job.retry.next_retry_at).toLocaleTimeString() })}</>
+                                                        )}
+                                                        {msg.job.retry.budget_exhausted && <> · {t('chat.job_retry_exhausted', 'retry budget exhausted')}</>}
+                                                    </div>
+                                                )}
+                                                <div style={{ display: 'flex', gap: '6px', marginTop: '4px', flexWrap: 'wrap' }}>
+                                                    <button type="button" onClick={() => refreshMessageJob(idx)}>{t('chat.job_refresh', 'Refresh')}</button>
+                                                    {msg.job.capabilities?.result && (msg.job.result_available || msg.job.status === 'completed') && (
+                                                        <button type="button" onClick={() => focusComposerWith(t('chat.job_result_prompt', 'Show the result of {{id}}', { id: msg.job.job_id }))}>{t('chat.job_result', 'Read result')}</button>
+                                                    )}
+                                                    {msg.job.capabilities?.resume && ['failed', 'interrupted', 'retry_wait'].includes(msg.job.status) && !msg.job.retry?.budget_exhausted && (
+                                                        <button type="button" onClick={() => refreshMessageJob(idx, 'resume')}>{t('chat.job_resume', 'Resume job')}</button>
+                                                    )}
+                                                    {msg.job.capabilities?.cancel && ['queued', 'pending', 'running', 'retry_wait'].includes(msg.job.status) && (
+                                                        <button type="button" onClick={() => refreshMessageJob(idx, 'cancel')}>{t('chat.job_cancel', 'Cancel job')}</button>
+                                                    )}
+                                                </div>
+                                            </div>
                                         )}
                                         {msg.confirmation && <div>{t('chat.message_has_confirmation', 'This message includes a governed action confirmation.')}</div>}
                                         {Array.isArray(msg.attachments) && msg.attachments.length > 0 && <div>{t('chat.message_attachments_count', '{{count}} attachment(s)', { count: msg.attachments.length })}</div>}

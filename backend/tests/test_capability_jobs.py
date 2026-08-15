@@ -61,10 +61,12 @@ def test_provider_facade_preserves_capabilities_and_ids(tmp_path: Path):
     rows = list_jobs(tmp_path, provider="testjobs")
     assert rows[0]["job_id"] == "testjobs:job-1"
     assert rows[0]["capabilities"] == {
+        "status": True,
         "result": True,
         "resume": True,
         "cancel": True,
         "estimate": True,
+        "automatic_retry": False,
     }
     assert get_job_status(tmp_path, "testjobs:job-1")["provider"] == "testjobs"
     assert read_job_result(tmp_path, "testjobs:job-1")["job_id"] == "testjobs:job-1"

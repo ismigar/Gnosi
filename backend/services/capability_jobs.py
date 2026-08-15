@@ -123,10 +123,15 @@ def _public_job(provider: JobProvider, payload: Dict[str, Any]) -> Dict[str, Any
     row["job_id"] = qualify_job_id(provider.name, local_id)
     row["provider"] = provider.name
     row["capabilities"] = {
+        "status": True,
         "result": provider.read_result is not None,
         "resume": provider.resume is not None,
         "cancel": provider.cancel is not None,
         "estimate": provider.estimate is not None,
+        "automatic_retry": bool(
+            isinstance(row.get("retry"), dict)
+            and row["retry"].get("automatic_enabled")
+        ),
     }
     return row
 

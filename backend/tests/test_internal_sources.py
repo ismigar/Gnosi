@@ -826,6 +826,127 @@ def test_reader_analysis_recovers_when_interrupted_before_snapshot(
     assert reader_analysis._snapshot_path(vault_path, job["job_id"]).exists()
 
 
+def test_reader_analysis_retries_transient_failure_with_persisted_budget(
+    tmp_path,
+    monkeypatch,
+):
+    local_data = tmp_path / "local-data"
+    vault_path = tmp_path / "vault"
+    vault_path.mkdir()
+    monkeypatch.setattr(
+        reader_analysis,
+        "load_params",
+        lambda strict_env=False: SimpleNamespace(paths={"LOCAL_DATA": local_data}),
+    )
+    monkeypatch.setattr(reader_analysis, "_snapshot_articles", lambda _vault, _scope: [{
+        "id": "1",
+        "title": "Recoverable article",
+        "source": "Example",
+        "category": "Research",
+        "published_at": "2026-01-01T00:00:00+00:00",
+        "url": "https://example.test/1",
+        "content": "Evidence",
+    }])
+    scheduled = []
+    monkeypatch.setattr(
+        reader_analysis,
+        "_schedule_retry",
+        lambda _vault, _job, *, delay_seconds, model_call: scheduled.append(
+            (delay_seconds, model_call)
+        ),
+    )
+    calls = 0
+
+    def model_call(prompt, _message):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise TimeoutError("temporary provider timeout")
+        if "BATCH ANALYSES:\n" in prompt:
+            summaries = json.loads(prompt.split("BATCH ANALYSES:\n", 1)[1])
+            return json.dumps({
+                "topic": "Research",
+                "evolution": "Recovered",
+                "turning_points": [],
+                "article_ids": summaries[0]["article_ids"],
+            })
+        articles = [
+            json.loads(line)
+            for line in prompt.split("ARTICLES:\n", 1)[1].splitlines()
+        ]
+        return json.dumps({
+            "topic": "Research",
+            "period_start": articles[0]["published_at"],
+            "period_end": articles[-1]["published_at"],
+            "article_count": 1,
+            "summary": "Recovered",
+            "developments": [],
+            "article_ids": ["1"],
+        })
+
+    job = reader_analysis.start_analysis(vault_path, {}, launch=False)
+    reader_analysis._run_job(vault_path, job["job_id"], model_call=model_call)
+    waiting = reader_analysis.get_status(vault_path, job["job_id"])
+
+    assert waiting["state"] == "retry_wait"
+    assert waiting["retry"]["attempt"] == 1
+    assert waiting["retry"]["model_calls_used"] == 1
+    assert waiting["retry"]["next_retry_at"]
+    assert scheduled[0][0] == reader_analysis.DEFAULT_RETRY_BASE_SECONDS
+
+    reader_analysis._run_job(
+        vault_path,
+        job["job_id"],
+        model_call=scheduled[0][1],
+    )
+    completed = reader_analysis.get_status(vault_path, job["job_id"])
+
+    assert completed["state"] == "completed"
+    assert completed["retry"]["attempt"] == 2
+    assert completed["retry"]["model_calls_used"] == 3
+    assert completed["retry"]["next_retry_at"] is None
+
+
+def test_reader_analysis_does_not_retry_past_attempt_budget(tmp_path, monkeypatch):
+    local_data = tmp_path / "local-data"
+    vault_path = tmp_path / "vault"
+    vault_path.mkdir()
+    monkeypatch.setattr(
+        reader_analysis,
+        "load_params",
+        lambda strict_env=False: SimpleNamespace(paths={"LOCAL_DATA": local_data}),
+    )
+    monkeypatch.setattr(reader_analysis, "_snapshot_articles", lambda _vault, _scope: [{
+        "id": "1", "title": "Article", "source": "Example",
+        "category": "Research", "published_at": None, "url": "", "content": "Evidence",
+    }])
+    scheduled = []
+    monkeypatch.setattr(
+        reader_analysis,
+        "_schedule_retry",
+        lambda *_args, **_kwargs: scheduled.append(True),
+    )
+    job = reader_analysis.start_analysis(vault_path, {}, launch=False)
+    stored = reader_analysis._load_json(
+        reader_analysis._job_path(vault_path, job["job_id"])
+    )
+    stored["retry"]["max_attempts"] = 1
+    reader_analysis._save_job(vault_path, stored)
+
+    reader_analysis._run_job(
+        vault_path,
+        job["job_id"],
+        model_call=lambda _prompt, _message: (_ for _ in ()).throw(
+            TimeoutError("temporary provider timeout")
+        ),
+    )
+    failed = reader_analysis.get_status(vault_path, job["job_id"])
+
+    assert failed["state"] == "failed"
+    assert failed["retry"]["budget_exhausted"] is True
+    assert scheduled == []
+
+
 def test_reader_analysis_tools_are_governed_by_effect():
     descriptors = {
         descriptor.id: descriptor

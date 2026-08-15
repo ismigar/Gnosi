@@ -28,7 +28,7 @@ from langchain_core.messages import HumanMessage
 from langgraph.checkpoint.base import create_checkpoint
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.errors import GraphRecursionError
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from backend.agent.action_confirmations import (
     _descriptor_digest,
@@ -46,6 +46,7 @@ from backend.agent.action_confirmations import (
 )
 from backend.agent.factory import (
     _explicit_brain_write_tool_names,
+    build_agent_turn_plan,
     create_agent_workflow,
     prepare_agent_runtime,
 )
@@ -63,6 +64,7 @@ from backend.services.capability_audit import (
     list_capability_events,
     record_capability_event,
 )
+from backend.services.agent_quality_telemetry import record_quality_signal
 from backend.services.context_vars import get_active_vault_path
 from backend.services.workspace_service import WorkspaceContext, require_role
 from backend.utils.errors import safe_error_detail
@@ -180,6 +182,33 @@ class ChatRequest(BaseModel):
                 "Client-provided tool confirmations are not accepted."
             )
         return value
+
+
+class ChatFeedbackRequest(BaseModel):
+    """Bounded metadata-only feedback for one assistant turn."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    agent_id: str = Field(min_length=1, max_length=128)
+    session_id: str = Field(min_length=1, max_length=128)
+    turn_id: str = Field(
+        min_length=1,
+        max_length=64,
+        pattern=r"^[A-Za-z0-9_-]+$",
+    )
+    rating: str = Field(pattern=r"^(up|down|clear)$")
+    language: str = Field(default="en", max_length=8)
+    mode: str = Field(default="analysis", max_length=32)
+    domains: List[str] = Field(default_factory=list, max_length=12)
+    route: str = Field(default="General", max_length=32)
+    execution: str = Field(default="foreground", max_length=32)
+    output_strategy: str = Field(default="model_synthesis", max_length=32)
+    required_tool: str = Field(default="", max_length=128)
+    verification_status: str = Field(default="", max_length=32)
+    limitations: List[str] = Field(default_factory=list, max_length=8)
+    tool_names: List[str] = Field(default_factory=list, max_length=16)
+    duration_ms: int = Field(default=0, ge=0, le=86_400_000)
+    error_code: str = Field(default="", max_length=160)
 
 
 class ChatRewindRequest(BaseModel):
@@ -501,7 +530,7 @@ def _prepare_index_title_replacements(message: str) -> Optional[Dict[str, Any]]:
 
 def _public_checkpoint_message_entries(
     stored_messages: List[Any],
-) -> List[tuple[int, Dict[str, str]]]:
+) -> List[tuple[int, Dict[str, Any]]]:
     """Return bounded public messages together with their raw positions."""
     entries = []
     current_turn_id = ""
@@ -544,17 +573,33 @@ def _public_checkpoint_message_entries(
             if marker_positions:
                 content = content[:min(marker_positions)]
         if content.strip():
-            public_message = {
+            public_message: Dict[str, Any] = {
                 "role": "user" if role == "human" else "assistant",
                 "content": content,
             }
+            if role == "ai":
+                assistant_metadata = dict(
+                    getattr(message, "additional_kwargs", {}) or {}
+                )
+                for public_key, internal_key in (
+                    ("plan", "gnosi_plan"),
+                    ("privacy", "gnosi_privacy"),
+                    ("verification", "gnosi_verification"),
+                    ("citations", "gnosi_citations"),
+                    ("freshness", "gnosi_freshness"),
+                    ("job", "gnosi_job"),
+                    ("explanation", "gnosi_explanation"),
+                ):
+                    value = assistant_metadata.get(internal_key)
+                    if value is not None:
+                        public_message[public_key] = value
             if current_turn_id:
                 public_message["turn_id"] = current_turn_id
             entries.append((raw_index, public_message))
     return entries
 
 
-def _public_checkpoint_messages(stored_messages: List[Any]) -> List[Dict[str, str]]:
+def _public_checkpoint_messages(stored_messages: List[Any]) -> List[Dict[str, Any]]:
     """Serialize only user-visible transcript messages from checkpoint state."""
     return [
         message
@@ -1526,6 +1571,43 @@ async def list_internal_context_sources(
     return internal_source_catalog(workspace_context.workspace_id)
 
 
+@router.post("/chat/feedback")
+async def record_chat_feedback(
+    payload: ChatFeedbackRequest,
+    workspace_context: WorkspaceContext = Depends(require_role("editor")),
+):
+    """Persist assistant feedback without retaining prompts or responses."""
+    agent_id = _validated_identifier(payload.agent_id, "agent_id")
+    session_id = _validated_identifier(payload.session_id, "session_id")
+    _vault, vault_scope = _vault_scope()
+    event_id = await asyncio.to_thread(
+        record_quality_signal,
+        {
+            "vault_scope": vault_scope,
+            "workspace_id": workspace_context.workspace_id,
+            "user_id": workspace_context.user_id,
+        },
+        agent_id=agent_id,
+        session_id=session_id,
+        turn_id=payload.turn_id,
+        signal="feedback",
+        rating=payload.rating,
+        error_code=payload.error_code,
+        language=payload.language,
+        mode=payload.mode,
+        domains=payload.domains,
+        route=payload.route,
+        execution=payload.execution,
+        output_strategy=payload.output_strategy,
+        required_tool=payload.required_tool,
+        verification_status=payload.verification_status,
+        limitations=payload.limitations,
+        tool_names=payload.tool_names,
+        duration_ms=payload.duration_ms,
+    )
+    return {"status": "recorded", "event_id": event_id}
+
+
 @router.post("/chat")
 async def chat_endpoint(
     request: Request,
@@ -1599,6 +1681,13 @@ async def chat_endpoint(
         authorized_tool_names.update(
             (llm_selection or {}).get("turn_grant_tool_names") or [],
         )
+        turn_plan = build_agent_turn_plan(
+            chat_req.message,
+            context_refs=(llm_selection or {}).get("context_refs") or [],
+            tool_metadata=(llm_selection or {}).get("tools") or [],
+            authorized_tool_names=authorized_tool_names,
+            provider=str((llm_selection or {}).get("provider") or ""),
+        )
         inputs = {
             "messages": [HumanMessage(
                 content=user_content,
@@ -1619,6 +1708,7 @@ async def chat_endpoint(
                 (llm_selection or {}).get("active_skill_ids") or [],
             ),
             "current_user_role": workspace_context.role,
+            "turn_plan": turn_plan,
         }
         
         # 3. Configure memory thread (per agent + session)
@@ -1659,6 +1749,9 @@ async def chat_endpoint(
             model_calls = 0
             tool_calls_count = 0
             active_tool_names: set[str] = set()
+            used_tool_names: set[str] = set()
+            quality_plan = dict(turn_plan)
+            quality_verification: Dict[str, Any] = {}
 
             def metrics_payload() -> Dict[str, Any]:
                 total_ms = max(
@@ -1699,6 +1792,20 @@ async def chat_endpoint(
                 session_id=session_id,
             )
             try:
+                yield json.dumps({
+                    "type": "turn_plan",
+                    "plan": {
+                        key: turn_plan.get(key)
+                        for key in (
+                            "schema_version", "planner_version", "plan_id",
+                            "mode", "domains", "route", "execution",
+                            "output_strategy", "required_tool",
+                            "allowed_tool_count",
+                        )
+                    },
+                    "privacy": turn_plan.get("privacy") or {},
+                    "job": turn_plan.get("job") or {},
+                }) + "\n"
                 deterministic_confirmation = await asyncio.to_thread(
                     _prepare_index_title_replacements,
                     chat_req.message,
@@ -1748,7 +1855,6 @@ async def chat_endpoint(
                             llm_selection.get("tool_count", 0) or 0,
                         ),
                     }) + "\n"
-
                 # Spend ledger: every AIMessage in the stream carries
                 # usage_metadata; accumulate and record once per turn.
                 tool_metadata_by_name = {
@@ -1805,6 +1911,7 @@ async def chat_endpoint(
                                                 ).strip()
                                                 if tool_name:
                                                     active_tool_names.add(tool_name)
+                                                    used_tool_names.add(tool_name)
                                                 yield _tool_stream_event(
                                                     "tool_start",
                                                     tool_name,
@@ -1843,11 +1950,27 @@ async def chat_endpoint(
                                                 ) + "\n"
                                         elif msg.type == "ai" and content:
                                             answer_count += 1
+                                            metadata = dict(
+                                                getattr(msg, "additional_kwargs", {}) or {}
+                                            )
+                                            if isinstance(metadata.get("gnosi_plan"), dict):
+                                                quality_plan.update(metadata["gnosi_plan"])
+                                            if isinstance(metadata.get("gnosi_verification"), dict):
+                                                quality_verification = dict(
+                                                    metadata["gnosi_verification"]
+                                                )
                                             yield json.dumps({
                                                 "type": "message",
                                                 "role": "ai",
                                                 "content": content,
                                                 "node": node_name,
+                                                "plan": metadata.get("gnosi_plan"),
+                                                "privacy": metadata.get("gnosi_privacy"),
+                                                "verification": metadata.get("gnosi_verification"),
+                                                "citations": metadata.get("gnosi_citations"),
+                                                "freshness": metadata.get("gnosi_freshness"),
+                                                "job": metadata.get("gnosi_job"),
+                                                "explanation": metadata.get("gnosi_explanation"),
                                             }) + "\n"
 
                 if total_in_tok or total_out_tok:
@@ -1937,6 +2060,48 @@ async def chat_endpoint(
                 friendly_error = str(friendly_error or "").strip()
                 if not friendly_error:
                     friendly_error = "An unexpected agent error occurred."
+
+                stable_error_code = (
+                    error_code
+                    or str(reason or "").strip()
+                    or type(e).__name__.lower()
+                )[:160]
+                try:
+                    await asyncio.to_thread(
+                        record_quality_signal,
+                        {
+                            "vault_scope": vault_scope,
+                            "workspace_id": workspace_context.workspace_id,
+                            "user_id": workspace_context.user_id,
+                        },
+                        agent_id=agent_id,
+                        session_id=session_id,
+                        turn_id=chat_req.turn_id or uuid.uuid4().hex,
+                        signal="error",
+                        error_code=stable_error_code,
+                        language=str(quality_plan.get("language") or "en"),
+                        mode=str(quality_plan.get("mode") or "analysis"),
+                        domains=quality_plan.get("domains") or [],
+                        route=str(quality_plan.get("route") or "General"),
+                        execution=str(
+                            quality_plan.get("execution") or "foreground"
+                        ),
+                        output_strategy=str(
+                            quality_plan.get("output_strategy")
+                            or "model_synthesis"
+                        ),
+                        required_tool=str(
+                            quality_plan.get("required_tool") or ""
+                        ),
+                        verification_status=str(
+                            quality_verification.get("status") or ""
+                        ),
+                        limitations=quality_verification.get("limitations") or [],
+                        tool_names=sorted(used_tool_names)[:16],
+                        duration_ms=metrics_payload()["total_ms"],
+                    )
+                except Exception:  # noqa: BLE001
+                    log.exception("Failed to record agent quality telemetry.")
 
                 error_payload = {"type": "error", "content": friendly_error}
                 if error_code:

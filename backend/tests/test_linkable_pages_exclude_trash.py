@@ -28,9 +28,11 @@ def vault(tmp_path, monkeypatch):
     """Isolated vault root with the module caches reset, so the linkable-docs
     walk hits the rglob fallback (the path where `.trash` filtering lives)."""
     from backend.api import vault_routes
+    from backend.services.context_vars import active_vault_path
 
     vault_root = tmp_path / "vault"
     vault_root.mkdir()
+    vault_token = active_vault_path.set(vault_root)
     real_get_p = vault_routes.get_p
 
     def fake_get_p(key):
@@ -41,13 +43,16 @@ def vault(tmp_path, monkeypatch):
         return real_get_p(key)
 
     monkeypatch.setattr(vault_routes, "get_p", fake_get_p)
-    # Reset per-vault caches for the "" key (no active-vault contextvar in
-    # tests) so previous runs can't leak documents into this one.
-    vault_routes._iter_docs_cache.pop("", None)
-    vault_routes._id_title_cache.pop("", None)
+    # Bind and reset the same per-vault cache key used by production. Other
+    # tests may leave a request-scoped active vault in the current context;
+    # assuming the empty key makes this test order-dependent in the full suite.
+    vault_key = str(vault_root)
+    vault_routes._iter_docs_cache.pop(vault_key, None)
+    vault_routes._id_title_cache.pop(vault_key, None)
     yield vault_root
-    vault_routes._iter_docs_cache.pop("", None)
-    vault_routes._id_title_cache.pop("", None)
+    vault_routes._iter_docs_cache.pop(vault_key, None)
+    vault_routes._id_title_cache.pop(vault_key, None)
+    active_vault_path.reset(vault_token)
 
 
 def test_linkable_documents_exclude_trash(vault):

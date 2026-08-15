@@ -1,20 +1,24 @@
 ---
 status: implemented
-last_verified: 2026-08-14
+last_verified: 2026-08-15
 source_paths:
   - backend/agent
   - backend/api/agent_routes.py
   - backend/api/agent_skills_routes.py
   - backend/api/ai_routes.py
   - backend/api/tools_routes.py
+  - backend/services/agent_quality_telemetry.py
+  - backend/services/reader_analysis.py
   - frontend/src/components/AgentChat.jsx
   - frontend/src/components/AI
 tests:
+  - backend/tests/test_agent_turn_contract.py
   - backend/tests/test_agent_chat_safety.py
   - backend/tests/test_agent_context_sources.py
   - backend/tests/test_agent_skill_runtime.py
   - backend/tests/test_generated_tool_validator.py
   - backend/tests/test_agent_action_confirmations.py
+  - backend/tests/test_agent_quality_telemetry.py
   - e2e/tests/e2e/ai-chat.spec.ts
 ---
 
@@ -124,6 +128,39 @@ tools. Explicit mail, calendar, contacts, Reader, weather, web, Notion, or
 Zotero requests omit default Vault tools unless the same request also names a
 Vault object; the relevant assigned skill remains available.
 
+Every request now carries an effective universal turn plan into the graph. The
+plan combines operation mode, explicit data domains, live runtime descriptors,
+required evidence, guarded grants, provider locality, execution strategy, and
+response strategy. It is request-scoped state that overwrites checkpoint data
+from previous turns. The Brain node intersects normal runtime selection with
+the plan's tool names, so the metadata shown to the user describes the actual
+tool surface rather than an advisory classifier.
+
+Privacy is also request-scoped. The plan distinguishes local processing,
+private evidence processed by the configured remote model, external reads, and
+ordinary conversation. Attached Vault data does not count as used when an
+explicit Mail, Reader, Notion, web, or other domain excludes its tools. The UI
+reports only this posture and source counts; source bodies, prompts, secrets,
+and hidden reasoning never enter transparency metadata.
+
+Final model responses pass through a deterministic verifier. It checks only
+current-turn tool results and effect policy, blocks claims that a governed
+action completed without a successful tool result, blocks source-dependent
+answers that skipped mandatory evidence, records tool failures as limitations,
+and emits evidence/tool counts. Inventory answers use the same verifier even
+though their text is server-rendered. Verification never invokes a second
+model.
+
+Source-dependent responses also carry server-validated claim citations. Tool
+results define the only source ids valid for the current turn. Deterministic
+inventories map each listed line to its canonical Vault record and map aggregate
+count, grouping, pagination, and method statements to the exact tool-result
+manifest. Model synthesis may emit `[[cite:SOURCE_ID]]` markers; the verifier
+removes valid markers from visible prose, rejects ids absent from current-turn
+evidence, and marks incomplete grounding as a limitation. The chat renders the
+bounded claim/source mapping with safe Vault, Reader, or HTTP(S) links and never
+persists excerpts or filesystem paths as citation metadata.
+
 Exhaustive inventories reuse the locally persisted parsed-document and link
 indexes. Relation ids are expanded to indexed target titles, so a record linked
 to a matching project or source remains discoverable without reopening every
@@ -131,6 +168,29 @@ OneDrive document. Normal Gnosi writes update these indexes; periodic index
 maintenance reconciles external edits. Records absent from the cache fall back
 to a direct bounded read. Semantic top-k search remains the evidence-discovery
 path for lookups and analyses and is never presented as a complete inventory.
+
+Inventory payloads also report link-index build age, cache coverage, direct
+fallback reads, and stale-while-revalidate state. A stale or missing index
+requests a guarded background reconciliation without delaying the answer; the
+message retains the limitation instead of implying that the index was freshly
+rebuilt.
+
+Whole-collection Reader analysis is admitted as a background operation through
+the provider-neutral capability-job facade. The server creates the job tool
+call deterministically, returns a namespaced `reader:` job id, and exposes
+status, result availability, resume after failure or interruption, and
+cooperative cancellation in message details. The same
+facade remains extensible to other source-owned durable providers; unsupported
+requests stay foreground and are never represented as durable work.
+
+Reader jobs persist a bounded recovery policy beside their checkpoints. A
+transient timeout, temporary network/service failure, or rate limit enters a
+cancelable retry-wait state with capped exponential backoff. Attempts and model
+calls consume separate persisted budgets before any new call is made. A daemon
+timer handles normal in-process retries; job list/status reconciliation starts
+an overdue retry after a backend restart. Permanent, cancelled, malformed, or
+budget-exhausted failures remain terminal and visible. Manual resume uses the
+same budgets and therefore cannot bypass the loop boundary.
 
 Other read-only turns have an independent three-result budget: if the model
 keeps requesting tools, the next Brain invocation receives the accumulated
@@ -165,6 +225,29 @@ or model changes invalidate cached graphs so tool support and credentials take
 effect on the next turn. The chat header reports the selected model, exact tool
 count, and actionable reasons for any degraded runtime.
 
+Message details provide bounded operational explainability: mode, route,
+foreground/background execution, tools actually used, evidence count, privacy
+posture, verifier status, index freshness, durable job state when present, and
+timings. This is an execution receipt, not chain-of-thought.
+
+The deterministic corpus under `backend/agent/evals/` covers all request modes,
+all four UI languages, domain containment, private local and remote processing,
+governed actions, and durable Reader admission. It runs before the backend test
+suite on matching pull requests and every day; any failed case exits nonzero
+without calling a provider or spending tokens.
+
+Production errors and assistant thumbs feedback feed a local, authenticated
+quality loop. `POST /api/chat/feedback` accepts bounded operational metadata
+only and explicitly rejects response content. Stream errors are recorded by the
+server with stable codes. The local SQLite store retains hashed turn/session/
+agent identities, plan and verifier fields, tool names, and timing buckets; it
+has no prompt, response, source, title, path, URL, excerpt, attachment, or raw
+tool-payload columns. Negative feedback and errors deterministically upsert
+deduplicated synthetic evaluation candidates. Administrators list, accept,
+reject, reopen, and run these candidates through `/api/ai/evals/candidates*`.
+Accepted local cases remain separate from the versioned CI corpus until a
+maintainer deliberately promotes them.
+
 ## Failure and safety invariants
 
 - Provider failure does not silently route to a more expensive or less private
@@ -175,6 +258,15 @@ count, and actionable reasons for any degraded runtime.
 - Generated code cannot access secrets or unrestricted filesystem state.
 - One failed MCP server does not remove healthy servers from the catalog.
 - Partial model output is not presented as a completed confirmed action.
+- Source-dependent output cannot pass verification without current-turn source
+  evidence.
+- Citation ids cannot resolve unless the same turn returned that exact source.
+- Transparency metadata cannot contain source bodies, prompts, or raw tool
+  payloads.
+- Automatic and manual job recovery cannot exceed persisted attempt or model-call
+  budgets.
+- Quality telemetry cannot accept or retain prompt/response content.
+- Stale index evidence is labeled and refreshed outside the foreground turn.
 - Agent messages remain isolated by agent and session across reloads.
 
 ## Verification focus
