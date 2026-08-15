@@ -11,7 +11,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
 | Playwright | 13 | 37 |
-| Vitest | 71 | 264 |
+| Vitest | 72 | 266 |
 | pytest | 187 | 1579 |
 
 ## Files
@@ -79,6 +79,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/lib/citationDeepLink.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/citationDeepLink.test.js) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/lib/fileResourceCitation.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/fileResourceCitation.test.js) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/lib/modelComparisonRegistry.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/modelComparisonRegistry.test.js) | 6 | call-pattern estimate |
+| Vitest | [`frontend/src/lib/releaseNotesFormatting.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/releaseNotesFormatting.test.js) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/lib/vaultAgentContext.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/vaultAgentContext.test.js) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/locales/blocknote/registry.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/locales/blocknote/registry.test.js) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/locales/registry.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/locales/registry.test.js) | 5 | call-pattern estimate |

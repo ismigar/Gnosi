@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { normalizeLineEndings } from '../src/lib/releaseNotesFormatting.js';
+
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const frontendDir = path.resolve(scriptDir, '..');
 const appDir = path.resolve(frontendDir, '..');
@@ -126,7 +128,9 @@ const versionIndex = args.indexOf('--version');
 if (args.includes('--check')) {
   const expected = renderChangelog(releases, translations.en);
   const actual = fs.existsSync(changelogPath) ? fs.readFileSync(changelogPath, 'utf8') : '';
-  if (actual !== expected) throw new Error('CHANGELOG.md is not synchronized with the release catalog.');
+  if (normalizeLineEndings(actual) !== normalizeLineEndings(expected)) {
+    throw new Error('CHANGELOG.md is not synchronized with the release catalog.');
+  }
   console.log(`Release-note validation passed for ${releases.length} release(s) and ${locales.length} locale(s).`);
 } else if (args.includes('--write-changelog')) {
   fs.writeFileSync(changelogPath, renderChangelog(releases, translations.en));
