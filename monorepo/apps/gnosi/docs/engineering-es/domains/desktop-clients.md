@@ -56,8 +56,12 @@ Antes de crear la etiqueta, la PR de release debe superar la validación del
 frontend, los tests backend, la QA nativa en el navegador y la puerta de
 documentación de ingeniería. Después del merge, el workflow de sincronización
 debe llevar el commit revisado al repositorio público, donde debe superar el
-release readiness. Finalmente, el workflow de release crea un borrador y los
-artefactos de macOS, Windows y Linux se revisan antes de publicarlo.
+release readiness. El workflow del repositorio privado es el único propietario
+de las etiquetas oficiales, los artefactos multiplataforma, los catálogos
+firmados, las notas y el borrador del repositorio público. El workflow de
+escritorio sincronizado al repositorio público solo se ejecuta manualmente, por
+lo que puede validar el empaquetado sin competir con un build oficial. Los
+artefactos de macOS, Windows y Linux se revisan antes de publicarlos.
 
 ## Cortapapeles web
 

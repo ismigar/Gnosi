@@ -33,10 +33,13 @@ prerelease suffix makes the GitHub release a prerelease automatically.
 5. Run lint, i18n and release-note validation, frontend unit tests, and the production build.
 6. Validate the native backend and frontend through the browser.
 7. Open and merge a focused pull request containing the version preparation.
-8. Create the matching annotated tag on the merged `main` commit and push it
-   through the SSH remote.
-9. Wait for all release jobs and inspect the generated draft before publishing
-   it manually.
+8. Create the matching annotated tag on the merged private `main` commit and
+   push it through the SSH remote.
+9. Let the private source workflow build every platform and create the draft in
+   the public Gnosi repository. The synchronized public workflow is a manual
+   packaging check and must not react to release tags.
+10. Wait for all official release jobs and inspect the generated draft before
+    publishing it manually.
 
 ## Desktop update delivery
 
@@ -81,6 +84,15 @@ until a maintainer publishes them.
 - Do not start downloading an update merely because it exists. Keep
   `autoDownload` disabled and require the user's download action.
 - Do not use `gh` in this repository. Use Git over SSH and the GitHub app.
+- Do not enable a public tag trigger or a public release job in the synchronized
+  `monorepo/.github/workflows/build-release.yml`. The private source workflow
+  owns official tags, cross-platform artifacts, signed catalogs, release notes,
+  and the public draft. A second tag-triggered public workflow races that owner,
+  duplicates work, and can fail against an older synchronized snapshot.
+- Keep the public manual packaging workflow buildable: use the exported
+  workspace layout, provision Python through `actions/setup-python`, install the
+  frontend from its workspace with `npm install`, and retain updater metadata
+  alongside installers.
 - Restart the native frontend after changing the package version. Vite injects
   the displayed version when the development server starts, so hot reload
   alone continues to show the previous value.
@@ -127,6 +139,7 @@ until a maintainer publishes them.
 | 2026-08-14 | Preparing the release rewrote thousands of lockfile lines | The local npm version refreshed and reformatted the workspace dependency graph during a version-only operation | Synchronize the three release-version fields with the deterministic helper and leave dependency resolution untouched |
 | 2026-08-14 | The committed monorepo lockfile could not be parsed as JSON | A previous dependency update lost the boundary between frontend dependencies and dev dependencies, duplicated one key, and left stale workspace constraints | Restore the object boundary, mirror the frontend manifest constraints exactly, and require JSON parsing in release preparation |
 | 2026-08-14 | All frontend tests failed after a clean `npm ci` because Vitest could not import jsdom | npm hoisted Vitest to the monorepo root but kept the workspace-only jsdom package nested below the frontend | Declare the shared test runtime at the monorepo root and verify tests after a clean lockfile install |
+| 2026-08-15 | Every public tag started a second stale release workflow and the RC3 public build failed on all platforms | The synchronized public workflow still owned a tag trigger and release job even though the private source workflow already publishes the official public draft; it also used missing frontend lockfiles and an unavailable Ubuntu Python package | Keep the public workflow manual-only, use the exported workspace install model and `actions/setup-python`, and leave official release publication to the private workflow |
 
 ## Verification checklist
 
@@ -137,6 +150,8 @@ until a maintainer publishes them.
 - [ ] Frontend lint, unit tests, i18n validation, and build pass.
 - [ ] Native browser smoke test passes without blocking dialogs.
 - [ ] Backend tests pass in an isolated local-data directory.
+- [ ] The reviewed commit has synchronized to public `main`, and the public
+      desktop build workflow remains manual-only.
 - [ ] macOS, Linux, and Windows release jobs pass.
 - [ ] Draft artifacts have the expected names and architectures.
 - [ ] Installed desktop applications display the canonical Gnosi icon.
