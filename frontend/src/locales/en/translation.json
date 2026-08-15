@@ -5179,6 +5179,16 @@
     "section_improvements": "Improvements",
     "section_fixes": "Fixes",
     "entries": {
+      "v1_0_2": {
+        "highlights": {},
+        "improvements": {
+          "compact_update_notice": "The desktop update notice is now smaller and quieter, and it surfaces errors from user-initiated actions."
+        },
+        "fixes": {
+          "macos_installer": "On macOS, the update action now downloads the correct official DMG instead of offering a restart that ad-hoc signatures cannot complete.",
+          "automatic_release_history": "Release history no longer opens automatically when the application starts or before an update download."
+        }
+      },
       "v1_0_1": {
         "highlights": {},
         "improvements": {},

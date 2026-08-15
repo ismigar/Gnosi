@@ -5230,6 +5230,16 @@
     "section_improvements": "Améliorations",
     "section_fixes": "Corrections",
     "entries": {
+      "v1_0_2": {
+        "highlights": {},
+        "improvements": {
+          "compact_update_notice": "L’avis de mise à jour du bureau est désormais plus petit et discret, et affiche les erreurs des actions lancées par l’utilisateur."
+        },
+        "fixes": {
+          "macos_installer": "Sur macOS, l’action de mise à jour télécharge désormais le DMG officiel approprié au lieu de proposer un redémarrage que les signatures ad hoc ne peuvent pas effectuer.",
+          "automatic_release_history": "L’historique des versions ne s’ouvre plus automatiquement au démarrage de l’application ni avant le téléchargement d’une mise à jour."
+        }
+      },
       "v1_0_1": {
         "highlights": {},
         "improvements": {},

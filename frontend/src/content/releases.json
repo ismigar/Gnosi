@@ -1,5 +1,20 @@
 [
   {
+    "version": "1.0.2",
+    "date": "2026-08-15",
+    "channel": "stable",
+    "sections": {
+      "highlights": [],
+      "improvements": [
+        "release_notes.entries.v1_0_2.improvements.compact_update_notice"
+      ],
+      "fixes": [
+        "release_notes.entries.v1_0_2.fixes.macos_installer",
+        "release_notes.entries.v1_0_2.fixes.automatic_release_history"
+      ]
+    }
+  },
+  {
     "version": "1.0.1",
     "date": "2026-08-15",
     "channel": "stable",

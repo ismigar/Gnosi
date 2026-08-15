@@ -5230,6 +5230,16 @@
     "section_improvements": "Mejoras",
     "section_fixes": "Correcciones",
     "entries": {
+      "v1_0_2": {
+        "highlights": {},
+        "improvements": {
+          "compact_update_notice": "El aviso de actualización de escritorio es ahora más pequeño y discreto, y muestra los errores de las acciones iniciadas por el usuario."
+        },
+        "fixes": {
+          "macos_installer": "En macOS, la acción de actualización descarga ahora el DMG oficial correcto en lugar de ofrecer un reinicio que las firmas ad hoc no pueden completar.",
+          "automatic_release_history": "El historial de versiones ya no se abre automáticamente al iniciar la aplicación ni antes de descargar una actualización."
+        }
+      },
       "v1_0_1": {
         "highlights": {},
         "improvements": {},
