@@ -57,6 +57,15 @@ Las comprobaciones están deshabilitadas en el desarrollo. Las descargas nunca c
 
 Los artefactos de lanzamiento incluyen instaladores y metadatos de actualización para macOS, Windows y Linux. La preparación de la versión mantiene alineados los frontend y los manifiestos de Electron; las etiquetas se crean sólo a partir de la revisión `main` se compromete.
 
+El workflow privado de release empaqueta macOS Intel y Apple Silicon en jobs
+separados de una matriz. Cada job se ejecuta sobre la arquitectura
+correspondiente de macOS 15 y construye un único backend nativo con PyInstaller
+antes de invocar electron-builder para el mismo objetivo. Así se evita copiar
+un ejecutable Python nativo del host dentro de la aplicación de la otra
+arquitectura. Los runners de release están fijados en lugar de usar
+`macos-latest`, cuya migración a macOS 26 cambió la creación del DMG a APFS y
+rompió la fase de montaje y personalización de electron-builder.
+
 La lista de archivos del constructor de Electron es un límite explícito del
 runtime. El hook multiplataforma `afterPack` inspecciona el `app.asar` final y
 rechaza un paquete que omita el proceso principal, el preload, el módulo del

@@ -120,6 +120,20 @@ until a maintainer publishes them.
   alone continues to show the previous value.
 - A local macOS build cannot validate Windows or Linux artifacts. Those are
   mandatory release-workflow gates.
+- Do not package macOS Intel and Apple Silicon installers from one runner. The
+  frozen Python backend is native to the runner architecture, so a shared
+  bundle can silently put an ARM64 backend inside the Intel application (or the
+  inverse). Use separate matrix jobs, match the runner architecture to the
+  requested Electron architecture, and upload architecture-specific artifacts.
+- Do not use the moving `macos-latest` label for release installers. Its 2026
+  migration to macOS 26 ARM64 made electron-builder fall back to APFS and the
+  DMG customization phase failed with `hdiutil: no mountable file systems`.
+  Pin Apple Silicon packaging to `macos-15` and Intel packaging to
+  `macos-15-intel` while those images are supported.
+- Do not build the frozen Python backend in a standalone workflow step before
+  `npm run build:mac`; the platform script already owns the clean Python build.
+  Duplicate builds add several minutes and can obscure which architecture was
+  actually copied into the application.
 - Do not treat sandbox socket or Chromium launch restrictions as passing tests;
   rerun the affected gates in GitHub Actions before publishing.
 - Do not omit explicit Electron desktop icons. Without generated ICNS, ICO, and
@@ -194,6 +208,7 @@ until a maintainer publishes them.
 | 2026-08-15 | The installed native backend exited while creating `/app/data/secrets`, then the first window waited two minutes | The desktop process supplied no native local-data path and polled a protected statistics endpoint for readiness | Set `GNOSI_LOCAL_DATA` under Electron's per-user data directory, isolate the frozen smoke test, and poll `/api/health` |
 | 2026-08-15 | The isolated frozen-backend smoke test failed in `pyparsing.testing` with `No module named 'unittest'` | The PyInstaller spec excluded a standard-library module used by an included Google API dependency | Keep `unittest` and the feature-required `PIL` package in the frozen runtime and lock the exclusion policy with a source test |
 | 2026-08-15 | The frozen backend imported successfully but exited with `Operation not permitted` while starting Uvicorn | The installed PyInstaller process enabled `reload=True` and attempted to watch its read-only application bundle | Detect `sys.frozen`, disable Uvicorn reload only in packaged runtimes, and keep it enabled for native source development |
+| 2026-08-15 | The v1.0.4 macOS release job failed with `hdiutil: no mountable file systems` | `macos-latest` had migrated to macOS 26 ARM64, electron-builder switched to APFS, and one host-native Python bundle was reused for both Electron architectures | Pin architecture-matched macOS 15 runners, build one architecture per matrix job, and let the platform script build Python exactly once |
 
 ## Verification checklist
 

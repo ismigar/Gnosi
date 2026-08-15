@@ -10,6 +10,11 @@ const {
 } = require('./scripts/packaging-contract.cjs');
 
 const electronRoot = __dirname;
+const releaseWorkflowPath = path.resolve(
+  electronRoot,
+  '../../../..',
+  '.github/workflows/build-release.yml',
+);
 
 function localRuntimeRequires(source) {
   const requiredFiles = new Set();
@@ -95,4 +100,19 @@ test('the frozen backend keeps required standard-library and media modules', () 
   assert.match(buildScript, /requirements-e2e\.txt/);
   assert.doesNotMatch(buildScript, /excludes=\[[^\]]*['"]unittest['"]/s);
   assert.doesNotMatch(buildScript, /excludes=\[[^\]]*['"]PIL['"]/s);
+});
+
+test('macOS release jobs match each frozen backend to its target architecture', () => {
+  const workflow = fs.readFileSync(releaseWorkflowPath, 'utf8');
+
+  assert.doesNotMatch(workflow, /^\s+runs-on: macos-latest$/m);
+  assert.match(workflow, /- arch: arm64\n\s+runner: macos-15/);
+  assert.match(workflow, /- arch: x64\n\s+runner: macos-15-intel/);
+  assert.match(workflow, /runs-on: \$\{\{ matrix\.runner \}\}/);
+  assert.match(workflow, /npm run build:mac -- --\$\{\{ matrix\.arch \}\}/);
+  assert.match(workflow, /name: macos-\$\{\{ matrix\.arch \}\}/);
+
+  const macJob = workflow.match(/  build-macos:\n([\s\S]*?)\n  build-linux:/)?.[1];
+  assert.ok(macJob, 'the release workflow must define a macOS build job');
+  assert.doesNotMatch(macJob, /\.\/build-python\.sh/);
 });

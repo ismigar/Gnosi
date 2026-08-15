@@ -83,6 +83,14 @@ Release artifacts include installers and updater metadata for macOS, Windows,
 and Linux. Version preparation keeps frontend and Electron manifests aligned;
 tags are created only from reviewed `main` commits.
 
+The private release workflow packages macOS Intel and Apple Silicon in separate
+matrix jobs. Each job runs on the matching macOS 15 architecture and builds one
+native PyInstaller backend before invoking electron-builder for that same
+target. This prevents a host-native Python executable from being copied into
+the other architecture's application. Release runners are pinned instead of
+using `macos-latest`, whose migration to macOS 26 changed DMG creation to APFS
+and broke electron-builder's mount-and-customize phase.
+
 Electron's builder file list is an explicit runtime boundary. The cross-platform
 `afterPack` hook inspects the final `app.asar` and rejects a package that omits
 the main process, preload, native-menu, backend-launch, or update-policy module. This installed-
