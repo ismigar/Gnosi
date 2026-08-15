@@ -5205,14 +5205,16 @@
   "desktop_update": {
     "aria_label": "Mise à jour de l’application",
     "dismiss": "Ignorer l’avis de mise à jour",
-    "available_title": "Une nouvelle version de Gnosi est disponible",
-    "available_body": "La version {{version}} est prête à être téléchargée.",
+    "available_title": "Gnosi {{version}} est disponible",
     "downloading_body": "Téléchargement de la version {{version}}… {{percent}} %",
     "ready_title": "Mise à jour prête",
     "ready_body": "Redémarrez Gnosi pour terminer l’installation de la version {{version}}.",
-    "download": "Télécharger la mise à jour",
-    "restart": "Redémarrer et installer",
-    "whats_new": "Nouveautés"
+    "manual_title": "Téléchargement du programme d’installation lancé",
+    "manual_body": "Ouvrez le DMG lorsque le téléchargement est terminé.",
+    "error_title": "La mise à jour n’a pas pu être effectuée",
+    "error_body": "Veuillez réessayer plus tard.",
+    "download": "Télécharger",
+    "restart": "Redémarrer et installer"
   },
   "release_notes": {
     "title": "Nouveautés de Gnosi",

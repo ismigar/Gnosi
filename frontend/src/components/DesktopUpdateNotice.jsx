@@ -1,9 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Download, RefreshCw, Sparkles, X } from 'lucide-react';
+import { Download, RefreshCw, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-
-import { findRelease } from '../lib/releaseNotes';
-import { ReleaseNotesDialog } from './ReleaseNotesDialog';
 
 const INITIAL_STATE = { status: 'idle' };
 
@@ -11,7 +8,6 @@ export function DesktopUpdateNotice() {
     const { t } = useTranslation();
     const [update, setUpdate] = useState(INITIAL_STATE);
     const [dismissedVersion, setDismissedVersion] = useState(null);
-    const [releaseNotesOpen, setReleaseNotesOpen] = useState(false);
     const eventSequence = useRef(0);
 
     useEffect(() => {
@@ -36,60 +32,73 @@ export function DesktopUpdateNotice() {
     }, []);
 
     const version = update.version || '';
-    const isVisible = ['available', 'downloading', 'downloaded'].includes(update.status)
-        && !(update.status === 'available' && dismissedVersion === version);
+    const visibleStatuses = ['available', 'downloading', 'downloaded', 'manual-download'];
+    const isVisible = (visibleStatuses.includes(update.status)
+        || (update.status === 'error' && update.userInitiated))
+        && dismissedVersion !== version;
 
-    if (!isVisible && !releaseNotesOpen) return null;
+    if (!isVisible) return null;
 
     const percent = Math.max(0, Math.min(100, Math.round(update.percent || 0)));
 
     const downloadUpdate = () => {
-        window.electronAPI?.downloadUpdate?.().catch(() => {});
+        window.electronAPI?.downloadUpdate?.().then((nextUpdate) => {
+            if (nextUpdate) setUpdate(nextUpdate);
+        }).catch(() => {
+            setUpdate((current) => ({ ...current, status: 'error', userInitiated: true }));
+        });
     };
 
     const installUpdate = () => {
-        window.electronAPI?.installUpdate?.().catch(() => {});
+        window.electronAPI?.installUpdate?.().then((nextUpdate) => {
+            if (nextUpdate) setUpdate(nextUpdate);
+        }).catch(() => {
+            setUpdate((current) => ({ ...current, status: 'error', userInitiated: true }));
+        });
     };
 
     return (
-        <>
-        {isVisible && <aside
-            className="fixed right-5 top-5 z-[var(--z-toast)] w-[min(24rem,calc(100vw-2.5rem))] rounded-2xl border border-[var(--border-color)] bg-[var(--bg-primary)] p-4 text-[var(--text-primary)] shadow-2xl"
+        <aside
+            className="fixed right-4 top-4 z-[var(--z-toast)] w-[min(20rem,calc(100vw-2rem))] rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] p-3 text-[var(--text-primary)] shadow-lg"
             role="status"
             aria-live="polite"
             aria-label={t('desktop_update.aria_label', 'Application update')}
         >
-            {update.status === 'available' && (
-                <button
-                    type="button"
-                    onClick={() => setDismissedVersion(version)}
-                    className="absolute right-3 top-3 rounded-lg p-1 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--text-primary)]"
-                    aria-label={t('desktop_update.dismiss', 'Dismiss update notice')}
-                >
-                    <X size={17} aria-hidden="true" />
-                </button>
-            )}
+            <button
+                type="button"
+                onClick={() => setDismissedVersion(version)}
+                className="absolute right-2 top-2 rounded-md p-1 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--text-primary)]"
+                aria-label={t('desktop_update.dismiss', 'Dismiss update notice')}
+            >
+                <X size={15} aria-hidden="true" />
+            </button>
 
-            <div className="flex gap-3 pr-7">
-                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--accent-primary)] text-white">
+            <div className="flex gap-2.5 pr-6">
+                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-primary)] text-white">
                     {update.status === 'downloaded'
-                        ? <RefreshCw size={18} aria-hidden="true" />
-                        : <Download size={18} aria-hidden="true" />}
+                        ? <RefreshCw size={16} aria-hidden="true" />
+                        : <Download size={16} aria-hidden="true" />}
                 </span>
                 <div className="min-w-0 flex-1">
                     <h2 className="text-sm font-semibold">
                         {update.status === 'downloaded'
                             ? t('desktop_update.ready_title', 'Update ready')
-                            : t('desktop_update.available_title', 'A new Gnosi version is available')}
+                            : update.status === 'manual-download'
+                                ? t('desktop_update.manual_title', 'Installer download started')
+                                : update.status === 'error'
+                                    ? t('desktop_update.error_title', 'Update could not be completed')
+                                    : t('desktop_update.available_title', 'Gnosi {{version}} is available', { version })}
                     </h2>
-                    <p className="mt-1 text-xs leading-5 text-[var(--text-secondary)]">
-                        {update.status === 'available'
-                            && t('desktop_update.available_body', 'Version {{version}} is ready to download.', { version })}
+                    {update.status !== 'available' && <p className="mt-0.5 text-xs leading-5 text-[var(--text-secondary)]">
                         {update.status === 'downloading'
                             && t('desktop_update.downloading_body', 'Downloading version {{version}}… {{percent}}%', { version, percent })}
                         {update.status === 'downloaded'
                             && t('desktop_update.ready_body', 'Restart Gnosi to finish installing version {{version}}.', { version })}
-                    </p>
+                        {update.status === 'manual-download'
+                            && t('desktop_update.manual_body', 'Open the DMG when the download finishes.')}
+                        {update.status === 'error'
+                            && t('desktop_update.error_body', 'Please try the update again later.')}
+                    </p>}
 
                     {update.status === 'downloading' && (
                         <div
@@ -107,25 +116,15 @@ export function DesktopUpdateNotice() {
                     )}
 
                     {update.status === 'available' && (
-                        <div className="mt-3 flex flex-wrap gap-2">
+                        <div className="mt-2">
                             <button
                                 type="button"
                                 onClick={downloadUpdate}
-                                className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent-primary)] px-3 py-2 text-xs font-semibold text-white hover:opacity-90"
+                                className="inline-flex items-center gap-1.5 rounded-md bg-[var(--accent-primary)] px-2.5 py-1.5 text-xs font-semibold text-white hover:opacity-90"
                             >
-                                <Download size={15} aria-hidden="true" />
-                                {t('desktop_update.download', 'Download update')}
+                                <Download size={14} aria-hidden="true" />
+                                {t('desktop_update.download', 'Download')}
                             </button>
-                            {findRelease(version) && (
-                                <button
-                                    type="button"
-                                    onClick={() => setReleaseNotesOpen(true)}
-                                    className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-primary)] px-3 py-2 text-xs font-semibold hover:bg-[var(--bg-secondary)]"
-                                >
-                                    <Sparkles size={15} aria-hidden="true" />
-                                    {t('desktop_update.whats_new', "What's new")}
-                                </button>
-                            )}
                         </div>
                     )}
 
@@ -133,20 +132,14 @@ export function DesktopUpdateNotice() {
                         <button
                             type="button"
                             onClick={installUpdate}
-                            className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[var(--accent-primary)] px-3 py-2 text-xs font-semibold text-white hover:opacity-90"
+                            className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-[var(--accent-primary)] px-2.5 py-1.5 text-xs font-semibold text-white hover:opacity-90"
                         >
-                            <RefreshCw size={15} aria-hidden="true" />
+                            <RefreshCw size={14} aria-hidden="true" />
                             {t('desktop_update.restart', 'Restart and install')}
                         </button>
                     )}
                 </div>
             </div>
-        </aside>}
-        <ReleaseNotesDialog
-            open={releaseNotesOpen}
-            onClose={() => setReleaseNotesOpen(false)}
-            initialVersion={version}
-        />
-        </>
+        </aside>
     );
 }

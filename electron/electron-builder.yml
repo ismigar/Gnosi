@@ -22,6 +22,7 @@ dmg:
 files:
   - main.js
   - preload.js
+  - update-policy.js
   # Runtime dependencies used by main.js (electron-log drives the auto-updater
   # logger; electron-updater is the updater itself). electron-builder follows
   # package.json dependencies, so only production deps land in the asar.
