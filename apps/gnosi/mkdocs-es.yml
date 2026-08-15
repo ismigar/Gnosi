@@ -1,0 +1,107 @@
+site_name: Documentación de ingeniería de Gnosi
+site_description: Arquitectura, implementación, operaciones y referencia del código fuente de Gnosi
+site_url: https://gnosi.temenosismael.org/engineering/es/
+repo_url: https://github.com/ismigar/Gnosi
+repo_name: ismigar/Gnosi
+edit_uri: edit/main/apps/gnosi/docs/engineering/
+docs_dir: docs/engineering-es
+site_dir: site/engineering/es
+strict: true
+
+theme:
+  name: material
+  custom_dir: docs/engineering-overrides
+  language: es
+  features:
+    - content.code.copy
+    - navigation.footer
+    - navigation.indexes
+    - navigation.sections
+    - navigation.top
+    - search.highlight
+    - search.suggest
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: teal
+
+nav:
+  - Empieza aquí: index.md
+  - Producto:
+      - Objetivo y alcance: product/purpose-and-scope.md
+      - Terminología: product/terminology.md
+  - Arquitectura:
+      - Contexto del sistema: architecture/system-context.md
+      - Ejecución y despliegue: architecture/runtime-and-deployment.md
+      - Datos y almacenamiento: architecture/data-and-storage.md
+      - Flujos transversales: architecture/cross-cutting-flows.md
+  - Dominios:
+      - Base de la plataforma y ejecución: domains/foundation-runtime.md
+      - Vault y archivos: domains/vault-files.md
+      - Vistas de base de datos y planificación: domains/database-views-planning.md
+      - Grafo de conocimiento: domains/knowledge-graph.md
+      - Lector, referencias y citas: domains/reader-references.md
+      - Agentes, modelos, herramientas y habilidades de IA: domains/ai-agent.md
+      - Correo: domains/mail.md
+      - Calendario y reuniones: domains/calendar-meetings.md
+      - Contactos: domains/contacts.md
+      - Publicación social y multimedia: domains/social-publishing.md
+      - Integraciones y conectores: domains/integrations-plugins.md
+      - Autenticación, espacios de trabajo y uso compartido: domains/auth-workspaces-sharing.md
+      - Automatización y programación: domains/automation-scheduling.md
+      - Clientes de escritorio y complementarios: domains/desktop-clients.md
+  - Seguridad:
+      - Modelo de confianza: security/trust-model.md
+  - Operaciones:
+      - Manual de operaciones: operations/runbook.md
+  - Calidad:
+      - Estrategia de pruebas: testing/test-strategy.md
+      - Mantenimiento de la documentación: testing/documentation-maintenance.md
+  - Decisiones:
+      - Registros de decisiones: decisions/index.md
+      - Fuente de verdad local-first: decisions/0001-local-first-source-of-truth.md
+      - Documentación como código: decisions/0002-documentation-as-code.md
+  - Referencia generada:
+      - Inventario del repositorio: generated/repository-inventory.md
+      - Catálogo de la API: generated/api-catalog.md
+      - Módulos del backend: generated/backend-modules.md
+      - Catálogo del frontend: generated/frontend-catalog.md
+      - Modelo de datos relacional: generated/data-model.md
+      - Configuración: generated/configuration.md
+      - Pruebas: generated/tests.md
+      - Habilidades de ejecución: generated/skills.md
+      - Cobertura: generated/coverage.md
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+
+extra_javascript:
+  - https://unpkg.com/mermaid@11/dist/mermaid.min.js
+  - assets/mermaid-init.js
+  - assets/language-switcher.js
+
+extra_css:
+  - assets/engineering.css
+
+exclude_docs: |
+  generated/.gitkeep

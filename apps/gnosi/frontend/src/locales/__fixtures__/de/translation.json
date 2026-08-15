@@ -1,0 +1,8 @@
+{
+  "_meta": {
+    "nativeName": "Deutsch",
+    "intlLocale": "de-DE",
+    "direction": "ltr"
+  },
+  "greeting": "Hallo"
+}

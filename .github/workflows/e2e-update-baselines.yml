@@ -1,0 +1,68 @@
+name: E2E — Update Linux Visual Baselines (manual)
+
+# Manual trigger to regenerate Linux baselines for visual regression tests.
+# Workflow:
+#   1. Run from GitHub Actions UI (workflow_dispatch).
+#   2. Build frontend, start preview server, run Playwright with --update-snapshots.
+#   3. Generated *-linux.png files are uploaded as an artifact.
+#   4. Download the artifact, place in tests/visual/regression.spec.ts-snapshots/, commit.
+#
+# This avoids the friction of running Playwright in Docker locally against Vite dev,
+# and ensures baselines exactly match the CI environment.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  update-baselines:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            apps/gnosi/frontend/package-lock.json
+            apps/gnosi/e2e/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: apps/gnosi/frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: apps/gnosi/frontend
+        run: npm run build
+
+      - name: Start frontend (preview)
+        working-directory: apps/gnosi/frontend
+        run: |
+          npx vite preview --port 5173 --strictPort &
+          npx wait-on http://localhost:5173 --timeout 60000
+
+      - name: Install E2E dependencies
+        working-directory: apps/gnosi/e2e
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: apps/gnosi/e2e
+        run: npx playwright install --with-deps chromium
+
+      - name: Generate Linux baselines (--update-snapshots)
+        working-directory: apps/gnosi/e2e
+        run: npx playwright test --project=visual --update-snapshots
+        env:
+          GNOSI_BASE_URL: http://localhost:5173
+
+      - name: Upload Linux baselines as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-baselines-linux
+          path: apps/gnosi/e2e/tests/visual/regression.spec.ts-snapshots/*-linux.png
+          retention-days: 30
+          if-no-files-found: error
