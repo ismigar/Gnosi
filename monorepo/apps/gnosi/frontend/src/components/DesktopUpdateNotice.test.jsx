@@ -46,7 +46,11 @@ describe('DesktopUpdateNotice', () => {
         const downloadUpdate = vi.fn().mockResolvedValue(undefined);
         const installUpdate = vi.fn().mockResolvedValue(undefined);
         window.electronAPI = {
-            getUpdateStatus: vi.fn().mockResolvedValue({ status: 'available', version: '1.2.0' }),
+            getUpdateStatus: vi.fn().mockResolvedValue({
+                status: 'available',
+                version: '1.2.0',
+                installMode: 'automatic',
+            }),
             onUpdateStatus: vi.fn((listener) => { statusListener = listener; }),
             removeUpdateListener: vi.fn(),
             downloadUpdate,
@@ -54,11 +58,11 @@ describe('DesktopUpdateNotice', () => {
         };
 
         await renderNotice();
-        expect(container.textContent).toContain('Version 1.2.0 is ready to download.');
+        expect(container.textContent).toContain('Gnosi 1.2.0 is available');
 
         await act(async () => {
             [...container.querySelectorAll('button')]
-                .find((button) => button.textContent.includes('Download update'))
+                .find((button) => button.textContent.includes('Download'))
                 .click();
         });
         expect(downloadUpdate).toHaveBeenCalledOnce();
@@ -80,5 +84,60 @@ describe('DesktopUpdateNotice', () => {
                 .click();
         });
         expect(installUpdate).toHaveBeenCalledOnce();
+    });
+
+    it('opens the macOS installer download without showing release history', async () => {
+        const downloadUpdate = vi.fn().mockResolvedValue({
+            status: 'manual-download',
+            version: '1.2.0',
+            installMode: 'manual',
+        });
+        window.electronAPI = {
+            getUpdateStatus: vi.fn().mockResolvedValue({
+                status: 'available',
+                version: '1.2.0',
+                installMode: 'manual',
+            }),
+            onUpdateStatus: vi.fn(),
+            removeUpdateListener: vi.fn(),
+            downloadUpdate,
+        };
+
+        await renderNotice();
+        expect(container.textContent).not.toContain("What's new");
+
+        await act(async () => {
+            [...container.querySelectorAll('button')]
+                .find((button) => button.textContent.includes('Download'))
+                .click();
+        });
+
+        expect(downloadUpdate).toHaveBeenCalledOnce();
+        expect(container.textContent).toContain('Installer download started');
+        expect(container.textContent).toContain('Open the DMG');
+        expect(container.textContent).not.toContain('Restart and install');
+    });
+
+    it('surfaces an update action error instead of failing silently', async () => {
+        window.electronAPI = {
+            getUpdateStatus: vi.fn().mockResolvedValue({
+                status: 'available',
+                version: '1.2.0',
+                installMode: 'manual',
+            }),
+            onUpdateStatus: vi.fn(),
+            removeUpdateListener: vi.fn(),
+            downloadUpdate: vi.fn().mockRejectedValue(new Error('open failed')),
+        };
+
+        await renderNotice();
+        await act(async () => {
+            [...container.querySelectorAll('button')]
+                .find((button) => button.textContent.includes('Download'))
+                .click();
+        });
+
+        expect(container.textContent).toContain('Update could not be completed');
+        expect(container.textContent).toContain('Please try the update again later.');
     });
 });

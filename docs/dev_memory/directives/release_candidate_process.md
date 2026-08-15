@@ -46,9 +46,17 @@ prerelease suffix makes the GitHub release a prerelease automatically.
 The packaged Electron application checks the public `ismigar/Gnosi` GitHub
 repository after its renderer is ready. Update checks are disabled in
 development mode. A published release newer than the packaged application is
-offered in the global application shell; downloads start only after the user
-selects the download action. The interface reports download progress and
-offers an explicit restart-and-install action when the package is ready.
+offered through a compact notice in the global application shell. The notice
+must not open or embed the release history. Delivery starts only after the user
+selects the download action. Windows and Linux report download progress and
+offer an explicit restart-and-install action when the package is ready.
+
+macOS releases use a direct architecture-specific DMG download while the app
+is ad-hoc signed. Squirrel.Mac validates the new bundle against the installed
+bundle's designated requirement; an ad-hoc requirement contains a per-build
+code-directory hash, so a separately valid new build still fails replacement.
+Automatic restart-and-install on macOS may be enabled only after every release
+uses the same Apple Developer ID identity and passes notarization.
 
 The renderer must be able to recover the latest updater state through IPC as
 well as subscribe to events. This prevents a fast update check from finishing
@@ -83,6 +91,16 @@ until a maintainer publishes them.
   discover or apply the release.
 - Do not start downloading an update merely because it exists. Keep
   `autoDownload` disabled and require the user's download action.
+- Do not offer automatic restart-and-install on macOS for ad-hoc signed
+  releases. The per-build designated requirement causes Squirrel.Mac signature
+  validation to reject the replacement. Open the official architecture-specific
+  DMG directly until stable Developer ID signing and notarization are configured.
+- Do not open the release history as part of the update prompt or automatically
+  when the application starts after a version change. Keep the notice compact,
+  retain the explicit Control Center entry point, and let the update download
+  action perform only installer delivery.
+- Do not swallow user-initiated updater failures in the renderer. Publish a
+  visible error state so a failed download or installation action is not inert.
 - Do not use `gh` in this repository. Use Git over SSH and the GitHub app.
 - Do not enable a public tag trigger or a public release job in the synchronized
   `monorepo/.github/workflows/build-release.yml`. The private source workflow
@@ -144,6 +162,7 @@ until a maintainer publishes them.
 | 2026-08-14 | All frontend tests failed after a clean `npm ci` because Vitest could not import jsdom | npm hoisted Vitest to the monorepo root but kept the workspace-only jsdom package nested below the frontend | Declare the shared test runtime at the monorepo root and verify tests after a clean lockfile install |
 | 2026-08-15 | Every public tag started a second stale release workflow and the RC3 public build failed on all platforms | The synchronized public workflow still owned a tag trigger and release job even though the private source workflow already publishes the official public draft; it also used missing frontend lockfiles and an unavailable Ubuntu Python package | Keep the public workflow manual-only, use the exported workspace install model and `actions/setup-python`, and leave official release publication to the private workflow |
 | 2026-08-15 | The public Windows packaging check rejected a current changelog while macOS and Linux accepted it | The release-note validator compared the LF rendering byte-for-byte with a CRLF checkout on Windows | Normalize line endings only for changelog comparison and cover LF, CRLF, and legacy CR with unit tests |
+| 2026-08-15 | The macOS updater downloaded `1.0.1`, but “Restart and install” did nothing | Both bundles were validly ad-hoc signed, but their designated requirements contained different per-build code-directory hashes, so Squirrel.Mac rejected the replacement | Use a compact direct-DMG flow on macOS and reserve automatic replacement for stable Developer ID signing and notarization |
 
 ## Verification checklist
 

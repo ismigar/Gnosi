@@ -1,8 +1,9 @@
-const { app, BrowserWindow, ipcMain, protocol, net } = require('electron');
+const { app, BrowserWindow, ipcMain, protocol, net, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const { autoUpdater } = require('electron-updater');
+const { buildMacInstallerUrl, getUpdateInstallMode } = require('./update-policy');
 
 const isDev = process.argv.includes('--dev');
 
@@ -27,13 +28,18 @@ protocol.registerSchemesAsPrivileged([
 
 let mainWindow;
 let backendProcess = null;
-let updateState = { status: 'idle' };
+let updateState = { status: 'idle', installMode: getUpdateInstallMode() };
 
 const BACKEND_PORT = 5002;
 const FRONTEND_PORT = 5173;
 
 function log(...args) {
   console.log(`[Main]`, new Date().toISOString(), ...args);
+}
+
+function publishUpdateState(nextState) {
+  updateState = { ...updateState, ...nextState };
+  mainWindow?.webContents.send('update-status', updateState);
 }
 
 function getBackendURL() {
@@ -374,11 +380,6 @@ function setupAutoUpdater() {
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = false;
 
-  const publishUpdateState = (nextState) => {
-    updateState = { ...updateState, ...nextState };
-    mainWindow?.webContents.send('update-status', updateState);
-  };
-  
   autoUpdater.on('checking-for-update', () => {
     log('Checking for update...');
     publishUpdateState({ status: 'checking' });
@@ -386,7 +387,13 @@ function setupAutoUpdater() {
   
   autoUpdater.on('update-available', (info) => {
     log('Update available:', info.version);
-    publishUpdateState({ status: 'available', version: info.version });
+    publishUpdateState({
+      status: 'available',
+      version: info.version,
+      installMode: getUpdateInstallMode(),
+      userInitiated: false,
+      error: undefined,
+    });
   });
   
   autoUpdater.on('update-not-available', () => {
@@ -435,7 +442,21 @@ function setupIPC() {
       return updateState;
     }
 
-    await autoUpdater.downloadUpdate();
+    publishUpdateState({ userInitiated: true, error: undefined });
+
+    try {
+      if (updateState.installMode === 'manual') {
+        const installerUrl = buildMacInstallerUrl(updateState.version);
+        await shell.openExternal(installerUrl);
+        publishUpdateState({ status: 'manual-download' });
+      } else {
+        await autoUpdater.downloadUpdate();
+      }
+    } catch (err) {
+      log('Update download action failed:', err.message);
+      publishUpdateState({ status: 'error', error: err.message });
+    }
+
     return updateState;
   });
   
@@ -454,7 +475,20 @@ function setupIPC() {
   });
   
   ipcMain.handle('install-update', () => {
-    autoUpdater.quitAndInstall();
+    if (updateState.status !== 'downloaded' || updateState.installMode !== 'automatic') {
+      return updateState;
+    }
+
+    publishUpdateState({ userInitiated: true, error: undefined });
+
+    try {
+      autoUpdater.quitAndInstall();
+    } catch (err) {
+      log('Update installation failed:', err.message);
+      publishUpdateState({ status: 'error', error: err.message });
+    }
+
+    return updateState;
   });
 
   ipcMain.handle('open-form-filler', async (event, { url, profile }) => {

@@ -4,6 +4,7 @@ last_verified: 2026-08-15
 source_paths:
   - electron/main.js
   - electron/preload.js
+  - electron/update-policy.js
   - electron/electron-builder.yml
   - electron/package.json
   - electron/release.sh
@@ -16,6 +17,7 @@ source_paths:
   - integrations/libreoffice-cite
   - integrations/word-cite-pin
 tests:
+  - electron/update-policy.test.js
   - integrations/libreoffice-cite/tests
 ---
 
@@ -25,7 +27,7 @@ tests:
 
 Electron packages Gnosi as a desktop application. The main process owns backend
 startup, process cleanup, window lifecycle, packaged-resource paths, update
-checks, downloads, installation, and privileged desktop actions. The renderer
+checks, installer delivery, installation, and privileged desktop actions. The renderer
 receives a narrow preload API rather than direct Node.js access.
 
 The bundled Python backend must be ready before the renderer treats the app as
@@ -41,15 +43,29 @@ stateDiagram-v2
     Checking --> Available
     Checking --> Current
     Checking --> Error
-    Available --> Downloading: user confirms download
+    Available --> ManualDownload: macOS user opens DMG download
+    Available --> Downloading: automatic installation is supported
+    ManualDownload --> [*]: browser downloads official DMG
     Downloading --> Ready
     Downloading --> Error
     Ready --> Installing: user confirms restart
 ```
 
 Checks are disabled in development. Downloads never begin merely because a
-release exists. The main process stores the latest updater state so a renderer
-that subscribes late can recover it through IPC.
+release exists. The compact renderer notice does not open the release history,
+and version changes do not open that history during application startup. Users
+can still open release notes explicitly from the Control Center.
+On macOS, current ad-hoc signatures do not provide the stable designated
+requirement required by Squirrel.Mac, so the explicit action opens the official
+architecture-specific DMG directly. Windows and Linux retain the automatic
+download and installation state machine. The main process stores the latest
+updater state so a renderer that subscribes late can recover it through IPC.
+
+Seamless macOS restart-and-install must remain disabled until releases use a
+stable Apple Developer ID signature and notarization. This policy prevents an
+installer that passes standalone `codesign` verification from being offered as
+automatically installable when its per-build ad-hoc code-directory hash cannot
+match the currently installed application.
 
 Release artifacts include installers and updater metadata for macOS, Windows,
 and Linux. Version preparation keeps frontend and Electron manifests aligned;
@@ -113,7 +129,7 @@ application for every unit test.
 
 - Renderer code has no unrestricted Node.js or filesystem capability.
 - IPC exposes named operations with validated inputs.
-- Update download and installation require explicit user actions.
+- Update download, installer opening, and installation require explicit user actions.
 - Packaged resource paths differ from development paths and are resolved at
   runtime.
 - Companion clients authenticate to the backend and remain within their narrow
