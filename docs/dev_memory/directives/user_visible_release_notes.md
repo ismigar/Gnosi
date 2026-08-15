@@ -67,11 +67,16 @@ same catalog and must remain synchronized.
 - Do not validate documentation impact from committed changes alone during a
   local pre-PR run because release documentation may still be staged,
   unstaged, or newly created. The local gate must include all four states.
+- Do not compare the generated changelog with platform-specific line endings.
+  Git checkouts can materialize Markdown with CRLF on Windows even when its
+  content matches the LF rendering. Normalize CRLF and legacy CR to LF for the
+  comparison while preserving every other byte-level difference.
 
 ## Verification checklist
 
 - The release catalog validator passes.
 - The committed changelog matches the generated English rendering.
+- The changelog comparison passes with LF and CRLF checkouts.
 - Frontend i18n, unit tests, lint for changed files, and production build pass.
 - The Control Center opens and closes the release history in the native UI.
 - The once-per-version dialog does not reopen after dismissal.

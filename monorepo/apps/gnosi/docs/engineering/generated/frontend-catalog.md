@@ -35,7 +35,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `components` | 201 | 79226 | 200 |
 | `context` | 1 | 177 | 6 |
 | `hooks` | 16 | 1239 | 7 |
-| `lib` | 18 | 2022 | 6 |
+| `lib` | 19 | 2026 | 6 |
 | `locales` | 3 | 565 | 0 |
 | `pages` | 16 | 12313 | 52 |
 | `plugins` | 4 | 513 | 5 |
@@ -298,6 +298,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/lib/notifyError.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/notifyError.js) | 143 | `_persistNotification`, `logError`, `notifyError`, `notifyInfo`, `notifySuccess` | `/api/system/notifications` |
 | [`frontend/src/lib/pageEtagInterceptor.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/pageEtagInterceptor.js) | 212 | `clearPageEtag`, `getCachedEtag`, `installPageEtagInterceptor` | — |
 | [`frontend/src/lib/releaseNotes.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/releaseNotes.js) | 13 | `RELEASES`, `RELEASE_NOTE_SECTIONS`, `findRelease`, `releaseSeenStorageKey` | — |
+| [`frontend/src/lib/releaseNotesFormatting.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/releaseNotesFormatting.js) | 4 | `normalizeLineEndings` | — |
 | [`frontend/src/lib/spellcheck/detectLang.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/spellcheck/detectLang.js) | 26 | `LANG_LABELS`, `SUPPORTED_LANGS`, `detectLang` | — |
 | [`frontend/src/lib/spellcheck/nspellManager.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/spellcheck/nspellManager.js) | 136 | `addPersonalWord`, `getPersonalWords`, `getReadySpeller`, `loadSpeller` | — |
 | [`frontend/src/lib/spellcheck/spellcheckPlugin.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/spellcheck/spellcheckPlugin.js) | 104 | `createSpellcheckPlugin`, `requestRecompute`, `spellErrorAt`, `spellPluginKey` | — |

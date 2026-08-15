@@ -51,6 +51,9 @@ manifiesto del frontend, del manifiesto de Electron y de la entrada del
 frontend en el lockfile del monorepo. Una entrada estable preparada antes de
 publicarse omite expresamente `downloadUrl`; este campo solo se añade cuando
 existen la etiqueta inmutable y los artefactos de cada plataforma.
+La validación del changelog normaliza los finales de línea antes de compararlos,
+de modo que un checkout Windows con CRLF equivalente no haga fallar el gate de
+empaquetado multiplataforma.
 
 Antes de crear la etiqueta, la PR de release debe superar la validación del
 frontend, los tests backend, la QA nativa en el navegador y la puerta de

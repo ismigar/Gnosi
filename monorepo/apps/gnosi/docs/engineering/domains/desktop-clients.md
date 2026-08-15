@@ -59,6 +59,8 @@ The version synchronizer keeps the frontend manifest, Electron manifest, and
 frontend workspace entry in the monorepo lockfile identical. A stable entry
 prepared before publication deliberately omits `downloadUrl`; that field is
 added only after the immutable tag and its platform artifacts exist.
+Changelog validation normalizes line endings before comparison so an equivalent
+Windows CRLF checkout does not fail the cross-platform packaging gate.
 
 Before tagging, the release PR must pass frontend validation, backend tests,
 native browser QA, and the engineering-documentation gate. After merge, the
