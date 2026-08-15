@@ -5266,6 +5266,16 @@
     "section_improvements": "Millores",
     "section_fixes": "Correccions",
     "entries": {
+      "v1_0_3": {
+        "highlights": {},
+        "improvements": {
+          "localized_native_menu": "El menú natiu de l’aplicació d’escriptori segueix ara l’idioma de Gnosi i incorpora Configuració, Cerca actualitzacions i les accions estàndard de macOS."
+        },
+        "fixes": {
+          "reopen_window": "Ara es pot obrir una finestra nova després de tancar l’última finestra de Gnosi.",
+          "production_menu": "Les versions de producció ja no mostren les accions de recàrrega ni les eines de desenvolupament."
+        }
+      },
       "v1_0_2": {
         "highlights": {},
         "improvements": {

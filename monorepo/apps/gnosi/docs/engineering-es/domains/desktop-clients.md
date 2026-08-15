@@ -51,6 +51,10 @@ manifiesto del frontend, del manifiesto de Electron y de la entrada del
 frontend en el lockfile del monorepo. Una entrada estable preparada antes de
 publicarse omite expresamente `downloadUrl`; este campo solo se añade cuando
 existen la etiqueta inmutable y los artefactos de cada plataforma.
+Como la versión del manifiesto del frontend es un límite de escritorio de alto
+impacto, cada pull request de preparación de una release también actualiza este
+contrato revisado y sus espejos localizados, aunque el patch no cambie el
+comportamiento en tiempo de ejecución.
 La validación del changelog normaliza los finales de línea antes de compararlos,
 de modo que un checkout Windows con CRLF equivalente no haga fallar el gate de
 empaquetado multiplataforma.

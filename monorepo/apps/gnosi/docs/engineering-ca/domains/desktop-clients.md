@@ -51,6 +51,10 @@ frontend, del manifest d'Electron i de l'entrada del frontend al lockfile del
 monorepo. Una entrada estable preparada abans de publicar-se omet expressament
 `downloadUrl`; aquest camp només s'afegeix quan existeixen l'etiqueta immutable
 i els artefactes de cada plataforma.
+Com que la versió del manifest del frontend és un límit d'escriptori d'alt
+impacte, cada pull request de preparació d'una release també actualitza aquest
+contracte revisat i els seus miralls localitzats, encara que el patch no canviï
+el comportament en temps d'execució.
 La validació del changelog normalitza els finals de línia abans de comparar-los,
 de manera que un checkout Windows amb CRLF equivalent no faci fallar el gate
 d'empaquetatge multiplataforma.

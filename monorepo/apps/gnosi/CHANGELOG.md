@@ -1,5 +1,18 @@
 # Gnosi changelog
 
+## Gnosi 1.0.3
+
+_2026-08-15 · Stable_
+
+### Improvements
+
+- The native desktop menu now follows Gnosi’s language and includes Settings, Check for Updates and standard macOS actions.
+
+### Fixes
+
+- A new window can now be opened after the last Gnosi window is closed.
+- Production builds no longer expose reload actions or developer tools.
+
 ## Gnosi 1.0.2
 
 _2026-08-15 · Stable_

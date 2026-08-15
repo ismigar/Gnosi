@@ -5215,6 +5215,16 @@
     "section_improvements": "Improvements",
     "section_fixes": "Fixes",
     "entries": {
+      "v1_0_3": {
+        "highlights": {},
+        "improvements": {
+          "localized_native_menu": "The native desktop menu now follows Gnosi’s language and includes Settings, Check for Updates and standard macOS actions."
+        },
+        "fixes": {
+          "reopen_window": "A new window can now be opened after the last Gnosi window is closed.",
+          "production_menu": "Production builds no longer expose reload actions or developer tools."
+        }
+      },
       "v1_0_2": {
         "highlights": {},
         "improvements": {

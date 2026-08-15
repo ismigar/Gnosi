@@ -82,6 +82,10 @@ until a maintainer publishes them.
   Different npm versions can reorder manifests and refresh unrelated lockfile
   dependencies. Use the deterministic release-version synchronizer, which
   changes only the two manifest versions and the frontend workspace lock entry.
+- Do not treat a release-only manifest version change as exempt from the
+  engineering documentation gate. The frontend package version is classified
+  as a high-impact desktop boundary, so refresh the reviewed desktop-client
+  contract and its Catalan and Spanish mirrors in every release-preparation PR.
 - Do not publish the draft automatically. The workflow deliberately leaves the
   public release in draft state for final artifact inspection.
 - Do not point Electron publishing metadata at the private source repository.
