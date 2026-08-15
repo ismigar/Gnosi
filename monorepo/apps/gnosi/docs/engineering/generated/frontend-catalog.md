@@ -31,11 +31,11 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
-| `application root` | 3 | 279 | 0 |
+| `application root` | 3 | 281 | 0 |
 | `components` | 200 | 79189 | 200 |
 | `context` | 1 | 177 | 6 |
 | `hooks` | 16 | 1239 | 7 |
-| `lib` | 19 | 2026 | 6 |
+| `lib` | 20 | 2091 | 6 |
 | `locales` | 3 | 565 | 0 |
 | `pages` | 16 | 12313 | 52 |
 | `plugins` | 4 | 513 | 5 |
@@ -47,7 +47,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | --- | --- |
 | [`frontend/src/App.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/App.jsx) | 199 | `App` | — |
 | [`frontend/src/i18n.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/i18n.js) | 41 | `i18n` | — |
-| [`frontend/src/main.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/main.jsx) | 39 | — | — |
+| [`frontend/src/main.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/main.jsx) | 41 | — | — |
 
 ## components
 
@@ -289,6 +289,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/lib/citationDeepLink.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/citationDeepLink.js) | 30 | `CITATION_PROTOCOL`, `CITATION_PROTOCOL_SENTINEL`, `citationParamsFromHref`, `citationSentinelToHref`, `isCitationHref`, `protectCitationMarkdownLinks` | — |
 | [`frontend/src/lib/collabProvider.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/collabProvider.js) | 131 | `GnosiCollabProvider` | — |
 | [`frontend/src/lib/configEvents.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/configEvents.js) | 55 | `emitConfigChanged`, `emitVaultNameChanged`, `useConfigChanged`, `useVaultNameChanged` | — |
+| [`frontend/src/lib/desktopMenu.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/desktopMenu.js) | 65 | `getDesktopMenuLabels`, `installDesktopApplicationMenu`, `syncDesktopApplicationMenu` | — |
 | [`frontend/src/lib/electron.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/electron.js) | 53 | `ensureBackendOrigin`, `getBackendOrigin`, `isElectron` | — |
 | [`frontend/src/lib/fileResource.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/fileResource.js) | 665 | `ACTIVE_VAULT_KEY`, `buildImageValue`, `canonicalStorageFolder`, `documentKindForHref`, `documentResourceKey`, `documentTabId`, `documentWindowName`, `fileKindFromValue`, `fileTargetKey`, `filenameFromTarget`, `findCitationAttachment`, `findDocAttachment`, `getActiveVaultId`, `getImageSrc`, `interpolateNamePattern`, `isImageFieldName`, `openCitation`, `openFileResource`, `parseAuthorsString`, `parseFileEntries`, `parseImageField`, `servedUrlToVaultPath`, `setActiveVaultCookie`, `syncActiveVaultCookie`, `toAssetPreviewUrl`, `toServedAssetUrl`, `withActiveVault` | `/api/vault/`, `/api/vault/assets/`, `/api/vault/open-local-path` |
 | [`frontend/src/lib/interfaceLanguage.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/interfaceLanguage.js) | 62 | `DEFAULT_INTERFACE_LANGUAGE`, `INTERFACE_LANGUAGE_STORAGE_KEY`, `SUPPORTED_INTERFACE_LANGUAGES`, `getStoredInterfaceLanguage`, `initializeInterfaceLanguage`, `normalizeInterfaceLanguage`, `resolveInitialInterfaceLanguage`, `setInterfaceLanguage` | `/api/config` |

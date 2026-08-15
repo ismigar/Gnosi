@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-15
 source_paths:
   - sh/run_native_dev.sh
   - sh/run_native_frontend.sh
@@ -10,6 +10,7 @@ source_paths:
   - Dockerfile.frontend
   - electron/main.js
 tests:
+  - electron/application-menu.test.js
   - backend/tests/test_host_helper_url.py
   - e2e/tests/anon/smoke.spec.ts
 ---
@@ -73,6 +74,19 @@ Electron owns the packaged application lifecycle. It starts the bundled Python
 backend, exposes a narrow IPC surface through preload, opens the renderer, and
 manages manual update state. The renderer subscribes to updates and can query
 the latest state to avoid missing events emitted before React mounts.
+
+The desktop process installs an explicit native application menu instead of
+Electron's default development menu. React remains the source of truth for
+translated labels: once the configured interface language is resolved, the
+renderer sends a validated label set through preload and repeats that handshake
+when the language changes. Native Settings commands return to the existing
+Global Settings modal. Production menus exclude reload and developer tools.
+
+Gnosi main windows are tracked independently. File → New Window creates another
+renderer against the same bundled backend, closing one window removes only that
+window, and macOS Dock activation recreates a main window after the last one has
+closed. Renderer-bound menu commands focus an existing Gnosi window or wait for
+a newly created renderer before delivery.
 
 Build and release jobs produce platform installers plus the update metadata
 required by `electron-updater`. Release drafts remain unpublished until a

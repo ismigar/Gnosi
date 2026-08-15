@@ -8,6 +8,7 @@ import { installPageEtagInterceptor } from './lib/pageEtagInterceptor.js'
 import { syncActiveVaultCookie } from './lib/fileResource.js'
 import { AuthProvider } from './context/AuthContext.jsx'
 import { initializeInterfaceLanguage } from './lib/interfaceLanguage.js'
+import { installDesktopApplicationMenu } from './lib/desktopMenu.js'
 import { GlobalTooltip } from './components/GlobalTooltip.jsx'
 
 // Multi-vault: reflects the active vault (localStorage) in a same-origin cookie
@@ -24,6 +25,7 @@ installPageEtagInterceptor();
 
 async function bootstrap() {
     await initializeInterfaceLanguage(i18n);
+    installDesktopApplicationMenu(i18n);
     ReactDOM.createRoot(document.getElementById('root')).render(
         <React.StrictMode>
             <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>

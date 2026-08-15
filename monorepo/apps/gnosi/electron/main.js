@@ -1,8 +1,9 @@
-const { app, BrowserWindow, ipcMain, protocol, net, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, protocol, net, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const { autoUpdater } = require('electron-updater');
+const { createApplicationMenuTemplate, normalizeMenuLabels } = require('./application-menu');
 const { buildMacInstallerUrl, getUpdateInstallMode } = require('./update-policy');
 
 const isDev = process.argv.includes('--dev');
@@ -26,12 +27,13 @@ protocol.registerSchemesAsPrivileged([
   },
 ]);
 
-let mainWindow;
+const mainWindows = new Set();
 let backendProcess = null;
 let updateState = { status: 'idle', installMode: getUpdateInstallMode() };
 
 const BACKEND_PORT = 5002;
 const FRONTEND_PORT = 5173;
+const DOCUMENTATION_URL = 'https://gnosi.temenosismael.org/engineering/';
 
 function log(...args) {
   console.log(`[Main]`, new Date().toISOString(), ...args);
@@ -39,7 +41,11 @@ function log(...args) {
 
 function publishUpdateState(nextState) {
   updateState = { ...updateState, ...nextState };
-  mainWindow?.webContents.send('update-status', updateState);
+  for (const window of mainWindows) {
+    if (!window.isDestroyed()) {
+      window.webContents.send('update-status', updateState);
+    }
+  }
 }
 
 function getBackendURL() {
@@ -326,8 +332,57 @@ async function startBackend() {
   }
 }
 
+function getPreferredMainWindow() {
+  const focusedWindow = BrowserWindow.getFocusedWindow();
+  if (focusedWindow && mainWindows.has(focusedWindow) && !focusedWindow.isDestroyed()) {
+    return focusedWindow;
+  }
+  return Array.from(mainWindows).reverse().find((window) => !window.isDestroyed()) || null;
+}
+
+function sendToMainWindow(channel, payload) {
+  const window = getPreferredMainWindow() || createWindow();
+  const send = () => {
+    if (!window.isDestroyed()) {
+      window.show();
+      window.focus();
+      window.webContents.send(channel, payload);
+    }
+  };
+
+  if (window.webContents.isLoading()) {
+    window.webContents.once('did-finish-load', send);
+  } else {
+    send();
+  }
+}
+
+function checkForUpdatesFromMenu() {
+  publishUpdateState({ status: 'checking', userInitiated: true, error: undefined });
+  autoUpdater.checkForUpdates().catch((err) => {
+    log('Manual update check failed:', err.message);
+    publishUpdateState({ status: 'error', userInitiated: true, error: err.message });
+  });
+}
+
+function installApplicationMenu(labels) {
+  const template = createApplicationMenuTemplate({
+    labels: normalizeMenuLabels(labels),
+    isDev,
+    onCheckForUpdates: checkForUpdatesFromMenu,
+    onNewWindow: createWindow,
+    onOpenDocumentation: () => {
+      void shell.openExternal(DOCUMENTATION_URL).catch((err) => {
+        log('Failed to open documentation:', err.message);
+      });
+    },
+    onOpenSettings: () => sendToMainWindow('open-settings'),
+  });
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
 function createWindow() {
-  mainWindow = new BrowserWindow({
+  const window = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 1024,
@@ -342,31 +397,34 @@ function createWindow() {
     show: false,
     backgroundColor: '#f8fafc'
   });
+  mainWindows.add(window);
   
   if (isDev) {
-    mainWindow.loadURL(`http://localhost:${FRONTEND_PORT}`);
-    mainWindow.webContents.openDevTools();
+    window.loadURL(`http://localhost:${FRONTEND_PORT}`);
+    window.webContents.openDevTools();
   } else {
     // Load from the `app://` scheme so the packaged frontend shares a stable
     // origin and `/api/...` requests are proxied to the backend by the handler
     // registered in registerAppProtocol().
-    mainWindow.loadURL('app://gnosi/index.html');
+    window.loadURL('app://gnosi/index.html');
   }
   
-  mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
+  window.once('ready-to-show', () => {
+    window.show();
     if (isDev) {
-      mainWindow.webContents.openDevTools();
+      window.webContents.openDevTools();
     }
   });
   
-  mainWindow.on('closed', () => {
-    mainWindow = null;
+  window.on('closed', () => {
+    mainWindows.delete(window);
   });
   
-  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+  window.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
     log('Failed to load:', errorCode, errorDescription);
   });
+
+  return window;
 }
 
 function setupAutoUpdater() {
@@ -426,6 +484,11 @@ function setupAutoUpdater() {
 function setupIPC() {
   ipcMain.handle('get-app-version', () => {
     return app.getVersion();
+  });
+
+  ipcMain.handle('set-application-menu', (event, { labels } = {}) => {
+    installApplicationMenu(labels);
+    return true;
   });
 
   ipcMain.handle('get-update-status', () => updateState);
@@ -561,6 +624,12 @@ function setupIPC() {
 app.whenReady().then(async () => {
   log('App ready');
 
+  // Replace Electron's English development menu immediately. The renderer
+  // synchronizes translated labels after its configured interface language is
+  // resolved.
+  installApplicationMenu();
+  setupIPC();
+
   // Register the `app://` scheme handler before any window loads from it.
   registerAppProtocol();
 
@@ -573,7 +642,6 @@ app.whenReady().then(async () => {
   }
 
   createWindow();
-  setupIPC();
   setupAutoUpdater();
 });
 
@@ -587,7 +655,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
+  if (mainWindows.size === 0) {
     createWindow();
   }
 });

@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getUpdateStatus: () => ipcRenderer.invoke('get-update-status'),
   downloadUpdate: () => ipcRenderer.invoke('download-update'),
   installUpdate: () => ipcRenderer.invoke('install-update'),
+  setApplicationMenu: (labels) => ipcRenderer.invoke('set-application-menu', { labels }),
   openFormFiller: (url, profile) => ipcRenderer.invoke('open-form-filler', { url, profile }),
   
   onUpdateStatus: (callback) => {
@@ -17,7 +18,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   removeUpdateListener: () => {
     ipcRenderer.removeAllListeners('update-status');
-  }
+  },
+
+  onOpenSettings: (callback) => {
+    ipcRenderer.on('open-settings', callback);
+  },
+
+  removeOpenSettingsListener: () => {
+    ipcRenderer.removeAllListeners('open-settings');
+  },
 });
 
 console.log('Preload script loaded');
