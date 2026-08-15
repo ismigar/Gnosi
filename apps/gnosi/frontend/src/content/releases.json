@@ -1,0 +1,94 @@
+[
+  {
+    "version": "1.0.0",
+    "date": "2026-08-15",
+    "channel": "stable",
+    "sections": {
+      "highlights": [
+        "release_notes.entries.v1_0_0.highlights.research_workflow",
+        "release_notes.entries.v1_0_0.highlights.grounded_assistant"
+      ],
+      "improvements": [
+        "release_notes.entries.v1_0_0.improvements.starter_workspace",
+        "release_notes.entries.v1_0_0.improvements.deterministic_inventories",
+        "release_notes.entries.v1_0_0.improvements.resilient_jobs",
+        "release_notes.entries.v1_0_0.improvements.response_transparency"
+      ],
+      "fixes": [
+        "release_notes.entries.v1_0_0.fixes.agent_loops",
+        "release_notes.entries.v1_0_0.fixes.actionable_failures"
+      ]
+    }
+  },
+  {
+    "version": "1.0.0-rc.3",
+    "date": "2026-08-14",
+    "channel": "prerelease",
+    "downloadUrl": "https://github.com/ismigar/Gnosi/releases/tag/v1.0.0-rc.3",
+    "sections": {
+      "highlights": [
+        "release_notes.entries.v1_0_0_rc_3.highlights.vault_marketplace",
+        "release_notes.entries.v1_0_0_rc_3.highlights.plugin_marketplace"
+      ],
+      "improvements": [
+        "release_notes.entries.v1_0_0_rc_3.improvements.signed_packages",
+        "release_notes.entries.v1_0_0_rc_3.improvements.moderated_publishing"
+      ],
+      "fixes": []
+    }
+  },
+  {
+    "version": "1.0.0-rc.2",
+    "date": "2026-08-03",
+    "channel": "prerelease",
+    "downloadUrl": "https://github.com/ismigar/Gnosi/releases/tag/v1.0.0-rc.2",
+    "sections": {
+      "highlights": [
+        "release_notes.entries.v1_0_0_rc_2.highlights.desktop_branding"
+      ],
+      "improvements": [
+        "release_notes.entries.v1_0_0_rc_2.improvements.package_validation"
+      ],
+      "fixes": [
+        "release_notes.entries.v1_0_0_rc_2.fixes.macos_launch",
+        "release_notes.entries.v1_0_0_rc_2.fixes.packaged_frontend"
+      ]
+    }
+  },
+  {
+    "version": "1.0.0-rc.1",
+    "date": "2026-08-03",
+    "channel": "prerelease",
+    "downloadUrl": "https://github.com/ismigar/Gnosi/releases/tag/v1.0.0-rc.1",
+    "sections": {
+      "highlights": [
+        "release_notes.entries.v1_0_0_rc_1.highlights.settings",
+        "release_notes.entries.v1_0_0_rc_1.highlights.documentation"
+      ],
+      "improvements": [
+        "release_notes.entries.v1_0_0_rc_1.improvements.graph",
+        "release_notes.entries.v1_0_0_rc_1.improvements.navigation"
+      ],
+      "fixes": [
+        "release_notes.entries.v1_0_0_rc_1.fixes.settings",
+        "release_notes.entries.v1_0_0_rc_1.fixes.interface_state"
+      ]
+    }
+  },
+  {
+    "version": "0.3.0-rc.1",
+    "date": "2026-08-01",
+    "channel": "prerelease",
+    "downloadUrl": "https://github.com/ismigar/Gnosi/releases/tag/v0.3.0-rc.1",
+    "sections": {
+      "highlights": [
+        "release_notes.entries.v0_3_0_rc_1.highlights.desktop"
+      ],
+      "improvements": [
+        "release_notes.entries.v0_3_0_rc_1.improvements.updates",
+        "release_notes.entries.v0_3_0_rc_1.improvements.plugins"
+      ],
+      "fixes": []
+    }
+  }
+]

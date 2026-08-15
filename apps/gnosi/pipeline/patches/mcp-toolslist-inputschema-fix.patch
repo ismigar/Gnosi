@@ -1,0 +1,27 @@
+diff --git a/src/Plugin/McpJsonRpc/ToolsList.php b/src/Plugin/McpJsonRpc/ToolsList.php
+--- a/src/Plugin/McpJsonRpc/ToolsList.php
++++ b/src/Plugin/McpJsonRpc/ToolsList.php
+@@ -55,6 +55,12 @@ class ToolsList extends McpJsonRpcMethodBase {
+ 
+       $prefixizedTools = array_map(
+         function ($tool) use ($instance) {
++          // Normalize inputSchema to ensure it always has 'type' => 'object'
++          // First convert stdClass to array if needed
++          $normalizedInputSchema = $tool->inputSchema;
++          if ($normalizedInputSchema instanceof \stdClass) {
++            $normalizedInputSchema = (array) $normalizedInputSchema;
++          }
++          if (empty($normalizedInputSchema) || !is_array($normalizedInputSchema) || !isset($normalizedInputSchema['type'])) {
++            $normalizedInputSchema = array_merge(['type' => 'object'], is_array($normalizedInputSchema) ? $normalizedInputSchema : []);
++          }
++
+           $toolData = new Tool(
+             name: $instance->generateToolId(
+               $instance->getPluginId(), $tool->name
+             ),
+             description: $tool->description,
+-            inputSchema: $tool->inputSchema,
++            inputSchema: $normalizedInputSchema,
+             title: $tool->title ?? NULL,
+             outputSchema: $tool->outputSchema ?? NULL,
+             annotations: $tool->annotations ?? NULL,

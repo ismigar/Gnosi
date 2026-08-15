@@ -1,0 +1,132 @@
+name: E2E Tests (Playwright)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/gnosi/frontend/**'
+      - 'apps/gnosi/e2e/**'
+      - 'apps/gnosi/requirements-e2e.txt'
+      - '.github/workflows/e2e.yml'
+  pull_request:
+    paths:
+      - 'apps/gnosi/frontend/**'
+      - 'apps/gnosi/e2e/**'
+      - 'apps/gnosi/requirements-e2e.txt'
+      - '.github/workflows/e2e.yml'
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    name: Playwright on ${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1/2, 2/2]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.22.2'
+          cache: 'npm'
+          cache-dependency-path: |
+            apps/gnosi/frontend/package-lock.json
+            apps/gnosi/e2e/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: apps/gnosi/requirements-e2e.txt
+
+      - name: Install backend dependencies
+        working-directory: apps/gnosi
+        run: python -m pip install -r requirements-e2e.txt
+
+      - name: Start backend
+        working-directory: apps/gnosi
+        env:
+          DIGITAL_BRAIN_VAULT_PATH: ${{ runner.temp }}/gnosi-vault
+          GNOSI_LOCAL_DATA: ${{ runner.temp }}/gnosi-local-data
+          GNOSI_REQUIRE_AUTH: 'false'
+          GNOSI_JWT_SECRET: ci-only-secret-for-e2e
+          GNOSI_INDEX_WARMUP: 'false'
+        run: |
+          mkdir -p "$DIGITAL_BRAIN_VAULT_PATH" "$GNOSI_LOCAL_DATA"
+          nohup python -m uvicorn backend.server:app --host 127.0.0.1 --port 5002 --lifespan off \
+            > "$RUNNER_TEMP/gnosi-backend.log" 2>&1 &
+          for attempt in $(seq 1 120); do
+            if curl --fail --silent http://127.0.0.1:5002/api/health > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Backend failed to become ready; log follows:"
+          cat "$RUNNER_TEMP/gnosi-backend.log"
+          exit 1
+
+      - name: Install frontend dependencies
+        working-directory: apps/gnosi/frontend
+        run: npm ci --workspaces=false
+
+      - name: Build frontend
+        working-directory: apps/gnosi/frontend
+        run: VITE_BASE_PATH=/ npm run build
+
+      - name: Start frontend (preview)
+        working-directory: apps/gnosi/frontend
+        run: |
+          npx vite preview --port 5173 --strictPort &
+          npx wait-on http://localhost:5173 --timeout 60000
+
+      - name: Install E2E dependencies
+        working-directory: apps/gnosi/e2e
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('apps/gnosi/e2e/package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        working-directory: apps/gnosi/e2e
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright system deps (cached browsers)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        working-directory: apps/gnosi/e2e
+        run: npx playwright install-deps chromium
+
+      - name: Run Playwright tests
+        working-directory: apps/gnosi/e2e
+        run: npx playwright test --shard=${{ matrix.shard }}
+        env:
+          GNOSI_BASE_URL: http://localhost:5173
+          GNOSI_API_BASE: http://127.0.0.1:5002
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ strategy.job-index }}
+          path: apps/gnosi/e2e/playwright-report
+          retention-days: 14
+
+      - name: Upload test results (failures)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ strategy.job-index }}
+          path: apps/gnosi/e2e/test-results
+          retention-days: 14
