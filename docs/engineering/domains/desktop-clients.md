@@ -90,6 +90,10 @@ target. This prevents a host-native Python executable from being copied into
 the other architecture's application. Release runners are pinned instead of
 using `macos-latest`, whose migration to macOS 26 changed DMG creation to APFS
 and broke electron-builder's mount-and-customize phase.
+Every release job also passes the Python command provisioned by
+`actions/setup-python` explicitly to the backend builder. This keeps binary
+extensions and their collected OpenSSL libraries on one interpreter ABI instead
+of allowing a newer runner-level Python to override the release environment.
 
 Electron's builder file list is an explicit runtime boundary. The cross-platform
 `afterPack` hook inspects the final `app.asar` and rejects a package that omits

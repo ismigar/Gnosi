@@ -65,6 +65,11 @@ natiu del host dins l'aplicació de l'altra arquitectura. Els runners de release
 estan fixats en comptes d'usar `macos-latest`, perquè la seva migració a macOS 26
 va canviar la creació del DMG a APFS i va trencar la fase de muntatge i
 personalització d'electron-builder.
+Cada job de release també passa explícitament al constructor del backend el
+comandament Python proporcionat per `actions/setup-python`. Això manté les
+extensions binàries i les biblioteques OpenSSL recopilades sobre un únic ABI
+d'intèrpret i evita que un Python més nou del runner substitueixi l'entorn de
+release.
 
 La llista de fitxers del constructor d'Electron és un límit explícit del runtime.
 El hook multiplataforma `afterPack` inspecciona l'`app.asar` final i rebutja un

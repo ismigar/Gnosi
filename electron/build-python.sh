@@ -27,7 +27,14 @@ echo "1. Finding best Python installation..."
 PYTHON_CMD=""
 PYTHON_VERSION=""
 
-if command -v python3.13 &> /dev/null; then
+if [ -n "${GNOSI_PYTHON_CMD:-}" ]; then
+    if ! command -v "$GNOSI_PYTHON_CMD" &> /dev/null; then
+        echo "Error: requested Python command not found: $GNOSI_PYTHON_CMD"
+        exit 1
+    fi
+    PYTHON_CMD="$GNOSI_PYTHON_CMD"
+    PYTHON_VERSION=$("$PYTHON_CMD" --version)
+elif command -v python3.13 &> /dev/null; then
     PYTHON_CMD="python3.13"
     PYTHON_VERSION=$(python3.13 --version)
 elif command -v python3.12 &> /dev/null; then
@@ -61,7 +68,7 @@ echo "2. Creating virtual environment for clean build..."
 # included) goes inside this venv.
 VENV_DIR="$ELECTRON_DIR/.venv-python"
 rm -rf "$VENV_DIR"
-$PYTHON_CMD -m venv "$VENV_DIR"
+"$PYTHON_CMD" -m venv "$VENV_DIR"
 
 # Cross-platform venv layout: POSIX uses bin/, Windows venvs use Scripts/.
 # This script runs under Git Bash / MSYS on the Windows runner.
