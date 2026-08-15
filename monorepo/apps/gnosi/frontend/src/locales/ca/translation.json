@@ -5230,6 +5230,16 @@
     "section_improvements": "Millores",
     "section_fixes": "Correccions",
     "entries": {
+      "v1_0_2": {
+        "highlights": {},
+        "improvements": {
+          "compact_update_notice": "L’avís d’actualització d’escriptori és ara més petit i discret, i mostra els errors iniciats per l’usuari."
+        },
+        "fixes": {
+          "macos_installer": "A macOS, l’acció d’actualització descarrega ara el DMG oficial correcte en lloc d’oferir un reinici que les signatures ad hoc no poden completar.",
+          "automatic_release_history": "L’historial de versions ja no s’obre automàticament en iniciar l’aplicació ni abans de descarregar una actualització."
+        }
+      },
       "v1_0_1": {
         "highlights": {},
         "improvements": {},

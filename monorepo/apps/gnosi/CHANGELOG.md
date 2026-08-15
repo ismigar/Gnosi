@@ -1,5 +1,18 @@
 # Gnosi changelog
 
+## Gnosi 1.0.2
+
+_2026-08-15 · Stable_
+
+### Improvements
+
+- The desktop update notice is now smaller and quieter, and it surfaces errors from user-initiated actions.
+
+### Fixes
+
+- On macOS, the update action now downloads the correct official DMG instead of offering a restart that ad-hoc signatures cannot complete.
+- Release history no longer opens automatically when the application starts or before an update download.
+
 ## Gnosi 1.0.1
 
 _2026-08-15 · Stable_
