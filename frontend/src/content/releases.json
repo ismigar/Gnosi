@@ -1,8 +1,24 @@
 [
   {
+    "version": "1.0.3",
+    "date": "2026-08-15",
+    "channel": "stable",
+    "sections": {
+      "highlights": [],
+      "improvements": [
+        "release_notes.entries.v1_0_3.improvements.localized_native_menu"
+      ],
+      "fixes": [
+        "release_notes.entries.v1_0_3.fixes.reopen_window",
+        "release_notes.entries.v1_0_3.fixes.production_menu"
+      ]
+    }
+  },
+  {
     "version": "1.0.2",
     "date": "2026-08-15",
     "channel": "stable",
+    "downloadUrl": "https://github.com/ismigar/Gnosi/releases/tag/v1.0.2",
     "sections": {
       "highlights": [],
       "improvements": [

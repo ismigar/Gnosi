@@ -92,6 +92,9 @@ The version synchronizer keeps the frontend manifest, Electron manifest, and
 frontend workspace entry in the monorepo lockfile identical. A stable entry
 prepared before publication deliberately omits `downloadUrl`; that field is
 added only after the immutable tag and its platform artifacts exist.
+Because the frontend manifest version is a high-impact desktop boundary, every
+release-preparation pull request also refreshes this reviewed contract and its
+localized mirrors, even when the patch does not change runtime behavior.
 Before preparing the next stable patch, the preceding stable entry must already
 link to its published release so the bundled history remains complete across
 sequential upgrades. Patch notes include only fixes merged after that preceding

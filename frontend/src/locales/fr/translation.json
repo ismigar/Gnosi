@@ -5266,6 +5266,16 @@
     "section_improvements": "Améliorations",
     "section_fixes": "Corrections",
     "entries": {
+      "v1_0_3": {
+        "highlights": {},
+        "improvements": {
+          "localized_native_menu": "Le menu natif de l’application de bureau suit désormais la langue de Gnosi et comprend Réglages, Rechercher les mises à jour et les actions macOS standard."
+        },
+        "fixes": {
+          "reopen_window": "Il est désormais possible d’ouvrir une nouvelle fenêtre après avoir fermé la dernière fenêtre de Gnosi.",
+          "production_menu": "Les versions de production n’affichent plus les actions de rechargement ni les outils de développement."
+        }
+      },
       "v1_0_2": {
         "highlights": {},
         "improvements": {
