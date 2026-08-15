@@ -1,7 +1,7 @@
 # Gnosi Public Repository Synchronization
 
 > Status: ACTIVE
-> Last verified: 2026-08-14
+> Last verified: 2026-08-15
 
 ## Objective
 
@@ -18,7 +18,9 @@ private history.
 The snapshot uses an explicit allowlist. It contains the public repository
 workflows and metadata, `apps/gnosi`, the shared packages required by the
 product, and the root Node workspace manifests. It does not export the whole
-`monorepo` tree.
+`monorepo` tree. An explicit denylist inside the allowed Gnosi tree excludes
+private skills, runtime agent memory, and source gitlinks that cannot be
+materialized safely in the generated repository.
 
 The public layout remains stable: Gnosi stays under `apps/gnosi` so release,
 documentation, and development commands keep working without path rewrites.
@@ -45,6 +47,12 @@ force push remain restricted to the isolated GitHub Actions checkout.
   to the allowlist only after confirming it is required by public Gnosi users.
 - Do not accept staged paths outside the allowlist. Abort before commit and
   push when the preflight and staged manifests differ.
+- Do not assume every tracked entry below an allowlisted directory belongs in
+  the public snapshot. `pipeline/private_skills` and `pipeline/brain` are
+  intentionally excluded even when legacy files remain tracked privately.
+- Do not export `frontend/vendor/zotero-reader` as a bare gitlink. The public
+  snapshot does not include the private repository's `.gitmodules`, so that
+  entry cannot produce a usable checkout.
 - Do not add a new public top-level path by widening a parent directory. Add
   the narrowest required path and extend the regression tests.
 - Do not pass absent optional allowlist entries to one Git checkout command.
@@ -61,7 +69,8 @@ The synchronization is ready when the unit tests prove that the allowlist
 accepts the Gnosi application and shared packages, rejects unrelated apps and
 Témenos paths, and the read-only manifest check succeeds against the current
 Git tree. The resulting manifest must contain no `temenos`,
-`apps/mcp-drupal-proxy`, `apps/sandbox`, or root `scripts` paths.
+`apps/mcp-drupal-proxy`, `apps/sandbox`, root `scripts`, private skills,
+runtime agent memory, or unresolved vendor gitlinks.
 
 ## Related files
 

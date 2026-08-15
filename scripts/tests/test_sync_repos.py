@@ -56,7 +56,7 @@ class PublicManifestTests(unittest.TestCase):
         self.assertIn("apps/gnosi/README.md", manifest)
         self.assertIn("packages/filesystem/package.json", manifest)
 
-    def test_manifest_rejects_unrelated_applications(self) -> None:
+    def test_manifest_rejects_forbidden_paths(self) -> None:
         required = [
             ".github/workflows/documentation-pages.yml",
             "apps/gnosi/README.md",
@@ -65,6 +65,9 @@ class PublicManifestTests(unittest.TestCase):
         ]
         for forbidden in (
             "apps/mcp-drupal-proxy/server.py",
+            "apps/gnosi/frontend/vendor/zotero-reader",
+            "apps/gnosi/pipeline/brain/orchestrator.py",
+            "apps/gnosi/pipeline/private_skills/drupal_views/SKILL.md",
             "apps/sandbox/package.json",
             "scripts/sync_notion_bulk.py",
             "temenos/composer.json",
@@ -73,11 +76,14 @@ class PublicManifestTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "Invalid public manifest"):
                     sync_repos.validate_public_manifest([*required, forbidden])
 
-    def test_source_manifest_maps_only_allowlisted_paths(self) -> None:
+    def test_source_manifest_maps_only_explicit_public_paths(self) -> None:
         manifest = sync_repos.public_manifest_from_source_paths(
             [
                 "monorepo/.github/workflows/documentation-pages.yml",
                 "monorepo/apps/gnosi/backend/server.py",
+                "monorepo/apps/gnosi/frontend/vendor/zotero-reader",
+                "monorepo/apps/gnosi/pipeline/brain/orchestrator.py",
+                "monorepo/apps/gnosi/pipeline/private_skills/example/SKILL.md",
                 "monorepo/apps/mcp-drupal-proxy/server.py",
                 "monorepo/apps/sandbox/package.json",
                 "monorepo/packages/filesystem/package.json",
@@ -104,7 +110,16 @@ class PublicManifestTests(unittest.TestCase):
             repo_root = Path(temp_dir)
             files = {
                 "monorepo/.github/workflows/documentation-pages.yml": "name: docs\n",
+                "monorepo/apps/gnosi/.gitignore": (
+                    "pipeline/brain/\npipeline/private_skills/\n"
+                ),
                 "monorepo/apps/gnosi/app.py": "APP = 'gnosi'\n",
+                "monorepo/apps/gnosi/pipeline/brain/orchestrator.py": (
+                    "PRIVATE = True\n"
+                ),
+                "monorepo/apps/gnosi/pipeline/private_skills/example/SKILL.md": (
+                    "# Private\n"
+                ),
                 "monorepo/apps/mcp-drupal-proxy/server.py": "PRIVATE = True\n",
                 "monorepo/apps/sandbox/package.json": "{}\n",
                 "monorepo/packages/filesystem/package.json": "{}\n",
@@ -122,12 +137,25 @@ class PublicManifestTests(unittest.TestCase):
             self._git(repo_root, "config", "user.name", "Gnosi Sync Test")
             self._git(repo_root, "config", "user.email", "sync-test@example.invalid")
             self._git(repo_root, "add", ".")
+            self._git(
+                repo_root,
+                "add",
+                "-f",
+                "monorepo/apps/gnosi/pipeline/brain/orchestrator.py",
+                "monorepo/apps/gnosi/pipeline/private_skills/example/SKILL.md",
+            )
             self._git(repo_root, "commit", "-m", "fixture")
 
             manifest = sync_repos.prepare_public_snapshot(repo_root)
 
             self.assertIn("apps/gnosi/app.py", manifest)
             self.assertIn("packages/filesystem/package.json", manifest)
+            self.assertNotIn(
+                "apps/gnosi/pipeline/brain/orchestrator.py", manifest
+            )
+            self.assertNotIn(
+                "apps/gnosi/pipeline/private_skills/example/SKILL.md", manifest
+            )
             self.assertFalse((repo_root / "monorepo").exists())
             self.assertFalse((repo_root / "apps/mcp-drupal-proxy").exists())
             self.assertFalse((repo_root / "apps/sandbox").exists())

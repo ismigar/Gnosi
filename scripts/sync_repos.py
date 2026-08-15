@@ -34,6 +34,9 @@ REQUIRED_PUBLIC_PATHS = (
 
 FORBIDDEN_PUBLIC_PATHS = (
     "apps/mcp-drupal-proxy",
+    "apps/gnosi/frontend/vendor/zotero-reader",
+    "apps/gnosi/pipeline/brain",
+    "apps/gnosi/pipeline/private_skills",
     "apps/sandbox",
     "scripts",
     "temenos",
@@ -104,6 +107,14 @@ def is_public_path(path: str) -> bool:
     return any(_is_within(normalized, allowed) for allowed in PUBLIC_EXPORT_PATHS)
 
 
+def is_forbidden_public_path(path: str) -> bool:
+    """Return whether a path is explicitly excluded from public snapshots."""
+    normalized = PurePosixPath(path).as_posix().removeprefix("./")
+    return any(
+        _is_within(normalized, denied) for denied in FORBIDDEN_PUBLIC_PATHS
+    )
+
+
 def source_pathspecs() -> tuple[str, ...]:
     """Return the private-repository pathspecs allowed into the snapshot."""
     return tuple(f"monorepo/{path}" for path in PUBLIC_EXPORT_PATHS)
@@ -133,7 +144,7 @@ def public_manifest_from_source_paths(source_paths: Iterable[str]) -> tuple[str,
         if not normalized.startswith(prefix):
             continue
         public_path = normalized[len(prefix) :]
-        if is_public_path(public_path):
+        if is_public_path(public_path) and not is_forbidden_public_path(public_path):
             manifest.append(public_path)
     return tuple(sorted(set(manifest)))
 
@@ -150,11 +161,7 @@ def validate_public_manifest(paths: Iterable[str]) -> tuple[str, ...]:
         )
     )
     unexpected = [path for path in manifest if not is_public_path(path)]
-    forbidden = [
-        path
-        for path in manifest
-        if any(_is_within(path, denied) for denied in FORBIDDEN_PUBLIC_PATHS)
-    ]
+    forbidden = [path for path in manifest if is_forbidden_public_path(path)]
     missing = [
         required
         for required in REQUIRED_PUBLIC_PATHS
