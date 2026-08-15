@@ -63,8 +63,12 @@ added only after the immutable tag and its platform artifacts exist.
 Before tagging, the release PR must pass frontend validation, backend tests,
 native browser QA, and the engineering-documentation gate. After merge, the
 reviewed commit must reach the public repository through the sync workflow and
-pass release readiness there. The release workflow then creates a draft whose
-macOS, Windows, and Linux artifacts are inspected before publication.
+pass release readiness there. The private source workflow is the sole owner of
+official tags, cross-platform artifacts, signed catalogs, release notes, and
+the draft in the public repository. The synchronized public desktop workflow is
+manual-only so it can validate packaging without racing or duplicating an
+official tag build. The resulting macOS, Windows, and Linux artifacts are
+inspected before publication.
 
 ## Web clipper
 

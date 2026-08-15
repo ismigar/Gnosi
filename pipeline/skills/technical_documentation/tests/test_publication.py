@@ -11,6 +11,9 @@ PRIVATE_REPOSITORY_ROOT = PUBLIC_REPOSITORY_ROOT.parent
 PAGES_WORKFLOW = (
     PUBLIC_REPOSITORY_ROOT / ".github" / "workflows" / "documentation-pages.yml"
 )
+PUBLIC_DESKTOP_BUILD_WORKFLOW = (
+    PUBLIC_REPOSITORY_ROOT / ".github" / "workflows" / "build-release.yml"
+)
 DOCUMENTATION_CI_WORKFLOW = (
     PRIVATE_REPOSITORY_ROOT / ".github" / "workflows" / "documentation.yml"
 )
@@ -117,3 +120,19 @@ def test_private_ci_validates_public_workflow_changes():
     assert '"monorepo/.github/workflows/documentation-pages.yml"' in private_workflow
     assert "check_change_impact.py" in private_workflow
     assert "fetch-depth: 0" in private_workflow
+
+
+def test_public_desktop_build_is_manual_and_keeps_updater_artifacts():
+    """The public mirror must not compete with the official release workflow."""
+    workflow_source = PUBLIC_DESKTOP_BUILD_WORKFLOW.read_text(encoding="utf-8")
+
+    assert workflow_source.startswith("name: Build desktop packages (manual)\n")
+    assert "on:\n  workflow_dispatch:\n" in workflow_source
+    assert "  push:\n" not in workflow_source
+    assert "softprops/action-gh-release" not in workflow_source
+    assert "node-version: '22.22.2'" in workflow_source
+    assert "uses: actions/setup-python@v7" in workflow_source
+    assert "apps/gnosi/electron/dist/latest-mac.yml" in workflow_source
+    assert "apps/gnosi/electron/dist/latest-linux.yml" in workflow_source
+    assert "apps/gnosi/electron/dist/latest.yml" in workflow_source
+    assert "apps/gnosi/electron/dist/*.blockmap" in workflow_source

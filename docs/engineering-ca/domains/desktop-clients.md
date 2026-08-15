@@ -56,8 +56,12 @@ Abans de crear l'etiqueta, la PR de release ha de superar la validació del
 frontend, els tests backend, la QA nativa al navegador i la porta de
 documentació d'enginyeria. Després del merge, el workflow de sincronització ha
 de portar el commit revisat al repositori públic, on ha de superar el release
-readiness. Finalment, el workflow de release crea un esborrany i els artefactes
-de macOS, Windows i Linux es revisen abans de publicar-lo.
+readiness. El workflow del repositori privat és l'únic propietari de les
+etiquetes oficials, els artefactes multiplataforma, els catàlegs signats, les
+notes i l'esborrany del repositori públic. El workflow d'escriptori sincronitzat
+al repositori públic només s'executa manualment, de manera que pot validar
+l'empaquetatge sense competir amb un build oficial. Els artefactes de macOS,
+Windows i Linux es revisen abans de publicar-los.
 
 ## clipper web
 
