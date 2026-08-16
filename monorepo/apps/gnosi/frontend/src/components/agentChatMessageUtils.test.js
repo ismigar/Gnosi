@@ -262,6 +262,10 @@ describe('assistant message presentation metadata', () => {
         expect(effectiveMessageTimingMs({ processingMs: 1200 })).toBe(1200);
         expect(effectiveMessageTimingMs({ timings: { total_ms: 2400 } })).toBe(2400);
         expect(effectiveMessageTimingMs({ turn_metrics: { total_ms: 900 } })).toBe(900);
+        expect(effectiveMessageTimingMs({ totalDurationMs: 1_200 })).toBe(1_200);
+        expect(effectiveMessageTimingMs({ processingDurationSec: 1.25 })).toBe(1_250);
+        expect(effectiveMessageTimingMs({ responseDuration: 1200 })).toBe(1200);
+        expect(effectiveMessageTimingMs({ durationInSeconds: 0.9 })).toBe(900);
         expect(effectiveMessageTimingMs({ duration_ms: 4000 })).toBe(4000);
         expect(effectiveMessageTimingMs({ turnMetrics: { total_ms: 1300 } })).toBe(1300);
         expect(effectiveMessageTimingMs({ duration_seconds: 2.4 })).toBe(2_400);
