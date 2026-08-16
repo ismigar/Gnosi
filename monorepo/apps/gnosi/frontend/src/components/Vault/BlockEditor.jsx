@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
     FileText,
     Calendar,
@@ -126,6 +127,7 @@ import { MarkdownCodeTextarea } from './MarkdownCodeTextarea';
 import { useFloatingActionDock } from '../../hooks/useFloatingActionDock';
 import { isManagedInternalMetadataKey, shouldShowKnowledgePanels } from './metadataVisibilityUtils';
 import { focusPropertyRow } from './propertyNavigationUtils';
+import { resolveSystemDateValue } from './schemaUtils';
 import {
     restoreToggleDomExpansionState,
     restoreToggleExpansionState,
@@ -504,6 +506,58 @@ const extractOutgoingPageLinks = (markdown, idToTitle = {}, selfId = '') => {
     ];
 };
 
+// Property option menus must escape the page's summary grid. That grid can
+// create a stacking context and clips its descendants while a page is scrolled,
+// so a regular absolute dropdown can appear behind the next panel. Rendering at
+// the document root also makes the behaviour match the table cell pickers.
+const PropertyDropdownPortal = ({ anchorRef, children }) => {
+    const [position, setPosition] = useState(null);
+
+    useLayoutEffect(() => {
+        let frame = 0;
+        const updatePosition = () => {
+            const anchor = anchorRef.current;
+            if (!anchor) {
+                frame = requestAnimationFrame(updatePosition);
+                return;
+            }
+            const rect = anchor.getBoundingClientRect();
+            const maxHeight = 300;
+            const spaceBelow = window.innerHeight - rect.bottom;
+            const spaceAbove = rect.top;
+            const opensUpward = spaceBelow < Math.min(maxHeight, 160) && spaceAbove > spaceBelow;
+            const availableSpace = Math.max(80, (opensUpward ? spaceAbove : spaceBelow) - 8);
+            setPosition({
+                left: Math.max(8, Math.min(rect.left, window.innerWidth - rect.width - 8)),
+                width: rect.width,
+                top: opensUpward ? undefined : rect.bottom + 8,
+                bottom: opensUpward ? window.innerHeight - rect.top + 8 : undefined,
+                maxHeight: Math.min(maxHeight, availableSpace),
+            });
+        };
+        updatePosition();
+        window.addEventListener('scroll', updatePosition, true);
+        window.addEventListener('resize', updatePosition);
+        return () => {
+            if (frame) cancelAnimationFrame(frame);
+            window.removeEventListener('scroll', updatePosition, true);
+            window.removeEventListener('resize', updatePosition);
+        };
+    }, [anchorRef]);
+
+    if (!position) return null;
+    return createPortal(
+        <div
+            data-property-dropdown
+            className="flex flex-col overflow-y-auto custom-scrollbar border border-[var(--border-primary)] rounded-xl bg-[var(--bg-primary)] p-2 shadow-xl animate-in fade-in zoom-in-95 duration-100"
+            style={{ position: 'fixed', zIndex: 'var(--z-popover)', ...position }}
+        >
+            {children}
+        </div>,
+        document.body,
+    );
+};
+
 const MultiSelectPills = ({
     value,
     onChange,
@@ -564,7 +618,7 @@ const MultiSelectPills = ({
 
     useEffect(() => {
         const handleClickOutside = (event) => {
-            if (containerRef.current && !containerRef.current.contains(event.target)) {
+            if (containerRef.current && !containerRef.current.contains(event.target) && !event.target.closest?.('[data-property-dropdown]')) {
                 setIsOpen(false);
             }
         };
@@ -686,7 +740,7 @@ const MultiSelectPills = ({
                 })}
             </div>
             {isOpen && (
-                <div className="absolute z-50 w-full mt-2 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-xl shadow-xl p-2 animate-in fade-in zoom-in-95 duration-100 max-h-[300px] flex flex-col">
+                <PropertyDropdownPortal anchorRef={containerRef}>
                     <div className="relative mb-2 shrink-0">
                         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]/60" />
                         <input
@@ -749,7 +803,7 @@ const MultiSelectPills = ({
                             </button>
                         )}
                     </div>
-                </div>
+                </PropertyDropdownPortal>
             )}
         </div>
     );
@@ -5689,6 +5743,23 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                             );
                                                         }
                                                         return <span className="text-sm text-[var(--text-tertiary)]">{t('common.empty')}</span>;
+                                                    }
+                                                    // System timestamps are read-only audit fields. They are stored as
+                                                    // ISO values but must use the same display formatting as ordinary
+                                                    // date fields on every page.
+                                                    if (prop.type === 'created_time' || prop.type === 'last_edited_time') {
+                                                        const systemValue = resolveSystemDateValue(
+                                                            { metadata, created_time: metadata.created_time, last_modified: metadata.last_modified },
+                                                            {},
+                                                            prop.type,
+                                                            prop.name,
+                                                        ) || v;
+                                                        const pfmt = resolveFieldFormat({ format: prop.config?.format || prop.format }, localeSettings);
+                                                        return (
+                                                            <span className="px-2 py-1 text-sm text-[var(--text-primary)] font-medium tabular-nums">
+                                                                {systemValue ? formatDate(systemValue, { dateFormat: pfmt.dateFormat, type: 'datetime', locale: pfmt.dateLocale }) : '—'}
+                                                            </span>
+                                                        );
                                                     }
                                                     // Read mode: formatted number/date (global or field override).
                                                     if (!isEditor && hasVal && (prop.type === 'number' || prop.type === 'date' || prop.type === 'datetime')) {
