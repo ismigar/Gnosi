@@ -139,6 +139,12 @@ until a maintainer publishes them.
   first, and binary wheels can then bind against incompatible OpenSSL dylibs.
   Set `GNOSI_PYTHON_CMD=python` in every release job so the bundle uses the
   Python 3.11 supplied by `actions/setup-python`.
+- Do not let the packaged backend build `cryptography` from source on macOS
+  Intel. Version 49 removed x86_64 macOS wheels, so a source build links to the
+  runner's Homebrew OpenSSL while PyInstaller can collect a different
+  `libssl.3.dylib` with the same filename. Keep Intel on the final universal2
+  wheel line (`>=48.0.1,<49.0.0`) and install `cryptography` with
+  `--only-binary` so an unsupported dependency fails before packaging.
 - Do not treat sandbox socket or Chromium launch restrictions as passing tests;
   rerun the affected gates in GitHub Actions before publishing.
 - Do not omit explicit Electron desktop icons. Without generated ICNS, ICO, and
@@ -214,7 +220,8 @@ until a maintainer publishes them.
 | 2026-08-15 | The isolated frozen-backend smoke test failed in `pyparsing.testing` with `No module named 'unittest'` | The PyInstaller spec excluded a standard-library module used by an included Google API dependency | Keep `unittest` and the feature-required `PIL` package in the frozen runtime and lock the exclusion policy with a source test |
 | 2026-08-15 | The frozen backend imported successfully but exited with `Operation not permitted` while starting Uvicorn | The installed PyInstaller process enabled `reload=True` and attempted to watch its read-only application bundle | Detect `sys.frozen`, disable Uvicorn reload only in packaged runtimes, and keep it enabled for native source development |
 | 2026-08-15 | The v1.0.4 macOS release job failed with `hdiutil: no mountable file systems` | `macos-latest` had migrated to macOS 26 ARM64, electron-builder switched to APFS, and one host-native Python bundle was reused for both Electron architectures | Pin architecture-matched macOS 15 runners, build one architecture per matrix job, and let the platform script build Python exactly once |
-| 2026-08-16 | The split v1.0.4 Intel job failed loading `cryptography` with missing `_SSL_get0_group_name` | CI installed Python 3.11, but the build script preferred a runner-level Python 3.13 whose cryptography wheel and collected `libssl.3.dylib` were incompatible | Allow an explicit Python command, set it to the setup-python interpreter on every platform, and fail early when the requested command is unavailable |
+| 2026-08-16 | The first split v1.0.4 Intel job did not use the Python provisioned by the workflow | The build script preferred a runner-level Python 3.13 over the setup-python interpreter | Allow an explicit Python command, set it to the setup-python interpreter on every platform, and fail early when the requested command is unavailable |
+| 2026-08-16 | The v1.0.4 Intel retry still failed loading `cryptography` with missing `_SSL_get0_group_name` under Python 3.11 | `cryptography` 49 removed macOS x86_64 wheels; the `>=49` requirement built 50.0.0 against Homebrew OpenSSL, then PyInstaller bundled a conflicting `libssl.3.dylib` | Constrain macOS Intel to the final universal2 wheel release, require a binary `cryptography` install, and retain current releases on supported platforms |
 
 ## Verification checklist
 

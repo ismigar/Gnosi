@@ -24,11 +24,12 @@ on:
 
 jobs:
   backend:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, ARM64]
     # Ephemeral test-only value required by Compose interpolation and by the
     # fail-closed Docker startup guard. It signs no persistent sessions.
     env:
       GNOSI_JWT_SECRET: ci-only-7f15e867273441a6b3914705466593864d5f67b038f84301
+      XDG_RUNTIME_DIR: /run/user/501
     defaults:
       run:
         working-directory: monorepo/apps/gnosi
@@ -46,15 +47,15 @@ jobs:
           # compose declares both env_files; they are gitignored, so provide
           # empty stand-ins for interpolation/validation.
           touch ../../../.env_shared .env
-          docker compose config -q
+          nerdctl compose config -q
 
       - name: Build backend image
-        run: docker build -f Dockerfile.backend -t gnosi-backend:ci .
+        run: nerdctl build -f Dockerfile.backend -t gnosi-backend:ci .
 
       - name: Smoke test — backend boots and serves /api/health
         run: |
           mkdir -p /tmp/ci-vault
-          docker run -d --name gnosi_ci -p 5002:5002 \
+          nerdctl run -d --name gnosi_ci -p 5002:5002 \
             -e DIGITAL_BRAIN_VAULT_PATH=/vault \
             -e GNOSI_FILES_PROVIDER=local \
             -e GNOSI_JWT_SECRET="${GNOSI_JWT_SECRET}" \
@@ -69,19 +70,21 @@ jobs:
             sleep 2
           done
           echo "::error::backend never became healthy"
-          docker logs gnosi_ci
+          nerdctl logs gnosi_ci
           exit 1
 
       - name: Cleanup
         if: always()
-        run: docker rm -f gnosi_ci 2>/dev/null || true
+        run: nerdctl rm -f gnosi_ci 2>/dev/null || true
 
   frontend:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, ARM64]
+    env:
+      XDG_RUNTIME_DIR: /run/user/501
     defaults:
       run:
         working-directory: monorepo/apps/gnosi
     steps:
       - uses: actions/checkout@v7
       - name: Build frontend image
-        run: docker build -f Dockerfile.frontend -t gnosi-frontend:ci .
+        run: nerdctl build -f Dockerfile.frontend -t gnosi-frontend:ci .
