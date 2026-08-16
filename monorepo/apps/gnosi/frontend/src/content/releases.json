@@ -1,5 +1,18 @@
 [
   {
+    "version": "1.0.5",
+    "date": "2026-08-16",
+    "channel": "stable",
+    "sections": {
+      "highlights": [],
+      "improvements": [],
+      "fixes": [
+        "release_notes.entries.v1_0_5.fixes.macos_intel_cryptography",
+        "release_notes.entries.v1_0_5.fixes.pinned_backend_runtime"
+      ]
+    }
+  },
+  {
     "version": "1.0.4",
     "date": "2026-08-15",
     "channel": "stable",

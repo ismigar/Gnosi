@@ -5215,6 +5215,7 @@
     "section_improvements": "Improvements",
     "section_fixes": "Fixes",
     "entries": {
+      "v1_0_5": { "highlights": {}, "improvements": {}, "fixes": { "macos_intel_cryptography": "macOS Intel builds now include the cryptography wheel compatible with this architecture.", "pinned_backend_runtime": "Packaged applications pin the backend Python runtime so they start consistently after installation." } },
       "v1_0_4": {
         "highlights": {},
         "improvements": {},

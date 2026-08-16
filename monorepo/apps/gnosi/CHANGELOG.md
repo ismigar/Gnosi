@@ -1,5 +1,14 @@
 # Gnosi changelog
 
+## Gnosi 1.0.5
+
+_2026-08-16 · Stable_
+
+### Fixes
+
+- macOS Intel builds now include the cryptography wheel compatible with this architecture.
+- Packaged applications pin the backend Python runtime so they start consistently after installation.
+
 ## Gnosi 1.0.4
 
 _2026-08-15 · Stable_

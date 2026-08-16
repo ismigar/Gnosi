@@ -5266,6 +5266,7 @@
     "section_improvements": "Mejoras",
     "section_fixes": "Correcciones",
     "entries": {
+      "v1_0_5": { "highlights": {}, "improvements": {}, "fixes": { "macos_intel_cryptography": "Las compilaciones de macOS para Intel incluyen ahora la rueda de criptografía compatible con esta arquitectura.", "pinned_backend_runtime": "Las aplicaciones empaquetadas fijan el runtime de Python del backend para iniciarse de forma consistente tras la instalación." } },
       "v1_0_4": {
         "highlights": {},
         "improvements": {},
