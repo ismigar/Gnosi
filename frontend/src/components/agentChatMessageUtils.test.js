@@ -241,7 +241,7 @@ describe('assistant message presentation metadata', () => {
                 role: 'assistant',
                 content: 'Answer with alternate timing fields',
                 timings: {
-                    elapsed_ms: 1_000,
+                    elapsed_seconds: 2.5,
                     model_calls: 2,
                 },
             },
@@ -251,10 +251,10 @@ describe('assistant message presentation metadata', () => {
             role: 'assistant',
             content: 'Answer with alternate timing fields',
             timings: {
-                total_ms: 1_000,
+                total_ms: 2_500,
                 model_calls: 2,
             },
-            processingMs: 1_000,
+            processingMs: 2_500,
         }]);
     });
 
@@ -272,6 +272,14 @@ describe('assistant message presentation metadata', () => {
         expect(effectiveMessageTimingMs({ timings: { value: '2.5s' } })).toBe(2_500);
         expect(effectiveMessageTimingMs({ timings: '2.5s' })).toBe(2_500);
         expect(effectiveMessageTimingMs({ duration: '5500' })).toBe(5500);
+        expect(effectiveMessageTimingMs({ durationSec: 4.2 })).toBe(4_200);
+        expect(effectiveMessageTimingMs({ responseSec: 0.75 })).toBe(750);
+        expect(effectiveMessageTimingMs({ response_seconds: 1.2 })).toBe(1_200);
+        expect(effectiveMessageTimingMs({ processingSecs: 3 })).toBe(3_000);
+        expect(effectiveMessageTimingMs({ timingSecs: 0.9 })).toBe(900);
+        expect(effectiveMessageTimingMs({ timeSecs: 0.5 })).toBe(500);
+        expect(effectiveMessageTimingMs({ seconds: 0.8 })).toBe(800);
+        expect(effectiveMessageTimingMs({ timings: { seconds: 0.7 } })).toBe(700);
         expect(effectiveMessageTimingMs({})).toBeNull();
     });
 });

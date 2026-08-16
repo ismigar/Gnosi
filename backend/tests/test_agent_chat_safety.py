@@ -829,6 +829,36 @@ def test_checkpoint_history_uses_metadata_turn_id_when_no_prior_turn_id():
     }]
 
 
+def test_checkpoint_history_uses_metadata_turn_object_alias():
+    stored = [
+        AIMessage(
+            content="Resposta amb metadata",
+            metadata={"turn": {"turnId": "turn-metadata-object"}},
+        ),
+    ]
+
+    assert agent_routes._public_checkpoint_messages(stored) == [{
+        "role": "assistant",
+        "content": "Resposta amb metadata",
+        "turn_id": "turn-metadata-object",
+    }]
+
+
+def test_checkpoint_history_uses_metadata_turn_string_alias():
+    stored = [
+        AIMessage(
+            content="Resposta amb metadata",
+            metadata={"turn": "turn-metadata-string"},
+        ),
+    ]
+
+    assert agent_routes._public_checkpoint_messages(stored) == [{
+        "role": "assistant",
+        "content": "Resposta amb metadata",
+        "turn_id": "turn-metadata-string",
+    }]
+
+
 def test_legacy_checkpoint_history_strips_internal_enrichment():
     stored = [
         HumanMessage(
