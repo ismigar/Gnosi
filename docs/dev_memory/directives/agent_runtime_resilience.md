@@ -31,6 +31,18 @@ in construction closures.
   a bounded entry count, and normalized Brain/query/k keys.
 - Do not treat estimated cost as accounting truth. The persistent usage ledger
   records actual catalog-priced tokens; estimates are display-only diagnostics.
+- Do not merely skip the next graph node when a client disconnects. Provider
+  calls must go through the cancellation bridge; use async provider invocation
+  when available so an in-flight HTTP task can be cancelled.
+- Do not retry a provider indefinitely. Record transient failures in the
+  bounded circuit breaker and expose cooldown state in diagnostics; leave
+  authentication and policy errors terminal and visible.
+- Do not emit uncorrelated operational logs. Generate one opaque trace id per
+  turn and carry it through plan, model, tool, error, metrics, and completion
+  events without storing prompt or source content.
+- Do not run live HTTP E2E tests against the developer's native backend. They
+  are opt-in, use isolated directories and a separate port, and must never
+  mutate a real Vault.
 
 ## Verification
 

@@ -2,8 +2,15 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any, Iterable
+
+from backend.services.provider_health import (
+    is_available,
+    record_failure,
+    record_success,
+)
 
 
 log = logging.getLogger(__name__)
@@ -37,8 +44,17 @@ class ProviderFallbackModel:
     def invoke(self, input: Any, config: Any = None, **kwargs: Any) -> Any:
         last: BaseException | None = None
         for index, (provider, model_name, candidate) in enumerate(self._candidates):
+            if not is_available(provider, model_name):
+                self.fallback_events.append({
+                    "from": provider,
+                    "to": "",
+                    "model": model_name,
+                    "reason": "circuit_open",
+                })
+                continue
             try:
                 response = candidate.invoke(input, config=config, **kwargs) if config is not None else candidate.invoke(input, **kwargs)
+                record_success(provider, model_name)
                 if index:
                     metadata = getattr(response, "additional_kwargs", None)
                     if not isinstance(metadata, dict):
@@ -56,16 +72,88 @@ class ProviderFallbackModel:
                 return response
             except Exception as error:  # noqa: BLE001
                 last = error
-                if not is_retryable_provider_error(error) or index == len(self._candidates) - 1:
+                retryable = is_retryable_provider_error(error)
+                circuit = record_failure(provider, model_name, error) if retryable else {}
+                if not retryable or index == len(self._candidates) - 1:
                     raise
                 self.fallback_events.append({
                     "from": provider,
                     "to": self._candidates[index + 1][0],
                     "model": self._candidates[index + 1][1],
                     "reason": type(error).__name__,
+                    "cooldown_seconds": str(circuit["cooldown_seconds"]),
                 })
                 log.warning("Provider %s/%s failed transiently; trying %s/%s", provider, model_name, self._candidates[index + 1][0], self._candidates[index + 1][1])
-        raise last or RuntimeError("all provider candidates failed")
+        raise last or RuntimeError("all provider candidates are temporarily unavailable")
+
+    async def ainvoke(self, input: Any, config: Any = None, **kwargs: Any) -> Any:
+        """Invoke candidates asynchronously so request cancellation reaches providers.
+
+        LangGraph's synchronous nodes can still use :meth:`invoke`, while the
+        cancellation bridge prefers this method when a provider exposes it. A
+        candidate without ``ainvoke`` is isolated in a worker thread and still
+        benefits from bounded graph cancellation and provider failover.
+        """
+        last: BaseException | None = None
+        for index, (provider, model_name, candidate) in enumerate(self._candidates):
+            if not is_available(provider, model_name):
+                self.fallback_events.append({
+                    "from": provider,
+                    "to": "",
+                    "model": model_name,
+                    "reason": "circuit_open",
+                })
+                continue
+            try:
+                method = getattr(candidate, "ainvoke", None)
+                if callable(method):
+                    if config is not None:
+                        response = await method(input, config=config, **kwargs)
+                    else:
+                        response = await method(input, **kwargs)
+                elif config is not None:
+                    response = await asyncio.to_thread(candidate.invoke, input, config=config, **kwargs)
+                else:
+                    response = await asyncio.to_thread(candidate.invoke, input, **kwargs)
+                record_success(provider, model_name)
+                if index:
+                    metadata = getattr(response, "additional_kwargs", None)
+                    if not isinstance(metadata, dict):
+                        metadata = {}
+                    metadata["gnosi_provider_fallback"] = {
+                        "from": self._candidates[0][0],
+                        "to": provider,
+                        "model": model_name,
+                        "reason": type(last).__name__ if last else "transient_error",
+                    }
+                    try:
+                        response.additional_kwargs = metadata
+                    except Exception:  # pragma: no cover - provider message may be immutable
+                        pass
+                return response
+            except asyncio.CancelledError:
+                raise
+            except Exception as error:  # noqa: BLE001
+                last = error
+                retryable = is_retryable_provider_error(error)
+                circuit = record_failure(provider, model_name, error) if retryable else {}
+                if not retryable or index == len(self._candidates) - 1:
+                    raise
+                self.fallback_events.append({
+                    "from": provider,
+                    "to": self._candidates[index + 1][0],
+                    "model": self._candidates[index + 1][1],
+                    "reason": type(error).__name__,
+                    "cooldown_seconds": str(circuit["cooldown_seconds"]),
+                })
+                log.warning(
+                    "Provider %s/%s failed transiently; trying %s/%s",
+                    provider,
+                    model_name,
+                    self._candidates[index + 1][0],
+                    self._candidates[index + 1][1],
+                )
+        raise last or RuntimeError("all provider candidates are temporarily unavailable")
 
     def bind_tools(self, tools: Any, **kwargs: Any) -> "ProviderFallbackModel":
         bound: list[tuple[str, str, Any]] = []

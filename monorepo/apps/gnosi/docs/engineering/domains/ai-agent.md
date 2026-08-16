@@ -10,9 +10,12 @@ source_paths:
   - backend/services/agent_quality_telemetry.py
   - backend/services/reader_analysis.py
   - backend/services/agent_cancellation.py
+  - backend/services/provider_health.py
   - backend/services/agent_capability_health.py
   - backend/agent/provider_resilience.py
+  - backend/agent/conversation_memory.py
   - backend/agent/context_safety.py
+  - backend/mcp/client.py
   - frontend/src/components/AgentChat.jsx
   - frontend/src/components/AI
 tests:
@@ -24,6 +27,8 @@ tests:
   - backend/tests/test_agent_action_confirmations.py
   - backend/tests/test_agent_quality_telemetry.py
   - backend/tests/test_agent_resilience.py
+  - backend/tests/test_e2e_tables_assets.py
+  - backend/tests/test_vault_trash.py
   - e2e/tests/e2e/ai-chat.spec.ts
 ---
 
@@ -249,11 +254,32 @@ Rewind changes conversation memory only; completed confirmations and external
 side effects are never presented as reversed.
 
 The stream owns an opaque cancellation token. If the client disconnects, it
-signals the token and the next graph node/tool gate exits without starting more
-work; cached workflows do not capture request-specific events. Tokens are
-released after the stream completes. Tool descriptors additionally expose a
-cheap health status (healthy or unavailable) so missing ids, names, or handlers
-cannot be advertised as runnable capabilities.
+signals the token and the graph exits without starting more work; model calls
+use an asynchronous cancellation bridge when the provider supports it, so an
+in-flight provider task is cancelled rather than merely preventing the next
+node. Cached workflows do not capture request-specific events, and tokens are
+released after the stream completes. Provider failures use a bounded
+process-local circuit breaker keyed by provider/model, while authentication and
+policy errors remain terminal. Tool descriptors additionally expose a cheap
+health status (healthy or unavailable) so missing ids, names, or handlers cannot
+be advertised as runnable capabilities.
+
+Long prompts retain the complete checkpoint as an audit record but add a bounded
+deterministic digest of dropped human/assistant turns to the provider projection.
+The digest contains short excerpts and opaque hashes only; raw tool payloads and
+unbounded source bodies are never carried forward.
+
+Every streamed turn receives an opaque `trace_id` propagated through planning,
+model selection, runtime health, messages, errors, metrics, and completion
+events. This gives distributed logs and the UI one correlation key without
+persisting prompts, credentials, or source text. MCP readiness is cached briefly
+per server, and provider/connector snapshots are included in the runtime receipt.
+
+Brain retrieval combines the rebuildable vector score with accent-normalized,
+multilingual lexical expansion, title/index boosts, bounded caching, and
+injection-marked evidence. Live table/trash HTTP tests are opt-in and run in CI
+against a throwaway Vault and separate port; the hermetic suite always points at
+a closed port so a developer's native backend cannot be mutated accidentally.
 
 Editable model-registry rows are hydrated from the canonical catalog before
 they reach Settings or runtime routing. Partial budget/settings updates merge

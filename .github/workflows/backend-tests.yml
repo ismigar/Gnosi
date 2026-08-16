@@ -80,3 +80,31 @@ jobs:
           # Its suite fakes the UNO modules, which only exist inside
           # LibreOffice, and runs in milliseconds.
           pytest backend/tests integrations -q --durations=10
+
+      # Live HTTP tests are deliberately isolated from the normal hermetic
+      # suite. They opt in explicitly, use a separate port and throwaway
+      # directories, and can never accidentally mutate a native developer
+      # backend or the maintainer's Vault.
+      - name: Run isolated live E2E tests
+        env:
+          PYTHONPATH: .
+          DIGITAL_BRAIN_VAULT_PATH: ${{ runner.temp }}/live-e2e-vault
+          GNOSI_LOCAL_DATA: ${{ runner.temp }}/live-e2e-local-data
+          GNOSI_FILES_PROVIDER: local
+          GNOSI_REQUIRE_AUTH: "false"
+          GNOSI_INDEX_WARMUP: "false"
+          GNOSI_BACKEND_URL: http://127.0.0.1:59998
+          GNOSI_RUN_LIVE_E2E: "1"
+        run: |
+          mkdir -p "$DIGITAL_BRAIN_VAULT_PATH/Assets" "$GNOSI_LOCAL_DATA"
+          python -m uvicorn backend.server:app --host 127.0.0.1 --port 59998 --lifespan off > "$RUNNER_TEMP/gnosi-live-e2e.log" 2>&1 &
+          backend_pid=$!
+          trap 'kill "$backend_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if python -c 'import requests; raise SystemExit(0 if requests.get("http://127.0.0.1:59998/api/health", timeout=1).status_code == 200 else 1)' 2>/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          python -c 'import requests; raise SystemExit(0 if requests.get("http://127.0.0.1:59998/api/health", timeout=2).status_code == 200 else 1)'
+          pytest backend/tests/test_e2e_tables_assets.py backend/tests/test_vault_trash.py -q
