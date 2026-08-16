@@ -338,6 +338,7 @@ def query_wiki(query: str, k: int = 5) -> str:
     Returned excerpts retain their provenance/citation links.
     """
     from backend.services import llm_wiki_config, llm_wiki_indices
+    from backend.agent.semantic_interpreter import interpret_request
 
     brain_id = llm_wiki_config.get_brain_table_id()
     if not brain_id:
@@ -345,6 +346,8 @@ def query_wiki(query: str, k: int = 5) -> str:
                 "The knowledge wiki cannot be queried.")
 
     normalized_query = " ".join(str(query or "").casefold().split())
+    interpretation = interpret_request(query, mode="lookup")
+    rewritten_query = str(interpretation.get("normalized_query") or normalized_query)
     base = _expanded_search_terms(normalized_query)
     if not base:
         return "The query is too short to search the Brain."
@@ -355,7 +358,9 @@ def query_wiki(query: str, k: int = 5) -> str:
         if cached and time.monotonic() - cached[0] < _WIKI_CACHE_TTL_SECONDS:
             return cached[1] + "\n[Search metadata: mode=hybrid; cache_hit=true]"
 
-    records = llm_wiki_indices.load_search_cache(brain_id)
+    records = llm_wiki_indices.search_index_candidates(brain_id, rewritten_query, limit=256)
+    if not records:
+        records = llm_wiki_indices.load_search_cache(brain_id)
     if not records:
         try:
             llm_wiki_indices.rebuild_search_cache(brain_id)
@@ -410,8 +415,11 @@ def query_wiki(query: str, k: int = 5) -> str:
                 + (f" · table {n['source_table_id']}" if n["source_table_id"] else "")
             )
         out.append("")
+    index_status = llm_wiki_indices.search_index_status(brain_id)
     out.append(
         "[Search metadata: mode=hybrid; cache_hit=false; "
+        f"index_stale={not index_status.get('available')}; "
+        f"interpretation_confidence={interpretation.get('confidence', 0)}; "
         f"injection_flags={injection_count}]"
     )
     rendered = "\n".join(out)

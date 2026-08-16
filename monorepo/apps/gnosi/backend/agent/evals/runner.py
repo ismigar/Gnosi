@@ -93,6 +93,11 @@ def evaluate_case(case: dict[str, Any]) -> dict[str, Any]:
             "allowed_tool_names": plan.get("allowed_tool_names"),
             "privacy": plan.get("privacy"),
             "budgets": plan.get("budgets") or {},
+            "interpretation": {
+                "operation": (plan.get("interpretation") or {}).get("operation"),
+                "confidence": (plan.get("interpretation") or {}).get("confidence"),
+                "abstain": (plan.get("interpretation") or {}).get("abstain"),
+            },
         },
     }
 
@@ -116,6 +121,8 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--case", default="", help="Run only one case id.")
     parser.add_argument("--compact", action="store_true", help="Omit passing case details.")
+    parser.add_argument("--min-score", type=float, default=1.0, help="Minimum acceptable score (0..1).")
+    parser.add_argument("--report-path", default="", help="Write the full JSON report to a file.")
     args = parser.parse_args()
     cases = load_cases()
     if args.case:
@@ -126,7 +133,9 @@ def main() -> int:
     if args.compact:
         report["results"] = [item for item in report["results"] if not item["passed"]]
     sys.stdout.write(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
-    return 0 if report["passed"] == report["total"] else 1
+    if args.report_path:
+        Path(args.report_path).write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return 0 if report["score"] >= max(0.0, min(args.min_score, 1.0)) else 1
 
 
 if __name__ == "__main__":

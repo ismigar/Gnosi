@@ -343,3 +343,39 @@ maintainer deliberately promotes them.
 Run model routing, provider deletion, reliability, timeouts, MCP retry and
 resilience, skill catalog/runtime/API, generated-tool validation, context
 containment, confirmation race/expiry, chat ordering, and browser chat flows.
+# Universal agent runtime
+
+Gnosi routes every turn through a bounded, provider-neutral contract. Before
+capability selection, the semantic interpreter normalizes multilingual intent,
+records a confidence score and can abstain when a request has no subject. The
+result is included in the turn plan without storing the original prompt.
+
+Background capabilities use the local SQLite durable queue. A job has an
+idempotency key, attempt budget, lease and heartbeat; an expired lease can be
+reclaimed after a process restart or when a second worker is active. Reader
+analysis retains its JSON snapshots and batch checkpoints, while the queue is
+the source of truth for orchestration.
+
+Every model and tool operation emits a bounded span correlated by the turn
+`trace_id`. Span attributes are allowlisted and redacted; prompts, sources,
+arguments and raw provider output are never persisted as telemetry. Tool calls
+also pass through argument-size validation, descriptor timeouts, output limits
+and the existing role/confirmation policy.
+
+Brain search maintains its JSON compatibility cache plus an FTS5 sidecar. The
+sidecar narrows lexical candidates before deterministic vector hybrid ranking,
+and exposes freshness metadata for diagnostics. If the sidecar is unavailable,
+the JSON cache remains a safe fallback.
+
+Explicit turn identifiers are claimed durably in the workspace/user/session
+scope. A duplicate request is rejected instead of executing the same action or
+background job twice. The SSE stream emits `progress` events with node, phase,
+elapsed time and bounded call counters so clients can render responsive
+progress without reading internal prompts.
+
+Security boundaries remain conservative: generated tools are revalidated at
+load time, connector URLs can use the public-host egress policy, and common
+credentials are redacted before diagnostics or tool messages are persisted.
+
+Verification uses the deterministic universal-turn corpus, focused phase-two
+tests, the full `backend/tests` suite and the documentation gate.

@@ -43,6 +43,30 @@ in construction closures.
 - Do not run live HTTP E2E tests against the developer's native backend. They
   are opt-in, use isolated directories and a separate port, and must never
   mutate a real Vault.
+- Do not use an in-process timer as the only source of truth for a background
+  capability. Persist the job payload, idempotency key, lease, attempts, and
+  retry time in the local durable queue; workers must claim and heartbeat the
+  lease before doing model work.
+- Do not attach arbitrary prompt, source, argument, or result values to an
+  operational span. The observability contract accepts a small allowlist of
+  bounded attributes and writes only redacted metadata.
+- Do not route ambiguous requests directly to a guarded capability. Interpret
+  the request with the bounded multilingual semantic contract first, expose
+  confidence/abstention in the turn plan, and keep writes behind the existing
+  role and confirmation gates.
+- Do not rebuild a whole in-memory Brain search list for every query when the
+  FTS5 sidecar exists. Use bounded FTS candidates, then hybrid-rank them with
+  the deterministic vector cache; fall back to JSON only when the sidecar is
+  unavailable.
+- Do not let a tool accept unbounded arguments or return unbounded output.
+  Validate fields before execution, enforce the descriptor timeout, truncate
+  oversized results, and report the contract failure as a tool error.
+- Do not execute generated tool code after its approval contract has drifted.
+  Re-run the AST validator at load time, reject forbidden imports/attributes,
+  and apply the URL egress policy to any connector-facing implementation.
+- Do not process the same explicit turn id twice. Claim it durably in the
+  workspace/user/session scope and mark the claim completed or failed after
+  the stream closes.
 
 ## Verification
 

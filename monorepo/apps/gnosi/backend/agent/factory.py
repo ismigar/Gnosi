@@ -71,6 +71,9 @@ from backend.services.agent_cancellation import (
     invoke_cancellable,
     is_cancelled,
 )
+from backend.services.agent_observability import span as observability_span
+from backend.services.tool_runtime import execute_bounded, validate_arguments
+from backend.security.secret_redaction import redact_secrets
 from backend.services.agent_capability_health import assess_tool_capability
 from backend.services.provider_health import snapshot as provider_health_snapshot
 from backend.agent.provider_resilience import wrap_provider_candidates
@@ -2228,7 +2231,13 @@ def _turn_is_cancelled(state: Any) -> bool:
 def _invoke_agent_model(model: Any, prompt: Any, state: Any) -> Any:
     """Invoke a model with request cancellation when the graph has a token."""
     token = state.get("cancel_token", "") if isinstance(state, dict) else ""
-    return invoke_cancellable(model, prompt, str(token or ""))
+    trace_id = state.get("trace_id", "") if isinstance(state, dict) else ""
+    with observability_span(
+        "agent.model",
+        trace_id=str(trace_id or ""),
+        attributes={"model": getattr(model, "model_name", "") or getattr(model, "model", "")},
+    ):
+        return invoke_cancellable(model, prompt, str(token or ""))
 
 
 def _turn_authorized_tool_names(state: Any) -> set[str]:
@@ -2268,6 +2277,30 @@ def _tool_policy_wrapper(tool_policies: Any):
         tool_name = str(tool_call.get("name") or "")
         policy = policies.get(tool_name, {})
         state = request.state if isinstance(request.state, dict) else {}
+        arguments = dict(tool_call.get("args") or {})
+        try:
+            validate_arguments(arguments)
+        except ValueError as error:
+            audit_status = "failed"
+            try:
+                record_capability_event(
+                    current_confirmation_scope(),
+                    tool_id=str(policy.get("id") or tool_name),
+                    tool_name=tool_name,
+                    effects=list(policy.get("effects") or []),
+                    status=audit_status,
+                    argument_keys=list(arguments),
+                    result_kind="validation_error",
+                    error_code="invalid_arguments",
+                )
+            except Exception:
+                log.exception("Failed to write capability audit metadata.")
+            return ToolMessage(
+                content=f"Tool execution rejected: {error}",
+                name=tool_name,
+                tool_call_id=str(tool_call.get("id") or ""),
+                status="error",
+            )
         if _turn_is_cancelled(state):
             return ToolMessage(
                 content="Tool execution cancelled because the client disconnected.",
@@ -2320,7 +2353,16 @@ def _tool_policy_wrapper(tool_policies: Any):
                         status="error",
                     )
                 started = time.monotonic()
-                result = execute(request)
+                with observability_span(
+                    "agent.tool",
+                    trace_id=str(state.get("trace_id") or ""),
+                    attributes={"tool": tool_name, "mode": "authorized"},
+                ):
+                    result = execute_bounded(
+                        request,
+                        execute,
+                        timeout_seconds=policy.get("timeout_seconds", 120),
+                    )
                 audit(
                     "completed" if getattr(result, "status", "success") != "error" else "failed",
                     result_kind=type(result).__name__,
@@ -2339,7 +2381,10 @@ def _tool_policy_wrapper(tool_policies: Any):
             except Exception as error:
                 audit("failed", error_code=type(error).__name__)
                 return ToolMessage(
-                    content=f"Tool confirmation preparation failed: {error}",
+                    content=(
+                        "Tool confirmation preparation failed: "
+                        f"{redact_secrets(error, max_chars=1_000)}"
+                    ),
                     name=tool_name,
                     tool_call_id=str(tool_call.get("id") or ""),
                     status="error",
@@ -2366,7 +2411,16 @@ def _tool_policy_wrapper(tool_policies: Any):
             )
         started = time.monotonic()
         try:
-            result = execute(request)
+            with observability_span(
+                "agent.tool",
+                trace_id=str(state.get("trace_id") or ""),
+                attributes={"tool": tool_name, "mode": "normal"},
+            ):
+                result = execute_bounded(
+                    request,
+                    execute,
+                    timeout_seconds=policy.get("timeout_seconds", 120),
+                )
         except Exception as error:
             audit(
                 "failed",

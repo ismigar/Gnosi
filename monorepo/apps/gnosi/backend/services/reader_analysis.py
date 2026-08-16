@@ -17,6 +17,8 @@ from backend.agent.internal_sources import normalize_internal_scope
 from backend.config.app_config import load_params
 from backend.config.logger_config import get_logger
 from backend.utils.safe_io import safe_write_json, safe_write_text
+from backend.services import durable_job_queue
+from backend.security.secret_redaction import redact_secrets
 
 
 log = get_logger(__name__)
@@ -610,6 +612,7 @@ def _run_job(
     job_id: str,
     *,
     model_call: Callable[[str, str], str],
+    worker_id: str = "",
 ) -> None:
     from backend.services.context_vars import active_vault_path
 
@@ -639,6 +642,8 @@ def _run_job(
         )
 
         def budgeted_model_call(prompt: str, user_message: str) -> str:
+            if worker_id:
+                durable_job_queue.heartbeat(job_id, worker_id)
             _consume_model_call_budget(vault_path, job_id)
             return model_call(prompt, user_message)
 
@@ -709,6 +714,8 @@ def _run_job(
                 processed_articles=processed,
                 progress=max(3, min(80, int(((index + 1) / max(1, len(batches))) * 80))),
             )
+            if worker_id:
+                durable_job_queue.heartbeat(job_id, worker_id)
 
         _update_job(vault_path, job_id, state="reducing", phase="reducing", progress=82)
         by_topic: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
@@ -785,7 +792,7 @@ def _run_job(
                 job_id,
                 state="retry_wait",
                 phase="retry_wait",
-                error=str(error)[:2_000],
+                error=redact_secrets(error, max_chars=2_000),
                 completed_at=None,
                 retry=retry,
             )
@@ -804,7 +811,7 @@ def _run_job(
                 job_id,
                 state="failed",
                 phase="failed",
-                error=str(error)[:2_000],
+                error=redact_secrets(error, max_chars=2_000),
                 completed_at=_utc_now(),
                 retry=retry,
             )
@@ -812,6 +819,23 @@ def _run_job(
         active_vault_path.reset(vault_token)
         with _LOCK:
             _THREADS.pop(job_id, None)
+        if worker_id:
+            final_job = _load_json(_job_path(vault_path, job_id)) or {}
+            final_state = str(final_job.get("state") or "")
+            if retry_delay_seconds is not None:
+                durable_job_queue.fail(
+                    job_id,
+                    worker_id,
+                    final_job.get("error") or "retry scheduled",
+                    _parse_utc((_retry_policy(final_job)).get("next_retry_at")),
+                )
+            elif final_state in TERMINAL_STATES:
+                if final_state == "completed":
+                    durable_job_queue.complete(job_id, worker_id, {"state": final_state})
+                else:
+                    durable_job_queue.fail(job_id, worker_id, final_job.get("error") or final_state)
+            else:
+                durable_job_queue.fail(job_id, worker_id, final_job.get("error") or "worker stopped")
         if retry_delay_seconds is not None:
             _schedule_retry(
                 vault_path,
@@ -827,14 +851,17 @@ def _launch(
     *,
     model_call: Callable[[str, str], str],
 ) -> None:
+    worker_id = f"reader:{uuid.uuid4().hex[:12]}"
     with _LOCK:
         existing = _THREADS.get(job_id)
         if existing and existing.is_alive():
             return
+        if not durable_job_queue.claim(job_id, worker_id):
+            return
         thread = threading.Thread(
             target=_run_job,
             args=(Path(vault_path).resolve(), job_id),
-            kwargs={"model_call": model_call},
+            kwargs={"model_call": model_call, "worker_id": worker_id},
             name=f"reader-analysis-{job_id[:8]}",
             daemon=True,
         )
@@ -876,6 +903,13 @@ def start_analysis(
         "updated_at": _utc_now(),
     }
     job = _save_job(vault_path, job)
+    durable_job_queue.enqueue(
+        "reader_analysis",
+        {"vault_path": str(Path(vault_path).resolve()), "job_id": job_id},
+        idempotency_key=f"reader-analysis:{Path(vault_path).resolve()}:{job_id}",
+        job_id=job_id,
+        max_attempts=DEFAULT_MAX_ATTEMPTS,
+    )
     if launch:
         _launch(vault_path, job_id, model_call=model_call or _default_model_call)
     return _public_job(job)
@@ -927,6 +961,7 @@ def list_analyses(vault_path: Path, limit: int = 20) -> List[Dict[str, Any]]:
 def get_status(vault_path: Path, job_id: str) -> Dict[str, Any]:
     """Return durable job state, marking orphaned running jobs interrupted."""
     job_id = _validate_job_id(job_id)
+    durable_job_queue.reconcile_expired()
     launch_due = False
     with _LOCK:
         job = _load_json(_job_path(vault_path, job_id))
@@ -994,6 +1029,7 @@ def resume_analysis(
         completed_at=None,
         retry=retry,
     )
+    durable_job_queue.requeue(_validate_job_id(job_id))
     _launch(vault_path, job_id, model_call=model_call or _default_model_call)
     return _public_job(job)
 
