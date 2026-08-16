@@ -142,6 +142,20 @@ describe('assistant message presentation metadata', () => {
         });
     });
 
+    it('rewinds using alternative turn identifier fields', () => {
+        const messages = [
+            { role: 'user', content: 'Alternatiu', turn_ref: 't-1' },
+            { role: 'assistant', content: 'Resposta alternativa', turn_ref: 't-1' },
+        ];
+
+        expect(conversationRewindPlan(messages, 1)).toEqual({
+            beforeTurnId: 't-1',
+            keepMessages: 0,
+            localKeepCount: 0,
+            prompt: 'Alternatiu',
+        });
+    });
+
     it('merges only local presentation fields into canonical content', () => {
         const canonical = [
             { role: 'user', content: 'Question', turn_id: 'server-turn' },
@@ -208,6 +222,45 @@ describe('assistant message presentation metadata', () => {
                 processingMs: 1_050,
                 timings: { total_ms: 1_050 },
                 turn_id: 'turn-1',
+            },
+        ]);
+    });
+
+    it('reconciles using alternate turn id keys when no strict key matches', () => {
+        const canonical = [
+            { role: 'user', content: 'Prompt nou', turn_ref: 't-2' },
+            { role: 'assistant', content: 'Resposta nova', turn_ref: 't-2' },
+        ];
+        const cached = [
+            {
+                role: 'user',
+                content: 'Pregunta antiga',
+                session_id: 't-2',
+                processingMs: 1200,
+            },
+            {
+                role: 'assistant',
+                content: 'Antiga resposta',
+                conversation_id: 't-2',
+                processingMs: 2400,
+            },
+        ];
+
+        expect(mergeCanonicalMessageMetadata(canonical, cached)).toEqual([
+            {
+                role: 'user',
+                content: 'Prompt nou',
+                turn_ref: 't-2',
+                turnId: 't-2',
+                processingMs: 1200,
+            },
+            {
+                role: 'assistant',
+                content: 'Resposta nova',
+                turn_ref: 't-2',
+                turnId: 't-2',
+                processingMs: 2400,
+                timings: { total_ms: 2400 },
             },
         ]);
     });
