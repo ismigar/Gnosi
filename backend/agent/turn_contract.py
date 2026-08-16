@@ -195,10 +195,13 @@ def build_turn_plan(
     route: str = "",
 ) -> dict[str, Any]:
     """Build the effective request-scoped capability and privacy plan."""
+    from backend.agent.semantic_interpreter import interpret_request
+
     refs = [dict(ref) for ref in context_refs if isinstance(ref, Mapping)]
     tools = [dict(item) for item in tool_metadata if isinstance(item, Mapping)]
     authorized = {str(name) for name in authorized_tool_names if name}
     domains = detect_request_domains(message)
+    interpretation = interpret_request(message, mode=mode, domains=domains)
     has_private_sources = any(
         str(ref.get("type") or "").lower() in PRIVATE_CONTEXT_TYPES
         for ref in refs
@@ -291,6 +294,7 @@ def build_turn_plan(
                 "provider": provider,
                 "context_types": sorted(str(ref.get("type") or "") for ref in refs),
                 "budgets": budgets,
+                "interpretation": interpretation.get("query_digest"),
             },
             sort_keys=True,
             separators=(",", ":"),
@@ -302,10 +306,12 @@ def build_turn_plan(
     return {
         "schema_version": 1,
         "planner_version": "universal-v1",
+        "interpreter_version": interpretation.get("interpreter_version"),
         "plan_id": plan_digest,
         "language": _response_language(message),
         "mode": mode,
         "domains": domains,
+        "interpretation": interpretation,
         "route": effective_route,
         "execution": execution,
         "output_strategy": (

@@ -6,6 +6,7 @@ import hashlib
 import json
 import math
 import re
+import sqlite3
 import unicodedata
 import uuid
 from pathlib import Path
@@ -346,6 +347,7 @@ def rebuild_search_cache(brain_table_id: str) -> int:
         indent=2,
         ensure_ascii=False,
     )
+    _rebuild_fts_index(brain_table_id, records)
     try:
         from backend.agent.vault_tools import clear_wiki_search_cache
         clear_wiki_search_cache(brain_table_id)
@@ -354,6 +356,70 @@ def rebuild_search_cache(brain_table_id: str) -> int:
         # unavailable during a minimal maintenance process.
         pass
     return len(records)
+
+
+def _fts_path(brain_table_id: str) -> Path:
+    from backend.api.vault_routes import get_p
+    root = get_p("LOCAL_DATA") / "llm_wiki"
+    root.mkdir(parents=True, exist_ok=True)
+    return root / f"search-{_safe_token(brain_table_id)}.sqlite3"
+
+
+def _rebuild_fts_index(brain_table_id: str, records: list[dict[str, Any]]) -> None:
+    """Refresh the local FTS5 sidecar atomically enough for concurrent readers."""
+    try:
+        with sqlite3.connect(_fts_path(brain_table_id), timeout=30) as connection:
+            connection.execute("PRAGMA journal_mode=WAL")
+            connection.execute("CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(id UNINDEXED, title, excerpt, note_type, managed_role, record_json UNINDEXED)")
+            connection.execute("DELETE FROM notes_fts")
+            connection.executemany(
+                "INSERT INTO notes_fts(id,title,excerpt,note_type,managed_role,record_json) VALUES (?,?,?,?,?,?)",
+                [(
+                    str(item.get("id") or ""), str(item.get("title") or ""),
+                    str(item.get("excerpt") or ""), str(item.get("note_type") or ""),
+                    str(item.get("managed_role") or ""), json.dumps(item, ensure_ascii=False),
+                ) for item in records],
+            )
+            connection.execute("CREATE TABLE IF NOT EXISTS index_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+            connection.execute("INSERT OR REPLACE INTO index_meta(key,value) VALUES('updated_at',?)", (dt.datetime.now(dt.timezone.utc).isoformat(),))
+            connection.execute("INSERT OR REPLACE INTO index_meta(key,value) VALUES('record_count',?)", (str(len(records)),))
+    except sqlite3.DatabaseError:
+        logger.exception("Unable to refresh the Brain FTS5 sidecar")
+
+
+def search_index_candidates(brain_table_id: str, query: str, limit: int = 128) -> list[dict[str, Any]]:
+    """Return lexical candidates from FTS5, falling back to the JSON cache."""
+    tokens = [word for word in re.findall(r"[\wÀ-ÿ]{2,}", str(query or ""))[:32] if word]
+    if not tokens:
+        return load_search_cache(brain_table_id)[:max(1, min(int(limit), 256))]
+    match = " OR ".join('"' + token.replace('"', "") + '"' for token in tokens)
+    try:
+        with sqlite3.connect(_fts_path(brain_table_id), timeout=5) as connection:
+            rows = connection.execute(
+                "SELECT record_json FROM notes_fts WHERE notes_fts MATCH ? ORDER BY rank LIMIT ?",
+                (match, max(1, min(int(limit), 256))),
+            ).fetchall()
+        values = []
+        for (raw,) in rows:
+            try:
+                item = json.loads(raw)
+            except (TypeError, ValueError):
+                continue
+            if isinstance(item, dict):
+                values.append(item)
+        return values
+    except sqlite3.DatabaseError:
+        return load_search_cache(brain_table_id)[:max(1, min(int(limit), 256))]
+
+
+def search_index_status(brain_table_id: str) -> dict[str, Any]:
+    """Expose bounded freshness metadata for diagnostics and UX progress."""
+    try:
+        with sqlite3.connect(_fts_path(brain_table_id), timeout=5) as connection:
+            rows = dict(connection.execute("SELECT key,value FROM index_meta").fetchall())
+        return {"available": True, "updated_at": rows.get("updated_at"), "record_count": int(rows.get("record_count", 0))}
+    except (sqlite3.DatabaseError, OSError, ValueError):
+        return {"available": False, "updated_at": None, "record_count": 0}
 
 
 def load_search_cache(brain_table_id: str) -> list[dict[str, Any]]:

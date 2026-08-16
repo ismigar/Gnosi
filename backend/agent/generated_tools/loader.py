@@ -13,6 +13,7 @@ from typing import List, Optional
 from langchain_core.tools import BaseTool
 
 from .registry import registry, ToolStatus
+from .validator import ToolValidator
 
 
 class ToolLoader:
@@ -33,6 +34,7 @@ class ToolLoader:
             
         self.approved_dir.mkdir(parents=True, exist_ok=True)
         self._loaded_tools: dict = {}
+        self._validator = ToolValidator()
     
     def load_all_approved(self) -> List[BaseTool]:
         """
@@ -85,6 +87,10 @@ class ToolLoader:
         from backend.config.logger_config import get_logger
         log = get_logger(__name__)
         try:
+            validation = self._validator.validate(str(code or ""), name)
+            if not validation.is_valid:
+                log.error("Approved generated tool %r failed load-time validation", name)
+                return None
             # Create a temporary module
             module_name = f"generated_tool_{name}"
             spec = importlib.util.spec_from_loader(module_name, loader=None)

@@ -69,6 +69,7 @@ from backend.services.capability_audit import (
     record_capability_event,
 )
 from backend.services.agent_quality_telemetry import record_quality_signal
+from backend.services.turn_idempotency import claim as claim_turn, finish as finish_turn
 from backend.services.context_vars import get_active_vault_path
 from backend.services.workspace_service import WorkspaceContext, require_role
 from backend.utils.errors import safe_error_detail
@@ -1730,11 +1731,30 @@ async def chat_endpoint(
     request_started_at = time.monotonic()
     cancel_token = ""
     trace_id = uuid.uuid4().hex
+    turn_claimed = False
+    agent_id = ""
+    session_id = ""
+    vault_scope = ""
     try:
         agent_id = _validated_identifier(chat_req.agent_id, "agent_id")
         session_id = _validated_identifier(chat_req.session_id, "session_id")
         requested_skill_ids = _validated_skill_ids(chat_req.active_skill_ids)
         vault, vault_scope = _vault_scope()
+        if chat_req.turn_id:
+            turn_claimed = claim_turn(
+                vault_scope=vault_scope,
+                workspace_id=workspace_context.workspace_id,
+                user_id=workspace_context.user_id,
+                agent_id=agent_id,
+                session_id=session_id,
+                turn_id=chat_req.turn_id,
+                trace_id=trace_id,
+            )
+            if not turn_claimed:
+                raise HTTPException(
+                    status_code=409,
+                    detail="This turn has already been accepted or is still running.",
+                )
 
         # 1. Build bounded attachment context and delete the temporary files
         # before provider selection. This cleanup therefore also covers model
@@ -1966,7 +1986,7 @@ async def chat_endpoint(
                             "schema_version", "planner_version", "plan_id",
                             "mode", "domains", "route", "execution",
                             "output_strategy", "required_tool",
-                            "allowed_tool_count", "budgets",
+                            "allowed_tool_count", "budgets", "interpretation",
                         )
                     },
                     "privacy": turn_plan.get("privacy") or {},
@@ -2074,6 +2094,16 @@ async def chat_endpoint(
                                         phase_ms["model"] += update_elapsed_ms
                                     else:
                                         phase_ms["routing"] += update_elapsed_ms
+
+                                    yield json.dumps({
+                                        "type": "progress",
+                                        "trace_id": trace_id,
+                                        "node": node_name,
+                                        "phase": "tools" if node_name in {"brain_tools", "coder_tools"} else "model" if any(update_usages) else "routing",
+                                        "elapsed_ms": max(0, int((update_at - request_started_at) * 1000)),
+                                        "model_calls": model_calls,
+                                        "tool_calls": tool_calls_count,
+                                    }) + "\n"
 
                                     for msg, turn_usage in zip(
                                         update_messages,
@@ -2333,11 +2363,32 @@ async def chat_endpoint(
                     )
                 reset_confirmation_context(confirmation_token)
                 release_agent_turn(cancel_token)
+                if turn_claimed and chat_req.turn_id:
+                    await asyncio.to_thread(
+                        finish_turn,
+                        vault_scope=vault_scope,
+                        workspace_id=workspace_context.workspace_id,
+                        user_id=workspace_context.user_id,
+                        agent_id=agent_id,
+                        session_id=session_id,
+                        turn_id=chat_req.turn_id,
+                    )
         return StreamingResponse(event_generator(), media_type="application/x-ndjson")
 
     except HTTPException as e:
         if cancel_token:
             release_agent_turn(cancel_token)
+        if turn_claimed and chat_req.turn_id:
+            await asyncio.to_thread(
+                finish_turn,
+                vault_scope=vault_scope,
+                workspace_id=workspace_context.workspace_id,
+                user_id=workspace_context.user_id,
+                agent_id=agent_id,
+                session_id=session_id,
+                turn_id=chat_req.turn_id,
+                state="failed",
+            )
         if e.status_code == 503:
             error_code = (
                 e.detail.get("code")
@@ -2365,4 +2416,15 @@ async def chat_endpoint(
     except Exception as e:
         if cancel_token:
             release_agent_turn(cancel_token)
+        if turn_claimed and chat_req.turn_id:
+            await asyncio.to_thread(
+                finish_turn,
+                vault_scope=vault_scope,
+                workspace_id=workspace_context.workspace_id,
+                user_id=workspace_context.user_id,
+                agent_id=agent_id,
+                session_id=session_id,
+                turn_id=chat_req.turn_id,
+                state="failed",
+            )
         raise HTTPException(status_code=500, detail=safe_error_detail(e, context="POST /api/agent/chat"))
