@@ -770,6 +770,50 @@ def test_checkpoint_history_uses_turn_id_aliases():
     ]
 
 
+def test_checkpoint_history_uses_turn_object_aliases():
+    stored = [
+        HumanMessage(
+            content="Pregunta visible",
+            additional_kwargs={
+                "gnosi_visible_content": "Pregunta",
+                "turn": {"id": "turn-object"},
+            },
+        ),
+        AIMessage(
+            content="Resposta visible",
+            additional_kwargs={"turn": {"id": "turn-object"}},
+        ),
+    ]
+
+    assert agent_routes._public_checkpoint_messages(stored) == [
+        {
+            "role": "user",
+            "content": "Pregunta",
+            "turn_id": "turn-object",
+        },
+        {
+            "role": "assistant",
+            "content": "Resposta visible",
+            "turn_id": "turn-object",
+        },
+    ]
+
+
+def test_checkpoint_history_uses_turn_object_string_alias():
+    stored = [
+        AIMessage(
+            content="Resposta visible",
+            additional_kwargs={"turn": "turn-object-string"},
+        ),
+    ]
+
+    assert agent_routes._public_checkpoint_messages(stored) == [{
+        "role": "assistant",
+        "content": "Resposta visible",
+        "turn_id": "turn-object-string",
+    }]
+
+
 def test_checkpoint_history_uses_metadata_turn_id_when_no_prior_turn_id():
     stored = [
         AIMessage(

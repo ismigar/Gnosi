@@ -533,6 +533,28 @@ def _public_checkpoint_message_entries(
 ) -> List[tuple[int, Dict[str, Any]]]:
     """Return bounded public messages together with their raw positions."""
     entries = []
+    def _extract_turn_payload(payload: Dict[str, Any], *, allow_nested: bool = False) -> Optional[str]:
+        if not isinstance(payload, dict):
+            return None
+        turn_id = (
+            payload.get("gnosi_turn_id")
+            or payload.get("turn_id")
+            or payload.get("turnId")
+        )
+        if turn_id is None and allow_nested:
+            nested_turn = payload.get("turn")
+            if isinstance(nested_turn, dict):
+                turn_id = (
+                    nested_turn.get("id")
+                    or nested_turn.get("turn_id")
+                    or nested_turn.get("turnId")
+                )
+            elif isinstance(nested_turn, str):
+                turn_id = nested_turn
+        if isinstance(turn_id, dict):
+            turn_id = turn_id.get("id")
+        return turn_id
+
     current_turn_id = ""
     start = max(0, len(stored_messages) - 200)
     for raw_index, message in enumerate(stored_messages[start:], start=start):
@@ -556,18 +578,14 @@ def _public_checkpoint_message_entries(
             if role == "human"
             else None
         )
-        message_turn_id = (
-            getattr(message, "additional_kwargs", {}).get("gnosi_turn_id")
-            or getattr(message, "additional_kwargs", {}).get("turn_id")
-            or getattr(message, "additional_kwargs", {}).get("turnId")
+        message_turn_id = _extract_turn_payload(
+            getattr(message, "additional_kwargs", {}),
+            allow_nested=True,
         )
-        if isinstance(message_turn_id, dict):
-            message_turn_id = message_turn_id.get("id")
         if message_turn_id is None:
-            message_turn_id = (
-                getattr(message, "metadata", {}).get("gnosi_turn_id")
-                if isinstance(getattr(message, "metadata", None), dict)
-                else None
+            message_turn_id = _extract_turn_payload(
+                getattr(message, "metadata", {}),
+                allow_nested=False,
             )
         if message_turn_id:
             if role == "human":
