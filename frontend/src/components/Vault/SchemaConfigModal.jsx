@@ -1029,6 +1029,18 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                         <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--gnosi-primary)]">
                             {t('schema.period_planning', "Project planning")}
                         </label>
+                        <label className="flex flex-col gap-1 text-xs text-[var(--text-secondary)]">
+                            <span>{t('schema.period_unit', 'Timeline unit')}</span>
+                            <select
+                                value={field.period_unit || 'days'}
+                                onChange={(event) => handleUpdateField(idx, 'period_unit', event.target.value)}
+                                className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]"
+                            >
+                                <option value="hours">{t('schema.period_unit_hours', 'Hours')}</option>
+                                <option value="days">{t('schema.period_unit_days', 'Days')}</option>
+                                <option value="years">{t('schema.period_unit_years', 'Years')}</option>
+                            </select>
+                        </label>
                         <label className="flex items-start gap-2 text-xs text-[var(--text-secondary)]">
                             <input
                                 type="checkbox"
@@ -1700,6 +1712,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                     duration_enabled: cfg.duration_enabled !== false,
                     predecessors_enabled: cfg.predecessors_enabled !== false,
                     skip_non_working_days: cfg.skip_non_working_days !== false,
+                    period_unit: ['hours', 'days', 'years'].includes(cfg.period_unit) ? cfg.period_unit : 'days',
                     format: (cfg.format && typeof cfg.format === 'object') ? cfg.format : {},
                     // Rich catalog: normalizes legacy strings into {name,color,group}.
                     options: normalizeOptions(cfg.options),
@@ -2074,6 +2087,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             duration_enabled: true,
             predecessors_enabled: true,
             skip_non_working_days: true,
+            period_unit: 'days',
             options: [],
             visible: true,
         }]);
@@ -2128,6 +2142,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             if (newFields[index].duration_enabled === undefined) newFields[index].duration_enabled = true;
             if (newFields[index].predecessors_enabled === undefined) newFields[index].predecessors_enabled = true;
             if (newFields[index].skip_non_working_days === undefined) newFields[index].skip_non_working_days = true;
+            if (!['hours', 'days', 'years'].includes(newFields[index].period_unit)) newFields[index].period_unit = 'days';
         }
         setFields(newFields);
     };
@@ -2209,7 +2224,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         'relation_database_id', 'cardinality', 'file_mode', 'storage_folder',
         'name_pattern', 'button_action', 'button_label', 'button_config', 'format', 'options',
         'translatable', 'default_option', 'catalog_ref', 'duration_enabled',
-        'predecessors_enabled', 'skip_non_working_days',
+        'predecessors_enabled', 'skip_non_working_days', 'period_unit',
     ];
 
     // Builds the serializable schema sent to the backend from
@@ -2272,6 +2287,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                 config.duration_enabled = f.duration_enabled !== false;
                 config.predecessors_enabled = f.predecessors_enabled !== false;
                 config.skip_non_working_days = f.skip_non_working_days !== false;
+                config.period_unit = ['hours', 'days', 'years'].includes(f.period_unit) ? f.period_unit : 'days';
             }
             // Per-field format (override of the global one): only persisted if it has
             // meaningful values, so that a field without a format derives from the global one.

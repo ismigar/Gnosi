@@ -14,17 +14,17 @@ import {
     serializePeriod,
     workingDurationDays,
 } from '../../utils/projectPlanning';
+import { formatVaultDate, isSignedVaultDate, parseVaultDate } from './dateUtils';
 
 // Compatibility re-exports for existing period consumers.
 export { parsePeriod, periodDaysInclusive };
 
 // Adds `days` days to an ISO date (YYYY-MM-DD) and returns ISO. '' if the base isn't valid.
 export const addDaysISO = (isoDate, days) => {
-    const d = new Date(`${isoDate}T00:00:00`);
+    const d = parseVaultDate(isoDate);
     if (isNaN(d.getTime())) return '';
     d.setDate(d.getDate() + days);
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    return formatVaultDate(d);
 };
 
 // Serializes a Date into its LOCAL components ("YYYY-MM-DD" or, for datetime,
@@ -77,9 +77,11 @@ export const VaultDateProperty = ({
             const scalarValue = value && typeof value === 'object'
                 ? parsePeriod(value).start
                 : value;
-            const date = new Date(scalarValue);
+            const date = parseVaultDate(scalarValue);
             if (isNaN(date.getTime())) {
                 setInputValue(String(scalarValue || '')); // Keep manual text without rendering `[object Object]`.
+            } else if (date.getFullYear() < 0) {
+                setInputValue(formatVaultDate(date, { withTime: type === 'datetime' }));
             } else {
                 const options = { day: '2-digit', month: '2-digit', year: 'numeric' };
                 if (type === 'datetime') {
@@ -99,6 +101,10 @@ export const VaultDateProperty = ({
         setInputValue(val);
 
         // Try to parse if it looks like a complete date
+        if (/^-\d{4,}-\d{2}-\d{2}(?:T\d{2}:\d{2})?$/.test(val)) {
+            onChange(val);
+            return;
+        }
         if (val.length >= 10) {
             const parts = val.split(/[/\- :]/);
             if (parts.length >= 3) {
@@ -129,8 +135,9 @@ export const VaultDateProperty = ({
         const scalarValue = val && typeof val === 'object'
             ? parsePeriod(val).start
             : val;
-        const d = new Date(scalarValue);
+        const d = parseVaultDate(scalarValue);
         if (isNaN(d.getTime())) return '';
+        if (d.getFullYear() < 0) return '';
 
         const pad = (n) => String(n).padStart(2, '0');
         const datePart = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -141,6 +148,7 @@ export const VaultDateProperty = ({
     };
 
     const triggerPicker = () => {
+        if (isSignedVaultDate(value)) return;
         if (hiddenInputRef.current) {
             try {
                 if (hiddenInputRef.current.showPicker) {
@@ -491,7 +499,7 @@ export const VaultDateProperty = ({
             <div className="flex items-center gap-1 w-full">
                 <div className="flex-1 relative group">
                     <input
-                        type="date"
+                        type="text"
                         value={start || ''}
                         onChange={(e) => onChange(`${e.target.value}/${end || ''}`)}
                         className="w-full bg-transparent hover:bg-[var(--bg-tertiary)] text-xs rounded px-1 transition-colors outline-none cursor-pointer"
@@ -500,7 +508,7 @@ export const VaultDateProperty = ({
                 <span className="text-[var(--text-tertiary)]">→</span>
                 <div className="flex-1 relative group">
                     <input
-                        type="date"
+                        type="text"
                         value={end || ''}
                         onChange={(e) => onChange(`${start || ''}/${e.target.value}`)}
                         className="w-full bg-transparent hover:bg-[var(--bg-tertiary)] text-xs rounded px-1 transition-colors outline-none cursor-pointer"

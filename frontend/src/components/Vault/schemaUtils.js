@@ -168,6 +168,7 @@ export function buildSchemaFromTableProperties(tableProperties = []) {
         if (prop.duration_enabled !== undefined) config.duration_enabled = prop.duration_enabled !== false;
         if (prop.predecessors_enabled !== undefined) config.predecessors_enabled = prop.predecessors_enabled !== false;
         if (prop.skip_non_working_days !== undefined) config.skip_non_working_days = prop.skip_non_working_days !== false;
+        if (['hours', 'days', 'years'].includes(prop.period_unit)) config.period_unit = prop.period_unit;
         if (prop.format && typeof prop.format === 'object') config.format = prop.format;
         // Explicit select/multi_select/status options: the fixed catalog of
         // selectable values. There are two possible sources and they can diverge:
