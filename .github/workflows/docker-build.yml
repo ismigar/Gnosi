@@ -29,6 +29,7 @@ jobs:
     # fail-closed Docker startup guard. It signs no persistent sessions.
     env:
       GNOSI_JWT_SECRET: ci-only-7f15e867273441a6b3914705466593864d5f67b038f84301
+      XDG_RUNTIME_DIR: /run/user/501
     defaults:
       run:
         working-directory: monorepo/apps/gnosi
@@ -78,6 +79,8 @@ jobs:
 
   frontend:
     runs-on: [self-hosted, Linux, ARM64]
+    env:
+      XDG_RUNTIME_DIR: /run/user/501
     defaults:
       run:
         working-directory: monorepo/apps/gnosi
