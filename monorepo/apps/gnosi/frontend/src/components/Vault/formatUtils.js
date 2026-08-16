@@ -84,6 +84,8 @@ export function formatNumber(value, opts = {}) {
     }
 }
 
+import { formatVaultDate, parseVaultDate } from './dateUtils';
+
 const pad2 = (n) => String(n).padStart(2, '0');
 
 /**
@@ -101,10 +103,12 @@ export function formatDate(value, opts = {}) {
     // negative offset (e.g. America): "2024-10-04" would show up there as 03/10. We parse it
     // as LOCAL midnight so it always shows the literal day. Values with
     // a time (ISO datetime) are kept as before (correct tz conversion).
-    const d = (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.trim()))
-        ? new Date(value.trim() + 'T00:00:00')
-        : new Date(value);
+    const d = parseVaultDate(value);
     if (Number.isNaN(d.getTime())) return String(value);
+
+    // Intl uses eras for years before 1 CE, which makes the persisted signed
+    // representation ambiguous. Keep BCE values explicit in every locale.
+    if (d.getFullYear() < 0) return formatVaultDate(d, { withTime: type === 'datetime' });
 
     if (dateFormat === 'locale') {
         try {
