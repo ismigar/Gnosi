@@ -142,6 +142,20 @@ describe('assistant message presentation metadata', () => {
         });
     });
 
+    it('rewinds using alternative turn identifier fields', () => {
+        const messages = [
+            { role: 'user', content: 'Alternatiu', turn_ref: 't-1' },
+            { role: 'assistant', content: 'Resposta alternativa', turn_ref: 't-1' },
+        ];
+
+        expect(conversationRewindPlan(messages, 1)).toEqual({
+            beforeTurnId: 't-1',
+            keepMessages: 0,
+            localKeepCount: 0,
+            prompt: 'Alternatiu',
+        });
+    });
+
     it('merges only local presentation fields into canonical content', () => {
         const canonical = [
             { role: 'user', content: 'Question', turn_id: 'server-turn' },
@@ -212,6 +226,45 @@ describe('assistant message presentation metadata', () => {
         ]);
     });
 
+    it('reconciles using alternate turn id keys when no strict key matches', () => {
+        const canonical = [
+            { role: 'user', content: 'Prompt nou', turn_ref: 't-2' },
+            { role: 'assistant', content: 'Resposta nova', turn_ref: 't-2' },
+        ];
+        const cached = [
+            {
+                role: 'user',
+                content: 'Pregunta antiga',
+                session_id: 't-2',
+                processingMs: 1200,
+            },
+            {
+                role: 'assistant',
+                content: 'Antiga resposta',
+                conversation_id: 't-2',
+                processingMs: 2400,
+            },
+        ];
+
+        expect(mergeCanonicalMessageMetadata(canonical, cached)).toEqual([
+            {
+                role: 'user',
+                content: 'Prompt nou',
+                turn_ref: 't-2',
+                turnId: 't-2',
+                processingMs: 1200,
+            },
+            {
+                role: 'assistant',
+                content: 'Resposta nova',
+                turn_ref: 't-2',
+                turnId: 't-2',
+                processingMs: 2400,
+                timings: { total_ms: 2400 },
+            },
+        ]);
+    });
+
     it('uses duration-like aliases when timings are not available', () => {
         const canonical = [
             { role: 'assistant', content: 'Server timed answer' },
@@ -232,13 +285,58 @@ describe('assistant message presentation metadata', () => {
         }]);
     });
 
+    it('accepts alternative timing aliases from object payloads', () => {
+        const canonical = [
+            { role: 'assistant', content: 'Answer with alternate timing fields' },
+        ];
+        const cached = [
+            {
+                role: 'assistant',
+                content: 'Answer with alternate timing fields',
+                timings: {
+                    elapsed_seconds: 2.5,
+                    model_calls: 2,
+                },
+            },
+        ];
+
+        expect(mergeCanonicalMessageMetadata(canonical, cached)).toEqual([{
+            role: 'assistant',
+            content: 'Answer with alternate timing fields',
+            timings: {
+                total_ms: 2_500,
+                model_calls: 2,
+            },
+            processingMs: 2_500,
+        }]);
+    });
+
     it('resolves effective timing from alias fields', () => {
         expect(effectiveMessageTimingMs({ processingMs: 1200 })).toBe(1200);
         expect(effectiveMessageTimingMs({ timings: { total_ms: 2400 } })).toBe(2400);
         expect(effectiveMessageTimingMs({ turn_metrics: { total_ms: 900 } })).toBe(900);
+        expect(effectiveMessageTimingMs({ totalDurationMs: 1_200 })).toBe(1_200);
+        expect(effectiveMessageTimingMs({ processingDurationSec: 1.25 })).toBe(1_250);
+        expect(effectiveMessageTimingMs({ responseDuration: 1200 })).toBe(1200);
+        expect(effectiveMessageTimingMs({ durationInSeconds: 0.9 })).toBe(900);
         expect(effectiveMessageTimingMs({ duration_ms: 4000 })).toBe(4000);
         expect(effectiveMessageTimingMs({ turnMetrics: { total_ms: 1300 } })).toBe(1300);
+        expect(effectiveMessageTimingMs({ duration_seconds: 2.4 })).toBe(2_400);
+        expect(effectiveMessageTimingMs({ duration_seconds: '2.4' })).toBe(2_400);
+        expect(effectiveMessageTimingMs({ timings: { value: 2.5, unit: 's' } })).toBe(2_500);
+        expect(effectiveMessageTimingMs({ timings: { value: '2.5', unit: 's' } })).toBe(2_500);
+        expect(effectiveMessageTimingMs({ timings: { value: '2.5', unit: 'sec' } })).toBe(2_500);
+        expect(effectiveMessageTimingMs({ timings: { value: '2.5s' } })).toBe(2_500);
+        expect(effectiveMessageTimingMs({ timings: '2.5s' })).toBe(2_500);
         expect(effectiveMessageTimingMs({ duration: '5500' })).toBe(5500);
+        expect(effectiveMessageTimingMs({ durationSec: 4.2 })).toBe(4_200);
+        expect(effectiveMessageTimingMs({ responseSec: 0.75 })).toBe(750);
+        expect(effectiveMessageTimingMs({ response_seconds: 1.2 })).toBe(1_200);
+        expect(effectiveMessageTimingMs({ processingSecs: 3 })).toBe(3_000);
+        expect(effectiveMessageTimingMs({ timingSecs: 0.9 })).toBe(900);
+        expect(effectiveMessageTimingMs({ timeSecs: 0.5 })).toBe(500);
+        expect(effectiveMessageTimingMs({ seconds: 0.8 })).toBe(800);
+        expect(effectiveMessageTimingMs({ timings: { seconds: 0.7 } })).toBe(700);
         expect(effectiveMessageTimingMs({})).toBeNull();
     });
 });

@@ -741,6 +741,168 @@ def test_checkpoint_history_uses_ai_turn_id_when_human_id_is_missing():
     ]
 
 
+def test_checkpoint_history_uses_turn_id_aliases():
+    stored = [
+        HumanMessage(
+            content="Pregunta visible",
+            additional_kwargs={
+                "gnosi_visible_content": "Pregunta",
+                "turn_id": "turn-alias",
+            },
+        ),
+        AIMessage(
+            content="Resposta visible",
+            additional_kwargs={"turnId": "turn-alias"},
+        ),
+    ]
+
+    assert agent_routes._public_checkpoint_messages(stored) == [
+        {
+            "role": "user",
+            "content": "Pregunta",
+            "turn_id": "turn-alias",
+        },
+        {
+            "role": "assistant",
+            "content": "Resposta visible",
+            "turn_id": "turn-alias",
+        },
+    ]
+
+
+def test_checkpoint_history_uses_turn_object_aliases():
+    stored = [
+        HumanMessage(
+            content="Pregunta visible",
+            additional_kwargs={
+                "gnosi_visible_content": "Pregunta",
+                "turn": {"id": "turn-object"},
+            },
+        ),
+        AIMessage(
+            content="Resposta visible",
+            additional_kwargs={"turn": {"id": "turn-object"}},
+        ),
+    ]
+
+    assert agent_routes._public_checkpoint_messages(stored) == [
+        {
+            "role": "user",
+            "content": "Pregunta",
+            "turn_id": "turn-object",
+        },
+        {
+            "role": "assistant",
+            "content": "Resposta visible",
+            "turn_id": "turn-object",
+        },
+    ]
+
+
+def test_checkpoint_history_uses_turn_object_string_alias():
+    stored = [
+        AIMessage(
+            content="Resposta visible",
+            additional_kwargs={"turn": "turn-object-string"},
+        ),
+    ]
+
+    assert agent_routes._public_checkpoint_messages(stored) == [{
+        "role": "assistant",
+        "content": "Resposta visible",
+        "turn_id": "turn-object-string",
+    }]
+
+
+def test_checkpoint_history_uses_turn_ref_alias():
+    stored = [
+        HumanMessage(
+            content="Pregunta visible",
+            additional_kwargs={
+                "gnosi_visible_content": "Pregunta",
+                "turn_ref": "turn-ref",
+            },
+        ),
+        AIMessage(
+            content="Resposta visible",
+            additional_kwargs={"trace_id": "turn-ref"},
+        ),
+    ]
+
+    assert agent_routes._public_checkpoint_messages(stored) == [
+        {
+            "role": "user",
+            "content": "Pregunta",
+            "turn_id": "turn-ref",
+        },
+        {
+            "role": "assistant",
+            "content": "Resposta visible",
+            "turn_id": "turn-ref",
+        },
+    ]
+
+
+def test_checkpoint_history_uses_session_alias_from_metadata():
+    stored = [
+        AIMessage(
+            content="Resposta visible",
+            metadata={"session_id": "turn-session"},
+        ),
+    ]
+
+    assert agent_routes._public_checkpoint_messages(stored) == [{
+        "role": "assistant",
+        "content": "Resposta visible",
+        "turn_id": "turn-session",
+    }]
+
+
+def test_checkpoint_history_uses_metadata_turn_id_when_no_prior_turn_id():
+    stored = [
+        AIMessage(
+            content="Resposta amb metadata",
+            metadata={"gnosi_turn_id": "turn-metadata"},
+        ),
+    ]
+
+    assert agent_routes._public_checkpoint_messages(stored) == [{
+        "role": "assistant",
+        "content": "Resposta amb metadata",
+        "turn_id": "turn-metadata",
+    }]
+
+
+def test_checkpoint_history_uses_metadata_turn_object_alias():
+    stored = [
+        AIMessage(
+            content="Resposta amb metadata",
+            metadata={"turn": {"turnId": "turn-metadata-object"}},
+        ),
+    ]
+
+    assert agent_routes._public_checkpoint_messages(stored) == [{
+        "role": "assistant",
+        "content": "Resposta amb metadata",
+        "turn_id": "turn-metadata-object",
+    }]
+
+
+def test_checkpoint_history_uses_metadata_turn_string_alias():
+    stored = [
+        AIMessage(
+            content="Resposta amb metadata",
+            metadata={"turn": "turn-metadata-string"},
+        ),
+    ]
+
+    assert agent_routes._public_checkpoint_messages(stored) == [{
+        "role": "assistant",
+        "content": "Resposta amb metadata",
+        "turn_id": "turn-metadata-string",
+    }]
+
+
 def test_legacy_checkpoint_history_strips_internal_enrichment():
     stored = [
         HumanMessage(
