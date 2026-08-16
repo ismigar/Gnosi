@@ -1,20 +1,29 @@
 """Provider, cancellation, evidence-boundary, and capability health contracts."""
 
+import asyncio
+import threading
+import time
 from types import SimpleNamespace
 
 import pytest
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, HumanMessage
 
 from backend.agent.context_safety import sanitize_untrusted_context
-from backend.agent.provider_resilience import ProviderFallbackModel
+from backend.agent.context_safety import source_trust_label
+from backend.agent.conversation_memory import compact_history_digest
 from backend.agent import factory
+from backend.agent.provider_resilience import ProviderFallbackModel
+from backend.agent.vault_tools import _expanded_search_terms
 from backend.services.agent_cancellation import (
+    AgentTurnCancelled,
     cancel,
     create_cancel_token,
+    invoke_cancellable,
     is_cancelled,
     release,
 )
 from backend.services.agent_capability_health import assess_tool_capability
+from backend.services.provider_health import reset as reset_provider_health
 from backend.agent.evals.runner import evaluate_case, load_cases
 
 
@@ -35,6 +44,7 @@ class _Model:
 
 
 def test_provider_fallback_only_handles_transient_failures():
+    reset_provider_health()
     primary = _Model(error=TimeoutError("provider timeout"))
     fallback = _Model()
     proxy = ProviderFallbackModel([
@@ -49,12 +59,55 @@ def test_provider_fallback_only_handles_transient_failures():
     assert primary.calls == 1
     assert fallback.calls == 1
 
+    reset_provider_health()
     denied = ProviderFallbackModel([
         ("primary", "one", _Model(error=ValueError("invalid api key"))),
         ("backup", "two", _Model()),
     ])
     with pytest.raises(ValueError):
         denied.invoke(["hello"])
+    reset_provider_health()
+
+
+def test_provider_circuit_breaker_skips_repeated_transient_candidate():
+    reset_provider_health()
+    primary = _Model(error=TimeoutError("provider timeout"))
+    fallback = _Model()
+    proxy = ProviderFallbackModel([
+        ("breaker-primary", "one", primary),
+        ("breaker-backup", "two", fallback),
+    ])
+
+    assert proxy.invoke(["first"]).content == "ok"
+    assert proxy.invoke(["second"]).content == "ok"
+    assert primary.calls == 1
+    assert any(event["reason"] == "circuit_open" for event in proxy.fallback_events)
+    reset_provider_health()
+
+
+class _AsyncSlowModel(_Model):
+    async def ainvoke(self, _input, **_kwargs):
+        await asyncio.sleep(10)
+        return self.response
+
+
+def test_in_flight_model_operation_is_cancelled():
+    token = create_cancel_token()
+    outcome = {}
+
+    def run():
+        try:
+            invoke_cancellable(_AsyncSlowModel(), ["hello"], token)
+        except AgentTurnCancelled:
+            outcome["cancelled"] = True
+
+    worker = threading.Thread(target=run)
+    worker.start()
+    time.sleep(0.1)
+    cancel(token)
+    worker.join(timeout=2)
+    release(token)
+    assert outcome.get("cancelled") is True
 
 
 def test_cancellation_registry_is_request_scoped():
@@ -71,6 +124,30 @@ def test_untrusted_evidence_is_marked_without_executing_instructions():
     assert flags
     assert "BEGIN UNTRUSTED SOURCE" in safe
     assert "[source label]:" in safe
+    assert source_trust_label("url") == "external_untrusted_evidence"
+    assert source_trust_label("vault") == "private_evidence"
+
+
+def test_multilingual_search_expands_intent_without_raw_prompt_rewriting():
+    terms = _expanded_search_terms("como encontrar fuentes bibliográficas de calidad")
+    assert {"fuentes", "bibliografia", "fonts", "search", "quality"}.issubset(terms)
+
+
+def test_dropped_history_is_compacted_into_bounded_digest():
+    messages = [
+        message
+        for index in range(40)
+        for message in (
+            HumanMessage(content=f"Question {index}"),
+            AIMessage(content=f"Answer {index}"),
+        )
+    ]
+    bounded = factory._bounded_model_messages(messages, 8_000)
+    assert bounded[0].type == "system"
+    assert "Earlier conversation memory" in bounded[0].content
+    assert "Question 0" in bounded[0].content
+    assert "Answer 39" in " ".join(str(message.content) for message in bounded)
+    assert len(compact_history_digest(messages, max_chars=100)) <= 100
 
 
 def test_capability_health_reports_missing_handlers():

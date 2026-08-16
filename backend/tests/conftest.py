@@ -13,6 +13,9 @@ import pytest
 import requests
 
 BACKEND = os.environ.get("GNOSI_BACKEND_URL", "http://127.0.0.1:5002")
+RUN_LIVE_E2E = os.environ.get("GNOSI_RUN_LIVE_E2E", "").strip().lower() in {
+    "1", "true", "yes",
+}
 
 # E2E helpers talk to a LIVE backend. Unauthenticated calls only work while it
 # still falls back to the legacy account; against one running with
@@ -43,7 +46,7 @@ def _cleanup_pytest_pages():
     """
     yield
 
-    if not _backend_alive():
+    if not RUN_LIVE_E2E or not _backend_alive():
         return
 
     try:

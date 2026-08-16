@@ -17,6 +17,7 @@ from __future__ import annotations
 import re
 import threading
 import time
+import unicodedata
 from typing import Any, Dict, List, Optional
 
 from backend.utils.safe_io import sanitize_rel_folder, sanitize_vault_title
@@ -92,15 +93,32 @@ def _expanded_search_terms(query: str) -> set[str]:
     terms = _tokenize(query)
     synonyms = {
         "bibliografia": {"font", "fonts", "referencia", "referencies", "article"},
+        "bibliografica": {"bibliografia", "font", "fonts", "referencia", "referencies"},
+        "bibliografic": {"bibliografia", "font", "fonts", "referencia", "referencies"},
+        "bibliograficas": {"bibliografia", "font", "fonts", "referencia", "referencies"},
         "bibliogràfiques": {"font", "fonts", "referencia", "referencies"},
         "fuentes": {"font", "fonts", "referencia", "referencies"},
+        "fontes": {"font", "fonts", "referencia", "referencies"},
         "coaching": {"acompanyament", "lideratge", "formacio"},
         "sources": {"font", "fonts", "reference", "references"},
         "search": {"cerca", "recuperacio", "find", "query"},
         "cerca": {"search", "recuperacio", "find", "query"},
+        "encontrar": {"cerca", "search", "find", "recuperacio"},
+        "qualitat": {"calidad", "quality"},
+        "calidad": {"qualitat", "quality"},
     }
     expanded = set(terms)
-    for term in terms:
+    for term in list(terms):
+        plain = "".join(
+            character
+            for character in unicodedata.normalize("NFKD", term)
+            if not unicodedata.combining(character)
+        )
+        expanded.add(plain)
+        for suffix in ("ments", "ment", "aciones", "ación", "es", "s"):
+            if len(plain) > len(suffix) + 3 and plain.endswith(suffix):
+                expanded.add(plain[: -len(suffix)])
+    for term in list(expanded):
         expanded.update(synonyms.get(term, ()))
     return expanded
 
@@ -360,7 +378,8 @@ def query_wiki(query: str, k: int = 5) -> str:
             continue
         role = str(record.get("managed_role") or "")
         index_boost = 3 if role in {"general-index", "dimension-index", "resource-index"} else 0
-        exact_title_boost = 4 if normalized_query and normalized_query in title.casefold() else 0
+        normalized_title = " ".join(title.casefold().split())
+        exact_title_boost = 4 if normalized_query and normalized_query in normalized_title else 0
         scored.append({
             "title": title,
             "type": str(record.get("note_type") or ""),

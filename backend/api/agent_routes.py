@@ -457,6 +457,7 @@ def _tool_stream_event(
     tool_name: Optional[str],
     node_name: str,
     metadata: Optional[Dict[str, Any]] = None,
+    trace_id: Optional[str] = None,
 ) -> str:
     """Serialize public tool lifecycle metadata without arguments or results."""
     payload = {
@@ -464,6 +465,8 @@ def _tool_stream_event(
         "tool": tool_name,
         "node": node_name,
     }
+    if trace_id:
+        payload["trace_id"] = trace_id
     if metadata:
         payload.update({
             "tool_id": metadata.get("id"),
@@ -1726,6 +1729,7 @@ async def chat_endpoint(
     """
     request_started_at = time.monotonic()
     cancel_token = ""
+    trace_id = uuid.uuid4().hex
     try:
         agent_id = _validated_identifier(chat_req.agent_id, "agent_id")
         session_id = _validated_identifier(chat_req.session_id, "session_id")
@@ -1833,6 +1837,7 @@ async def chat_endpoint(
             "current_user_role": workspace_context.role,
             "turn_plan": turn_plan,
             "cancel_token": cancel_token,
+            "trace_id": trace_id,
         }
         
         # 3. Configure memory thread (per agent + session)
@@ -1895,6 +1900,7 @@ async def chat_endpoint(
                 )
                 return {
                     "type": "turn_metrics",
+                    "trace_id": trace_id,
                     "setup_ms": setup_ms,
                     "routing_ms": routing_ms,
                     "model_ms": model_ms,
@@ -1953,6 +1959,7 @@ async def chat_endpoint(
                     return
                 yield json.dumps({
                     "type": "turn_plan",
+                    "trace_id": trace_id,
                     "plan": {
                         key: turn_plan.get(key)
                         for key in (
@@ -1979,6 +1986,7 @@ async def chat_endpoint(
                     metrics_emitted = True
                     yield json.dumps({
                         "type": "done",
+                        "trace_id": trace_id,
                         "has_response": True,
                         "message_count": answer_count,
                     }) + "\n"
@@ -1986,13 +1994,21 @@ async def chat_endpoint(
                 if llm_selection:
                     yield json.dumps({
                         "type": "llm_selected",
+                        "trace_id": trace_id,
                         "mode": llm_selection.get("mode") or chat_req.llm_mode,
                         "provider": llm_selection.get("provider"),
                         "model": llm_selection.get("model"),
                         "fallbacks": list(llm_selection.get("fallbacks") or []),
+                        "provider_health": list(
+                            llm_selection.get("provider_health") or []
+                        )[:16],
+                        "connector_health": list(
+                            llm_selection.get("connector_health") or []
+                        )[:32],
                     }) + "\n"
                     yield json.dumps({
                         "type": "agent_runtime",
+                        "trace_id": trace_id,
                         "assigned_skill_ids": list(
                             llm_selection.get("assigned_skill_ids") or [],
                         ),
@@ -2085,6 +2101,7 @@ async def chat_endpoint(
                                                     tool_metadata_by_name.get(
                                                         tool_name,
                                                     ),
+                                                    trace_id=trace_id,
                                                 )
                                             continue
 
@@ -2107,6 +2124,7 @@ async def chat_endpoint(
                                                 msg.name,
                                                 node_name,
                                                 tool_metadata,
+                                                trace_id=trace_id,
                                             )
                                             if pending_confirmation:
                                                 answer_count += 1
@@ -2140,6 +2158,7 @@ async def chat_endpoint(
                                                 )
                                             yield json.dumps({
                                                 "type": "message",
+                                                "trace_id": trace_id,
                                                 "role": "ai",
                                                 "content": content,
                                                 "node": node_name,
@@ -2168,6 +2187,7 @@ async def chat_endpoint(
                 metrics_emitted = True
                 yield json.dumps({
                     "type": "done",
+                    "trace_id": trace_id,
                     "has_response": answer_count > 0,
                     "message_count": answer_count,
                 }) + "\n"
@@ -2175,7 +2195,8 @@ async def chat_endpoint(
             except Exception as e:
                 error_str = str(e)
                 log.exception(
-                    "Agent event generator failed (%s; active_tools=%s): %s",
+                    "Agent event generator failed (trace_id=%s; %s; active_tools=%s): %s",
+                    trace_id,
                     type(e).__name__,
                     sorted(active_tool_names),
                     error_str or "no exception message",
@@ -2284,7 +2305,11 @@ async def chat_endpoint(
                 except Exception:  # noqa: BLE001
                     log.exception("Failed to record agent quality telemetry.")
 
-                error_payload = {"type": "error", "content": friendly_error}
+                error_payload = {
+                    "type": "error",
+                    "trace_id": trace_id,
+                    "content": friendly_error,
+                }
                 if error_code:
                     error_payload["code"] = error_code
                 yield json.dumps(error_payload) + "\n"
@@ -2293,6 +2318,7 @@ async def chat_endpoint(
                     metrics_emitted = True
                 yield json.dumps({
                     "type": "done",
+                    "trace_id": trace_id,
                     "has_response": True,
                     "message_count": 1,
                 }) + "\n"

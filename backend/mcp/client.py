@@ -179,6 +179,8 @@ class MultiServerMCPClient:
         # for every agent call. Now it's resolved from the cache; it only refreshes
         # on a MISS (new tool, server started later).
         self._tool_server_cache: Dict[str, str] = {}
+        self._health_cache: Dict[str, Dict[str, Any]] = {}
+        self._health_checked_at = 0.0
 
     async def start(self):
         # Start all servers in parallel to avoid blocking the App's startup
@@ -228,6 +230,23 @@ class MultiServerMCPClient:
             except Exception as e:
                 log.error(f"Failed to list tools for {name}: {e}")
         return all_tools
+
+    async def health_snapshot(self, *, force: bool = False) -> list[dict[str, Any]]:
+        """Return connector readiness without re-listing tools on every turn."""
+        now = asyncio.get_running_loop().time()
+        if self._health_cache and not force and now - self._health_checked_at < 30:
+            return list(self._health_cache.values())
+        snapshot: Dict[str, Dict[str, Any]] = {}
+        for name, client in self.clients.items():
+            running = bool(client.process and client.process.returncode is None)
+            snapshot[name] = {
+                "server": name,
+                "status": "healthy" if running else "unavailable",
+                "reason": "process_ready" if running else "process_not_running",
+            }
+        self._health_cache = snapshot
+        self._health_checked_at = now
+        return list(snapshot.values())
 
     async def _refresh_tool_routing(self):
         """Rebuilds the tool→server cache by listing all tools once."""

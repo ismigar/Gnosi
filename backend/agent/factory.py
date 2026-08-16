@@ -66,9 +66,16 @@ from backend.agent.turn_contract import build_turn_plan, verify_response
 from backend.config.app_config import load_params
 from backend.security.ai_credentials import resolve_provider_api_key
 from backend.services.capability_audit import record_capability_event
-from backend.services.agent_cancellation import is_cancelled
+from backend.services.agent_cancellation import (
+    AgentTurnCancelled,
+    invoke_cancellable,
+    is_cancelled,
+)
 from backend.services.agent_capability_health import assess_tool_capability
+from backend.services.provider_health import snapshot as provider_health_snapshot
 from backend.agent.provider_resilience import wrap_provider_candidates
+from backend.agent.conversation_memory import compact_history_digest
+from backend.agent.context_safety import source_trust_label
 
 cfg = load_params(strict_env=False)
 BASE_DIR = cfg.paths.get("PROJECT_DIR") or Path(__file__).resolve().parent.parent.parent
@@ -169,7 +176,9 @@ def _bounded_model_messages(
     transcript, but their raw payloads are not useful evidence for a later turn.
     The current turn keeps complete assistant/tool protocol groups.
     """
-    source = list(messages)[-MAX_MODEL_MESSAGE_COUNT:]
+    all_messages = list(messages)
+    dropped_messages = all_messages[:-MAX_MODEL_MESSAGE_COUNT]
+    source = all_messages[-MAX_MODEL_MESSAGE_COUNT:]
     units: List[List[BaseMessage]] = []
     index = 0
     while index < len(source):
@@ -324,11 +333,16 @@ def _bounded_model_messages(
         remaining -= unit_chars
         if remaining <= 0:
             break
-    return [
+    projected = [
         message
         for _unit_index, unit in sorted(selected_units, key=lambda item: item[0])
         for message in unit
     ]
+    if dropped_messages:
+        digest = compact_history_digest(dropped_messages)
+        if digest:
+            projected.insert(0, SystemMessage(content=digest))
+    return projected
 
 
 AUTO_SIMPLE_KEYWORDS = {
@@ -2202,12 +2216,19 @@ class AgentState(TypedDict):
     turn_plan: dict
     remaining_steps: RemainingSteps
     cancel_token: str
+    trace_id: str
 
 
 def _turn_is_cancelled(state: Any) -> bool:
     """Read the request cancellation signal without capturing it in a graph."""
     token = state.get("cancel_token", "") if isinstance(state, dict) else getattr(state, "cancel_token", "")
     return is_cancelled(str(token or ""))
+
+
+def _invoke_agent_model(model: Any, prompt: Any, state: Any) -> Any:
+    """Invoke a model with request cancellation when the graph has a token."""
+    token = state.get("cancel_token", "") if isinstance(state, dict) else ""
+    return invoke_cancellable(model, prompt, str(token or ""))
 
 
 def _turn_authorized_tool_names(state: Any) -> set[str]:
@@ -2752,6 +2773,12 @@ async def create_agent_workflow(
         resolved_runtime = runtime_capabilities
 
     providers = ai_cfg.get("providers", {})
+    connector_health = []
+    if callable(getattr(mcp_client, "health_snapshot", None)):
+        try:
+            connector_health = await mcp_client.health_snapshot()
+        except Exception as error:  # noqa: BLE001
+            log.warning("Could not read connector health: %s", error)
 
     # Priority: supplied agent_id -> active_agent_id -> first enabled agent.
     target_id = agent_id or ai_cfg.get("active_agent_id")
@@ -3161,7 +3188,10 @@ async def create_agent_workflow(
         if context_refs and request_mode in {"lookup", "inventory", "analysis"}:
             return {"next": "Brain"}
         prompt = [SystemMessage(content=supervisor_prompt)] + _bounded_model_messages(messages, message_budget_chars)
-        response = llm.invoke(prompt)
+        try:
+            response = _invoke_agent_model(llm, prompt, state)
+        except AgentTurnCancelled:
+            return {"next": "FINISH"}
 
         decision = response.content.strip().replace("'", "").replace('"', "")
         if "Coder" in decision:
@@ -3188,9 +3218,14 @@ async def create_agent_workflow(
                 else ""
             )
         )
-        response = coder_llm.invoke(
-            [SystemMessage(content=coder_system)] + _bounded_model_messages(messages, message_budget_chars)
-        )
+        try:
+            response = _invoke_agent_model(
+                coder_llm,
+                [SystemMessage(content=coder_system)] + _bounded_model_messages(messages, message_budget_chars),
+                state,
+            )
+        except AgentTurnCancelled:
+            return {"next": "FINISH"}
         response = verify_response(
             response,
             messages=messages,
@@ -3601,9 +3636,14 @@ async def create_agent_workflow(
                 "Answer directly from it now. Do not call another tool, repeat "
                 "the query, or claim that the attached table is unavailable."
             )
-        response = selected_brain_llm.invoke(
-            [SystemMessage(content=brain_system)] + _bounded_model_messages(messages, message_budget_chars),
-        )
+        try:
+            response = _invoke_agent_model(
+                selected_brain_llm,
+                [SystemMessage(content=brain_system)] + _bounded_model_messages(messages, message_budget_chars),
+                state,
+            )
+        except AgentTurnCancelled:
+            return {"next": "FINISH"}
         response = verify_response(
             response,
             messages=messages,
@@ -3616,9 +3656,14 @@ async def create_agent_workflow(
             return {"next": "FINISH"}
         messages = state["messages"]
         # Use explicit persona for general conversation
-        response = llm.invoke(
-            [SystemMessage(content=general_prompt)] + _bounded_model_messages(messages, message_budget_chars)
-        )
+        try:
+            response = _invoke_agent_model(
+                llm,
+                [SystemMessage(content=general_prompt)] + _bounded_model_messages(messages, message_budget_chars),
+                state,
+            )
+        except AgentTurnCancelled:
+            return {"next": "FINISH"}
         response = verify_response(
             response,
             messages=messages,
@@ -3692,6 +3737,8 @@ async def create_agent_workflow(
         "provider": provider_name,
         "model": model_name,
         "fallbacks": fallback_metadata,
+        "provider_health": provider_health_snapshot(),
+        "connector_health": list(connector_health)[:32],
         "assigned_skill_ids": list(assigned_runtime_skill_ids),
         "active_skill_ids": list(active_runtime_skill_ids),
         "missing_skill_ids": list(
@@ -3724,7 +3771,7 @@ async def create_agent_workflow(
                 key: ref.get(key)
                 for key in ("id", "type", "ref", "label", "scope")
                 if ref.get(key) not in (None, "", {})
-            }
+            } | {"trust": source_trust_label(ref.get("type"))}
             for ref in context_refs[:16]
             if isinstance(ref, dict)
         ],

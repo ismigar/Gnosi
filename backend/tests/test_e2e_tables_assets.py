@@ -24,6 +24,9 @@ import requests
 BACKEND = os.environ.get("GNOSI_BACKEND_URL", "http://127.0.0.1:5002")
 VAULT = Path(os.environ.get("DIGITAL_BRAIN_VAULT_PATH", "/vault"))
 ASSETS = VAULT / "Assets"
+RUN_LIVE_E2E = os.environ.get("GNOSI_RUN_LIVE_E2E", "").strip().lower() in {
+    "1", "true", "yes",
+}
 
 
 def _backend_alive() -> bool:
@@ -35,8 +38,8 @@ def _backend_alive() -> bool:
 
 
 pytestmark = pytest.mark.skipif(
-    not _backend_alive() or not ASSETS.exists(),
-    reason="backend not reachable or vault not mounted; E2E skipped",
+    not RUN_LIVE_E2E or not _backend_alive() or not ASSETS.exists(),
+    reason="live E2E is opt-in and requires a reachable isolated vault",
 )
 
 
