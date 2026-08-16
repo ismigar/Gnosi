@@ -41,6 +41,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # The self-hosted runner does not expose its internal action runtime on PATH.
+      # Plugin contribution tests invoke the host `node` executable directly.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
       # 3.11 is what the maintainer's venv runs; the ML pins in requirements.txt
       # are validated against it.
       - uses: actions/setup-python@v7
