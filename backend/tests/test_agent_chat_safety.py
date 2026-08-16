@@ -652,6 +652,78 @@ def test_checkpoint_history_hides_attachment_enrichment_and_tool_calls():
     ]
 
 
+def test_checkpoint_history_includes_turn_timings():
+    stored = [
+        HumanMessage(
+            content="Pregunta visible",
+            additional_kwargs={
+                "gnosi_visible_content": "Pregunta",
+                "gnosi_turn_id": "turn-1",
+            },
+        ),
+        AIMessage(
+            content="Resposta 1",
+            additional_kwargs={
+                "gnosi_timings": {
+                    "total_ms": 1_250,
+                    "setup_ms": 20,
+                    "tool_calls": 1,
+                    "input_tokens": 12,
+                },
+            },
+        ),
+        HumanMessage(
+            content="Segona visible",
+            additional_kwargs={
+                "gnosi_visible_content": "Segona visible",
+                "gnosi_turn_id": "turn-2",
+            },
+        ),
+        AIMessage(
+            content="Resposta 2",
+            additional_kwargs={
+                "gnosi_timings": {
+                    "total_ms": 900,
+                    "model_calls": 1,
+                },
+            },
+        ),
+    ]
+
+    assert agent_routes._public_checkpoint_messages(stored) == [
+        {
+            "role": "user",
+            "content": "Pregunta",
+            "turn_id": "turn-1",
+        },
+        {
+            "role": "assistant",
+            "content": "Resposta 1",
+            "timings": {
+                "total_ms": 1_250,
+                "setup_ms": 20,
+                "tool_calls": 1,
+                "input_tokens": 12,
+            },
+            "turn_id": "turn-1",
+        },
+        {
+            "role": "user",
+            "content": "Segona visible",
+            "turn_id": "turn-2",
+        },
+        {
+            "role": "assistant",
+            "content": "Resposta 2",
+            "timings": {
+                "total_ms": 900,
+                "model_calls": 1,
+            },
+            "turn_id": "turn-2",
+        },
+    ]
+
+
 def test_legacy_checkpoint_history_strips_internal_enrichment():
     stored = [
         HumanMessage(
