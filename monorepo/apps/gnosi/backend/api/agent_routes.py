@@ -589,6 +589,7 @@ def _public_checkpoint_message_entries(
                     ("freshness", "gnosi_freshness"),
                     ("job", "gnosi_job"),
                     ("explanation", "gnosi_explanation"),
+                    ("timings", "gnosi_timings"),
                 ):
                     value = assistant_metadata.get(internal_key)
                     if value is not None:
@@ -1950,6 +1951,19 @@ async def chat_endpoint(
                                                 ) + "\n"
                                         elif msg.type == "ai" and content:
                                             answer_count += 1
+                                            timings = metrics_payload()
+                                            metadata = getattr(msg, "additional_kwargs", {})
+                                            if not isinstance(metadata, dict):
+                                                metadata = {}
+                                            metadata["gnosi_timings"] = timings
+                                            try:
+                                                msg.additional_kwargs = metadata
+                                            except Exception:  # noqa: BLE001
+                                                # Some message implementations expose
+                                                # immutable metadata containers; fall back
+                                                # to stream-only visibility when persistence
+                                                # is not possible.
+                                                pass
                                             metadata = dict(
                                                 getattr(msg, "additional_kwargs", {}) or {}
                                             )
@@ -1971,6 +1985,7 @@ async def chat_endpoint(
                                                 "freshness": metadata.get("gnosi_freshness"),
                                                 "job": metadata.get("gnosi_job"),
                                                 "explanation": metadata.get("gnosi_explanation"),
+                                                "timings": timings,
                                             }) + "\n"
 
                 if total_in_tok or total_out_tok:
