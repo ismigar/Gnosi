@@ -548,11 +548,17 @@ def _public_checkpoint_message_entries(
                     nested_turn.get("id")
                     or nested_turn.get("turn_id")
                     or nested_turn.get("turnId")
+                    or nested_turn.get("value")
                 )
             elif isinstance(nested_turn, str):
                 turn_id = nested_turn
         if isinstance(turn_id, dict):
-            turn_id = turn_id.get("id")
+            turn_id = (
+                turn_id.get("id")
+                or turn_id.get("turn_id")
+                or turn_id.get("turnId")
+                or turn_id.get("value")
+            )
         return turn_id
 
     current_turn_id = ""
@@ -585,7 +591,7 @@ def _public_checkpoint_message_entries(
         if message_turn_id is None:
             message_turn_id = _extract_turn_payload(
                 getattr(message, "metadata", {}),
-                allow_nested=False,
+                allow_nested=True,
             )
         if message_turn_id:
             if role == "human":

@@ -8,24 +8,59 @@ const TURN_TIMING_COUNT_FIELDS = [
 const TIMING_OBJECT_TOTAL_FIELDS = [
     'total_ms',
     'total',
+    'total_ms_value',
+    'total_milliseconds',
     'elapsed_ms',
     'elapsed',
+    'elapsedMs',
+    'elapsed_seconds',
+    'elapsedSecs',
+    'elapsedSec',
     'latency_ms',
     'latency',
+    'latency_seconds',
+    'latencySecs',
+    'latencySec',
     'response_ms',
     'response_time_ms',
+    'response_time',
+    'responseTime',
+    'responseSec',
+    'response_seconds',
+    'responseSecs',
     'processing_ms',
     'processing',
+    'processingMs',
+    'processing_ms_value',
+    'processing_time_ms',
+    'processing_time',
+    'processingTime',
     'duration_ms',
+    'duration_ms_value',
     'durationMs',
+    'durationInMs',
+    'duration_in_ms',
     'duration_seconds',
+    'durationSeconds',
     'durationSecs',
     'durationSec',
     'duration_s',
     'total_seconds',
+    'totalSecs',
+    'totalSec',
     'seconds',
+    'seconds_time',
     'time_ms',
     'time',
+    'time_ms_value',
+    'time_seconds',
+    'timeSec',
+    'timeSecs',
+    'timing_ms',
+    'timing',
+    'timing_seconds',
+    'timingSecs',
+    'timingSec',
 ];
 const PRESENTATION_FIELDS = [
     'turnId', 'turn_id', 'processingMs', 'timings',
@@ -155,7 +190,22 @@ const parseDurationToMs = (value, unitHint = null) => {
 const parseTimingObjectMs = (value) => {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
     for (const key of TIMING_OBJECT_TOTAL_FIELDS) {
-        const parsed = parseDurationToMs(value[key]);
+        const lowered = key.toLowerCase();
+        const unitHint = lowered.endsWith('_ms') || lowered.endsWith('_ms_value')
+            || /_milliseconds?$/.test(lowered) || lowered.endsWith('ms')
+            || lowered === 'durationms'
+            || lowered === 'processingms'
+            || lowered === 'responsems'
+            || lowered === 'elapsedms'
+            || lowered === 'latencyms'
+            || lowered === 'timingms'
+            ? 'ms'
+            : /_seconds?$/.test(lowered) || /_secs?$/.test(lowered) || lowered.endsWith('secs')
+                || lowered.endsWith('sec')
+                || lowered === 'seconds'
+                ? 's'
+                : null;
+        const parsed = parseDurationToMs(value[key], unitHint);
         if (parsed !== null) return parsed;
     }
     if (value.value !== undefined && value.unit !== undefined) {
@@ -186,12 +236,53 @@ const timedPayloadFromMessage = (message) => {
         { value: message.metrics, unitHint: null },
         { value: message.metric, unitHint: null },
         { value: message.timing, unitHint: null },
+        { value: message.total, unitHint: 'ms' },
+        { value: message.total_ms, unitHint: 'ms' },
         { value: message.duration_seconds, unitHint: 's' },
+        { value: message.durationSeconds, unitHint: 's' },
         { value: message.duration_secs, unitHint: 's' },
+        { value: message.durationSecs, unitHint: 's' },
+        { value: message.total_seconds, unitHint: 's' },
+        { value: message.totalSeconds, unitHint: 's' },
+        { value: message.totalSec, unitHint: 's' },
         { value: message.durationSec, unitHint: 's' },
         { value: message.duration_ms, unitHint: 'ms' },
         { value: message.durationMs, unitHint: 'ms' },
+        { value: message.durationInMs, unitHint: 'ms' },
+        { value: message.duration_in_ms, unitHint: 'ms' },
         { value: message.duration, unitHint: 'ms' },
+        { value: message.response_time, unitHint: 'ms' },
+        { value: message.response_time_ms, unitHint: 'ms' },
+        { value: message.responseTime, unitHint: 'ms' },
+        { value: message.response_time_seconds, unitHint: 's' },
+        { value: message.response_seconds, unitHint: 's' },
+        { value: message.responseSeconds, unitHint: 's' },
+        { value: message.responseTimeSeconds, unitHint: 's' },
+        { value: message.responseSecs, unitHint: 's' },
+        { value: message.responseSec, unitHint: 's' },
+        { value: message.response_secs, unitHint: 's' },
+        { value: message.processing_time, unitHint: 'ms' },
+        { value: message.processing_time_ms, unitHint: 'ms' },
+        { value: message.processingTime, unitHint: 'ms' },
+        { value: message.processing_time_seconds, unitHint: 's' },
+        { value: message.processing_seconds, unitHint: 's' },
+        { value: message.processingSeconds, unitHint: 's' },
+        { value: message.processingTimeSeconds, unitHint: 's' },
+        { value: message.processingSecs, unitHint: 's' },
+        { value: message.processingSec, unitHint: 's' },
+        { value: message.processing_secs, unitHint: 's' },
+        { value: message.timing_ms, unitHint: 'ms' },
+        { value: message.timingMs, unitHint: 'ms' },
+        { value: message.timing_ms_value, unitHint: 'ms' },
+        { value: message.timing_seconds, unitHint: 's' },
+        { value: message.timingSecs, unitHint: 's' },
+        { value: message.timingSec, unitHint: 's' },
+        { value: message.time, unitHint: 'ms' },
+        { value: message.time_ms, unitHint: 'ms' },
+        { value: message.time_seconds, unitHint: 's' },
+        { value: message.timeSec, unitHint: 's' },
+        { value: message.timeSecs, unitHint: 's' },
+        { value: message.seconds, unitHint: 's' },
     ];
     for (const { value, unitHint } of candidateValues) {
         const candidate = value;
