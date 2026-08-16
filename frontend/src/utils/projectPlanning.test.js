@@ -86,6 +86,13 @@ describe('project planning periods', () => {
         )).toBe(0.5);
     });
 
+    it('preserves signed years in planning boundaries', () => {
+        expect(nextWorkingInstant('-0044-03-15T09:00', settings, false))
+            .toBe('-0044-03-15T09:00');
+        expect(addWorkingDuration('-0044-03-15T09:00', 1, settings, false))
+            .toBe('-0044-03-15T17:00');
+    });
+
     it('normalizes a predecessor finish at day end to the next work instant', () => {
         expect(nextWorkingInstant('2026-07-31T17:00', settings, true))
             .toBe('2026-08-04T09:00');
