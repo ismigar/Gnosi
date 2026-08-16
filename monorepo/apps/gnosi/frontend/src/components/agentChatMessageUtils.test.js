@@ -4,6 +4,7 @@ import {
     boundedProcessingMs,
     effectiveMessageTimingMs,
     boundedTransparencyMetadata,
+    boundedTurnPlan,
     boundedTurnMetrics,
     conversationRewindPlan,
     mergeCanonicalMessageMetadata,
@@ -35,6 +36,22 @@ describe('assistant message presentation metadata', () => {
             model_calls: 0,
         });
         expect(boundedTurnMetrics(null)).toBeNull();
+    });
+
+    it('bounds the universal turn budget before displaying it', () => {
+        expect(boundedTurnPlan({
+            budgets: {
+                timeout_seconds: 99999,
+                max_model_calls: 999,
+                max_tool_calls: 999,
+                max_read_tool_results: 999,
+            },
+        }).budgets).toEqual({
+            timeout_seconds: 3600,
+            max_model_calls: 128,
+            max_tool_calls: 256,
+            max_read_tool_results: 256,
+        });
     });
 
     it('keeps only bounded operational transparency metadata', () => {

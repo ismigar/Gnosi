@@ -52,8 +52,8 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
-          cache: pip
-          cache-dependency-path: monorepo/apps/gnosi/requirements.txt
+          # Do not restore pip cache on the self-hosted ARM runner: the large
+          # ML archive can time out before the test job starts.
 
       - name: Install dependencies
         run: |

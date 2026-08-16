@@ -4823,6 +4823,7 @@
     "explanation_title": "Cómo se ha producido esta respuesta",
     "explanation_plan": "Modo: {{mode}} · Ruta: {{route}} · Ejecución: {{execution}}",
     "explanation_evidence": "{{count}} elementos de evidencia · {{tools}} herramientas",
+    "explanation_budget": "Presupuesto: {{models}} llamadas de modelo · {{tools}} llamadas de herramienta · {{seconds}} s",
     "privacy_title": "Privacidad",
     "privacy_summary": "{{classification}} · {{count}} fuentes privadas · datos minimizados: {{minimized}}",
     "privacy_remote_processing": "El modelo remoto configurado puede procesar la evidencia privada estrictamente necesaria.",

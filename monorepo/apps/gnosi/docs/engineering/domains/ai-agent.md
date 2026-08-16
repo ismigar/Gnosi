@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-15
+last_verified: 2026-08-16
 source_paths:
   - backend/agent
   - backend/api/agent_routes.py
@@ -197,6 +197,17 @@ keeps requesting tools, the next Brain invocation receives the accumulated
 evidence without tool bindings and must synthesize the response. The graph
 recursion ceiling therefore remains a final safety net rather than normal flow
 control.
+
+The universal plan also carries an immutable operational budget for every turn:
+the HTTP timeout, maximum model calls, maximum tool calls, and maximum read
+results. Conversation turns receive a short no-tool budget; lookup and
+inventory turns receive bounded read budgets; analysis and governed actions
+receive a larger but finite budget. The graph enforces these values before the
+next provider or tool invocation, and the stream exposes the same values and
+whether a limit was reached. A zero tool budget is a mode declaration, not an
+authorization bypass: mandatory server-authored context reads still follow
+their explicit path. Dynamic context tools are not selected for a general
+question unless the user actually supplied a context source.
 
 The ToolNode retains the complete active-skill runtime for execution and policy
 checks, while each model invocation binds only passive read tools plus guarded

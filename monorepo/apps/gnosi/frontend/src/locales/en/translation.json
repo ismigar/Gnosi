@@ -4679,6 +4679,7 @@
     "explanation_title": "How this response was produced",
     "explanation_plan": "Mode: {{mode}} · Route: {{route}} · Execution: {{execution}}",
     "explanation_evidence": "{{count}} evidence items · {{tools}} tools",
+    "explanation_budget": "Budgets: {{models}} model calls · {{tools}} tool calls · {{seconds}} s",
     "privacy_title": "Privacy",
     "privacy_summary": "{{classification}} · {{count}} private sources · data minimized: {{minimized}}",
     "privacy_remote_processing": "Required private evidence may be processed by the configured remote model.",

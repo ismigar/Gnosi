@@ -2041,6 +2041,22 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                                                     count: msg.explanation.evidence_count ?? 0,
                                                     tools: msg.explanation.tools_used?.length ?? 0,
                                                 })}</div>
+                                                {(msg.explanation.budgets || (msg.plan && msg.plan.budgets)) && (
+                                                    <div>{t('chat.explanation_budget', 'Budgets: {{models}} model calls · {{tools}} tool calls · {{seconds}} s', {
+                                                        models: (msg.explanation.budgets || (msg.plan && msg.plan.budgets)).max_model_calls ?? 0,
+                                                        tools: (msg.explanation.budgets || (msg.plan && msg.plan.budgets)).max_tool_calls ?? 0,
+                                                        seconds: (msg.explanation.budgets || (msg.plan && msg.plan.budgets)).timeout_seconds ?? 0,
+                                                    })}</div>
+                                                )}
+                                            </div>
+                                        )}
+                                        {!msg.explanation && msg.plan?.budgets && (
+                                            <div style={{ marginTop: '5px' }}>
+                                                <div>{t('chat.explanation_budget', 'Budgets: {{models}} model calls · {{tools}} tool calls · {{seconds}} s', {
+                                                    models: msg.plan.budgets.max_model_calls ?? 0,
+                                                    tools: msg.plan.budgets.max_tool_calls ?? 0,
+                                                    seconds: msg.plan.budgets.timeout_seconds ?? 0,
+                                                })}</div>
                                             </div>
                                         )}
                                         {msg.privacy && (

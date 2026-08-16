@@ -1791,6 +1791,16 @@ async def chat_endpoint(
             authorized_tool_names=authorized_tool_names,
             provider=str((llm_selection or {}).get("provider") or ""),
         )
+        turn_timeout_seconds = max(
+            1,
+            min(
+                TURN_TIMEOUT_SECONDS,
+                int((turn_plan.get("budgets") or {}).get(
+                    "timeout_seconds",
+                    TURN_TIMEOUT_SECONDS,
+                )),
+            ),
+        )
         inputs = {
             "messages": [HumanMessage(
                 content=user_content,
@@ -1884,6 +1894,25 @@ async def chat_endpoint(
                     "output_tokens": total_out_tok,
                     "model_calls": model_calls,
                     "tool_calls": tool_calls_count,
+                    "budget": dict(turn_plan.get("budgets") or {}),
+                    "budget_exhausted": {
+                        "model_calls": bool(
+                            (turn_plan.get("budgets") or {}).get("max_model_calls")
+                            and model_calls >= int(
+                                (turn_plan.get("budgets") or {}).get(
+                                    "max_model_calls",
+                                )
+                            )
+                        ),
+                        "tool_calls": bool(
+                            (turn_plan.get("budgets") or {}).get("max_tool_calls")
+                            and tool_calls_count >= int(
+                                (turn_plan.get("budgets") or {}).get(
+                                    "max_tool_calls",
+                                )
+                            )
+                        ),
+                    },
                 }
 
             confirmation_token = bind_confirmation_context(
@@ -1903,7 +1932,7 @@ async def chat_endpoint(
                             "schema_version", "planner_version", "plan_id",
                             "mode", "domains", "route", "execution",
                             "output_strategy", "required_tool",
-                            "allowed_tool_count",
+                            "allowed_tool_count", "budgets",
                         )
                     },
                     "privacy": turn_plan.get("privacy") or {},
@@ -1966,7 +1995,7 @@ async def chat_endpoint(
                     if item.get("name")
                 }
                 async with _acquire_turn_lock(turn_lock):
-                    async with asyncio.timeout(TURN_TIMEOUT_SECONDS):
+                    async with asyncio.timeout(turn_timeout_seconds):
                         async with AsyncSqliteSaver.from_conn_string(str(db_path)) as saver:
                             agent_app = workflow.compile(checkpointer=saver)
                             previous_update_at = time.monotonic()
@@ -2145,7 +2174,7 @@ async def chat_endpoint(
                 error_code = _agent_stream_error_code(e)
                 if isinstance(e, TimeoutError):
                     friendly_error = (
-                        f"The response exceeded the {TURN_TIMEOUT_SECONDS}-second "
+                        f"The response exceeded the {turn_timeout_seconds}-second "
                         "processing limit. Try again."
                     )
                 elif isinstance(e, GraphRecursionError):

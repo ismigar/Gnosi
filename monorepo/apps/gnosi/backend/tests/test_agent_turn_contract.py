@@ -39,6 +39,24 @@ def test_plan_is_enforced_as_a_narrow_request_scoped_tool_surface():
     assert plan["privacy"]["cross_domain_reads_blocked"] is True
 
 
+def test_turn_plan_exposes_bounded_mode_budget():
+    conversation = build_turn_plan("Hola", mode="conversation")
+    inventory = build_turn_plan(
+        "Troba totes les notes sobre coaching",
+        mode="inventory",
+        required_tool_name="inventory_context",
+    )
+
+    assert conversation["budgets"] == {
+        "timeout_seconds": 60,
+        "max_model_calls": 2,
+        "max_tool_calls": 0,
+        "max_read_tool_results": 0,
+    }
+    assert inventory["budgets"]["max_tool_calls"] > 0
+    assert inventory["budgets"]["max_read_tool_results"] <= inventory["budgets"]["max_tool_calls"]
+
+
 def test_remote_and_local_private_processing_are_distinguished():
     refs = [{"id": "page", "type": "page", "ref": "page-1"}]
     tools = [{
@@ -169,6 +187,7 @@ def test_verifier_exposes_freshness_and_namespaced_background_job():
     assert metadata["gnosi_job"]["capabilities"]["cancel"] is True
     assert metadata["gnosi_freshness"] == freshness
     assert metadata["gnosi_explanation"]["execution"] == "background"
+    assert metadata["gnosi_explanation"]["budgets"]["max_model_calls"] > 0
 
 
 def test_deterministic_inventory_maps_each_claim_to_current_turn_sources():

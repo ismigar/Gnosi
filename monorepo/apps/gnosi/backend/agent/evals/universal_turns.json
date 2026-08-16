@@ -106,5 +106,18 @@
     "message": "Busca el contacto de Marta",
     "provider": "mistral",
     "expected": {"mode": "lookup", "domains_contains": ["contacts"], "allowed_contains": ["search_contacts"], "allowed_excludes": ["send_mail"]}
+  },
+  {
+    "id": "es-bibliographic-intent",
+    "message": "Buscame que notas tengo en relación a como encontrar fuentes bibliográficas de calidad",
+    "provider": "mistral",
+    "context_refs": [{"id": "vault", "type": "vault", "ref": "active-vault"}],
+    "expected": {"mode": "inventory", "required_tool": "inventory_context", "allowed_tool_count": 1, "allowed_contains": ["inventory_context"], "domains_contains": ["vault"]}
+  },
+  {
+    "id": "ca-meta-search-instruction",
+    "message": "Com puc trobar fonts bibliogràfiques de qualitat?",
+    "provider": "mistral",
+    "expected": {"mode": "lookup", "route": "General", "allowed_tool_count": 0}
   }
 ]

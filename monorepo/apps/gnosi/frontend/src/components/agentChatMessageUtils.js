@@ -498,6 +498,16 @@ const boundedCount = value => {
         : 0;
 };
 
+const boundedBudget = value => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    return {
+        timeout_seconds: Math.min(3600, boundedCount(value.timeout_seconds)),
+        max_model_calls: Math.min(128, boundedCount(value.max_model_calls)),
+        max_tool_calls: Math.min(256, boundedCount(value.max_tool_calls)),
+        max_read_tool_results: Math.min(256, boundedCount(value.max_read_tool_results)),
+    };
+};
+
 export const boundedTurnPlan = value => {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
     return {
@@ -511,6 +521,7 @@ export const boundedTurnPlan = value => {
         output_strategy: boundedString(value.output_strategy, 32),
         required_tool: boundedString(value.required_tool, 128),
         allowed_tool_count: boundedCount(value.allowed_tool_count),
+        budgets: boundedBudget(value.budgets),
     };
 };
 
@@ -646,6 +657,7 @@ export const boundedExplanation = value => {
         route: boundedString(value.route, 32),
         execution: boundedString(value.execution, 32),
         output_strategy: boundedString(value.output_strategy, 32),
+        budgets: boundedBudget(value.budgets),
         tools_used: boundedStrings(value.tools_used, 16, 128),
         evidence_count: boundedCount(value.evidence_count),
         citation_count: boundedCount(value.citation_count),
@@ -688,6 +700,14 @@ export const boundedTurnMetrics = (value) => {
             metrics[field] = Math.min(Number.MAX_SAFE_INTEGER, Math.floor(numeric));
         }
     });
+    const budget = boundedBudget(value.budget);
+    if (budget) metrics.budget = budget;
+    if (value.budget_exhausted && typeof value.budget_exhausted === 'object') {
+        metrics.budget_exhausted = {
+            model_calls: Boolean(value.budget_exhausted.model_calls),
+            tool_calls: Boolean(value.budget_exhausted.tool_calls),
+        };
+    }
     return Object.keys(metrics).length ? metrics : null;
 };
 
