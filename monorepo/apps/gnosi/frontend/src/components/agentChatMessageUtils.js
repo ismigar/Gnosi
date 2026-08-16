@@ -5,6 +5,26 @@ const TURN_TIMING_MS_FIELDS = [
 const TURN_TIMING_COUNT_FIELDS = [
     'input_tokens', 'output_tokens', 'model_calls', 'tool_calls',
 ];
+const TIMING_OBJECT_TOTAL_FIELDS = [
+    'total_ms',
+    'total',
+    'elapsed_ms',
+    'elapsed',
+    'latency_ms',
+    'latency',
+    'response_ms',
+    'response_time_ms',
+    'processing_ms',
+    'processing',
+    'duration_ms',
+    'durationMs',
+    'duration_seconds',
+    'durationSecs',
+    'durationSec',
+    'duration_s',
+    'time_ms',
+    'time',
+];
 const PRESENTATION_FIELDS = [
     'turnId', 'turn_id', 'processingMs', 'timings',
     'feedback', 'saved', 'plan', 'privacy',
@@ -19,6 +39,93 @@ const hasCandidatePayload = (message) => {
     return true;
 };
 
+const parseDurationToMs = (value, unitHint = null) => {
+    if (value === null || value === undefined || value === '') return null;
+    if (typeof value === 'number') {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric) || numeric < 0) return null;
+        if (unitHint === 's') {
+            return boundedProcessingMs(numeric * 1000);
+        }
+        if (unitHint === 'm') {
+            return boundedProcessingMs(numeric * 60_000);
+        }
+        return boundedProcessingMs(numeric);
+    }
+    if (typeof value === 'string') {
+        const normalized = value.trim().replace(/_/g, '');
+        if (!normalized) return null;
+        const numeric = Number(normalized);
+        if (Number.isFinite(numeric)) {
+            return boundedProcessingMs(numeric);
+        }
+        const withUnit = normalized.match(
+            /^([0-9]+(?:\.[0-9]+)?)\s*(ms|millisecond|milliseconds|s|sec|secs|second|seconds|m|min|mins|minutes)$/i,
+        );
+        if (!withUnit) return null;
+        const magnitude = Number(withUnit[1]);
+        if (!Number.isFinite(magnitude)) return null;
+        const unit = withUnit[2].toLowerCase();
+        switch (unit) {
+            case 's':
+            case 'sec':
+            case 'secs':
+            case 'second':
+            case 'seconds':
+                return boundedProcessingMs(magnitude * 1000);
+            case 'm':
+            case 'min':
+            case 'mins':
+            case 'minutes':
+                return boundedProcessingMs(magnitude * 60_000);
+            default:
+                return boundedProcessingMs(magnitude);
+        }
+    }
+    if (unitHint && typeof unitHint === 'string') {
+        const normalizedUnit = unitHint.trim().toLowerCase();
+        const hintValue = parseDurationToMs(value);
+        if (hintValue === null) return null;
+        if (
+            normalizedUnit === 'ms'
+            || normalizedUnit === 'millisecond'
+            || normalizedUnit === 'milliseconds'
+        ) {
+            return hintValue;
+        }
+        if (
+            normalizedUnit === 's'
+            || normalizedUnit === 'sec'
+            || normalizedUnit === 'secs'
+            || normalizedUnit === 'second'
+            || normalizedUnit === 'seconds'
+        ) {
+            return boundedProcessingMs(hintValue * 1000);
+        }
+        if (
+            normalizedUnit === 'm'
+            || normalizedUnit === 'min'
+            || normalizedUnit === 'mins'
+            || normalizedUnit === 'minutes'
+        ) {
+            return boundedProcessingMs(hintValue * 60_000);
+        }
+    }
+    return null;
+};
+
+const parseTimingObjectMs = (value) => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    for (const key of TIMING_OBJECT_TOTAL_FIELDS) {
+        const parsed = parseDurationToMs(value[key]);
+        if (parsed !== null) return parsed;
+    }
+    if (value.value !== undefined && value.unit !== undefined) {
+        return parseDurationToMs(value.value, value.unit);
+    }
+    return null;
+};
+
 const firstUnusedCandidateIndex = (indices, candidateUsed, fromIndex) => {
     if (!Array.isArray(indices)) return null;
     for (let i = fromIndex; i < indices.length; i += 1) {
@@ -31,23 +138,32 @@ const firstUnusedCandidateIndex = (indices, candidateUsed, fromIndex) => {
 const timedPayloadFromMessage = (message) => {
     if (!hasCandidatePayload(message)) return null;
     const candidateValues = [
-        message.timings,
-        message.turn_metrics,
-        message.turnMetrics,
-        message.metrics,
-        message.metric,
-        message.timing,
-        message.duration_ms,
-        message.durationMs,
-        message.duration,
+        { value: message.timings, unitHint: null },
+        { value: message.turn_metrics, unitHint: null },
+        { value: message.turnMetrics, unitHint: null },
+        { value: message.metrics, unitHint: null },
+        { value: message.metric, unitHint: null },
+        { value: message.timing, unitHint: null },
+        { value: message.duration_seconds, unitHint: 's' },
+        { value: message.duration_secs, unitHint: 's' },
+        { value: message.durationSec, unitHint: 's' },
+        { value: message.duration_ms, unitHint: 'ms' },
+        { value: message.durationMs, unitHint: 'ms' },
+        { value: message.duration, unitHint: 'ms' },
     ];
-    for (const candidate of candidateValues) {
-        const fromNumber = boundedProcessingMs(candidate);
-        if (
-            fromNumber !== null
-            && (typeof candidate === 'number' || typeof candidate === 'string')
-        ) {
+    for (const { value, unitHint } of candidateValues) {
+        const candidate = value;
+        const fromNumber = parseDurationToMs(candidate, unitHint);
+        if (fromNumber !== null && (typeof candidate === 'number' || typeof candidate === 'string')) {
             return { total_ms: fromNumber };
+        }
+        if (hasCandidatePayload(candidate)) {
+            const parsedTimingMs = parseTimingObjectMs(candidate);
+            if (parsedTimingMs !== null) {
+                const bounded = boundedTurnMetrics(candidate) || {};
+                bounded.total_ms = parsedTimingMs;
+                return bounded;
+            }
         }
         const bounded = boundedTurnMetrics(candidate);
         if (bounded !== null) return bounded;

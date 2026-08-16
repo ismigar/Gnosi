@@ -232,12 +232,41 @@ describe('assistant message presentation metadata', () => {
         }]);
     });
 
+    it('accepts alternative timing aliases from object payloads', () => {
+        const canonical = [
+            { role: 'assistant', content: 'Answer with alternate timing fields' },
+        ];
+        const cached = [
+            {
+                role: 'assistant',
+                content: 'Answer with alternate timing fields',
+                timings: {
+                    elapsed_ms: 1_000,
+                    model_calls: 2,
+                },
+            },
+        ];
+
+        expect(mergeCanonicalMessageMetadata(canonical, cached)).toEqual([{
+            role: 'assistant',
+            content: 'Answer with alternate timing fields',
+            timings: {
+                total_ms: 1_000,
+                model_calls: 2,
+            },
+            processingMs: 1_000,
+        }]);
+    });
+
     it('resolves effective timing from alias fields', () => {
         expect(effectiveMessageTimingMs({ processingMs: 1200 })).toBe(1200);
         expect(effectiveMessageTimingMs({ timings: { total_ms: 2400 } })).toBe(2400);
         expect(effectiveMessageTimingMs({ turn_metrics: { total_ms: 900 } })).toBe(900);
         expect(effectiveMessageTimingMs({ duration_ms: 4000 })).toBe(4000);
         expect(effectiveMessageTimingMs({ turnMetrics: { total_ms: 1300 } })).toBe(1300);
+        expect(effectiveMessageTimingMs({ duration_seconds: 2.4 })).toBe(2_400);
+        expect(effectiveMessageTimingMs({ timings: { value: 2.5, unit: 's' } })).toBe(2_500);
+        expect(effectiveMessageTimingMs({ timings: '2.5s' })).toBe(2_500);
         expect(effectiveMessageTimingMs({ duration: '5500' })).toBe(5500);
         expect(effectiveMessageTimingMs({})).toBeNull();
     });

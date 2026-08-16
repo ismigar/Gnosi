@@ -556,7 +556,19 @@ def _public_checkpoint_message_entries(
             if role == "human"
             else None
         )
-        message_turn_id = getattr(message, "additional_kwargs", {}).get("gnosi_turn_id")
+        message_turn_id = (
+            getattr(message, "additional_kwargs", {}).get("gnosi_turn_id")
+            or getattr(message, "additional_kwargs", {}).get("turn_id")
+            or getattr(message, "additional_kwargs", {}).get("turnId")
+        )
+        if isinstance(message_turn_id, dict):
+            message_turn_id = message_turn_id.get("id")
+        if message_turn_id is None:
+            message_turn_id = (
+                getattr(message, "metadata", {}).get("gnosi_turn_id")
+                if isinstance(getattr(message, "metadata", None), dict)
+                else None
+            )
         if message_turn_id:
             if role == "human":
                 current_turn_id = str(message_turn_id)
