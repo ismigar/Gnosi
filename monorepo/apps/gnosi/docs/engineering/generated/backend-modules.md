@@ -10,7 +10,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Group | Modules | Lines |
 | --- | ---: | ---: |
-| `agent` | 39 | 16465 |
+| `agent` | 39 | 16529 |
 | `api` | 36 | 36683 |
 | `application root` | 6 | 635 |
 | `config` | 8 | 851 |
@@ -25,7 +25,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **236 modules** and **97750 source lines**.
+Total: **236 modules** and **97814 source lines**.
 
 ## agent
 
@@ -33,7 +33,7 @@ Total: **236 modules** and **97750 source lines**.
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | [`backend/agent/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/__init__.py) | 0 | 0 | 0 | 0 | 0 | No module docstring |
 | [`backend/agent/action_confirmations.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/action_confirmations.py) | 802 | 0 | 28 | 0 | 22 | Persistent, scope-bound confirmations for consequential agent actions. |
-| [`backend/agent/agent_context.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/agent_context.py) | 1595 | 0 | 32 | 0 | 21 | Attached context sources for a Cognition agent. |
+| [`backend/agent/agent_context.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/agent_context.py) | 1659 | 0 | 33 | 0 | 22 | Attached context sources for a Cognition agent. |
 | [`backend/agent/calendar_tools.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/calendar_tools.py) | 125 | 0 | 6 | 5 | 5 | Governed adapters for exact calendar reads and external mutations. |
 | [`backend/agent/contact_tools.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/contact_tools.py) | 157 | 0 | 6 | 0 | 4 | Governed adapters for local contact maintenance. |
 | [`backend/agent/context_sources/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/context_sources/__init__.py) | 32 | 0 | 2 | 0 | 1 | Catalogue of large searchable sources an agent can attach (phase 3). |

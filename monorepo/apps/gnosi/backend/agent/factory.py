@@ -1068,16 +1068,16 @@ INVENTORY_REQUEST_TYPE_PATTERNS = {
 }
 
 INVENTORY_QUERY_STOPWORDS = {
-    "a", "ai", "aquesta", "aquest", "al", "all", "amb", "and", "author", "autor", "auteur", "avons", "busca", "cerca",
+    "a", "ai", "aquesta", "aquest", "al", "all", "amb", "and", "author", "autor", "auteur", "avons", "busca", "buscame", "buscar", "cerca",
     "cherche", "com", "con", "contain", "contains", "contenen", "contienen", "count", "cuantas", "cuantos", "de", "del", "dels", "dont",
-    "do", "el", "els", "en", "encuentra", "enumerate", "es", "every", "find", "have", "in",
+    "do", "el", "els", "en", "encuentra", "encuentrame", "encontrar", "encuentres", "enumerate", "es", "every", "find", "have", "in",
     "he", "hi", "how", "i", "jo", "la", "las", "le", "les", "list",
     "affiche", "dame", "display", "dona", "ensenya", "give", "lista",
     "j", "je", "llista", "m", "ma", "matching", "me", "mes", "meus", "meves",
-    "mi", "mia", "mias", "mio", "mios", "mis", "moi", "mon",
+    "mi", "mia", "mias", "mio", "mios", "mis", "moi", "mon", "como", "comment",
     "mostra", "muestra", "show",
     "literal", "literalment", "mencionan", "mencionen", "mention", "my", "of", "per", "que", "quantes", "quants", "quelles", "quels", "quines", "quins",
-    "quina", "quin", "related", "relacionades", "relacionados", "relatives", "una", "un",
+    "quina", "quin", "related", "relacion", "relacionada", "relacionadas", "relacionades", "relacionado", "relacionados", "relatives", "acerca", "una", "un",
     "search", "soc", "sobre", "soy", "te", "tenemos", "tenim", "tengo",
     "tienes", "the", "this", "tinc", "todas", "todo",
     "todos", "totes", "tots", "troba", "trouve", "which", "with", "written",

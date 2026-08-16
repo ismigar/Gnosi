@@ -232,6 +232,11 @@ authorization or billing boundary.
   55 records in one visible second, exposed 56 claim-to-source bindings with 55 canonical
   Vault links and no unsafe link, persisted and cleared negative feedback, and produced no
   browser console warning or error.
+- The 2026-08-16 inventory regression suite passed 99 tests. A request for notes about how
+  to find quality bibliographic sources now normalizes multilingual request scaffolding and
+  applies a bounded, transparent bibliographic-concept vocabulary; it can therefore match
+  a canonical title such as “Cerca i recuperació d'informació” without a model-generated
+  synonym or an invented result.
 
 ## Restrictions and edge cases
 
@@ -254,6 +259,10 @@ authorization or billing boundary.
   total elapsed time answer different diagnostic questions.
 - Do not use bounded semantic search to answer “all”, “which”, “how many”, or equivalent
   inventory questions. A top-k result is evidence discovery, not an exhaustive inventory.
+- Do not treat every inventory query as literal token equality. For reviewed concepts such
+  as bibliographic source discovery, use the bounded server-owned expansion vocabulary and
+  expose the applied terms in the tool payload; never silently substitute an open-ended
+  embedding search or a model-authored synonym.
 - Do not add a hard-coded intent branch for each topic. Classify the operation and pass the
   remaining subject terms to the generic inventory or lookup implementation.
 - Do not infer an exact record type from a loose topic word when no attached registry table

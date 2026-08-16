@@ -18,6 +18,7 @@ import {
     boundedJob,
     boundedTransparencyMetadata,
     boundedTurnMetrics,
+    effectiveMessageTimingMs,
     conversationRewindPlan,
     mergeCanonicalMessageMetadata,
     processingSeconds,
@@ -1218,7 +1219,7 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                     verification_status: message.verification?.status || '',
                     limitations: message.verification?.limitations || [],
                     tool_names: message.verification?.tool_names || [],
-                    duration_ms: message.timings?.total_ms || message.processingMs || 0,
+                    duration_ms: effectiveMessageTimingMs(message) || 0,
                     error_code: message.errorCode || '',
                 }),
             });
@@ -1986,19 +1987,27 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                                             <button type="button" onClick={() => markMessage(idx, 'saved', !msg.saved)} aria-label={t('chat.save_message', 'Save message')} title={t('chat.save_message', 'Save message')} aria-pressed={Boolean(msg.saved)} style={{ background: 'none', border: 'none', color: msg.saved ? 'var(--gnosi-blue, #2563eb)' : 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Bookmark size={13} fill={msg.saved ? 'currentColor' : 'none'} /></button>
                                         </>
                                     )}
-                                    {msg.undo?.available && idx === messages.length - 1 && (
-                                        <button type="button" onClick={msg.undo.run} aria-label={t('chat.undo_last_action', 'Undo last action')} title={t('chat.undo_last_action', 'Undo last action')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Undo2 size={13} /></button>
-                                    )}
-                                    <button
-                                        type="button"
-                                        onClick={() => setPendingRewindIndex(idx)}
-                                        disabled={isLoading || isRewinding}
-                                        aria-label={t('chat.rewind_from_message', 'Undo from this message')}
-                                        title={t('chat.rewind_from_message', 'Undo from this message')}
-                                        style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: isLoading || isRewinding ? 'default' : 'pointer', padding: '3px', opacity: isLoading || isRewinding ? 0.45 : 1 }}
-                                    >
-                                        <Undo2 size={13} />
-                                    </button>
+                                    {msg.role === 'assistant' && (msg.undo?.available || Boolean(msg?.turnId)) && (() => {
+                                        const hasDirectUndo = typeof msg?.undo?.run === 'function';
+                                        const undoHint = hasDirectUndo
+                                            ? t('chat.undo_last_action', 'Undo last action')
+                                            : t('chat.rewind_from_message', 'Undo from this message');
+                                        return (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    if (hasDirectUndo) return msg.undo.run();
+                                                    setPendingRewindIndex(idx);
+                                                }}
+                                                aria-label={undoHint}
+                                                title={undoHint}
+                                                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: isLoading || isRewinding ? 'default' : 'pointer', padding: '3px', opacity: isLoading || isRewinding ? 0.45 : 1 }}
+                                                disabled={isLoading || isRewinding}
+                                            >
+                                                <Undo2 size={13} />
+                                            </button>
+                                        );
+                                    })()}
                                     <button type="button" onClick={() => setDetailsMessageIndex(detailsMessageIndex === idx ? null : idx)} aria-label={t('chat.message_details', 'Message details')} title={t('chat.message_details', 'Message details')} aria-expanded={detailsMessageIndex === idx} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Info size={13} /></button>
                                 </div>
                                 {detailsMessageIndex === idx && (
@@ -2109,14 +2118,21 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                                         {Array.isArray(msg.attachments) && msg.attachments.length > 0 && <div>{t('chat.message_attachments_count', '{{count}} attachment(s)', { count: msg.attachments.length })}</div>}
                                     </div>
                                 )}
-                                <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', padding: '0 4px' }}>
-                                    {msg.role === 'user'
-                                        ? t('chat.you', "You")
-                                        : `${agentName}${msg.llm?.model ? ` - ${msg.llm.model}` : ''}`}
-                                    {msg.role !== 'user' && processingSeconds(msg.processingMs) !== null
-                                        ? ` · ${t('chat.processing_seconds', '{{count}} s', { count: processingSeconds(msg.processingMs) })}`
-                                        : ''}
-                                </span>
+                                {(() => {
+                                    const responseSeconds = msg.role === 'user'
+                                        ? null
+                                        : processingSeconds(effectiveMessageTimingMs(msg));
+                                    return (
+                                        <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', padding: '0 4px' }}>
+                                            {msg.role === 'user'
+                                                ? t('chat.you', "You")
+                                                : `${agentName}${msg.llm?.model ? ` - ${msg.llm.model}` : ''}`}
+                                            {msg.role !== 'user' && responseSeconds !== null
+                                                ? ` · ${t('chat.processing_seconds', '{{count}} s', { count: responseSeconds })}`
+                                                : ''}
+                                        </span>
+                                    );
+                                })()}
                             </div>
                         ))}
                         {!showSessionsView && isLoading && (

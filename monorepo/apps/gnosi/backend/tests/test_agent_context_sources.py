@@ -375,6 +375,54 @@ def test_inventory_can_distinguish_direct_text_from_related_records(
     assert mixed["records"][0]["match_kind"] == "relation"
 
 
+def test_inventory_expands_bibliographic_concepts_to_information_retrieval_titles(
+    monkeypatch,
+    tmp_path,
+):
+    from backend.api import vault_routes
+
+    note_path = tmp_path / "search.md"
+    note_path.write_text(
+        "Apunts sobre estratègies de cerca i recuperació d'informació.",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(agent_context, "_vault_root", lambda: tmp_path)
+    monkeypatch.setattr(agent_context, "_registry", lambda: {
+        "tables": [{"id": "brain", "name": "Cervell digital", "properties": []}],
+        "views": [],
+    })
+    monkeypatch.setattr(agent_context, "_table_pages", lambda _table_id: [
+        SimpleNamespace(
+            id="note-search",
+            title="Cerca i recuperació d'informació",
+            path=note_path,
+            metadata={},
+        ),
+    ])
+    monkeypatch.setattr(vault_routes, "get_cached_document_texts", lambda _paths: {})
+    monkeypatch.setattr(vault_routes, "get_link_index_terms", lambda _ids: ({}, 0.0))
+    inventory = next(
+        tool
+        for tool in build_context_tools([{
+            "id": "active-vault",
+            "type": "vault",
+            "ref": "active-vault",
+            "label": "Knowledge",
+        }])
+        if tool.name == "inventory_context"
+    )
+
+    payload = json.loads(inventory.invoke({
+        "query": "bibliograficas calidad",
+        "record_types": ["note"],
+    }))
+
+    assert payload["matching_count"] == 1
+    assert payload["query_expansion"]["applied"] is True
+    assert payload["records"][0]["id"] == "note-search"
+    assert "title" in payload["records"][0]["match_basis"]
+
+
 def test_one_source_search_refuses_unattached_ids(monkeypatch):
     tools = {tool.name: tool for tool in build_context_tools([
         {"id": "one", "type": "page", "ref": "p1", "label": "One"},
