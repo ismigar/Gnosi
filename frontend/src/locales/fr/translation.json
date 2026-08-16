@@ -4823,6 +4823,7 @@
     "explanation_title": "Comment cette réponse a été produite",
     "explanation_plan": "Mode : {{mode}} · Route : {{route}} · Exécution : {{execution}}",
     "explanation_evidence": "{{count}} éléments de preuve · {{tools}} outils",
+    "explanation_budget": "Budget : {{models}} appels de modèle · {{tools}} appels d'outil · {{seconds}} s",
     "privacy_title": "Confidentialité",
     "privacy_summary": "{{classification}} · {{count}} sources privées · données minimisées : {{minimized}}",
     "privacy_remote_processing": "Le modèle distant configuré peut traiter les seules preuves privées nécessaires.",

@@ -830,6 +830,18 @@ def _tool_results_since_latest_user(messages: Iterable[Any]) -> int:
     return count
 
 
+def _model_messages_since_latest_user(messages: Iterable[Any]) -> int:
+    """Count assistant model turns in the current human turn."""
+    count = 0
+    for message in reversed(list(messages)):
+        message_type = str(getattr(message, "type", "") or "")
+        if message_type == "human":
+            break
+        if message_type == "ai":
+            count += 1
+    return count
+
+
 def _latest_reader_analysis_job_id(messages: Iterable[Any]) -> str:
     """Return the newest durable Reader job id visible in conversation history."""
     for message in reversed(list(messages)):
@@ -3306,6 +3318,25 @@ async def create_agent_workflow(
             context_tool_names,
         )
         read_tool_results = _tool_results_since_latest_user(messages)
+        model_messages = _model_messages_since_latest_user(messages)
+        budgets = turn_plan.get("budgets") or {}
+        max_model_calls = max(0, int(budgets.get("max_model_calls") or 0))
+        max_tool_calls = max(0, int(budgets.get("max_tool_calls") or 0))
+        max_read_tool_results = max(
+            0,
+            int(budgets.get("max_read_tool_results") or 0),
+        )
+        tool_budget_reached = bool(
+            max_tool_calls and read_tool_results >= max_tool_calls
+        )
+        read_budget_reached = bool(
+            max_read_tool_results
+            and read_tool_results >= max_read_tool_results
+        )
+        model_budget_reached = bool(
+            max_model_calls
+            and model_messages >= max(0, max_model_calls - 1)
+        )
         personal_resources_requested = (
             "list_authored_vault_resources" in bound_tool_names
             and _personal_resource_authorship_requested(latest_user)
@@ -3375,7 +3406,7 @@ async def create_agent_workflow(
                 )],
                 "next": "FINISH",
             }
-        elif repeated_tool_name and not current_authorized_names:
+        elif repeated_tool_name:
             selected_brain_llm = llm
             brain_system += (
                 "\nThe same tool call and arguments were already repeated in this "
@@ -3383,16 +3414,24 @@ async def create_agent_workflow(
                 "from the available tool evidence, including an explicit limitation "
                 "if it is empty. Do not call another tool."
             )
-        elif read_tool_results >= 3 and not current_authorized_names:
+        elif tool_budget_reached or read_budget_reached:
             # Some tool-eager models repeat broad successful reads instead of
             # synthesizing their evidence. The recursion limit is only a final
             # safety net; removing tool bindings here guarantees a user-visible
-            # response before the graph reaches it.
+            # response before the graph reaches it. The budget is selected by
+            # the universal planner and applies to guarded actions as well.
             selected_brain_llm = llm
             brain_system += (
-                "\nThe bounded read-tool budget for this turn is complete. "
+                "\nThe bounded tool-read budget for this turn is complete. "
                 "Answer directly from the tool evidence already present now. "
                 "Do not call another tool, repeat a query, or ask to continue."
+            )
+        elif model_budget_reached:
+            selected_brain_llm = llm
+            brain_system += (
+                "\nThe bounded model-call budget for this turn is nearly complete. "
+                "Synthesize the best supported answer now and do not call another "
+                "tool. State any limitation instead of retrying."
             )
         elif remaining_steps and remaining_steps <= 2 and not current_authorized_names:
             selected_brain_llm = llm

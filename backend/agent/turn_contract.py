@@ -80,6 +80,53 @@ CITATION_MARKER_RE = re.compile(
 MAX_CITATION_SOURCES = 96
 MAX_CITATION_CLAIMS = 128
 
+# These are request-scoped safety budgets. They are deliberately kept in the
+# provider-independent contract so every model, connector, and UI surface sees
+# the same limits. The HTTP layer still owns the hard cancellation boundary.
+TURN_BUDGETS = {
+    "conversation": {
+        "timeout_seconds": 60,
+        "max_model_calls": 2,
+        "max_tool_calls": 0,
+        "max_read_tool_results": 0,
+    },
+    "lookup": {
+        "timeout_seconds": 120,
+        "max_model_calls": 4,
+        "max_tool_calls": 8,
+        "max_read_tool_results": 3,
+    },
+    "inventory": {
+        "timeout_seconds": 120,
+        "max_model_calls": 4,
+        "max_tool_calls": 6,
+        "max_read_tool_results": 3,
+    },
+    "analysis": {
+        "timeout_seconds": 120,
+        "max_model_calls": 6,
+        "max_tool_calls": 12,
+        "max_read_tool_results": 4,
+    },
+    "action": {
+        "timeout_seconds": 120,
+        "max_model_calls": 8,
+        "max_tool_calls": 12,
+        "max_read_tool_results": 4,
+    },
+}
+
+
+def turn_budgets_for_mode(mode: str) -> dict[str, int]:
+    """Return a bounded copy of the operational budget for a request mode."""
+    selected = TURN_BUDGETS.get(str(mode or "").strip().lower())
+    if selected is None:
+        selected = TURN_BUDGETS["conversation"]
+    return {
+        key: max(0, int(value))
+        for key, value in selected.items()
+    }
+
 
 def normalize_request_text(value: Any) -> str:
     """Return accent-insensitive text used only for deterministic routing."""
@@ -161,6 +208,7 @@ def build_turn_plan(
     deterministic_output = bool(
         mode == "inventory" and required_tool_name == "inventory_context"
     )
+    budgets = turn_budgets_for_mode(mode)
 
     allowed_tool_names: list[str] = []
     for item in tools:
@@ -185,7 +233,11 @@ def build_turn_plan(
                 and bool(item.get("dynamic_context"))
                 and (not domains or _tool_matches_domains(name, domains))
             )
-            or bool(domains and _tool_matches_domains(name, domains))
+            or bool(
+                domains
+                and _tool_matches_domains(name, domains)
+                and (context_requested or not item.get("dynamic_context"))
+            )
             or explicitly_scoped_read
         )
         if mode == "conversation" and name not in authorized:
@@ -238,6 +290,7 @@ def build_turn_plan(
                 "allowed_tools": allowed_tool_names,
                 "provider": provider,
                 "context_types": sorted(str(ref.get("type") or "") for ref in refs),
+                "budgets": budgets,
             },
             sort_keys=True,
             separators=(",", ":"),
@@ -263,6 +316,7 @@ def build_turn_plan(
         "required_tool": required_tool_name or None,
         "allowed_tool_names": allowed_tool_names,
         "allowed_tool_count": len(allowed_tool_names),
+        "budgets": budgets,
         "privacy": {
             "classification": privacy_classification,
             "private_source_count": sum(
@@ -671,6 +725,7 @@ def verify_response(
         "route": str(plan.get("route") or "General"),
         "execution": str(plan.get("execution") or "foreground"),
         "output_strategy": str(plan.get("output_strategy") or "model_synthesis"),
+        "budgets": dict(plan.get("budgets") or {}),
         "tools_used": [name for name in tool_names if name][:16],
         "evidence_count": evidence_count,
         "citation_count": int(citations.get("source_count") or 0),
@@ -695,7 +750,7 @@ def verify_response(
             for key in (
                 "schema_version", "planner_version", "plan_id", "mode", "domains",
                 "route", "execution", "output_strategy", "required_tool",
-                "allowed_tool_count",
+                "allowed_tool_count", "budgets",
             )
         },
         "gnosi_privacy": dict(plan.get("privacy") or {}),

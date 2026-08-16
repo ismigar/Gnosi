@@ -4823,6 +4823,7 @@
     "explanation_title": "Com s'ha produït aquesta resposta",
     "explanation_plan": "Mode: {{mode}} · Ruta: {{route}} · Execució: {{execution}}",
     "explanation_evidence": "{{count}} elements d'evidència · {{tools}} eines",
+    "explanation_budget": "Pressupost: {{models}} crides de model · {{tools}} crides d'eina · {{seconds}} s",
     "privacy_title": "Privacitat",
     "privacy_summary": "{{classification}} · {{count}} fonts privades · dades minimitzades: {{minimized}}",
     "privacy_remote_processing": "El model remot configurat pot processar l'evidència privada estrictament necessària.",
