@@ -12,6 +12,8 @@ const DEFAULT_SETTINGS = Object.freeze({
     holidays: [],
 });
 
+const PERIOD_UNITS = new Set(['hours', 'days', 'years']);
+
 const pad = (value) => String(value).padStart(2, '0');
 
 function parseLocalDateTime(value) {
@@ -51,6 +53,15 @@ function validDuration(value) {
     return Number.isFinite(number) && number >= 0 ? number : null;
 }
 
+export function normalizePeriodUnit(value) {
+    return PERIOD_UNITS.has(value) ? value : 'days';
+}
+
+function configuredHoursPerDay(settings = {}) {
+    const value = Number(settings?.hours_per_day);
+    return Number.isFinite(value) && value > 0 ? value : DEFAULT_SETTINGS.hours_per_day;
+}
+
 function normalizedIds(value) {
     const input = Array.isArray(value) ? value : (value ? [value] : []);
     return [...new Set(input.map((item) => String(item || '').trim()).filter(Boolean))];
@@ -78,6 +89,8 @@ export function parsePeriod(value) {
             start: String(value.start || ''),
             end: String(value.end || ''),
             durationDays: validDuration(value.durationDays),
+            durationValue: validDuration(value.durationValue),
+            durationUnit: PERIOD_UNITS.has(value.durationUnit) ? value.durationUnit : null,
             predecessorIds: normalizedIds(value.predecessorIds),
             dependencies: normalizedDependencies(value.dependencies, normalizedIds(value.predecessorIds)),
             startMode: ['auto', 'automatic'].includes(value.startMode) ? 'auto' : 'manual',
@@ -98,6 +111,8 @@ export function parsePeriod(value) {
         start,
         end,
         durationDays: null,
+        durationValue: null,
+        durationUnit: null,
         predecessorIds: [],
         dependencies: [],
         startMode: 'manual',
@@ -118,6 +133,7 @@ export function serializePeriod(value) {
         !period.start
         && !period.end
         && period.durationDays === null
+        && period.durationValue === null
         && period.dependencies.length === 0
     ) {
         return '';
@@ -127,6 +143,8 @@ export function serializePeriod(value) {
         start: period.start,
         end: period.end,
         durationDays: period.durationDays,
+        durationValue: period.durationValue,
+        durationUnit: period.durationUnit,
         predecessorIds: period.dependencies.map((dependency) => dependency.predecessorId),
         dependencies: period.dependencies,
         startMode: period.startMode,
@@ -270,6 +288,74 @@ export function addWorkingDuration(
         if (!cursor) return '';
     }
     return '';
+}
+
+/**
+ * Converts the value shown by the period editor into the legacy working-day
+ * duration used by the scheduler. The original field remains authoritative for
+ * compatibility; durationValue/durationUnit retain the user's exact unit.
+ */
+export function periodDurationToWorkingDays(value, unit, settings = {}) {
+    const duration = validDuration(value);
+    if (duration === null) return null;
+    const normalizedUnit = normalizePeriodUnit(unit);
+    if (normalizedUnit === 'hours') return duration / configuredHoursPerDay(settings);
+    if (normalizedUnit === 'years') return duration * 365;
+    return duration;
+}
+
+/** Adds a duration using the configured unit, preserving calendar years. */
+export function addPeriodDuration(
+    startValue,
+    durationValue,
+    unit,
+    settings = {},
+    skipNonWorkingDays = true,
+) {
+    const duration = validDuration(durationValue);
+    if (duration === null) return '';
+    const normalizedUnit = normalizePeriodUnit(unit);
+    if (normalizedUnit !== 'years') {
+        return addWorkingDuration(
+            startValue,
+            periodDurationToWorkingDays(duration, normalizedUnit, settings),
+            settings,
+            skipNonWorkingDays,
+        );
+    }
+    const start = parseLocalDateTime(startValue);
+    if (!start) return '';
+    const wholeYears = Math.trunc(duration);
+    start.setFullYear(start.getFullYear() + wholeYears);
+    const fractionalDays = (duration - wholeYears) * 365;
+    if (fractionalDays) start.setDate(start.getDate() + fractionalDays);
+    return formatLocalDateTime(start);
+}
+
+/** Derives a displayed duration from two period boundaries. */
+export function periodDurationFromBoundaries(
+    startValue,
+    endValue,
+    unit,
+    settings = {},
+    skipNonWorkingDays = true,
+) {
+    const start = parseLocalDateTime(startValue);
+    const end = parseLocalDateTime(endValue);
+    if (!start || !end || end < start) return null;
+    const normalizedUnit = normalizePeriodUnit(unit);
+    if (normalizedUnit === 'years') {
+        const wholeYears = end.getFullYear() - start.getFullYear();
+        const anchor = new Date(start.getTime());
+        anchor.setFullYear(start.getFullYear() + wholeYears);
+        if (anchor.getTime() === end.getTime()) return wholeYears;
+        return Number((wholeYears + (end.getTime() - anchor.getTime()) / (365 * 86400000)).toFixed(4));
+    }
+    const days = workingDurationDays(startValue, endValue, settings, skipNonWorkingDays);
+    if (days === null) return null;
+    return normalizedUnit === 'hours'
+        ? Number((days * configuredHoursPerDay(settings)).toFixed(4))
+        : days;
 }
 
 export function workingDurationDays(

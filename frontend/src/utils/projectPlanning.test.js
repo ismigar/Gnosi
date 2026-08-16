@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+    addPeriodDuration,
     addWorkingDuration,
     dependencySuccessorIds,
     latestPredecessorEnd,
     nextWorkingInstant,
     parsePeriod,
+    periodDurationFromBoundaries,
+    periodDurationToWorkingDays,
     serializePeriod,
     withPeriodBoundaries,
     workingDurationDays,
@@ -91,6 +94,21 @@ describe('project planning periods', () => {
             .toBe('-0044-03-15T09:00');
         expect(addWorkingDuration('-0044-03-15T09:00', 1, settings, false))
             .toBe('-0044-03-15T17:00');
+    });
+
+    it('adds exact calendar years and retains the configured duration unit', () => {
+        expect(addPeriodDuration('2026-01-01T09:00', 8, 'years', settings, true))
+            .toBe('2034-01-01T09:00');
+        expect(addPeriodDuration('-0044-01-01T09:00', 8, 'years', settings, true))
+            .toBe('-0036-01-01T09:00');
+        expect(periodDurationFromBoundaries(
+            '2026-01-01T09:00',
+            '2034-01-01T09:00',
+            'years',
+            settings,
+            true,
+        )).toBe(8);
+        expect(periodDurationToWorkingDays(8, 'years', settings)).toBe(2920);
     });
 
     it('normalizes a predecessor finish at day end to the next work instant', () => {

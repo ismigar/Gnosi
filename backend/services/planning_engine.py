@@ -53,6 +53,8 @@ def normalize_period(value: Any) -> dict[str, Any]:
         "version": 3,
         "start": source.get("start"), "end": source.get("end"),
         "durationDays": max(0.0, float(source.get("durationDays") or 0)),
+        "durationValue": max(0.0, float(source["durationValue"])) if source.get("durationValue") is not None else None,
+        "durationUnit": str(source.get("durationUnit") or "") if str(source.get("durationUnit") or "") in {"hours", "days", "years"} else None,
         "startMode": "manual" if source.get("startMode") == "manual" else "automatic",
         "endMode": "manual" if source.get("endMode") == "manual" else "automatic",
         "dependencies": normalized_dependencies,
@@ -110,6 +112,29 @@ class WorkingCalendar:
         return current
 
 
+def _add_period_duration(calendar: WorkingCalendar, instant: datetime, period: dict[str, Any], direction: int = 1) -> datetime:
+    """Adds a configured period duration while retaining legacy day support."""
+    raw_value = period.get("durationValue")
+    value = float(raw_value) if raw_value is not None else float(period.get("durationDays") or 0)
+    value *= direction
+    unit = period.get("durationUnit") or "days"
+    if unit == "years":
+        whole_years = int(value)
+        fractional_years = value - whole_years
+        target_year = instant.year + whole_years
+        try:
+            result = instant.replace(year=target_year)
+        except ValueError:
+            # Preserve leap-day periods when the target year is not a leap year.
+            result = instant.replace(year=target_year, day=28)
+        if fractional_years:
+            result += timedelta(days=fractional_years * 365)
+        return result
+    if unit == "hours":
+        return calendar.add_working_minutes(instant, value * 60)
+    return calendar.add_duration(instant, value)
+
+
 def _topological_order(tasks: dict[str, dict[str, Any]]) -> tuple[list[str], list[list[str]]]:
     outgoing: dict[str, list[str]] = defaultdict(list)
     incoming = {task_id: 0 for task_id in tasks}
@@ -132,7 +157,7 @@ def _topological_order(tasks: dict[str, dict[str, Any]]) -> tuple[list[str], lis
     return order, [cycle_nodes] if cycle_nodes else []
 
 
-def _apply_dependency(candidate: datetime, predecessor: dict[str, Any], dependency: dict[str, Any], duration: float, calendar: WorkingCalendar) -> datetime:
+def _apply_dependency(candidate: datetime, predecessor: dict[str, Any], dependency: dict[str, Any], period: dict[str, Any], calendar: WorkingCalendar) -> datetime:
     lag = float(dependency.get("lagMinutes") or 0)
     kind = dependency["type"]
     pred_start, pred_end = predecessor["start"], predecessor["end"]
@@ -141,8 +166,8 @@ def _apply_dependency(candidate: datetime, predecessor: dict[str, Any], dependen
     if kind == "SS":
         return calendar.add_working_minutes(pred_start, lag)
     if kind == "FF":
-        return calendar.add_duration(calendar.add_working_minutes(pred_end, lag), -duration)
-    return calendar.add_duration(calendar.add_working_minutes(pred_start, lag), -duration)
+        return _add_period_duration(calendar, calendar.add_working_minutes(pred_end, lag), period, -1)
+    return _add_period_duration(calendar, calendar.add_working_minutes(pred_start, lag), period, -1)
 
 
 def _backward_bound(successor: dict[str, Any], dependency: dict[str, Any], predecessor_duration: float, calendar: WorkingCalendar) -> tuple[str, datetime]:
@@ -186,7 +211,7 @@ def build_schedule(task_facts: list[dict[str, Any]], calendar_data: dict[str, An
         for dependency in period["dependencies"]:
             predecessor = calculated.get(dependency["predecessorId"])
             if predecessor:
-                candidate = max(candidate, _apply_dependency(candidate, predecessor, dependency, duration, calendar))
+                candidate = max(candidate, _apply_dependency(candidate, predecessor, dependency, period, calendar))
                 trace.append(f"{dependency['type']} {dependency['predecessorId']}")
             elif dependency["predecessorId"] not in tasks:
                 diagnostics.append({"code": "external_dependency", "severity": "warning", "taskId": task_id, "message": f"External predecessor {dependency['predecessorId']} is unavailable"})
@@ -198,13 +223,13 @@ def build_schedule(task_facts: list[dict[str, Any]], calendar_data: dict[str, An
             start = candidate
         end = actual_end or (parse_datetime(period["end"]) if period["endMode"] == "manual" else None)
         if end is None:
-            end = calendar.add_duration(start, duration)
+            end = _add_period_duration(calendar, start, period)
         if constraint == "FNET" and constraint_date and end < constraint_date:
             end = constraint_date
-            start = calendar.add_duration(end, -duration)
+            start = _add_period_duration(calendar, end, period, -1)
         if constraint == "MFO" and constraint_date:
             end = constraint_date
-            start = calendar.add_duration(end, -duration)
+            start = _add_period_duration(calendar, end, period, -1)
         if constraint in {"SNLT", "FNLT"} and constraint_date and ((constraint == "SNLT" and start > constraint_date) or (constraint == "FNLT" and end > constraint_date)):
             diagnostics.append({"code": "constraint_violation", "severity": "warning", "taskId": task_id, "message": f"{constraint} cannot be met"})
         deadline = parse_datetime(period["deadline"])
@@ -219,17 +244,17 @@ def build_schedule(task_facts: list[dict[str, Any]], calendar_data: dict[str, An
                 successors[dependency["predecessorId"]].append((successor_id, dependency))
     for task_id in reversed(order):
         task = calculated[task_id]
-        late_start = calendar.add_duration(finish, -task["durationDays"])
+        late_start = _add_period_duration(calendar, finish, task["period"], -1)
         late_end = finish
         for successor_id, dependency in successors[task_id]:
             successor = calculated[successor_id]
             boundary, value = _backward_bound(successor, dependency, task["durationDays"], calendar)
             if boundary == "start":
                 late_start = min(late_start, value)
-                late_end = calendar.add_duration(late_start, task["durationDays"])
+                late_end = _add_period_duration(calendar, late_start, task["period"])
             else:
                 late_end = min(late_end, value)
-                late_start = calendar.add_duration(late_end, -task["durationDays"])
+                late_start = _add_period_duration(calendar, late_end, task["period"], -1)
         task["lateStart"] = late_start
         task["lateEnd"] = late_end
         task["freeSlackMinutes"] = round((late_start - task["start"]).total_seconds() / 60, 2)
