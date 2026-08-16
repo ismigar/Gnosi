@@ -499,6 +499,11 @@ def test_inventory_argument_extraction_removes_request_scaffolding():
     assert factory._inventory_request_arguments(
         "Llista els registres des de l'índex 200"
     )["offset"] == 200
+    bibliographic = factory._inventory_request_arguments(
+        "Buscame que notas tengo en relación a como encontrar fuentes bibliográficas de calidad"
+    )
+    assert bibliographic["record_types"] == ["source", "note"]
+    assert bibliographic["query"] == "bibliograficas calidad"
     assert factory._response_language("Mostra'm les titulacions") == "ca"
 
 

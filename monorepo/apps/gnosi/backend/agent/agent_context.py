@@ -51,6 +51,37 @@ MAX_CONTEXT_TABLE_FIELDS = 12
 MAX_CONTEXT_INVENTORY_ROWS = 100
 MAX_CONTEXT_INVENTORY_QUERY_CHARS = 500
 
+# Small, reviewable concept expansions for deterministic Vault inventories.
+# These are intentionally conservative: they broaden a user's vocabulary but
+# never call a model or claim that an unrelated topic is equivalent.
+INVENTORY_CONCEPT_EXPANSIONS = {
+    "bibliografia": {
+        "bibliografia", "bibliografica", "bibliograficas", "bibliografico",
+        "bibliograficos", "referencia", "referencias", "fuente", "fuentes",
+        "cerca", "recuperacio", "informacio", "literatura", "academica",
+    },
+    "bibliografica": {
+        "bibliografia", "bibliografica", "bibliograficas", "bibliografico",
+        "bibliograficos", "referencia", "referencias", "fuente", "fuentes",
+        "cerca", "recuperacio", "informacio", "literatura", "academica",
+    },
+    "bibliograficas": {
+        "bibliografia", "bibliografica", "bibliograficas", "bibliografico",
+        "bibliograficos", "referencia", "referencias", "fuente", "fuentes",
+        "cerca", "recuperacio", "informacio", "literatura", "academica",
+    },
+    "fuente": {
+        "fuente", "fuentes", "font", "fonts", "source", "sources",
+        "referencia", "referencias", "bibliografia", "bibliografica",
+        "cerca", "recuperacio", "informacio",
+    },
+    "fuentes": {
+        "fuente", "fuentes", "font", "fonts", "source", "sources",
+        "referencia", "referencias", "bibliografia", "bibliografica",
+        "cerca", "recuperacio", "informacio",
+    },
+}
+
 INVENTORY_TYPE_ALIASES = {
     "source": {
         "font", "fonts", "fuente", "fuentes", "source", "sources",
@@ -284,6 +315,23 @@ def _normalized_phrase(text: Any) -> str:
     return " ".join(_normalized_words(text, minimum_length=1))
 
 
+def _inventory_query_terms(query: str) -> tuple[list[str], list[str]]:
+    """Return literal terms and bounded semantic expansion terms."""
+    tokens = list(dict.fromkeys(_normalized_words(query)))
+    expanded: list[str] = []
+    matched_profiles: list[str] = []
+    for token in tokens:
+        profile = INVENTORY_CONCEPT_EXPANSIONS.get(token)
+        if profile:
+            matched_profiles.append(token)
+            expanded.extend(profile)
+    if not expanded:
+        return tokens, []
+    # Preserve the literal query in the payload while making the matcher
+    # explicit about the additional vocabulary it considered.
+    return tokens, list(dict.fromkeys(expanded))
+
+
 def _inventory_match(
     query: str,
     title: str,
@@ -292,7 +340,7 @@ def _inventory_match(
     related_text: str = "",
 ) -> Tuple[int, List[str], str]:
     """Score one canonical record and identify where every query token matched."""
-    query_tokens = list(dict.fromkeys(_normalized_words(query)))
+    query_tokens, expanded_tokens = _inventory_query_terms(query)
     if not query_tokens:
         return 1, ["all"], "direct"
     normalized_title = _normalized_phrase(title)
@@ -309,29 +357,36 @@ def _inventory_match(
     relation_tokens = set(normalized_relations.split())
     direct_tokens = title_tokens | body_tokens | metadata_tokens
     combined_tokens = direct_tokens | relation_tokens
-    if not all(token in combined_tokens for token in query_tokens):
+    match_tokens = query_tokens
+    if expanded_tokens:
+        # A concept query is satisfied by one canonical vocabulary term. This
+        # lets “fuentes bibliográficas” reach “Cerca i recuperació d'informació”
+        # while keeping ordinary multi-word queries strict.
+        match_tokens = list(dict.fromkeys((*query_tokens, *expanded_tokens)))
+    matched = [token for token in match_tokens if token in combined_tokens]
+    if (not expanded_tokens and len(matched) != len(query_tokens)) or not matched:
         return 0, [], ""
     match_kind = (
         "direct"
-        if all(token in direct_tokens for token in query_tokens)
+        if all(token in direct_tokens for token in matched)
         else "relation"
     )
     basis = []
-    if any(token in title_tokens for token in query_tokens):
+    if any(token in title_tokens for token in matched):
         basis.append("title")
-    if any(token in body_tokens for token in query_tokens):
+    if any(token in body_tokens for token in matched):
         basis.append("body")
-    if any(token in metadata_tokens for token in query_tokens):
+    if any(token in metadata_tokens for token in matched):
         basis.append("metadata")
-    if any(token in relation_tokens for token in query_tokens):
+    if any(token in relation_tokens for token in matched):
         basis.append("relations")
     normalized_query = " ".join(query_tokens)
     score = (
         (100 if normalized_query and normalized_query in normalized_title else 0)
-        + (40 * sum(token in title_tokens for token in query_tokens))
-        + (8 * sum(token in metadata_tokens for token in query_tokens))
-        + (4 * sum(token in relation_tokens for token in query_tokens))
-        + sum(token in body_tokens for token in query_tokens)
+        + (40 * sum(token in title_tokens for token in matched))
+        + (8 * sum(token in metadata_tokens for token in matched))
+        + (4 * sum(token in relation_tokens for token in matched))
+        + sum(token in body_tokens for token in matched)
     )
     return max(1, score), basis, match_kind
 
@@ -916,6 +971,9 @@ def build_context_tools(raw_refs: Any) -> List[Any]:
         bounded_query = " ".join(str(query or "").split())[
             :MAX_CONTEXT_INVENTORY_QUERY_CHARS
         ]
+        _literal_query_terms, semantic_query_terms = _inventory_query_terms(
+            bounded_query
+        )
         requested_types = []
         seen_requested = set()
         for raw_type in record_types or []:
@@ -1087,6 +1145,12 @@ def build_context_tools(raw_refs: Any) -> List[Any]:
             }
         payload = {
             "query": bounded_query,
+            "query_expansion": {
+                "applied": bool(semantic_query_terms),
+                "terms": semantic_query_terms[:24],
+                "method": "bounded_concept_vocabulary"
+                if semantic_query_terms else "literal_tokens",
+            },
             "include_relations": bool(include_relations),
             "match_semantics": (
                 "all normalized query tokens must occur in canonical text, metadata, "
