@@ -247,3 +247,13 @@ If a Docker host still uses this setup:
    environment variables acting only as overrides.
 5. Frontend build, relevant backend tests, browser smoke test, and end-to-end
    behavior all pass.
+
+## GitHub Actions runner policy
+
+The repository's routine pull-request checks run on the configured self-hosted
+Linux ARM64 runner to avoid consuming the hosted Actions budget. This includes
+backend tests, documentation, Docker builds, and connector/Vitest tests. When
+adding a new workflow or job, do not default to `ubuntu-latest`; use
+`[self-hosted, Linux, ARM64]` unless the job genuinely requires a hosted
+platform (for example, the macOS Intel, macOS arm64, or Windows release matrix).
+Verify the runner labels and required tools before merging the workflow.
