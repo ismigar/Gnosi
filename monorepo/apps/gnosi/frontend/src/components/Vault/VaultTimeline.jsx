@@ -7,7 +7,6 @@ import { VaultViewToolbar } from './VaultViewToolbar';
 import { getSchemaFieldEntries, getSchemaFieldNames, getFieldType, getFieldConfig, resolveViewSorts, resolveViewFilters } from './schemaUtils';
 import { normalizeOptions, optionColorHex } from './optionCatalogUtils';
 import { formatDate, resolveFieldFormat } from './formatUtils';
-import i18n from '../../i18n';
 import { useLocaleSettings } from '../../hooks/useLocaleSettings';
 import { parsePeriod } from './VaultDateProperty';
 import {
@@ -22,14 +21,38 @@ import { usePlugins } from '../../plugins/usePlugins';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
+import { formatVaultDate, parseVaultDate } from './dateUtils';
 
 // `new Date('YYYY-MM-DD')` interprets the date as UTC midnight: in zones
 // UTC− the bar is painted (and the round-trip of `handleUpdateDates`, which
 // serializes with LOCAL getters, re-saves) the PREVIOUS day. Dates without
 // time are parsed as LOCAL by appending 'T00:00:00'.
-const parseLocalDate = (v) => {
-    const s = String(v ?? '').trim();
-    return /^\d{4}-\d{2}-\d{2}$/.test(s) ? new Date(`${s}T00:00:00`) : new Date(v);
+const parseLocalDate = (v) => parseVaultDate(v);
+
+const buildTimelineTicks = (start, end, unit) => {
+    const ticks = [];
+    if (unit === 'years') {
+        const firstYear = start.getFullYear();
+        const lastYear = end.getFullYear() + 1;
+        const step = Math.max(1, Math.ceil((lastYear - firstYear) / 12));
+        for (let year = firstYear; year <= lastYear; year += step) {
+            const tick = new Date(0);
+            tick.setFullYear(year, 0, 1);
+            ticks.push({ at: tick, label: year < 0 ? `${Math.abs(year)} BCE` : String(year) });
+        }
+        return ticks;
+    }
+    const span = Math.max(1, end.getTime() - start.getTime());
+    const nominal = unit === 'hours' ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+    const step = Math.max(nominal, Math.ceil(span / 12 / nominal) * nominal);
+    for (let offset = 0; offset <= span + step; offset += step) {
+        const at = new Date(start.getTime() + offset);
+        ticks.push({
+            at,
+            label: formatVaultDate(at, { withTime: unit === 'hours' }),
+        });
+    }
+    return ticks;
 };
 
 // ── Jerarquia tasca/subtasca (estil MS Project) ─────────────────────────────
@@ -170,6 +193,9 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
         [tlDateFmt]
     );
     const periodFieldConfig = getFieldConfig(schema, datePropertyFound);
+    const timelineUnit = ['hours', 'days', 'years'].includes(periodFieldConfig.period_unit)
+        ? periodFieldConfig.period_unit
+        : 'days';
     const enhancedPeriod = projectPlanningEnabled
         && getFieldType(schema, datePropertyFound) === 'period';
     const skipNonWorkingDays = periodFieldConfig.skip_non_working_days !== false;
@@ -242,17 +268,12 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
         const minDate = new Date(Math.min(...processedNotes.map(n => n.start.getTime())));
         const maxDate = new Date(Math.max(...processedNotes.map(n => n.end.getTime())));
 
-        const chartStart = new Date(minDate);
-        chartStart.setDate(1);
-        const chartEnd = new Date(maxDate);
-        chartEnd.setMonth(chartEnd.getMonth() + 2);
-
-        const months = [];
-        let curr = new Date(chartStart);
-        while (curr <= chartEnd) {
-            months.push(new Date(curr));
-            curr.setMonth(curr.getMonth() + 1);
-        }
+        const chartStart = new Date(minDate.getTime());
+        const chartEnd = new Date(maxDate.getTime());
+        const padding = timelineUnit === 'hours' ? 60 * 60 * 1000
+            : timelineUnit === 'days' ? 24 * 60 * 60 * 1000
+                : 365 * 24 * 60 * 60 * 1000;
+        chartEnd.setTime(chartEnd.getTime() + padding);
 
         // ── Jerarquia tasca/subtasca (estil MS Project) ──
         // Subtasks (parent_id or an "ítem principal" alias relation…) are
@@ -306,9 +327,9 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
 
         return {
             chartData: flat,
-            timeScale: { start: chartStart, end: chartEnd, months }
+            timeScale: { start: chartStart, end: chartEnd, ticks: buildTimelineTicks(chartStart, chartEnd, timelineUnit) }
         };
-    }, [sortedAndFilteredNotes, schema, datePropertyFound, endPropertyFound, hasExplicitSorts]);
+    }, [sortedAndFilteredNotes, schema, datePropertyFound, endPropertyFound, hasExplicitSorts, timelineUnit]);
 
     const calculatePosition = (date) => {
         if (!timeScale) return 0;
@@ -530,7 +551,9 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
 
     // Scale width from the zoom level: the same time range spread over more
     // pixels = wider bars. Previously `zoomLevel` only styled the button.
-    const scaleMinWidth = zoomLevel === 'day' ? '12000px' : zoomLevel === 'week' ? '6000px' : '3000px';
+    const scaleMinWidth = timelineUnit === 'hours' ? '12000px'
+        : timelineUnit === 'years' ? '1800px'
+            : (zoomLevel === 'day' ? '12000px' : zoomLevel === 'week' ? '6000px' : '3000px');
 
     return (
         <div className="w-full h-full flex flex-col bg-[var(--bg-primary)] overflow-hidden relative">
@@ -647,11 +670,10 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                             {t('timeline.col_title', "Record Title")}
                         </div>
                         <div className="flex-1 relative" style={{ minWidth: scaleMinWidth }}>
-                            {timeScale?.months.map((month, idx) => {
-                                const left = calculatePosition(month);
-                                const nextMonth = new Date(month);
-                                nextMonth.setMonth(nextMonth.getMonth() + 1);
-                                const width = calculatePosition(nextMonth) - left;
+                            {timeScale?.ticks.map((tick, idx, allTicks) => {
+                                const left = calculatePosition(tick.at);
+                                const next = allTicks[idx + 1]?.at || timeScale.end;
+                                const width = calculatePosition(next) - left;
 
                                 return (
                                     <div
@@ -659,7 +681,7 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                                         style={{ left: `${left}%`, width: `${width}%` }}
                                         className="absolute h-full border-r border-[var(--border-primary)] flex items-center px-3 text-[10px] font-bold text-[var(--text-secondary)] truncate bg-[var(--bg-secondary)]"
                                     >
-                                        {month.toLocaleString(i18n.language, { month: 'short', year: 'numeric' }).toUpperCase()}
+                                        {tick.label}
                                     </div>
                                 );
                             })}
@@ -672,10 +694,10 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                         <div className="absolute inset-0 flex pointer-events-none">
                             <div className="w-64 shrink-0 border-r border-[var(--border-primary)]" />
                             <div className="flex-1 relative" style={{ minWidth: scaleMinWidth }}>
-                                {timeScale?.months.map((month, idx) => (
+                                {timeScale?.ticks.map((tick, idx) => (
                                     <div
                                         key={idx}
-                                        style={{ left: `${calculatePosition(month)}%` }}
+                                        style={{ left: `${calculatePosition(tick.at)}%` }}
                                         className="absolute h-full border-r border-[var(--border-primary)]"
                                     />
                                 ))}
@@ -729,7 +751,7 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                                                 </span>
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-[9px] text-[var(--text-tertiary)] font-medium">
-                                                        {note.start.toLocaleDateString(i18n.language, { day: 'numeric', month: 'short' })}
+                                                        {fmtTLDate(note.start)}
                                                     </span>
                                                 </div>
                                             </div>
