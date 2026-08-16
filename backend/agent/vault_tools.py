@@ -15,6 +15,8 @@ collab_ws_bypasses_fetch_block).
 from __future__ import annotations
 
 import re
+import threading
+import time
 from typing import Any, Dict, List, Optional
 
 from backend.utils.safe_io import sanitize_rel_folder, sanitize_vault_title
@@ -22,6 +24,21 @@ from backend.utils.safe_io import sanitize_rel_folder, sanitize_vault_title
 MAX_PAGE_READ_CHARS = 16_000
 MAX_PDF_READ_CHARS = 20_000
 DEFAULT_PDF_READ_CHARS = 12_000
+_WIKI_CACHE: dict[tuple[str, str, int], tuple[float, str]] = {}
+_WIKI_CACHE_LOCK = threading.RLock()
+_WIKI_CACHE_TTL_SECONDS = 30.0
+
+
+def clear_wiki_search_cache(brain_id: str | None = None) -> None:
+    """Invalidate rendered query results after a Brain index rebuild."""
+    with _WIKI_CACHE_LOCK:
+        if brain_id is None:
+            _WIKI_CACHE.clear()
+            return
+        prefix = str(brain_id)
+        for key in list(_WIKI_CACHE):
+            if key[0] == prefix:
+                _WIKI_CACHE.pop(key, None)
 
 
 def _read_text_prefix(path, max_chars: int) -> tuple[str, bool]:
@@ -68,6 +85,24 @@ def build_cornell_note(title: str, *, cues: List[str], notes: str, summary: str)
 
 def _tokenize(text: str) -> set:
     return set(re.findall(r"[\wàèéíòóúïüçñ]{4,}", (text or "").lower()))
+
+
+def _expanded_search_terms(query: str) -> set[str]:
+    """Small multilingual expansion for intent, not a generative rewrite."""
+    terms = _tokenize(query)
+    synonyms = {
+        "bibliografia": {"font", "fonts", "referencia", "referencies", "article"},
+        "bibliogràfiques": {"font", "fonts", "referencia", "referencies"},
+        "fuentes": {"font", "fonts", "referencia", "referencies"},
+        "coaching": {"acompanyament", "lideratge", "formacio"},
+        "sources": {"font", "fonts", "reference", "references"},
+        "search": {"cerca", "recuperacio", "find", "query"},
+        "cerca": {"search", "recuperacio", "find", "query"},
+    }
+    expanded = set(terms)
+    for term in terms:
+        expanded.update(synonyms.get(term, ()))
+    return expanded
 
 
 def rank_link_candidates(page_text: str, candidates: List[Dict[str, Any]],
@@ -291,9 +326,16 @@ def query_wiki(query: str, k: int = 5) -> str:
         return ("No Brain table is assigned (Settings → Plugins → Brain). "
                 "The knowledge wiki cannot be queried.")
 
-    base = _tokenize(query)
+    normalized_query = " ".join(str(query or "").casefold().split())
+    base = _expanded_search_terms(normalized_query)
     if not base:
         return "The query is too short to search the Brain."
+
+    cache_key = (str(brain_id), normalized_query, max(1, min(int(k or 5), 20)))
+    with _WIKI_CACHE_LOCK:
+        cached = _WIKI_CACHE.get(cache_key)
+        if cached and time.monotonic() - cached[0] < _WIKI_CACHE_TTL_SECONDS:
+            return cached[1] + "\n[Search metadata: mode=hybrid; cache_hit=true]"
 
     records = llm_wiki_indices.load_search_cache(brain_id)
     if not records:
@@ -309,6 +351,7 @@ def query_wiki(query: str, k: int = 5) -> str:
         body = str(record.get("excerpt") or "")
         toks = _tokenize(f"{title} {body}")
         inter = len(base & toks)
+        lexical_ratio = inter / max(1, len(base))
         vector_score = llm_wiki_indices.vector_similarity(
             record.get("vector") or [],
             query_vector,
@@ -317,6 +360,7 @@ def query_wiki(query: str, k: int = 5) -> str:
             continue
         role = str(record.get("managed_role") or "")
         index_boost = 3 if role in {"general-index", "dimension-index", "resource-index"} else 0
+        exact_title_boost = 4 if normalized_query and normalized_query in title.casefold() else 0
         scored.append({
             "title": title,
             "type": str(record.get("note_type") or ""),
@@ -324,7 +368,7 @@ def query_wiki(query: str, k: int = 5) -> str:
             "source_table_id": str(record.get("source_table_id") or ""),
             "resource_id": str(record.get("resource_id") or ""),
             "role": role,
-            "score": inter + index_boost + (vector_score * 2),
+            "score": (lexical_ratio * 4) + exact_title_boost + index_boost + (vector_score * 2),
         })
 
     if not scored:
@@ -332,18 +376,32 @@ def query_wiki(query: str, k: int = 5) -> str:
     scored.sort(key=lambda x: x["score"], reverse=True)
 
     out = [f"Relevant Brain notes for «{query}»:\n"]
+    injection_count = 0
     for n in scored[:max(1, k)]:
         head = f"## {n['title']}" + (f" ({n['type']})" if n["type"] else "")
         out.append(head)
         if n["excerpt"]:
-            out.append(n["excerpt"])
+            from backend.agent.context_safety import sanitize_untrusted_context
+            safe_excerpt, flags = sanitize_untrusted_context(n["excerpt"], max_chars=800)
+            injection_count += len(flags)
+            out.append(safe_excerpt)
         if n["resource_id"]:
             out.append(
                 f"Provenance: resource {n['resource_id']}"
                 + (f" · table {n['source_table_id']}" if n["source_table_id"] else "")
             )
         out.append("")
-    return "\n".join(out)
+    out.append(
+        "[Search metadata: mode=hybrid; cache_hit=false; "
+        f"injection_flags={injection_count}]"
+    )
+    rendered = "\n".join(out)
+    with _WIKI_CACHE_LOCK:
+        _WIKI_CACHE[cache_key] = (time.monotonic(), rendered)
+        if len(_WIKI_CACHE) > 128:
+            oldest = min(_WIKI_CACHE, key=lambda key: _WIKI_CACHE[key][0])
+            _WIKI_CACHE.pop(oldest, None)
+    return rendered
 
 
 VAULT_KNOWLEDGE_TOOLS = [

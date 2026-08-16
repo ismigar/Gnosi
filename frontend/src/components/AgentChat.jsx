@@ -2027,6 +2027,11 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                                                     models: msg.timings.model_calls ?? 0,
                                                     tools: msg.timings.tool_calls ?? 0,
                                                 })}</div>
+                                                {msg.timings.estimated_cost_usd !== undefined && (
+                                                    <div>{t('chat.timing_cost', 'Estimated cost: ${{amount}}', {
+                                                        amount: Number(msg.timings.estimated_cost_usd || 0).toFixed(6),
+                                                    })}</div>
+                                                )}
                                             </>
                                         )}
                                         {msg.explanation && (

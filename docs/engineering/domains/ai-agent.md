@@ -9,6 +9,10 @@ source_paths:
   - backend/api/tools_routes.py
   - backend/services/agent_quality_telemetry.py
   - backend/services/reader_analysis.py
+  - backend/services/agent_cancellation.py
+  - backend/services/agent_capability_health.py
+  - backend/agent/provider_resilience.py
+  - backend/agent/context_safety.py
   - frontend/src/components/AgentChat.jsx
   - frontend/src/components/AI
 tests:
@@ -19,6 +23,7 @@ tests:
   - backend/tests/test_generated_tool_validator.py
   - backend/tests/test_agent_action_confirmations.py
   - backend/tests/test_agent_quality_telemetry.py
+  - backend/tests/test_agent_resilience.py
   - e2e/tests/e2e/ai-chat.spec.ts
 ---
 
@@ -63,6 +68,12 @@ secret storage or supported environment migration, not exposed to the
 frontend. Failure reasons are recorded separately from user-facing responses so
 operators can distinguish timeout, provider rejection, invalid credentials,
 context overflow, and tool incompatibility.
+
+Runtime failover is bounded and trust-aware. A transient timeout, connection
+failure, rate limit, or 5xx may move to another configured model with the same
+local/remote locality; authentication, policy, and content errors never do.
+The selected fallback is marked in message metadata and in the stream receipt,
+so a local model cannot unexpectedly send private context to a remote provider.
 
 ## Tool governance
 
@@ -161,6 +172,14 @@ evidence, and marks incomplete grounding as a limitation. The chat renders the
 bounded claim/source mapping with safe Vault, Reader, or HTTP(S) links and never
 persists excerpts or filesystem paths as citation metadata.
 
+Vault search uses a deterministic hybrid rank: expanded multilingual lexical
+terms, exact-title boosts, index-role boosts, and the rebuildable vector score.
+Results are cached briefly by Brain/query/k only; the cache is bounded and does
+not retain prompts or unbounded source bodies. Returned excerpts are delimited
+as untrusted evidence and injection-like instructions are flagged; the Brain
+prompt treats every source, connector, attachment, and web result as data rather
+than an instruction.
+
 Exhaustive inventories reuse the locally persisted parsed-document and link
 indexes. Relation ids are expanded to indexed target titles, so a record linked
 to a matching project or source remains discoverable without reopening every
@@ -229,6 +248,13 @@ checkpoint at the complete turn boundary and returns its public projection.
 Rewind changes conversation memory only; completed confirmations and external
 side effects are never presented as reversed.
 
+The stream owns an opaque cancellation token. If the client disconnects, it
+signals the token and the next graph node/tool gate exits without starting more
+work; cached workflows do not capture request-specific events. Tokens are
+released after the stream completes. Tool descriptors additionally expose a
+cheap health status (healthy or unavailable) so missing ids, names, or handlers
+cannot be advertised as runnable capabilities.
+
 Editable model-registry rows are hydrated from the canonical catalog before
 they reach Settings or runtime routing. Partial budget/settings updates merge
 with existing capability, context-window, cost, and quality metadata. Provider
@@ -240,6 +266,12 @@ Message details provide bounded operational explainability: mode, route,
 foreground/background execution, tools actually used, evidence count, privacy
 posture, verifier status, index freshness, durable job state when present, and
 timings. This is an execution receipt, not chain-of-thought.
+
+Turn metrics include a provider-catalog-based USD estimate alongside token and
+latency counts. The persistent spend ledger remains the source of truth; the
+estimate is bounded display metadata and is never used as authorization by
+itself. The deterministic evaluation suite also asserts that every plan stays
+within the 120-second latency ceiling.
 
 The deterministic corpus under `backend/agent/evals/` covers all request modes,
 all four UI languages, domain containment, private local and remote processing,

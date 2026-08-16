@@ -4717,6 +4717,7 @@
     "timing_model": "Model: {{count}} ms",
     "timing_misc": "Other: {{count}} ms",
     "timing_usage": "{{input}} input tokens · {{output}} output tokens · {{models}} model calls · {{tools}} tool calls",
+    "timing_cost": "Estimated cost: ${{amount}}",
     "message_has_confirmation": "This message includes a governed action confirmation.",
     "message_attachments_count": "{{count}} attachment(s)",
     "tool_start": "🛠️ *Calling tool: {{tool}}...*",

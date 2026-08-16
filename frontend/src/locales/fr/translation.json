@@ -4861,6 +4861,7 @@
     "timing_model": "Modèle : {{count}} ms",
     "timing_misc": "Autres : {{count}} ms",
     "timing_usage": "{{input}} jetons d'entrée · {{output}} jetons de sortie · {{models}} appels au modèle · {{tools}} appels d'outils",
+    "timing_cost": "Coût estimé : ${{amount}}",
     "message_has_confirmation": "Ce message inclut une confirmation d'action régie.",
     "message_attachments_count": "{{count}} pièce(s) jointe(s)",
     "tool_start": "🛠️ *Appel de l'outil : {{tool}}...*",

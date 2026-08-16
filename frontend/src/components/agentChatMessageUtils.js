@@ -700,6 +700,10 @@ export const boundedTurnMetrics = (value) => {
             metrics[field] = Math.min(Number.MAX_SAFE_INTEGER, Math.floor(numeric));
         }
     });
+    const estimatedCost = Number(value.estimated_cost_usd);
+    if (Number.isFinite(estimatedCost) && estimatedCost >= 0) {
+        metrics.estimated_cost_usd = Math.min(1_000_000, estimatedCost);
+    }
     const budget = boundedBudget(value.budget);
     if (budget) metrics.budget = budget;
     if (value.budget_exhausted && typeof value.budget_exhausted === 'object') {

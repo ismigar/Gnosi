@@ -4861,6 +4861,7 @@
     "timing_model": "Model: {{count}} ms",
     "timing_misc": "Altres: {{count}} ms",
     "timing_usage": "{{input}} tokens d'entrada · {{output}} tokens de sortida · {{models}} crides al model · {{tools}} crides a eines",
+    "timing_cost": "Cost estimat: ${{amount}}",
     "message_has_confirmation": "Aquest missatge inclou una confirmació d'acció governada.",
     "message_attachments_count": "{{count}} adjunt(s)",
     "tool_start": "🛠️ *Cridant eina: {{tool}}...*",
