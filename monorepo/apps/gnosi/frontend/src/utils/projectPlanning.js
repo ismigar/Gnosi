@@ -18,18 +18,19 @@ function parseLocalDateTime(value) {
     if (value instanceof Date) return new Date(value.getTime());
     const text = String(value || '').trim();
     const match = text.match(
-        /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2}))?)?$/,
+        /^(-?\d{4,})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2}))?)?$/,
     );
     if (match) {
-        return new Date(
+        // `new Date(year, ...)` remaps years 0–99 to 1900–1999. Set the year
+        // explicitly so signed ISO dates and early CE dates retain their value.
+        const date = new Date(0);
+        date.setFullYear(
             Number(match[1]),
             Number(match[2]) - 1,
             Number(match[3]),
-            Number(match[4] || 0),
-            Number(match[5] || 0),
-            Number(match[6] || 0),
-            0,
         );
+        date.setHours(Number(match[4] || 0), Number(match[5] || 0), Number(match[6] || 0), 0);
+        return date;
     }
     const parsed = new Date(text);
     return Number.isNaN(parsed.getTime()) ? null : parsed;
@@ -38,7 +39,9 @@ function parseLocalDateTime(value) {
 export function formatLocalDateTime(value) {
     const date = parseLocalDateTime(value);
     if (!date) return '';
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+    const year = date.getFullYear();
+    const formattedYear = year < 0 ? `-${String(Math.abs(year)).padStart(4, '0')}` : String(year).padStart(4, '0');
+    return `${formattedYear}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
         + `T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 

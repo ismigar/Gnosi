@@ -11,7 +11,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
 | Playwright | 13 | 37 |
-| Vitest | 74 | 281 |
+| Vitest | 74 | 282 |
 | pytest | 188 | 1592 |
 
 ## Files
@@ -94,7 +94,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/utils/graphLegend.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/graphLegend.test.js) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/utils/graphViewGeometry.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/graphViewGeometry.test.js) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/utils/panelKeyboardNavigation.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/panelKeyboardNavigation.test.js) | 3 | call-pattern estimate |
-| Vitest | [`frontend/src/utils/projectPlanning.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/projectPlanning.test.js) | 10 | call-pattern estimate |
+| Vitest | [`frontend/src/utils/projectPlanning.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/projectPlanning.test.js) | 11 | call-pattern estimate |
 | Vitest | [`frontend/src/utils/semanticOverlay.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/semanticOverlay.test.js) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/utils/vaultFilters.sort.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/vaultFilters.sort.test.js) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/utils/vaultFilters.textPatterns.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/vaultFilters.textPatterns.test.js) | 5 | call-pattern estimate |

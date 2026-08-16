@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Calendar as CalendarIcon, Clock, X, Repeat } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, Repeat } from 'lucide-react';
 import { useLocaleSettings } from '../../hooks/useLocaleSettings';
 import { RecurrenceEditor } from './RecurrenceEditor';
 import {
@@ -59,6 +59,8 @@ export const VaultDateProperty = ({
     const hiddenInputRef = useRef(null);
     const [inputValue, setInputValue] = useState('');
     const [showRecurrence, setShowRecurrence] = useState(false);
+    const [predecessorSearch, setPredecessorSearch] = useState('');
+    const [periodDrafts, setPeriodDrafts] = useState({});
     // The interface language to format the date shown in the input
     // (previously it was hardcoded to 'ca-ES', ignoring the user's preference).
     const { dateLocale } = useLocaleSettings();
@@ -178,6 +180,9 @@ export const VaultDateProperty = ({
     // while the built-in plugin is disabled.
     if (type === 'period') {
         const period = parsePeriod(value);
+        const periodUnit = ['hours', 'days', 'years'].includes(fieldConfig.period_unit)
+            ? fieldConfig.period_unit
+            : 'days';
         const durationEnabled = planningEnabled && fieldConfig.duration_enabled !== false;
         const predecessorsEnabled = planningEnabled && fieldConfig.predecessors_enabled !== false;
         const skipNonWorkingDays = fieldConfig.skip_non_working_days !== false;
@@ -189,11 +194,58 @@ export const VaultDateProperty = ({
             const asInputDateTime = (raw, isEnd = false) => {
                 if (!raw) return '';
                 if (String(raw).includes('T')) return formatLocalDateTime(raw);
-                if (!/^\d{4}-\d{2}-\d{2}$/.test(String(raw))) return formatLocalDateTime(raw);
+                if (!/^-?\d{4,}-\d{2}-\d{2}$/.test(String(raw))) return formatLocalDateTime(raw);
                 if (!isEnd) return `${raw}T${workdayStart}`;
                 const startOfDay = `${raw}T${workdayStart}`;
                 return addWorkingDuration(startOfDay, 1, planningSettings, false) || startOfDay;
             };
+            const periodInputValue = (raw, isEnd = false) => {
+                const dateTime = asInputDateTime(raw, isEnd);
+                if (!dateTime) return '';
+                if (periodUnit === 'hours') return dateTime;
+                if (periodUnit === 'days') return dateTime.slice(0, 10);
+                const year = dateTime.match(/^-?\d{4,}/)?.[0];
+                return year || '';
+            };
+            const periodInputToBoundary = (raw) => {
+                if (!raw) return '';
+                if (periodUnit === 'hours') return raw;
+                if (periodUnit === 'days') return `${raw}T${workdayStart}`;
+                if (!/^-?\d{1,}$/.test(raw)) return '';
+                const number = Number(raw);
+                if (!Number.isInteger(number)) return '';
+                const year = number < 0
+                    ? `-${String(Math.abs(number)).padStart(4, '0')}`
+                    : String(number).padStart(4, '0');
+                return `${year}-01-01T${workdayStart}`;
+            };
+            const draftValue = (key, raw, isEnd = false) => (
+                Object.prototype.hasOwnProperty.call(periodDrafts, key)
+                    ? periodDrafts[key]
+                    : periodInputValue(raw, isEnd)
+            );
+            const updateDraft = (key, raw) => setPeriodDrafts((drafts) => ({ ...drafts, [key]: raw }));
+            const commitDraft = (key, commitValue) => {
+                const raw = periodDrafts[key];
+                if (raw === undefined) return;
+                const boundary = periodInputToBoundary(raw);
+                if (raw === '' || boundary) commitValue(boundary);
+                setPeriodDrafts((drafts) => {
+                    const { [key]: _ignored, ...remaining } = drafts;
+                    return remaining;
+                });
+            };
+            const periodDateLabel = (kind) => t(
+                `vault_date.period_${kind}_${periodUnit}`,
+                periodUnit === 'hours'
+                    ? ({ start: 'Start date and time', end: 'Finish date and time', actual_start: 'Actual start', actual_end: 'Actual finish', constraint_date: 'Constraint date and time', deadline: 'Deadline date and time' }[kind])
+                    : periodUnit === 'days'
+                        ? ({ start: 'Start date', end: 'Finish date', actual_start: 'Actual start date', actual_end: 'Actual finish date', constraint_date: 'Constraint date', deadline: 'Deadline date' }[kind])
+                        : ({ start: 'Start year', end: 'Finish year', actual_start: 'Actual start year', actual_end: 'Actual finish year', constraint_date: 'Constraint year', deadline: 'Deadline year' }[kind]),
+            );
+            const durationMultiplier = periodUnit === 'hours'
+                ? Number(planningSettings.hours_per_day) || 8
+                : periodUnit === 'years' ? 365 : 1;
             const displayStart = asInputDateTime(period.start);
             const displayEnd = asInputDateTime(period.end, true);
             const derivedDuration = workingDurationDays(
@@ -205,6 +257,8 @@ export const VaultDateProperty = ({
             const duration = period.durationDays
                 ?? derivedDuration
                 ?? periodDaysInclusive(period.start, period.end);
+            const displayDuration = duration === null || duration === undefined
+                ? '' : Number((duration * durationMultiplier).toFixed(4));
             const taskTableId = String(planningSettings.task_table_id || '');
             const getTableId = (note) => String(
                 note?.resolved_table_id
@@ -212,8 +266,11 @@ export const VaultDateProperty = ({
                 || note?.metadata?.database_table_id
                 || '',
             );
+            const currentNote = (notes || []).find((note) => String(note?.id) === String(noteId));
+            const currentTableId = getTableId(currentNote);
+            const scopedTableId = currentTableId || taskTableId;
             const scopedNotes = (notes || []).filter((note) => (
-                !taskTableId || getTableId(note) === taskTableId
+                scopedTableId ? getTableId(note) === scopedTableId : false
             ));
             const periodKeys = [
                 fieldName,
@@ -241,6 +298,10 @@ export const VaultDateProperty = ({
             const candidates = scopedNotes.filter((note) => (
                 !blockedCandidateIds.has(String(note.id))
             ));
+            const visibleCandidates = candidates.filter((candidate) => {
+                const title = candidate.title || idToTitle[candidate.id] || candidate.id;
+                return String(title).toLocaleLowerCase().includes(predecessorSearch.toLocaleLowerCase());
+            });
 
             const fillAutomaticBoundaries = (next, recalculateStart = false) => {
                 if (predecessorsEnabled && next.predecessorIds.length > 0
@@ -311,7 +372,7 @@ export const VaultDateProperty = ({
             };
             const handleDurationChange = (event) => {
                 const raw = event.target.value;
-                const nextDuration = raw === '' ? null : Number(raw);
+                const nextDuration = raw === '' ? null : Number(raw) / durationMultiplier;
                 if (nextDuration !== null && (!Number.isFinite(nextDuration) || nextDuration < 0)) return;
                 const next = {
                     ...period,
@@ -331,11 +392,7 @@ export const VaultDateProperty = ({
                 }
                 commit(next);
             };
-            const handlePredecessorsChange = (event) => {
-                const predecessorIds = Array.from(
-                    event.target.selectedOptions,
-                    (option) => option.value,
-                );
+            const handlePredecessorsChange = (predecessorIds) => {
                 const next = {
                     ...period,
                     predecessorIds,
@@ -352,96 +409,98 @@ export const VaultDateProperty = ({
                 }
                 commit(next);
             };
+            const togglePredecessor = (predecessorId) => {
+                const predecessorIds = period.predecessorIds.includes(predecessorId)
+                    ? period.predecessorIds.filter((id) => id !== predecessorId)
+                    : [...period.predecessorIds, predecessorId];
+                handlePredecessorsChange(predecessorIds);
+            };
 
             return (
                 <div className="grid min-w-[430px] grid-cols-2 gap-2 p-1 text-xs">
                     <label className="flex flex-col gap-1">
                         <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
-                            {t('vault_date.period_start', "Start date and time")}
+                            {periodDateLabel('start')}
                         </span>
                         <input
-                            type="datetime-local"
-                            value={displayStart}
-                            onChange={(event) => handleStartChange(event.target.value)}
+                            type="text"
+                            value={draftValue('start', period.start)}
+                            placeholder={periodUnit === 'hours' ? 'YYYY-MM-DDTHH:mm' : periodUnit === 'days' ? 'YYYY-MM-DD' : 'YYYY'}
+                            onChange={(event) => updateDraft('start', event.target.value)}
+                            onBlur={() => commitDraft('start', handleStartChange)}
                             className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]"
                         />
                     </label>
                     {['SNET', 'SNLT', 'FNET', 'FNLT', 'MSO', 'MFO'].includes(period.constraintType) && (
                         <label className="flex flex-col gap-1">
                             <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
-                                {t('vault_date.period_constraint_date', 'Constraint date')}
+                                {periodDateLabel('constraint_date')}
                             </span>
                             <input
-                                type="datetime-local"
-                                value={asInputDateTime(period.constraintDate)}
-                                onChange={(event) => commit({ ...period, constraintDate: event.target.value })}
+                                type="text"
+                                value={draftValue('constraintDate', period.constraintDate)}
+                                placeholder={periodUnit === 'hours' ? 'YYYY-MM-DDTHH:mm' : periodUnit === 'days' ? 'YYYY-MM-DD' : 'YYYY'}
+                                onChange={(event) => updateDraft('constraintDate', event.target.value)}
+                                onBlur={() => commitDraft('constraintDate', (constraintDate) => commit({ ...period, constraintDate }))}
                                 className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]"
                             />
                         </label>
                     )}
                     <label className="flex flex-col gap-1">
                         <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
-                            {t('vault_date.period_complete', 'Complete (%)')}
+                            {t(`vault_date.period_duration_${periodUnit}`, periodUnit === 'hours' ? 'Hours' : periodUnit === 'years' ? 'Years' : 'Days')}
                         </span>
-                        <input type="number" min="0" max="100" value={period.percentComplete} onChange={(event) => commit({ ...period, percentComplete: Math.min(100, Math.max(0, Number(event.target.value) || 0)) })} className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]" />
+                        <input type="number" min="0" step="0.25" value={displayDuration} onChange={handleDurationChange} className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]" />
                     </label>
                     <label className="flex flex-col gap-1">
                         <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
-                            {t('vault_date.period_actual_start', 'Actual start')}
+                            {periodDateLabel('actual_start')}
                         </span>
-                        <input type="datetime-local" value={asInputDateTime(period.actualStart)} onChange={(event) => commit({ ...period, actualStart: event.target.value })} className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]" />
+                        <input type="text" value={draftValue('actualStart', period.actualStart)} placeholder={periodUnit === 'hours' ? 'YYYY-MM-DDTHH:mm' : periodUnit === 'days' ? 'YYYY-MM-DD' : 'YYYY'} onChange={(event) => updateDraft('actualStart', event.target.value)} onBlur={() => commitDraft('actualStart', (actualStart) => commit({ ...period, actualStart }))} className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]" />
                     </label>
                     <label className="flex flex-col gap-1">
                         <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
-                            {t('vault_date.period_actual_end', 'Actual finish')}
+                            {periodDateLabel('actual_end')}
                         </span>
-                        <input type="datetime-local" value={asInputDateTime(period.actualEnd)} onChange={(event) => commit({ ...period, actualEnd: event.target.value, percentComplete: event.target.value ? 100 : period.percentComplete })} className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]" />
+                        <input type="text" value={draftValue('actualEnd', period.actualEnd)} placeholder={periodUnit === 'hours' ? 'YYYY-MM-DDTHH:mm' : periodUnit === 'days' ? 'YYYY-MM-DD' : 'YYYY'} onChange={(event) => updateDraft('actualEnd', event.target.value)} onBlur={() => commitDraft('actualEnd', (actualEnd) => commit({ ...period, actualEnd }))} className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]" />
                     </label>
                     <label className="flex flex-col gap-1">
                         <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
-                            {t('vault_date.period_end', "Finish date and time")}
+                            {periodDateLabel('end')}
                         </span>
                         <input
-                            type="datetime-local"
-                            value={displayEnd}
-                            onChange={(event) => handleEndChange(event.target.value)}
+                            type="text"
+                            value={draftValue('end', period.end, true)}
+                            placeholder={periodUnit === 'hours' ? 'YYYY-MM-DDTHH:mm' : periodUnit === 'days' ? 'YYYY-MM-DD' : 'YYYY'}
+                            onChange={(event) => updateDraft('end', event.target.value)}
+                            onBlur={() => commitDraft('end', handleEndChange)}
                             className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]"
                         />
                     </label>
-                    {durationEnabled && (
-                        <label className="flex flex-col gap-1">
-                            <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
-                                {t('vault_date.period_duration', "Working days")}
-                            </span>
-                            <input
-                                type="number"
-                                min="0"
-                                step="0.25"
-                                value={duration ?? ''}
-                                onChange={handleDurationChange}
-                                className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]"
-                            />
-                        </label>
-                    )}
                     {predecessorsEnabled && (
                         <label className="flex flex-col gap-1">
                             <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
                                 {t('vault_date.period_predecessors', "Predecessors")}
                             </span>
-                            <select
-                                multiple
-                                size={Math.min(4, Math.max(2, candidates.length))}
-                                value={period.predecessorIds}
-                                onChange={handlePredecessorsChange}
-                                className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]"
-                                title={t('vault_date.period_predecessors_hint', "Select one or more tasks that must finish first")}
-                            >
-                                {candidates.map((candidate) => (
-                                    <option key={candidate.id} value={candidate.id}>
-                                        {candidate.title || idToTitle[candidate.id] || candidate.id}
-                                    </option>
-                                ))}
-                            </select>
+                            <div className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] p-1 text-[var(--text-primary)]" title={t('vault_date.period_predecessors_hint', "Select one or more tasks that must finish first")}>
+                                {period.predecessorIds.length > 0 && (
+                                    <div className="mb-1 flex flex-wrap gap-1">
+                                        {period.predecessorIds.map((predecessorId) => (
+                                            <button key={predecessorId} type="button" onClick={() => togglePredecessor(predecessorId)} className="inline-flex max-w-full items-center gap-1 rounded-full bg-[var(--bg-secondary)] px-2 py-0.5 text-left text-[var(--text-secondary)]">
+                                                <span className="truncate">{idToTitle[predecessorId] || predecessorId}</span><span aria-hidden="true">×</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                                <input value={predecessorSearch} onChange={(event) => setPredecessorSearch(event.target.value)} placeholder={t('vault_date.period_predecessors_search', 'Search tasks')} aria-label={t('vault_date.period_predecessors_search', 'Search tasks')} className="w-full rounded px-1 py-0.5 outline-none" />
+                                <div className="mt-1 max-h-28 overflow-y-auto border-t border-[var(--border-primary)]">
+                                    {visibleCandidates.map((candidate) => {
+                                        const selected = period.predecessorIds.includes(String(candidate.id));
+                                        return <button key={candidate.id} type="button" onClick={() => togglePredecessor(String(candidate.id))} className="flex w-full items-center gap-2 px-1 py-1 text-left hover:bg-[var(--bg-secondary)]" aria-pressed={selected}><span className="w-3">{selected ? '✓' : ''}</span><span className="truncate">{candidate.title || idToTitle[candidate.id] || candidate.id}</span></button>;
+                                    })}
+                                    {visibleCandidates.length === 0 && <span className="block px-1 py-1 text-[var(--text-tertiary)]">{t('vault_date.period_predecessors_empty', 'No tasks found in this table')}</span>}
+                                </div>
+                            </div>
                         </label>
                     )}
                     {predecessorsEnabled && period.dependencies.length > 0 && (
@@ -475,12 +534,14 @@ export const VaultDateProperty = ({
                     </label>
                     <label className="flex flex-col gap-1">
                         <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
-                            {t('vault_date.period_deadline', 'Deadline')}
+                            {periodDateLabel('deadline')}
                         </span>
                         <input
-                            type="datetime-local"
-                            value={asInputDateTime(period.deadline)}
-                            onChange={(event) => commit({ ...period, deadline: event.target.value })}
+                            type="text"
+                            value={draftValue('deadline', period.deadline)}
+                            placeholder={periodUnit === 'hours' ? 'YYYY-MM-DDTHH:mm' : periodUnit === 'days' ? 'YYYY-MM-DD' : 'YYYY'}
+                            onChange={(event) => updateDraft('deadline', event.target.value)}
+                            onBlur={() => commitDraft('deadline', (deadline) => commit({ ...period, deadline }))}
                             className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]"
                         />
                     </label>

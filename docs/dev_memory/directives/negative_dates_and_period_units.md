@@ -37,3 +37,9 @@ days, or years.
 - Do not route a `period` property through the generic text input: render the
   structured period editor and pass the field configuration so duration and
   predecessor controls follow the schema.
+- Scope predecessor candidates to the table of the note currently being edited,
+  not the global planning table, and provide the same searchable multi-select
+  interaction used by other multiple-value properties.
+- The primary numeric period control represents its configured unit (hours,
+  days, or years), never completion percentage. Store it compatibly as working
+  days and convert at the editor boundary.

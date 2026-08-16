@@ -32,14 +32,14 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `application root` | 3 | 281 | 0 |
-| `components` | 201 | 79930 | 200 |
+| `components` | 201 | 79991 | 200 |
 | `context` | 1 | 177 | 6 |
 | `hooks` | 16 | 1239 | 7 |
 | `lib` | 20 | 2091 | 6 |
 | `locales` | 3 | 565 | 0 |
 | `pages` | 16 | 12313 | 52 |
 | `plugins` | 4 | 513 | 5 |
-| `utils` | 14 | 1703 | 0 |
+| `utils` | 14 | 1706 | 0 |
 
 ## application root
 
@@ -171,7 +171,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Vault/TranslateLanguagesModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/TranslateLanguagesModal.jsx) | 203 | `TranslateLanguagesModal` | `/api/vault/skills/translate-page`, `/api/vault/skills/translate-row`, `/api/vault/skills/translate-rows` |
 | [`frontend/src/components/Vault/VaultBulkActionsBar.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultBulkActionsBar.jsx) | 228 | `VaultBulkActionsBar` | — |
 | [`frontend/src/components/Vault/VaultChart.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultChart.jsx) | 300 | `VaultChart` | — |
-| [`frontend/src/components/Vault/VaultDateProperty.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultDateProperty.jsx) | 605 | `VaultDateProperty`, `addDaysISO` | — |
+| [`frontend/src/components/Vault/VaultDateProperty.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultDateProperty.jsx) | 666 | `VaultDateProperty`, `addDaysISO` | — |
 | [`frontend/src/components/Vault/VaultDocumentTabs.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultDocumentTabs.jsx) | 413 | `VaultDocumentTabs` | — |
 | [`frontend/src/components/Vault/VaultDrawings.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultDrawings.jsx) | 125 | `VaultDrawings` | `/api/vault` |
 | [`frontend/src/components/Vault/VaultEditorContext.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultEditorContext.js) | 17 | `VaultEditorContext` | — |
@@ -359,7 +359,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/utils/graphLegend.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/graphLegend.js) | 21 | `CONNECTION_TYPE_COLORS`, `getConnectionType`, `getConnectionTypeCounts` | — |
 | [`frontend/src/utils/graphViewGeometry.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/graphViewGeometry.js) | 158 | `createMinimapTransform`, `getCameraGraphBounds`, `getCameraViewportRect`, `getVisibleCameraRatio`, `getVisibleGraphBounds`, `mergeGraphBounds` | — |
 | [`frontend/src/utils/panelKeyboardNavigation.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/panelKeyboardNavigation.js) | 16 | `getPanelScrollTarget` | — |
-| [`frontend/src/utils/projectPlanning.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/projectPlanning.js) | 361 | `addWorkingDuration`, `dependencySuccessorIds`, `formatLocalDateTime`, `latestPredecessorEnd`, `nextWorkingInstant`, `parsePeriod`, `periodBoundary`, `periodDaysInclusive`, `serializePeriod`, `withPeriodBoundaries`, `workingDurationDays`, `wouldCreateDependencyCycle` | — |
+| [`frontend/src/utils/projectPlanning.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/projectPlanning.js) | 364 | `addWorkingDuration`, `dependencySuccessorIds`, `formatLocalDateTime`, `latestPredecessorEnd`, `nextWorkingInstant`, `parsePeriod`, `periodBoundary`, `periodDaysInclusive`, `serializePeriod`, `withPeriodBoundaries`, `workingDurationDays`, `wouldCreateDependencyCycle` | — |
 | [`frontend/src/utils/semanticOverlay.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/semanticOverlay.js) | 51 | `SEMANTIC_SUGGESTION_COLOR`, `getSemanticOverlaySegments`, `getVisibleSemanticEdges`, `hasSemanticSuggestions` | — |
 | [`frontend/src/utils/vaultFilters.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/vaultFilters.js) | 378 | `ISO_DATE_RE`, `NUM_RE`, `asBool`, `compareFieldValues`, `isFilterGroup`, `matchesFilterNode`, `matchesFilters`, `matchesRule`, `matchesSearch`, `matchesTextPattern`, `normalizeForSearch`, `parseNumericValue`, `sortKey`, `viewMatchesFilters` | — |
 | [`frontend/src/utils/vaultQuickNavigation.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/vaultQuickNavigation.js) | 48 | `isGeneratedIndexNote`, `openVaultNote`, `selectRecentNotes` | — |
