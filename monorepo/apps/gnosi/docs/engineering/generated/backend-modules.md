@@ -20,12 +20,12 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `scheduler` | 2 | 949 |
 | `scripts` | 3 | 130 |
 | `security` | 3 | 735 |
-| `services` | 118 | 38992 |
+| `services` | 118 | 39017 |
 | `sh` | 1 | 69 |
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **240 modules** and **98475 source lines**.
+Total: **240 modules** and **98500 source lines**.
 
 ## agent
 
@@ -280,7 +280,7 @@ Total: **240 modules** and **98475 source lines**.
 | [`backend/services/option_catalogs.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/option_catalogs.py) | 413 | 0 | 19 | 0 | 14 | Rich option catalogs, semantic field roles, and per-table seeds. |
 | [`backend/services/page_sidecar.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/page_sidecar.py) | 225 | 0 | 11 | 0 | 11 | Sidecar I/O for internal page metadata. |
 | [`backend/services/path_resolver.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/path_resolver.py) | 85 | 1 | 0 | 0 | 1 | No module docstring |
-| [`backend/services/planning_engine.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/planning_engine.py) | 270 | 2 | 6 | 0 | 6 | Deterministic, rebuildable scheduling for Gnosi project planning. |
+| [`backend/services/planning_engine.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/planning_engine.py) | 295 | 2 | 7 | 0 | 7 | Deterministic, rebuildable scheduling for Gnosi project planning. |
 | [`backend/services/planning_scheduler.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/planning_scheduler.py) | 132 | 0 | 7 | 0 | 4 | Coalesced, ETag-safe project schedule refreshes triggered by page changes. |
 | [`backend/services/plugin_ai_contributions.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/plugin_ai_contributions.py) | 508 | 0 | 15 | 0 | 6 | Governed AI contributions from installed third-party plugins. |
 | [`backend/services/plugin_catalog.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/plugin_catalog.py) | 235 | 0 | 10 | 0 | 7 | Plugin catalog/gallery (phase 2.2 of plugin_system.md). |

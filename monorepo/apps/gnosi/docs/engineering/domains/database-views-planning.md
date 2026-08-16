@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-11
+last_verified: 2026-08-16
 source_paths:
   - backend/api/vault_routes.py
   - backend/api/vault_views_routes.py
@@ -12,8 +12,11 @@ source_paths:
   - pipeline/scripts/migrate_table_system_dates.py
   - frontend/src/components/Vault/VaultTable.jsx
   - frontend/src/components/Vault/BlockEditor.jsx
+  - frontend/src/components/Vault/VaultDateProperty.jsx
+  - frontend/src/components/Vault/VaultTimeline.jsx
   - frontend/src/pages/VaultDashboard.jsx
   - frontend/src/pages/ProjectPlanningPage.jsx
+  - frontend/src/utils/projectPlanning.js
   - frontend/src/utils/vaultFilters.js
 tests:
   - backend/tests/test_table_system_dates.py
@@ -23,6 +26,7 @@ tests:
   - backend/tests/test_snapshot_sort_accent_parity.py
   - backend/tests/test_planning_engine.py
   - backend/tests/test_project_planning.py
+  - frontend/src/utils/projectPlanning.test.js
   - e2e/tests/e2e/dashboards.spec.ts
 ---
 
@@ -130,6 +134,14 @@ rather than duplicating scheduling logic in the UI. The engine normalizes
 dependencies, calendars, durations, constraints, resources, deadlines,
 progress, and scheduling direction. It then calculates dates, slack, critical
 tasks, warnings, and resource allocations.
+
+Period durations retain both their numeric value and configured unit (`hours`,
+`days`, or `years`). Calendar years are added as calendar-year offsets, which
+keeps a start year plus eight years at the corresponding end year, including
+negative years. The property editor removes redundant actual-date fields,
+recalculates the end whenever the start, duration, or predecessor changes, and
+uses a searchable multi-select for predecessors. Legacy `durationDays` values
+remain available for compatibility with older records and schedule snapshots.
 
 The frontend renders the result and editing controls. It does not independently
 recompute critical-path semantics. Cached schedules are keyed by relevant input

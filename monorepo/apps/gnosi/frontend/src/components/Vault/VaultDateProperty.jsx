@@ -1,18 +1,21 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Calendar as CalendarIcon, Clock, Repeat } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronDown, Clock, Repeat, Search, X } from 'lucide-react';
 import { useLocaleSettings } from '../../hooks/useLocaleSettings';
 import { RecurrenceEditor } from './RecurrenceEditor';
 import {
+    addPeriodDuration,
     addWorkingDuration,
     dependencySuccessorIds,
     formatLocalDateTime,
     latestPredecessorEnd,
+    normalizePeriodUnit,
     nextWorkingInstant,
     parsePeriod,
     periodDaysInclusive,
+    periodDurationFromBoundaries,
+    periodDurationToWorkingDays,
     serializePeriod,
-    workingDurationDays,
 } from '../../utils/projectPlanning';
 import { formatVaultDate, isSignedVaultDate, parseVaultDate } from './dateUtils';
 
@@ -61,9 +64,21 @@ export const VaultDateProperty = ({
     const [showRecurrence, setShowRecurrence] = useState(false);
     const [predecessorSearch, setPredecessorSearch] = useState('');
     const [periodDrafts, setPeriodDrafts] = useState({});
+    const [predecessorOpen, setPredecessorOpen] = useState(false);
+    const predecessorPickerRef = useRef(null);
     // The interface language to format the date shown in the input
     // (previously it was hardcoded to 'ca-ES', ignoring the user's preference).
     const { dateLocale } = useLocaleSettings();
+
+    useEffect(() => {
+        const handleOutsideClick = (event) => {
+            if (predecessorPickerRef.current && !predecessorPickerRef.current.contains(event.target)) {
+                setPredecessorOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleOutsideClick);
+        return () => document.removeEventListener('mousedown', handleOutsideClick);
+    }, []);
 
     // Initial formatting and syncing
     useEffect(() => {
@@ -180,10 +195,12 @@ export const VaultDateProperty = ({
     // while the built-in plugin is disabled.
     if (type === 'period') {
         const period = parsePeriod(value);
-        const periodUnit = ['hours', 'days', 'years'].includes(fieldConfig.period_unit)
-            ? fieldConfig.period_unit
-            : 'days';
-        const durationEnabled = planningEnabled && fieldConfig.duration_enabled !== false;
+        const periodUnit = normalizePeriodUnit(fieldConfig.period_unit);
+        // Periods expose their configured duration unit whenever planning is
+        // active. Older schemas may persist duration_enabled=false while
+        // still rendering the duration control; keeping the control editable
+        // ensures entering a duration always recalculates the finish.
+        const durationEnabled = planningEnabled;
         const predecessorsEnabled = planningEnabled && fieldConfig.predecessors_enabled !== false;
         const skipNonWorkingDays = fieldConfig.skip_non_working_days !== false;
 
@@ -243,22 +260,33 @@ export const VaultDateProperty = ({
                         ? ({ start: 'Start date', end: 'Finish date', actual_start: 'Actual start date', actual_end: 'Actual finish date', constraint_date: 'Constraint date', deadline: 'Deadline date' }[kind])
                         : ({ start: 'Start year', end: 'Finish year', actual_start: 'Actual start year', actual_end: 'Actual finish year', constraint_date: 'Constraint year', deadline: 'Deadline year' }[kind]),
             );
-            const durationMultiplier = periodUnit === 'hours'
-                ? Number(planningSettings.hours_per_day) || 8
-                : periodUnit === 'years' ? 365 : 1;
             const displayStart = asInputDateTime(period.start);
             const displayEnd = asInputDateTime(period.end, true);
-            const derivedDuration = workingDurationDays(
-                displayStart,
-                displayEnd,
-                planningSettings,
-                skipNonWorkingDays,
-            );
-            const duration = period.durationDays
-                ?? derivedDuration
-                ?? periodDaysInclusive(period.start, period.end);
+            const legacyDuration = period.durationDays === null || period.durationDays === undefined
+                ? null
+                : periodUnit === 'hours'
+                    ? period.durationDays * (Number(planningSettings.hours_per_day) || 8)
+                    : periodUnit === 'years' ? period.durationDays / 365 : period.durationDays;
+            const duration = period.durationValue !== null
+                && (!period.durationUnit || period.durationUnit === periodUnit)
+                ? period.durationValue
+                : periodDurationFromBoundaries(displayStart, displayEnd, periodUnit, planningSettings, skipNonWorkingDays)
+                    ?? legacyDuration
+                    ?? periodDaysInclusive(period.start, period.end);
             const displayDuration = duration === null || duration === undefined
-                ? '' : Number((duration * durationMultiplier).toFixed(4));
+                ? '' : Number(Number(duration).toFixed(4));
+            const durationValueFor = (candidate) => {
+                if (candidate.durationValue !== null
+                    && (!candidate.durationUnit || candidate.durationUnit === periodUnit)) {
+                    return candidate.durationValue;
+                }
+                if (candidate.durationDays !== null && candidate.durationDays !== undefined) {
+                    return periodUnit === 'hours'
+                        ? candidate.durationDays * (Number(planningSettings.hours_per_day) || 8)
+                        : periodUnit === 'years' ? candidate.durationDays / 365 : candidate.durationDays;
+                }
+                return null;
+            };
             const taskTableId = String(planningSettings.task_table_id || '');
             const getTableId = (note) => String(
                 note?.resolved_table_id
@@ -323,12 +351,12 @@ export const VaultDateProperty = ({
                 if (
                     durationEnabled
                     && next.start
-                    && next.durationDays !== null
-                    && (!next.end || next.endMode === 'auto')
+                    && durationValueFor(next) !== null
                 ) {
-                    next.end = addWorkingDuration(
+                    next.end = addPeriodDuration(
                         next.start,
-                        next.durationDays,
+                        durationValueFor(next),
+                        periodUnit,
                         planningSettings,
                         skipNonWorkingDays,
                     );
@@ -340,50 +368,63 @@ export const VaultDateProperty = ({
             const commit = (next) => onChange(serializePeriod(next));
             const handleStartChange = (newStart) => {
                 const next = { ...period, start: newStart, startMode: 'manual' };
-                if (durationEnabled && next.endMode === 'auto' && duration !== null) {
-                    next.durationDays = duration;
-                    next.end = addWorkingDuration(
+                if (durationEnabled && duration !== null) {
+                    next.durationValue = duration;
+                    next.durationUnit = periodUnit;
+                    next.durationDays = periodDurationToWorkingDays(duration, periodUnit, planningSettings);
+                    next.end = addPeriodDuration(
                         newStart,
                         duration,
+                        periodUnit,
                         planningSettings,
                         skipNonWorkingDays,
                     );
+                    next.endMode = 'auto';
                 } else if (durationEnabled && newStart && displayEnd) {
-                    next.durationDays = workingDurationDays(
+                    next.durationValue = periodDurationFromBoundaries(
                         newStart,
                         displayEnd,
+                        periodUnit,
                         planningSettings,
                         skipNonWorkingDays,
                     );
+                    next.durationUnit = periodUnit;
+                    next.durationDays = periodDurationToWorkingDays(next.durationValue, periodUnit, planningSettings);
                 }
                 commit(next);
             };
             const handleEndChange = (newEnd) => {
                 const next = { ...period, end: newEnd, endMode: 'manual' };
                 if (durationEnabled && displayStart && newEnd) {
-                    next.durationDays = workingDurationDays(
+                    next.durationValue = periodDurationFromBoundaries(
                         displayStart,
                         newEnd,
+                        periodUnit,
                         planningSettings,
                         skipNonWorkingDays,
                     );
+                    next.durationUnit = periodUnit;
+                    next.durationDays = periodDurationToWorkingDays(next.durationValue, periodUnit, planningSettings);
                 }
                 commit(next);
             };
             const handleDurationChange = (event) => {
                 const raw = event.target.value;
-                const nextDuration = raw === '' ? null : Number(raw) / durationMultiplier;
+                const nextDuration = raw === '' ? null : Number(raw);
                 if (nextDuration !== null && (!Number.isFinite(nextDuration) || nextDuration < 0)) return;
                 const next = {
                     ...period,
-                    durationDays: nextDuration,
+                    durationValue: nextDuration,
+                    durationUnit: periodUnit,
+                    durationDays: periodDurationToWorkingDays(nextDuration, periodUnit, planningSettings),
                     endMode: 'auto',
                 };
                 if (!next.start) fillAutomaticBoundaries(next, true);
                 if (next.start && nextDuration !== null) {
-                    next.end = addWorkingDuration(
+                    next.end = addPeriodDuration(
                         asInputDateTime(next.start),
                         nextDuration,
+                        periodUnit,
                         planningSettings,
                         skipNonWorkingDays,
                     );
@@ -405,6 +446,21 @@ export const VaultDateProperty = ({
                     next.start = '';
                     if (next.endMode === 'auto') next.end = '';
                 } else {
+                    // Selecting a predecessor always makes the start automatic:
+                    // it must follow the latest selected predecessor, even when
+                    // the task previously had a manually entered start.
+                    next.start = '';
+                    next.startMode = 'auto';
+                    next.end = '';
+                    next.endMode = 'auto';
+                    // Persist a duration that was only derived from the old
+                    // boundaries before replacing those boundaries from the
+                    // predecessor. This keeps the visible task length stable.
+                    if (durationEnabled && duration !== null && durationValueFor(next) === null) {
+                        next.durationValue = duration;
+                        next.durationUnit = periodUnit;
+                        next.durationDays = periodDurationToWorkingDays(duration, periodUnit, planningSettings);
+                    }
                     fillAutomaticBoundaries(next, true);
                 }
                 commit(next);
@@ -415,6 +471,13 @@ export const VaultDateProperty = ({
                     : [...period.predecessorIds, predecessorId];
                 handlePredecessorsChange(predecessorIds);
             };
+            const periodInputClass = 'w-full rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--gnosi-primary)]/50 focus:ring-2 focus:ring-[var(--gnosi-primary)]/20';
+            const periodSelectClass = `${periodInputClass} cursor-pointer`;
+            const selectedPredecessors = period.predecessorIds
+                .map((predecessorId) => ({
+                    id: predecessorId,
+                    title: idToTitle[predecessorId] || predecessorId,
+                }));
 
             return (
                 <div className="grid min-w-[430px] grid-cols-2 gap-2 p-1 text-xs">
@@ -428,7 +491,7 @@ export const VaultDateProperty = ({
                             placeholder={periodUnit === 'hours' ? 'YYYY-MM-DDTHH:mm' : periodUnit === 'days' ? 'YYYY-MM-DD' : 'YYYY'}
                             onChange={(event) => updateDraft('start', event.target.value)}
                             onBlur={() => commitDraft('start', handleStartChange)}
-                            className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]"
+                            className={periodInputClass}
                         />
                     </label>
                     {['SNET', 'SNLT', 'FNET', 'FNLT', 'MSO', 'MFO'].includes(period.constraintType) && (
@@ -442,7 +505,7 @@ export const VaultDateProperty = ({
                                 placeholder={periodUnit === 'hours' ? 'YYYY-MM-DDTHH:mm' : periodUnit === 'days' ? 'YYYY-MM-DD' : 'YYYY'}
                                 onChange={(event) => updateDraft('constraintDate', event.target.value)}
                                 onBlur={() => commitDraft('constraintDate', (constraintDate) => commit({ ...period, constraintDate }))}
-                                className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]"
+                                className={periodInputClass}
                             />
                         </label>
                     )}
@@ -450,19 +513,7 @@ export const VaultDateProperty = ({
                         <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
                             {t(`vault_date.period_duration_${periodUnit}`, periodUnit === 'hours' ? 'Hours' : periodUnit === 'years' ? 'Years' : 'Days')}
                         </span>
-                        <input type="number" min="0" step="0.25" value={displayDuration} onChange={handleDurationChange} className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]" />
-                    </label>
-                    <label className="flex flex-col gap-1">
-                        <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
-                            {periodDateLabel('actual_start')}
-                        </span>
-                        <input type="text" value={draftValue('actualStart', period.actualStart)} placeholder={periodUnit === 'hours' ? 'YYYY-MM-DDTHH:mm' : periodUnit === 'days' ? 'YYYY-MM-DD' : 'YYYY'} onChange={(event) => updateDraft('actualStart', event.target.value)} onBlur={() => commitDraft('actualStart', (actualStart) => commit({ ...period, actualStart }))} className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]" />
-                    </label>
-                    <label className="flex flex-col gap-1">
-                        <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
-                            {periodDateLabel('actual_end')}
-                        </span>
-                        <input type="text" value={draftValue('actualEnd', period.actualEnd)} placeholder={periodUnit === 'hours' ? 'YYYY-MM-DDTHH:mm' : periodUnit === 'days' ? 'YYYY-MM-DD' : 'YYYY'} onChange={(event) => updateDraft('actualEnd', event.target.value)} onBlur={() => commitDraft('actualEnd', (actualEnd) => commit({ ...period, actualEnd }))} className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]" />
+                        <input type="number" min="0" step={periodUnit === 'years' ? '1' : '0.25'} value={displayDuration} onChange={handleDurationChange} className={periodInputClass} />
                     </label>
                     <label className="flex flex-col gap-1">
                         <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
@@ -474,7 +525,7 @@ export const VaultDateProperty = ({
                             placeholder={periodUnit === 'hours' ? 'YYYY-MM-DDTHH:mm' : periodUnit === 'days' ? 'YYYY-MM-DD' : 'YYYY'}
                             onChange={(event) => updateDraft('end', event.target.value)}
                             onBlur={() => commitDraft('end', handleEndChange)}
-                            className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]"
+                            className={periodInputClass}
                         />
                     </label>
                     {predecessorsEnabled && (
@@ -482,24 +533,47 @@ export const VaultDateProperty = ({
                             <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
                                 {t('vault_date.period_predecessors', "Predecessors")}
                             </span>
-                            <div className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] p-1 text-[var(--text-primary)]" title={t('vault_date.period_predecessors_hint', "Select one or more tasks that must finish first")}>
-                                {period.predecessorIds.length > 0 && (
-                                    <div className="mb-1 flex flex-wrap gap-1">
-                                        {period.predecessorIds.map((predecessorId) => (
-                                            <button key={predecessorId} type="button" onClick={() => togglePredecessor(predecessorId)} className="inline-flex max-w-full items-center gap-1 rounded-full bg-[var(--bg-secondary)] px-2 py-0.5 text-left text-[var(--text-secondary)]">
-                                                <span className="truncate">{idToTitle[predecessorId] || predecessorId}</span><span aria-hidden="true">×</span>
-                                            </button>
-                                        ))}
+                            <div ref={predecessorPickerRef} className="relative">
+                                <div
+                                    role="button"
+                                    tabIndex={0}
+                                    aria-expanded={predecessorOpen}
+                                    onClick={() => setPredecessorOpen((open) => !open)}
+                                    onKeyDown={(event) => {
+                                        if (event.key === 'Enter' || event.key === ' ') {
+                                            event.preventDefault();
+                                            setPredecessorOpen((open) => !open);
+                                        }
+                                    }}
+                                    className="flex min-h-[42px] flex-wrap items-center gap-1.5 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)] p-2 text-sm text-[var(--text-primary)] transition hover:border-[var(--gnosi-primary)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--gnosi-primary)]/20"
+                                    title={t('vault_date.period_predecessors_hint', "Select one or more tasks that must finish first")}
+                                >
+                                    {selectedPredecessors.length === 0 && <span className="ml-1 text-[var(--text-tertiary)]/60">{t('vault_date.period_predecessors_search', 'Search tasks')}</span>}
+                                    {selectedPredecessors.map((candidate) => (
+                                        <span key={candidate.id} className="flex max-w-full items-center gap-1.5 rounded-full border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2.5 py-1 text-xs font-medium text-[var(--text-secondary)] shadow-sm">
+                                            <span className="truncate">{candidate.title}</span>
+                                            <span role="button" tabIndex={0} title={t('common.delete', 'Delete')} className="flex cursor-pointer items-center hover:text-[var(--status-error)]" onClick={(event) => { event.stopPropagation(); togglePredecessor(candidate.id); }} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); togglePredecessor(candidate.id); } }}><X size={10} /></span>
+                                        </span>
+                                    ))}
+                                    <ChevronDown size={14} className={`ml-auto shrink-0 text-[var(--text-tertiary)]/60 transition-transform ${predecessorOpen ? 'rotate-180' : ''}`} />
+                                </div>
+                                {predecessorOpen && (
+                                    <div className="absolute left-0 right-0 top-full z-[var(--z-popover)] mt-2 flex max-h-72 flex-col overflow-y-auto rounded-xl border border-[var(--border-primary)] bg-[var(--bg-primary)] p-2 shadow-xl">
+                                        <div className="relative mb-2 shrink-0">
+                                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]/60" />
+                                            <input autoFocus value={predecessorSearch} onChange={(event) => setPredecessorSearch(event.target.value)} onClick={(event) => event.stopPropagation()} placeholder={t('vault_date.period_predecessors_search', 'Search tasks')} aria-label={t('vault_date.period_predecessors_search', 'Search tasks')} className="w-full rounded-lg bg-[var(--bg-secondary)] py-2 pl-9 pr-4 text-sm text-[var(--text-primary)] outline-none focus:ring-2 focus:ring-[var(--gnosi-primary)]/20" />
+                                        </div>
+                                        <div className="overflow-y-auto">
+                                            {visibleCandidates.map((candidate) => (
+                                                <div key={candidate.id} role="option" aria-selected={period.predecessorIds.includes(String(candidate.id))} onClick={(event) => { event.stopPropagation(); togglePredecessor(String(candidate.id)); }} className="flex cursor-pointer items-center gap-2 rounded-lg p-2.5 text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--gnosi-primary)]/10 hover:text-[var(--gnosi-primary)]">
+                                                    <span className="w-4 text-[var(--gnosi-primary)]">{period.predecessorIds.includes(String(candidate.id)) ? '✓' : ''}</span>
+                                                    <span className="truncate">{candidate.title || idToTitle[candidate.id] || candidate.id}</span>
+                                                </div>
+                                            ))}
+                                            {visibleCandidates.length === 0 && <span className="block p-2 text-xs text-[var(--text-tertiary)]">{t('vault_date.period_predecessors_empty', 'No tasks found in this table')}</span>}
+                                        </div>
                                     </div>
                                 )}
-                                <input value={predecessorSearch} onChange={(event) => setPredecessorSearch(event.target.value)} placeholder={t('vault_date.period_predecessors_search', 'Search tasks')} aria-label={t('vault_date.period_predecessors_search', 'Search tasks')} className="w-full rounded px-1 py-0.5 outline-none" />
-                                <div className="mt-1 max-h-28 overflow-y-auto border-t border-[var(--border-primary)]">
-                                    {visibleCandidates.map((candidate) => {
-                                        const selected = period.predecessorIds.includes(String(candidate.id));
-                                        return <button key={candidate.id} type="button" onClick={() => togglePredecessor(String(candidate.id))} className="flex w-full items-center gap-2 px-1 py-1 text-left hover:bg-[var(--bg-secondary)]" aria-pressed={selected}><span className="w-3">{selected ? '✓' : ''}</span><span className="truncate">{candidate.title || idToTitle[candidate.id] || candidate.id}</span></button>;
-                                    })}
-                                    {visibleCandidates.length === 0 && <span className="block px-1 py-1 text-[var(--text-tertiary)]">{t('vault_date.period_predecessors_empty', 'No tasks found in this table')}</span>}
-                                </div>
                             </div>
                         </label>
                     )}
@@ -524,7 +598,7 @@ export const VaultDateProperty = ({
                         <select
                             value={period.constraintType || 'ASAP'}
                             onChange={(event) => commit({ ...period, constraintType: event.target.value })}
-                            className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]"
+                            className={periodSelectClass}
                         >
                             <option value="ASAP">ASAP</option><option value="ALAP">ALAP</option>
                             <option value="SNET">SNET</option><option value="SNLT">SNLT</option>
@@ -542,7 +616,7 @@ export const VaultDateProperty = ({
                             placeholder={periodUnit === 'hours' ? 'YYYY-MM-DDTHH:mm' : periodUnit === 'days' ? 'YYYY-MM-DD' : 'YYYY'}
                             onChange={(event) => updateDraft('deadline', event.target.value)}
                             onBlur={() => commitDraft('deadline', (deadline) => commit({ ...period, deadline }))}
-                            className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]"
+                            className={periodInputClass}
                         />
                     </label>
                 </div>

@@ -43,3 +43,12 @@ days, or years.
 - The primary numeric period control represents its configured unit (hours,
   days, or years), never completion percentage. Store it compatibly as working
   days and convert at the editor boundary.
+- Keep the exact displayed duration in `durationValue`/`durationUnit`; a year
+  duration must use calendar-year arithmetic rather than treating 365 days as
+  working days. Legacy `durationDays` remains as the scheduler compatibility
+  field.
+- Selecting a predecessor makes the start and finish automatic so both
+  boundaries are recalculated from the dependency and the configured duration.
+- Keep the visible duration control editable for active period planning even
+  when an older schema carries `duration_enabled: false`; otherwise the UI
+  advertises a value that cannot recalculate the finish.

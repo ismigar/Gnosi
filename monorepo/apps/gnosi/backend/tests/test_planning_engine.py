@@ -47,6 +47,22 @@ def test_manual_boundary_is_preserved_and_critical_path_is_exposed():
     assert results["b"]["id"] in schedule["criticalTaskIds"]
 
 
+def test_calendar_year_duration_keeps_exact_start_plus_years_end():
+    period = {
+        "start": "2026-01-01T09:00",
+        "durationDays": 2920,
+        "durationValue": 8,
+        "durationUnit": "years",
+        "startMode": "manual",
+        "endMode": "automatic",
+    }
+    schedule = build_schedule([task("years", period)], CALENDAR, status_date="2026-01-01T09:00")
+    result = schedule["tasks"][0]
+    assert result["start"] == "2026-01-01T09:00"
+    assert result["end"] == "2034-01-01T09:00"
+    assert normalize_period(period)["durationValue"] == 8
+
+
 def test_actual_boundaries_freeze_completed_task_schedule():
     schedule = build_schedule([
         task("a", {"durationDays": 4, "actualStart": "2026-07-27T09:00", "actualEnd": "2026-07-27T12:00", "percentComplete": 100}),

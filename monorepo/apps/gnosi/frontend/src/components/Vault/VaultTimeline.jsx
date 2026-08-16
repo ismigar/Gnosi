@@ -10,9 +10,10 @@ import { formatDate, resolveFieldFormat } from './formatUtils';
 import { useLocaleSettings } from '../../hooks/useLocaleSettings';
 import { parsePeriod } from './VaultDateProperty';
 import {
-    addWorkingDuration,
+    addPeriodDuration,
     formatLocalDateTime,
     nextWorkingInstant,
+    periodDurationFromBoundaries,
     serializePeriod,
     withPeriodBoundaries,
     workingDurationDays,
@@ -206,7 +207,7 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
     const getPredecessors = useCallback((note) => {
         if (enhancedPeriod) {
             const structured = parsePeriod(getPeriodValue(note));
-            if (structured.version === 2) return structured.predecessorIds;
+            if (structured.version >= 2) return structured.predecessorIds;
         }
         return note?.metadata?.predecessor_ids || [];
     }, [enhancedPeriod, getPeriodValue]);
@@ -375,7 +376,15 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                             formatLocalDateTime(end),
                             { startMode: 'manual', endMode: 'manual' },
                         ));
-                        if (periodFieldConfig.duration_enabled !== false) {
+                        if (enhancedPeriod) {
+                            next.durationValue = periodDurationFromBoundaries(
+                                next.start,
+                                next.end,
+                                timelineUnit,
+                                projectPlanningSettings,
+                                skipNonWorkingDays,
+                            );
+                            next.durationUnit = timelineUnit;
                             next.durationDays = workingDurationDays(
                                 next.start,
                                 next.end,
@@ -439,10 +448,17 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
             if (succ.start < minStart) {
                 const newSuccStart = new Date(minStart);
                 const successorPeriod = parsePeriod(getPeriodValue(succ));
-                const scheduledEnd = enhancedPeriod && successorPeriod.durationDays !== null
-                    ? addWorkingDuration(
+                const successorDuration = successorPeriod.durationValue !== null
+                    ? successorPeriod.durationValue
+                    : successorPeriod.durationDays;
+                const successorUnit = successorPeriod.durationValue !== null
+                    ? (successorPeriod.durationUnit || timelineUnit)
+                    : 'days';
+                const scheduledEnd = enhancedPeriod && successorDuration !== null
+                    ? addPeriodDuration(
                         normalizedStart,
-                        successorPeriod.durationDays,
+                        successorDuration,
+                        successorUnit,
                         projectPlanningSettings,
                         skipNonWorkingDays,
                     )
@@ -495,17 +511,24 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
             if (enhancedPeriod) {
                 const next = parsePeriod(getPeriodValue(note));
                 next.predecessorIds = predecessors;
-                if ((!next.start || next.startMode === 'auto') && predNote) {
+                if (predNote) {
                     next.start = nextWorkingInstant(
                         formatLocalDateTime(predNote.end),
                         projectPlanningSettings,
                         skipNonWorkingDays,
                     );
                     next.startMode = 'auto';
-                    if (next.durationDays !== null) {
-                        next.end = addWorkingDuration(
+                    const durationValue = next.durationValue !== null
+                        ? next.durationValue
+                        : next.durationDays;
+                    const durationUnit = next.durationValue !== null
+                        ? (next.durationUnit || timelineUnit)
+                        : 'days';
+                    if (durationValue !== null) {
+                        next.end = addPeriodDuration(
                             next.start,
-                            next.durationDays,
+                            durationValue,
+                            durationUnit,
                             projectPlanningSettings,
                             skipNonWorkingDays,
                         );

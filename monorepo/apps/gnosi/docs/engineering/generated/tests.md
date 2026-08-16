@@ -11,8 +11,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
 | Playwright | 13 | 37 |
-| Vitest | 74 | 283 |
-| pytest | 189 | 1599 |
+| Vitest | 74 | 284 |
+| pytest | 189 | 1600 |
 
 ## Files
 
@@ -94,7 +94,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/utils/graphLegend.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/graphLegend.test.js) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/utils/graphViewGeometry.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/graphViewGeometry.test.js) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/utils/panelKeyboardNavigation.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/panelKeyboardNavigation.test.js) | 3 | call-pattern estimate |
-| Vitest | [`frontend/src/utils/projectPlanning.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/projectPlanning.test.js) | 11 | call-pattern estimate |
+| Vitest | [`frontend/src/utils/projectPlanning.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/projectPlanning.test.js) | 12 | call-pattern estimate |
 | Vitest | [`frontend/src/utils/semanticOverlay.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/semanticOverlay.test.js) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/utils/vaultFilters.sort.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/vaultFilters.sort.test.js) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/utils/vaultFilters.textPatterns.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/vaultFilters.textPatterns.test.js) | 5 | call-pattern estimate |
@@ -224,7 +224,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_pipeline_naming.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_pipeline_naming.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_pipeline_skill_classification.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_pipeline_skill_classification.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_planning_agent_tools.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_planning_agent_tools.py) | 4 | Python AST |
-| pytest | [`backend/tests/test_planning_engine.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_planning_engine.py) | 7 | Python AST |
+| pytest | [`backend/tests/test_planning_engine.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_planning_engine.py) | 8 | Python AST |
 | pytest | [`backend/tests/test_planning_scheduler.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_planning_scheduler.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_plugin_ai_contributions.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_plugin_ai_contributions.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_plugin_network_guard.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_plugin_network_guard.py) | 3 | Python AST |
