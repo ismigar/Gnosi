@@ -125,6 +125,7 @@ import AICorrectLayer from './AICorrectLayer';
 import { PageLinksGraph } from './PageLinksGraph';
 import { MarkdownCodeTextarea } from './MarkdownCodeTextarea';
 import { useFloatingActionDock } from '../../hooks/useFloatingActionDock';
+import { usePlugins } from '../../plugins/usePlugins';
 import { isManagedInternalMetadataKey, shouldShowKnowledgePanels } from './metadataVisibilityUtils';
 import { focusPropertyRow } from './propertyNavigationUtils';
 import { resolveSystemDateValue } from './schemaUtils';
@@ -4213,6 +4214,9 @@ export function EditorInner({
 export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}, onUpdate, allTables = [], allNotes = [], onEditSchema, onAddSchemaOption, onCreateRecord, onCreateTemplate, onDeletePage = () => {}, onOpenParallel = () => {}, onOpenPage = () => {}, onOpenInCurrentTab = null, onOpenInNewTab = null, idToTitle = {}, aliasIndex = {}, registry = { databases: [], tables: [], views: [] }, onRefreshNotes = () => {}, onUpdatePageMetadata, historyOpenSignal = 0, isCodeView = false, isEditLocked = false, referenceTableId = null, onOpenViewConfig, pageActions = null, isActivePage = true }) {
     const { t } = useTranslation();
     const { apiFetch, role } = useApi();
+    const { isEnabled: isPluginEnabled, getPluginSettings } = usePlugins();
+    const projectPlanningEnabled = isPluginEnabled('project-planning');
+    const projectPlanningSettings = getPluginSettings('project-planning');
     const [isFloatingDockOpen, setIsFloatingDockOpen] = useFloatingActionDock();
     const isViewerRole = role === 'viewer';
     const isAdmin = role === 'admin' || role === 'owner';
@@ -4620,6 +4624,18 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         if (prop.config && Array.isArray(prop.config.options)) return prop.config.options;
         if (Array.isArray(prop.options)) return prop.options;
         return [];
+    };
+    // Period settings are stored as top-level property fields by the schema
+    // modal, while inline option edits may live under `config`. Merge both
+    // shapes before handing the field to the structured period editor.
+    const getPropConfig = (prop) => {
+        if (!prop) return {};
+        const config = { ...(prop.config || {}) };
+        ['period_unit', 'duration_enabled', 'predecessors_enabled', 'skip_non_working_days', 'format'].forEach((key) => {
+            if (prop[key] !== undefined) config[key] = prop[key];
+        });
+        if (prop.id && config.id === undefined) config.id = prop.id;
+        return config;
     };
     // `properties` is the filtered schema list shown above the body. Memoized
     // because the title input rerenders on every keystroke and recomputing
@@ -5584,14 +5600,14 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                 onClick={() => setActiveProp(prop.name)}
                                                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveProp(prop.name); } }}
                                                 title={t('editor.property_select_hint', { defaultValue: "Select the property (↑↓ navigate · ⌘C/⌘V copy/paste)" })}
-                                                className={`flex items-center gap-1.5 group py-1 h-8 cursor-pointer rounded-md focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]/40 ${activeProp === prop.name ? 'bg-[var(--gnosi-primary)]/10 ring-1 ring-[var(--gnosi-primary)]/40' : ''} ${['files', 'autoria', 'relation', 'multi_select', 'select', 'status'].includes(prop.type) ? 'self-start' : ''}`}
+                                                className={`flex items-center gap-1.5 group py-1 h-8 cursor-pointer rounded-md focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]/40 ${activeProp === prop.name ? 'bg-[var(--gnosi-primary)]/10 ring-1 ring-[var(--gnosi-primary)]/40' : ''} ${['files', 'autoria', 'relation', 'multi_select', 'select', 'status', 'period'].includes(prop.type) ? 'self-start' : ''}`}
                                             >
                                                 <div className="p-1.5 rounded-md bg-[var(--bg-secondary)] text-[var(--text-tertiary)]/60 group-hover:bg-[var(--gnosi-primary)]/10 group-hover:text-[var(--gnosi-primary)] transition-colors">
-                                                    {prop.type === 'date' ? <Calendar size={14} /> : (['select', 'status'].includes(prop.type) ? <Tag size={14} /> : (prop.type === 'number' ? <Hash size={14} /> : <Type size={14} />))}
+                                                    {['date', 'datetime', 'period'].includes(prop.type) ? <Calendar size={14} /> : (['select', 'status'].includes(prop.type) ? <Tag size={14} /> : (prop.type === 'number' ? <Hash size={14} /> : <Type size={14} />))}
                                                 </div>
                                                 <span className="text-sm text-[var(--text-secondary)] font-medium truncate">{prop.name}</span>
                                             </div>
-                                            <div className={`flex items-center gap-1.5 group ${['files', 'autoria', 'relation', 'multi_select', 'select', 'status'].includes(prop.type) ? 'min-h-[2rem] py-1' : 'h-8'}`}>
+                                            <div className={`flex items-center gap-1.5 group ${['files', 'autoria', 'relation', 'multi_select', 'select', 'status', 'period'].includes(prop.type) ? 'min-h-[2rem] py-1' : 'h-8'}`}>
                                                 {prop.type === 'relation' ? (() => {
                                                     const relatedTableId = prop.relation_database_id;
                                                     const relatedNotes = allNotes.filter(n => {
@@ -5769,13 +5785,20 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                             : formatDate(v, { dateFormat: pfmt.dateFormat, type: prop.type === 'datetime' ? 'datetime' : 'date', locale: pfmt.dateLocale });
                                                         return <span className="px-2 py-1 text-sm text-[var(--text-primary)] font-medium tabular-nums">{text}</span>;
                                                     }
-                                                    if (prop.type === 'date' || prop.type === 'datetime') {
+                                                    if (prop.type === 'date' || prop.type === 'datetime' || prop.type === 'period') {
                                                         return (
-                                                            <div className="w-full flex items-center group/date h-7">
+                                                            <div className={`w-full flex items-center group/date ${prop.type === 'period' ? 'min-h-7' : 'h-7'}`}>
                                                                 <VaultDateProperty
                                                                     value={v || ""}
                                                                     rruleValue={metadata[`${prop.name}_rrule`] || ''}
                                                                     type={prop.type}
+                                                                    fieldConfig={getPropConfig(prop)}
+                                                                    fieldName={prop.name}
+                                                                    noteId={noteFilename}
+                                                                    notes={allNotes}
+                                                                    idToTitle={idToTitle}
+                                                                    planningSettings={projectPlanningSettings}
+                                                                    planningEnabled={projectPlanningEnabled}
                                                                     onChange={val => handleMetaChange(prop.name, val)}
                                                                     onRruleChange={rrule => handleMetaChange(`${prop.name}_rrule`, rrule)}
                                                                 />
