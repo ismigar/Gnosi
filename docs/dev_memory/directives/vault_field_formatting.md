@@ -55,6 +55,8 @@ localStorage source of truth.
 
 - Format table cells and aggregations.
 - Format page properties in display mode.
+- Format read-only `created_time` and `last_edited_time` page properties with
+  the same locale and field override rules as datetimes.
 - Keep raw values in focused editors.
 - Clipboard and grid coercion continue using raw values.
 
@@ -73,6 +75,12 @@ all supported locale files.
   formatted strings.
 - Never reformat while editing because it disrupts caret position and parsing.
 - Explicit-format dates use local components to avoid timezone shifts.
+- Do not render an ISO audit timestamp through the generic text-property
+  control: system timestamp fields are read-only and must enter the date
+  formatter before rendering.
+- Property option menus must be portaled above page panels and scroll
+  containers. An absolute menu inside the properties grid can be clipped or
+  appear below later sections even with a high local z-index.
 - Unit tests pass explicit locales for deterministic output.
 
 ## QA

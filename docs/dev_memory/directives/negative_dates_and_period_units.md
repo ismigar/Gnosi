@@ -34,3 +34,6 @@ days, or years.
 - Do not format BCE values only with `Intl.DateTimeFormat`: the output can use
   eras and different year numbering, obscuring the persisted negative date.
 - Preserve the default period unit as days for existing schemas.
+- Do not route a `period` property through the generic text input: render the
+  structured period editor and pass the field configuration so duration and
+  predecessor controls follow the schema.

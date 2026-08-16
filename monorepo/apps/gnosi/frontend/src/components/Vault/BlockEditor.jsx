@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
     FileText,
     Calendar,
@@ -124,8 +125,10 @@ import AICorrectLayer from './AICorrectLayer';
 import { PageLinksGraph } from './PageLinksGraph';
 import { MarkdownCodeTextarea } from './MarkdownCodeTextarea';
 import { useFloatingActionDock } from '../../hooks/useFloatingActionDock';
+import { usePlugins } from '../../plugins/usePlugins';
 import { isManagedInternalMetadataKey, shouldShowKnowledgePanels } from './metadataVisibilityUtils';
 import { focusPropertyRow } from './propertyNavigationUtils';
+import { resolveSystemDateValue } from './schemaUtils';
 import {
     restoreToggleDomExpansionState,
     restoreToggleExpansionState,
@@ -504,6 +507,58 @@ const extractOutgoingPageLinks = (markdown, idToTitle = {}, selfId = '') => {
     ];
 };
 
+// Property option menus must escape the page's summary grid. That grid can
+// create a stacking context and clips its descendants while a page is scrolled,
+// so a regular absolute dropdown can appear behind the next panel. Rendering at
+// the document root also makes the behaviour match the table cell pickers.
+const PropertyDropdownPortal = ({ anchorRef, children }) => {
+    const [position, setPosition] = useState(null);
+
+    useLayoutEffect(() => {
+        let frame = 0;
+        const updatePosition = () => {
+            const anchor = anchorRef.current;
+            if (!anchor) {
+                frame = requestAnimationFrame(updatePosition);
+                return;
+            }
+            const rect = anchor.getBoundingClientRect();
+            const maxHeight = 300;
+            const spaceBelow = window.innerHeight - rect.bottom;
+            const spaceAbove = rect.top;
+            const opensUpward = spaceBelow < Math.min(maxHeight, 160) && spaceAbove > spaceBelow;
+            const availableSpace = Math.max(80, (opensUpward ? spaceAbove : spaceBelow) - 8);
+            setPosition({
+                left: Math.max(8, Math.min(rect.left, window.innerWidth - rect.width - 8)),
+                width: rect.width,
+                top: opensUpward ? undefined : rect.bottom + 8,
+                bottom: opensUpward ? window.innerHeight - rect.top + 8 : undefined,
+                maxHeight: Math.min(maxHeight, availableSpace),
+            });
+        };
+        updatePosition();
+        window.addEventListener('scroll', updatePosition, true);
+        window.addEventListener('resize', updatePosition);
+        return () => {
+            if (frame) cancelAnimationFrame(frame);
+            window.removeEventListener('scroll', updatePosition, true);
+            window.removeEventListener('resize', updatePosition);
+        };
+    }, [anchorRef]);
+
+    if (!position) return null;
+    return createPortal(
+        <div
+            data-property-dropdown
+            className="flex flex-col overflow-y-auto custom-scrollbar border border-[var(--border-primary)] rounded-xl bg-[var(--bg-primary)] p-2 shadow-xl animate-in fade-in zoom-in-95 duration-100"
+            style={{ position: 'fixed', zIndex: 'var(--z-popover)', ...position }}
+        >
+            {children}
+        </div>,
+        document.body,
+    );
+};
+
 const MultiSelectPills = ({
     value,
     onChange,
@@ -564,7 +619,7 @@ const MultiSelectPills = ({
 
     useEffect(() => {
         const handleClickOutside = (event) => {
-            if (containerRef.current && !containerRef.current.contains(event.target)) {
+            if (containerRef.current && !containerRef.current.contains(event.target) && !event.target.closest?.('[data-property-dropdown]')) {
                 setIsOpen(false);
             }
         };
@@ -686,7 +741,7 @@ const MultiSelectPills = ({
                 })}
             </div>
             {isOpen && (
-                <div className="absolute z-50 w-full mt-2 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-xl shadow-xl p-2 animate-in fade-in zoom-in-95 duration-100 max-h-[300px] flex flex-col">
+                <PropertyDropdownPortal anchorRef={containerRef}>
                     <div className="relative mb-2 shrink-0">
                         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]/60" />
                         <input
@@ -749,7 +804,7 @@ const MultiSelectPills = ({
                             </button>
                         )}
                     </div>
-                </div>
+                </PropertyDropdownPortal>
             )}
         </div>
     );
@@ -4159,6 +4214,9 @@ export function EditorInner({
 export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}, onUpdate, allTables = [], allNotes = [], onEditSchema, onAddSchemaOption, onCreateRecord, onCreateTemplate, onDeletePage = () => {}, onOpenParallel = () => {}, onOpenPage = () => {}, onOpenInCurrentTab = null, onOpenInNewTab = null, idToTitle = {}, aliasIndex = {}, registry = { databases: [], tables: [], views: [] }, onRefreshNotes = () => {}, onUpdatePageMetadata, historyOpenSignal = 0, isCodeView = false, isEditLocked = false, referenceTableId = null, onOpenViewConfig, pageActions = null, isActivePage = true }) {
     const { t } = useTranslation();
     const { apiFetch, role } = useApi();
+    const { isEnabled: isPluginEnabled, getPluginSettings } = usePlugins();
+    const projectPlanningEnabled = isPluginEnabled('project-planning');
+    const projectPlanningSettings = getPluginSettings('project-planning');
     const [isFloatingDockOpen, setIsFloatingDockOpen] = useFloatingActionDock();
     const isViewerRole = role === 'viewer';
     const isAdmin = role === 'admin' || role === 'owner';
@@ -4566,6 +4624,18 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         if (prop.config && Array.isArray(prop.config.options)) return prop.config.options;
         if (Array.isArray(prop.options)) return prop.options;
         return [];
+    };
+    // Period settings are stored as top-level property fields by the schema
+    // modal, while inline option edits may live under `config`. Merge both
+    // shapes before handing the field to the structured period editor.
+    const getPropConfig = (prop) => {
+        if (!prop) return {};
+        const config = { ...(prop.config || {}) };
+        ['period_unit', 'duration_enabled', 'predecessors_enabled', 'skip_non_working_days', 'format'].forEach((key) => {
+            if (prop[key] !== undefined) config[key] = prop[key];
+        });
+        if (prop.id && config.id === undefined) config.id = prop.id;
+        return config;
     };
     // `properties` is the filtered schema list shown above the body. Memoized
     // because the title input rerenders on every keystroke and recomputing
@@ -5530,14 +5600,14 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                 onClick={() => setActiveProp(prop.name)}
                                                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveProp(prop.name); } }}
                                                 title={t('editor.property_select_hint', { defaultValue: "Select the property (↑↓ navigate · ⌘C/⌘V copy/paste)" })}
-                                                className={`flex items-center gap-1.5 group py-1 h-8 cursor-pointer rounded-md focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]/40 ${activeProp === prop.name ? 'bg-[var(--gnosi-primary)]/10 ring-1 ring-[var(--gnosi-primary)]/40' : ''} ${['files', 'autoria', 'relation', 'multi_select', 'select', 'status'].includes(prop.type) ? 'self-start' : ''}`}
+                                                className={`flex items-center gap-1.5 group py-1 h-8 cursor-pointer rounded-md focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]/40 ${activeProp === prop.name ? 'bg-[var(--gnosi-primary)]/10 ring-1 ring-[var(--gnosi-primary)]/40' : ''} ${['files', 'autoria', 'relation', 'multi_select', 'select', 'status', 'period'].includes(prop.type) ? 'self-start' : ''}`}
                                             >
                                                 <div className="p-1.5 rounded-md bg-[var(--bg-secondary)] text-[var(--text-tertiary)]/60 group-hover:bg-[var(--gnosi-primary)]/10 group-hover:text-[var(--gnosi-primary)] transition-colors">
-                                                    {prop.type === 'date' ? <Calendar size={14} /> : (['select', 'status'].includes(prop.type) ? <Tag size={14} /> : (prop.type === 'number' ? <Hash size={14} /> : <Type size={14} />))}
+                                                    {['date', 'datetime', 'period'].includes(prop.type) ? <Calendar size={14} /> : (['select', 'status'].includes(prop.type) ? <Tag size={14} /> : (prop.type === 'number' ? <Hash size={14} /> : <Type size={14} />))}
                                                 </div>
                                                 <span className="text-sm text-[var(--text-secondary)] font-medium truncate">{prop.name}</span>
                                             </div>
-                                            <div className={`flex items-center gap-1.5 group ${['files', 'autoria', 'relation', 'multi_select', 'select', 'status'].includes(prop.type) ? 'min-h-[2rem] py-1' : 'h-8'}`}>
+                                            <div className={`flex items-center gap-1.5 group ${['files', 'autoria', 'relation', 'multi_select', 'select', 'status', 'period'].includes(prop.type) ? 'min-h-[2rem] py-1' : 'h-8'}`}>
                                                 {prop.type === 'relation' ? (() => {
                                                     const relatedTableId = prop.relation_database_id;
                                                     const relatedNotes = allNotes.filter(n => {
@@ -5690,6 +5760,23 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                         }
                                                         return <span className="text-sm text-[var(--text-tertiary)]">{t('common.empty')}</span>;
                                                     }
+                                                    // System timestamps are read-only audit fields. They are stored as
+                                                    // ISO values but must use the same display formatting as ordinary
+                                                    // date fields on every page.
+                                                    if (prop.type === 'created_time' || prop.type === 'last_edited_time') {
+                                                        const systemValue = resolveSystemDateValue(
+                                                            { metadata, created_time: metadata.created_time, last_modified: metadata.last_modified },
+                                                            {},
+                                                            prop.type,
+                                                            prop.name,
+                                                        ) || v;
+                                                        const pfmt = resolveFieldFormat({ format: prop.config?.format || prop.format }, localeSettings);
+                                                        return (
+                                                            <span className="px-2 py-1 text-sm text-[var(--text-primary)] font-medium tabular-nums">
+                                                                {systemValue ? formatDate(systemValue, { dateFormat: pfmt.dateFormat, type: 'datetime', locale: pfmt.dateLocale }) : '—'}
+                                                            </span>
+                                                        );
+                                                    }
                                                     // Read mode: formatted number/date (global or field override).
                                                     if (!isEditor && hasVal && (prop.type === 'number' || prop.type === 'date' || prop.type === 'datetime')) {
                                                         const pfmt = resolveFieldFormat({ format: prop.config?.format || prop.format }, localeSettings);
@@ -5698,13 +5785,20 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                             : formatDate(v, { dateFormat: pfmt.dateFormat, type: prop.type === 'datetime' ? 'datetime' : 'date', locale: pfmt.dateLocale });
                                                         return <span className="px-2 py-1 text-sm text-[var(--text-primary)] font-medium tabular-nums">{text}</span>;
                                                     }
-                                                    if (prop.type === 'date' || prop.type === 'datetime') {
+                                                    if (prop.type === 'date' || prop.type === 'datetime' || prop.type === 'period') {
                                                         return (
-                                                            <div className="w-full flex items-center group/date h-7">
+                                                            <div className={`w-full flex items-center group/date ${prop.type === 'period' ? 'min-h-7' : 'h-7'}`}>
                                                                 <VaultDateProperty
                                                                     value={v || ""}
                                                                     rruleValue={metadata[`${prop.name}_rrule`] || ''}
                                                                     type={prop.type}
+                                                                    fieldConfig={getPropConfig(prop)}
+                                                                    fieldName={prop.name}
+                                                                    noteId={noteFilename}
+                                                                    notes={allNotes}
+                                                                    idToTitle={idToTitle}
+                                                                    planningSettings={projectPlanningSettings}
+                                                                    planningEnabled={projectPlanningEnabled}
                                                                     onChange={val => handleMetaChange(prop.name, val)}
                                                                     onRruleChange={rrule => handleMetaChange(`${prop.name}_rrule`, rrule)}
                                                                 />
