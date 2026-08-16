@@ -92,6 +92,65 @@ const getTurnId = (message) => {
     return null;
 };
 
+
+const normalizeTimingCandidateKey = (value) => {
+    if (typeof value !== 'string') return '';
+    const normalized = value.trim();
+    if (!normalized) return '';
+    const withUnderscore = normalized
+        .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+        .replace(/[^a-zA-Z0-9_]/g, '_')
+        .toLowerCase();
+    return withUnderscore;
+};
+
+const timingCandidateUnitHint = (normalizedKey) => {
+    const key = normalizeTimingCandidateKey(normalizedKey);
+    if (!key) return null;
+    if (key.includes('ms') || key.includes('millisecond')) {
+        return 'ms';
+    }
+    if (
+        key.includes('min')
+        || key.includes('_m')
+        || key.endsWith('m')
+        || key.includes('minute')
+    ) {
+        return 'm';
+    }
+    if (
+        key.includes('sec')
+        || key.includes('second')
+        || key.endsWith('s')
+        || key.endsWith('_s')
+        || key.includes('_secs')
+    ) {
+        return 's';
+    }
+    return null;
+};
+
+const collectTimingCandidateEntries = (payload) => {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return [];
+    const timingPrefixes = /(?:^|_)(?:total|duration|elapsed|latency|response|processing|timing|time)_[a-z0-9_]+$/;
+    const candidates = [];
+    for (const [field, value] of Object.entries(payload)) {
+        const normalized = normalizeTimingCandidateKey(field);
+        if (!normalized) continue;
+        const isTimingKey =
+            normalized === 'timings'
+            || normalized === 'timing'
+            || normalized === 'turn_timings'
+            || normalized === 'turn_metrics'
+            || normalized === 'metrics'
+            || normalized === 'metric'
+            || timingPrefixes.test(normalized);
+        if (!isTimingKey) continue;
+        candidates.push({ value, unitHint: timingCandidateUnitHint(normalized) });
+    }
+    return candidates;
+};
+
 const applyDurationUnit = (rawNumeric, unitHint = null) => {
     const numeric = Number(rawNumeric);
     if (!Number.isFinite(numeric) || numeric < 0) return null;
@@ -208,6 +267,19 @@ const parseTimingObjectMs = (value) => {
         const parsed = parseDurationToMs(value[key], unitHint);
         if (parsed !== null) return parsed;
     }
+    const candidateEntries = collectTimingCandidateEntries(value).filter(
+        ({ value }) => value != null && value !== false,
+    );
+    for (const { value: candidateValue, unitHint } of candidateEntries) {
+        if (typeof candidateValue === 'number' || typeof candidateValue === 'string') {
+            const parsed = parseDurationToMs(candidateValue, unitHint);
+            if (parsed !== null) return parsed;
+        }
+        if (candidateValue && typeof candidateValue === 'object' && !Array.isArray(candidateValue)) {
+            const parsed = parseTimingObjectMs(candidateValue);
+            if (parsed !== null) return parsed;
+        }
+    }
     if (value.value !== undefined && value.unit !== undefined) {
         return parseDurationToMs(value.value, value.unit);
     }
@@ -284,6 +356,10 @@ const timedPayloadFromMessage = (message) => {
         { value: message.timeSecs, unitHint: 's' },
         { value: message.seconds, unitHint: 's' },
     ];
+    const fallbackTimingCandidates = collectTimingCandidateEntries(message).filter(
+        ({ value }) => ![message.timings, message.turn_metrics, message.turnMetrics, message.metrics, message.metric, message.timing].includes(value),
+    );
+    candidateValues.push(...fallbackTimingCandidates);
     for (const { value, unitHint } of candidateValues) {
         const candidate = value;
         const fromNumber = parseDurationToMs(candidate, unitHint);
