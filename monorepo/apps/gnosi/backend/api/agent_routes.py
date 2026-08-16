@@ -50,12 +50,16 @@ from backend.agent.factory import (
     create_agent_workflow,
     prepare_agent_runtime,
 )
+from backend.agent.context_safety import sanitize_untrusted_context
 from backend.agent.gnosi_tools import (
     ActionConflictError,
     execute_confirmed_action,
     replace_reference_ids_in_titles,
 )
 from backend.agent.model_router import record_llm_usage, usage_from_message
+from backend.agent.model_router import model_cost_rates
+from backend.services.agent_cancellation import cancel as cancel_agent_turn
+from backend.services.agent_cancellation import create_cancel_token, release as release_agent_turn
 from backend.agent.model_reliability import (
     blames_the_model, model_evidence, record_failure, reliability_report,
 )
@@ -1721,6 +1725,7 @@ async def chat_endpoint(
     Main endpoint for chatting with a specific agent.
     """
     request_started_at = time.monotonic()
+    cancel_token = ""
     try:
         agent_id = _validated_identifier(chat_req.agent_id, "agent_id")
         session_id = _validated_identifier(chat_req.session_id, "session_id")
@@ -1745,7 +1750,11 @@ async def chat_endpoint(
                 attachment_scope,
             )
             if attachment_text:
-                user_content += "\n\nVerified attachment context:\n" + attachment_text
+                safe_attachment, _flags = sanitize_untrusted_context(
+                    attachment_text,
+                    max_chars=24_000,
+                )
+                user_content += "\n\nVerified attachment context:\n" + safe_attachment
         if chat_req.mentions:
             mention_lines = []
             for mention in chat_req.mentions:
@@ -1776,6 +1785,7 @@ async def chat_endpoint(
             ],
         )
         workflow_ready_at = time.monotonic()
+        cancel_token = create_cancel_token()
 
         authorized_tool_names = _explicit_brain_write_tool_names(
             chat_req.message,
@@ -1822,6 +1832,7 @@ async def chat_endpoint(
             ),
             "current_user_role": workspace_context.role,
             "turn_plan": turn_plan,
+            "cancel_token": cancel_token,
         }
         
         # 3. Configure memory thread (per agent + session)
@@ -1892,6 +1903,19 @@ async def chat_endpoint(
                     "total_ms": total_ms,
                     "input_tokens": total_in_tok,
                     "output_tokens": total_out_tok,
+                    "estimated_cost_usd": round(
+                        (
+                            total_in_tok * model_cost_rates(
+                                str((llm_selection or {}).get("provider") or ""),
+                                str((llm_selection or {}).get("model") or ""),
+                            )[0]
+                            + total_out_tok * model_cost_rates(
+                                str((llm_selection or {}).get("provider") or ""),
+                                str((llm_selection or {}).get("model") or ""),
+                            )[1]
+                        ) / 1_000_000,
+                        6,
+                    ),
                     "model_calls": model_calls,
                     "tool_calls": tool_calls_count,
                     "budget": dict(turn_plan.get("budgets") or {}),
@@ -1924,6 +1948,9 @@ async def chat_endpoint(
                 session_id=session_id,
             )
             try:
+                if await request.is_disconnected():
+                    cancel_agent_turn(cancel_token)
+                    return
                 yield json.dumps({
                     "type": "turn_plan",
                     "plan": {
@@ -1962,6 +1989,7 @@ async def chat_endpoint(
                         "mode": llm_selection.get("mode") or chat_req.llm_mode,
                         "provider": llm_selection.get("provider"),
                         "model": llm_selection.get("model"),
+                        "fallbacks": list(llm_selection.get("fallbacks") or []),
                     }) + "\n"
                     yield json.dumps({
                         "type": "agent_runtime",
@@ -1986,6 +2014,11 @@ async def chat_endpoint(
                         "tool_count": int(
                             llm_selection.get("tool_count", 0) or 0,
                         ),
+                        "healthy_tools": sum(
+                            1
+                            for item in (llm_selection.get("tools") or [])
+                            if (item.get("health") or {}).get("status") == "healthy"
+                        ),
                     }) + "\n"
                 # Spend ledger: every AIMessage in the stream carries
                 # usage_metadata; accumulate and record once per turn.
@@ -2005,6 +2038,7 @@ async def chat_endpoint(
                                 stream_mode="updates",
                             ):
                                 if await request.is_disconnected():
+                                    cancel_agent_turn(cancel_token)
                                     return
                                 for node_name, state_update in event.items():
                                     update_at = time.monotonic()
@@ -2116,6 +2150,7 @@ async def chat_endpoint(
                                                 "freshness": metadata.get("gnosi_freshness"),
                                                 "job": metadata.get("gnosi_job"),
                                                 "explanation": metadata.get("gnosi_explanation"),
+                                                "provider_fallback": metadata.get("gnosi_provider_fallback"),
                                                 "timings": timings,
                                             }) + "\n"
 
@@ -2271,9 +2306,12 @@ async def chat_endpoint(
                         total_out_tok,
                     )
                 reset_confirmation_context(confirmation_token)
+                release_agent_turn(cancel_token)
         return StreamingResponse(event_generator(), media_type="application/x-ndjson")
 
     except HTTPException as e:
+        if cancel_token:
+            release_agent_turn(cancel_token)
         if e.status_code == 503:
             error_code = (
                 e.detail.get("code")
@@ -2299,4 +2337,6 @@ async def chat_endpoint(
             )
         raise
     except Exception as e:
+        if cancel_token:
+            release_agent_turn(cancel_token)
         raise HTTPException(status_code=500, detail=safe_error_detail(e, context="POST /api/agent/chat"))

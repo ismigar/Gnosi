@@ -44,8 +44,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          cache: pip
-          cache-dependency-path: apps/gnosi/requirements-e2e.txt
+          # Do not restore pip archives on shared runners: cache restore can
+          # exceed the job timeout and is not required for correctness.
 
       - name: Install backend dependencies
         working-directory: apps/gnosi

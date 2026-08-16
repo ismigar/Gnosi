@@ -40,8 +40,8 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: "3.11"
-          cache: pip
-          cache-dependency-path: apps/gnosi/requirements-docs.txt
+          # Documentation builds are small; avoid cache restore timeouts on
+          # runners where the pip archive is unavailable or stale.
 
       - name: Install documentation dependencies
         run: python -m pip install -r requirements-docs.txt

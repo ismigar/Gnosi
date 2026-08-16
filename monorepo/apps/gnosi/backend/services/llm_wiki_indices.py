@@ -346,6 +346,13 @@ def rebuild_search_cache(brain_table_id: str) -> int:
         indent=2,
         ensure_ascii=False,
     )
+    try:
+        from backend.agent.vault_tools import clear_wiki_search_cache
+        clear_wiki_search_cache(brain_table_id)
+    except Exception:
+        # Index rebuilds must remain usable even when the agent tool module is
+        # unavailable during a minimal maintenance process.
+        pass
     return len(records)
 
 
