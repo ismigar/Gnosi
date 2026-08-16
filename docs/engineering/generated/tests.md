@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 13 | 37 |
 | Vitest | 73 | 271 |
-| pytest | 188 | 1581 |
+| pytest | 188 | 1582 |
 
 ## Files
 
@@ -112,7 +112,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_agent_action_confirmations.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_action_confirmations.py) | 23 | Python AST |
 | pytest | [`backend/tests/test_agent_chat_model_selection.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_chat_model_selection.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_agent_chat_safety.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_chat_safety.py) | 41 | Python AST |
-| pytest | [`backend/tests/test_agent_context_sources.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_context_sources.py) | 26 | Python AST |
+| pytest | [`backend/tests/test_agent_context_sources.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_context_sources.py) | 27 | Python AST |
 | pytest | [`backend/tests/test_agent_create_page_containment.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_create_page_containment.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_agent_quality_telemetry.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_quality_telemetry.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_agent_read_pdf_containment.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_read_pdf_containment.py) | 5 | Python AST |

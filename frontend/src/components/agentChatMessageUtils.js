@@ -6,9 +6,63 @@ const TURN_TIMING_COUNT_FIELDS = [
     'input_tokens', 'output_tokens', 'model_calls', 'tool_calls',
 ];
 const PRESENTATION_FIELDS = [
-    'processingMs', 'timings', 'feedback', 'saved', 'plan', 'privacy',
+    'turnId', 'turn_id', 'processingMs', 'timings',
+    'feedback', 'saved', 'plan', 'privacy',
     'verification', 'citations', 'freshness', 'job', 'explanation',
 ];
+
+const getTurnId = (message) => (
+    message?.turnId || message?.turn_id || message?.turn?.id || null
+);
+const hasCandidatePayload = (message) => {
+    if (!message || typeof message !== 'object' || Array.isArray(message)) return false;
+    return true;
+};
+
+const firstUnusedCandidateIndex = (indices, candidateUsed, fromIndex) => {
+    if (!Array.isArray(indices)) return null;
+    for (let i = fromIndex; i < indices.length; i += 1) {
+        const candidateIndex = indices[i];
+        if (!candidateUsed.has(candidateIndex)) return candidateIndex;
+    }
+    return null;
+};
+
+const timedPayloadFromMessage = (message) => {
+    if (!hasCandidatePayload(message)) return null;
+    const candidateValues = [
+        message.timings,
+        message.turn_metrics,
+        message.turnMetrics,
+        message.metrics,
+        message.metric,
+        message.timing,
+        message.duration_ms,
+        message.durationMs,
+        message.duration,
+    ];
+    for (const candidate of candidateValues) {
+        const fromNumber = boundedProcessingMs(candidate);
+        if (
+            fromNumber !== null
+            && (typeof candidate === 'number' || typeof candidate === 'string')
+        ) {
+            return { total_ms: fromNumber };
+        }
+        const bounded = boundedTurnMetrics(candidate);
+        if (bounded !== null) return bounded;
+    }
+    return null;
+};
+
+const normalizeMessageTurnId = (message) => {
+    if (!hasCandidatePayload(message)) return message;
+    const turnId = getTurnId(message);
+    if (turnId && message?.turnId == null) {
+        return { ...message, turnId: String(turnId) };
+    }
+    return message;
+};
 
 const boundedString = (value, max = 128) => (
     typeof value === 'string' ? value.trim().slice(0, max) : ''
@@ -218,6 +272,19 @@ export const boundedTurnMetrics = (value) => {
     return Object.keys(metrics).length ? metrics : null;
 };
 
+export const effectiveMessageTimingMs = (message) => {
+    const timings = timedPayloadFromMessage(message);
+    if (timings && timings.total_ms !== undefined) {
+        return timings.total_ms;
+    }
+    return boundedProcessingMs(
+        message?.processingMs
+            ?? message?.duration_ms
+            ?? message?.durationMs
+            ?? message?.duration,
+    );
+};
+
 export const conversationRewindPlan = (messages, messageIndex) => {
     if (
         !Array.isArray(messages)
@@ -238,7 +305,7 @@ export const conversationRewindPlan = (messages, messageIndex) => {
     const userMessage = turn.find((message) => message?.role === 'user');
     const prefix = messages.slice(0, turnStart);
     return {
-        beforeTurnId: userMessage?.turnId || null,
+        beforeTurnId: getTurnId(userMessage),
         keepMessages: prefix.filter(
             (message) => message?.role === 'user' || message?.role === 'assistant',
         ).length,
@@ -249,36 +316,101 @@ export const conversationRewindPlan = (messages, messageIndex) => {
 
 export const mergeCanonicalMessageMetadata = (canonical, cached) => {
     if (!Array.isArray(canonical)) return [];
-    const localMessages = Array.isArray(cached) ? cached : [];
+    const localMessages = Array.isArray(cached)
+        ? cached.map(normalizeMessageTurnId)
+        : [];
+    const localTurnMap = new Map();
+
+    localMessages.forEach((message, index) => {
+        const role = message?.role;
+        const turnId = getTurnId(message);
+        if (!role || !turnId) return;
+        const key = `${role}:${String(turnId)}`;
+        const bucket = localTurnMap.get(key);
+        if (bucket) {
+            bucket.push(index);
+        } else {
+            localTurnMap.set(key, [index]);
+        }
+    });
+
+    const usedLocalIndices = new Set();
     let localCursor = 0;
 
-    return canonical.map((message) => {
-        const normalizedMessage = message?.turn_id && !message?.turnId
-            ? { ...message, turnId: message.turn_id }
-            : message;
-        let match = null;
-        for (let index = localCursor; index < localMessages.length; index += 1) {
+    const findByRoleAndContent = (message, startFrom = localCursor) => {
+        for (let index = startFrom; index < localMessages.length; index += 1) {
+            if (usedLocalIndices.has(index)) continue;
             const candidate = localMessages[index];
             if (
-                candidate?.role === normalizedMessage?.role
-                && String(candidate?.content || '') === String(normalizedMessage?.content || '')
+                candidate?.role === message?.role
+                && String(candidate?.content || '') === String(message?.content || '')
             ) {
-                match = candidate;
-                localCursor = index + 1;
-                break;
+                return index;
             }
         }
-        if (!match) return normalizedMessage;
+        return null;
+    };
+
+    const findByRoleOnly = (message, startFrom = localCursor) => {
+        for (let index = startFrom; index < localMessages.length; index += 1) {
+            if (usedLocalIndices.has(index)) continue;
+            if (localMessages[index]?.role === message?.role) {
+                return index;
+            }
+        }
+        return null;
+    };
+
+    return canonical.map((message) => {
+        const normalizedMessage = normalizeMessageTurnId(message);
+        let matchIndex = null;
+        const messageTurnId = getTurnId(normalizedMessage);
+        if (messageTurnId) {
+            const matchCandidates = localTurnMap.get(
+                `${normalizedMessage?.role}:${String(messageTurnId)}`,
+            );
+            matchIndex = firstUnusedCandidateIndex(
+                matchCandidates,
+                usedLocalIndices,
+                matchCandidates ? 0 : 0,
+            );
+        }
+        if (matchIndex === null && localCursor < localMessages.length) {
+            matchIndex = findByRoleAndContent(normalizedMessage);
+        }
+        if (matchIndex === null && localCursor < localMessages.length) {
+            matchIndex = findByRoleOnly(normalizedMessage);
+        }
+        if (matchIndex === null) return normalizedMessage;
+        const match = localMessages[matchIndex];
+        usedLocalIndices.add(matchIndex);
+        localCursor = Math.max(localCursor, matchIndex + 1);
 
         const metadata = {};
         PRESENTATION_FIELDS.forEach((field) => {
             if (match[field] !== undefined) metadata[field] = match[field];
         });
+
+        const sourceTiming = timedPayloadFromMessage(match);
+        if (sourceTiming && metadata.timings === undefined && normalizedMessage?.role === 'assistant') {
+            metadata.timings = sourceTiming;
+        }
+
+        if (metadata.timings !== undefined) {
+            metadata.timings = timedPayloadFromMessage(metadata);
+            if (metadata.processingMs === undefined && metadata.timings?.total_ms !== undefined) {
+                metadata.processingMs = boundedProcessingMs(metadata.timings.total_ms);
+            }
+        }
         if (metadata.processingMs !== undefined) {
             metadata.processingMs = boundedProcessingMs(metadata.processingMs);
-        }
-        if (metadata.timings !== undefined) {
-            metadata.timings = boundedTurnMetrics(metadata.timings);
+        } else {
+            const fromMatchProcessing = boundedProcessingMs(
+                match?.processingMs ?? match?.duration_ms ?? match?.durationMs ?? match?.duration,
+            );
+            if (fromMatchProcessing !== null) {
+                metadata.processingMs = fromMatchProcessing;
+            }
         }
         Object.entries(boundedTransparencyMetadata(metadata)).forEach(([field, value]) => {
             if (value !== null) metadata[field] = value;
