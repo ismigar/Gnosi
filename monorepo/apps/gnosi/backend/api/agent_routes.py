@@ -556,6 +556,12 @@ def _public_checkpoint_message_entries(
             if role == "human"
             else None
         )
+        message_turn_id = getattr(message, "additional_kwargs", {}).get("gnosi_turn_id")
+        if message_turn_id:
+            if role == "human":
+                current_turn_id = str(message_turn_id)
+            elif not current_turn_id:
+                current_turn_id = str(message_turn_id)
         content = (
             str(visible_content)
             if visible_content is not None

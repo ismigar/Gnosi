@@ -724,6 +724,23 @@ def test_checkpoint_history_includes_turn_timings():
     ]
 
 
+def test_checkpoint_history_uses_ai_turn_id_when_human_id_is_missing():
+    stored = [
+        AIMessage(
+            content="Resposta única",
+            additional_kwargs={"gnosi_turn_id": "turn-legacy"},
+        ),
+    ]
+
+    assert agent_routes._public_checkpoint_messages(stored) == [
+        {
+            "role": "assistant",
+            "content": "Resposta única",
+            "turn_id": "turn-legacy",
+        },
+    ]
+
+
 def test_legacy_checkpoint_history_strips_internal_enrichment():
     stored = [
         HumanMessage(

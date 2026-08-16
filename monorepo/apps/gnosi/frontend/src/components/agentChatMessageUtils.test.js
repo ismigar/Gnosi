@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
     boundedProcessingMs,
+    effectiveMessageTimingMs,
     boundedTransparencyMetadata,
     boundedTurnMetrics,
     conversationRewindPlan,
@@ -127,6 +128,20 @@ describe('assistant message presentation metadata', () => {
         });
     });
 
+    it('rewinds using legacy turn_id fields too', () => {
+        const messages = [
+            { role: 'user', content: 'Legacy turn', turn_id: 'turn-legacy' },
+            { role: 'assistant', content: 'Legacy answer', turn_id: 'turn-legacy' },
+        ];
+
+        expect(conversationRewindPlan(messages, 1)).toEqual({
+            beforeTurnId: 'turn-legacy',
+            keepMessages: 0,
+            localKeepCount: 0,
+            prompt: 'Legacy turn',
+        });
+    });
+
     it('merges only local presentation fields into canonical content', () => {
         const canonical = [
             { role: 'user', content: 'Question', turn_id: 'server-turn' },
@@ -155,5 +170,75 @@ describe('assistant message presentation metadata', () => {
                 saved: true,
             },
         ]);
+    });
+
+    it('reconciles cached metadata by turn id even when message content differs', () => {
+        const canonical = [
+            { role: 'user', content: 'Current user prompt', turn_id: 'turn-1' },
+            { role: 'assistant', content: 'Canonical answer text', turn_id: 'turn-1' },
+        ];
+        const cached = [
+            {
+                role: 'user',
+                content: 'Old user prompt',
+                turn_id: 'turn-1',
+                processingMs: 900,
+                duration_ms: 900,
+            },
+            {
+                role: 'assistant',
+                content: 'Old answer',
+                turn_id: 'turn-1',
+                timings: { total_ms: 1_050 },
+            },
+        ];
+
+        expect(mergeCanonicalMessageMetadata(canonical, cached)).toEqual([
+            {
+                role: 'user',
+                content: 'Current user prompt',
+                turnId: 'turn-1',
+                processingMs: 900,
+                turn_id: 'turn-1',
+            },
+            {
+                role: 'assistant',
+                content: 'Canonical answer text',
+                turnId: 'turn-1',
+                processingMs: 1_050,
+                timings: { total_ms: 1_050 },
+                turn_id: 'turn-1',
+            },
+        ]);
+    });
+
+    it('uses duration-like aliases when timings are not available', () => {
+        const canonical = [
+            { role: 'assistant', content: 'Server timed answer' },
+        ];
+        const cached = [
+            {
+                role: 'assistant',
+                content: 'Server timed answer',
+                duration: 2500,
+            },
+        ];
+
+        expect(mergeCanonicalMessageMetadata(canonical, cached)).toEqual([{
+            role: 'assistant',
+            content: 'Server timed answer',
+            timings: { total_ms: 2500 },
+            processingMs: 2500,
+        }]);
+    });
+
+    it('resolves effective timing from alias fields', () => {
+        expect(effectiveMessageTimingMs({ processingMs: 1200 })).toBe(1200);
+        expect(effectiveMessageTimingMs({ timings: { total_ms: 2400 } })).toBe(2400);
+        expect(effectiveMessageTimingMs({ turn_metrics: { total_ms: 900 } })).toBe(900);
+        expect(effectiveMessageTimingMs({ duration_ms: 4000 })).toBe(4000);
+        expect(effectiveMessageTimingMs({ turnMetrics: { total_ms: 1300 } })).toBe(1300);
+        expect(effectiveMessageTimingMs({ duration: '5500' })).toBe(5500);
+        expect(effectiveMessageTimingMs({})).toBeNull();
     });
 });

@@ -18,6 +18,7 @@ import {
     boundedJob,
     boundedTransparencyMetadata,
     boundedTurnMetrics,
+    effectiveMessageTimingMs,
     conversationRewindPlan,
     mergeCanonicalMessageMetadata,
     processingSeconds,
@@ -1218,7 +1219,7 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                     verification_status: message.verification?.status || '',
                     limitations: message.verification?.limitations || [],
                     tool_names: message.verification?.tool_names || [],
-                    duration_ms: message.timings?.total_ms || message.processingMs || 0,
+                    duration_ms: effectiveMessageTimingMs(message) || 0,
                     error_code: message.errorCode || '',
                 }),
             });
@@ -2120,10 +2121,7 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                                 {(() => {
                                     const responseSeconds = msg.role === 'user'
                                         ? null
-                                        : (
-                                            processingSeconds(msg.processingMs)
-                                            ?? processingSeconds(msg.timings?.total_ms)
-                                        );
+                                        : processingSeconds(effectiveMessageTimingMs(msg));
                                     return (
                                         <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', padding: '0 4px' }}>
                                             {msg.role === 'user'
