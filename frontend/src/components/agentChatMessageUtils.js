@@ -22,6 +22,8 @@ const TIMING_OBJECT_TOTAL_FIELDS = [
     'durationSecs',
     'durationSec',
     'duration_s',
+    'total_seconds',
+    'seconds',
     'time_ms',
     'time',
 ];
@@ -31,9 +33,65 @@ const PRESENTATION_FIELDS = [
     'verification', 'citations', 'freshness', 'job', 'explanation',
 ];
 
-const getTurnId = (message) => (
-    message?.turnId || message?.turn_id || message?.turn?.id || null
-);
+const getTurnId = (message) => {
+    if (!message || typeof message !== 'object' || Array.isArray(message)) return null;
+    if (message.turnId !== undefined && message.turnId !== null && message.turnId !== '') {
+        return message.turnId;
+    }
+    if (message.turn_id !== undefined && message.turn_id !== null && message.turn_id !== '') {
+        return message.turn_id;
+    }
+    const turnValue = message.turn;
+    if (typeof turnValue === 'string' || typeof turnValue === 'number') {
+        return turnValue;
+    }
+    if (turnValue && typeof turnValue === 'object' && !Array.isArray(turnValue)) {
+        return (
+            turnValue.id
+            || turnValue.turn_id
+            || turnValue.turnId
+            || turnValue.value
+            || null
+        );
+    }
+    return null;
+};
+
+const applyDurationUnit = (rawNumeric, unitHint = null) => {
+    const numeric = Number(rawNumeric);
+    if (!Number.isFinite(numeric) || numeric < 0) return null;
+    const normalizedUnit = unitHint ? unitHint.trim().toLowerCase() : null;
+    if (
+        normalizedUnit === 's'
+        || normalizedUnit === 'sec'
+        || normalizedUnit === 'secs'
+        || normalizedUnit === 'second'
+        || normalizedUnit === 'seconds'
+    ) {
+        return boundedProcessingMs(numeric * 1000);
+    }
+    if (
+        normalizedUnit === 'm'
+        || normalizedUnit === 'min'
+        || normalizedUnit === 'mins'
+        || normalizedUnit === 'minute'
+        || normalizedUnit === 'minutes'
+    ) {
+        return boundedProcessingMs(numeric * 60_000);
+    }
+    if (
+        normalizedUnit === 'ms'
+        || normalizedUnit === 'millisecond'
+        || normalizedUnit === 'milliseconds'
+    ) {
+        return boundedProcessingMs(numeric);
+    }
+    if (normalizedUnit) {
+        return boundedProcessingMs(numeric);
+    }
+    return boundedProcessingMs(numeric);
+};
+
 const hasCandidatePayload = (message) => {
     if (!message || typeof message !== 'object' || Array.isArray(message)) return false;
     return true;
@@ -42,22 +100,14 @@ const hasCandidatePayload = (message) => {
 const parseDurationToMs = (value, unitHint = null) => {
     if (value === null || value === undefined || value === '') return null;
     if (typeof value === 'number') {
-        const numeric = Number(value);
-        if (!Number.isFinite(numeric) || numeric < 0) return null;
-        if (unitHint === 's') {
-            return boundedProcessingMs(numeric * 1000);
-        }
-        if (unitHint === 'm') {
-            return boundedProcessingMs(numeric * 60_000);
-        }
-        return boundedProcessingMs(numeric);
+        return applyDurationUnit(value, unitHint);
     }
     if (typeof value === 'string') {
         const normalized = value.trim().replace(/_/g, '');
         if (!normalized) return null;
         const numeric = Number(normalized);
         if (Number.isFinite(numeric)) {
-            return boundedProcessingMs(numeric);
+            return applyDurationUnit(numeric, unitHint);
         }
         const withUnit = normalized.match(
             /^([0-9]+(?:\.[0-9]+)?)\s*(ms|millisecond|milliseconds|s|sec|secs|second|seconds|m|min|mins|minutes)$/i,
@@ -65,22 +115,7 @@ const parseDurationToMs = (value, unitHint = null) => {
         if (!withUnit) return null;
         const magnitude = Number(withUnit[1]);
         if (!Number.isFinite(magnitude)) return null;
-        const unit = withUnit[2].toLowerCase();
-        switch (unit) {
-            case 's':
-            case 'sec':
-            case 'secs':
-            case 'second':
-            case 'seconds':
-                return boundedProcessingMs(magnitude * 1000);
-            case 'm':
-            case 'min':
-            case 'mins':
-            case 'minutes':
-                return boundedProcessingMs(magnitude * 60_000);
-            default:
-                return boundedProcessingMs(magnitude);
-        }
+        return parseDurationToMs(magnitude, withUnit[2]);
     }
     if (unitHint && typeof unitHint === 'string') {
         const normalizedUnit = unitHint.trim().toLowerCase();
@@ -110,6 +145,9 @@ const parseDurationToMs = (value, unitHint = null) => {
         ) {
             return boundedProcessingMs(hintValue * 60_000);
         }
+        if (normalizedUnit) {
+            return hintValue;
+        }
     }
     return null;
 };
@@ -122,6 +160,10 @@ const parseTimingObjectMs = (value) => {
     }
     if (value.value !== undefined && value.unit !== undefined) {
         return parseDurationToMs(value.value, value.unit);
+    }
+    if (value.value !== undefined) {
+        const parsedValue = parseDurationToMs(value.value);
+        if (parsedValue !== null) return parsedValue;
     }
     return null;
 };
