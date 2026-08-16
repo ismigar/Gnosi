@@ -533,6 +533,94 @@ def _public_checkpoint_message_entries(
 ) -> List[tuple[int, Dict[str, Any]]]:
     """Return bounded public messages together with their raw positions."""
     entries = []
+
+    _TURN_ID_FIELD_RE = re.compile(
+        r"^(?:gnosi_)?(?:turn|session|conversation|thread|trace)(?:_(?:id|uuid|identifier|ref|reference|key|token))?$"
+        r"|^(?:id|uuid|identifier|ref|reference|key|token)_(?:turn|session|conversation|thread|trace)$"
+        r"|^turn$"
+    )
+
+    def _normalize_key(key: str) -> str:
+        normalized = re.sub(r"[^a-z0-9_]+", "_", str(key).strip().lower())
+        return re.sub(r"_+", "_", normalized).strip("_")
+
+    def _extract_turn_payload_value(candidate_value: Any, seen: Optional[set[int]] = None) -> Optional[str]:
+        if candidate_value is None or candidate_value == "":
+            return None
+        if isinstance(candidate_value, (str, int, float)):
+            text = str(candidate_value).strip()
+            return text or None
+        if isinstance(candidate_value, dict):
+            candidate_id = (
+                candidate_value.get("id")
+                or candidate_value.get("turn_id")
+                or candidate_value.get("turnId")
+                or candidate_value.get("value")
+                or candidate_value.get("uuid")
+                or candidate_value.get("identifier")
+                or candidate_value.get("key")
+            )
+            if candidate_id is not None:
+                text = str(candidate_id).strip()
+                return text or None
+            if seen is None:
+                seen = set()
+            marker = id(candidate_value)
+            if marker in seen:
+                return None
+            seen.add(marker)
+            for nested_key, nested_value in candidate_value.items():
+                normalized_key = _normalize_key(nested_key)
+                if not _TURN_ID_FIELD_RE.match(normalized_key):
+                    continue
+                nested_turn_id = _extract_turn_payload_value(nested_value, seen)
+                if nested_turn_id is not None:
+                    return nested_turn_id
+            return None
+        if isinstance(candidate_value, (list, tuple)):
+            for item in candidate_value:
+                nested_turn_id = _extract_turn_payload_value(item, seen)
+                if nested_turn_id is not None:
+                    return nested_turn_id
+            return None
+        return None
+
+    def _extract_turn_payload(payload: Dict[str, Any], *, allow_nested: bool = False) -> Optional[str]:
+        if not isinstance(payload, dict):
+            return None
+        turn_id = (
+            payload.get("gnosi_turn_id")
+            or payload.get("turn_id")
+            or payload.get("turnId")
+        )
+        if turn_id is None and allow_nested:
+            nested_turn = payload.get("turn")
+            if isinstance(nested_turn, dict):
+                turn_id = (
+                    nested_turn.get("id")
+                    or nested_turn.get("turn_id")
+                    or nested_turn.get("turnId")
+                    or nested_turn.get("value")
+                )
+            elif isinstance(nested_turn, str):
+                turn_id = nested_turn
+        if isinstance(turn_id, dict):
+            turn_id = (
+                turn_id.get("id")
+                or turn_id.get("turn_id")
+                or turn_id.get("turnId")
+                or turn_id.get("value")
+            )
+        if turn_id is not None and turn_id != "":
+            return str(turn_id)
+        for key, value in payload.items():
+            normalized_key = _normalize_key(key)
+            if _TURN_ID_FIELD_RE.match(normalized_key):
+                candidate = _extract_turn_payload_value(value)
+                if candidate is not None:
+                    return candidate
+        return turn_id
+
     current_turn_id = ""
     start = max(0, len(stored_messages) - 200)
     for raw_index, message in enumerate(stored_messages[start:], start=start):
@@ -556,7 +644,15 @@ def _public_checkpoint_message_entries(
             if role == "human"
             else None
         )
-        message_turn_id = getattr(message, "additional_kwargs", {}).get("gnosi_turn_id")
+        message_turn_id = _extract_turn_payload(
+            getattr(message, "additional_kwargs", {}),
+            allow_nested=True,
+        )
+        if message_turn_id is None:
+            message_turn_id = _extract_turn_payload(
+                getattr(message, "metadata", {}),
+                allow_nested=True,
+            )
         if message_turn_id:
             if role == "human":
                 current_turn_id = str(message_turn_id)
