@@ -66,6 +66,7 @@ const PRESENTATION_FIELDS = [
     'turnId', 'turn_id', 'processingMs', 'timings',
     'feedback', 'saved', 'plan', 'privacy',
     'verification', 'citations', 'freshness', 'job', 'explanation',
+    'errorCode', 'retryable', 'recovery', 'processingPhase',
 ];
 
 const normalizeTurnIdCandidateKey = (value) => {
@@ -508,6 +509,34 @@ const boundedBudget = value => {
     };
 };
 
+const boundedIntent = value => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    return {
+        operation: boundedString(value.operation, 32),
+        domains: boundedStrings(value.domains, 8, 32),
+        concepts: boundedStrings(value.concepts, 16, 64),
+        retrieval_strategies: boundedStrings(value.retrieval_strategies, 8, 48),
+        ambiguities: boundedStrings(value.ambiguities, 8, 64),
+        confidence: Number.isFinite(Number(value.confidence))
+            ? Math.max(0, Math.min(1, Number(value.confidence)))
+            : 0,
+        relation_requested: Boolean(value.relation_requested),
+        clarification_required: Boolean(value.clarification_required),
+        abstain: Boolean(value.abstain),
+    };
+};
+
+const boundedCapabilityBroker = value => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    return {
+        broker_version: boundedString(value.broker_version, 64),
+        operation: boundedString(value.operation, 32),
+        candidate_tools: boundedStrings(value.candidate_tools, 24, 128),
+        guarded_tools: boundedStrings(value.guarded_tools, 24, 128),
+        selection_policy: boundedString(value.selection_policy, 128),
+    };
+};
+
 export const boundedTurnPlan = value => {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
     return {
@@ -522,6 +551,15 @@ export const boundedTurnPlan = value => {
         required_tool: boundedString(value.required_tool, 128),
         allowed_tool_count: boundedCount(value.allowed_tool_count),
         budgets: boundedBudget(value.budgets),
+        interpretation: boundedIntent(value.interpretation),
+        capability_broker: boundedCapabilityBroker(value.capability_broker),
+        memory: value.memory && typeof value.memory === 'object' && !Array.isArray(value.memory)
+            ? {
+                checkpointed: Boolean(value.memory.checkpointed),
+                scope: boundedString(value.memory.scope, 64),
+                historical_tool_payloads_excluded: Boolean(value.memory.historical_tool_payloads_excluded),
+            }
+            : null,
     };
 };
 
@@ -673,6 +711,17 @@ export const boundedTransparencyMetadata = value => ({
     job: boundedJob(value?.job),
     explanation: boundedExplanation(value?.explanation),
 });
+
+export const isRetryableErrorCode = (value) => new Set([
+    'agent_loop_exhausted',
+    'agent_turn_timeout',
+    'timeout',
+    'server_error',
+    'service_unavailable',
+    'rate_limit',
+    'rate_limit_exceeded',
+    'network_error',
+]).has(String(value || '').trim().toLowerCase());
 
 export const boundedProcessingMs = (value) => {
     if (value === null || value === undefined || value === '') return null;

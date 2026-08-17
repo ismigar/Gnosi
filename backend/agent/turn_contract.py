@@ -195,13 +195,27 @@ def build_turn_plan(
     route: str = "",
 ) -> dict[str, Any]:
     """Build the effective request-scoped capability and privacy plan."""
-    from backend.agent.semantic_interpreter import interpret_request
+    from backend.agent.semantic_interpreter import broker_capabilities, interpret_request
 
     refs = [dict(ref) for ref in context_refs if isinstance(ref, Mapping)]
     tools = [dict(item) for item in tool_metadata if isinstance(item, Mapping)]
     authorized = {str(name) for name in authorized_tool_names if name}
     domains = detect_request_domains(message)
     interpretation = interpret_request(message, mode=mode, domains=domains)
+    broker_candidates = broker_capabilities(interpretation, tools)
+    guarded_tool_names = [
+        str(item.get("name") or "")
+        for item in tools
+        if str(item.get("name") or "")
+        and bool(_tool_effects(item).intersection(GUARDED_EFFECTS))
+    ][:24]
+    capability_broker = {
+        "broker_version": "capability-v1",
+        "operation": str(interpretation.get("operation") or "conversation"),
+        "candidate_tools": broker_candidates[:24],
+        "guarded_tools": guarded_tool_names,
+        "selection_policy": "semantic-domain-match; guarded effects require explicit authorization",
+    }
     has_private_sources = any(
         str(ref.get("type") or "").lower() in PRIVATE_CONTEXT_TYPES
         for ref in refs
@@ -257,6 +271,11 @@ def build_turn_plan(
             if name == required_tool_name or name in authorized
         ]
     allowed_tool_names = allowed_tool_names[:24]
+    broker_candidates = [
+        name for name in broker_candidates
+        if name in allowed_tool_names
+    ]
+    capability_broker["candidate_tools"] = broker_candidates[:24]
 
     durable_tool = (
         required_tool_name
@@ -295,6 +314,7 @@ def build_turn_plan(
                 "context_types": sorted(str(ref.get("type") or "") for ref in refs),
                 "budgets": budgets,
                 "interpretation": interpretation.get("query_digest"),
+                "capability_candidates": broker_candidates,
             },
             sort_keys=True,
             separators=(",", ":"),
@@ -312,6 +332,12 @@ def build_turn_plan(
         "mode": mode,
         "domains": domains,
         "interpretation": interpretation,
+        "capability_broker": capability_broker,
+        "memory": {
+            "checkpointed": True,
+            "scope": "agent_session",
+            "historical_tool_payloads_excluded": True,
+        },
         "route": effective_route,
         "execution": execution,
         "output_strategy": (
@@ -757,6 +783,7 @@ def verify_response(
                 "schema_version", "planner_version", "plan_id", "mode", "domains",
                 "route", "execution", "output_strategy", "required_tool",
                 "allowed_tool_count", "budgets",
+                "interpretation", "capability_broker", "memory",
             )
         },
         "gnosi_privacy": dict(plan.get("privacy") or {}),
