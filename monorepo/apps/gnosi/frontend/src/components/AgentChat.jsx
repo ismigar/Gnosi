@@ -22,6 +22,7 @@ import {
     conversationRewindPlan,
     getTurnId,
     mergeCanonicalMessageMetadata,
+    isRetryableErrorCode,
     processingSeconds,
 } from './agentChatMessageUtils';
 import { selectedMentionsInText, visibleMentionToken } from './agentChatMentionUtils';
@@ -161,6 +162,7 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
     const [agentRuntime, setAgentRuntime] = useState(null);
     const [detailsMessageIndex, setDetailsMessageIndex] = useState(null);
     const [processingElapsedSeconds, setProcessingElapsedSeconds] = useState(0);
+    const [processingPhase, setProcessingPhase] = useState('routing');
     const [pendingRewindIndex, setPendingRewindIndex] = useState(null);
     const [isRewinding, setIsRewinding] = useState(false);
     const [isDockOpen, setIsDockOpen] = useFloatingActionDock();
@@ -1264,6 +1266,17 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
         return '';
     }, [messages]);
 
+    const retryMessage = useCallback((index) => {
+        if (isLoading) return;
+        const prompt = previousUserPrompt(index);
+        if (!prompt) return;
+        focusComposerWith(prompt);
+        toast.info(t(
+            'chat.retry_prefilled',
+            'The original request is ready to retry. Review it and send again.',
+        ));
+    }, [focusComposerWith, isLoading, previousUserPrompt, t]);
+
     const confirmConversationRewind = useCallback(async () => {
         if (pendingRewindIndex === null || isLoading || isRewinding) return;
         const plan = conversationRewindPlan(messages, pendingRewindIndex);
@@ -1352,6 +1365,7 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
         setAttachments([]);
         setShowMentionMenu(false);
         setIsLoading(true);
+        setProcessingPhase('routing');
         const requestScope = `${browserStorageScope}:${selectedAgentId}:${sessionId}`;
         let turnMetrics = null;
         let turnTransparency = boundedTransparencyMetadata({});
@@ -1430,6 +1444,10 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                         }
                         if (data.type === 'agent_runtime') {
                             setAgentRuntime(data);
+                            continue;
+                        }
+                        if (data.type === 'phase') {
+                            setProcessingPhase(String(data.phase || 'routing'));
                             continue;
                         }
                         if (data.type === 'turn_plan') {
@@ -1545,6 +1563,11 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                                 }
                                 lastMsg.content = `❌ ${t('chat.error_prefix', 'Error')}: ${errorContent}`;
                                 lastMsg.errorCode = data.code || 'agent_error';
+                                lastMsg.retryable = Boolean(data.retryable)
+                                    || isRetryableErrorCode(lastMsg.errorCode);
+                                if (data.recovery && typeof data.recovery === 'object') {
+                                    lastMsg.recovery = data.recovery;
+                                }
                             }
                             newMsgs[lastIdx] = lastMsg;
                             return newMsgs;
@@ -1570,9 +1593,17 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                     ? error.message.trim()
                     : '';
                 setMessages(prev => [...prev, {
-                    role: 'system',
+                    role: 'assistant',
                     content: `${t('chat.error_prefix', 'Error')}: ${errorMessage || t('errors.unknown', 'Unknown error')}`,
                     turnId,
+                    errorCode: 'network_error',
+                    retryable: true,
+                    recovery: {
+                        retryable: true,
+                        action: 'retry_message',
+                        automatic: false,
+                        max_attempts: 1,
+                    },
                 }]);
             }
         } finally {
@@ -1602,6 +1633,7 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
             requestAbortRef.current = null;
             processingStartedAtRef.current = null;
             setIsLoading(false);
+            setProcessingPhase('routing');
             if (inputRef.current) {
                 inputRef.current.style.height = 'auto';
             }
@@ -1981,6 +2013,9 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                                     {msg.role === 'assistant' && previousUserPrompt(idx) && (
                                         <button type="button" onClick={() => focusComposerWith(previousUserPrompt(idx))} aria-label={t('chat.regenerate_message', 'Regenerate response')} title={t('chat.regenerate_message', 'Regenerate response')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><RotateCcw size={13} /></button>
                                     )}
+                                    {msg.role === 'assistant' && msg.retryable && previousUserPrompt(idx) && (
+                                        <button type="button" onClick={() => retryMessage(idx)} aria-label={t('chat.retry_response', 'Retry response')} title={t('chat.retry_response', 'Retry response')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: isLoading ? 'default' : 'pointer', padding: '3px', opacity: isLoading ? 0.45 : 1 }} disabled={isLoading}><RotateCcw size={13} /></button>
+                                    )}
                                     {msg.role === 'assistant' && (
                                         <>
                                             <button type="button" onClick={() => submitMessageFeedback(idx, 'up')} aria-label={t('chat.helpful_response', 'Helpful response')} title={t('chat.helpful_response', 'Helpful response')} aria-pressed={msg.feedback === 'up'} style={{ background: 'none', border: 'none', color: msg.feedback === 'up' ? 'var(--gnosi-blue, #2563eb)' : 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><ThumbsUp size={13} /></button>
@@ -2057,6 +2092,40 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                                                         seconds: (msg.explanation.budgets || (msg.plan && msg.plan.budgets)).timeout_seconds ?? 0,
                                                     })}</div>
                                                 )}
+                                            </div>
+                                        )}
+                                        {msg.plan?.interpretation && (
+                                            <div style={{ marginTop: '5px' }}>
+                                                <strong>{t('chat.interpretation_title', 'Request interpretation')}</strong>
+                                                <div>{t('chat.interpretation_summary', '{{operation}} · {{confidence}}% confidence', {
+                                                    operation: t(`chat.mode.${msg.plan.interpretation.operation}`, msg.plan.interpretation.operation),
+                                                    confidence: Math.round((msg.plan.interpretation.confidence || 0) * 100),
+                                                })}</div>
+                                                {msg.plan.interpretation.concepts?.length > 0 && (
+                                                    <div>{t('chat.interpretation_concepts', 'Concepts: {{concepts}}', {
+                                                        concepts: msg.plan.interpretation.concepts.join(', '),
+                                                    })}</div>
+                                                )}
+                                            </div>
+                                        )}
+                                        {msg.plan?.capability_broker && (
+                                            <div style={{ marginTop: '5px' }}>
+                                                <strong>{t('chat.capability_title', 'Selected capabilities')}</strong>
+                                                <div>{t('chat.capability_summary', '{{candidates}} candidate tools · {{guarded}} guarded tools', {
+                                                    candidates: msg.plan.capability_broker.candidate_tools?.length ?? 0,
+                                                    guarded: msg.plan.capability_broker.guarded_tools?.length ?? 0,
+                                                })}</div>
+                                            </div>
+                                        )}
+                                        {msg.plan?.memory?.checkpointed && (
+                                            <div style={{ marginTop: '5px' }}>{t('chat.memory_summary', 'Memory: session checkpoint (historical tool payloads excluded)')}</div>
+                                        )}
+                                        {msg.errorCode && (
+                                            <div style={{ marginTop: '5px' }}>
+                                                <strong>{t('chat.recovery_title', 'Recovery')}</strong>
+                                                <div>{msg.retryable
+                                                    ? t('chat.recovery_retryable', 'This error can be retried safely.')
+                                                    : t('chat.recovery_edit_request', 'Edit the request and try again.')}</div>
                                             </div>
                                         )}
                                         {!msg.explanation && msg.plan?.budgets && (
@@ -2162,7 +2231,10 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                         ))}
                         {!showSessionsView && isLoading && (
                             <div style={{ alignSelf: 'flex-start', display: 'flex', gap: '8px', alignItems: 'center', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
-                                <Sparkles size={14} className="spin-slow" /> {t('chat.processing_with_seconds', 'Processing... {{count}} s', { count: processingElapsedSeconds })}
+                                <Sparkles size={14} className="spin-slow" /> {t('chat.processing_phase_label', '{{phase}} · {{count}} s', {
+                                    phase: t(`chat.processing_phase.${processingPhase}`, processingPhase),
+                                    count: processingElapsedSeconds,
+                                })}
                                 <button
                                     type="button"
                                     onClick={() => requestAbortRef.current?.abort()}

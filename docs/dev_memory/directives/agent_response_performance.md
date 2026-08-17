@@ -189,6 +189,16 @@ input and output token counts. The client stores these values with the assistant
 and displays them in message details. These measurements are diagnostic and never form an
 authorization or billing boundary.
 
+## Stream phases and deliberate recovery
+
+The stream emits a bounded phase marker (`routing`, `model`, or `tools`) whenever the
+active graph stage changes. The client may show the current phase beside its elapsed
+seconds counter, but the server `turn_metrics` event remains the source of truth for
+diagnostics. Recoverable failures carry a stable error code plus advisory recovery
+metadata. The client may prefill the original request for one deliberate retry; the
+server never replays a failed turn automatically because a governed action may already
+have been prepared.
+
 ## Verification
 
 - Historical raw tool payloads are absent from a later provider prompt while current-turn
@@ -257,6 +267,9 @@ authorization or billing boundary.
   that suffix as a plural form; use a neutral name such as `timing_misc` instead.
 - Do not treat client wall-clock time as a phase breakdown. Server phase metrics and client
   total elapsed time answer different diagnostic questions.
+- Do not automatically replay a failed stream from the browser. Mark only bounded
+  transient codes as retryable, preserve the original request for explicit user review,
+  and keep the retry count at one per failure.
 - Do not use bounded semantic search to answer “all”, “which”, “how many”, or equivalent
   inventory questions. A top-k result is evidence discovery, not an exhaustive inventory.
 - Do not treat every inventory query as literal token equality. For reviewed concepts such

@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-16
+last_verified: 2026-08-17
 source_paths:
   - backend/agent
   - backend/api/agent_routes.py
@@ -13,6 +13,7 @@ source_paths:
   - backend/services/provider_health.py
   - backend/services/agent_capability_health.py
   - backend/agent/provider_resilience.py
+  - backend/agent/recovery.py
   - backend/agent/conversation_memory.py
   - backend/agent/context_safety.py
   - backend/mcp/client.py
@@ -27,6 +28,7 @@ tests:
   - backend/tests/test_agent_action_confirmations.py
   - backend/tests/test_agent_quality_telemetry.py
   - backend/tests/test_agent_resilience.py
+  - backend/tests/test_agent_recovery.py
   - backend/tests/test_e2e_tables_assets.py
   - backend/tests/test_vault_trash.py
   - e2e/tests/e2e/ai-chat.spec.ts
@@ -253,6 +255,16 @@ checkpoint at the complete turn boundary and returns its public projection.
 Rewind changes conversation memory only; completed confirmations and external
 side effects are never presented as reversed.
 
+During execution the stream emits a bounded phase marker for routing, model
+generation, or tool execution. The chat shows the active phase beside the
+elapsed seconds counter and resets it when the turn ends. Stable transient
+failure codes (`agent_loop_exhausted`, timeout, service-unavailable, and rate
+limit variants) include advisory recovery metadata. The client offers one
+deliberate retry of the original request after user review; the server never
+replays a failed turn automatically because a governed action may already have
+been prepared. Permanent configuration or authorization errors instead invite
+editing the request or runtime settings.
+
 The stream owns an opaque cancellation token. If the client disconnects, it
 signals the token and the graph exits without starting more work; model calls
 use an asynchronous cancellation bridge when the provider supports it, so an
@@ -292,6 +304,12 @@ Message details provide bounded operational explainability: mode, route,
 foreground/background execution, tools actually used, evidence count, privacy
 posture, verifier status, index freshness, durable job state when present, and
 timings. This is an execution receipt, not chain-of-thought.
+
+The same receipt includes a redacted semantic interpretation (operation,
+confidence, concepts, and retrieval strategy), the capability broker decision
+(candidate and guarded tool counts), and the checkpoint scope. Query digests,
+source bodies, historical tool payloads, prompts, and hidden reasoning are
+excluded from the client metadata.
 
 Turn metrics include a provider-catalog-based USD estimate alongside token and
 latency counts. The persistent spend ledger remains the source of truth; the
