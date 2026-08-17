@@ -12,7 +12,11 @@ INTERPRETER_VERSION = "semantic-v2"
 _ACTION = {"create", "update", "delete", "send", "write", "fes", "haz", "crea", "envia", "elimina", "actualiza"}
 _INVENTORY = {"all", "every", "list", "find", "search", "tots", "totes", "tinc", "quins", "quines", "todos", "todas", "busca", "encuentra", "font", "fonts", "fuente", "fuentes"}
 _RELATION = {"related", "relation", "connect", "similar", "relacionat", "relacionades", "relacionadas", "vinculat", "relacionado", "relacionadas", "relacion"}
-_ANALYSIS = {"why", "how", "compare", "summarize", "analysis", "com", "compara", "resumeix", "analitza", "como", "relacion"}
+_ANALYSIS = {
+    "why", "how", "compare", "summarize", "analysis", "com", "compara", "resumeix",
+    "analitza", "analitzar", "analiza", "analizar", "analyze", "analyse", "explica",
+    "explicar", "explain", "explique", "interpreta", "interpret", "como", "relacion",
+}
 _SYNONYMS = {
     "bibliografiques": "bibliografia", "bibliograficas": "bibliografia", "fonts": "font", "fuentes": "fuente",
     "notes": "nota", "notas": "nota", "recursos": "recurs", "resources": "resource",
@@ -89,3 +93,21 @@ def broker_capabilities(intent: Mapping[str, Any], tool_metadata: Iterable[Mappi
         if not domains or any(domain in name.lower() for domain in domains) or item.get("dynamic_context"):
             selected.append(name)
     return selected[:24]
+
+
+def clarification_message(intent: Mapping[str, Any], language: str = "ca") -> str:
+    """Return a short user-facing clarification without exposing classifier internals."""
+    code = str((intent.get("ambiguities") or ["missing_subject"])[0])
+    if code == "empty_request":
+        messages = {
+            "ca": "Què vols que faci? Escriu una pregunta o una acció concreta.",
+            "es": "¿Qué quieres que haga? Escribe una pregunta o una acción concreta.",
+            "fr": "Que veux-tu que je fasse ? Écris une question ou une action concrète.",
+        }
+    else:
+        messages = {
+            "ca": "Em falta el tema o la font concreta. Què vols buscar o analitzar?",
+            "es": "Falta el tema o la fuente concreta. ¿Qué quieres buscar o analizar?",
+            "fr": "Il me manque le sujet ou la source. Que veux-tu chercher ou analyser ?",
+        }
+    return messages.get(str(language or "").lower(), messages["ca"])

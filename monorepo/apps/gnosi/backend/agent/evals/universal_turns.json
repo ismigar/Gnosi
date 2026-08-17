@@ -119,5 +119,18 @@
     "message": "Com puc trobar fonts bibliogràfiques de qualitat?",
     "provider": "mistral",
     "expected": {"mode": "lookup", "route": "General", "allowed_tool_count": 0}
+  },
+  {
+    "id": "ca-ambiguous-search-clarification",
+    "message": "Busca",
+    "provider": "mistral",
+    "context_refs": [{"id": "vault", "type": "vault", "ref": "active-vault"}],
+    "expected": {"mode": "lookup", "required_tool": "search_context", "interpretation.clarification_required": true}
+  },
+  {
+    "id": "es-ambiguous-analysis-clarification",
+    "message": "Analiza",
+    "provider": "mistral",
+    "expected": {"mode": "analysis", "route": "General", "allowed_tool_count": 0, "interpretation.clarification_required": true}
   }
 ]

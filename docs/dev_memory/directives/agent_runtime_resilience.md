@@ -67,6 +67,28 @@ in construction closures.
 - Do not process the same explicit turn id twice. Claim it durably in the
   workspace/user/session scope and mark the claim completed or failed after
   the stream closes.
+- Do not depend on an HTTP request or a status poll to start a queued job. The
+  lifespan-managed dispatcher must scan ready rows after startup, let the
+  owning provider claim the lease, and reject malformed or unknown payloads
+  instead of leaving them queued forever.
+- Do not rewrite the full FTS5 sidecar for a small vault change. Compare the
+  bounded record JSON by id, delete only removed/changed rows, and expose a
+  stale bit while an external file watcher is waiting to apply a delta.
+- Do not run approved generated code in the API process. The validator and
+  human approval remain mandatory; the loader must invoke it through the
+  short-lived subprocess proxy with bounded CPU, address space, file output,
+  timeout, environment, and result size.
+- Do not trust a tool descriptor only at selection time. Validate the JSON
+  input and output schema at the execution boundary and register explicit,
+  reviewed compensators for operations that need recovery after a partial
+  failure.
+- Do not persist replay prompts, source bodies, arguments, or answers. Replay
+  rows contain only the allowlisted operational fields and are diagnostic; a
+  replay write/read failure must never fail the user turn.
+- Do not execute an ambiguous request merely because a compatible tool exists.
+  Emit a localized clarification when confidence is insufficient or a
+  subject is missing, and record the clarification case in the deterministic
+  evaluation corpus.
 
 ## Verification
 

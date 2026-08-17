@@ -3,17 +3,16 @@ Tool Loader: Dynamically loads approved tools at runtime.
 
 Features:
 - Load tools from approved/ directory
-- Dynamic import using importlib
+- Execute approved tools through a child-process proxy
 - Refresh without restart
 """
-import importlib.util
-import sys
 from pathlib import Path
 from typing import List, Optional
 from langchain_core.tools import BaseTool
 
 from .registry import registry, ToolStatus
 from .validator import ToolValidator
+from .sandbox_runner import SandboxedGeneratedTool, run_process, schema_model
 
 
 class ToolLoader:
@@ -73,17 +72,7 @@ class ToolLoader:
         return tool
     
     def _load_tool(self, name: str, code: str) -> Optional[BaseTool]:
-        """
-        Dynamically load a tool from code string.
-        Uses importlib to create a module and extract the tool.
-
-        Security: this loads tools that have already been APPROVED via the
-        validator + sandbox + human review pipeline — that gate is the
-        primary defense. As defense-in-depth we still strip the most obvious
-        sandbox-escape primitives (`eval`, `exec`, `compile`, `type`) from
-        the execution namespace. `__import__` is left in place because real
-        tools need to import standard libraries.
-        """
+        """Load a validated tool as a subprocess-backed LangChain proxy."""
         from backend.config.logger_config import get_logger
         log = get_logger(__name__)
         try:
@@ -91,45 +80,14 @@ class ToolLoader:
             if not validation.is_valid:
                 log.error("Approved generated tool %r failed load-time validation", name)
                 return None
-            # Create a temporary module
-            module_name = f"generated_tool_{name}"
-            spec = importlib.util.spec_from_loader(module_name, loader=None)
-            if spec is None:
-                return None
-
-            module = importlib.util.module_from_spec(spec)
-
-            log.info(f"🛠️  Loading approved generated tool: {name}")
-
-            # Restrict builtins as defense-in-depth. Tools may still use
-            # `__import__` to pull in stdlib modules (which is required for
-            # most useful tools), so this is not a real sandbox — just a
-            # tripwire against the most direct escapes.
-            import builtins as _builtins
-            unsafe_names = {"eval", "exec", "compile", "type"}
-            safe_builtins = {
-                k: v for k, v in vars(_builtins).items() if k not in unsafe_names
-            }
-            module.__dict__["__builtins__"] = safe_builtins
-
-            # Execute the code in the module's namespace
-            exec(code, module.__dict__)
-
-            # Register the module
-            sys.modules[module_name] = module
-
-            # Find the tool function. We only accept real BaseTool instances or
-            # callables explicitly marked with `__tool__ = True`. Previously
-            # we accepted any callable with `.name`, which could
-            # capture functions decorated with arbitrary metadata.
-            for attr_name in dir(module):
-                attr = getattr(module, attr_name)
-                if isinstance(attr, BaseTool):
-                    return attr
-                if callable(attr) and getattr(attr, "__tool__", False) is True:
-                    return attr
-
-            return None
+            described = run_process(str(code or ""), action="describe", timeout_seconds=10)
+            input_schema = described.get("input_schema") if isinstance(described.get("input_schema"), dict) else {}
+            return SandboxedGeneratedTool(
+                name=str(described.get("name") or name)[:128],
+                description=str(described.get("description") or "")[:2_000],
+                code=str(code or ""),
+                args_schema=schema_model(input_schema, name),
+            )
 
         except Exception as e:
             log.exception(f"Failed to load generated tool {name!r}: {e}")

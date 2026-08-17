@@ -193,6 +193,17 @@ def requeue(job_id: str, *, available_at: Optional[datetime] = None) -> bool:
     return cursor.rowcount == 1
 
 
+def reject(job_id: str, error: Any) -> bool:
+    """Mark a queued payload permanently failed when no dispatcher owns it."""
+    with _connect() as connection:
+        cursor = connection.execute(
+            "UPDATE agent_jobs SET state='failed', error=?, updated_at=? "
+            "WHERE job_id=? AND state='queued'",
+            (str(error or "job rejected")[:MAX_ERROR_CHARS], _iso(), str(job_id)),
+        )
+    return cursor.rowcount == 1
+
+
 def reconcile_expired() -> int:
     """Return expired running leases to the queue without duplicating claims."""
     with _connect() as connection:
@@ -209,4 +220,23 @@ def list_jobs(limit: int = 50) -> list[dict[str, Any]]:
         rows = connection.execute(
             "SELECT * FROM agent_jobs ORDER BY created_at DESC LIMIT ?", (max(1, min(int(limit), 200)),)
         ).fetchall()
+    return [_decode(row) for row in rows]
+
+
+def ready_jobs(*, job_type: Optional[str] = None, limit: int = 20) -> list[dict[str, Any]]:
+    """Return queued jobs whose persisted availability time has arrived."""
+    now = _iso()
+    params: list[Any] = [now, max(1, min(int(limit), 100))]
+    query = (
+        "SELECT * FROM agent_jobs WHERE state='queued' AND available_at <= ? "
+        "ORDER BY available_at ASC, created_at ASC LIMIT ?"
+    )
+    if job_type:
+        query = (
+            "SELECT * FROM agent_jobs WHERE state='queued' AND available_at <= ? "
+            "AND job_type=? ORDER BY available_at ASC, created_at ASC LIMIT ?"
+        )
+        params = [now, str(job_type)[:96], max(1, min(int(limit), 100))]
+    with _connect() as connection:
+        rows = connection.execute(query, params).fetchall()
     return [_decode(row) for row in rows]

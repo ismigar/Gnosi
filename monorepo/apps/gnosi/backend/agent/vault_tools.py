@@ -418,7 +418,7 @@ def query_wiki(query: str, k: int = 5) -> str:
     index_status = llm_wiki_indices.search_index_status(brain_id)
     out.append(
         "[Search metadata: mode=hybrid; cache_hit=false; "
-        f"index_stale={not index_status.get('available')}; "
+        f"index_stale={bool(index_status.get('stale', not index_status.get('available')))}; "
         f"interpretation_confidence={interpretation.get('confidence', 0)}; "
         f"injection_flags={injection_count}]"
     )

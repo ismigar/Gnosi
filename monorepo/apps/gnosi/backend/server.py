@@ -116,6 +116,8 @@ async def lifespan(app: FastAPI):
 
     # 0b. Start Scheduler
     scheduler_manager.start()
+    from backend.services.durable_job_worker import durable_job_worker
+    durable_job_worker.start()
     confirmation_maintenance_task = asyncio.create_task(
         _confirmation_maintenance_loop()
     )
@@ -311,6 +313,7 @@ async def lifespan(app: FastAPI):
 
     # SHUTDOWN
     log.info("🛑 Shutting down...")
+    durable_job_worker.stop()
     confirmation_maintenance_task.cancel()
     with suppress(asyncio.CancelledError):
         await confirmation_maintenance_task

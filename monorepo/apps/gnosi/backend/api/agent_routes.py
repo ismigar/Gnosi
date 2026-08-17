@@ -70,6 +70,8 @@ from backend.services.capability_audit import (
 )
 from backend.services.agent_quality_telemetry import record_quality_signal
 from backend.services.turn_idempotency import claim as claim_turn, finish as finish_turn
+from backend.services.agent_replay import read_replay, record_event as record_replay_event
+from backend.agent.semantic_interpreter import clarification_message
 from backend.services.context_vars import get_active_vault_path
 from backend.services.workspace_service import WorkspaceContext, require_role
 from backend.utils.errors import safe_error_detail
@@ -1227,6 +1229,22 @@ async def list_agent_capability_audit(
     return {"events": records}
 
 
+@router.get("/chat/replays/{trace_id}")
+async def get_agent_replay(
+    trace_id: str,
+    limit: int = Query(100, ge=1, le=200),
+    workspace_context: WorkspaceContext = Depends(require_role("editor")),
+):
+    """Return metadata-only replay events for one trace id."""
+    safe_trace_id = str(trace_id or "").strip()
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", safe_trace_id):
+        raise HTTPException(status_code=422, detail="Invalid trace id.")
+    return {
+        "trace_id": safe_trace_id,
+        "events": await asyncio.to_thread(read_replay, safe_trace_id, limit),
+    }
+
+
 @router.get("/chat/confirmations/{action_id}")
 async def get_agent_confirmation(
     action_id: str,
@@ -1825,6 +1843,21 @@ async def chat_endpoint(
             authorized_tool_names=authorized_tool_names,
             provider=str((llm_selection or {}).get("provider") or ""),
         )
+        interpretation = turn_plan.get("interpretation") or {}
+        await asyncio.to_thread(
+            record_replay_event,
+            trace_id,
+            "plan",
+            {
+                "mode": turn_plan.get("mode"),
+                "route": turn_plan.get("route"),
+                "execution": turn_plan.get("execution"),
+                "operation": interpretation.get("operation"),
+                "confidence": interpretation.get("confidence"),
+                "abstain": interpretation.get("abstain"),
+                "privacy_classification": (turn_plan.get("privacy") or {}).get("classification"),
+            },
+        )
         turn_timeout_seconds = max(
             1,
             min(
@@ -1992,6 +2025,37 @@ async def chat_endpoint(
                     "privacy": turn_plan.get("privacy") or {},
                     "job": turn_plan.get("job") or {},
                 }) + "\n"
+                interpretation = turn_plan.get("interpretation") or {}
+                should_clarify = bool(
+                    interpretation.get("clarification_required")
+                    or (
+                        interpretation.get("abstain")
+                        and turn_plan.get("mode") in {"lookup", "inventory", "analysis", "action"}
+                    )
+                )
+                if should_clarify:
+                    content = clarification_message(interpretation, turn_plan.get("language", "ca"))
+                    yield json.dumps({
+                        "type": "clarification",
+                        "trace_id": trace_id,
+                        "reason": (interpretation.get("ambiguities") or ["ambiguous_request"])[0],
+                    }, ensure_ascii=False) + "\n"
+                    yield json.dumps({
+                        "type": "message",
+                        "trace_id": trace_id,
+                        "role": "ai",
+                        "content": content,
+                        "node": "semantic_interpreter",
+                    }, ensure_ascii=False) + "\n"
+                    yield json.dumps(metrics_payload()) + "\n"
+                    metrics_emitted = True
+                    yield json.dumps({
+                        "type": "done",
+                        "trace_id": trace_id,
+                        "has_response": True,
+                        "message_count": 1,
+                    }) + "\n"
+                    return
                 deterministic_confirmation = await asyncio.to_thread(
                     _prepare_index_title_replacements,
                     chat_req.message,
@@ -2298,6 +2362,12 @@ async def chat_endpoint(
                     or str(reason or "").strip()
                     or type(e).__name__.lower()
                 )[:160]
+                await asyncio.to_thread(
+                    record_replay_event,
+                    trace_id,
+                    "error",
+                    {"status": "error", "error_code": stable_error_code, "duration_ms": metrics_payload()["total_ms"]},
+                )
                 try:
                     await asyncio.to_thread(
                         record_quality_signal,
@@ -2373,6 +2443,19 @@ async def chat_endpoint(
                         session_id=session_id,
                         turn_id=chat_req.turn_id,
                     )
+                await asyncio.to_thread(
+                    record_replay_event,
+                    trace_id,
+                    "completed",
+                    {
+                        "status": "completed",
+                        "duration_ms": max(0, int((time.monotonic() - request_started_at) * 1000)),
+                        "model_calls": model_calls,
+                        "tool_calls": tool_calls_count,
+                        "verification_status": (quality_verification or {}).get("status"),
+                        "event_count": answer_count,
+                    },
+                )
         return StreamingResponse(event_generator(), media_type="application/x-ndjson")
 
     except HTTPException as e:

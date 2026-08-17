@@ -347,7 +347,7 @@ def rebuild_search_cache(brain_table_id: str) -> int:
         indent=2,
         ensure_ascii=False,
     )
-    _rebuild_fts_index(brain_table_id, records)
+    upsert_search_records(brain_table_id, records, replace_snapshot=True)
     try:
         from backend.agent.vault_tools import clear_wiki_search_cache
         clear_wiki_search_cache(brain_table_id)
@@ -365,26 +365,73 @@ def _fts_path(brain_table_id: str) -> Path:
     return root / f"search-{_safe_token(brain_table_id)}.sqlite3"
 
 
-def _rebuild_fts_index(brain_table_id: str, records: list[dict[str, Any]]) -> None:
-    """Refresh the local FTS5 sidecar atomically enough for concurrent readers."""
+def upsert_search_records(
+    brain_table_id: str,
+    records: Iterable[dict[str, Any]],
+    *,
+    replace_snapshot: bool = False,
+) -> int:
+    """Apply only changed records to the FTS5 sidecar.
+
+    ``replace_snapshot`` is used by a complete rebuild to remove deleted notes;
+    callers receiving a file-change event can pass a smaller delta without
+    rewriting unrelated records.
+    """
+    records = [item for item in records if isinstance(item, dict) and item.get("id")]
     try:
         with sqlite3.connect(_fts_path(brain_table_id), timeout=30) as connection:
             connection.execute("PRAGMA journal_mode=WAL")
             connection.execute("CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(id UNINDEXED, title, excerpt, note_type, managed_role, record_json UNINDEXED)")
-            connection.execute("DELETE FROM notes_fts")
-            connection.executemany(
-                "INSERT INTO notes_fts(id,title,excerpt,note_type,managed_role,record_json) VALUES (?,?,?,?,?,?)",
-                [(
-                    str(item.get("id") or ""), str(item.get("title") or ""),
-                    str(item.get("excerpt") or ""), str(item.get("note_type") or ""),
-                    str(item.get("managed_role") or ""), json.dumps(item, ensure_ascii=False),
-                ) for item in records],
-            )
             connection.execute("CREATE TABLE IF NOT EXISTS index_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+            existing = {
+                str(identifier): str(raw)
+                for identifier, raw in connection.execute(
+                    "SELECT id, record_json FROM notes_fts"
+                ).fetchall()
+            }
+            incoming_ids = {str(item.get("id")) for item in records}
+            if replace_snapshot:
+                for stale_id in set(existing).difference(incoming_ids):
+                    connection.execute("DELETE FROM notes_fts WHERE id=?", (stale_id,))
+            changed = 0
+            for item in records:
+                identifier = str(item.get("id") or "")
+                encoded = json.dumps(item, ensure_ascii=False, sort_keys=True)
+                if existing.get(identifier) == encoded:
+                    continue
+                connection.execute("DELETE FROM notes_fts WHERE id=?", (identifier,))
+                connection.execute(
+                    "INSERT INTO notes_fts(id,title,excerpt,note_type,managed_role,record_json) VALUES (?,?,?,?,?,?)",
+                    (
+                        identifier, str(item.get("title") or ""),
+                        str(item.get("excerpt") or ""), str(item.get("note_type") or ""),
+                        str(item.get("managed_role") or ""), encoded,
+                    ),
+                )
+                changed += 1
             connection.execute("INSERT OR REPLACE INTO index_meta(key,value) VALUES('updated_at',?)", (dt.datetime.now(dt.timezone.utc).isoformat(),))
-            connection.execute("INSERT OR REPLACE INTO index_meta(key,value) VALUES('record_count',?)", (str(len(records)),))
+            count = connection.execute("SELECT COUNT(*) FROM notes_fts").fetchone()[0]
+            connection.execute("INSERT OR REPLACE INTO index_meta(key,value) VALUES('record_count',?)", (str(count),))
+            connection.execute("INSERT OR REPLACE INTO index_meta(key,value) VALUES('stale',?)", ("0",))
+            return changed
     except sqlite3.DatabaseError:
         logger.exception("Unable to refresh the Brain FTS5 sidecar")
+    return 0
+
+
+def _rebuild_fts_index(brain_table_id: str, records: list[dict[str, Any]]) -> None:
+    """Compatibility wrapper for callers that still request a full rebuild."""
+    upsert_search_records(brain_table_id, records, replace_snapshot=True)
+
+
+def mark_search_index_stale(brain_table_id: str, stale: bool = True) -> None:
+    """Mark an index stale when a vault change arrives before reindexing."""
+    try:
+        with sqlite3.connect(_fts_path(brain_table_id), timeout=5) as connection:
+            connection.execute("CREATE TABLE IF NOT EXISTS index_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+            connection.execute("INSERT OR REPLACE INTO index_meta(key,value) VALUES('stale',?)", ("1" if stale else "0",))
+    except sqlite3.DatabaseError:
+        logger.exception("Unable to update Brain FTS5 freshness metadata")
 
 
 def search_index_candidates(brain_table_id: str, query: str, limit: int = 128) -> list[dict[str, Any]]:
@@ -417,9 +464,14 @@ def search_index_status(brain_table_id: str) -> dict[str, Any]:
     try:
         with sqlite3.connect(_fts_path(brain_table_id), timeout=5) as connection:
             rows = dict(connection.execute("SELECT key,value FROM index_meta").fetchall())
-        return {"available": True, "updated_at": rows.get("updated_at"), "record_count": int(rows.get("record_count", 0))}
+        return {
+            "available": True,
+            "updated_at": rows.get("updated_at"),
+            "record_count": int(rows.get("record_count", 0)),
+            "stale": rows.get("stale", "0") == "1",
+        }
     except (sqlite3.DatabaseError, OSError, ValueError):
-        return {"available": False, "updated_at": None, "record_count": 0}
+        return {"available": False, "updated_at": None, "record_count": 0, "stale": True}
 
 
 def load_search_cache(brain_table_id: str) -> list[dict[str, Any]]:
