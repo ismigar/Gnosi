@@ -9,54 +9,54 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 ## Summary
 
 - Registered routers: **34**
-- Discovered operations: **488**
+- Discovered operations: **489**
 - Unregistered route modules: **0**
 
 ## Router registrations
 
 | Order | Router | Mount prefix | Tags | Registration |
 | ---: | --- | --- | --- | --- |
-| 1 | `workspace_routes.router` | `/` | Workspaces | [`backend/server.py:433`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L433) |
-| 2 | `agent_routes.router` | `/api` | — | [`backend/server.py:436`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L436) |
-| 3 | `system_routes.router` | `/api/system` | — | [`backend/server.py:437`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L437) |
-| 4 | `social_routes.router` | `/api/social` | Social | [`backend/server.py:438`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L438) |
-| 5 | `vault_routes.router` | `/api/vault` | Vault | [`backend/server.py:441`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L441) |
-| 6 | `planning_routes.router` | `/api` | Project Planning | [`backend/server.py:442`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L442) |
-| 7 | `handwriting_routes.router` | `/` | Handwriting | [`backend/server.py:443`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L443) |
-| 8 | `vault_graph_routes.router` | `/api` | Vault Graph | [`backend/server.py:444`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L444) |
-| 9 | `vault_views_routes.router` | `/api` | Vault Views | [`backend/server.py:445`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L445) |
-| 10 | `collab_routes.router` | `/api/vault` | Collaboration | [`backend/server.py:448`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L448) |
-| 11 | `share_routes.router` | `/api` | Share | [`backend/server.py:450`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L450) |
-| 12 | `calendar_routes.router` | `/` | Calendar | [`backend/server.py:453`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L453) |
-| 13 | `mail_routes.router` | `/` | Mail | [`backend/server.py:454`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L454) |
-| 14 | `reader.router` | `/` | Reader | [`backend/server.py:455`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L455) |
-| 15 | `meeting_routes.router` | `/` | Meetings | [`backend/server.py:456`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L456) |
-| 16 | `tools_routes.router` | `/` | Tools | [`backend/server.py:457`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L457) |
-| 17 | `analytics_routes.router` | `/` | Analytics | [`backend/server.py:458`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L458) |
-| 18 | `scheduler_routes.router` | `/` | Scheduler | [`backend/server.py:460`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L460) |
-| 19 | `contacts_routes.router` | `/api` | Contacts | [`backend/server.py:461`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L461) |
-| 20 | `public_routes.router` | `/api` | Public API / PAT | [`backend/server.py:462`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L462) |
-| 21 | `google_auth_routes.router` | `/` | Auth | [`backend/server.py:465`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L465) |
-| 22 | `microsoft_auth_routes.router` | `/` | Auth | [`backend/server.py:466`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L466) |
-| 23 | `integrations_routes.router` | `/` | Integrations | [`backend/server.py:467`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L467) |
-| 24 | `auth_routes.router` | `/` | Auth | [`backend/server.py:468`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L468) |
-| 25 | `config_routes.router` | `/api` | Config | [`backend/server.py:469`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L469) |
-| 26 | `env_routes.router` | `/api` | Env | [`backend/server.py:470`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L470) |
-| 27 | `credentials_routes.router` | `/api` | Credentials | [`backend/server.py:471`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L471) |
-| 28 | `ai_routes.router` | `/api` | AI Settings | [`backend/server.py:472`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L472) |
-| 29 | `agent_skills_routes.router` | `/api` | AI Skills | [`backend/server.py:473`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L473) |
-| 30 | `notion_routes.router` | `/api` | Notion Import | [`backend/server.py:474`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L474) |
-| 31 | `notion_oauth_routes.router` | `/api` | Notion MCP OAuth | [`backend/server.py:475`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L475) |
-| 32 | `vaults_routes.router` | `/api` | Vaults | [`backend/server.py:476`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L476) |
-| 33 | `vault_templates_routes.router` | `/api` | Vault templates | [`backend/server.py:477`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L477) |
-| 34 | `identity_routes.router` | `/` | Identity | [`backend/server.py:478`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L478) |
+| 1 | `workspace_routes.router` | `/` | Workspaces | [`backend/server.py:436`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L436) |
+| 2 | `agent_routes.router` | `/api` | — | [`backend/server.py:439`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L439) |
+| 3 | `system_routes.router` | `/api/system` | — | [`backend/server.py:440`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L440) |
+| 4 | `social_routes.router` | `/api/social` | Social | [`backend/server.py:441`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L441) |
+| 5 | `vault_routes.router` | `/api/vault` | Vault | [`backend/server.py:444`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L444) |
+| 6 | `planning_routes.router` | `/api` | Project Planning | [`backend/server.py:445`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L445) |
+| 7 | `handwriting_routes.router` | `/` | Handwriting | [`backend/server.py:446`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L446) |
+| 8 | `vault_graph_routes.router` | `/api` | Vault Graph | [`backend/server.py:447`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L447) |
+| 9 | `vault_views_routes.router` | `/api` | Vault Views | [`backend/server.py:448`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L448) |
+| 10 | `collab_routes.router` | `/api/vault` | Collaboration | [`backend/server.py:451`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L451) |
+| 11 | `share_routes.router` | `/api` | Share | [`backend/server.py:453`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L453) |
+| 12 | `calendar_routes.router` | `/` | Calendar | [`backend/server.py:456`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L456) |
+| 13 | `mail_routes.router` | `/` | Mail | [`backend/server.py:457`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L457) |
+| 14 | `reader.router` | `/` | Reader | [`backend/server.py:458`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L458) |
+| 15 | `meeting_routes.router` | `/` | Meetings | [`backend/server.py:459`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L459) |
+| 16 | `tools_routes.router` | `/` | Tools | [`backend/server.py:460`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L460) |
+| 17 | `analytics_routes.router` | `/` | Analytics | [`backend/server.py:461`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L461) |
+| 18 | `scheduler_routes.router` | `/` | Scheduler | [`backend/server.py:463`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L463) |
+| 19 | `contacts_routes.router` | `/api` | Contacts | [`backend/server.py:464`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L464) |
+| 20 | `public_routes.router` | `/api` | Public API / PAT | [`backend/server.py:465`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L465) |
+| 21 | `google_auth_routes.router` | `/` | Auth | [`backend/server.py:468`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L468) |
+| 22 | `microsoft_auth_routes.router` | `/` | Auth | [`backend/server.py:469`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L469) |
+| 23 | `integrations_routes.router` | `/` | Integrations | [`backend/server.py:470`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L470) |
+| 24 | `auth_routes.router` | `/` | Auth | [`backend/server.py:471`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L471) |
+| 25 | `config_routes.router` | `/api` | Config | [`backend/server.py:472`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L472) |
+| 26 | `env_routes.router` | `/api` | Env | [`backend/server.py:473`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L473) |
+| 27 | `credentials_routes.router` | `/api` | Credentials | [`backend/server.py:474`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L474) |
+| 28 | `ai_routes.router` | `/api` | AI Settings | [`backend/server.py:475`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L475) |
+| 29 | `agent_skills_routes.router` | `/api` | AI Skills | [`backend/server.py:476`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L476) |
+| 30 | `notion_routes.router` | `/api` | Notion Import | [`backend/server.py:477`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L477) |
+| 31 | `notion_oauth_routes.router` | `/api` | Notion MCP OAuth | [`backend/server.py:478`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L478) |
+| 32 | `vaults_routes.router` | `/api` | Vaults | [`backend/server.py:479`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L479) |
+| 33 | `vault_templates_routes.router` | `/api` | Vault templates | [`backend/server.py:480`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L480) |
+| 34 | `identity_routes.router` | `/` | Identity | [`backend/server.py:481`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L481) |
 
 ## Operations
 
 | Method | Effective path | Handler | Tags | Dependency guards | Summary | Source |
 | --- | --- | --- | --- | --- | --- | --- |
-| `GET` | `/api/agent/context-sources` | `list_context_sources` | — | — | Catalogue of large external sources an agent can attach to its context. | [`backend/api/agent_routes.py:1665`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py#L1665) |
-| `GET` | `/api/agent/internal-sources` | `list_internal_context_sources` | — | Depends(require_role('viewer')) | List scoped first-party Gnosi sources available in this workspace. | [`backend/api/agent_routes.py:1676`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py#L1676) |
+| `GET` | `/api/agent/context-sources` | `list_context_sources` | — | — | Catalogue of large external sources an agent can attach to its context. | [`backend/api/agent_routes.py:1683`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py#L1683) |
+| `GET` | `/api/agent/internal-sources` | `list_internal_context_sources` | — | Depends(require_role('viewer')) | List scoped first-party Gnosi sources available in this workspace. | [`backend/api/agent_routes.py:1694`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py#L1694) |
 | `GET` | `/api/ai/agents/{agent_id}/skills` | `get_agent_skills` | AI Skills | Depends(get_workspace_context) | Get agent skills | [`backend/api/agent_skills_routes.py:613`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_skills_routes.py#L613) |
 | `PUT` | `/api/ai/agents/{agent_id}/skills` | `assign_agent_skills` | AI Skills | Depends(require_role('admin')) | Assign agent skills | [`backend/api/agent_skills_routes.py:632`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_skills_routes.py#L632) |
 | `GET` | `/api/ai/approvals` | `list_workspace_approvals` | AI Skills | Depends(require_role('admin')) | List pending automation approvals without exposing stored arguments. | [`backend/api/agent_skills_routes.py:302`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_skills_routes.py#L302) |
@@ -81,7 +81,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `POST` | `/api/ai/jobs/{job_id}/resume` | `resume_governed_job` | AI Skills | Depends(require_role('editor')) | Resume a provider-owned failed or interrupted durable job. | [`backend/api/agent_skills_routes.py:207`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_skills_routes.py#L207) |
 | `GET` | `/api/ai/model-catalog` | `get_model_catalog` | AI Settings | — | Provider → model catalog (ids + cost/context/capabilities) feeding the | [`backend/api/ai_routes.py:381`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/ai_routes.py#L381) |
 | `GET` | `/api/ai/model-comparison` | `get_model_comparison` | AI Settings | — | Complete, freshly paginated Artificial Analysis language-model feed. | [`backend/api/ai_routes.py:430`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/ai_routes.py#L430) |
-| `GET` | `/api/ai/model-reliability` | `model_reliability` | — | Depends(require_role('viewer')) | Recorded failures per model, by reason. | [`backend/api/agent_routes.py:1643`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py#L1643) |
+| `GET` | `/api/ai/model-reliability` | `model_reliability` | — | Depends(require_role('viewer')) | Recorded failures per model, by reason. | [`backend/api/agent_routes.py:1661`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py#L1661) |
 | `GET` | `/api/ai/models` | `get_model_registry` | AI Settings | — | Returns the router's model registry (config `ai.models`, or the default) | [`backend/api/ai_routes.py:346`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/ai_routes.py#L346) |
 | `PUT` | `/api/ai/models` | `set_model_registry` | AI Settings | [Depends(require_role('admin'))] | Saves the model registry and the budget policy to params.yaml. | [`backend/api/ai_routes.py:530`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/ai_routes.py#L530) |
 | `DELETE` | `/api/ai/providers/{provider_id}` | `delete_provider` | AI Settings | [Depends(require_role('admin'))] | Disconnect a provider: config entry, its stored credential AND its | [`backend/api/ai_routes.py:221`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/ai_routes.py#L221) |
@@ -137,18 +137,19 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `PUT` | `/api/calendar/reminders/settings` | `update_meeting_reminder_settings` | Calendar | [Depends(get_workspace_context)] | Updates {enabled, lead_minutes} and keeps a SINGLE source of truth for | [`backend/api/calendar_routes.py:332`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/calendar_routes.py#L332) |
 | `POST` | `/api/calendar/reminders/{reminder_id}/dismiss` | `dismiss_meeting_reminder` | Calendar | [Depends(get_workspace_context)] | Dismiss meeting reminder | [`backend/api/calendar_routes.py:319`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/calendar_routes.py#L319) |
 | `POST` | `/api/calendar/sync` | `sync_calendar_accounts` | Calendar | [Depends(get_workspace_context)], [Depends(require_role('editor'))] | With the hybrid architecture, syncing to the vault is no longer necessary. | [`backend/api/calendar_routes.py:519`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/calendar_routes.py#L519) |
-| `POST` | `/api/chat` | `chat_endpoint` | — | Depends(require_role('editor')) | Main endpoint for chatting with a specific agent. | [`backend/api/agent_routes.py:1723`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py#L1723) |
-| `DELETE` | `/api/chat/attachments` | `delete_chat_attachment` | — | Depends(require_role('editor')) | Delete an abandoned chat upload from the active Vault. | [`backend/api/agent_routes.py:966`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py#L966) |
-| `POST` | `/api/chat/attachments` | `upload_chat_attachment` | — | Depends(require_role('editor')) | Store one bounded chat attachment inside the active Vault. | [`backend/api/agent_routes.py:927`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py#L927) |
-| `GET` | `/api/chat/capability-audit` | `list_agent_capability_audit` | — | Depends(require_role('editor')) | Return metadata-only governed tool events for one exact chat scope. | [`backend/api/agent_routes.py:1207`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py#L1207) |
-| `GET` | `/api/chat/confirmations` | `list_agent_confirmations` | — | Depends(require_role('editor')) | Return resumable public confirmation cards for one exact chat scope. | [`backend/api/agent_routes.py:1192`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py#L1192) |
-| `GET` | `/api/chat/confirmations/{action_id}` | `get_agent_confirmation` | — | Depends(require_role('editor')) | Return one public confirmation status for transport reconciliation. | [`backend/api/agent_routes.py:1231`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py#L1231) |
-| `POST` | `/api/chat/confirmations/{action_id}/cancel` | `cancel_agent_action` | — | Depends(require_role('editor')) | Cancels one still-pending action in the exact same chat scope. | [`backend/api/agent_routes.py:1426`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py#L1426) |
-| `POST` | `/api/chat/confirmations/{action_id}/confirm` | `confirm_agent_action` | — | Depends(require_role('editor')) | Claims and executes one scope-bound pending agent action exactly once. | [`backend/api/agent_routes.py:1254`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py#L1254) |
-| `POST` | `/api/chat/feedback` | `record_chat_feedback` | — | Depends(require_role('editor')) | Persist assistant feedback without retaining prompts or responses. | [`backend/api/agent_routes.py:1686`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py#L1686) |
-| `DELETE` | `/api/chat/sessions/{agent_id}/{session_id}` | `delete_chat_session` | — | Depends(require_role('editor')) | Remove the persisted LangGraph checkpoints for one scoped chat thread. | [`backend/api/agent_routes.py:1453`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py#L1453) |
-| `GET` | `/api/chat/sessions/{agent_id}/{session_id}` | `get_chat_session` | — | Depends(require_role('viewer')) | Return the canonical persisted transcript for one scoped session. | [`backend/api/agent_routes.py:1607`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py#L1607) |
-| `POST` | `/api/chat/sessions/{agent_id}/{session_id}/rewind` | `rewind_chat_session` | — | Depends(require_role('editor')) | Remove one turn and its suffix from the scoped canonical checkpoint. | [`backend/api/agent_routes.py:1497`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py#L1497) |
+| `POST` | `/api/chat` | `chat_endpoint` | — | Depends(require_role('editor')) | Main endpoint for chatting with a specific agent. | [`backend/api/agent_routes.py:1741`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py#L1741) |
+| `DELETE` | `/api/chat/attachments` | `delete_chat_attachment` | — | Depends(require_role('editor')) | Delete an abandoned chat upload from the active Vault. | [`backend/api/agent_routes.py:968`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py#L968) |
+| `POST` | `/api/chat/attachments` | `upload_chat_attachment` | — | Depends(require_role('editor')) | Store one bounded chat attachment inside the active Vault. | [`backend/api/agent_routes.py:929`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py#L929) |
+| `GET` | `/api/chat/capability-audit` | `list_agent_capability_audit` | — | Depends(require_role('editor')) | Return metadata-only governed tool events for one exact chat scope. | [`backend/api/agent_routes.py:1209`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py#L1209) |
+| `GET` | `/api/chat/confirmations` | `list_agent_confirmations` | — | Depends(require_role('editor')) | Return resumable public confirmation cards for one exact chat scope. | [`backend/api/agent_routes.py:1194`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py#L1194) |
+| `GET` | `/api/chat/confirmations/{action_id}` | `get_agent_confirmation` | — | Depends(require_role('editor')) | Return one public confirmation status for transport reconciliation. | [`backend/api/agent_routes.py:1249`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py#L1249) |
+| `POST` | `/api/chat/confirmations/{action_id}/cancel` | `cancel_agent_action` | — | Depends(require_role('editor')) | Cancels one still-pending action in the exact same chat scope. | [`backend/api/agent_routes.py:1444`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py#L1444) |
+| `POST` | `/api/chat/confirmations/{action_id}/confirm` | `confirm_agent_action` | — | Depends(require_role('editor')) | Claims and executes one scope-bound pending agent action exactly once. | [`backend/api/agent_routes.py:1272`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py#L1272) |
+| `POST` | `/api/chat/feedback` | `record_chat_feedback` | — | Depends(require_role('editor')) | Persist assistant feedback without retaining prompts or responses. | [`backend/api/agent_routes.py:1704`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py#L1704) |
+| `GET` | `/api/chat/replays/{trace_id}` | `get_agent_replay` | — | Depends(require_role('editor')) | Return metadata-only replay events for one trace id. | [`backend/api/agent_routes.py:1233`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py#L1233) |
+| `DELETE` | `/api/chat/sessions/{agent_id}/{session_id}` | `delete_chat_session` | — | Depends(require_role('editor')) | Remove the persisted LangGraph checkpoints for one scoped chat thread. | [`backend/api/agent_routes.py:1471`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py#L1471) |
+| `GET` | `/api/chat/sessions/{agent_id}/{session_id}` | `get_chat_session` | — | Depends(require_role('viewer')) | Return the canonical persisted transcript for one scoped session. | [`backend/api/agent_routes.py:1625`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py#L1625) |
+| `POST` | `/api/chat/sessions/{agent_id}/{session_id}/rewind` | `rewind_chat_session` | — | Depends(require_role('editor')) | Remove one turn and its suffix from the scoped canonical checkpoint. | [`backend/api/agent_routes.py:1515`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/agent_routes.py#L1515) |
 | `GET` | `/api/config` | `get_config` | Config | [Depends(require_role('admin'))] | Get config | [`backend/api/config_routes.py:20`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/config_routes.py#L20) |
 | `POST` | `/api/config` | `update_config` | Config | [Depends(require_role('admin'))] | Update config | [`backend/api/config_routes.py:71`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/config_routes.py#L71) |
 | `GET` | `/api/contacts` | `list_contacts` | Contacts | Depends(get_workspace_context), Depends(get_mgmt_db) | List contacts | [`backend/api/contacts_routes.py:86`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/contacts_routes.py#L86) |
@@ -166,7 +167,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `GET` | `/api/env` | `get_env` | Env | [Depends(require_role('admin'))] | Get environment variables from .env file (tokens are masked). | [`backend/api/env_routes.py:88`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/env_routes.py#L88) |
 | `POST` | `/api/env` | `update_env` | Env | [Depends(require_role('admin'))] | Update environment variables in .env file. | [`backend/api/env_routes.py:118`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/env_routes.py#L118) |
 | `GET` | `/api/graph` | `get_vault_graph` | Vault Graph | — | Return the current Vault topology and the canonical Brain proposal overlay. | [`backend/api/vault_graph_routes.py:13`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/vault_graph_routes.py#L13) |
-| `GET` | `/api/health` | `health_check` | — | — | Health check | [`backend/server.py:481`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L481) |
+| `GET` | `/api/health` | `health_check` | — | — | Health check | [`backend/server.py:484`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py#L484) |
 | `GET` | `/api/identity` | `get_identity` | Identity | [Depends(get_workspace_context)] | Get identity | [`backend/api/identity_routes.py:38`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/identity_routes.py#L38) |
 | `POST` | `/api/identity` | `save_identity` | Identity | [Depends(get_workspace_context)], [Depends(require_role('editor'))] | Save identity | [`backend/api/identity_routes.py:51`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/identity_routes.py#L51) |
 | `GET` | `/api/integrations` | `get_integrations` | Integrations, integrations | — | Returns safe masked integration configuration for the UI. | [`backend/api/integrations_routes.py:99`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/integrations_routes.py#L99) |

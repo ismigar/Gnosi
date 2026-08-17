@@ -377,5 +377,15 @@ Security boundaries remain conservative: generated tools are revalidated at
 load time, connector URLs can use the public-host egress policy, and common
 credentials are redacted before diagnostics or tool messages are persisted.
 
+The runtime dispatcher now wakes the durable queue on application startup, so
+Reader work is recovered without a status request. Brain FTS updates are
+incremental and carry an explicit stale marker. Approved generated tools are
+loaded as subprocess-backed proxies with resource limits; descriptor JSON
+schemas are checked before and after execution, with optional reviewed
+compensators for partial failures. A metadata-only replay endpoint exposes
+bounded plan, error, timing, and verification events by trace id. Ambiguous
+requests stop at the semantic interpreter and ask for the missing subject in
+the request language instead of guessing a capability.
+
 Verification uses the deterministic universal-turn corpus, focused phase-two
 tests, the full `backend/tests` suite and the documentation gate.

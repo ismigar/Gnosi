@@ -72,7 +72,7 @@ from backend.services.agent_cancellation import (
     is_cancelled,
 )
 from backend.services.agent_observability import span as observability_span
-from backend.services.tool_runtime import execute_bounded, validate_arguments
+from backend.services.tool_runtime import execute_contract
 from backend.security.secret_redaction import redact_secrets
 from backend.services.agent_capability_health import assess_tool_capability
 from backend.services.provider_health import snapshot as provider_health_snapshot
@@ -2279,7 +2279,10 @@ def _tool_policy_wrapper(tool_policies: Any):
         state = request.state if isinstance(request.state, dict) else {}
         arguments = dict(tool_call.get("args") or {})
         try:
-            validate_arguments(arguments)
+            descriptor = policy.get("_descriptor")
+            # Validate against the same descriptor schema exposed to the model.
+            from backend.services.tool_runtime import validate_arguments
+            validate_arguments(arguments, descriptor)
         except ValueError as error:
             audit_status = "failed"
             try:
@@ -2358,9 +2361,10 @@ def _tool_policy_wrapper(tool_policies: Any):
                     trace_id=str(state.get("trace_id") or ""),
                     attributes={"tool": tool_name, "mode": "authorized"},
                 ):
-                    result = execute_bounded(
+                    result = execute_contract(
                         request,
                         execute,
+                        descriptor=policy.get("_descriptor"),
                         timeout_seconds=policy.get("timeout_seconds", 120),
                     )
                 audit(
@@ -2416,9 +2420,10 @@ def _tool_policy_wrapper(tool_policies: Any):
                 trace_id=str(state.get("trace_id") or ""),
                 attributes={"tool": tool_name, "mode": "normal"},
             ):
-                result = execute_bounded(
+                result = execute_contract(
                     request,
                     execute,
+                    descriptor=policy.get("_descriptor"),
                     timeout_seconds=policy.get("timeout_seconds", 120),
                 )
         except Exception as error:
