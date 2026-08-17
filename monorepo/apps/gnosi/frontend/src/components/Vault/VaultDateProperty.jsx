@@ -77,6 +77,10 @@ export const VaultDateProperty = ({
     const [periodDrafts, setPeriodDrafts] = useState({});
     const [predecessorOpen, setPredecessorOpen] = useState(false);
     const [showConstraintHelp, setShowConstraintHelp] = useState(false);
+    const [showDurationHelp, setShowDurationHelp] = useState(false);
+    const [showPredecessorsHelp, setShowPredecessorsHelp] = useState(false);
+    const [showDependencyDetailsHelp, setShowDependencyDetailsHelp] = useState(false);
+    const [showDeadlineHelp, setShowDeadlineHelp] = useState(false);
     const predecessorPickerRef = useRef(null);
     // The interface language to format the date shown in the input
     // (previously it was hardcoded to 'ca-ES', ignoring the user's preference).
@@ -522,9 +526,28 @@ export const VaultDateProperty = ({
                         </label>
                     )}
                     <label className="flex flex-col gap-1">
-                        <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
-                            {t(`vault_date.period_duration_${periodUnit}`, periodUnit === 'hours' ? 'Hours' : periodUnit === 'years' ? 'Years' : 'Days')}
+                        <span className="flex items-center gap-1 text-[10px] font-semibold text-[var(--text-tertiary)]">
+                            <span>{t(`vault_date.period_duration_${periodUnit}`, periodUnit === 'hours' ? 'Hours' : periodUnit === 'years' ? 'Years' : 'Days')}</span>
+                            <button
+                                type="button"
+                                aria-expanded={showDurationHelp}
+                                aria-label={t('vault_date.period_duration_hint', 'Calculate finish from start date and working-day duration.')}
+                                title={t('vault_date.period_duration_hint', 'Calculate finish from start date and working-day duration.')}
+                                onClick={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    setShowDurationHelp((open) => !open);
+                                }}
+                                className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-[var(--border-primary)] text-[9px] font-bold leading-none text-[var(--text-tertiary)] transition-colors hover:border-[var(--gnosi-primary)] hover:text-[var(--gnosi-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--gnosi-primary)]/20"
+                            >
+                                ?
+                            </button>
                         </span>
+                        {showDurationHelp && (
+                            <span className="text-[11px] text-[var(--text-tertiary)] animate-in fade-in duration-150">
+                                {t('vault_date.period_duration_hint', 'Calculate finish from start date and working-day duration.')}
+                            </span>
+                        )}
                         <input type="number" min="0" step={periodUnit === 'years' ? '1' : '0.25'} value={displayDuration} onChange={handleDurationChange} className={periodInputClass} />
                     </label>
                     <label className="flex flex-col gap-1">
@@ -542,12 +565,28 @@ export const VaultDateProperty = ({
                     </label>
                     {predecessorsEnabled && (
                         <label className="flex flex-col gap-1">
-                        <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
-                            {t('vault_date.period_predecessors', "Predecessors")}
+                        <span className="flex items-center gap-1 text-[10px] font-semibold text-[var(--text-tertiary)]">
+                            <span>{t('vault_date.period_predecessors', "Predecessors")}</span>
+                            <button
+                                type="button"
+                                aria-expanded={showPredecessorsHelp}
+                                aria-label={t('vault_date.period_predecessors_hint', 'Select one or more tasks that must finish before this one.')}
+                                title={t('vault_date.period_predecessors_hint', 'Select one or more tasks that must finish before this one.')}
+                                onClick={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    setShowPredecessorsHelp((open) => !open);
+                                }}
+                                className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-[var(--border-primary)] text-[9px] font-bold leading-none text-[var(--text-tertiary)] transition-colors hover:border-[var(--gnosi-primary)] hover:text-[var(--gnosi-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--gnosi-primary)]/20"
+                            >
+                                ?
+                            </button>
                         </span>
-                        <span className="text-[11px] text-[var(--text-tertiary)]">
-                            {t('vault_date.period_predecessors_hint', 'Select one or more tasks that must finish before this one.')}
-                        </span>
+                        {showPredecessorsHelp && (
+                            <span className="text-[11px] text-[var(--text-tertiary)] animate-in fade-in duration-150">
+                                {t('vault_date.period_predecessors_hint', 'Select one or more tasks that must finish before this one.')}
+                            </span>
+                        )}
                             <div ref={predecessorPickerRef} className="relative">
                                 <div
                                     role="button"
@@ -594,12 +633,28 @@ export const VaultDateProperty = ({
                     )}
                     {predecessorsEnabled && period.dependencies.length > 0 && (
                         <div className="col-span-2 flex flex-col gap-1">
-                            <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
-                                {t('vault_date.period_dependency_details', 'Dependency details')}
+                            <span className="flex items-center gap-1 text-[10px] font-semibold text-[var(--text-tertiary)]">
+                                <span>{t('vault_date.period_dependency_details', 'Dependency details')}</span>
+                                <button
+                                    type="button"
+                                    aria-expanded={showDependencyDetailsHelp}
+                                    aria-label={t('vault_date.period_dependency_details_hint', 'Define how this task relates to each predecessor and any delay before it starts.')}
+                                    title={t('vault_date.period_dependency_details_hint', 'Define how this task relates to each predecessor and any delay before it starts.')}
+                                    onClick={(event) => {
+                                        event.preventDefault();
+                                        event.stopPropagation();
+                                        setShowDependencyDetailsHelp((open) => !open);
+                                    }}
+                                    className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-[var(--border-primary)] text-[9px] font-bold leading-none text-[var(--text-tertiary)] transition-colors hover:border-[var(--gnosi-primary)] hover:text-[var(--gnosi-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--gnosi-primary)]/20"
+                                >
+                                    ?
+                                </button>
                             </span>
-                            <span className="text-[11px] text-[var(--text-tertiary)]">
-                                {t('vault_date.period_dependency_details_hint', 'Define how this task relates to each predecessor and any delay before it starts.')}
-                            </span>
+                            {showDependencyDetailsHelp && (
+                                <span className="text-[11px] text-[var(--text-tertiary)] animate-in fade-in duration-150">
+                                    {t('vault_date.period_dependency_details_hint', 'Define how this task relates to each predecessor and any delay before it starts.')}
+                                </span>
+                            )}
                             <div className="grid grid-cols-[1fr_118px_118px] gap-1 text-[10px] font-semibold text-[var(--text-tertiary)]">
                                 <span>{t('vault_date.period_dependency_task', 'Predecessor')}</span>
                                 <span>{t('vault_date.period_dependency_relation', 'Relation')}</span>
@@ -632,15 +687,15 @@ export const VaultDateProperty = ({
                                 ?
                             </button>
                         </span>
-                        <span className="text-[11px] text-[var(--text-tertiary)]">
-                            {t('vault_date.period_constraint_hint', 'ASAP starts as soon as possible; ALAP postpones it as late as possible.')}
-                        </span>
                         {showConstraintHelp && (
                             <div
                                 role="region"
                                 aria-label={t('vault_date.period_constraint_help_title', 'Scheduling rule explanations')}
-                                className="rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)]/70 p-2 text-[11px] text-[var(--text-secondary)]"
+                                className="rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)]/70 p-2 text-[11px] text-[var(--text-secondary)] animate-in fade-in duration-150"
                             >
+                                <span className="block mb-1 text-[11px] text-[var(--text-tertiary)] font-normal">
+                                    {t('vault_date.period_constraint_hint', 'ASAP starts as soon as possible; ALAP postpones it as late as possible.')}
+                                </span>
                                 <div className="mb-1 font-semibold text-[var(--text-primary)]">
                                     {t('vault_date.period_constraint_help_title', 'Scheduling rule explanations')}
                                 </div>
@@ -669,12 +724,28 @@ export const VaultDateProperty = ({
                         </select>
                     </label>
                     <label className="flex flex-col gap-1">
-                        <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
-                            {periodDateLabel('deadline')}
+                        <span className="flex items-center gap-1 text-[10px] font-semibold text-[var(--text-tertiary)]">
+                            <span>{periodDateLabel('deadline')}</span>
+                            <button
+                                type="button"
+                                aria-expanded={showDeadlineHelp}
+                                aria-label={t('vault_date.period_deadline_hint', 'Latest date or year by which the task must finish.')}
+                                title={t('vault_date.period_deadline_hint', 'Latest date or year by which the task must finish.')}
+                                onClick={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    setShowDeadlineHelp((open) => !open);
+                                }}
+                                className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-[var(--border-primary)] text-[9px] font-bold leading-none text-[var(--text-tertiary)] transition-colors hover:border-[var(--gnosi-primary)] hover:text-[var(--gnosi-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--gnosi-primary)]/20"
+                            >
+                                ?
+                            </button>
                         </span>
-                        <span className="text-[11px] text-[var(--text-tertiary)]">
-                            {t('vault_date.period_deadline_hint', 'Latest date or year by which the task must finish.')}
-                        </span>
+                        {showDeadlineHelp && (
+                            <span className="text-[11px] text-[var(--text-tertiary)] animate-in fade-in duration-150">
+                                {t('vault_date.period_deadline_hint', 'Latest date or year by which the task must finish.')}
+                            </span>
+                        )}
                         <input
                             type="text"
                             value={draftValue('deadline', period.deadline)}

@@ -69,6 +69,30 @@ const FUNCTIONALITY_ACTIONS = [
 // Field types that have a fixed catalog of selectable options.
 const OPTION_FIELD_TYPES = new Set(['select', 'multi_select', 'status']);
 
+// Helper component for toggles with ? description hints
+function HelpToggleHint({ text }) {
+    const [open, setOpen] = useState(false);
+    if (!text) return null;
+    return (
+        <span className="inline-flex flex-col gap-0.5">
+            <button
+                type="button"
+                aria-expanded={open}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen((v) => !v); }}
+                className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-[var(--border-primary)] text-[9px] font-bold leading-none text-[var(--text-tertiary)] hover:border-[var(--gnosi-primary)] hover:text-[var(--gnosi-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]/40 transition-colors ml-1 shrink-0"
+                title={text}
+            >
+                ?
+            </button>
+            {open && (
+                <span className="block text-[11px] text-[var(--text-tertiary)] mt-0.5 animate-in fade-in duration-150 font-normal">
+                    {text}
+                </span>
+            )}
+        </span>
+    );
+}
+
 // An option row inside the OptionsEditor. The rename is confirmed on onBlur/Enter
 // (not on every keystroke) so the name stays a stable id for dragging —
 // this way no transient duplicate ids appear while typing.
@@ -842,13 +866,20 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                     <GripVertical size={18} />
                 </div>
 
-                <div className="flex-1 min-w-[150px]">
+                <div className="flex-1 min-w-[150px] flex flex-col gap-1">
                     <input
                         type="text"
                         value={field.name}
                         onChange={(e) => handleUpdateField(idx, 'name', e.target.value)}
                         placeholder={t('schema.property_name_placeholder')}
                         className="w-full text-sm font-semibold bg-transparent border-none focus:ring-0 text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)]/40 outline-none"
+                    />
+                    <input
+                        type="text"
+                        value={field.description || ''}
+                        onChange={(e) => handleUpdateField(idx, 'description', e.target.value)}
+                        placeholder={t('schema.field_description_placeholder', "Description or help explanation for this field...")}
+                        className="w-full text-xs bg-transparent border-b border-transparent focus:border-[var(--gnosi-primary)]/40 focus:ring-0 text-[var(--text-secondary)] placeholder:text-[var(--text-tertiary)]/30 outline-none px-0.5 py-0.5 transition-colors"
                     />
                 </div>
 
@@ -1048,12 +1079,14 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                                 onChange={(event) => handleUpdateField(idx, 'duration_enabled', event.target.checked)}
                                 className="mt-0.5 rounded border-[var(--border-primary)] text-[var(--gnosi-primary)]"
                             />
-                            <span>
-                                <strong className="block text-[var(--text-primary)]">
-                                    {t('schema.period_duration_enabled', "Add working-day duration")}
-                                </strong>
-                                {t('schema.period_duration_hint', "Calculate finish from start and duration.")}
-                            </span>
+                            <div>
+                                <div className="flex items-center gap-1">
+                                    <strong className="text-[var(--text-primary)]">
+                                        {t('schema.period_duration_enabled', "Add working-day duration")}
+                                    </strong>
+                                    <HelpToggleHint text={t('schema.period_duration_hint', "Calculate finish from start and duration.")} />
+                                </div>
+                            </div>
                         </label>
                         <label className="flex items-start gap-2 text-xs text-[var(--text-secondary)]">
                             <input
@@ -1062,12 +1095,14 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                                 onChange={(event) => handleUpdateField(idx, 'predecessors_enabled', event.target.checked)}
                                 className="mt-0.5 rounded border-[var(--border-primary)] text-[var(--gnosi-primary)]"
                             />
-                            <span>
-                                <strong className="block text-[var(--text-primary)]">
-                                    {t('schema.period_predecessors_enabled', "Add predecessors")}
-                                </strong>
-                                {t('schema.period_predecessors_hint', "Calculate an empty start from the latest predecessor finish.")}
-                            </span>
+                            <div>
+                                <div className="flex items-center gap-1">
+                                    <strong className="text-[var(--text-primary)]">
+                                        {t('schema.period_predecessors_enabled', "Add predecessors")}
+                                    </strong>
+                                    <HelpToggleHint text={t('schema.period_predecessors_hint', "Calculate an empty start from the latest predecessor finish.")} />
+                                </div>
+                            </div>
                         </label>
                         <label className="flex items-start gap-2 text-xs text-[var(--text-secondary)]">
                             <input
@@ -1076,12 +1111,14 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                                 onChange={(event) => handleUpdateField(idx, 'skip_non_working_days', event.target.checked)}
                                 className="mt-0.5 rounded border-[var(--border-primary)] text-[var(--gnosi-primary)]"
                             />
-                            <span>
-                                <strong className="block text-[var(--text-primary)]">
-                                    {t('schema.period_skip_non_working', "Skip non-working time")}
-                                </strong>
-                                {t('schema.period_skip_non_working_hint', "Use the plugin's work week and holiday calendar.")}
-                            </span>
+                            <div>
+                                <div className="flex items-center gap-1">
+                                    <strong className="text-[var(--text-primary)]">
+                                        {t('schema.period_skip_non_working', "Skip non-working time")}
+                                    </strong>
+                                    <HelpToggleHint text={t('schema.period_skip_non_working_hint', "Use the plugin's work week and holiday calendar.")} />
+                                </div>
+                            </div>
                         </label>
                     </div>
                 </div>
@@ -1691,6 +1728,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                     // we generate a new one that will be persisted on save.
                     id: cfg.id || generateFieldId(),
                     name,
+                    description: cfg.description || '',
                     type: getFieldType(currentSchema || {}, name),
                     formula: cfg.formula || '',
                     compute: cfg.compute || '',
@@ -2067,6 +2105,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         setFields([...fields, {
             id: generateFieldId(),
             name: '',
+            description: '',
             type: 'text',
             formula: '',
             compute: '',
@@ -2219,7 +2258,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
     // removes them from the raw config before rewriting them from local state.
     // The rest (role, option_groups, …) round-trip intact.
     const MANAGED_CONFIG_KEYS = [
-        'id', 'system', 'formula', 'compute', 'relationField', 'targetProperty',
+        'id', 'system', 'description', 'formula', 'compute', 'relationField', 'targetProperty',
         'aggregation', 'limit', 'fallbackValue', 'defaultFormula',
         'relation_database_id', 'cardinality', 'file_mode', 'storage_folder',
         'name_pattern', 'button_action', 'button_label', 'button_config', 'format', 'options',
@@ -2244,6 +2283,9 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             // It is never regenerated once assigned.
             if (f.id && /^fld_[0-9a-f]{8}$/.test(f.id)) {
                 config.id = f.id;
+            }
+            if (f.description?.trim()) {
+                config.description = f.description.trim();
             }
             // System-managed column (Drupal NID/URL): read-only in the
             // grid. The sync writes its value; the user doesn't edit it.
