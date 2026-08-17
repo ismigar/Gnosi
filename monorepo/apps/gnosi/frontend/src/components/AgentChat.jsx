@@ -20,6 +20,7 @@ import {
     boundedTurnMetrics,
     effectiveMessageTimingMs,
     conversationRewindPlan,
+    getTurnId,
     mergeCanonicalMessageMetadata,
     processingSeconds,
 } from './agentChatMessageUtils';
@@ -372,9 +373,9 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
         const updateElapsed = () => {
             setProcessingElapsedSeconds(Math.max(
                 0,
-                Math.floor(
-                    (performance.now() - processingStartedAtRef.current) / 1000,
-                ),
+                Math.round(
+                    ((performance.now() - processingStartedAtRef.current) / 1000) * 10,
+                ) / 10,
             ));
         };
         updateElapsed();
@@ -1987,7 +1988,10 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                                             <button type="button" onClick={() => markMessage(idx, 'saved', !msg.saved)} aria-label={t('chat.save_message', 'Save message')} title={t('chat.save_message', 'Save message')} aria-pressed={Boolean(msg.saved)} style={{ background: 'none', border: 'none', color: msg.saved ? 'var(--gnosi-blue, #2563eb)' : 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Bookmark size={13} fill={msg.saved ? 'currentColor' : 'none'} /></button>
                                         </>
                                     )}
-                                    {msg.role === 'assistant' && (msg.undo?.available || Boolean(msg?.turnId)) && (() => {
+                                    {(msg.role === 'assistant' || msg.role === 'user') && (
+                                        msg.undo?.available
+                                        || Boolean(getTurnId(msg))
+                                    ) && (() => {
                                         const hasDirectUndo = typeof msg?.undo?.run === 'function';
                                         const undoHint = hasDirectUndo
                                             ? t('chat.undo_last_action', 'Undo last action')

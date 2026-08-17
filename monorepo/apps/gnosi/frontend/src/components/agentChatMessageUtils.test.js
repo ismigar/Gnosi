@@ -12,11 +12,12 @@ import {
 } from './agentChatMessageUtils';
 
 describe('assistant message presentation metadata', () => {
-    it('formats bounded elapsed time as whole seconds', () => {
-        expect(processingSeconds(1)).toBe(1);
-        expect(processingSeconds(1_001)).toBe(2);
+    it('formats bounded elapsed time in one decimal second precision', () => {
+        expect(processingSeconds(1)).toBe(0);
+        expect(processingSeconds(1_001)).toBe(1);
         expect(processingSeconds(-1)).toBeNull();
         expect(processingSeconds(null)).toBeNull();
+        expect(processingSeconds(1_500)).toBe(1.5);
         expect(boundedProcessingMs(Number.POSITIVE_INFINITY)).toBeNull();
         expect(boundedProcessingMs(90_000_000)).toBe(86_400_000);
     });
