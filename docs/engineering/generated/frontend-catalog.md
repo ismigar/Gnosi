@@ -32,7 +32,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `application root` | 3 | 281 | 0 |
-| `components` | 201 | 80202 | 200 |
+| `components` | 201 | 80434 | 200 |
 | `context` | 1 | 177 | 6 |
 | `hooks` | 16 | 1239 | 7 |
 | `lib` | 20 | 2091 | 6 |
@@ -112,7 +112,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Vault/AIGenerateModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/AIGenerateModal.jsx) | 241 | `AIGenerateModal`, `function` | `/api/ai/generate` |
 | [`frontend/src/components/Vault/AutoriaField.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/AutoriaField.jsx) | 186 | `AutoriaDisplay`, `AutoriaEditor` | — |
 | [`frontend/src/components/Vault/BibliographyBlock.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/BibliographyBlock.jsx) | 201 | `BibliographyBlock` | `/api/vault/resolve-by-citation-key` |
-| [`frontend/src/components/Vault/BlockEditor.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/BlockEditor.jsx) | 6251 | `BlockEditor`, `EditorInner` | `/api/contacts`, `/api/vault/assets/`, `/api/vault/assets/upload`, `/api/vault/backlinks`, `/api/vault/link-preview`, `/api/vault/link-unlinked-mentions`, `/api/vault/outlinks`, `/api/vault/pages`, `/api/vault/unlinked-mentions` |
+| [`frontend/src/components/Vault/BlockEditor.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/BlockEditor.jsx) | 6281 | `BlockEditor`, `EditorInner` | `/api/contacts`, `/api/vault/assets/`, `/api/vault/assets/upload`, `/api/vault/backlinks`, `/api/vault/link-preview`, `/api/vault/link-unlinked-mentions`, `/api/vault/outlinks`, `/api/vault/pages`, `/api/vault/unlinked-mentions` |
 | [`frontend/src/components/Vault/BrainInbox.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/BrainInbox.jsx) | 210 | `BrainInbox` | `/api/vault/llm-wiki/suggestions` |
 | [`frontend/src/components/Vault/CalendarContextMenu.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/CalendarContextMenu.jsx) | 68 | `CalendarContextMenu` | — |
 | [`frontend/src/components/Vault/CalendarSidebarLeft.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/CalendarSidebarLeft.jsx) | 315 | `CalendarSidebarLeft` | — |
@@ -160,7 +160,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Vault/ReferenceImportExport.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/ReferenceImportExport.jsx) | 161 | `ReferenceImportExport` | — |
 | [`frontend/src/components/Vault/RelationItem.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/RelationItem.jsx) | 70 | `RelationItem` | — |
 | [`frontend/src/components/Vault/RichLinkInsert.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/RichLinkInsert.jsx) | 538 | `RichLinkInsertModal` | — |
-| [`frontend/src/components/Vault/SchemaConfigModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/SchemaConfigModal.jsx) | 2917 | `SchemaConfigModal` | `/api/skills`, `/api/vault/drupal/content-types`, `/api/vault/option-catalogs`, `/api/vault/skills/generate-button-action`, `/api/vault/skills/match-drupal-rows`, `/api/vault/tables`, `/api/vault/virtual-fields` |
+| [`frontend/src/components/Vault/SchemaConfigModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/SchemaConfigModal.jsx) | 2959 | `SchemaConfigModal` | `/api/skills`, `/api/vault/drupal/content-types`, `/api/vault/option-catalogs`, `/api/vault/skills/generate-button-action`, `/api/vault/skills/match-drupal-rows`, `/api/vault/tables`, `/api/vault/virtual-fields` |
 | [`frontend/src/components/Vault/ShareModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/ShareModal.jsx) | 226 | `ShareModal` | — |
 | [`frontend/src/components/Vault/SpellCheckLayer.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/SpellCheckLayer.jsx) | 194 | `SpellCheckLayer`, `function` | — |
 | [`frontend/src/components/Vault/SyncDrupalModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/SyncDrupalModal.jsx) | 152 | `SyncDrupalModal` | `/api/vault/skills/sync-drupal-row` |
@@ -171,7 +171,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Vault/TranslateLanguagesModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/TranslateLanguagesModal.jsx) | 203 | `TranslateLanguagesModal` | `/api/vault/skills/translate-page`, `/api/vault/skills/translate-row`, `/api/vault/skills/translate-rows` |
 | [`frontend/src/components/Vault/VaultBulkActionsBar.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultBulkActionsBar.jsx) | 228 | `VaultBulkActionsBar` | — |
 | [`frontend/src/components/Vault/VaultChart.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultChart.jsx) | 300 | `VaultChart` | — |
-| [`frontend/src/components/Vault/VaultDateProperty.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultDateProperty.jsx) | 805 | `VaultDateProperty`, `addDaysISO` | — |
+| [`frontend/src/components/Vault/VaultDateProperty.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultDateProperty.jsx) | 876 | `VaultDateProperty`, `addDaysISO` | — |
 | [`frontend/src/components/Vault/VaultDocumentTabs.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultDocumentTabs.jsx) | 413 | `VaultDocumentTabs` | — |
 | [`frontend/src/components/Vault/VaultDrawings.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultDrawings.jsx) | 125 | `VaultDrawings` | `/api/vault` |
 | [`frontend/src/components/Vault/VaultEditorContext.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultEditorContext.js) | 17 | `VaultEditorContext` | — |
@@ -182,7 +182,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Vault/VaultMarkdown.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultMarkdown.jsx) | 263 | `RetryableImage`, `VaultMarkdown` | — |
 | [`frontend/src/components/Vault/VaultShell.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultShell.jsx) | 231 | `VaultShell` | — |
 | [`frontend/src/components/Vault/VaultSidebar.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultSidebar.jsx) | 1617 | `VaultSidebar` | — |
-| [`frontend/src/components/Vault/VaultTable.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultTable.jsx) | 4568 | `VaultTable` | `/api/vault/assets/`, `/api/vault/delete-physical-file`, `/api/vault/llm-wiki/config`, `/api/vault/open-resource`, `/api/vault/option-catalogs`, `/api/vault/skills/execute-button-action` |
+| [`frontend/src/components/Vault/VaultTable.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultTable.jsx) | 4657 | `VaultTable` | `/api/vault/assets/`, `/api/vault/delete-physical-file`, `/api/vault/llm-wiki/config`, `/api/vault/open-resource`, `/api/vault/option-catalogs`, `/api/vault/skills/execute-button-action` |
 | [`frontend/src/components/Vault/VaultTagsView.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultTagsView.jsx) | 142 | `VaultTagsView` | `/api/vault/tags` |
 | [`frontend/src/components/Vault/VaultTimeline.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultTimeline.jsx) | 899 | `VaultTimeline` | — |
 | [`frontend/src/components/Vault/VaultTrashView.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultTrashView.jsx) | 249 | `VaultTrashView` | `/api/vault/trash` |
