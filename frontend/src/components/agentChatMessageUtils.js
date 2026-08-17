@@ -142,7 +142,7 @@ const collectTurnCandidateEntries = (payload) => {
     return candidates;
 };
 
-const getTurnId = (message) => {
+export const getTurnId = (message) => {
     if (!message || typeof message !== 'object' || Array.isArray(message)) return null;
     if (message.turnId !== undefined && message.turnId !== null && message.turnId !== '') {
         return message.turnId;
@@ -672,7 +672,7 @@ export const boundedProcessingMs = (value) => {
 export const processingSeconds = (processingMs) => {
     const bounded = boundedProcessingMs(processingMs);
     if (bounded === null) return null;
-    return Math.max(1, Math.ceil(bounded / 1000));
+    return Math.max(0, Math.round((bounded / 1000) * 10) / 10);
 };
 
 export const boundedTurnMetrics = (value) => {
