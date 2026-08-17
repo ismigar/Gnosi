@@ -487,7 +487,7 @@ export const VaultDateProperty = ({
                     : [...period.predecessorIds, predecessorId];
                 handlePredecessorsChange(predecessorIds);
             };
-            const periodInputClass = 'w-full rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--gnosi-primary)]/50 focus:ring-2 focus:ring-[var(--gnosi-primary)]/20';
+            const periodInputClass = 'w-full h-9 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-3 py-1.5 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--gnosi-primary)]/50 focus:ring-2 focus:ring-[var(--gnosi-primary)]/20';
             const periodSelectClass = `${periodInputClass} cursor-pointer`;
             const selectedPredecessors = period.predecessorIds
                 .map((predecessorId) => ({
@@ -499,7 +499,7 @@ export const VaultDateProperty = ({
             return (
                 <div className="grid min-w-[430px] grid-cols-2 gap-2 p-1 text-xs">
                     <label className="flex flex-col gap-1">
-                        <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
+                        <span className="flex h-4 items-center text-[10px] font-semibold text-[var(--text-tertiary)]">
                             {periodDateLabel('start')}
                         </span>
                         <input
@@ -513,7 +513,7 @@ export const VaultDateProperty = ({
                     </label>
                     {hasPredecessors && ['SNET', 'SNLT', 'FNET', 'FNLT', 'MSO', 'MFO'].includes(period.constraintType) && (
                         <label className="flex flex-col gap-1">
-                            <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
+                            <span className="flex h-4 items-center text-[10px] font-semibold text-[var(--text-tertiary)]">
                                 {periodDateLabel('constraint_date')}
                             </span>
                             <input
@@ -527,7 +527,7 @@ export const VaultDateProperty = ({
                         </label>
                     )}
                     <label className="flex flex-col gap-1">
-                        <span className="flex items-center gap-1 text-[10px] font-semibold text-[var(--text-tertiary)]">
+                        <span className="flex h-4 items-center gap-1 text-[10px] font-semibold text-[var(--text-tertiary)]">
                             <span>{t(`vault_date.period_duration_${periodUnit}`, periodUnit === 'hours' ? 'Hours' : periodUnit === 'years' ? 'Years' : 'Days')}</span>
                             <button
                                 type="button"
@@ -552,7 +552,7 @@ export const VaultDateProperty = ({
                         <input type="number" min="0" step={periodUnit === 'years' ? '1' : '0.25'} value={displayDuration} onChange={handleDurationChange} className={periodInputClass} />
                     </label>
                     <label className="flex flex-col gap-1">
-                        <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
+                        <span className="flex h-4 items-center text-[10px] font-semibold text-[var(--text-tertiary)]">
                             {periodDateLabel('end')}
                         </span>
                         <input
@@ -566,7 +566,7 @@ export const VaultDateProperty = ({
                     </label>
                     {predecessorsEnabled && (
                         <label className="flex flex-col gap-1">
-                        <span className="flex items-center gap-1 text-[10px] font-semibold text-[var(--text-tertiary)]">
+                        <span className="flex h-4 items-center gap-1 text-[10px] font-semibold text-[var(--text-tertiary)]">
                             <span>{t('vault_date.period_predecessors', "Predecessors")}</span>
                             <button
                                 type="button"
@@ -600,7 +600,7 @@ export const VaultDateProperty = ({
                                             setPredecessorOpen((open) => !open);
                                         }
                                     }}
-                                    className="flex min-h-[42px] flex-wrap items-center gap-1.5 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)] p-2 text-sm text-[var(--text-primary)] transition hover:border-[var(--gnosi-primary)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--gnosi-primary)]/20"
+                                    className="flex min-h-9 w-full flex-wrap items-center gap-1.5 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-3 py-1.5 text-sm text-[var(--text-primary)] transition hover:border-[var(--gnosi-primary)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--gnosi-primary)]/20"
                                     title={t('vault_date.period_predecessors_hint', "Select one or more tasks that must finish first")}
                                 >
                                     {selectedPredecessors.length === 0 && <span className="ml-1 text-[var(--text-tertiary)]/60">{t('vault_date.period_predecessors_search', 'Search tasks')}</span>}
@@ -673,7 +673,7 @@ export const VaultDateProperty = ({
                     {hasPredecessors && (
                         <>
                             <label className="flex flex-col gap-1">
-                                <span className="flex items-center gap-1 text-[10px] font-semibold text-[var(--text-tertiary)]">
+                                <span className="flex h-4 items-center gap-1 text-[10px] font-semibold text-[var(--text-tertiary)]">
                                     <span>{t('vault_date.period_constraint', 'Scheduling rule')}</span>
                                     <button
                                         type="button"
@@ -727,7 +727,7 @@ export const VaultDateProperty = ({
                                 </select>
                             </label>
                             <label className="flex flex-col gap-1">
-                                <span className="flex items-center gap-1 text-[10px] font-semibold text-[var(--text-tertiary)]">
+                                <span className="flex h-4 items-center gap-1 text-[10px] font-semibold text-[var(--text-tertiary)]">
                                     <span>{periodDateLabel('deadline')}</span>
                                     <button
                                         type="button"
