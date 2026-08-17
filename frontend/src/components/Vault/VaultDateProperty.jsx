@@ -530,9 +530,12 @@ export const VaultDateProperty = ({
                     </label>
                     {predecessorsEnabled && (
                         <label className="flex flex-col gap-1">
-                            <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
-                                {t('vault_date.period_predecessors', "Predecessors")}
-                            </span>
+                        <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
+                            {t('vault_date.period_predecessors', "Predecessors")}
+                        </span>
+                        <span className="text-[11px] text-[var(--text-tertiary)]">
+                            {t('vault_date.period_predecessors_hint', 'Select one or more tasks that must finish before this one.')}
+                        </span>
                             <div ref={predecessorPickerRef} className="relative">
                                 <div
                                     role="button"
@@ -582,10 +585,18 @@ export const VaultDateProperty = ({
                             <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
                                 {t('vault_date.period_dependency_details', 'Dependency details')}
                             </span>
+                            <span className="text-[11px] text-[var(--text-tertiary)]">
+                                {t('vault_date.period_dependency_details_hint', 'Define how this task relates to each predecessor and any delay before it starts.')}
+                            </span>
+                            <div className="grid grid-cols-[1fr_118px_118px] gap-1 text-[10px] font-semibold text-[var(--text-tertiary)]">
+                                <span>{t('vault_date.period_dependency_task', 'Predecessor')}</span>
+                                <span>{t('vault_date.period_dependency_relation', 'Relation')}</span>
+                                <span>{t('vault_date.period_dependency_lag_short', 'Lag (min)')}</span>
+                            </div>
                             {period.dependencies.map((dependency, index) => (
-                                <div key={dependency.predecessorId} className="grid grid-cols-[1fr_76px_96px] gap-1">
+                                <div key={dependency.predecessorId} className="grid grid-cols-[1fr_118px_118px] gap-1">
                                     <span className="truncate rounded bg-[var(--bg-secondary)] px-2 py-1 text-[var(--text-secondary)]">{idToTitle[dependency.predecessorId] || dependency.predecessorId}</span>
-                                    <select value={dependency.type || 'FS'} onChange={(event) => commit({ ...period, dependencies: period.dependencies.map((item, itemIndex) => itemIndex === index ? { ...item, type: event.target.value } : item) })} className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]"><option value="FS">FS</option><option value="SS">SS</option><option value="FF">FF</option><option value="SF">SF</option></select>
+                                    <select value={dependency.type || 'FS'} onChange={(event) => commit({ ...period, dependencies: period.dependencies.map((item, itemIndex) => itemIndex === index ? { ...item, type: event.target.value } : item) })} aria-label={t('vault_date.period_dependency_relation', 'Relation')} className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]"><option value="FS">{t('vault_date.period_dependency_fs', 'Finish → start')}</option><option value="SS">{t('vault_date.period_dependency_ss', 'Start → start')}</option><option value="FF">{t('vault_date.period_dependency_ff', 'Finish → finish')}</option><option value="SF">{t('vault_date.period_dependency_sf', 'Start → finish')}</option></select>
                                     <input type="number" step="15" value={dependency.lagMinutes ?? 0} onChange={(event) => commit({ ...period, dependencies: period.dependencies.map((item, itemIndex) => itemIndex === index ? { ...item, lagMinutes: Number(event.target.value) || 0 } : item) })} aria-label={t('vault_date.period_dependency_lag', 'Lag minutes')} className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]" />
                                 </div>
                             ))}
@@ -593,7 +604,10 @@ export const VaultDateProperty = ({
                     )}
                     <label className="flex flex-col gap-1">
                         <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
-                            {t('vault_date.period_constraint', 'Constraint')}
+                            {t('vault_date.period_constraint', 'Scheduling rule')}
+                        </span>
+                        <span className="text-[11px] text-[var(--text-tertiary)]">
+                            {t('vault_date.period_constraint_hint', 'ASAP starts as soon as possible; ALAP postpones it as late as possible.')}
                         </span>
                         <select
                             value={period.constraintType || 'ASAP'}
@@ -609,6 +623,9 @@ export const VaultDateProperty = ({
                     <label className="flex flex-col gap-1">
                         <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
                             {periodDateLabel('deadline')}
+                        </span>
+                        <span className="text-[11px] text-[var(--text-tertiary)]">
+                            {t('vault_date.period_deadline_hint', 'Latest date or year by which the task must finish.')}
                         </span>
                         <input
                             type="text"
