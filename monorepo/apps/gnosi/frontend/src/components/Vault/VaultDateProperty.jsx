@@ -43,6 +43,17 @@ const _toLocalDateStr = (date, type) => {
     return type === 'datetime' ? `${day}T${pad(date.getHours())}:${pad(date.getMinutes())}` : day;
 };
 
+const PLANNING_CONSTRAINT_OPTIONS = [
+    ['ASAP', 'vault_date.period_constraint_option_asap'],
+    ['ALAP', 'vault_date.period_constraint_option_alap'],
+    ['SNET', 'vault_date.period_constraint_option_snet'],
+    ['SNLT', 'vault_date.period_constraint_option_snlt'],
+    ['FNET', 'vault_date.period_constraint_option_fnet'],
+    ['FNLT', 'vault_date.period_constraint_option_fnlt'],
+    ['MSO', 'vault_date.period_constraint_option_mso'],
+    ['MFO', 'vault_date.period_constraint_option_mfo'],
+];
+
 export const VaultDateProperty = ({
     value,
     onChange,
@@ -65,6 +76,7 @@ export const VaultDateProperty = ({
     const [predecessorSearch, setPredecessorSearch] = useState('');
     const [periodDrafts, setPeriodDrafts] = useState({});
     const [predecessorOpen, setPredecessorOpen] = useState(false);
+    const [showConstraintHelp, setShowConstraintHelp] = useState(false);
     const predecessorPickerRef = useRef(null);
     // The interface language to format the date shown in the input
     // (previously it was hardcoded to 'ca-ES', ignoring the user's preference).
@@ -603,12 +615,48 @@ export const VaultDateProperty = ({
                         </div>
                     )}
                     <label className="flex flex-col gap-1">
-                        <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
-                            {t('vault_date.period_constraint', 'Scheduling rule')}
+                        <span className="flex items-center gap-1 text-[10px] font-semibold text-[var(--text-tertiary)]">
+                            <span>{t('vault_date.period_constraint', 'Scheduling rule')}</span>
+                            <button
+                                type="button"
+                                aria-expanded={showConstraintHelp}
+                                aria-label={t('vault_date.period_constraint_help_toggle', 'Show scheduling rule explanations')}
+                                title={t('vault_date.period_constraint_help_toggle', 'Show scheduling rule explanations')}
+                                onClick={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    setShowConstraintHelp((open) => !open);
+                                }}
+                                className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-[var(--border-primary)] text-[9px] font-bold leading-none text-[var(--text-tertiary)] transition-colors hover:border-[var(--gnosi-primary)] hover:text-[var(--gnosi-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--gnosi-primary)]/20"
+                            >
+                                ?
+                            </button>
                         </span>
                         <span className="text-[11px] text-[var(--text-tertiary)]">
                             {t('vault_date.period_constraint_hint', 'ASAP starts as soon as possible; ALAP postpones it as late as possible.')}
                         </span>
+                        {showConstraintHelp && (
+                            <div
+                                role="region"
+                                aria-label={t('vault_date.period_constraint_help_title', 'Scheduling rule explanations')}
+                                className="rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)]/70 p-2 text-[11px] text-[var(--text-secondary)]"
+                            >
+                                <div className="mb-1 font-semibold text-[var(--text-primary)]">
+                                    {t('vault_date.period_constraint_help_title', 'Scheduling rule explanations')}
+                                </div>
+                                <p className="mb-2 text-[var(--text-tertiary)]">
+                                    {t('vault_date.period_constraint_help_intro', 'Use a constraint date with SNET, SNLT, FNET, FNLT, MSO, or MFO. ASAP and ALAP do not need one.')}
+                                </p>
+                                <dl className="grid gap-1">
+                                    {PLANNING_CONSTRAINT_OPTIONS.map(([value, descriptionKey]) => (
+                                        <div key={value} className="grid grid-cols-[2.5rem_1fr] gap-2">
+                                            <dt className="font-semibold text-[var(--text-primary)]">{value}</dt>
+                                            <dd>{t(descriptionKey)}</dd>
+                                        </div>
+                                    ))}
+                                </dl>
+                            </div>
+                        )}
                         <select
                             value={period.constraintType || 'ASAP'}
                             onChange={(event) => commit({ ...period, constraintType: event.target.value })}
