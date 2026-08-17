@@ -52,3 +52,6 @@ days, or years.
 - Keep the visible duration control editable for active period planning even
   when an older schema carries `duration_enabled: false`; otherwise the UI
   advertises a value that cannot recalculate the finish.
+- Keep dependency relations, lag, scheduling rules, and deadlines explained
+  inline in the period editor; retain the compact stored relation codes for
+  compatibility, but do not expose unexplained abbreviations as the only UI.
