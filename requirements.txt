@@ -62,7 +62,7 @@ bcrypt>=4.1
 # cryptography 49+ no longer publishes macOS x86_64 wheels. Keep Intel desktop
 # packaging on the final universal2 release so OpenSSL remains statically linked.
 cryptography>=48.0.1,<49.0.0; sys_platform == "darwin" and platform_machine == "x86_64"
-cryptography>=49.0.0; sys_platform != "darwin" or platform_machine != "x86_64"
+cryptography>=50.0.0; sys_platform != "darwin" or platform_machine != "x86_64"
 aiosqlite>=0.22.1
 Pillow>=12.3.0
 email-validator==2.3.0
