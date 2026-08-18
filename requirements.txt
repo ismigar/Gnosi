@@ -42,7 +42,7 @@ google-api-python-client>=2.0.0
 # incrementally-grown venvs hide it (caught by the docker-build CI guard).
 # Validated combo: groq 0.37.x + langchain-groq 1.1.x. Dependabot major bumps
 # ignored in .github/dependabot.yml until langchain-groq lifts the cap.
-groq>=0.30.0
+groq>=0.37.1
 anthropic>=0.20.0
 cohere>=7.0.5
 sqlalchemy>=2.0.51
