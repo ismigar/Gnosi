@@ -55,3 +55,4 @@ days, or years.
 - Keep dependency relations, lag, scheduling rules, and deadlines explained
   inline in the period editor; retain the compact stored relation codes for
   compatibility, but do not expose unexplained abbreviations as the only UI.
+
