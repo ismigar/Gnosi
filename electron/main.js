@@ -415,6 +415,15 @@ function createWindow() {
     mainWindows.delete(window);
   });
   
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('http:') || url.startsWith('https:')) {
+      void shell.openExternal(url).catch((err) => {
+        log('Failed to open external URL:', err.message);
+      });
+    }
+    return { action: 'deny' };
+  });
+
   window.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
     log('Failed to load:', errorCode, errorDescription);
   });
