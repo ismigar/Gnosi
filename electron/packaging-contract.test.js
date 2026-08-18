@@ -126,9 +126,13 @@ test('macOS release jobs match each frozen backend to its target architecture', 
   const workflow = fs.readFileSync(releaseWorkflowPath, 'utf8');
 
   assert.doesNotMatch(workflow, /^\s+runs-on: macos-latest$/m);
-  assert.match(workflow, /- arch: arm64\n\s+runner: macos-15/);
-  assert.match(workflow, /- arch: x64\n\s+runner: macos-15-intel/);
-  assert.match(workflow, /runs-on: \$\{\{ matrix\.runner \}\}/);
+  assert.match(workflow, /- arch: arm64\n\s+hosted_runner: macos-15\n\s+local_runner: \[self-hosted, macOS, ARM64\]/);
+  assert.match(workflow, /- arch: x64\n\s+hosted_runner: macos-15-intel\n\s+local_runner: \[self-hosted, macOS, X64\]/);
+  assert.match(
+    workflow,
+    /runs-on: \$\{\{ \(github\.event_name == 'push' \|\| inputs\.local_only\) && matrix\.local_runner \|\| matrix\.hosted_runner \}\}/,
+  );
+  assert.match(workflow, /local_only:[\s\S]*?default: true/);
   assert.match(workflow, /npm run build:mac -- --\$\{\{ matrix\.arch \}\}/);
   assert.match(workflow, /name: macos-\$\{\{ matrix\.arch \}\}/);
   assert.equal(
