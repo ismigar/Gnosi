@@ -53,6 +53,9 @@ jobs:
 
       - name: Setup Python 3.11
         uses: actions/setup-python@v7
+        env:
+          RUNNER_TOOL_CACHE: ${{ runner.temp }}/_tool
+          AGENT_TOOLSDIRECTORY: ${{ runner.temp }}/_tool
         with:
           python-version: '3.11'
 
@@ -120,6 +123,9 @@ jobs:
 
       - name: Setup Python
         uses: actions/setup-python@v7
+        env:
+          RUNNER_TOOL_CACHE: ${{ runner.temp }}/_tool
+          AGENT_TOOLSDIRECTORY: ${{ runner.temp }}/_tool
         with:
           python-version: '3.11'
 
@@ -179,6 +185,9 @@ jobs:
 
       - name: Setup Python
         uses: actions/setup-python@v7
+        env:
+          RUNNER_TOOL_CACHE: ${{ runner.temp }}/_tool
+          AGENT_TOOLSDIRECTORY: ${{ runner.temp }}/_tool
         with:
           python-version: '3.11'
 
@@ -254,6 +263,9 @@ jobs:
       # Missing signatures fail the release because official catalogs fail closed.
       - name: Setup Python (per a l'índex de plugins)
         uses: actions/setup-python@v7
+        env:
+          RUNNER_TOOL_CACHE: ${{ runner.temp }}/_tool
+          AGENT_TOOLSDIRECTORY: ${{ runner.temp }}/_tool
         with:
           python-version: '3.11'
 
