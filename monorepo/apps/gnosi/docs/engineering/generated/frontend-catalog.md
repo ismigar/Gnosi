@@ -32,7 +32,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `application root` | 3 | 281 | 0 |
-| `components` | 201 | 80434 | 200 |
+| `components` | 201 | 80977 | 200 |
 | `context` | 1 | 177 | 6 |
 | `hooks` | 16 | 1239 | 7 |
 | `lib` | 20 | 2091 | 6 |
@@ -60,7 +60,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/AI/useAIResources.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AI/useAIResources.js) | 303 | `useAIResources` | `/api/ai/approvals`, `/api/ai/automations`, `/api/ai/capability-audit`, `/api/ai/jobs`, `/api/ai/skills`, `/api/ai/tools` |
 | [`frontend/src/components/AIModelComparisonModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AIModelComparisonModal.jsx) | 917 | `AIModelComparisonModal` | `/api/ai/model-catalog`, `/api/ai/model-comparison`, `/api/ai/models`, `/api/ai/providers/artificial_analysis/credentials` |
 | [`frontend/src/components/AIUsageHistoryModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AIUsageHistoryModal.jsx) | 323 | `AIUsageHistoryModal` | `/api/ai/usage/history` |
-| [`frontend/src/components/AgentChat.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AgentChat.jsx) | 2375 | `AgentChat` | `/api/chat`, `/api/chat/attachments`, `/api/chat/feedback`, `/api/config`, `/api/vault/databases`, `/api/vault/pages`, `/api/vault/tables` |
+| [`frontend/src/components/AgentChat.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AgentChat.jsx) | 2447 | `AgentChat` | `/api/chat`, `/api/chat/attachments`, `/api/chat/feedback`, `/api/config`, `/api/vault/databases`, `/api/vault/pages`, `/api/vault/tables` |
 | [`frontend/src/components/AgentContextSources.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AgentContextSources.jsx) | 566 | `AgentContextSources`, `function` | `/api/agent/context-sources`, `/api/agent/internal-sources`, `/api/vault/assets/upload`, `/api/vault/pages`, `/api/vault/tables` |
 | [`frontend/src/components/ApiTokensSettings.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/ApiTokensSettings.jsx) | 134 | `ApiTokensSettings`, `function` | `/api/tokens` |
 | [`frontend/src/components/AppHeader.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AppHeader.jsx) | 32 | `AppHeader` | — |
@@ -171,12 +171,12 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Vault/TranslateLanguagesModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/TranslateLanguagesModal.jsx) | 203 | `TranslateLanguagesModal` | `/api/vault/skills/translate-page`, `/api/vault/skills/translate-row`, `/api/vault/skills/translate-rows` |
 | [`frontend/src/components/Vault/VaultBulkActionsBar.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultBulkActionsBar.jsx) | 228 | `VaultBulkActionsBar` | — |
 | [`frontend/src/components/Vault/VaultChart.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultChart.jsx) | 300 | `VaultChart` | — |
-| [`frontend/src/components/Vault/VaultDateProperty.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultDateProperty.jsx) | 876 | `VaultDateProperty`, `addDaysISO` | — |
+| [`frontend/src/components/Vault/VaultDateProperty.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultDateProperty.jsx) | 881 | `VaultDateProperty`, `addDaysISO` | — |
 | [`frontend/src/components/Vault/VaultDocumentTabs.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultDocumentTabs.jsx) | 413 | `VaultDocumentTabs` | — |
 | [`frontend/src/components/Vault/VaultDrawings.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultDrawings.jsx) | 125 | `VaultDrawings` | `/api/vault` |
 | [`frontend/src/components/Vault/VaultEditorContext.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultEditorContext.js) | 17 | `VaultEditorContext` | — |
 | [`frontend/src/components/Vault/VaultFeed.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultFeed.jsx) | 846 | `VaultFeed` | `/api/vault/open-resource`, `/api/vault/plugins/vault-summary/settings`, `/api/vault/plugins/vault-summary/summarize` |
-| [`frontend/src/components/Vault/VaultGallery.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultGallery.jsx) | 745 | `VaultGallery` | `/api/vault/open-resource` |
+| [`frontend/src/components/Vault/VaultGallery.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultGallery.jsx) | 748 | `VaultGallery` | `/api/vault/open-resource` |
 | [`frontend/src/components/Vault/VaultGraph.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultGraph.jsx) | 156 | `VaultGraph` | `/api/config`, `/api/graph` |
 | [`frontend/src/components/Vault/VaultKanban.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultKanban.jsx) | 416 | `VaultKanban` | — |
 | [`frontend/src/components/Vault/VaultMarkdown.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultMarkdown.jsx) | 263 | `RetryableImage`, `VaultMarkdown` | — |
@@ -245,7 +245,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Workspace/WorkspaceMembersPanel.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Workspace/WorkspaceMembersPanel.jsx) | 333 | `WorkspaceMembersPanel` | — |
 | [`frontend/src/components/agentChatKeyboardUtils.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/agentChatKeyboardUtils.js) | 13 | `chatScrollDeltaForComposerKey` | — |
 | [`frontend/src/components/agentChatMentionUtils.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/agentChatMentionUtils.js) | 7 | `selectedMentionsInText`, `visibleMentionToken` | — |
-| [`frontend/src/components/agentChatMessageUtils.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/agentChatMessageUtils.js) | 863 | `boundedCitations`, `boundedExplanation`, `boundedFreshness`, `boundedJob`, `boundedPrivacy`, `boundedProcessingMs`, `boundedTransparencyMetadata`, `boundedTurnMetrics`, `boundedTurnPlan`, `boundedVerification`, `conversationRewindPlan`, `effectiveMessageTimingMs`, `getTurnId`, `mergeCanonicalMessageMetadata`, `processingSeconds` | — |
+| [`frontend/src/components/agentChatMessageUtils.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/agentChatMessageUtils.js) | 1326 | `boundedCitations`, `boundedExplanation`, `boundedFreshness`, `boundedJob`, `boundedPrivacy`, `boundedProcessingMs`, `boundedTransparencyMetadata`, `boundedTurnMetrics`, `boundedTurnPlan`, `boundedVerification`, `conversationRewindPlan`, `effectiveMessageTimingMs`, `getTurnId`, `isRetryableErrorCode`, `mergeCanonicalMessageMetadata`, `processingSeconds` | — |
 | [`frontend/src/components/agentConfirmationUtils.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/agentConfirmationUtils.js) | 59 | `CONFIRMATION_REFRESH_MS`, `agentChatStorageScope`, `confirmationForStorage`, `mergeConfirmationRecords`, `startConfirmationRefresh` | — |
 | [`frontend/src/components/agentRuntimeStatus.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/agentRuntimeStatus.js) | 25 | `deriveAgentRuntimeStatus` | — |
 | [`frontend/src/components/social/AddStreamModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/social/AddStreamModal.jsx) | 196 | `AddStreamModal` | — |
