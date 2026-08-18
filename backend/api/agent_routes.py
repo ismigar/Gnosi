@@ -63,6 +63,7 @@ from backend.services.agent_cancellation import create_cancel_token, release as 
 from backend.agent.model_reliability import (
     blames_the_model, model_evidence, record_failure, reliability_report,
 )
+from backend.agent.recovery import recovery_metadata
 from backend.config.app_config import load_params
 from backend.services.capability_audit import (
     list_capability_events,
@@ -1932,8 +1933,28 @@ async def chat_endpoint(
             tool_calls_count = 0
             active_tool_names: set[str] = set()
             used_tool_names: set[str] = set()
+            last_phase = ""
             quality_plan = dict(turn_plan)
             quality_verification: Dict[str, Any] = {}
+
+            def phase_for_node(node_name: str) -> str:
+                if node_name in {"brain_tools", "coder_tools"}:
+                    return "tools"
+                if node_name in {"brain", "coder", "general"}:
+                    return "model"
+                return "routing"
+
+            def phase_event(phase: str) -> Optional[str]:
+                nonlocal last_phase
+                normalized = str(phase or "routing").strip().lower()
+                if normalized == last_phase:
+                    return None
+                last_phase = normalized
+                return json.dumps({
+                    "type": "phase",
+                    "trace_id": trace_id,
+                    "phase": normalized,
+                }) + "\n"
 
             def metrics_payload() -> Dict[str, Any]:
                 total_ms = max(
@@ -2020,11 +2041,15 @@ async def chat_endpoint(
                             "mode", "domains", "route", "execution",
                             "output_strategy", "required_tool",
                             "allowed_tool_count", "budgets", "interpretation",
+                            "capability_broker", "memory",
                         )
                     },
                     "privacy": turn_plan.get("privacy") or {},
                     "job": turn_plan.get("job") or {},
                 }) + "\n"
+                initial_phase = phase_event("routing")
+                if initial_phase:
+                    yield initial_phase
                 interpretation = turn_plan.get("interpretation") or {}
                 should_clarify = bool(
                     interpretation.get("clarification_required")
@@ -2141,6 +2166,9 @@ async def chat_endpoint(
                                     cancel_agent_turn(cancel_token)
                                     return
                                 for node_name, state_update in event.items():
+                                    current_phase = phase_event(phase_for_node(node_name))
+                                    if current_phase:
+                                        yield current_phase
                                     update_at = time.monotonic()
                                     update_elapsed_ms = max(
                                         0.0,
@@ -2405,10 +2433,13 @@ async def chat_endpoint(
                 except Exception:  # noqa: BLE001
                     log.exception("Failed to record agent quality telemetry.")
 
+                recovery = recovery_metadata(stable_error_code)
                 error_payload = {
                     "type": "error",
                     "trace_id": trace_id,
                     "content": friendly_error,
+                    "retryable": recovery["retryable"],
+                    "recovery": recovery,
                 }
                 if error_code:
                     error_payload["code"] = error_code
