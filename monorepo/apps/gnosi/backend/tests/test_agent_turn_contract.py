@@ -55,6 +55,12 @@ def test_turn_plan_exposes_bounded_mode_budget():
     }
     assert inventory["budgets"]["max_tool_calls"] > 0
     assert inventory["budgets"]["max_read_tool_results"] <= inventory["budgets"]["max_tool_calls"]
+    assert inventory["capability_broker"]["broker_version"] == "capability-v1"
+    assert inventory["memory"] == {
+        "checkpointed": True,
+        "scope": "agent_session",
+        "historical_tool_payloads_excluded": True,
+    }
 
 
 def test_remote_and_local_private_processing_are_distinguished():

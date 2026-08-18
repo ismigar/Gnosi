@@ -9,6 +9,7 @@ import {
     conversationRewindPlan,
     mergeCanonicalMessageMetadata,
     processingSeconds,
+    isRetryableErrorCode,
 } from './agentChatMessageUtils';
 
 describe('assistant message presentation metadata', () => {
@@ -53,6 +54,48 @@ describe('assistant message presentation metadata', () => {
             max_tool_calls: 256,
             max_read_tool_results: 256,
         });
+    });
+
+    it('keeps semantic interpretation and capability metadata bounded', () => {
+        const plan = boundedTurnPlan({
+            interpretation: {
+                operation: 'inventory',
+                confidence: 3,
+                concepts: ['coaching'],
+                query_digest: 'private-query-must-not-be-shown',
+            },
+            capability_broker: {
+                broker_version: 'capability-v1',
+                candidate_tools: ['inventory_context'],
+                guarded_tools: ['delete_page'],
+                selection_policy: 'safe',
+            },
+            memory: {
+                checkpointed: true,
+                scope: 'agent_session',
+                historical_tool_payloads_excluded: true,
+                raw_payload: 'ignored',
+            },
+        });
+
+        expect(plan.interpretation).toMatchObject({
+            operation: 'inventory',
+            confidence: 1,
+            concepts: ['coaching'],
+        });
+        expect(plan.interpretation).not.toHaveProperty('query_digest');
+        expect(plan.interpretation).not.toHaveProperty('normalized_query');
+        expect(plan.capability_broker.candidate_tools).toEqual(['inventory_context']);
+        expect(plan.memory).toEqual({
+            checkpointed: true,
+            scope: 'agent_session',
+            historical_tool_payloads_excluded: true,
+        });
+    });
+
+    it('classifies only bounded transient errors as retryable', () => {
+        expect(isRetryableErrorCode(' agent_loop_exhausted ')).toBe(true);
+        expect(isRetryableErrorCode('agent_model_unavailable')).toBe(false);
     });
 
     it('keeps only bounded operational transparency metadata', () => {
