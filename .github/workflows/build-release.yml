@@ -6,6 +6,11 @@ on:
       - 'v*'
   workflow_dispatch:
     inputs:
+      local_only:
+        description: 'Run every build on the configured self-hosted runners (recommended)'
+        required: false
+        default: true
+        type: boolean
       tag:
         description: 'Tag to build (e.g., v1.0.0)'
         required: false
@@ -19,13 +24,17 @@ jobs:
       matrix:
         include:
           - arch: arm64
-            runner: macos-15
+            hosted_runner: macos-15
+            local_runner: [self-hosted, macOS, ARM64]
           - arch: x64
-            runner: macos-15-intel
-    runs-on: ${{ matrix.runner }}
+            hosted_runner: macos-15-intel
+            local_runner: [self-hosted, macOS, X64]
+    runs-on: ${{ (github.event_name == 'push' || inputs.local_only) && matrix.local_runner || matrix.hosted_runner }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -92,10 +101,12 @@ jobs:
           retention-days: 5
 
   build-linux:
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.event_name == 'push' || inputs.local_only) && fromJson('["self-hosted", "Linux", "ARM64"]') || 'ubuntu-latest' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -149,10 +160,12 @@ jobs:
           retention-days: 5
 
   build-windows:
-    runs-on: windows-latest
+    runs-on: ${{ (github.event_name == 'push' || inputs.local_only) && fromJson('["self-hosted", "Windows", "X64"]') || 'windows-latest' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -206,11 +219,22 @@ jobs:
 
   release:
     needs: [build-macos, build-linux, build-windows]
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ${{ (github.event_name == 'push' || inputs.local_only) && fromJson('["self-hosted", "Linux", "ARM64"]') || 'ubuntu-latest' }}
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && startsWith(inputs.tag, 'v'))
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
+      - name: Define release tag
+        id: release_tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.tag }}" ]; then
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Download all artifacts
         uses: actions/download-artifact@v8
@@ -253,7 +277,7 @@ jobs:
       - name: Render public release notes
         run: |
           node monorepo/apps/gnosi/frontend/scripts/release-notes.mjs \
-            --version "${{ github.ref_name }}" \
+            --version "${{ steps.release_tag.outputs.tag }}" \
             --output artifacts/release-notes.md
 
       # Publiquem al repo PÚBLIC Gnosi (Projectes és privat) amb el SYNC_PAT,
@@ -264,13 +288,13 @@ jobs:
         with:
           repository: ismigar/Gnosi
           token: ${{ secrets.SYNC_PAT }}
-          tag_name: ${{ github.ref_name }}
-          name: Gnosi ${{ github.ref_name }}
+          tag_name: ${{ steps.release_tag.outputs.tag }}
+          name: Gnosi ${{ steps.release_tag.outputs.tag }}
           # Draft: els binaris arriben al repo públic però NO són visibles fins
           # que premis "Publish" manualment a Gnosi → fer-ho públic és cosa teva.
           draft: true
           # prerelease=true només si el tag porta sufix (v1.0.0-beta.1, -rc.2…).
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          prerelease: ${{ contains(steps.release_tag.outputs.tag, '-') }}
           # Les notes automàtiques no funcionen a Gnosi (història reescrita pel
           # sync orphan+force); posem instruccions d'instal·lació, més útils.
           body_path: artifacts/release-notes.md
