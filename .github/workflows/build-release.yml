@@ -1,5 +1,8 @@
 name: Build and Release
 
+env:
+  AGENT_TOOLSDIRECTORY: ${{ runner.temp }}/_tool
+
 on:
   push:
     tags:
