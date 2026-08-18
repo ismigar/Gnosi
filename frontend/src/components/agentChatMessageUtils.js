@@ -61,13 +61,427 @@ const TIMING_OBJECT_TOTAL_FIELDS = [
     'timing_seconds',
     'timingSecs',
     'timingSec',
-];
 const PRESENTATION_FIELDS = [
     'turnId', 'turn_id', 'processingMs', 'timings',
     'feedback', 'saved', 'plan', 'privacy',
     'verification', 'citations', 'freshness', 'job', 'explanation',
     'errorCode', 'retryable', 'recovery', 'processingPhase',
 ];
+
+const normalizeTurnIdCandidateKey = (value) => {
+    if (typeof value !== 'string') return '';
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) return '';
+    return normalized
+        .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+        .replace(/[^a-z0-9_]/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_|_$/g, '');
+};
+
+const isTurnIdCandidateField = (normalizedKey) => {
+    if (!normalizedKey) return false;
+    if (normalizedKey === 'turn') return true;
+    if (
+        normalizedKey === 'turn_id'
+        || normalizedKey === 'turnid'
+        || normalizedKey === 'gnosi_turn'
+        || normalizedKey === 'gnosi_turn_id'
+    ) return true;
+    if (normalizedKey === 'session_id' || normalizedKey === 'conversation_id') return true;
+    return (
+        /(?:^|_)(?:turn|session|conversation|trace|thread)_(?:id|uuid|identifier|ref|reference|key|token)$/.test(normalizedKey)
+        || /(?:^|_)(?:id|uuid|identifier|ref|reference|key|token)_(?:turn|session|conversation|trace|thread)$/.test(normalizedKey)
+        || normalizedKey.endsWith('_turn_id')
+        || normalizedKey.startsWith('turn_')
+        || normalizedKey.includes('_turn_')
+    );
+};
+
+const extractTurnCandidateId = (candidate, seen = new Set()) => {
+    if (candidate === null || candidate === undefined || candidate === '') return null;
+    if (typeof candidate === 'string' || typeof candidate === 'number') {
+        return candidate;
+    }
+    if (typeof candidate !== 'object' || Array.isArray(candidate)) return null;
+    const objectId = candidate.id
+        || candidate.turnId
+        || candidate.turn_id
+        || candidate.value
+        || candidate.uuid
+        || candidate.identifier
+        || candidate.key;
+    if (objectId !== undefined && objectId !== null && objectId !== '') {
+        return objectId;
+    }
+    const candidateCandidates = collectTurnCandidateEntries(candidate);
+    for (const { value } of candidateCandidates) {
+        if (typeof value === 'string' || typeof value === 'number') {
+            return value;
+        }
+        if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+            if (seen.has(value)) continue;
+            seen.add(value);
+            const nested = extractTurnCandidateId(value, seen);
+            if (nested !== null && nested !== '' && nested !== undefined && nested !== null) {
+                return nested;
+            }
+        }
+    }
+    return null;
+};
+
+const collectTurnCandidateEntries = (payload) => {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return [];
+    const candidates = [];
+    for (const [field, value] of Object.entries(payload)) {
+        const normalized = normalizeTurnIdCandidateKey(field);
+        if (!isTurnIdCandidateField(normalized)) continue;
+        candidates.push({ value });
+    }
+    return candidates;
+};
+
+export const getTurnId = (message) => {
+    if (!message || typeof message !== 'object' || Array.isArray(message)) return null;
+    if (message.turnId !== undefined && message.turnId !== null && message.turnId !== '') {
+        return message.turnId;
+    }
+    if (message.turn_id !== undefined && message.turn_id !== null && message.turn_id !== '') {
+        return message.turn_id;
+    }
+    const turnValue = message.turn;
+    if (typeof turnValue === 'string' || typeof turnValue === 'number') {
+        return turnValue;
+    }
+    if (turnValue && typeof turnValue === 'object' && !Array.isArray(turnValue)) {
+        return (
+            turnValue.id
+            || turnValue.turn_id
+            || turnValue.turnId
+            || turnValue.value
+            || null
+        );
+    }
+    const directContainers = collectTurnCandidateEntries(message);
+    for (const candidate of directContainers) {
+        const candidateValue = extractTurnCandidateId(candidate.value);
+        if (candidateValue !== null && candidateValue !== '' && candidateValue !== undefined) {
+            return candidateValue;
+        }
+    }
+    const nestedContainers = [
+        message?.metadata,
+        message?.additional_kwargs,
+        message?.turn_metadata,
+    ];
+    for (const nested of nestedContainers) {
+        for (const candidate of collectTurnCandidateEntries(nested || {})) {
+            const candidateValue = extractTurnCandidateId(candidate.value);
+            if (candidateValue !== null && candidateValue !== '' && candidateValue !== undefined) {
+                return candidateValue;
+            }
+        }
+    }
+    return null;
+};
+
+
+const normalizeTimingCandidateKey = (value) => {
+    if (typeof value !== 'string') return '';
+    const normalized = value.trim();
+    if (!normalized) return '';
+    const withUnderscore = normalized
+        .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+        .replace(/[^a-zA-Z0-9_]/g, '_')
+        .toLowerCase();
+    return withUnderscore;
+};
+
+const timingCandidateUnitHint = (normalizedKey) => {
+    const key = normalizeTimingCandidateKey(normalizedKey);
+    if (!key) return null;
+    if (key.includes('ms') || key.includes('millisecond')) {
+        return 'ms';
+    }
+    if (
+        key.includes('min')
+        || key.includes('_m')
+        || key.endsWith('m')
+        || key.includes('minute')
+    ) {
+        return 'm';
+    }
+    if (
+        key.includes('sec')
+        || key.includes('second')
+        || key.endsWith('s')
+        || key.endsWith('_s')
+        || key.includes('_secs')
+    ) {
+        return 's';
+    }
+    return null;
+};
+
+const collectTimingCandidateEntries = (payload) => {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return [];
+    const timingPrefixes = /(?:^|_)(?:total|duration|elapsed|latency|response|processing|timing|time)_[a-z0-9_]+$/;
+    const candidates = [];
+    for (const [field, value] of Object.entries(payload)) {
+        const normalized = normalizeTimingCandidateKey(field);
+        if (!normalized) continue;
+        const isTimingKey =
+            normalized === 'timings'
+            || normalized === 'timing'
+            || normalized === 'turn_timings'
+            || normalized === 'turn_metrics'
+            || normalized === 'metrics'
+            || normalized === 'metric'
+            || timingPrefixes.test(normalized);
+        if (!isTimingKey) continue;
+        candidates.push({ value, unitHint: timingCandidateUnitHint(normalized) });
+    }
+    return candidates;
+};
+
+const applyDurationUnit = (rawNumeric, unitHint = null) => {
+    const numeric = Number(rawNumeric);
+    if (!Number.isFinite(numeric) || numeric < 0) return null;
+    const normalizedUnit = unitHint ? unitHint.trim().toLowerCase() : null;
+    if (
+        normalizedUnit === 's'
+        || normalizedUnit === 'sec'
+        || normalizedUnit === 'secs'
+        || normalizedUnit === 'second'
+        || normalizedUnit === 'seconds'
+    ) {
+        return boundedProcessingMs(numeric * 1000);
+    }
+    if (
+        normalizedUnit === 'm'
+        || normalizedUnit === 'min'
+        || normalizedUnit === 'mins'
+        || normalizedUnit === 'minute'
+        || normalizedUnit === 'minutes'
+    ) {
+        return boundedProcessingMs(numeric * 60_000);
+    }
+    if (
+        normalizedUnit === 'ms'
+        || normalizedUnit === 'millisecond'
+        || normalizedUnit === 'milliseconds'
+    ) {
+        return boundedProcessingMs(numeric);
+    }
+    if (normalizedUnit) {
+        return boundedProcessingMs(numeric);
+    }
+    return boundedProcessingMs(numeric);
+};
+
+const hasCandidatePayload = (message) => {
+    if (!message || typeof message !== 'object' || Array.isArray(message)) return false;
+    return true;
+};
+
+const parseDurationToMs = (value, unitHint = null) => {
+    if (value === null || value === undefined || value === '') return null;
+    if (typeof value === 'number') {
+        return applyDurationUnit(value, unitHint);
+    }
+    if (typeof value === 'string') {
+        const normalized = value.trim().replace(/_/g, '');
+        if (!normalized) return null;
+        const numeric = Number(normalized);
+        if (Number.isFinite(numeric)) {
+            return applyDurationUnit(numeric, unitHint);
+        }
+        const withUnit = normalized.match(
+            /^([0-9]+(?:\.[0-9]+)?)\s*(ms|millisecond|milliseconds|s|sec|secs|second|seconds|m|min|mins|minutes)$/i,
+        );
+        if (!withUnit) return null;
+        const magnitude = Number(withUnit[1]);
+        if (!Number.isFinite(magnitude)) return null;
+        return parseDurationToMs(magnitude, withUnit[2]);
+    }
+    if (unitHint && typeof unitHint === 'string') {
+        const normalizedUnit = unitHint.trim().toLowerCase();
+        const hintValue = parseDurationToMs(value);
+        if (hintValue === null) return null;
+        if (
+            normalizedUnit === 'ms'
+            || normalizedUnit === 'millisecond'
+            || normalizedUnit === 'milliseconds'
+        ) {
+            return hintValue;
+        }
+        if (
+            normalizedUnit === 's'
+            || normalizedUnit === 'sec'
+            || normalizedUnit === 'secs'
+            || normalizedUnit === 'second'
+            || normalizedUnit === 'seconds'
+        ) {
+            return boundedProcessingMs(hintValue * 1000);
+        }
+        if (
+            normalizedUnit === 'm'
+            || normalizedUnit === 'min'
+            || normalizedUnit === 'mins'
+            || normalizedUnit === 'minutes'
+        ) {
+            return boundedProcessingMs(hintValue * 60_000);
+        }
+        if (normalizedUnit) {
+            return hintValue;
+        }
+    }
+    return null;
+};
+
+const parseTimingObjectMs = (value) => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    for (const key of TIMING_OBJECT_TOTAL_FIELDS) {
+        const lowered = key.toLowerCase();
+        const unitHint = lowered.endsWith('_ms') || lowered.endsWith('_ms_value')
+            || /_milliseconds?$/.test(lowered) || lowered.endsWith('ms')
+            || lowered === 'durationms'
+            || lowered === 'processingms'
+            || lowered === 'responsems'
+            || lowered === 'elapsedms'
+            || lowered === 'latencyms'
+            || lowered === 'timingms'
+            ? 'ms'
+            : /_seconds?$/.test(lowered) || /_secs?$/.test(lowered) || lowered.endsWith('secs')
+                || lowered.endsWith('sec')
+                || lowered === 'seconds'
+                ? 's'
+                : null;
+        const parsed = parseDurationToMs(value[key], unitHint);
+        if (parsed !== null) return parsed;
+    }
+    const candidateEntries = collectTimingCandidateEntries(value).filter(
+        ({ value }) => value != null && value !== false,
+    );
+    for (const { value: candidateValue, unitHint } of candidateEntries) {
+        if (typeof candidateValue === 'number' || typeof candidateValue === 'string') {
+            const parsed = parseDurationToMs(candidateValue, unitHint);
+            if (parsed !== null) return parsed;
+        }
+        if (candidateValue && typeof candidateValue === 'object' && !Array.isArray(candidateValue)) {
+            const parsed = parseTimingObjectMs(candidateValue);
+            if (parsed !== null) return parsed;
+        }
+    }
+    if (value.value !== undefined && value.unit !== undefined) {
+        return parseDurationToMs(value.value, value.unit);
+    }
+    if (value.value !== undefined) {
+        const parsedValue = parseDurationToMs(value.value);
+        if (parsedValue !== null) return parsedValue;
+    }
+    return null;
+};
+
+const firstUnusedCandidateIndex = (indices, candidateUsed, fromIndex) => {
+    if (!Array.isArray(indices)) return null;
+    for (let i = fromIndex; i < indices.length; i += 1) {
+        const candidateIndex = indices[i];
+        if (!candidateUsed.has(candidateIndex)) return candidateIndex;
+    }
+    return null;
+};
+
+const timedPayloadFromMessage = (message) => {
+    if (!hasCandidatePayload(message)) return null;
+    const candidateValues = [
+        { value: message.timings, unitHint: null },
+        { value: message.turn_metrics, unitHint: null },
+        { value: message.turnMetrics, unitHint: null },
+        { value: message.metrics, unitHint: null },
+        { value: message.metric, unitHint: null },
+        { value: message.timing, unitHint: null },
+        { value: message.total, unitHint: 'ms' },
+        { value: message.total_ms, unitHint: 'ms' },
+        { value: message.duration_seconds, unitHint: 's' },
+        { value: message.durationSeconds, unitHint: 's' },
+        { value: message.duration_secs, unitHint: 's' },
+        { value: message.durationSecs, unitHint: 's' },
+        { value: message.total_seconds, unitHint: 's' },
+        { value: message.totalSeconds, unitHint: 's' },
+        { value: message.totalSec, unitHint: 's' },
+        { value: message.durationSec, unitHint: 's' },
+        { value: message.duration_ms, unitHint: 'ms' },
+        { value: message.durationMs, unitHint: 'ms' },
+        { value: message.durationInMs, unitHint: 'ms' },
+        { value: message.duration_in_ms, unitHint: 'ms' },
+        { value: message.duration, unitHint: 'ms' },
+        { value: message.response_time, unitHint: 'ms' },
+        { value: message.response_time_ms, unitHint: 'ms' },
+        { value: message.responseTime, unitHint: 'ms' },
+        { value: message.response_time_seconds, unitHint: 's' },
+        { value: message.response_seconds, unitHint: 's' },
+        { value: message.responseSeconds, unitHint: 's' },
+        { value: message.responseTimeSeconds, unitHint: 's' },
+        { value: message.responseSecs, unitHint: 's' },
+        { value: message.responseSec, unitHint: 's' },
+        { value: message.response_secs, unitHint: 's' },
+        { value: message.processing_time, unitHint: 'ms' },
+        { value: message.processing_time_ms, unitHint: 'ms' },
+        { value: message.processingTime, unitHint: 'ms' },
+        { value: message.processing_time_seconds, unitHint: 's' },
+        { value: message.processing_seconds, unitHint: 's' },
+        { value: message.processingSeconds, unitHint: 's' },
+        { value: message.processingTimeSeconds, unitHint: 's' },
+        { value: message.processingSecs, unitHint: 's' },
+        { value: message.processingSec, unitHint: 's' },
+        { value: message.processing_secs, unitHint: 's' },
+        { value: message.timing_ms, unitHint: 'ms' },
+        { value: message.timingMs, unitHint: 'ms' },
+        { value: message.timing_ms_value, unitHint: 'ms' },
+        { value: message.timing_seconds, unitHint: 's' },
+        { value: message.timingSecs, unitHint: 's' },
+        { value: message.timingSec, unitHint: 's' },
+        { value: message.time, unitHint: 'ms' },
+        { value: message.time_ms, unitHint: 'ms' },
+        { value: message.time_seconds, unitHint: 's' },
+        { value: message.timeSec, unitHint: 's' },
+        { value: message.timeSecs, unitHint: 's' },
+        { value: message.seconds, unitHint: 's' },
+    ];
+    const fallbackTimingCandidates = collectTimingCandidateEntries(message).filter(
+        ({ value }) => ![message.timings, message.turn_metrics, message.turnMetrics, message.metrics, message.metric, message.timing].includes(value),
+    );
+    candidateValues.push(...fallbackTimingCandidates);
+    for (const { value, unitHint } of candidateValues) {
+        const candidate = value;
+        const fromNumber = parseDurationToMs(candidate, unitHint);
+        if (fromNumber !== null && (typeof candidate === 'number' || typeof candidate === 'string')) {
+            return { total_ms: fromNumber };
+        }
+        if (hasCandidatePayload(candidate)) {
+            const parsedTimingMs = parseTimingObjectMs(candidate);
+            if (parsedTimingMs !== null) {
+                const bounded = boundedTurnMetrics(candidate) || {};
+                bounded.total_ms = parsedTimingMs;
+                return bounded;
+            }
+        }
+        const bounded = boundedTurnMetrics(candidate);
+        if (bounded !== null) return bounded;
+    }
+    return null;
+};
+
+const normalizeMessageTurnId = (message) => {
+    if (!hasCandidatePayload(message)) return message;
+    const turnId = getTurnId(message);
+    if (turnId && message?.turnId == null) {
+        return { ...message, turnId: String(turnId) };
+    }
+    return message;
+};
 
 const normalizeTurnIdCandidateKey = (value) => {
     if (typeof value !== 'string') return '';
