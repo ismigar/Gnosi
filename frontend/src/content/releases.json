@@ -1,5 +1,17 @@
 [
   {
+    "version": "1.0.7",
+    "date": "2026-08-19",
+    "channel": "stable",
+    "sections": {
+      "highlights": [],
+      "improvements": [],
+      "fixes": [
+        "release_notes.entries.v1_0_7.fixes.gallery_autoria_display"
+      ]
+    }
+  },
+  {
     "version": "1.0.6",
     "date": "2026-08-19",
     "channel": "stable",

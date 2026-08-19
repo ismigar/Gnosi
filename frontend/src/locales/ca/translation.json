@@ -5333,6 +5333,13 @@
     "section_improvements": "Millores",
     "section_fixes": "Correccions",
     "entries": {
+      "v1_0_7": {
+        "highlights": {},
+        "improvements": {},
+        "fixes": {
+          "gallery_autoria_display": "S'ha corregit el renderitzat de la vista de Galeria a les bases de dades quan es mostren camps d'autoria."
+        }
+      },
       "v1_0_6": {
         "highlights": {},
         "improvements": {},
