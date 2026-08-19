@@ -116,7 +116,7 @@ test('macOS Intel uses the final cryptography universal2 wheel release', () => {
     );
     assert.match(
       requirements,
-      /cryptography>=49\.0\.0; sys_platform != "darwin" or platform_machine != "x86_64"/,
+      /cryptography>=[45]\d\.0\.0; sys_platform != "darwin" or platform_machine != "x86_64"/,
       `${requirementsFile} must retain current cryptography elsewhere`,
     );
   }

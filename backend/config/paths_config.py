@@ -58,12 +58,15 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
     # SQLite databases, caches, indices, locks. These are per-instance and must
     # not be uploaded to OneDrive/Dropbox/iCloud — cloud sync corrupts SQLite
     # binary files and causes I/O bottlenecks. Override via env var if needed.
-    local_data_env = os.environ.get("GNOSI_LOCAL_DATA")
+    local_data_env = os.environ.get("GNOSI_LOCAL_DATA") or os.environ.get("LOCAL_DATA_DIR")
     if local_data_env:
         local_data = Path(local_data_env)
     else:
-        # Default: /app/data inside the container (mounted as a Docker volume)
-        local_data = Path("/app/data")
+        from .env_config import _is_docker
+        if _is_docker():
+            local_data = Path("/app/data")
+        else:
+            local_data = project_root / "local_data"
     try:
         local_data.mkdir(parents=True, exist_ok=True)
         (local_data / "cache").mkdir(parents=True, exist_ok=True)
