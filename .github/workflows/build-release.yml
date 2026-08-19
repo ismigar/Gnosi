@@ -274,7 +274,7 @@ jobs:
           python monorepo/apps/gnosi/plugins-examples/build_index.py \
             --base-url https://github.com/ismigar/Gnosi/releases/latest/download \
             --out artifacts/plugins
-          test -s artifacts/plugins/plugins-index.sig
+          if [ -n "$GNOSI_PLUGIN_SIGNING_KEY" ]; then test -s artifacts/plugins/plugins-index.sig; fi
           ls -la artifacts/plugins/
 
       - name: Construeix les plantilles de Vault signades
