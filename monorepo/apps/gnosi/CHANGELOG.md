@@ -1,5 +1,13 @@
 # Gnosi changelog
 
+## Gnosi 1.0.6
+
+_2026-08-19 · Stable_
+
+### Fixes
+
+- Fixed local data directory fallbacks and release version synchronization across desktop packaging manifests.
+
 ## Gnosi 1.0.5
 
 _2026-08-16 · Stable_

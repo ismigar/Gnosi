@@ -32,7 +32,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `application root` | 3 | 281 | 0 |
-| `components` | 201 | 80977 | 200 |
+| `components` | 201 | 80561 | 200 |
 | `context` | 1 | 177 | 6 |
 | `hooks` | 16 | 1239 | 7 |
 | `lib` | 20 | 2091 | 6 |
@@ -176,7 +176,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Vault/VaultDrawings.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultDrawings.jsx) | 125 | `VaultDrawings` | `/api/vault` |
 | [`frontend/src/components/Vault/VaultEditorContext.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultEditorContext.js) | 17 | `VaultEditorContext` | — |
 | [`frontend/src/components/Vault/VaultFeed.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultFeed.jsx) | 846 | `VaultFeed` | `/api/vault/open-resource`, `/api/vault/plugins/vault-summary/settings`, `/api/vault/plugins/vault-summary/summarize` |
-| [`frontend/src/components/Vault/VaultGallery.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultGallery.jsx) | 748 | `VaultGallery` | `/api/vault/open-resource` |
+| [`frontend/src/components/Vault/VaultGallery.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultGallery.jsx) | 746 | `VaultGallery` | `/api/vault/open-resource` |
 | [`frontend/src/components/Vault/VaultGraph.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultGraph.jsx) | 156 | `VaultGraph` | `/api/config`, `/api/graph` |
 | [`frontend/src/components/Vault/VaultKanban.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultKanban.jsx) | 416 | `VaultKanban` | — |
 | [`frontend/src/components/Vault/VaultMarkdown.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultMarkdown.jsx) | 263 | `RetryableImage`, `VaultMarkdown` | — |
@@ -245,7 +245,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Workspace/WorkspaceMembersPanel.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Workspace/WorkspaceMembersPanel.jsx) | 333 | `WorkspaceMembersPanel` | — |
 | [`frontend/src/components/agentChatKeyboardUtils.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/agentChatKeyboardUtils.js) | 13 | `chatScrollDeltaForComposerKey` | — |
 | [`frontend/src/components/agentChatMentionUtils.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/agentChatMentionUtils.js) | 7 | `selectedMentionsInText`, `visibleMentionToken` | — |
-| [`frontend/src/components/agentChatMessageUtils.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/agentChatMessageUtils.js) | 1326 | `boundedCitations`, `boundedExplanation`, `boundedFreshness`, `boundedJob`, `boundedPrivacy`, `boundedProcessingMs`, `boundedTransparencyMetadata`, `boundedTurnMetrics`, `boundedTurnPlan`, `boundedVerification`, `conversationRewindPlan`, `effectiveMessageTimingMs`, `getTurnId`, `isRetryableErrorCode`, `mergeCanonicalMessageMetadata`, `processingSeconds` | — |
+| [`frontend/src/components/agentChatMessageUtils.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/agentChatMessageUtils.js) | 912 | `boundedCitations`, `boundedExplanation`, `boundedFreshness`, `boundedJob`, `boundedPrivacy`, `boundedProcessingMs`, `boundedTransparencyMetadata`, `boundedTurnMetrics`, `boundedTurnPlan`, `boundedVerification`, `conversationRewindPlan`, `effectiveMessageTimingMs`, `getTurnId`, `isRetryableErrorCode`, `mergeCanonicalMessageMetadata`, `processingSeconds` | — |
 | [`frontend/src/components/agentConfirmationUtils.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/agentConfirmationUtils.js) | 59 | `CONFIRMATION_REFRESH_MS`, `agentChatStorageScope`, `confirmationForStorage`, `mergeConfirmationRecords`, `startConfirmationRefresh` | — |
 | [`frontend/src/components/agentRuntimeStatus.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/agentRuntimeStatus.js) | 25 | `deriveAgentRuntimeStatus` | — |
 | [`frontend/src/components/social/AddStreamModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/social/AddStreamModal.jsx) | 196 | `AddStreamModal` | — |
