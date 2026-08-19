@@ -27,7 +27,7 @@ jobs:
             hosted_runner: macos-15
             local_runner: [self-hosted, macOS, ARM64]
           - arch: x64
-            hosted_runner: macos-13
+            hosted_runner: macos-15
             local_runner: [self-hosted, macOS, X64]
     runs-on: ${{ (github.event_name == 'workflow_dispatch' && inputs.local_only) && matrix.local_runner || matrix.hosted_runner }}
     steps:
