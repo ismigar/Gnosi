@@ -21,9 +21,7 @@ import {
     normalizeRelationValues,
     unlinkRelationFromRecord,
 } from './relationItemUtils';
-import { AutoriaDisplay } from './AutoriaField';
 import { GalleryContentPreview, GalleryOpenButton } from './GalleryCardPreview';
-import { AutoriaDisplay } from './AutoriaField';
 
 export function VaultGallery({ notes, onNoteSelect, onOpenParallel, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onEditSchema, onCreateRecord, onDeleteSelected, onDeletePage, onApplyTemplate, templates = [], onUpdateNote, searchTerm: externalSearchTerm, registerNavApi, onExitTop, onExitBottom, onFocusShell }) {
     const { t } = useTranslation();

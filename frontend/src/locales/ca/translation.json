@@ -5333,6 +5333,13 @@
     "section_improvements": "Millores",
     "section_fixes": "Correccions",
     "entries": {
+      "v1_0_6": {
+        "highlights": {},
+        "improvements": {},
+        "fixes": {
+          "native_local_data_fallback": "S'ha corregit el directori de dades locals i la sincronització de versions de la versió 1.0.6 a tots els manifests d'empaquetat."
+        }
+      },
       "v1_0_5": { "highlights": {}, "improvements": {}, "fixes": { "macos_intel_cryptography": "Les compilacions de macOS per a Intel inclouen ara la roda de criptografia compatible amb aquesta arquitectura.", "pinned_backend_runtime": "Les aplicacions empaquetades fixen el runtime de Python del backend perquè s’iniciïn de manera consistent després d’instal·lar-les." } },
       "v1_0_4": {
         "highlights": {},
