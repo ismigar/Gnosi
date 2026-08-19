@@ -13,7 +13,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `agent` | 45 | 17519 |
 | `api` | 36 | 37071 |
 | `application root` | 6 | 638 |
-| `config` | 8 | 851 |
+| `config` | 8 | 854 |
 | `data` | 2 | 295 |
 | `mcp` | 3 | 394 |
 | `models` | 12 | 1217 |
@@ -25,7 +25,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **253 modules** and **100429 source lines**.
+Total: **253 modules** and **100432 source lines**.
 
 ## agent
 
@@ -138,7 +138,7 @@ Total: **253 modules** and **100429 source lines**.
 | [`backend/config/env_config.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/config/env_config.py) | 229 | 0 | 11 | 0 | 8 | No module docstring |
 | [`backend/config/logger_config.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/config/logger_config.py) | 40 | 0 | 2 | 0 | 1 | No module docstring |
 | [`backend/config/mcp_config.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/config/mcp_config.py) | 6 | 0 | 0 | 0 | 0 | No module docstring |
-| [`backend/config/paths_config.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/config/paths_config.py) | 191 | 0 | 1 | 0 | 1 | No module docstring |
+| [`backend/config/paths_config.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/config/paths_config.py) | 194 | 0 | 1 | 0 | 1 | No module docstring |
 | [`backend/config/schema_keys.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/config/schema_keys.py) | 109 | 0 | 2 | 0 | 2 | Candidate keys and aliases for data extraction from JSON and local Markdown. |
 | [`backend/config/text_normalization.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/config/text_normalization.py) | 75 | 0 | 3 | 0 | 1 | No module docstring |
 
