@@ -281,10 +281,15 @@ jobs:
         env:
           GNOSI_PLUGIN_SIGNING_KEY: ${{ secrets.GNOSI_PLUGIN_SIGNING_KEY }}
         run: |
-          python monorepo/apps/gnosi/marketplace/build_vault_templates.py \
-            --base-url https://github.com/ismigar/Gnosi/releases/latest/download \
-            --out artifacts/vault-templates
-          ls -la artifacts/vault-templates/
+          if [ -n "$GNOSI_PLUGIN_SIGNING_KEY" ]; then
+            python monorepo/apps/gnosi/marketplace/build_vault_templates.py \
+              --base-url https://github.com/ismigar/Gnosi/releases/latest/download \
+              --out artifacts/vault-templates
+            ls -la artifacts/vault-templates/
+          else
+            echo "Skipping vault templates signing (GNOSI_PLUGIN_SIGNING_KEY not set)"
+            mkdir -p artifacts/vault-templates
+          fi
 
       - name: Render public release notes
         run: |
