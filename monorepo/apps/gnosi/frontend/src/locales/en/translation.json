@@ -5282,6 +5282,13 @@
     "section_improvements": "Improvements",
     "section_fixes": "Fixes",
     "entries": {
+      "v1_0_7": {
+        "highlights": {},
+        "improvements": {},
+        "fixes": {
+          "gallery_autoria_display": "Fixed Gallery database view rendering when displaying authorship properties."
+        }
+      },
       "v1_0_6": {
         "highlights": {},
         "improvements": {},

@@ -1,5 +1,13 @@
 # Gnosi changelog
 
+## Gnosi 1.0.7
+
+_2026-08-19 · Stable_
+
+### Fixes
+
+- Fixed Gallery database view rendering when displaying authorship properties.
+
 ## Gnosi 1.0.6
 
 _2026-08-19 · Stable_

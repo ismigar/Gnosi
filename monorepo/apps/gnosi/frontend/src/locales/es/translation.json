@@ -5333,6 +5333,13 @@
     "section_improvements": "Mejoras",
     "section_fixes": "Correcciones",
     "entries": {
+      "v1_0_7": {
+        "highlights": {},
+        "improvements": {},
+        "fixes": {
+          "gallery_autoria_display": "Se ha corregido el renderizado de la vista de Galería en las bases de datos al mostrar campos de autoría."
+        }
+      },
       "v1_0_6": {
         "highlights": {},
         "improvements": {},

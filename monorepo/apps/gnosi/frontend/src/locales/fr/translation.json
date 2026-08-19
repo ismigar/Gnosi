@@ -5333,6 +5333,13 @@
     "section_improvements": "Améliorations",
     "section_fixes": "Corrections",
     "entries": {
+      "v1_0_7": {
+        "highlights": {},
+        "improvements": {},
+        "fixes": {
+          "gallery_autoria_display": "Correction du rendu de la vue Galerie dans les bases de données lors de l'affichage des propriétés d'auteur."
+        }
+      },
       "v1_0_6": {
         "highlights": {},
         "improvements": {},
