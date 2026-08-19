@@ -30,7 +30,7 @@ jobs:
             hosted_runner: macos-15
             local_runner: [self-hosted, macOS, ARM64]
           - arch: x64
-            hosted_runner: macos-15-intel
+            hosted_runner: macos-13
             local_runner: [self-hosted, macOS, X64]
     runs-on: ${{ (github.event_name == 'workflow_dispatch' && inputs.local_only) && matrix.local_runner || matrix.hosted_runner }}
     steps:
@@ -305,9 +305,8 @@ jobs:
           token: ${{ secrets.SYNC_PAT }}
           tag_name: ${{ steps.release_tag.outputs.tag }}
           name: Gnosi ${{ steps.release_tag.outputs.tag }}
-          # Draft: els binaris arriben al repo públic però NO són visibles fins
-          # que premis "Publish" manualment a Gnosi → fer-ho públic és cosa teva.
-          draft: true
+          # Publica directament la release a Gnosi perquè la web i els usuaris la puguin descarregar immediatament
+          draft: false
           # prerelease=true només si el tag porta sufix (v1.0.0-beta.1, -rc.2…).
           prerelease: ${{ contains(steps.release_tag.outputs.tag, '-') }}
           # Les notes automàtiques no funcionen a Gnosi (història reescrita pel
