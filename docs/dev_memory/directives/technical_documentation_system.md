@@ -225,6 +225,9 @@ Catalan and Spanish portals match the English source tree.
   entry point so local validation and CI cannot silently diverge.
 - A missing doc-tool dependency is a failed documentation build, not permission
   to skip verification.
+- Do not assert a fixed checkout-directory name in documentation-tool tests.
+  Local workspaces and CI runners use different directory names; compare the
+  resolved path with the tool's repository-root constant instead.
 
 ## Verification
 

@@ -32,12 +32,12 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `application root` | 3 | 281 | 0 |
-| `components` | 201 | 80562 | 200 |
+| `components` | 202 | 80623 | 200 |
 | `context` | 1 | 177 | 6 |
 | `hooks` | 16 | 1239 | 7 |
 | `lib` | 20 | 2091 | 6 |
 | `locales` | 3 | 565 | 0 |
-| `pages` | 16 | 12313 | 52 |
+| `pages` | 16 | 12342 | 52 |
 | `plugins` | 4 | 513 | 5 |
 | `utils` | 14 | 1792 | 0 |
 
@@ -124,7 +124,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Vault/CoverPicker.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/CoverPicker.jsx) | 315 | `CoverPicker` | `/api/vault/upload-cover` |
 | [`frontend/src/components/Vault/CslStylePicker.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/CslStylePicker.jsx) | 166 | `CslStylePicker` | `/api/vault/csl/styles` |
 | [`frontend/src/components/Vault/DateMentionInline.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/DateMentionInline.jsx) | 115 | `DateMentionInline`, `function` | — |
-| [`frontend/src/components/Vault/DbViewEmbed.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/DbViewEmbed.jsx) | 2059 | `DbViewEmbed` | `/api/vault/bulk-apply-template`, `/api/vault/pages`, `/api/vault/views` |
+| [`frontend/src/components/Vault/DbViewEmbed.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/DbViewEmbed.jsx) | 2076 | `DbViewEmbed` | `/api/vault/bulk-apply-template`, `/api/vault/pages`, `/api/vault/views` |
 | [`frontend/src/components/Vault/DigitalBrainCalendar.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/DigitalBrainCalendar.jsx) | 1086 | `DigitalBrainCalendar` | — |
 | [`frontend/src/components/Vault/EmbedRenderer.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/EmbedRenderer.jsx) | 292 | `EmbedRenderer` | `/api/vault/assets/` |
 | [`frontend/src/components/Vault/FileAttachmentField.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/FileAttachmentField.jsx) | 149 | `FileAttachmentField` | — |
@@ -222,6 +222,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Vault/recursosZoteroMapping.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/recursosZoteroMapping.js) | 59 | `RECURSOS_TO_ZOTERO_FIELDS`, `ZOTERO_FIELD_TO_RECURSOS`, `isFieldRelevantForType` | — |
 | [`frontend/src/components/Vault/relationItemUtils.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/relationItemUtils.js) | 65 | `RELATION_UNLINKED_EVENT`, `RELATION_VALUE_APPLIED_EVENT`, `announceRelationUnlinked`, `normalizeRelationValues`, `unlinkRelationFromRecord`, `withoutRelationValue` | — |
 | [`frontend/src/components/Vault/resourceLinkUtils.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/resourceLinkUtils.js) | 12 | `hasResourceReference` | — |
+| [`frontend/src/components/Vault/resourceTemplateSelection.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/resourceTemplateSelection.js) | 44 | `resolveResourceDocumentType`, `selectResourceTemplate` | — |
 | [`frontend/src/components/Vault/rollupUtils.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/rollupUtils.js) | 59 | `evaluateRollup` | — |
 | [`frontend/src/components/Vault/schemaUtils.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/schemaUtils.js) | 508 | `INTERNAL_METADATA_KEYS`, `buildSchemaFromTableProperties`, `buildTablePropertiesFromSchema`, `detectRecordSourceLang`, `discoverFieldNamesFromRecords`, `getFieldConfig`, `getFieldId`, `getFieldNameById`, `getFieldType`, `getLanguageFieldName`, `getMetaValue`, `getSchemaFieldEntries`, `getSchemaFieldNames`, `isAppContent`, `isCalendarPage`, `normalizeLangCode`, `normalizeSorts`, `resolveFieldRef`, `resolveSystemDateValue`, `resolveViewFilters`, `resolveViewSorts`, `setMetaValue`, `withResolvedSystemDates` | — |
 | [`frontend/src/components/Vault/slashMenuUtils.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/slashMenuUtils.js) | 124 | `buildColumnLayoutCatalog`, `buildSlashCommandCatalog`, `buildTurnIntoCatalog` | — |
@@ -334,7 +335,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/pages/SchedulerPage.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/SchedulerPage.jsx) | 205 | `SchedulerPage` | `/api/schedulers` |
 | [`frontend/src/pages/SharedPage.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/SharedPage.jsx) | 77 | `SharedPage`, `function` | — |
 | [`frontend/src/pages/SocialDashboard.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/SocialDashboard.jsx) | 206 | `SocialDashboard` | `/api/social/streams` |
-| [`frontend/src/pages/VaultDashboard.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/VaultDashboard.jsx) | 4593 | `VaultDashboard`, `function` | `/api/vault/alias-index`, `/api/vault/brain-table`, `/api/vault/bulk-apply-template`, `/api/vault/daily`, `/api/vault/databases`, `/api/vault/global-index`, `/api/vault/llm-wiki/config`, `/api/vault/pages`, `/api/vault/reference-table`, `/api/vault/registry`, `/api/vault/resolve-by-title`, `/api/vault/tables`, `/api/vault/views`, `/api/vault/views/order` |
+| [`frontend/src/pages/VaultDashboard.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/VaultDashboard.jsx) | 4622 | `VaultDashboard`, `function` | `/api/vault/alias-index`, `/api/vault/brain-table`, `/api/vault/bulk-apply-template`, `/api/vault/daily`, `/api/vault/databases`, `/api/vault/global-index`, `/api/vault/llm-wiki/config`, `/api/vault/pages`, `/api/vault/reference-table`, `/api/vault/registry`, `/api/vault/resolve-by-title`, `/api/vault/tables`, `/api/vault/views`, `/api/vault/views/order` |
 
 ## plugins
 

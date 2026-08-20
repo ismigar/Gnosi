@@ -11,7 +11,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
 | Playwright | 13 | 37 |
-| Vitest | 74 | 286 |
+| Vitest | 75 | 289 |
 | pytest | 192 | 1617 |
 
 ## Files
@@ -62,6 +62,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/components/Vault/metadataVisibilityUtils.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/metadataVisibilityUtils.test.js) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/propertyNavigationUtils.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/propertyNavigationUtils.test.js) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/resourceLinkUtils.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/resourceLinkUtils.test.js) | 0 | call-pattern estimate |
+| Vitest | [`frontend/src/components/Vault/resourceTemplateSelection.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/resourceTemplateSelection.test.js) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/schemaUtils.systemDates.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/schemaUtils.systemDates.test.js) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/slashMenuUtils.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/slashMenuUtils.test.js) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/tableFunctionalityUtils.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/tableFunctionalityUtils.test.js) | 2 | call-pattern estimate |
