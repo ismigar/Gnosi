@@ -12,6 +12,7 @@ source_paths:
   - backend/services/agent_cancellation.py
   - backend/services/provider_health.py
   - backend/services/agent_capability_health.py
+  - backend/services/agent_stream_protocol.py
   - backend/agent/provider_resilience.py
   - backend/agent/recovery.py
   - backend/agent/conversation_memory.py
@@ -273,8 +274,18 @@ node. Cached workflows do not capture request-specific events, and tokens are
 released after the stream completes. Provider failures use a bounded
 process-local circuit breaker keyed by provider/model, while authentication and
 policy errors remain terminal. Tool descriptors additionally expose a cheap
-health status (healthy or unavailable) so missing ids, names, or handlers cannot
-be advertised as runnable capabilities.
+ health status (healthy, unavailable, or temporarily quarantined) so missing ids,
+ names, handlers, and repeatedly failing adapters cannot be advertised as runnable
+ capabilities. Two failures inside the bounded health window quarantine a tool
+ briefly; a successful later call clears the consecutive-failure record.
+
+The newline-delimited transport is wrapped in protocol version 1. Each event carries an
+opaque stream id, event id, monotonic sequence, trace id, and optional turn id. A pending
+provider operation remains alive while a heartbeat is emitted, so a slow but healthy
+provider is not cancelled by transport keep-alive. The client ignores duplicate sequence
+numbers, and an unexpected end becomes `stream_incomplete` with one deliberate retry
+action. Resume is not advertised until replay can be proven not to repeat a governed
+action.
 
 Long prompts retain the complete checkpoint as an audit record but add a bounded
 deterministic digest of dropped human/assistant turns to the provider projection.

@@ -93,6 +93,7 @@ def evaluate_case(case: dict[str, Any]) -> dict[str, Any]:
             "allowed_tool_names": plan.get("allowed_tool_names"),
             "privacy": plan.get("privacy"),
             "budgets": plan.get("budgets") or {},
+            "optimization": plan.get("optimization") or {},
             "interpretation": {
                 "operation": (plan.get("interpretation") or {}).get("operation"),
                 "confidence": (plan.get("interpretation") or {}).get("confidence"),

@@ -1413,6 +1413,7 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
             let terminalReceived = false;
             let responseReceived = false;
             let streamDone = false;
+            let lastStreamSequence = 0;
 
             while (!streamDone) {
                 const { done, value } = await reader.read();
@@ -1434,6 +1435,18 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                     try {
                         const data = JSON.parse(line);
 
+                        // The server envelope makes reconnects and proxy retries
+                        // safe at the presentation layer. Never apply a duplicate
+                        // event, while remaining compatible with legacy payloads.
+                        if (Number.isInteger(data.sequence)) {
+                            if (data.sequence <= lastStreamSequence) continue;
+                            lastStreamSequence = data.sequence;
+                        }
+
+                        if (data.type === 'stream_open' || data.type === 'heartbeat') {
+                            continue;
+                        }
+
                         if (data.type === 'llm_selected') {
                             selectedLlm = {
                                 mode: data.mode || 'agent_default',
@@ -1447,6 +1460,10 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                             continue;
                         }
                         if (data.type === 'phase') {
+                            setProcessingPhase(String(data.phase || 'routing'));
+                            continue;
+                        }
+                        if (data.type === 'progress') {
                             setProcessingPhase(String(data.phase || 'routing'));
                             continue;
                         }
