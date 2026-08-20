@@ -25,9 +25,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Expose system tools on the service runner
-        run: echo "/usr/bin" >> "$GITHUB_PATH"
-
       - uses: actions/setup-python@v7
         with:
           python-version: "3.11"

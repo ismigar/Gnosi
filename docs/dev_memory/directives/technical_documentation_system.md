@@ -228,9 +228,9 @@ Catalan and Spanish portals match the English source tree.
 - Do not assert a fixed checkout-directory name in documentation-tool tests.
   Local workspaces and CI runners use different directory names; compare the
   resolved path with the tool's repository-root constant instead.
-- Do not assume that a self-hosted runner service inherits `/usr/bin` in its
-  `PATH`. Publish the system-tool directory through `GITHUB_PATH` before the
-  documentation scripts invoke Git subprocesses.
+- Do not assume that a self-hosted runner service exposes Git through `PATH`.
+  Resolve Git from `PATH` first, then from verified standard system locations;
+  workflow path updates can be discarded by the runner's tool setup.
 
 ## Verification
 
