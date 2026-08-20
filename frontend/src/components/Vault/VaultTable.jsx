@@ -10,7 +10,7 @@ import {
     useSortable, arrayMove, sortableKeyboardCoordinates
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { FileText, Tag, Clock, Hash, CheckSquare, Calendar, Link as LinkIcon, Type, ArrowUp, ArrowDown, Settings, Settings2, Plus, ChevronDown, ChevronRight, ExternalLink, Search, X, Trash2, Filter, List, LayoutPanelLeft, Unlock, Columns2, Languages, Zap, Globe, Send, AlertTriangle, BrainCircuit, Loader2, Sparkles } from 'lucide-react';
+import { FileText, Tag, Clock, Hash, CheckSquare, Calendar, Link as LinkIcon, Type, ArrowUp, ArrowDown, Settings, Settings2, Plus, ChevronDown, ChevronRight, ExternalLink, Search, X, Trash2, Filter, List, LayoutPanelLeft, Unlock, Columns2, Languages, Zap, Globe, Send, AlertTriangle, BrainCircuit, Loader2, Sparkles, NotebookTabs } from 'lucide-react';
 import { IconRenderer } from './IconRenderer';
 import { VaultDateProperty, parsePeriod, periodDaysInclusive } from './VaultDateProperty';
 import { withPeriodBoundaries } from '../../utils/projectPlanning';
@@ -460,7 +460,7 @@ const InfiniteLoadSentinel = React.memo(function InfiniteLoadSentinel({ visibleC
 let _gridKeyboardOwner = null;
 let _gridInstanceSeq = 0;
 
-export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView, onUpdateView, isEmbedded = false, isListView = false, onCreateRecord, onDeletePage, onDeleteSelected, onApplyTemplate, templates = [], onCellSaved, onUpdateFieldOptions, onOpenParallel, onTranslated, searchTerm: searchTermProp, actionRules = null, functionalities = null, maxHeight = null, registerNavApi = null, onExitTop = null, onExitBottom = null, onEscape = null, restoreRecordFocus = null, onRecordFocusRestored = null }) {
+export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView, onUpdateView, isEmbedded = false, isListView = false, onCreateRecord, onDeletePage, onDeleteSelected, onApplyTemplate, onCreateNotebook, templates = [], onCellSaved, onUpdateFieldOptions, onOpenParallel, onTranslated, searchTerm: searchTermProp, actionRules = null, functionalities = null, maxHeight = null, registerNavApi = null, onExitTop = null, onExitBottom = null, onEscape = null, restoreRecordFocus = null, onRecordFocusRestored = null }) {
     const { isEnabled: isPluginEnabled, getPluginSettings } = usePlugins();
     const projectPlanningEnabled = isPluginEnabled('project-planning');
     const projectPlanningSettings = getPluginSettings('project-planning');
@@ -4064,6 +4064,17 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                         onDeleteSelected={(onDeleteSelected || onDeletePage) ? handleBulkDelete : null}
                         templates={templates}
                         onApplyTemplate={onApplyTemplate ? handleApplyTemplate : null}
+                        extraActions={onCreateNotebook ? (
+                            <button
+                                type="button"
+                                onClick={() => onCreateNotebook(new Set(selectedIds))}
+                                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
+                                title={t('notebooks.create_from_selection', 'Create notebook from selection')}
+                            >
+                                <NotebookTabs size={13} />
+                                {t('notebooks.create_action', 'Create notebook')}
+                            </button>
+                        ) : null}
                     />
                 )}
 

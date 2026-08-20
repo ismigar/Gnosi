@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { VaultShell } from '../components/Vault/VaultShell';
 import { VaultSidebar } from '../components/Vault/VaultSidebar';
 import { VaultViewBody } from '../components/Vault/VaultViewBody';
+import { canCreateNotebookFromTable } from '../lib/notebookTableActions';
 import { BlockEditor } from '../components/Vault/BlockEditor';
 import { inFlightSaves } from '../components/Vault/editorState';
 import { SchemaConfigModal } from '../components/Vault/SchemaConfigModal';
@@ -628,6 +629,13 @@ export default function VaultDashboard() {
     // all reference gating (import/export, Citation Key, "Create from a
     // source"). If the user changes it in Settings, all functionality follows it.
     const [refTableId, setRefTableId] = useState(null);
+    const createNotebookFromSelection = useCallback((selectedIds) => {
+        const resourceIds = [...(selectedIds || [])].map(String);
+        if (!resourceIds.length) return;
+        window.dispatchEvent(new CustomEvent('gnosi:create-notebook', {
+            detail: { resourceIds },
+        }));
+    }, []);
     const refreshReferenceTable = useCallback(async () => {
         try {
             const { data } = await axios.get('/api/vault/reference-table');
@@ -3705,6 +3713,7 @@ export default function VaultDashboard() {
                                     onDeletePage={handleDeletePage}
                                     onDeleteSelected={handleDeleteSelected}
                                     onApplyTemplate={(ids, templateId) => handleApplyTemplate(ids, templateId, tableId)}
+                                    onCreateNotebook={canCreateNotebookFromTable(refTableId, tableId) ? createNotebookFromSelection : undefined}
                                     onEditSchema={onEditSchema}
                                     onOpenParallel={handleOpenParallel}
                                     onUpdateFieldOptions={handleAddSchemaOption}
@@ -4214,6 +4223,7 @@ export default function VaultDashboard() {
                                             onDeletePage={handleDeletePage}
                                             onDeleteSelected={handleDeleteSelected}
                                             onApplyTemplate={(ids, templateId) => handleApplyTemplate(ids, templateId, activeTableId)}
+                                            onCreateNotebook={canCreateNotebookFromTable(refTableId, activeTableId) ? createNotebookFromSelection : undefined}
                                             onEditSchema={onEditSchema}
                                             onOpenParallel={handleOpenParallel}
                                             onUpdateFieldOptions={handleAddSchemaOption}

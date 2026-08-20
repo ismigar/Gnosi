@@ -46,6 +46,7 @@ export function VaultViewBody({
     onDeletePage,
     onDeleteSelected,
     onApplyTemplate,
+    onCreateNotebook,
     onCellSaved,
     onTranslated,
     onUpdateFieldOptions,
@@ -134,6 +135,7 @@ export function VaultViewBody({
                 onDeletePage={onDeletePage}
                 onDeleteSelected={onDeleteSelected}
                 onApplyTemplate={onApplyTemplate}
+                onCreateNotebook={onCreateNotebook}
                 templates={templates}
                 onUpdateNote={onUpdateNote}
                 onCreateRecord={onCreateRecord}
