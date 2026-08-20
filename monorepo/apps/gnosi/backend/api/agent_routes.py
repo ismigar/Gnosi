@@ -70,6 +70,7 @@ from backend.services.capability_audit import (
     record_capability_event,
 )
 from backend.services.agent_quality_telemetry import record_quality_signal
+from backend.services.agent_stream_protocol import protocolize_stream
 from backend.services.turn_idempotency import claim as claim_turn, finish as finish_turn
 from backend.services.agent_replay import read_replay, record_event as record_replay_event
 from backend.agent.semantic_interpreter import clarification_message
@@ -1779,6 +1780,7 @@ async def chat_endpoint(
         # before provider selection. This cleanup therefore also covers model
         # configuration and workflow-construction failures.
         user_content = chat_req.message
+        untrusted_context_flags: list[str] = []
         if chat_req.attachments:
             attachment_scope = _attachment_scope_key(
                 vault_scope,
@@ -1797,6 +1799,7 @@ async def chat_endpoint(
                     attachment_text,
                     max_chars=24_000,
                 )
+                untrusted_context_flags.extend(_flags[:8])
                 user_content += "\n\nVerified attachment context:\n" + safe_attachment
         if chat_req.mentions:
             mention_lines = []
@@ -2041,7 +2044,7 @@ async def chat_endpoint(
                             "mode", "domains", "route", "execution",
                             "output_strategy", "required_tool",
                             "allowed_tool_count", "budgets", "interpretation",
-                            "capability_broker", "memory",
+                            "capability_broker", "memory", "optimization",
                         )
                     },
                     "privacy": turn_plan.get("privacy") or {},
@@ -2143,6 +2146,10 @@ async def chat_endpoint(
                             1
                             for item in (llm_selection.get("tools") or [])
                             if (item.get("health") or {}).get("status") == "healthy"
+                        ),
+                        "untrusted_context_flags": min(
+                            len(untrusted_context_flags),
+                            8,
                         ),
                     }) + "\n"
                 # Spend ledger: every AIMessage in the stream carries
@@ -2487,7 +2494,15 @@ async def chat_endpoint(
                         "event_count": answer_count,
                     },
                 )
-        return StreamingResponse(event_generator(), media_type="application/x-ndjson")
+        return StreamingResponse(
+            protocolize_stream(
+                event_generator(),
+                stream_id=trace_id,
+                trace_id=trace_id,
+                turn_id=chat_req.turn_id or "",
+            ),
+            media_type="application/x-ndjson",
+        )
 
     except HTTPException as e:
         if cancel_token:
@@ -2522,7 +2537,12 @@ async def chat_endpoint(
                     "message_count": 1,
                 }) + "\n"
             return StreamingResponse(
-                unavailable_generator(),
+                protocolize_stream(
+                    unavailable_generator(),
+                    stream_id=trace_id,
+                    trace_id=trace_id,
+                    turn_id=chat_req.turn_id or "",
+                ),
                 media_type="application/x-ndjson",
                 status_code=200,
             )

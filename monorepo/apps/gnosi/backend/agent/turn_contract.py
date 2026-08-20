@@ -226,6 +226,15 @@ def build_turn_plan(
         mode == "inventory" and required_tool_name == "inventory_context"
     )
     budgets = turn_budgets_for_mode(mode)
+    if deterministic_output:
+        # Exact inventories are rendered from the governed result. Avoid
+        # reserving or accidentally spending a model call after that result.
+        budgets["max_model_calls"] = 0
+        budgets["max_tool_calls"] = min(budgets["max_tool_calls"], 2)
+        budgets["max_read_tool_results"] = min(
+            budgets["max_read_tool_results"],
+            budgets["max_tool_calls"],
+        )
 
     allowed_tool_names: list[str] = []
     for item in tools:
@@ -349,6 +358,11 @@ def build_turn_plan(
         "allowed_tool_names": allowed_tool_names,
         "allowed_tool_count": len(allowed_tool_names),
         "budgets": budgets,
+        "optimization": {
+            "deterministic_no_model": deterministic_output,
+            "bounded_tool_calls": int(budgets.get("max_tool_calls", 0)),
+            "prompt_cache": "disabled_for_private_content",
+        },
         "privacy": {
             "classification": privacy_classification,
             "private_source_count": sum(

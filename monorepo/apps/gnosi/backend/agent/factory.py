@@ -74,7 +74,11 @@ from backend.services.agent_cancellation import (
 from backend.services.agent_observability import span as observability_span
 from backend.services.tool_runtime import execute_contract
 from backend.security.secret_redaction import redact_secrets
-from backend.services.agent_capability_health import assess_tool_capability
+from backend.services.agent_capability_health import (
+    assess_tool_capability,
+    record_capability_failure,
+    record_capability_success,
+)
 from backend.services.provider_health import snapshot as provider_health_snapshot
 from backend.agent.provider_resilience import wrap_provider_candidates
 from backend.agent.conversation_memory import compact_history_digest
@@ -2361,11 +2365,27 @@ def _tool_policy_wrapper(tool_policies: Any):
                     trace_id=str(state.get("trace_id") or ""),
                     attributes={"tool": tool_name, "mode": "authorized"},
                 ):
-                    result = execute_contract(
+                    try:
+                        result = execute_contract(
+                            request,
+                            execute,
+                            descriptor=policy.get("_descriptor"),
+                            timeout_seconds=policy.get("timeout_seconds", 120),
+                        )
+                    except Exception as error:
+                        record_capability_failure(
+                            policy.get("_descriptor"),
+                            request,
+                            error_code=type(error).__name__,
+                        )
+                        raise
+                if getattr(result, "status", "success") != "error":
+                    record_capability_success(policy.get("_descriptor"), request)
+                else:
+                    record_capability_failure(
+                        policy.get("_descriptor"),
                         request,
-                        execute,
-                        descriptor=policy.get("_descriptor"),
-                        timeout_seconds=policy.get("timeout_seconds", 120),
+                        error_code="tool_result_error",
                     )
                 audit(
                     "completed" if getattr(result, "status", "success") != "error" else "failed",
@@ -2427,12 +2447,25 @@ def _tool_policy_wrapper(tool_policies: Any):
                     timeout_seconds=policy.get("timeout_seconds", 120),
                 )
         except Exception as error:
+            record_capability_failure(
+                policy.get("_descriptor"),
+                request,
+                error_code=type(error).__name__,
+            )
             audit(
                 "failed",
                 error_code=type(error).__name__,
                 duration_ms=int((time.monotonic() - started) * 1000),
             )
             raise
+        if getattr(result, "status", "success") != "error":
+            record_capability_success(policy.get("_descriptor"), request)
+        else:
+            record_capability_failure(
+                policy.get("_descriptor"),
+                request,
+                error_code="tool_result_error",
+            )
         audit(
             "completed" if getattr(result, "status", "success") != "error" else "failed",
             result_kind=type(result).__name__,
@@ -3085,6 +3118,16 @@ async def create_agent_workflow(
     runtime_tool_metadata, runtime_guarded_names = _runtime_tool_metadata(
         resolved_runtime,
     )
+    quarantined_runtime_names = {
+        str(item.get("name") or "")
+        for item in runtime_tool_metadata
+        if (item.get("health") or {}).get("status") == "quarantined"
+    }
+    if quarantined_runtime_names:
+        runtime_tools = [
+            tool for tool in runtime_tools
+            if _tool_name(tool) not in quarantined_runtime_names
+        ]
 
     # First-party and third-party operations now arrive through the exact
     # assigned-skill runtime. Explicitly scoped profiles never inherit an

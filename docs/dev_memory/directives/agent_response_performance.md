@@ -199,6 +199,13 @@ metadata. The client may prefill the original request for one deliberate retry; 
 server never replays a failed turn automatically because a governed action may already
 have been prepared.
 
+The transport additionally wraps each newline-delimited event in protocol version 1 with
+an opaque stream id, event id, sequence, trace id, and optional turn id. A heartbeat is
+sent while a provider call is quiet without cancelling that call. The client ignores
+duplicate sequence numbers, and an unexpected end emits `stream_incomplete` with one
+explicit retry action. Resume is deliberately not advertised until the server can
+replay from a durable event log without repeating a governed action.
+
 ## Verification
 
 - Historical raw tool payloads are absent from a later provider prompt while current-turn
@@ -302,6 +309,10 @@ have been prepared.
   look richer. Resolve the authorized source when the user opens it.
 - Do not automatically retry an unknown, permanent, cancelled, destructive, or externally
   ambiguous outcome. Retry classification and the persisted attempt/cost budget are mandatory.
+- Do not cancel a provider task merely to emit a heartbeat. Keep the pending async
+  operation alive and only cancel it when the request itself is cancelled or disconnected.
+- Do not accept a stream event larger than the transport bound. Emit a safe protocol error
+  envelope and keep the event ordering contract valid.
 - Do not make a daemon timer the only recovery mechanism. A persisted due retry must reconcile
   through the provider after process restart.
 - Do not collect response text or user prompts as quality telemetry. A maintainer may author a

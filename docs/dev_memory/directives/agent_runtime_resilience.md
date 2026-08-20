@@ -89,6 +89,15 @@ in construction closures.
   Emit a localized clarification when confidence is insufficient or a
   subject is missing, and record the clarification case in the deterministic
   evaluation corpus.
+- Do not expose raw newline-delimited graph events as the transport contract.
+  Wrap every event with the version, opaque stream/trace/turn correlation,
+  monotonic sequence, and bounded event size. Emit heartbeats without
+  cancelling a still-running provider task; a stream that ends without `done`
+  must surface a deliberate, single retry path.
+- Do not keep a repeatedly failing capability in the model-visible tool set.
+  Record only bounded failure metadata, quarantine after the threshold inside
+  the short failure window, expose the capability as unavailable, and clear
+  the quarantine after a later successful health check or cooldown.
 
 ## Verification
 
