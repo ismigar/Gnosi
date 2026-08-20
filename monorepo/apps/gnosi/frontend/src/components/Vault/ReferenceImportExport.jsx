@@ -115,7 +115,7 @@ export function ReferenceImportExport({ tableId, onImported }) {
                 onClick={() => fileRef.current?.click()}
                 disabled={busy}
                 className={btnCls}
-                title={t('references_io.import_title', { defaultValue: "Import references (.bib / .ris)" })}
+                aria-label={t('references_io.import_title', { defaultValue: "Import references (.bib / .ris)" })}
             >
                 {busy ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
                 {t('references_io.import', { defaultValue: "Import" })}
@@ -126,7 +126,7 @@ export function ReferenceImportExport({ tableId, onImported }) {
                     onClick={() => setMenuOpen((o) => !o)}
                     disabled={busy}
                     className={btnCls}
-                    title={t('references_io.export_title', { defaultValue: "Export references" })}
+                    aria-label={t('references_io.export_title', { defaultValue: "Export references" })}
                 >
                     <Download size={13} />
                     {t('references_io.export', { defaultValue: "Export" })}
