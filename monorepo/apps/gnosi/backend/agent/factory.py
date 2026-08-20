@@ -1055,6 +1055,9 @@ def build_agent_turn_plan(
         ref.get("type") == "internal" and ref.get("ref") == "reader"
         for ref in refs
     )
+    has_notebook_context = any(
+        ref.get("type") == "notebook" for ref in refs
+    )
     has_vault_context = any(
         ref.get("type") in {"page", "table", "database", "vault"}
         for ref in refs
@@ -1063,7 +1066,9 @@ def build_agent_turn_plan(
         ref.get("type") in {"file", "url", "source"}
         for ref in refs
     )
-    if not required and mode in {"lookup", "inventory", "analysis"}:
+    if not required and has_notebook_context and mode != "action":
+        required = "search_notebook_context"
+    elif not required and mode in {"lookup", "inventory", "analysis"}:
         if has_reader_context and (
             _reader_context_requested(message) or not has_vault_context
         ):
@@ -3173,6 +3178,9 @@ async def create_agent_workflow(
     # Tools scoped to the sources the user attached to THIS agent. They close over
     # its refs, so an agent can never read another agent's context.
     context_tools = build_context_tools(context_refs)
+    notebook_context_only = any(
+        ref.get("type") == "notebook" for ref in context_refs
+    )
     context_descriptors = build_context_tool_descriptors(
         context_refs,
         context_tools,
@@ -3208,12 +3216,16 @@ async def create_agent_workflow(
     )
     brain_tools = (
         context_tools
-        + runtime_tools
-        + legacy_vault_tools
-        + memory_tools
-        + (mcp_langchain_tools if legacy_bundle_active else [])
-        if supports_tools
-        else []
+        if supports_tools and notebook_context_only
+        else (
+            context_tools
+            + runtime_tools
+            + legacy_vault_tools
+            + memory_tools
+            + (mcp_langchain_tools if legacy_bundle_active else [])
+            if supports_tools
+            else []
+        )
     )
     brain_tools = _deduplicate_tools(brain_tools)
     brain_tools = brain_tools[:MAX_BOUND_TOOLS]
@@ -3362,6 +3374,9 @@ async def create_agent_workflow(
             ref.get("type") == "internal" and ref.get("ref") == "reader"
             for ref in context_refs
         )
+        has_notebook_context = any(
+            ref.get("type") == "notebook" for ref in context_refs
+        )
         has_vault_context = any(
             ref.get("type") in {"page", "table", "database", "vault"}
             for ref in context_refs
@@ -3370,7 +3385,9 @@ async def create_agent_workflow(
             ref.get("type") in {"file", "url", "source"}
             for ref in context_refs
         )
-        if context_tools and (
+        if has_notebook_context and request_mode != "action":
+            required_context_tool = "search_notebook_context"
+        elif context_tools and (
             inventory_continuation_arguments
             or request_mode in {"lookup", "inventory", "analysis"}
         ):
@@ -3426,7 +3443,11 @@ async def create_agent_workflow(
             for tool in turn_brain_tools
             if _tool_name(tool) in planned_tool_names
         ]
-        if request_mode == "conversation" and not current_authorized_names:
+        if (
+            request_mode == "conversation"
+            and not current_authorized_names
+            and not has_notebook_context
+        ):
             turn_brain_tools = []
         elif (
             has_vault_context
@@ -3725,6 +3746,8 @@ async def create_agent_workflow(
                 "inventory_context", "query_context_table", "read_context_source",
                 "inspect_reader_context", "start_reader_context_analysis",
                 "reader_context_analysis_status", "read_reader_context_analysis",
+                "read_notebook_context_evidence",
+                "read_notebook_context_analysis",
             }
             and not current_authorized_names
         ):

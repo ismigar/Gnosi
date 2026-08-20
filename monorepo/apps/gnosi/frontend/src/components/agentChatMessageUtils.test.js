@@ -8,9 +8,21 @@ import {
     boundedTurnMetrics,
     conversationRewindPlan,
     mergeCanonicalMessageMetadata,
+    mergeNotebookConversation,
     processingSeconds,
     isRetryableErrorCode,
 } from './agentChatMessageUtils';
+
+describe('notebook canonical transcript merge', () => {
+    it('keeps a local failed turn while the canonical checkpoint is still empty', () => {
+        const local = [{ role: 'assistant', content: 'Provider unavailable', retryable: true }];
+        expect(mergeNotebookConversation([], local)).toBe(local);
+        expect(mergeNotebookConversation(
+            [{ role: 'user', content: 'Question' }],
+            local,
+        )).toEqual([{ role: 'user', content: 'Question' }]);
+    });
+});
 
 describe('assistant message presentation metadata', () => {
     it('formats bounded elapsed time in one decimal second precision', () => {

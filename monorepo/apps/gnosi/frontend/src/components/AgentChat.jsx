@@ -22,6 +22,7 @@ import {
     conversationRewindPlan,
     getTurnId,
     mergeCanonicalMessageMetadata,
+    mergeNotebookConversation,
     isRetryableErrorCode,
     processingSeconds,
 } from './agentChatMessageUtils';
@@ -135,10 +136,18 @@ const deleteSessionCheckpoint = async (session) => {
     return true;
 };
 
-const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
+const AgentChat = ({
+    storageIdentity = '',
+    contextRefs = [],
+    embedded = false,
+    forcedSessionId = '',
+    forcedAgentId = '',
+    notebookId = '',
+    conversationMode = 'private_member',
+}) => {
     const { t, i18n } = useTranslation();
     const defaultSessionTitle = t('chat.default_session_title', 'New conversation');
-    const [isOpen, setIsOpen] = useState(false);
+    const [isOpen, setIsOpen] = useState(embedded);
     const [messages, setMessages] = useState([]);
     const [inputValue, setInputValue] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -166,7 +175,7 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
     const [pendingRewindIndex, setPendingRewindIndex] = useState(null);
     const [isRewinding, setIsRewinding] = useState(false);
     const [isDockOpen, setIsDockOpen] = useFloatingActionDock();
-    useExclusiveFloatingPanel('chat', isOpen, setIsOpen);
+    useExclusiveFloatingPanel('chat', !embedded && isOpen, setIsOpen);
 
     // Ref to scroll to the bottom
     const messagesEndRef = useRef(null);
@@ -197,6 +206,13 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
         sessionsHydrated
         && hydratedStorageScope === browserStorageScope
     );
+
+    useEffect(() => {
+        if (embedded) {
+            setIsOpen(true);
+            setIsMinimized(false);
+        }
+    }, [embedded]);
     const queueCheckpointDeletion = useCallback((session) => {
         if (!session?.agentId || !session?.id) return;
         const key = scopedStorageKey(CHAT_PENDING_CHECKPOINT_DELETES_KEY);
@@ -219,7 +235,7 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
         setPendingConfirmation(null);
         setSessionsHydrated(false);
         setHydratedStorageScope('');
-        const savedAgentId = localStorage.getItem(scopedStorageKey(CHAT_SELECTED_AGENT_KEY)) || 'gnosy';
+        const savedAgentId = forcedAgentId || localStorage.getItem(scopedStorageKey(CHAT_SELECTED_AGENT_KEY)) || 'gnosy';
         const sid = localStorage.getItem(scopedStorageKey('agent_session_id_v2'));
         const savedSessionsRaw = localStorage.getItem(scopedStorageKey(CHAT_SESSIONS_KEY));
         const savedActiveSession = localStorage.getItem(scopedStorageKey(CHAT_ACTIVE_SESSION_KEY));
@@ -231,7 +247,17 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
             parsedSessions = [];
         }
 
-        if (!Array.isArray(parsedSessions) || !parsedSessions.length) {
+        if (embedded && forcedSessionId) {
+            parsedSessions = [{
+                id: forcedSessionId,
+                title: defaultSessionTitle,
+                archived: false,
+                agentId: savedAgentId,
+                messages: [],
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+            }];
+        } else if (!Array.isArray(parsedSessions) || !parsedSessions.length) {
             parsedSessions = [createChatSession(defaultSessionTitle, savedAgentId)];
         }
         const retainedSessions = boundedChatSessions(parsedSessions);
@@ -286,7 +312,7 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
 
         setHydratedStorageScope(browserStorageScope);
         setSessionsHydrated(true);
-    }, [browserStorageScope, defaultSessionTitle, queueCheckpointDeletion, scopedStorageKey]);
+    }, [browserStorageScope, defaultSessionTitle, embedded, forcedAgentId, forcedSessionId, queueCheckpointDeletion, scopedStorageKey]);
 
     useEffect(() => {
         if (!scopeReady) return;
@@ -342,11 +368,46 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
     }, [scopeReady, scopedStorageKey, sessionId]);
 
     useEffect(() => {
+        if (!embedded || !notebookId || !scopeReady || !forcedSessionId) return;
+        let cancelled = false;
+        const hydrationId = historyHydrationRef.current + 1;
+        historyHydrationRef.current = hydrationId;
+        setSessionId(forcedSessionId);
+        if (forcedAgentId) setSelectedAgentId(forcedAgentId);
+        const hydrateConversation = () => {
+            if (document.visibilityState !== 'visible' || isLoading) return;
+            void fetch(`/api/notebooks/${encodeURIComponent(notebookId)}/conversation`)
+                .then((response) => response.ok ? response.json() : Promise.reject(new Error(`Conversation load failed (${response.status})`)))
+                .then((canonical) => {
+                    if (cancelled || historyHydrationRef.current !== hydrationId) return;
+                    const canonicalMessages = Array.isArray(canonical.messages) ? canonical.messages : [];
+                    setMessages((previous) => mergeNotebookConversation(canonicalMessages, previous));
+                    setChatSessions((previous) => previous.map((session) => (
+                        session.id === forcedSessionId
+                            ? {
+                                ...session,
+                                agentId: forcedAgentId || session.agentId,
+                                messages: mergeNotebookConversation(canonicalMessages, session.messages),
+                            }
+                            : session
+                    )));
+                })
+                .catch((error) => console.warn('Could not load notebook conversation', error));
+        };
+        hydrateConversation();
+        const timer = window.setInterval(hydrateConversation, 4000);
+        return () => {
+            cancelled = true;
+            window.clearInterval(timer);
+        };
+    }, [embedded, forcedAgentId, forcedSessionId, isLoading, notebookId, scopeReady]);
+
+    useEffect(() => {
         if (!scopeReady) return;
         safeLocalStorageSet(scopedStorageKey(CHAT_SELECTED_AGENT_KEY), selectedAgentId);
-        historyHydrationRef.current += 1;
+        if (!embedded) historyHydrationRef.current += 1;
         setAgentRuntime(null);
-    }, [scopeReady, scopedStorageKey, selectedAgentId]);
+    }, [embedded, scopeReady, scopedStorageKey, selectedAgentId]);
 
     useEffect(() => {
         if (!scopeReady || !selectedAgentId) return;
@@ -450,7 +511,7 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                 // an unrelated provider before the user configures it.
                 const agents = (ai.agents || []).filter((agent) => agent.enabled !== false);
                 setAgentList(agents);
-                const currentId = selectedAgentId || activeId;
+                const currentId = forcedAgentId || selectedAgentId || activeId;
                 const agent = agents.find((a) => a.id === currentId) || agents.find((a) => a.id === activeId) || agents[0];
                 if (agent) {
                     setAgentConfig(agent);
@@ -460,7 +521,7 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
         } catch (e) {
             console.error("Error loading agent config", e);
         }
-    }, [selectedAgentId]);
+    }, [forcedAgentId, selectedAgentId]);
 
     // Re-fetch when the Settings modals emit the event (without a reload).
     useConfigChanged(loadConfig);
@@ -547,7 +608,7 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
         setShowSessionsView(false);
         try {
             const response = await fetch(
-                `/api/chat/sessions/${encodeURIComponent(target.agentId)}/${encodeURIComponent(target.id)}`,
+                `/api/chat/sessions/${encodeURIComponent(target.agentId)}/${encodeURIComponent(target.id)}${notebookId ? `?notebook_id=${encodeURIComponent(notebookId)}` : ''}`,
             );
             if (response.ok) {
                 const canonical = await response.json();
@@ -1285,7 +1346,7 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
         setIsRewinding(true);
         try {
             const response = await fetch(
-                `/api/chat/sessions/${encodeURIComponent(selectedAgentId)}/${encodeURIComponent(sessionId)}/rewind`,
+                `/api/chat/sessions/${encodeURIComponent(selectedAgentId)}/${encodeURIComponent(sessionId)}/rewind${notebookId ? `?notebook_id=${encodeURIComponent(notebookId)}` : ''}`,
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1328,6 +1389,7 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
         isLoading,
         isRewinding,
         messages,
+        notebookId,
         pendingRewindIndex,
         selectedAgentId,
         sessionId,
@@ -1707,7 +1769,7 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
         .filter((session) => session.agentId === selectedAgentId)
         .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
 
-    if (!isOpen) {
+    if (!isOpen && !embedded) {
         return (
             <>
             <button
@@ -1746,16 +1808,20 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
 
     return (
         <div
-            className="gnosi-floating-panel gnosi-floating-panel--chat"
+            className={embedded ? 'gnosi-embedded-chat' : 'gnosi-floating-panel gnosi-floating-panel--chat'}
             tabIndex={0}
             onKeyDown={handleChatKeyDown}
             style={{
-            position: 'fixed', bottom: 'max(16px, env(safe-area-inset-bottom))', right: 'max(16px, env(safe-area-inset-right))', zIndex: 'var(--z-floating)',
-            width: isMinimized ? '200px' : 'min(400px, calc(100vw - 2rem))',
-            height: isMinimized ? '50px' : '600px',
-            maxHeight: 'calc(100vh - 100px)',
+            position: embedded ? 'relative' : 'fixed',
+            bottom: embedded ? 'auto' : 'max(16px, env(safe-area-inset-bottom))',
+            right: embedded ? 'auto' : 'max(16px, env(safe-area-inset-right))',
+            zIndex: embedded ? 'auto' : 'var(--z-floating)',
+            width: embedded ? '100%' : (isMinimized ? '200px' : 'min(400px, calc(100vw - 2rem))'),
+            height: embedded ? '100%' : (isMinimized ? '50px' : '600px'),
+            minHeight: embedded ? '420px' : undefined,
+            maxHeight: embedded ? 'none' : 'calc(100vh - 100px)',
             backgroundColor: 'var(--bg-primary, white)',
-            borderRadius: '20px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',
+            borderRadius: embedded ? '14px' : '20px', boxShadow: embedded ? 'none' : '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',
             display: 'flex', flexDirection: 'column', overflow: 'hidden',
             border: '1px solid var(--settings-border, #e5e7eb)',
             transition: 'all 0.3s ease-in-out'
@@ -1778,7 +1844,11 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                         {renderIcon(agentIcon, 18)}
                     </div>
                     <div>
-                        <select
+                        {embedded ? (
+                            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                {agentName}
+                            </div>
+                        ) : <select
                             value={selectedAgentId}
                             onChange={(e) => setSelectedAgentId(e.target.value)}
                             onClick={(e) => e.stopPropagation()}
@@ -1800,7 +1870,7 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                             {agentList.map((a) => (
                                 <option key={a.id} value={a.id}>{a.name || a.id}</option>
                             ))}
-                        </select>
+                        </select>}
                         {!isMinimized && <div style={{ fontSize: '0.7rem', color: runtimeLimited ? '#f59e0b' : (agentHasModel ? '#10b981' : '#ef4444'), display: 'flex', alignItems: 'center', gap: '4px' }}>
                             <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: runtimeLimited ? '#f59e0b' : (agentHasModel ? '#10b981' : '#ef4444') }}></span>
                             {runtimeStatusLabel}
@@ -1808,14 +1878,14 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                         </div>}
                     </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {!embedded && <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <button onClick={(e) => { e.stopPropagation(); setIsMinimized(!isMinimized); }} aria-label={isMinimized ? t('chat.expand_chat', "Expand chat") : t('chat.minimize_chat', "Minimize chat")} title={isMinimized ? t('chat.expand_chat', "Expand chat") : t('chat.minimize_chat', "Minimize chat")} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '4px' }}>
                         {isMinimized ? <Maximize2 size={16} /> : <Minimize2 size={16} />}
                     </button>
                     <button onClick={(e) => { e.stopPropagation(); archiveCurrentSession(); setShowSessionsView(false); setIsOpen(false); }} aria-label={t('chat.close_chat', "Close chat")} title={t('chat.close_chat', "Close chat")} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '4px' }}>
                         <X size={18} />
                     </button>
-                </div>
+                </div>}
             </div>
 
             {!isMinimized && runtimeLimited && (
@@ -2040,7 +2110,7 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                                             <button type="button" onClick={() => markMessage(idx, 'saved', !msg.saved)} aria-label={t('chat.save_message', 'Save message')} title={t('chat.save_message', 'Save message')} aria-pressed={Boolean(msg.saved)} style={{ background: 'none', border: 'none', color: msg.saved ? 'var(--gnosi-blue, #2563eb)' : 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Bookmark size={13} fill={msg.saved ? 'currentColor' : 'none'} /></button>
                                         </>
                                     )}
-                                    {(msg.role === 'assistant' || msg.role === 'user') && (
+                                    {conversationMode !== 'shared' && (msg.role === 'assistant' || msg.role === 'user') && (
                                         msg.undo?.available
                                         || Boolean(getTurnId(msg))
                                     ) && (() => {
@@ -2236,7 +2306,11 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                                     return (
                                         <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', padding: '0 4px' }}>
                                             {msg.role === 'user'
-                                                ? t('chat.you', "You")
+                                                ? (
+                                                    msg.author_user_id && msg.author_user_id !== storageIdentity
+                                                        ? t('notebooks.member_message', 'Member {{member}}', { member: msg.author_user_id })
+                                                        : t('chat.you', "You")
+                                                )
                                                 : `${agentName}${msg.llm?.model ? ` - ${msg.llm.model}` : ''}`}
                                             {msg.role !== 'user' && responseSeconds !== null
                                                 ? ` · ${t('chat.processing_seconds', '{{count}} s', { count: responseSeconds })}`
@@ -2280,9 +2354,9 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                                     style={{ display: 'none' }}
                                     onChange={handleAttachmentInputChange}
                                 />
-                                <button type="button" onClick={handlePickAttachment} disabled={isUploadingAttachment} aria-label={t('chat.attach_files', "Attach files")} title={t('chat.attach_files', "Attach files")} style={{ background: 'none', border: 'none', cursor: isUploadingAttachment ? 'default' : 'pointer', color: 'var(--text-secondary)', padding: '8px', opacity: isUploadingAttachment ? 0.6 : 1 }}>
+                                {!embedded && <button type="button" onClick={handlePickAttachment} disabled={isUploadingAttachment} aria-label={t('chat.attach_files', "Attach files")} title={t('chat.attach_files', "Attach files")} style={{ background: 'none', border: 'none', cursor: isUploadingAttachment ? 'default' : 'pointer', color: 'var(--text-secondary)', padding: '8px', opacity: isUploadingAttachment ? 0.6 : 1 }}>
                                     <Paperclip size={18} />
-                                </button>
+                                </button>}
                                 <textarea
                                     ref={inputRef}
                                     value={inputValue}
@@ -2318,7 +2392,9 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                                         }
                                     }}
                                     onInput={() => requestAnimationFrame(autoResizeInput)}
-                                    placeholder={t('chat.input_placeholder', "Write a message... (use @ to mention)")}
+                                    placeholder={embedded
+                                        ? t('notebooks.chat_placeholder', 'Ask a question about these sources...')
+                                        : t('chat.input_placeholder', "Write a message... (use @ to mention)")}
                                     style={{
                                         flex: 1, padding: '8px', border: 'none', outline: 'none',
                                         background: 'transparent', color: 'var(--text-primary)',
@@ -2415,7 +2491,7 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                             )}
                         </div>
 
-                        <div style={{ marginTop: '6px', padding: '0 2px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', flexWrap: 'wrap' }}>
+                        {!embedded && <div style={{ marginTop: '6px', padding: '0 2px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', flexWrap: 'wrap' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                                 <button onClick={createNewSession} disabled={isLoading} title={t('chat.new_session', "New session")} aria-label={t('chat.new_session', "New session")} style={{ width: '26px', height: '26px', borderRadius: '13px', border: '1px solid var(--settings-border, #e5e7eb)', background: 'transparent', color: 'var(--text-secondary)', cursor: isLoading ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <Plus size={12} />
@@ -2424,7 +2500,7 @@ const AgentChat = ({ storageIdentity = '', contextRefs = [] }) => {
                                     <Archive size={12} />
                                 </button>
                             </div>
-                        </div>
+                        </div>}
                     </div>
                 </>
             )}

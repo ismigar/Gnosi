@@ -50,6 +50,27 @@ class DurableJobWorker:
         for item in durable_job_queue.ready_jobs(limit=32):
             job_type = str(item.get("job_type") or "")
             payload = item.get("payload") if isinstance(item.get("payload"), dict) else {}
+            if job_type in {"notebook_ingest", "notebook_analysis"}:
+                vault_path = str(payload.get("vault_path") or "").strip()
+                job_id = str(payload.get("job_id") or item.get("job_id") or "").strip()
+                if not vault_path or not job_id:
+                    log.warning("Ignoring malformed durable notebook ingestion payload")
+                    durable_job_queue.reject(
+                        str(item.get("job_id") or ""),
+                        "Durable notebook payload is missing vault_path or job_id.",
+                    )
+                    continue
+                try:
+                    from backend.services import notebook_service
+
+                    if job_type == "notebook_ingest":
+                        notebook_service.launch_ingest(Path(vault_path), job_id)
+                    else:
+                        notebook_service.launch_analysis(Path(vault_path), job_id)
+                    dispatched += 1
+                except Exception:  # noqa: BLE001
+                    log.exception("Could not dispatch durable notebook job %s", job_id)
+                continue
             if job_type != "reader_analysis":
                 durable_job_queue.reject(
                     str(item.get("job_id") or ""),
