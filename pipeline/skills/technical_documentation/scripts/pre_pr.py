@@ -94,6 +94,18 @@ def build_commands(*, base_ref: str | None, check_only: bool) -> list[GateComman
                     "mkdocs-es.yml",
                 ),
             ),
+            GateCommand(
+                "Build French portal",
+                (
+                    python,
+                    "-m",
+                    "mkdocs",
+                    "build",
+                    "--strict",
+                    "--config-file",
+                    "mkdocs-fr.yml",
+                ),
+            ),
         ]
     )
     return commands

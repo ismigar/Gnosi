@@ -4,9 +4,20 @@ from __future__ import annotations
 
 from pipeline.skills.technical_documentation.scripts.localize import (
     FragmentCollector,
+    LOCALES,
+    NAV_LABELS,
     collect_markdown,
     split_front_matter,
 )
+
+
+def test_every_supported_locale_has_navigation_and_output_contracts() -> None:
+    """Every published mirror must have a complete configuration contract."""
+    assert set(LOCALES) == {"ca", "es", "fr"}
+    assert set(NAV_LABELS) == set(LOCALES)
+    assert LOCALES["fr"]["target_prefix"] == ">>fr<<"
+    assert LOCALES["fr"]["translate_generated"] is False
+    assert LOCALES["fr"]["config"].name == "mkdocs-fr.yml"
 
 
 def test_localization_collects_only_visible_prose() -> None:

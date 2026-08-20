@@ -81,7 +81,7 @@ application-shell code. Routine frontend component, page, styling, and test
 changes do not require a prose documentation edit when the existing contract
 remains accurate. High-impact changes must still change at least one public
 English engineering Markdown page; the locale mirror check then requires
-Catalan and Spanish parity before the pull request can merge.
+Catalan, Spanish, and French parity before the pull request can merge.
 
 Dependency-only changes to supported manifests or lockfiles are exempt from the
 change-impact gate because they do not by themselves change the documented

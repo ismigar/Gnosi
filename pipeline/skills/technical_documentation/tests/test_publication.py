@@ -34,6 +34,7 @@ def test_pages_workflow_publishes_the_engineering_subdirectory():
 
     assert "  push:" in workflow_source
     assert '      - "apps/gnosi/docs/engineering/**"' in workflow_source
+    assert '      - "apps/gnosi/docs/engineering-fr/**"' in workflow_source
     assert "  workflow_dispatch:" in workflow_source
 
     assert workflow["permissions"] == {
@@ -47,6 +48,7 @@ def test_pages_workflow_publishes_the_engineering_subdirectory():
     step_names = {step.get("name") for step in build_steps}
     assert "Verify generated reference" not in step_names
     assert "Validate traceability and links" in step_names
+    assert "Build French portal" in step_names
     upload_step = next(
         step for step in build_steps if step.get("uses", "").startswith(
             "actions/upload-pages-artifact@"
@@ -79,7 +81,7 @@ def test_engineering_portal_reuses_the_localized_public_site_shell():
     template = SITE_SHELL_TEMPLATE.read_text(encoding="utf-8")
     switcher = LANGUAGE_SWITCHER.read_text(encoding="utf-8")
 
-    for config_name in ("mkdocs.yml", "mkdocs-ca.yml", "mkdocs-es.yml"):
+    for config_name in ("mkdocs.yml", "mkdocs-ca.yml", "mkdocs-es.yml", "mkdocs-fr.yml"):
         config = (APP_ROOT / config_name).read_text(encoding="utf-8")
         assert "custom_dir: docs/engineering-overrides" in config
 
@@ -92,6 +94,8 @@ def test_engineering_portal_reuses_the_localized_public_site_shell():
     assert '"en": {' in template
     assert '"ca": {' in template
     assert '"es": {' in template
+    assert '"fr": {' in template
+    assert 'data-language="fr"' in template
     assert "--gnosi-shell-bg, #f6f3ec" in template
     assert "--gnosi-shell-width, 1100px" in template
     assert 'document.querySelector(".lang-switch")' in switcher

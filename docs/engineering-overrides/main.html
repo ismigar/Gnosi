@@ -63,6 +63,27 @@
     "license": "Licencia AGPL-3.0",
     "tagline": "Tu segundo cerebro digital. Local-first, código abierto y soberano.",
     "copyright": "Proyecto de código abierto bajo la licencia AGPL-3.0."
+  },
+  "fr": {
+    "home_url": "https://gnosi.temenosismael.org/index.fr.html",
+    "home_label": "Accueil de Gnosi",
+    "features": "Fonctionnalités",
+    "installation": "Installation",
+    "support": "Contribuer",
+    "documentation": "Documentation technique",
+    "navigation": "Navigation du site Gnosi",
+    "open_navigation": "Ouvrir la navigation",
+    "language": "Langue",
+    "project": "Projet",
+    "issues": "Problèmes",
+    "support_project": "Soutenir le projet",
+    "author": "Auteur",
+    "projects": "Projets",
+    "legal": "Mentions légales",
+    "privacy": "Politique de confidentialité",
+    "license": "Licence AGPL-3.0",
+    "tagline": "Votre second cerveau numérique. Local-first, open source et souverain.",
+    "copyright": "Projet open source sous licence AGPL-3.0."
   }
 } %}
 {% set shell = shell_copy.get(config.theme.language, shell_copy["en"]) %}
@@ -72,6 +93,8 @@
   {% set documentation_url = documentation_url ~ "ca/" %}
 {% elif config.theme.language == "es" %}
   {% set documentation_url = documentation_url ~ "es/" %}
+{% elif config.theme.language == "fr" %}
+  {% set documentation_url = documentation_url ~ "fr/" %}
 {% endif %}
 
 {% block extrahead %}
@@ -212,6 +235,7 @@
         {% if config.theme.language == "en" %}<span class="active" aria-current="true">EN</span>{% else %}<a href="https://gnosi.temenosismael.org/engineering/" data-language="en">EN</a>{% endif %}
         {% if config.theme.language == "ca" %}<span class="active" aria-current="true">CA</span>{% else %}<a href="https://gnosi.temenosismael.org/engineering/ca/" data-language="ca">CA</a>{% endif %}
         {% if config.theme.language == "es" %}<span class="active" aria-current="true">ES</span>{% else %}<a href="https://gnosi.temenosismael.org/engineering/es/" data-language="es">ES</a>{% endif %}
+        {% if config.theme.language == "fr" %}<span class="active" aria-current="true">FR</span>{% else %}<a href="https://gnosi.temenosismael.org/engineering/fr/" data-language="fr">FR</a>{% endif %}
       </div>
     </div>
   </nav>

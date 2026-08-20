@@ -1,11 +1,16 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-20
 source_paths:
   - pipeline/skills/technical_documentation/SKILL.md
   - pipeline/skills/technical_documentation/domains.json
+  - pipeline/skills/technical_documentation/scripts/check_change_impact.py
   - pipeline/skills/technical_documentation/scripts/generate.py
+  - pipeline/skills/technical_documentation/scripts/localize.py
   - mkdocs.yml
+  - mkdocs-ca.yml
+  - mkdocs-es.yml
+  - mkdocs-fr.yml
 tests:
   - pipeline/skills/technical_documentation/tests
 ---
@@ -26,7 +31,11 @@ Desde `monorepo/apps/gnosi/`:
 python pipeline/skills/technical_documentation/scripts/generate.py
 python pipeline/skills/technical_documentation/scripts/generate.py --check
 python pipeline/skills/technical_documentation/scripts/validate.py
+python pipeline/skills/technical_documentation/scripts/localize.py --check
 mkdocs build --strict
+mkdocs build --strict --config-file mkdocs-ca.yml
+mkdocs build --strict --config-file mkdocs-es.yml
+mkdocs build --strict --config-file mkdocs-fr.yml
 ```
 
 Entonces servir o abrir `site/engineering`, navegar por las páginas modificadas, inspeccionar tablas y diagramas, y verificar la consola del navegador.
@@ -35,7 +44,7 @@ Entonces servir o abrir `site/engineering`, navegar por las páginas modificadas
 
 El portal canónico se publica en `https://gnosi.temenosismael.org/engineering/`. Las exportaciones privadas de monorepo `monorepo/` a la raíz del público `ismigar/Gnosi` repositorio. Eso hace `monorepo/.github/workflows/documentation-pages.yml` fuente del público `.github/workflows/documentation-pages.yml` flujo de trabajo de despliegue.
 
-En cada impulso relevante al público `main` synch, el flujo de trabajo verifica los catálogos generados, valida la trazabilidad, construye MkDocs en modo estricto y publica el `apps/gnosi/site/` árbol a través de GitHub Páginas. Publicar el padre `site/` el directorio conserva el `/engineering/` Segmento URL.
+En cada impulso relevante al público `main` smart, el flujo de trabajo verifica los catálogos generados y los espejos localizados, valida la trazabilidad, construye los portales de MkDocs en inglés, catalán, español y francés en modo estricto, y publica el `apps/gnosi/site/` árbol a través de GitHub Páginas. Publicar el padre `site/` el directorio conserva el `/engineering/` Segmento URL.
 
 La barra lateral global de Gnosi enlaza con la misma dirección canónica. La etiqueta está localizada en catalán, inglés, español y francés y el portal se abre fuera del árbol de rutas de la aplicación.
 
@@ -69,8 +78,16 @@ revisión de la arquitectura / guía de dominio.
 promover un conocimiento estable en el portal.
 - Una decisión arquitectónica duradera: añadir un ADR.
 
+## Puerta de impacto CI
+
+La puerta de documentación de solicitud de retiro está diseñada para cambios que pueden alterar un límite del sistema o un contrato operativo. Cubre APIs y servicios de backend, integraciones, código de ejecución nativo y de escritorio, archivos de implementación y autenticación de frontend, enrutamiento, proveedores y código de aplicación-shell.
+
+Los cambios de rutina en los componentes de interfaz, página, estilo y prueba no requieren una edición de documentación de prosa cuando el contrato existente sigue siendo exacto. Todavía requieren documentación cuando cambian un invariante, límite de confianza, ciclo de vida, propietario de almacenamiento, restricción de fallo, u otro hecho duradero del sistema.
+
 ## Validación anti-duelo
 
-El validador comprueba que se generaron avisos, metadatos, rutas de origen/prueba, enlaces internos, guías de dominio requeridas, rutas absolutas locales y material secreto obvio. `generate.py --check` independientemente compara la salida comprometida con el árbol actual. MkDocs modo estricto valida enlaces de navegación y documentación.
+El validador comprueba que se generaron avisos, metadatos, rutas de origen/prueba, enlaces internos, guías de dominio requeridas, rutas absolutas locales y material secreto obvio. `generate.py --check` compara independientemente la salida comprometida con el árbol actual. `localize.py --check` requiere paridad de árboles en catalán, español y francés. MkDocs valida en los cuatro portales enlaces de navegación y documentación.
+
+Las guías revisadas se encuentran en cada portal. El francés mantiene catálogos de fuentes generados deterministas en inglés canónico porque los nombres de ruta, identificadores de código y descripciones de fuentes extraídas son evidencia de referencia en lugar de prosa revisada; su navegación y portal circundante siguen localizados.
 
 Estos controles no pueden probar la semántica de prosa. Los evaluadores deben comparar las afirmaciones con la fuente y pruebas vinculadas.
