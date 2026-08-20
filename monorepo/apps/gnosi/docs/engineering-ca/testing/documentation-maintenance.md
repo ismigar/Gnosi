@@ -1,11 +1,16 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-20
 source_paths:
   - pipeline/skills/technical_documentation/SKILL.md
   - pipeline/skills/technical_documentation/domains.json
+  - pipeline/skills/technical_documentation/scripts/check_change_impact.py
   - pipeline/skills/technical_documentation/scripts/generate.py
+  - pipeline/skills/technical_documentation/scripts/localize.py
   - mkdocs.yml
+  - mkdocs-ca.yml
+  - mkdocs-es.yml
+  - mkdocs-fr.yml
 tests:
   - pipeline/skills/technical_documentation/tests
 ---
@@ -26,7 +31,11 @@ Des de `monorepo/apps/gnosi/`:
 python pipeline/skills/technical_documentation/scripts/generate.py
 python pipeline/skills/technical_documentation/scripts/generate.py --check
 python pipeline/skills/technical_documentation/scripts/validate.py
+python pipeline/skills/technical_documentation/scripts/localize.py --check
 mkdocs build --strict
+mkdocs build --strict --config-file mkdocs-ca.yml
+mkdocs build --strict --config-file mkdocs-es.yml
+mkdocs build --strict --config-file mkdocs-fr.yml
 ```
 
 Llavors serveix o obre `site/engineering`, navegar per les pàgines canviades, inspeccionar taules i diagrames, i verificar la consola del navegador.
@@ -35,7 +44,7 @@ Llavors serveix o obre `site/engineering`, navegar per les pàgines canviades, i
 
 El portal canònica es publica a `https://gnosi.temenosismael.org/engineering/`. Les exportacions privades monorepo `monorepo/` fins a l'arrel del públic `ismigar/Gnosi` repositori. `monorepo/.github/workflows/documentation-pages.yml` la font del públic `.github/workflows/documentation-pages.yml` Desembarca el flux de treball.
 
-Per a cada pressió rellevant al públic `main` branca, el flux de treball verifica els catàlegs generats, validant la traçabilitat, construir emkDocs en mode estricte i publicarà el complet `apps/gnosi/site/` Arbre a través de les pàgines de GitHub. Publicant el pare `site/` El directori conserva el `/engineering/` segment d' URL.
+Per a cada pressió rellevant al públic `main` branca, el flux de treball verifica els catàlegs generats i els miralls localitzats, validant la traçabilitat, construeix l'anglès, català, castellà i francès Mkocls en mode estricte i publica el següent `apps/gnosi/site/` Arbre a través de les pàgines de GitHub. Publicant el pare `site/` El directori conserva el `/engineering/` segment d' URL.
 
 Els enllaços de la barra lateral global de Gnosi a la mateixa adreça canònica. L' etiqueta es troba en català, anglès, espanyol i francès i el portal obre fora de l' arbre de rutes de l' aplicació.
 
@@ -69,8 +78,16 @@ Guia d'arquitectura/ domini.
 Ascendir coneixement estable al portal.
 - Una decisió arquitectònica: afegeix-hi un DR.
 
+## Porta d' impacte CI
+
+La porta de documentació de " getret- request " està instal· lada als canvis que poden alterar un límit del sistema o un contracte operatiu. Cobreix les API del dorsal i serveis, integració, codi d' escriptori i codi d' execució natiu, desplegament fitxers, i autenticació de la interfície, rout, proveïdors i codi d' aplicació-shell.
+
+Component de la interfície de Routine, pàgina, styling, i els canvis de prova no requereixen una edició de documentació prosse quan el contracte existent queda precisió. Encara necessiten documentació quan canvien un límit invaritari, un cicle de confiança, el propietari de la vida, la restricció de fracàs o un altre fet de sistema durable.
+
 ## Validació anti-drift
 
-Les comprovacions validadors generades, les metadades, els camins font/test, els enllaços interns, les guies de domini necessàries, rutes locals i el material secret obvi. `generate.py --check` Compara independentment la sortida compensida a l' arbre actual. El mode MkDocs valida la navegació i els enllaços de documentació.
+Les comprovacions validadors generades, les metadades, els camins font/test, els enllaços interns, les guies de domini necessàries, rutes locals i el material secret obvi. `generate.py --check` Compara independentment la sortida compensida a l' arbre actual. `localize.py --check` Requereix que el català, l' espanyol i la paritat francesa. El mode MkDos estricte validi la navegació i els enllaços de documentació en tots quatre portals.
+
+Les guies registrades es troben localitzats en tots els portals. Els francesos segueixen sent els catàlegs generats per codi font canònica perquè els noms de les rutes, els identificadors de codi i les descripcions extretes són proves de referència en lloc de revisar prose; el seu portal de navegació i el seu portal circumdant romanen localitzats.
 
 Aquests controls no poden provar la semàntica prose. Els clients han de comparar amb la font i les proves enllaçades.

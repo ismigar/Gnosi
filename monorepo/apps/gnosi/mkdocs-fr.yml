@@ -1,0 +1,108 @@
+site_name: Documentation d'ingénierie de Gnosi
+site_description: Architecture, implémentation, opérations et référence du code source de Gnosi
+site_url: https://gnosi.temenosismael.org/engineering/fr/
+repo_url: https://github.com/ismigar/Gnosi
+repo_name: ismigar/Gnosi
+edit_uri: edit/main/apps/gnosi/docs/engineering/
+docs_dir: docs/engineering-fr
+site_dir: site/engineering/fr
+strict: true
+
+theme:
+  name: material
+  custom_dir: docs/engineering-overrides
+  language: fr
+  features:
+    - content.code.copy
+    - navigation.footer
+    - navigation.indexes
+    - navigation.sections
+    - navigation.top
+    - search.highlight
+    - search.suggest
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: teal
+
+nav:
+  - Démarrer ici: index.md
+  - Produit:
+      - Objectif et périmètre: product/purpose-and-scope.md
+      - Terminologie: product/terminology.md
+  - Architecture:
+      - Contexte du système: architecture/system-context.md
+      - Exécution et déploiement: architecture/runtime-and-deployment.md
+      - Données et stockage: architecture/data-and-storage.md
+      - Flux transversaux: architecture/cross-cutting-flows.md
+  - Domaines:
+      - Fondations de la plateforme et exécution: domains/foundation-runtime.md
+      - Vault et fichiers: domains/vault-files.md
+      - Vues de base de données et planification: domains/database-views-planning.md
+      - Graphe de connaissances: domains/knowledge-graph.md
+      - Lecteur, références et citations: domains/reader-references.md
+      - Carnets fondés sur les sources: domains/notebooks.md
+      - Agents, modèles, outils et compétences d'IA: domains/ai-agent.md
+      - Courrier: domains/mail.md
+      - Calendrier et réunions: domains/calendar-meetings.md
+      - Contacts: domains/contacts.md
+      - Publication sociale et médias: domains/social-publishing.md
+      - Intégrations et extensions: domains/integrations-plugins.md
+      - Authentification, espaces de travail et partage: domains/auth-workspaces-sharing.md
+      - Automatisation et planification: domains/automation-scheduling.md
+      - Clients de bureau et complémentaires: domains/desktop-clients.md
+  - Sécurité:
+      - Modèle de confiance: security/trust-model.md
+  - Opérations:
+      - Guide d'exploitation: operations/runbook.md
+  - Qualité:
+      - Stratégie de test: testing/test-strategy.md
+      - Maintenance de la documentation: testing/documentation-maintenance.md
+  - Décisions:
+      - Registres de décision: decisions/index.md
+      - Source de vérité local-first: decisions/0001-local-first-source-of-truth.md
+      - Documentation comme code: decisions/0002-documentation-as-code.md
+  - Référence générée:
+      - Inventaire du dépôt: generated/repository-inventory.md
+      - Catalogue de l'API: generated/api-catalog.md
+      - Modules backend: generated/backend-modules.md
+      - Catalogue frontend: generated/frontend-catalog.md
+      - Modèle de données relationnel: generated/data-model.md
+      - Configuration: generated/configuration.md
+      - Tests: generated/tests.md
+      - Compétences d'exécution: generated/skills.md
+      - Couverture: generated/coverage.md
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+
+extra_javascript:
+  - https://unpkg.com/mermaid@11/dist/mermaid.min.js
+  - assets/mermaid-init.js
+  - assets/language-switcher.js
+
+extra_css:
+  - assets/engineering.css
+
+exclude_docs: |
+  generated/.gitkeep

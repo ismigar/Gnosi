@@ -1,0 +1,203 @@
+---
+status: implemented
+last_verified: 2026-08-20
+source_paths:
+  - backend/services/notebook_service.py
+  - backend/api/notebook_routes.py
+  - backend/services/durable_job_worker.py
+  - backend/agent/agent_context.py
+  - backend/agent/factory.py
+  - backend/api/agent_routes.py
+  - frontend/src/pages/NotebooksPage.jsx
+  - frontend/src/components/Notebooks
+  - frontend/src/components/AgentChat.jsx
+tests:
+  - backend/tests/test_notebook_service.py
+  - backend/tests/test_notebook_agent_context.py
+  - frontend/src/components/Notebooks/NotebookCreateDialog.test.jsx
+  - frontend/src/lib/notebookTableActions.test.js
+---
+
+# Carnets fondés sur les sources
+
+## Responsabilité
+
+Les carnets fondés sur les sources fournissent un espace `/notebooks` dédié aux
+questions portant sur les pièces jointes et les URL des enregistrements
+sélectionnés dans la table Références configurée. Ils réunissent une bibliothèque
+de carnets interrogeable, un panneau de sources paginé, les paramètres et le même
+transport de conversation en streaming que l'assistant flottant.
+
+Le corps, le titre, les étiquettes et les autres métadonnées de l'enregistrement
+ne constituent pas des preuves. Gnosi ne lit les métadonnées que pour localiser
+les champs définis par le schéma comme pièce jointe/fichier ou URL. Un carnet ne
+modifie ni ne supprime jamais l'enregistrement source, la pièce jointe ou l'URL
+d'origine.
+
+La première version ne comprend ni résumés audio, ni Studio, ni notes générées,
+ni édition des sources.
+
+## Acteurs et accès
+
+| Acteur | Carnet privé | Carnet d'espace de travail |
+| --- | --- | --- |
+| Créateur | Découvrir, lire, converser, gérer les sources et les paramètres | Découvrir, lire, converser, gérer les sources et les paramètres |
+| Éditeur de l'espace de travail | Non visible | Découvrir, lire et converser |
+| Lecteur de l'espace de travail | Non visible | Découvrir et lire la conversation et les sources |
+
+Chaque requête est également limitée au Vault et à l'espace de travail actifs.
+L'accès privé ne s'étend pas implicitement aux administrateurs ayant un autre
+principal utilisateur. Seul le créateur peut modifier les membres, les
+paramètres ou supprimer le carnet.
+
+## Source et flux de révision
+
+```mermaid
+flowchart LR
+    Selection["Table Références configurée\nidentifiants sélectionnés"] --> Fields["Champs pièce jointe et URL\nuniquement"]
+    Fields --> Fingerprint["Empreintes de l'enregistrement\net des sources"]
+    Fingerprint --> Queue["Tâche durable\nd'ingestion"]
+    Queue --> Extract["Extracteurs sécurisés\nexistants"]
+    Extract --> Draft["Révision SQLite\ninactive"]
+    Draft --> Index["FTS5 et vecteurs locaux\ndéterministes"]
+    Index --> Switch["Activation atomique\nde la révision"]
+    Switch --> Tools["Outils du carnet\nen lecture seule"]
+    Tools --> Chat["Réponse fondée\navec citations"]
+```
+
+La création d'un carnet mémorise l'identité de la table Références active à ce
+moment-là. Les créations et ajouts de sources ultérieurs utilisent la table
+actuellement configurée, tandis qu'un carnet existant reste lié à sa table
+d'origine.
+
+L'ouverture d'un carnet, une question fondée sur celui-ci ou un rafraîchissement
+manuel compare les valeurs actuelles des sources à la révision active. La file
+durable fusionne les déclencheurs répétés. Les sources inchangées réutilisent
+leurs fragments; seules les sources modifiées sont extraites à nouveau. Une
+révision incomplète n'est jamais rendue visible. Après la première révision
+réussie, la conversation continue d'utiliser la dernière révision complète
+pendant le rafraîchissement.
+
+Retirer une Ressource supprime immédiatement son appartenance au carnet. La
+recherche et l'analyse globale vérifient l'ensemble actuel des membres; les
+preuves retirées sont donc exclues avant même qu'une nouvelle révision soit prête.
+
+## Persistance et reprise
+
+L'état des carnets est local à l'instance dans
+`LOCAL_DATA/system/notebooks.sqlite3`. Le dépôt contient les définitions, les
+ACL, l'appartenance des Ressources, les révisions, les sources, les fragments,
+les lignes FTS5, les analyses durables et les principaux de conversation de
+chaque mode. Les lignes sont isolées par un hachage du chemin du Vault et par
+l'identifiant de l'espace de travail.
+
+Le worker durable enregistre les handlers `notebook_ingest` et
+`notebook_analysis`. Les tâches en attente ou dont le bail a expiré reprennent
+après le redémarrage du processus. L'activation d'une révision est
+transactionnelle. Si le rafraîchissement d'une source déjà indexée échoue, sa
+dernière version valide reste disponible avec l'état `stale`; une nouvelle
+source en échec est signalée et exclue.
+
+Les pièces jointes réutilisent la matérialisation, le préchargement OneDrive, le
+confinement des chemins, les limites de taille et les extracteurs de documents,
+d'OCR et de médias existants. La récupération web conserve la protection SSRF,
+valide chaque redirection et traite le contenu des pages comme des données non
+fiables, jamais comme des instructions pour le modèle.
+
+## Récupération, analyse et citations
+
+Chaque tour de conversation est épinglé côté serveur à une révision positive et
+complète. Le workflow du carnet n'expose que les opérations contextuelles suivantes :
+
+- inspecter des métadonnées de source bornées;
+- rechercher des fragments avec FTS5 et le vecteur local déterministe existant;
+- lire une preuve exacte à partir d'un identifiant de fragment stable;
+- lancer, inspecter et lire une analyse hiérarchique durable sur la révision
+  épinglée.
+
+Les questions dépendantes des sources doivent effectuer une véritable recherche
+dans le carnet avant que le modèle puisse synthétiser une réponse. Le workflow
+ne reçoit aucun outil de mutation du Vault ou des compétences, aucun MCP et
+aucune action externe. L'analyse hiérarchique traite des lots de preuves bornés,
+puis réduit leurs résumés au lieu de placer des centaines de sources dans un
+seul prompt.
+
+Les citations incluent la Ressource, la révision, la source, le fragment et le
+localisateur. Les preuves PDF utilisent le contrat de navigation `gnosi-cite`
+pour ouvrir la page ou le fragment cité. Les preuves web renvoient vers l'URL
+d'origine validée.
+
+## Espaces de noms de conversation
+
+Le mode privé par membre dérive un principal de checkpoint par utilisateur. Le
+mode partagé dérive un principal autorisé commun au carnet et sérialise les
+tours concurrents avec le verrou de thread existant. Les messages partagés
+incluent leur auteur et l'historique est append-only; seul le créateur peut le
+vider. Un changement de mode ne fusionne pas les historiques : revenir à un
+mode précédent restaure son espace de noms.
+
+La suppression d'un carnet énumère tous ses principaux dérivés et supprime leurs
+threads de checkpoint avant la suppression en cascade des index, révisions et
+analyses. Les données originales du Vault restent hors de cette limite.
+
+## Contrats HTTP
+
+| Point final | Objet |
+| --- | --- |
+| `GET/POST /api/notebooks` | Bibliothèque paginée et création à partir d'identifiants de Ressources |
+| `GET/PATCH/DELETE /api/notebooks/{id}` | Détail, paramètres et suppression des données dérivées |
+| `GET /api/notebooks/resources` | Sélecteur paginé de la table Références configurée |
+| `GET/POST /api/notebooks/{id}/sources` | Inspecter ou ajouter des Ressources |
+| `DELETE /api/notebooks/{id}/sources/{resource_id}` | Exclure immédiatement une ressource |
+| `POST /api/notebooks/{id}/refresh` | Rafraîchissement ou nouvelle tentative explicite fusionnée |
+| `GET /api/notebooks/{id}/conversation` | Conversation canonique du mode actif |
+| `POST /api/chat` | Conversation en streaming avec un contexte de carnet autorisé |
+
+La conversation fondée sur un carnet ignore toute tentative du client de choisir
+la révision, le principal de checkpoint ou l'espace de noms de session. Le
+serveur dérive les trois après autorisation et rejette les contextes de carnets
+mixtes, les pièces jointes, les mentions et les surcharges de compétences.
+
+## Comportement de l'interface utilisateur
+
+L'action de sélection multiple n'apparaît que si l'identité de la table ouverte
+correspond à celle de la table Références configurée. Elle n'est jamais activée
+par un nom ou un identifiant fixe. La boîte de dialogue accepte un titre, une
+visibilité, un mode de conversation et jusqu'à mille identifiants de Ressources.
+
+Sur ordinateur, les sources, la conversation intégrée et les paramètres sont
+affichés ensemble. Sur mobile, ces panneaux deviennent des onglets. L'interface
+ne sonde que le carnet actif et visible : un intervalle court suit l'ingestion
+tant qu'une tâche est active, et un intervalle borné actualise la conversation
+collaborative. Les carnets inactifs ne sont pas interrogés.
+
+## Comportement et opérations en cas de défaillance
+
+La première conversation reste bloquée jusqu'à ce qu'une révision active
+complète contienne au moins une source. Les états par Ressource et par source
+sont `pending`, `indexing`, `available`, `stale` et `error`; le rafraîchissement
+manuel permet une nouvelle tentative. Une erreur ne remplace jamais une
+révision active complète.
+
+Les opérateurs peuvent inspecter le dépôt SQLite et la file de tâches durable
+sous `LOCAL_DATA`, mais ne doivent jamais les déplacer dans un Vault partagé.
+Le code backend se recharge en développement natif; les changements de
+dépendances exigent toujours un redémarrage du LaunchAgent backend. Les mêmes
+chemins dérivés de la configuration fonctionnent en déploiement natif et Docker.
+
+## Limites de vérification
+
+Les tests unitaires prouvent l'exclusion des champs non sources, la réutilisation
+incrémentale, le retrait immédiat des membres, l'identité des citations,
+l'isolation des ACL, les espaces de noms de checkpoint, la validation positive
+des révisions, les outils en lecture seule et l'analyse durable épinglée. Les
+tests frontend vérifient le prédicat de l'action multiple lié à la table
+configurée et le contrat exact des identifiants sélectionnés. La validation de
+livraison exige aussi un démarrage backend propre, le build frontend et un
+parcours navigateur sur ordinateur et mobile.
+
+Les limites actuelles sont de mille Ressources par requête de création ou
+d'ajout, deux cents lignes de sélection par page, cinquante résultats de
+recherche et des lots d'analyse bornés. La configuration des carnets et les
+index dérivés restent locaux à une instance Gnosi et ne sont pas synchronisés
+entre installations.

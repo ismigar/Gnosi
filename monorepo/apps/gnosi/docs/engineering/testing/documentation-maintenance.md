@@ -1,12 +1,16 @@
 ---
 status: implemented
-last_verified: 2026-08-09
+last_verified: 2026-08-20
 source_paths:
   - pipeline/skills/technical_documentation/SKILL.md
   - pipeline/skills/technical_documentation/domains.json
   - pipeline/skills/technical_documentation/scripts/check_change_impact.py
   - pipeline/skills/technical_documentation/scripts/generate.py
+  - pipeline/skills/technical_documentation/scripts/localize.py
   - mkdocs.yml
+  - mkdocs-ca.yml
+  - mkdocs-es.yml
+  - mkdocs-fr.yml
 tests:
   - pipeline/skills/technical_documentation/tests
 ---
@@ -31,7 +35,11 @@ From `monorepo/apps/gnosi/`:
 python pipeline/skills/technical_documentation/scripts/generate.py
 python pipeline/skills/technical_documentation/scripts/generate.py --check
 python pipeline/skills/technical_documentation/scripts/validate.py
+python pipeline/skills/technical_documentation/scripts/localize.py --check
 mkdocs build --strict
+mkdocs build --strict --config-file mkdocs-ca.yml
+mkdocs build --strict --config-file mkdocs-es.yml
+mkdocs build --strict --config-file mkdocs-fr.yml
 ```
 
 Then serve or open `site/engineering`, navigate the changed pages, inspect
@@ -46,7 +54,8 @@ The canonical portal is published at
 `.github/workflows/documentation-pages.yml` deployment workflow.
 
 On each relevant push to the public `main` branch, the workflow verifies the
-generated catalogs, validates traceability, builds MkDocs in strict mode, and
+generated catalogs and localized mirrors, validates traceability, builds the
+English, Catalan, Spanish, and French MkDocs portals in strict mode, and
 publishes the complete `apps/gnosi/site/` tree through GitHub Pages. Publishing
 the parent `site/` directory preserves the `/engineering/` URL segment.
 
@@ -106,7 +115,14 @@ lifecycle, storage owner, failure constraint, or other durable system fact.
 The validator checks generated notices, metadata, source/test paths, internal
 links, required domain guides, local absolute paths, and obvious secret
 material. `generate.py --check` independently compares committed output to the
-current tree. MkDocs strict mode validates navigation and documentation links.
+current tree. `localize.py --check` requires Catalan, Spanish, and French tree
+parity. MkDocs strict mode validates navigation and documentation links in all
+four portals.
+
+Reviewed guides are localized in every portal. French keeps deterministic
+generated source catalogs in canonical English because route names, code
+identifiers, and extracted source descriptions are reference evidence rather
+than reviewed prose; its navigation and surrounding portal remain localized.
 
 These controls cannot prove prose semantics. Reviewers must compare claims with
 the linked source and tests.

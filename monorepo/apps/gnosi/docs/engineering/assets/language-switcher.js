@@ -1,6 +1,6 @@
 /* Keep language routing static so the documentation works on GitHub Pages. */
 (function () {
-  const supported = new Set(["en", "ca", "es"]);
+  const supported = new Set(["en", "ca", "es", "fr"]);
   const storageKey = "gnosi-engineering-language";
 
   function routeParts() {
@@ -53,7 +53,7 @@
     label.setAttribute("aria-label", "Language");
     const select = document.createElement("select");
     select.setAttribute("aria-label", "Language");
-    [["en", "EN"], ["ca", "CA"], ["es", "ES"]].forEach(([value, text]) => {
+    [["en", "EN"], ["ca", "CA"], ["es", "ES"], ["fr", "FR"]].forEach(([value, text]) => {
       const option = document.createElement("option");
       option.value = value;
       option.textContent = text;

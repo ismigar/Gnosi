@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate Catalan and Spanish mirrors of the engineering documentation."""
+"""Generate localized mirrors of the engineering documentation."""
 
 from __future__ import annotations
 
@@ -24,6 +24,15 @@ LOCALES = {
         "config": APP_ROOT / "mkdocs-es.yml",
         "site_name": "Documentación de ingeniería de Gnosi",
         "site_description": "Arquitectura, implementación, operaciones y referencia del código fuente de Gnosi",
+    },
+    "fr": {
+        "docs_root": APP_ROOT / "docs" / "engineering-fr",
+        "config": APP_ROOT / "mkdocs-fr.yml",
+        "site_name": "Documentation d'ingénierie de Gnosi",
+        "site_description": "Architecture, implémentation, opérations et référence du code source de Gnosi",
+        "model": "Helsinki-NLP/opus-mt-en-ROMANCE",
+        "target_prefix": ">>fr<<",
+        "translate_generated": False,
     },
 }
 NAV_LABELS = {
@@ -69,6 +78,26 @@ NAV_LABELS = {
         "Frontend catalog": "Catálogo del frontend", "Relational data model": "Modelo de datos relacional", "Configuration": "Configuración",
         "Tests": "Pruebas", "Runtime skills": "Habilidades de ejecución", "Coverage": "Cobertura",
     },
+    "fr": {
+        "Start here": "Démarrer ici", "Product": "Produit", "Purpose and scope": "Objectif et périmètre",
+        "Terminology": "Terminologie", "Architecture": "Architecture", "System context": "Contexte du système",
+        "Runtime and deployment": "Exécution et déploiement", "Data and storage": "Données et stockage",
+        "Cross-cutting flows": "Flux transversaux", "Domains": "Domaines", "Platform foundation and runtime": "Fondations de la plateforme et exécution",
+        "Vault and files": "Vault et fichiers", "Database views and planning": "Vues de base de données et planification",
+        "Knowledge graph": "Graphe de connaissances", "Reader, references, and citations": "Lecteur, références et citations",
+        "Grounded notebooks": "Carnets fondés sur les sources",
+        "AI agents, models, tools, and skills": "Agents, modèles, outils et compétences d'IA", "Mail": "Courrier",
+        "Calendar and meetings": "Calendrier et réunions", "Contacts": "Contacts", "Social publishing and media": "Publication sociale et médias",
+        "Integrations and plugins": "Intégrations et extensions", "Authentication, workspaces, and sharing": "Authentification, espaces de travail et partage",
+        "Automation and scheduling": "Automatisation et planification", "Desktop and companion clients": "Clients de bureau et complémentaires",
+        "Security": "Sécurité", "Trust model": "Modèle de confiance", "Operations": "Opérations", "Runbook": "Guide d'exploitation",
+        "Quality": "Qualité", "Test strategy": "Stratégie de test", "Documentation maintenance": "Maintenance de la documentation",
+        "Decisions": "Décisions", "Decision records": "Registres de décision", "Local-first source of truth": "Source de vérité local-first",
+        "Documentation as code": "Documentation comme code", "Generated reference": "Référence générée",
+        "Repository inventory": "Inventaire du dépôt", "API catalog": "Catalogue de l'API", "Backend modules": "Modules backend",
+        "Frontend catalog": "Catalogue frontend", "Relational data model": "Modèle de données relationnel", "Configuration": "Configuration",
+        "Tests": "Tests", "Runtime skills": "Compétences d'exécution", "Coverage": "Couverture",
+    },
 }
 
 FENCE_RE = re.compile(r"^\s*(`{3,}|~{3,})(\w*)")
@@ -92,7 +121,9 @@ class OfflineTranslator:
         self.target = target
         from transformers import MarianMTModel, MarianTokenizer
 
-        model_name = f"Helsinki-NLP/opus-mt-en-{target}"
+        locale = LOCALES[target]
+        model_name = locale.get("model", f"Helsinki-NLP/opus-mt-en-{target}")
+        self.target_prefix = locale.get("target_prefix", "")
         self.tokenizer = MarianTokenizer.from_pretrained(model_name, local_files_only=True)
         self.model = MarianMTModel.from_pretrained(model_name, local_files_only=True)
 
@@ -103,6 +134,8 @@ class OfflineTranslator:
         results: list[str] = []
         for offset in range(0, len(texts), batch_size):
             batch = texts[offset : offset + batch_size]
+            if self.target_prefix:
+                batch = [f"{self.target_prefix} {text}" for text in batch]
             inputs = self.tokenizer(batch, return_tensors="pt", padding=True, truncation=True, max_length=512)
             with torch.no_grad():
                 outputs = self.model.generate(**inputs, max_length=512, num_beams=1)
@@ -263,7 +296,7 @@ def generate_locale(
     partial = reviewed_only or generated_only or bool(selected_paths)
     if destination.exists() and not partial:
         shutil.rmtree(destination)
-    translator = OfflineTranslator(target)
+    translator: OfflineTranslator | None = None
     for source in sorted(SOURCE_ROOT.rglob("*")):
         relative = source.relative_to(SOURCE_ROOT)
         if selected_paths and relative not in selected_paths:
@@ -275,7 +308,12 @@ def generate_locale(
         output = destination / relative
         if source.is_dir():
             output.mkdir(parents=True, exist_ok=True)
-        elif source.suffix == ".md":
+        elif source.suffix == ".md" and not (
+            relative.parts[0] == "generated"
+            and not LOCALES[target].get("translate_generated", True)
+        ):
+            if translator is None:
+                translator = OfflineTranslator(target)
             output.parent.mkdir(parents=True, exist_ok=True)
             output.write_text(translate_markdown_text(source.read_text(encoding="utf-8"), translator), encoding="utf-8")
         else:
