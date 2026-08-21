@@ -1433,6 +1433,13 @@
       "configure": "Configure",
       "enable": "Enable",
       "disable": "Disable",
+      "activation_required_title": "{{name}} is disabled",
+      "activation_required_description": "Activate this plugin to use the feature. Its previous data and settings are preserved.",
+      "open_plugins_settings": "Open plugin settings",
+      "dependency_confirm_title": "Change related plugins?",
+      "dependency_enable_message": "This feature also needs: {{plugins}}. They will be activated together.",
+      "dependency_disable_message": "These dependent features will also be disabled: {{plugins}}. Their data and settings will be preserved.",
+      "dependency_confirm_action": "Confirm change",
       "project-planning": {
         "name": "Project planning",
         "desc": "Add working durations, predecessors, and work calendars to period fields."
@@ -1445,7 +1452,17 @@
         "canvas-cards": { "name": "Canvas cards", "description": "Embed pages as live cards on the drawing canvas." },
         "web-clipper": { "name": "Web Clipper", "description": "Save web pages from the browser to a table of your choice and populate its fields." },
         "llm-wiki": { "name": "Brain (LLM Wiki)", "description": "Process resources with AI to maintain a linked knowledge wiki, in the style of Karpathy." },
-        "project-planning": { "name": "Project planning", "description": "Add working durations, predecessors, and work calendars to period fields." }
+        "project-planning": { "name": "Project planning", "description": "Add working durations, predecessors, and work calendars to period fields." },
+        "feeds-reader": { "name": "Feeds and newsletters", "description": "RSS subscriptions, newsletters, and optional daily podcasts." },
+        "translation": { "name": "Translation", "description": "Translation providers and publishing-language actions." },
+        "contacts": { "name": "Contacts", "description": "External address books and the Contacts application." },
+        "mail": { "name": "Mail", "description": "Mail accounts, synchronization, and the Mail application." },
+        "calendar": { "name": "Calendar", "description": "External calendars, reminders, and meeting surfaces." },
+        "social-publishing": { "name": "Social publishing and media", "description": "Social dashboard, composer, and media center." },
+        "notion-import": { "name": "Notion import", "description": "Import Notion workspaces into portable Vault data." },
+        "ai-platform": { "name": "AI and agents", "description": "Providers, models, agents, skills, and governed tools." },
+        "grounded-notebooks": { "name": "Grounded notebooks", "description": "Ask grounded questions over selected reference sources." },
+        "automations": { "name": "Automations", "description": "User automations, schedules, and execution history." }
       },
       "planning_intro": "Choose the project and task tables, then define the calendar used by enhanced period fields.",
       "planning_project_table": "Projects table",
@@ -1640,13 +1657,19 @@
       "notion": "Import Notion",
       "translate": "Translation",
       "profile": "Profile",
-      "account": "Account"
+      "account": "Account",
+      "web_clipper": "Web Clipper",
+      "daily_notes": "Daily notes",
+      "project_planning": "Project planning",
+      "llm_wiki": "Brain (LLM Wiki)",
+      "automations": "Automations"
     },
     "navigation": {
       "basic": "Basics",
       "connections": "Connections",
       "knowledge": "Knowledge & AI",
-      "advanced": "Advanced"
+      "advanced": "Advanced",
+      "extensions": "Extensions"
     },
     "reader": {
       "sections_label": "Reader sections",
@@ -4521,6 +4544,8 @@
     "module_social_desc": "Manage your social networks from a single place.",
     "module_media_title": "Photos & Media",
     "module_media_desc": "Explore your media library.",
+    "module_planning_desc": "Plan projects, dependencies, resources, and work calendars.",
+    "module_notebooks_desc": "Ask grounded questions over selected reference sources.",
     "module_dashboard_title": "Control Center",
     "module_dashboard_desc": "Monitor system status and approve tools.",
     "module_settings_desc": "Manage your ecosystem's settings."
@@ -5450,7 +5475,9 @@
     "entries": {
       "v1_0_7": {
         "highlights": {},
-        "improvements": {},
+        "improvements": {
+          "modular_capabilities": "Secondary capabilities now activate per Vault as built-in plugins. Existing Vaults migrate to core-only mode without losing data or settings; sharing, mail sync, publishing and user automations stay paused until reactivated."
+        },
         "fixes": {
           "gallery_autoria_display": "Fixed Gallery database view rendering when displaying authorship properties."
         }

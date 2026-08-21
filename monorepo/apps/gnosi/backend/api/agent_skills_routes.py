@@ -68,6 +68,7 @@ from backend.services.capability_jobs import (
     read_job_result as read_capability_job_result,
     resume_job as resume_capability_job,
 )
+from backend.services.plugin_access import require_plugins
 
 
 router = APIRouter(prefix="/ai", tags=["AI Skills"])
@@ -880,7 +881,7 @@ def assign_agent_skills(
         ) from exc
 
 
-@router.get("/automations")
+@router.get("/automations", dependencies=[Depends(require_plugins("automations"))])
 def list_skill_automations(
     context: WorkspaceContext = Depends(get_workspace_context),
 ):
@@ -888,7 +889,11 @@ def list_skill_automations(
     return {"automations": list_automations(_automation_scope(context))}
 
 
-@router.post("/automations", status_code=201)
+@router.post(
+    "/automations",
+    status_code=201,
+    dependencies=[Depends(require_plugins("automations"))],
+)
 def create_skill_automation(
     payload: AutomationWritePayload,
     context: WorkspaceContext = Depends(require_role("admin")),
@@ -903,7 +908,10 @@ def create_skill_automation(
     )
 
 
-@router.get("/automations/{automation_id}")
+@router.get(
+    "/automations/{automation_id}",
+    dependencies=[Depends(require_plugins("automations"))],
+)
 def get_skill_automation(
     automation_id: str,
     context: WorkspaceContext = Depends(get_workspace_context),
@@ -914,7 +922,10 @@ def get_skill_automation(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
-@router.put("/automations/{automation_id}")
+@router.put(
+    "/automations/{automation_id}",
+    dependencies=[Depends(require_plugins("automations"))],
+)
 def update_skill_automation(
     automation_id: str,
     payload: AutomationWritePayload,
@@ -937,7 +948,10 @@ def update_skill_automation(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
-@router.delete("/automations/{automation_id}")
+@router.delete(
+    "/automations/{automation_id}",
+    dependencies=[Depends(require_plugins("automations"))],
+)
 def remove_skill_automation(
     automation_id: str,
     context: WorkspaceContext = Depends(require_role("admin")),
@@ -949,7 +963,10 @@ def remove_skill_automation(
     return {"status": "deleted", "automation_id": automation_id}
 
 
-@router.get("/automations/{automation_id}/runs")
+@router.get(
+    "/automations/{automation_id}/runs",
+    dependencies=[Depends(require_plugins("automations"))],
+)
 def list_skill_automation_runs(
     automation_id: str,
     limit: int = Query(default=50, ge=1, le=200),
@@ -965,7 +982,11 @@ def list_skill_automation_runs(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
-@router.post("/automations/{automation_id}/run", status_code=202)
+@router.post(
+    "/automations/{automation_id}/run",
+    status_code=202,
+    dependencies=[Depends(require_plugins("automations"))],
+)
 def run_skill_automation_now(
     automation_id: str,
     background_tasks: BackgroundTasks,

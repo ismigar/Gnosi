@@ -487,6 +487,10 @@ def test_internal_context_tools_preserve_scope_and_exact_read(monkeypatch):
 def test_mail_source_uses_bounded_search_then_exact_read(monkeypatch):
     from backend.api import mail_routes
 
+    monkeypatch.setattr(
+        internal_sources, "_internal_source_enabled", lambda _source_id: True
+    )
+
     async def fake_messages(**kwargs):
         assert kwargs["email"] == "allowed@example.test"
         assert kwargs["folder"] == "INBOX"
@@ -541,6 +545,10 @@ def test_calendar_source_keeps_account_ids_distinct_and_exact_reads_unlimited(
     monkeypatch,
 ):
     from backend.api import calendar_routes
+
+    monkeypatch.setattr(
+        internal_sources, "_internal_source_enabled", lambda _source_id: True
+    )
 
     def fake_events(
         _date_from,
@@ -605,6 +613,10 @@ def test_calendar_source_keeps_account_ids_distinct_and_exact_reads_unlimited(
 def test_contacts_source_reuses_workspace_scoped_service(monkeypatch):
     from backend.data import management_db
     from backend.services import contacts_service
+
+    monkeypatch.setattr(
+        internal_sources, "_internal_source_enabled", lambda _source_id: True
+    )
 
     contact = SimpleNamespace(
         id="contact-1",

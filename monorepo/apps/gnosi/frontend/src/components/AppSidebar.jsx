@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { Home, Network, BookOpen, Gauge, Share2, Settings, Menu, X, FileText, Calendar, Inbox, LayoutGrid, Clock, PenTool, Image as ImageIcon, Users, User, LogOut, CalendarRange, CircleHelp, NotebookTabs } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -12,6 +12,7 @@ import { WorkspaceSwitcher } from './Navigation/WorkspaceSwitcher';
 import VaultMenu from './VaultMenu';
 import { useAuth } from '../context/AuthContext';
 import { toast } from '../lib/toast';
+import { usePlugins } from '../plugins/usePlugins';
 
 export const ENGINEERING_DOCUMENTATION_URL = 'https://gnosi.temenosismael.org/engineering/';
 
@@ -35,14 +36,14 @@ const GIcon = ({ size = 14 }) => (
 const navItems = [
     { to: '/vault',             icon: FileText,   labelKey: 'sidebar.nav_vault',     shortcut: 'Ctrl 1' },
     { to: '/graph',             icon: Network,    labelKey: 'sidebar.nav_graph',     shortcut: 'Ctrl 2' },
-    { to: '/contacts',          icon: Users,      labelKey: 'sidebar.nav_contacts',  shortcut: 'Ctrl 3' },
-    { to: '/mail',              icon: Inbox,      labelKey: 'sidebar.nav_mail',      shortcut: 'Ctrl 4' },
-    { to: '/calendar',          icon: Calendar,   labelKey: 'sidebar.nav_calendar',  shortcut: 'Ctrl 5' },
-    { to: '/reader',            icon: BookOpen,   labelKey: 'sidebar.nav_reader',    shortcut: 'Ctrl 6' },
-    { to: '/notebooks',         icon: NotebookTabs, labelKey: 'sidebar.nav_notebooks', shortcut: '' },
-    { to: '/social-dashboard',  icon: Share2,     labelKey: 'sidebar.nav_social',    shortcut: 'Ctrl 7' },
-    { to: '/media',             icon: ImageIcon,  labelKey: 'sidebar.nav_media',     shortcut: 'Ctrl 8' },
-    { to: '/planning',          icon: CalendarRange, labelKey: 'sidebar.nav_planning', shortcut: '' },
+    { to: '/contacts',          icon: Users,      labelKey: 'sidebar.nav_contacts',  shortcut: 'Ctrl 3', pluginId: 'contacts' },
+    { to: '/mail',              icon: Inbox,      labelKey: 'sidebar.nav_mail',      shortcut: 'Ctrl 4', pluginId: 'mail' },
+    { to: '/calendar',          icon: Calendar,   labelKey: 'sidebar.nav_calendar',  shortcut: 'Ctrl 5', pluginId: 'calendar' },
+    { to: '/reader',            icon: BookOpen,   labelKey: 'sidebar.nav_reader',    shortcut: 'Ctrl 6', pluginId: 'feeds-reader' },
+    { to: '/notebooks',         icon: NotebookTabs, labelKey: 'sidebar.nav_notebooks', shortcut: '', pluginId: 'grounded-notebooks' },
+    { to: '/social-dashboard',  icon: Share2,     labelKey: 'sidebar.nav_social',    shortcut: 'Ctrl 7', pluginId: 'social-publishing' },
+    { to: '/media',             icon: ImageIcon,  labelKey: 'sidebar.nav_media',     shortcut: 'Ctrl 8', pluginId: 'social-publishing' },
+    { to: '/planning',          icon: CalendarRange, labelKey: 'sidebar.nav_planning', shortcut: '', pluginId: 'project-planning' },
 ];
 
 function getInitialSettingsRequest() {
@@ -62,6 +63,11 @@ export function AppSidebar() {
     const { t } = useTranslation();
     const navigate = useNavigate();
     const { user, logout } = useAuth();
+    const { isEnabled } = usePlugins();
+    const visibleNavItems = useMemo(
+        () => navItems.filter((item) => !item.pluginId || isEnabled(item.pluginId)),
+        [isEnabled],
+    );
 
     // The command palette (and other places) can request opening settings.
     useEffect(() => {
@@ -94,7 +100,7 @@ export function AppSidebar() {
 
         const handleOpenSettings = (e) => {
             if (e.detail) {
-                setSettingsTab(e.detail);
+                setSettingsTab(typeof e.detail === 'string' ? e.detail : (e.detail.tab || 'general'));
             }
             setSettingsOpen(true);
         };
@@ -107,10 +113,10 @@ export function AppSidebar() {
             if (!e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
             const tag = document.activeElement?.tagName;
             if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
-            const idx = parseInt(e.key) - 1;
-            if (idx >= 0 && idx < navItems.length) {
+            const target = navItems.find((item) => item.shortcut === `Ctrl ${e.key}`);
+            if (target && (!target.pluginId || isEnabled(target.pluginId))) {
                 e.preventDefault();
-                navigate(navItems[idx].to);
+                navigate(target.to);
                 setMobileOpen(false);
             } else if (e.key === ',') {
                 e.preventDefault();
@@ -119,7 +125,7 @@ export function AppSidebar() {
         };
         window.addEventListener('keydown', handler);
         return () => window.removeEventListener('keydown', handler);
-    }, [navigate]);
+    }, [isEnabled, navigate]);
 
     return (
         <>
@@ -161,7 +167,7 @@ export function AppSidebar() {
 
                 {/* Nav Items */}
                 <div className="app-sidebar__nav">
-                    {navItems.map(({ to, icon: Icon, labelKey, shortcut }) => {
+                    {visibleNavItems.map(({ to, icon: Icon, labelKey, shortcut }) => {
                         const label = t(labelKey);
                         return (
                             <NavLink
@@ -245,7 +251,7 @@ export function AppSidebar() {
                 <Suspense fallback={null}>
                     <GlobalSettingsModal
                         isOpen={settingsOpen}
-                        onClose={() => { setSettingsOpen(false); setTimeout(() => window.location.reload(), 400); }}
+                        onClose={() => setSettingsOpen(false)}
                         initialTab={settingsTab}
                     />
                 </Suspense>

@@ -6,10 +6,70 @@ Gnosi supports its own UI and data plugins. It does not promise binary or API
 compatibility with Obsidian plugins, whose editor and metadata abstractions do
 not map to Gnosi. A future shim may support an explicitly enumerated subset.
 
+## Product boundary and built-in capability model
+
+Gnosi's always-available research core is the Vault and Markdown/YAML editor,
+typed databases and their basic views, search, the knowledge graph, references,
+PDF/EPUB reading, evidence-preserving annotations, and citations. This core
+must remain usable without AI credentials, external accounts, or optional
+workers.
+
+Everything outside that path is a built-in plugin. The registry contains the
+existing Vault extensions (`daily-notes`, `tags-page`, `page-comments`,
+`share-links`, `canvas-cards`, `web-clipper`) plus `project-planning`,
+`feeds-reader`, `translation`, `contacts`, `mail`, `calendar`,
+`social-publishing`, `notion-import`, `ai-platform`, `llm-wiki`,
+`grounded-notebooks`, and `automations`. Social publishing owns the social
+dashboard, composer, and media-center application surfaces, while ordinary
+Vault attachments remain core.
+
+`grounded-notebooks` and `llm-wiki` require `ai-platform`. Features that combine
+domains require every relevant plugin: podcast generation needs feeds and AI;
+AI meeting assistance needs calendar and AI. Enabling a dependent capability
+requires explicit confirmation to enable its prerequisites. Disabling a
+prerequisite requires explicit confirmation and disables its dependents in the
+same atomic mutation.
+
+Disabling a plugin hides its navigation, commands, settings, contextual
+actions, global UI and optional workers. It never deletes configuration,
+credentials, source data, derived data, installed packages, grants, or agent
+profiles. Existing work may finish at a safe boundary, but no new external
+effect may start after the disabled state is committed. Shared core behavior
+must not disappear: database calendar views, contact-like fields, Vault media,
+drawings, and system-maintenance jobs stay available.
+
+Agent internal-source catalogues and persisted source references follow the
+same boundary. A disabled Reader, Mail, Calendar, Contacts, Planning, Social,
+Meetings, or Notion plugin must be filtered before its adapter is opened, not
+only hidden after its data has already been queried.
+
+## State schema and migration
+
+Per-vault plugin state is versioned. Built-in enablement is explicit so a new
+optional capability can never become active merely because its id is absent
+from a legacy disabled list. The compatibility `disabled` list remains present
+for older clients and for third-party plugins.
+
+The first read of legacy state migrates atomically and idempotently to the
+current schema. The migration deliberately starts every built-in and installed
+third-party plugin disabled, including in existing Vaults, while preserving
+all settings, grants, registry metadata, trust, directories, and domain data.
+New Vaults use the same core-only default. Re-enabling a plugin restores its
+preserved state.
+
+All lifecycle changes use one per-plugin endpoint and one mutation lock. The
+whole-state update endpoint remains a compatibility adapter, but current UI
+must not use it for activation or settings writes. Lifecycle mutations are an
+administrative operation in multi-user mode; ordinary plugin settings remain
+editable under their existing role rules.
+
 ## Implemented architecture
 
 ### Backend
 
+- `builtin_plugins.py`: authoritative built-in registry, v2 normalization,
+  explicit enablement, and dependency traversal.
+- `plugin_access.py`: structured FastAPI guards for optional capabilities.
 - `plugin_system.py`: discovery, manifest validation, and permission model.
 - `plugin_events.py`: fire-and-forget event bus.
 - `plugin_sandbox.py` and `plugin_runtime/runner.mjs`: Node permission sandbox
@@ -23,6 +83,10 @@ not map to Gnosi. A future shim may support an explicitly enumerated subset.
 
 ### Frontend
 
+- `frontend/src/plugins/usePlugins.js`: singleton per-Vault state loaded before
+  the shell and invalidated synchronously on Vault changes.
+- `frontend/src/plugins/registry.js`: offline shell fallback whose parity with
+  the backend registry is tested; the API response remains authoritative.
 - `frontend/src/plugins/host.js`: opaque-origin
   `sandbox="allow-scripts"` iframe, CSP, `postMessage` bridge, and contribution
   store.
@@ -44,7 +108,7 @@ statistics examples. Copy a local plugin into
 
 - `vault:read`, `vault:write`, `vault:delete`;
 - `network`;
-- `ui:view`, `ui:command`, `ui:sidebar`;
+- `ui:view`, `ui:command`, `ui:sidebar`, `ui:settings`;
 - `settings`.
 
 A capability exists only when both declared and granted. New installations
@@ -57,8 +121,13 @@ Reject manifests that require a newer major version.
 
 UI code runs in an isolated iframe and communicates only through the host
 bridge. It cannot directly access Gnosi's DOM or the network. `registerCommand`,
-`registerView`, sidebar, settings, Vault methods, and network access are
-permission-gated.
+`registerView`, `registerSidebarPanel`, `registerSettingsPanel`, settings,
+Vault methods, and network access are permission-gated. A third-party settings
+panel appears under Settings > Extensions only when the plugin is enabled and
+has both `ui:settings` and `settings` grants. Revocation, disablement, or
+uninstallation removes the contribution immediately. Adding this permission
+and registration method is backward-compatible and does not increment plugin
+API v2.
 
 ## Data sandbox
 
@@ -155,6 +224,23 @@ settings round trips, trust management, and the full Plugin Settings UI.
 Frontend build and lint must remain clean.
 
 ## Settings information architecture
+
+Settings owns configuration; Plugins owns lifecycle. Built-in configuration
+must not expand inline inside the Installed list. An enabled plugin with global
+configuration contributes a normal Settings destination in its semantic group,
+and its Configure action deep-links there:
+
+- Connections: Web Clipper, feeds, calendar, contacts, mail, social publishing,
+  and Notion import.
+- Knowledge: daily notes, project planning, AI, LLM Wiki, and translation.
+- Advanced: user automations.
+- Extensions: sandboxed third-party settings contributions.
+
+Plugins without global configuration do not create empty Settings pages.
+Object-level configuration remains with the object; notebook-specific settings,
+for example, stay inside the notebook. Settings navigation and data loading must
+react immediately to activation changes and active-Vault changes, without a
+page reload or a flash of disabled content.
 
 The Plugin Settings screen uses three top-level sections:
 

@@ -42,17 +42,24 @@ every tool.
 
 - Block editor over portable Markdown and YAML.
 - Typed databases with relations, formulas, rollups and saved views.
-- Interactive knowledge graph and optional semantic suggestions.
+- Interactive knowledge graph, search, backlinks and references.
 - Native reference manager with Zotero-compatible capture and CSL citations.
 - Integrated PDF/EPUB reader with evidence-preserving annotations.
 - Word and LibreOffice citation add-ins.
-- Research planning with dependencies, resources, deadlines and timelines.
-- Multi-provider agents, plugins and MCP tools with explicit governance.
 - Personal local-first mode and optional self-hosted organization mode.
 
-Mail, calendar, contacts, feeds, translation and publishing integrations also
-exist, but the primary product path is research: source → evidence → synthesis →
-citation.
+Secondary capabilities are built-in plugins that can be activated per Vault:
+daily notes, tags and comments, external sharing, planning, feeds, translation,
+mail, calendar, contacts, social publishing, Notion import, AI, grounded
+notebooks and user automations. Their configuration appears in the natural
+Settings group only while the plugin is active; Plugins itself manages
+lifecycle, permissions, updates and removal.
+
+The versioned plugin-state migration starts existing Vaults in core-only mode.
+It preserves data, accounts, credentials and settings, but sharing links, mail
+sync, scheduled social publishing and user automations remain paused until the
+corresponding plugin is reactivated. The primary product path stays research:
+source → evidence → synthesis → citation.
 
 ## Try the multilingual research workspace
 

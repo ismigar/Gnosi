@@ -4,6 +4,7 @@ import logging
 from backend.services.integration_manager import integration_manager
 from backend.utils.errors import safe_error_detail
 from backend.services.workspace_service import require_role
+from backend.services.plugin_access import require_plugins
 import imaplib
 import smtplib
 from email.parser import BytesParser
@@ -79,14 +80,19 @@ def _invalidate_imap_state(emails: set[str]) -> None:
     except Exception:
         pass
 
-    # Restarts the IDLE worker for each account. If the account isn't IMAP-eligible
-    # start_worker will no-op in practice (the manager checks capabilities).
+    # Restart workers only while Mail is active. Credential edits must never
+    # wake a paused plugin through this shared configuration endpoint.
     try:
         from backend.services.imap_idle_service import idle_manager
+        from backend.api.vault_routes import _load_plugins_state
+        from backend.services import builtin_plugins
+
+        mail_enabled = builtin_plugins.is_enabled(_load_plugins_state(), "mail")
         for email in emails:
             try:
                 idle_manager.stop_worker(email)
-                idle_manager.start_worker(email)
+                if mail_enabled:
+                    idle_manager.start_worker(email)
             except Exception as e:
                 log.debug(f"[CRED-CHANGE] Error restarting IDLE for {email}: {e}")
     except Exception:
@@ -159,7 +165,10 @@ def _test_email_sync(
     return result
 
 
-@router.post("/test-email", dependencies=[Depends(require_role("editor"))])
+@router.post(
+    "/test-email",
+    dependencies=[Depends(require_role("editor")), Depends(require_plugins("mail"))],
+)
 async def test_email_connection(payload: dict = Body(...)):
     """Tests IMAP/SMTP connection for an email account."""
     try:
@@ -234,7 +243,10 @@ def _validate_dav_url(url: str) -> None:
             raise HTTPException(status_code=400, detail="URL not allowed")
 
 
-@router.post("/test-contacts", dependencies=[Depends(require_role("editor"))])
+@router.post(
+    "/test-contacts",
+    dependencies=[Depends(require_role("editor")), Depends(require_plugins("contacts"))],
+)
 async def test_contacts_connection(payload: dict = Body(...)):
     """Tests CardDAV connection for a contacts account."""
     try:
@@ -272,7 +284,10 @@ async def test_contacts_connection(payload: dict = Body(...)):
         return {"success": False, "error": safe_error_detail(e, context="POST /api/integrations/test-contacts")}
 
 
-@router.post("/test-calendar", dependencies=[Depends(require_role("editor"))])
+@router.post(
+    "/test-calendar",
+    dependencies=[Depends(require_role("editor")), Depends(require_plugins("calendar"))],
+)
 async def test_calendar_connection(payload: dict = Body(...)):
     """Tests CalDAV connection for a calendar account."""
     try:

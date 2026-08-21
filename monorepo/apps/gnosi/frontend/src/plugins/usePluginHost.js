@@ -11,23 +11,33 @@ import { subscribeHost, loadPlugins, isLoaded, getContributions } from './host';
 
 let _kickoff = null;
 
+function kickoffPluginLoad() {
+    if (!_kickoff) {
+        _kickoff = loadPlugins().finally(() => { _kickoff = null; });
+    }
+    return _kickoff;
+}
+
 export function usePluginHost() {
     const [state, setState] = useState(getContributions());
 
     useEffect(() => {
         const unsub = subscribeHost(setState);
-        if (!isLoaded() && !_kickoff) {
-            _kickoff = loadPlugins().finally(() => { _kickoff = null; });
-        }
-        return () => { unsub(); };
+        if (!isLoaded()) void kickoffPluginLoad();
+        const refresh = () => { void kickoffPluginLoad(); };
+        window.addEventListener('gnosi:vault-changed', refresh);
+        return () => {
+            unsub();
+            window.removeEventListener('gnosi:vault-changed', refresh);
+        };
     }, []);
 
-    return state; // { commands, views, sidebar }
+    return state; // { commands, views, sidebar, settingsPanels }
 }
 
 /** Forces a plugin reload (e.g. after changing permissions). */
 export function reloadPlugins() {
-    return loadPlugins();
+    return kickoffPluginLoad();
 }
 
 export default usePluginHost;

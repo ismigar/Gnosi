@@ -5,6 +5,8 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 
 import { AppSidebar, ENGINEERING_DOCUMENTATION_URL } from './AppSidebar';
 
+const pluginState = vi.hoisted(() => ({ enabled: new Set() }));
+
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
         t: (key, fallback) => fallback || key,
@@ -17,6 +19,12 @@ vi.mock('../context/AuthContext', () => ({
 
 vi.mock('../lib/toast', () => ({
     toast: { success: vi.fn() },
+}));
+
+vi.mock('../plugins/usePlugins', () => ({
+    usePlugins: () => ({
+        isEnabled: (pluginId) => pluginState.enabled.has(pluginId),
+    }),
 }));
 
 vi.mock('./Navigation/WorkspaceSwitcher', () => ({
@@ -34,6 +42,7 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
+    pluginState.enabled.clear();
     globalThis.fetch = vi.fn().mockResolvedValue({
         json: vi.fn().mockResolvedValue({ gnosi_mode: 'personal' }),
     });
@@ -68,5 +77,25 @@ describe('AppSidebar documentation access', () => {
         expect(link.getAttribute('target')).toBe('_blank');
         expect(link.getAttribute('rel')).toContain('noopener');
         expect(link.getAttribute('aria-label')).toBe('Engineering documentation');
+    });
+
+    it('keeps optional navigation hidden until its plugin is enabled', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const root = createRoot(container);
+        mountedRoots.push({ root, container });
+
+        await act(async () => {
+            root.render(<MemoryRouter><AppSidebar /></MemoryRouter>);
+        });
+        expect(container.querySelector('a[href="/vault"]')).not.toBeNull();
+        expect(container.querySelector('a[href="/graph"]')).not.toBeNull();
+        expect(container.querySelector('a[href="/contacts"]')).toBeNull();
+
+        pluginState.enabled.add('contacts');
+        await act(async () => {
+            root.render(<MemoryRouter><AppSidebar /></MemoryRouter>);
+        });
+        expect(container.querySelector('a[href="/contacts"]')).not.toBeNull();
     });
 });

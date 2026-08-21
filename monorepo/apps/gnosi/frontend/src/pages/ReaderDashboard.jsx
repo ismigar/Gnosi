@@ -5,6 +5,7 @@ import { toast } from '../lib/toast';
 import { Play, RotateCw, Check, Headphones, ArrowLeft, Loader, BookOpen, ExternalLink, ChevronDown, ChevronRight, Inbox, Menu, X, History } from 'lucide-react';
 import { AppHeader } from '../components/AppHeader';
 import { getIntlLocale } from '../locales/registry';
+import { usePlugins } from '../plugins/usePlugins';
 
 const API_BASE = '/api';
 // Google's favicon service: covers all public domains, returns a 32px PNG
@@ -138,6 +139,8 @@ const fitIframeToContent = (event) => {
 
 const ReaderDashboard = () => {
     const { t, i18n } = useTranslation();
+    const { isEnabled } = usePlugins();
+    const podcastEnabled = isEnabled('ai-platform');
     const locale = getIntlLocale(i18n.resolvedLanguage || i18n.language);
 
     const [displayArticles, setDisplayArticles] = useState([]);
@@ -159,10 +162,18 @@ const ReaderDashboard = () => {
     useEffect(() => {
         fetchSources();
         fetchUnreadCounts();
-        checkPodcast();
         const articleId = new URLSearchParams(window.location.search).get('article');
         if (articleId) openEvidenceArticle(articleId);
     }, []);
+
+    useEffect(() => {
+        if (podcastEnabled) {
+            checkPodcast();
+        } else {
+            setPodcastUrl(null);
+            setPodcastInfo(null);
+        }
+    }, [podcastEnabled]);
 
     useEffect(() => {
         fetchDisplayArticles();
@@ -556,7 +567,7 @@ const ReaderDashboard = () => {
                         })}
                     </nav>
 
-                    <div className="border-t border-[var(--border-primary)] bg-[var(--bg-primary)] px-4 py-3">
+                    {podcastEnabled && <div className="border-t border-[var(--border-primary)] bg-[var(--bg-primary)] px-4 py-3">
                         {generatingPodcast ? (
                             <div className="flex items-center gap-3">
                                 <Loader size={16} className="animate-spin text-[var(--gnosi-blue)] flex-shrink-0" />
@@ -595,7 +606,7 @@ const ReaderDashboard = () => {
                                 <span>{t('reader_podcast_generate')}</span>
                             </button>
                         )}
-                    </div>
+                    </div>}
                 </aside>
 
                 {/* Column 2: Articles */}

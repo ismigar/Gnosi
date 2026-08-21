@@ -14,11 +14,14 @@ import { ConfirmModal } from '../components/ConfirmModal';
 import { RecurrenceChoiceModal } from '../components/Vault/RecurrenceChoiceModal';
 import { buildOccurrenceKey, truncateRruleBefore } from '../utils/calendarUtils';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { usePlugins } from '../plugins/usePlugins';
 
 // Keyboard handler removed in favor of RecurrenceChoiceModal component
 
 export default function CalendarPage() {
     const { t } = useTranslation();
+    const { isEnabled } = usePlugins();
+    const aiMeetingsEnabled = isEnabled('ai-platform');
     const navigate = useNavigate();
     const isCompact = useMediaQuery('(max-width: 1023px)');
     const [pages, setPages] = useState([]);           // notes vault locals (source=Gnosi)
@@ -848,6 +851,7 @@ export default function CalendarPage() {
 
     // ── Meeting reminders (AI notifier) ──────────────────────────
     useEffect(() => {
+        if (!aiMeetingsEnabled) return undefined;
         let alive = true;
         axios.get('/api/calendar/reminders/settings')
             .then(({ data }) => {
@@ -857,7 +861,7 @@ export default function CalendarPage() {
             })
             .catch(() => {});
         return () => { alive = false; };
-    }, []);
+    }, [aiMeetingsEnabled]);
 
     const saveReminderSettings = useCallback(async (patch) => {
         const next = {
@@ -916,7 +920,7 @@ export default function CalendarPage() {
                     </div>
 
                     {/* AI meeting notifier */}
-                    <div className="flex items-center gap-1 bg-[var(--bg-secondary)] p-0.5 rounded-lg border border-[var(--border-primary)] shadow-sm">
+                    {aiMeetingsEnabled && <div className="flex items-center gap-1 bg-[var(--bg-secondary)] p-0.5 rounded-lg border border-[var(--border-primary)] shadow-sm">
                         <button
                             onClick={() => saveReminderSettings({ enabled: !remindersEnabled })}
                             className={`flex items-center gap-1 p-1.5 rounded transition-all ${remindersEnabled ? 'text-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/10' : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-tertiary)]'}`}
@@ -937,7 +941,7 @@ export default function CalendarPage() {
                                 <option value={30}>{t('calendar.minutes_abbrev', '{{count}} min', { count: 30 })}</option>
                             </select>
                         )}
-                    </div>
+                    </div>}
 
                     <div className="w-px h-6 bg-[var(--border-primary)]" />
 

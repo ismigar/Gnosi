@@ -69,6 +69,7 @@ from backend.utils.errors import safe_error_detail
 import asyncio
 
 from backend.services.workspace_service import get_workspace_context, require_role
+from backend.services.plugin_access import require_plugins
 router = APIRouter(dependencies=[Depends(get_workspace_context)])
 
 from backend.services.context_vars import get_active_vault_path
@@ -117,6 +118,7 @@ from backend.services.translation_helpers import (
 )
 from backend.services import translation_index
 from backend.services import action_rules as action_rules_service
+from backend.services import builtin_plugins
 from backend.services import option_catalogs as option_catalogs_service
 from backend.services.table_system_dates import (
     ensure_system_date_properties,
@@ -4706,7 +4708,10 @@ async def list_daily_notes():
 _daily_note_lock = asyncio.Lock()
 
 
-@router.post("/daily", dependencies=[Depends(require_role("editor"))])
+@router.post(
+    "/daily",
+    dependencies=[Depends(require_role("editor")), Depends(require_plugins("daily-notes"))],
+)
 async def get_or_create_daily_note(
     request: DailyNoteRequest, background_tasks: BackgroundTasks
 ):
@@ -4888,14 +4893,20 @@ def _save_comments(data: dict) -> None:
         safe_write_json(path, data, indent=2, ensure_ascii=False)
 
 
-@router.get("/pages/{page_id}/comments")
+@router.get(
+    "/pages/{page_id}/comments",
+    dependencies=[Depends(require_plugins("page-comments"))],
+)
 async def list_page_comments(page_id: str):
     """Returns the comment thread for a page (oldest first)."""
     data = await asyncio.to_thread(_load_comments)
     return {"comments": data.get(page_id, [])}
 
 
-@router.post("/pages/{page_id}/comments", dependencies=[Depends(require_role("editor"))])
+@router.post(
+    "/pages/{page_id}/comments",
+    dependencies=[Depends(require_role("editor")), Depends(require_plugins("page-comments"))],
+)
 async def add_page_comment(
     page_id: str,
     request: CommentCreateRequest,
@@ -4925,7 +4936,7 @@ async def add_page_comment(
 
 @router.patch(
     "/pages/{page_id}/comments/{comment_id}",
-    dependencies=[Depends(require_role("editor"))],
+    dependencies=[Depends(require_role("editor")), Depends(require_plugins("page-comments"))],
 )
 async def update_page_comment(
     page_id: str, comment_id: str, request: CommentUpdateRequest
@@ -4953,7 +4964,7 @@ async def update_page_comment(
 
 @router.delete(
     "/pages/{page_id}/comments/{comment_id}",
-    dependencies=[Depends(require_role("editor"))],
+    dependencies=[Depends(require_role("editor")), Depends(require_plugins("page-comments"))],
 )
 async def delete_page_comment(page_id: str, comment_id: str):
     """Removes a comment from a page's thread."""
@@ -4999,11 +5010,16 @@ class PluginsUpdateRequest(BaseModel):
     settings: dict = {}
 
 
-class LlmWikiLifecycleRequest(BaseModel):
-    """Explicit lifecycle request for the built-in LLM Wiki feature."""
+class PluginLifecycleRequest(BaseModel):
+    """Explicit lifecycle request for a built-in or installed plugin."""
 
     enabled: bool
+    confirm_dependencies: bool = False
     confirm_disable: bool = False
+
+
+class LlmWikiLifecycleRequest(PluginLifecycleRequest):
+    """Backward-compatible lifecycle request for LLM Wiki."""
 
 
 def _get_plugins_path() -> Path:
@@ -5014,38 +5030,28 @@ def _load_plugins_state() -> dict:
     with _plugins_lock:
         try:
             path = _get_plugins_path()
-            if not path.exists():
-                return {"disabled": [], "settings": {}}
-            data = json.loads(path.read_text(encoding="utf-8"))
-            if not isinstance(data, dict):
-                return {"disabled": [], "settings": {}}
-            data.setdefault("disabled", [])
-            data.setdefault("settings", {})
-            data.setdefault("granted", {})
-            if not isinstance(data.get("settings"), dict):
-                data["settings"] = {}
-            if not isinstance(data.get("granted"), dict):
-                data["granted"] = {}
+            raw = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+            data, changed = builtin_plugins.normalize_state(raw)
+            if changed:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                safe_write_json(path, data, indent=2, ensure_ascii=False)
             return data
-        except Exception:
-            return {"disabled": [], "settings": {}, "granted": {}}
+        except Exception as exc:
+            log.warning("Could not load plugin state; using core-only defaults: %s", exc)
+            data, _ = builtin_plugins.normalize_state({})
+            return data
 
 
 @router.get("/plugins")
 async def get_plugins_state():
-    """Returns the plugin on/off state (list of disabled plugin ids)."""
-    return await asyncio.to_thread(_load_plugins_state)
+    """Return versioned plugin state and the built-in capability registry."""
+    state = await asyncio.to_thread(_load_plugins_state)
+    return {**state, "builtins": builtin_plugins.public_registry()}
 
 
 def _save_plugins_state(state: dict) -> dict:
-    """Persists the entire plugin state (disabled + settings + granted + registry_url)."""
-    payload = {
-        "disabled": [str(x) for x in (state.get("disabled") or [])],
-        "settings": state.get("settings") if isinstance(state.get("settings"), dict) else {},
-        "granted": state.get("granted") if isinstance(state.get("granted"), dict) else {},
-    }
-    if state.get("registry_url"):
-        payload["registry_url"] = str(state.get("registry_url"))
+    """Persist normalized plugin state without dropping compatibility fields."""
+    payload, _ = builtin_plugins.normalize_state(state)
     with _plugins_lock:
         path = _get_plugins_path()
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -5055,7 +5061,7 @@ def _save_plugins_state(state: dict) -> dict:
 
 def _llm_wiki_enabled(state: dict) -> bool:
     """Returns whether the built-in LLM Wiki feature is enabled in a state."""
-    return "llm-wiki" not in {str(item) for item in (state.get("disabled") or [])}
+    return builtin_plugins.is_enabled(state, "llm-wiki")
 
 
 def _reconcile_plugin_ai_contributions() -> dict:
@@ -5068,7 +5074,7 @@ def _reconcile_plugin_ai_contributions() -> dict:
     return reconcile_plugin_ai_contributions()
 
 
-@router.put("/plugins", dependencies=[Depends(require_role("editor"))])
+@router.put("/plugins", dependencies=[Depends(require_role("admin"))])
 async def set_plugins_state(request: PluginsUpdateRequest):
     """Persists which plugins are disabled and their per-plugin settings.
 
@@ -5078,13 +5084,21 @@ async def set_plugins_state(request: PluginsUpdateRequest):
     """
     def _write():
         current = _load_plugins_state()
-        requested_state = {"disabled": request.disabled or []}
+        requested_disabled = {str(item) for item in (request.disabled or [])}
+        requested_state = {
+            **current,
+            "enabled_builtin": sorted(
+                builtin_plugins.BUILTIN_PLUGIN_IDS - requested_disabled
+            ),
+            "disabled": sorted(requested_disabled),
+        }
         if _llm_wiki_enabled(current) != _llm_wiki_enabled(requested_state):
             raise HTTPException(
                 status_code=409,
                 detail="The LLM Wiki plugin must be changed through its confirmed lifecycle.",
             )
-        current["disabled"] = [str(x) for x in (request.disabled or [])]
+        current["disabled"] = sorted(requested_disabled)
+        current["enabled_builtin"] = requested_state["enabled_builtin"]
         current["settings"] = request.settings if isinstance(request.settings, dict) else {}
         saved = _save_plugins_state(current)
         _reconcile_plugin_ai_contributions()
@@ -5093,46 +5107,99 @@ async def set_plugins_state(request: PluginsUpdateRequest):
         return await asyncio.to_thread(_write)
 
 
-@router.post("/plugins/llm-wiki/lifecycle", dependencies=[Depends(require_role("admin"))])
-async def set_llm_wiki_lifecycle(payload: LlmWikiLifecycleRequest, request: Request):
-    """Enables/disables LLM Wiki together with its protected AI profile.
-
-    Disabling needs an explicit confirmation because it suspends the associated
-    agent and its skills. Profile overrides, the knowledge table, and notes are
-    deliberately retained so reactivation restores the exact state.
-    """
+async def _change_plugin_lifecycle(
+    plugin_id: str,
+    payload: PluginLifecycleRequest,
+    request: Request,
+) -> dict:
+    """Apply one dependency-aware plugin lifecycle mutation."""
     from backend.services.llm_wiki_agent import LlmWikiAgentError, transition_agent
 
     def _write() -> dict:
         state = _load_plugins_state()
-        disabled = [str(item) for item in (state.get("disabled") or [])]
-        was_enabled = "llm-wiki" not in disabled
-        if not payload.enabled and was_enabled and not payload.confirm_disable:
-            raise LlmWikiAgentError(
-                "Confirm disabling the LLM Wiki plugin because its agent and skills "
-                "will be suspended."
-            )
+        is_builtin = plugin_id in builtin_plugins.BUILTIN_PLUGIN_IDS
+        if not is_builtin:
+            from backend.services import plugin_system as ps
 
-        agent_result = transition_agent(payload.enabled)
+            ps.read_manifest(get_p("GNOSI_CONFIG"), plugin_id)
+
+        enabled_builtin = set(state.get("enabled_builtin") or [])
+        affected: list[str] = []
         if payload.enabled:
-            disabled = [item for item in disabled if item != "llm-wiki"]
-        elif "llm-wiki" not in disabled:
-            disabled.append("llm-wiki")
-        state["disabled"] = disabled
+            missing = [
+                requirement
+                for requirement in builtin_plugins.required_plugins(plugin_id)
+                if requirement not in enabled_builtin
+            ]
+            if missing and not payload.confirm_dependencies:
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "code": "plugin_dependency_confirmation_required",
+                        "plugin_id": plugin_id,
+                        "enable": missing,
+                        "disable": [],
+                    },
+                )
+            for requirement in missing:
+                state = builtin_plugins.set_enabled(state, requirement, True)
+                affected.append(requirement)
+            state = builtin_plugins.set_enabled(state, plugin_id, True)
+        else:
+            dependents = list(
+                builtin_plugins.dependent_plugins(plugin_id, enabled_builtin)
+            )
+            needs_confirmation = dependents or (plugin_id == "llm-wiki")
+            if needs_confirmation and not (
+                payload.confirm_dependencies or payload.confirm_disable
+            ):
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "code": "plugin_dependency_confirmation_required",
+                        "plugin_id": plugin_id,
+                        "enable": [],
+                        "disable": dependents,
+                    },
+                )
+            for dependent in reversed(dependents):
+                state = builtin_plugins.set_enabled(state, dependent, False)
+                affected.append(dependent)
+            state = builtin_plugins.set_enabled(state, plugin_id, False)
+
+        affected.append(plugin_id)
+        agent_result: dict[str, Any] = {}
+        if "llm-wiki" in affected:
+            try:
+                agent_result = transition_agent(
+                    builtin_plugins.is_enabled(state, "llm-wiki")
+                )
+            except LlmWikiAgentError:
+                raise
+
         saved = _save_plugins_state(state)
-        try:
+        if "llm-wiki" in affected:
             from backend.scheduler.manager import scheduler_manager
 
-            task = scheduler_manager.get_task("llm_wiki_maintenance")
-            interval = float((task or {}).get("interval_minutes") or 1440)
-            scheduler_manager.update_task(
-                "llm_wiki_maintenance",
-                interval_minutes=interval,
-                enabled=payload.enabled,
-            )
-        except Exception as exc:  # noqa: BLE001
-            log.warning("Could not update the LLM Wiki maintenance task: %s", exc)
-        return {**saved, **agent_result, "enabled": payload.enabled}
+            try:
+                task = scheduler_manager.get_task("llm_wiki_maintenance")
+                interval = float((task or {}).get("interval_minutes") or 1440)
+                scheduler_manager.update_task(
+                    "llm_wiki_maintenance",
+                    interval_minutes=interval,
+                    enabled=builtin_plugins.is_enabled(saved, "llm-wiki"),
+                )
+            except Exception as exc:  # noqa: BLE001
+                log.warning("Could not update the LLM Wiki maintenance task: %s", exc)
+        _reconcile_plugin_ai_contributions()
+        return {
+            **saved,
+            **agent_result,
+            "plugin_id": plugin_id,
+            "enabled": builtin_plugins.is_enabled(saved, plugin_id),
+            "affected": affected,
+            "builtins": builtin_plugins.public_registry(),
+        }
 
     try:
         async with _plugins_mutation_lock:
@@ -5140,10 +5207,80 @@ async def set_llm_wiki_lifecycle(payload: LlmWikiLifecycleRequest, request: Requ
     except LlmWikiAgentError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
+    await _refresh_plugin_runtime(request, result)
     cache = getattr(request.app.state, "agent_cache", None)
     if cache:
         cache.clear()
     return result
+
+
+async def _refresh_plugin_runtime(request: Request, state: dict) -> None:
+    """Apply safe runtime transitions after the state has been committed."""
+    affected = set(state.get("affected") or [])
+    if "mail" in affected:
+        try:
+            from backend.services.imap_idle_service import idle_manager
+
+            if builtin_plugins.is_enabled(state, "mail"):
+                await asyncio.to_thread(idle_manager.start_all)
+            else:
+                await asyncio.to_thread(idle_manager.stop_all)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Could not refresh Mail background workers: %s", exc)
+
+    if "ai-platform" not in affected:
+        return
+    if not builtin_plugins.is_enabled(state, "ai-platform"):
+        # Existing requests retain their current workflow and can finish safely.
+        # Route guards prevent new work; process shutdown closes the MCP client.
+        return
+    if getattr(request.app.state, "mcp_client", None):
+        return
+    try:
+        from backend.agent.factory import create_agent_workflow
+        from backend.config.mcp_config import MCP_SERVERS
+        from backend.mcp.client import MultiServerMCPClient
+
+        mcp_client = MultiServerMCPClient(MCP_SERVERS)
+        await mcp_client.start()
+        tools_list = await mcp_client.get_all_tools()
+        request.app.state.mcp_client = mcp_client
+        request.app.state.tools_list = tools_list
+        workflow, _ = await create_agent_workflow(
+            tools_list,
+            mcp_client,
+            agent_id="gnosy",
+        )
+        if workflow:
+            request.app.state.agent_workflow = workflow
+            request.app.state.agent_app = workflow.compile()
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Could not start the AI plugin runtime: %s", exc)
+
+
+@router.post(
+    "/plugins/{plugin_id}/lifecycle",
+    dependencies=[Depends(require_role("admin"))],
+)
+async def set_plugin_lifecycle(
+    plugin_id: str,
+    payload: PluginLifecycleRequest,
+    request: Request,
+):
+    """Enable or disable a plugin and its confirmed dependency changes."""
+    return await _change_plugin_lifecycle(plugin_id, payload, request)
+
+
+@router.post(
+    "/plugins/llm-wiki/lifecycle",
+    dependencies=[Depends(require_role("admin"))],
+)
+async def set_llm_wiki_lifecycle(
+    payload: LlmWikiLifecycleRequest,
+    request: Request,
+):
+    """Backward-compatible alias for the general lifecycle endpoint."""
+    return await _change_plugin_lifecycle("llm-wiki", payload, request)
 
 
 # ---------------------------------------------------------------------------
@@ -5171,7 +5308,6 @@ async def get_installed_plugins():
     def _work():
         config_dir = get_p("GNOSI_CONFIG")
         state = _load_plugins_state()
-        disabled = set(state.get("disabled") or [])
         out = []
         for entry in ps.discover_plugins(config_dir):
             manifest = entry.get("manifest")
@@ -5181,7 +5317,7 @@ async def get_installed_plugins():
             pid = manifest["id"]
             out.append({
                 "manifest": manifest,
-                "enabled": pid not in disabled,
+                "enabled": builtin_plugins.is_enabled(state, pid),
                 "granted": ps.granted_permissions(state, pid),
                 "provenance": entry.get("provenance") or None,
             })
@@ -5190,7 +5326,7 @@ async def get_installed_plugins():
     return await asyncio.to_thread(_work)
 
 
-@router.post("/plugins/{plugin_id}/permissions", dependencies=[Depends(require_role("editor"))])
+@router.post("/plugins/{plugin_id}/permissions", dependencies=[Depends(require_role("admin"))])
 async def set_plugin_permissions(plugin_id: str, request: PluginPermissionsRequest):
     """Grants (or revokes) permissions to a third-party plugin."""
     from backend.services import plugin_system as ps
@@ -5318,7 +5454,10 @@ async def fetch_for_ui_plugin(plugin_id: str, request: PluginNetworkFetchRequest
 
 @router.post(
     "/plugins/vault-summary/summarize",
-    dependencies=[Depends(require_role("editor"))],
+    dependencies=[
+        Depends(require_role("editor")),
+        Depends(require_plugins("vault-summary", "ai-platform")),
+    ],
 )
 async def summarize_with_vault_plugin(request: VaultSummaryRequest):
     """Create a concise summary using the explicitly configured active model."""
@@ -5401,14 +5540,12 @@ def _quarantine_installed_plugin(plugin_id: str) -> None:
     """
     from backend.services import plugin_system as ps
     state = _load_plugins_state()
-    disabled = set(state.get("disabled") or [])
-    disabled.add(plugin_id)
-    state["disabled"] = list(disabled)
+    state = builtin_plugins.set_enabled(state, plugin_id, False)
     state = ps.set_granted(state, plugin_id, [])
     _save_plugins_state(state)
 
 
-@router.post("/plugins/install", dependencies=[Depends(require_role("editor"))])
+@router.post("/plugins/install", dependencies=[Depends(require_role("admin"))])
 async def install_plugin(file: UploadFile = File(...)):
     """Installs a third-party plugin from an uploaded .zip (with its manifest.json).
 
@@ -5434,7 +5571,7 @@ async def install_plugin(file: UploadFile = File(...)):
     return {"installed": manifest}
 
 
-@router.delete("/plugins/{plugin_id}", dependencies=[Depends(require_role("editor"))])
+@router.delete("/plugins/{plugin_id}", dependencies=[Depends(require_role("admin"))])
 async def uninstall_plugin(plugin_id: str):
     """Uninstall a third-party plugin: delete its folder and clean up its state."""
     from backend.services import plugin_system as ps
@@ -5445,6 +5582,11 @@ async def uninstall_plugin(plugin_id: str):
         # Cleans up the associated state (disabled + granted) so it doesn't stay orphaned.
         state = _load_plugins_state()
         state["disabled"] = [d for d in (state.get("disabled") or []) if d != plugin_id]
+        state["enabled_third_party"] = [
+            value
+            for value in (state.get("enabled_third_party") or [])
+            if value != plugin_id
+        ]
         state = ps.set_granted(state, plugin_id, [])
         _save_plugins_state(state)
         _reconcile_plugin_ai_contributions()
@@ -5554,7 +5696,7 @@ async def list_plugin_catalog():
     return await asyncio.to_thread(_work)
 
 
-@router.post("/plugins/catalog/install", dependencies=[Depends(require_role("editor"))])
+@router.post("/plugins/catalog/install", dependencies=[Depends(require_role("admin"))])
 async def install_from_catalog(request: CatalogInstallRequest):
     """Installs a plugin from the catalog (bundled by `id`, or remote by `url`)."""
     from backend.services import plugin_catalog as pc
@@ -20618,7 +20760,10 @@ async def match_drupal_rows(background_tasks: BackgroundTasks, payload: dict = B
     }
 
 
-@router.post("/skills/translate-row", dependencies=[Depends(require_role("editor"))])
+@router.post(
+    "/skills/translate-row",
+    dependencies=[Depends(require_role("editor")), Depends(require_plugins("translation"))],
+)
 async def translate_row(background_tasks: BackgroundTasks, payload: dict = Body(...)):
     """Translate the translatable fields of a row to one subitem per language.
 
@@ -20661,7 +20806,10 @@ async def translate_row(background_tasks: BackgroundTasks, payload: dict = Body(
     return {"status": "ok", **result}
 
 
-@router.post("/skills/translate-rows", dependencies=[Depends(require_role("editor"))])
+@router.post(
+    "/skills/translate-rows",
+    dependencies=[Depends(require_role("editor")), Depends(require_plugins("translation"))],
+)
 async def translate_rows(background_tasks: BackgroundTasks, payload: dict = Body(...)):
     """Bulk variant of translate-row: translate many selected rows at once.
 
@@ -20824,7 +20972,10 @@ async def execute_button_action(payload: dict = Body(...)):
 
 
 
-@router.post("/skills/translate-page", dependencies=[Depends(require_role("editor"))])
+@router.post(
+    "/skills/translate-page",
+    dependencies=[Depends(require_role("editor")), Depends(require_plugins("translation"))],
+)
 async def translate_page(background_tasks: BackgroundTasks, payload: dict = Body(...)):
     """Translate a Vault page (title + markdown body) into one child page per language.
 

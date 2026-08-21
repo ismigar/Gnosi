@@ -11,6 +11,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import { DashboardPaginationControls } from '../components/DashboardPaginationControls';
 import { SettingsSectionTabs } from '../components/SettingsSectionTabs';
 import { ReleaseNotesDialog } from '../components/ReleaseNotesDialog';
+import { usePlugins } from '../plugins/usePlugins';
 
 const ROLE_CAPABILITIES = {
     viewer: ['read'],
@@ -23,6 +24,9 @@ function Dashboard() {
     const { role: initialRole, apiFetch } = useApi();
     const { t } = useTranslation();
     const { isDark } = useTheme();
+    const { isEnabled } = usePlugins();
+    const automationsEnabled = isEnabled('automations');
+    const aiEnabled = isEnabled('ai-platform');
     const [userRole, setUserRole] = useState(initialRole);
     const isAdmin = userRole === 'admin' || userRole === 'owner';
 
@@ -317,7 +321,7 @@ function Dashboard() {
 
         const fetchSystemStatus = () => {
             fetchConfig();
-            fetchPendingTools();
+            if (aiEnabled) fetchPendingTools();
             fetchAnalytics();
         };
 
@@ -326,29 +330,37 @@ function Dashboard() {
         fetchDirectives(0);
         fetchTraps(0);
         fetchSystemStatus();
-        fetchSchedulers();
+        if (automationsEnabled) fetchSchedulers();
         fetchNotifications(0);
-        fetchTaskHistory(0);
+        if (automationsEnabled) fetchTaskHistory(0);
 
-        const toolsInterval = setInterval(fetchPendingTools, 15000);
-        const schedulersInterval = setInterval(() => fetchSchedulers(true), 30000);
+        const toolsInterval = aiEnabled ? setInterval(fetchPendingTools, 15000) : null;
+        const schedulersInterval = automationsEnabled
+            ? setInterval(() => fetchSchedulers(true), 30000)
+            : null;
         
         return () => {
-            clearInterval(toolsInterval);
-            clearInterval(schedulersInterval);
+            if (toolsInterval) clearInterval(toolsInterval);
+            if (schedulersInterval) clearInterval(schedulersInterval);
         };
-    }, [fetchSchedulers, apiFetch, activeWorkspaceId]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [fetchSchedulers, apiFetch, activeWorkspaceId, automationsEnabled, aiEnabled]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Secondary polling for history when tab is active
     useEffect(() => {
-        if (selectedControlTab === 'history') {
+        if (automationsEnabled && selectedControlTab === 'history') {
             const historyInterval = setInterval(() => {
                 fetchTaskHistory(taskHistoryPage);
                 fetchNotifications(notifPage);
             }, 20000);
             return () => clearInterval(historyInterval);
         }
-    }, [selectedControlTab, taskHistoryPage, notifPage]);
+    }, [selectedControlTab, taskHistoryPage, notifPage, automationsEnabled]);
+
+    useEffect(() => {
+        if (!automationsEnabled && ['schedulers', 'history'].includes(selectedControlTab)) {
+            setSelectedControlTab(isAdmin && gnosiMode === 'org' ? 'admin' : 'overview');
+        }
+    }, [automationsEnabled, gnosiMode, isAdmin, selectedControlTab]);
 
 
 
@@ -579,21 +591,23 @@ function Dashboard() {
 
                     <div className="w-full">
             {/* Control Center Tabs */}
-            <div>
+            {(automationsEnabled || (isAdmin && gnosiMode === 'org')) && <div>
                 <SettingsSectionTabs
                     ariaLabel={t('dashboard.control_center')}
                     activeId={selectedControlTab}
                     onChange={setSelectedControlTab}
                     items={[
-                        { id: 'schedulers', icon: Clock3, label: t('dashboard.tab_schedulers') },
-                        { id: 'history', icon: History, label: t('dashboard.tab_history') },
+                        ...(automationsEnabled ? [
+                            { id: 'schedulers', icon: Clock3, label: t('dashboard.tab_schedulers') },
+                            { id: 'history', icon: History, label: t('dashboard.tab_history') },
+                        ] : []),
                         ...(isAdmin && gnosiMode === 'org'
                             ? [{ id: 'admin', icon: Users, label: t('dashboard.tab_admin') }]
                             : [])
                     ]}
                 />
 
-                {selectedControlTab === 'schedulers' && (
+                {automationsEnabled && selectedControlTab === 'schedulers' && (
                     <div className="glass-panel p-6 rounded-2xl border border-[var(--border-primary)]">
                         <div className="flex items-center mb-6">
                             <h2 className="text-xl font-bold flex items-center gap-2">
@@ -683,7 +697,7 @@ function Dashboard() {
                     </div>
                 )}
 
-                {selectedControlTab === 'history' && (
+                {automationsEnabled && selectedControlTab === 'history' && (
                     <>
                         <div className="grid grid-cols-1 gap-8">
                             <div className="glass-panel p-6 rounded-2xl border border-[var(--border-primary)]">
@@ -916,7 +930,7 @@ function Dashboard() {
                         </div>
                     </div>
                 )}
-            </div>
+            </div>}
         </div>
     </div>
 
@@ -1147,7 +1161,7 @@ function Dashboard() {
             )}
 
             {/* Tools Detail Modal */}
-            {isToolsModalOpen && (
+            {aiEnabled && isToolsModalOpen && (
                 <div className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
                     <div className="bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-3xl w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl">
                         <div className="p-6 border-b border-[var(--border-primary)] flex items-center justify-between bg-[var(--bg-primary)]/50">

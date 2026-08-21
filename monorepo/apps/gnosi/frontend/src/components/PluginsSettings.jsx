@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { useTranslation, Trans } from 'react-i18next';
-import { CalendarDays, CalendarRange, Hash, MessageSquare, Share2, LayoutDashboard, BrainCircuit, Puzzle, Settings, Trash2, Upload, Download, ShieldCheck, Globe, KeyRound, Scissors, PackageCheck, Store, RefreshCw, Search, Send } from 'lucide-react';
+import { CalendarDays, CalendarRange, Hash, MessageSquare, Share2, LayoutDashboard, BrainCircuit, Puzzle, Settings, Trash2, Upload, Download, ShieldCheck, Globe, KeyRound, Scissors, PackageCheck, Store, RefreshCw, Search, Send, BookOpen, Languages, Users, Inbox, Calendar, Database, Cpu, NotebookTabs, Clock3 } from 'lucide-react';
 import { BUILTIN_PLUGINS } from '../plugins/registry';
 import { usePlugins } from '../plugins/usePlugins';
 import { reloadPlugins } from '../plugins/usePluginHost';
@@ -9,7 +9,11 @@ import ConfirmModal from './ConfirmModal';
 import { sortFieldItems } from '../utils/fieldOrdering';
 import { SettingsSectionTabs } from './SettingsSectionTabs';
 
-const ICONS = { CalendarDays, CalendarRange, Hash, MessageSquare, Share2, LayoutDashboard, BrainCircuit, Scissors };
+const ICONS = {
+    CalendarDays, CalendarRange, Hash, MessageSquare, Share2, LayoutDashboard,
+    BrainCircuit, Scissors, BookOpen, Languages, Users, Inbox, Calendar,
+    Database, Cpu, NotebookTabs, Clock3,
+};
 
 const isValidIsoDate = (value) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -58,7 +62,7 @@ const isNewerVersion = (candidate, current) => {
  * `Daily Notes/` folder. The date column is auto-detected (first field of type
  * `date`) and can be confirmed/changed. Clearing the DB reverts to the classic behavior.
  */
-function DailyNotesConfig() {
+export function DailyNotesConfig() {
     const { t } = useTranslation();
     const tp = (k, opts) => t('settings.plugins.' + k, opts);
     const { getPluginSettings, setPluginSettings } = usePlugins();
@@ -146,7 +150,7 @@ function DailyNotesConfig() {
     );
 }
 
-function ProjectPlanningConfig() {
+export function ProjectPlanningConfig() {
     const { t, i18n: i18nInstance } = useTranslation();
     const tp = useCallback((key, options) => t('settings.plugins.' + key, options), [t]);
     const { getPluginSettings, setPluginSettings } = usePlugins();
@@ -749,7 +753,7 @@ const CLIPPER_NO_MAPPING = '__none__';
  * popup prompts for. With no table designated the clipper keeps its classic
  * behaviour (a note in `Clips/`).
  */
-function WebClipperConfig() {
+export function WebClipperConfig() {
     const { t, i18n: i18nInstance } = useTranslation();
     const tp = (k, opts) => t('settings.plugins.' + k, opts);
     const { getPluginSettings, setPluginSettings } = usePlugins();
@@ -910,7 +914,7 @@ function WebClipperConfig() {
  * but per-vault (`<vault>/.gnosi/llm_wiki.json`). The backend guarantees the
  * knowledge schema (Tipus, Fonts→Recursos, verification status, ...).
  */
-function LlmWikiConfig() {
+export function LlmWikiConfig() {
     const { t } = useTranslation();
     const tp = (k, opts) => t('settings.plugins.' + k, opts);
     const [tables, setTables] = useState([]);
@@ -1483,7 +1487,7 @@ function LlmWikiConfig() {
 function ThirdPartyPlugins({ section, installedFilter }) {
     const { t } = useTranslation();
     const tp = (k, opts) => t('settings.plugins.' + k, opts);
-    const { isEnabled, setPluginEnabled } = usePlugins();
+    const { isEnabled, setPluginEnabled, reload: reloadPluginState } = usePlugins();
     const [installed, setInstalled] = useState([]);
     const [catalog, setCatalog] = useState({});
     const [gallery, setGallery] = useState([]);
@@ -1558,6 +1562,12 @@ function ThirdPartyPlugins({ section, installedFilter }) {
         } catch { /* noop */ }
     };
 
+    const toggleThirdParty = async (pluginId, enabled) => {
+        await setPluginEnabled(pluginId, enabled);
+        await refresh();
+        await reloadPlugins();
+    };
+
     const onInstallZip = async (e) => {
         const file = e.target.files?.[0];
         e.target.value = '';
@@ -1567,7 +1577,7 @@ function ThirdPartyPlugins({ section, installedFilter }) {
             const fd = new FormData();
             fd.append('file', file);
             await axios.post('/api/vault/plugins/install', fd, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 0 });
-            await refresh(); reloadPlugins();
+            await refresh(); await reloadPluginState(); reloadPlugins();
         } catch (err) {
             setError(err?.response?.data?.detail || tp('error_install_plugin'));
         } finally { setBusy(''); }
@@ -1577,7 +1587,7 @@ function ThirdPartyPlugins({ section, installedFilter }) {
         setError(''); setBusy(`cat:${id}`);
         try {
             await axios.post('/api/vault/plugins/catalog/install', { id });
-            await refresh(); reloadPlugins();
+            await refresh(); await reloadPluginState(); reloadPlugins();
         } catch (err) {
             setError(err?.response?.data?.detail || tp('error_install'));
         } finally { setBusy(''); }
@@ -1587,7 +1597,7 @@ function ThirdPartyPlugins({ section, installedFilter }) {
         setError(''); setBusy(`del:${id}`);
         try {
             await axios.delete(`/api/vault/plugins/${encodeURIComponent(id)}`);
-            await refresh(); reloadPlugins();
+            await refresh(); await reloadPluginState(); reloadPlugins();
         } catch (err) {
             setError(err?.response?.data?.detail || tp('error_uninstall'));
         } finally { setBusy(''); }
@@ -1717,7 +1727,7 @@ function ThirdPartyPlugins({ section, installedFilter }) {
                                 </div>
                                 <button
                                     type="button" role="switch" aria-checked={enabled}
-                                    onClick={() => setPluginEnabled(m.id, !enabled)}
+                                    onClick={() => toggleThirdParty(m.id, !enabled)}
                                     style={{
                                         position: 'relative', width: 42, height: 24, borderRadius: 999,
                                         border: 'none', cursor: 'pointer', flexShrink: 0,
@@ -2009,51 +2019,35 @@ function ThirdPartyPlugins({ section, installedFilter }) {
  * Plugin configuration panel: enables/disables the optional features
  * (internal registry). State is persisted per vault in `.gnosi/plugins.json`.
  */
-const CONFIGURABLE = {
-    'daily-notes': DailyNotesConfig,
-    'llm-wiki': LlmWikiConfig,
-    'web-clipper': WebClipperConfig,
-    'project-planning': ProjectPlanningConfig,
-};
-
-export function PluginsSettings() {
+export function PluginsSettings({ onOpenSettingsTab }) {
     const { t } = useTranslation();
     const tp = (k, opts) => t('settings.plugins.' + k, opts);
-    const { isEnabled, loaded, setPluginEnabled } = usePlugins();
-    const [openConfig, setOpenConfig] = useState(null);
+    const { builtins, isEnabled, setPluginEnabled } = usePlugins();
+    const builtinCatalog = builtins?.length ? builtins : BUILTIN_PLUGINS;
     const [section, setSection] = useState('installed');
     const [installedFilter, setInstalledFilter] = useState('all');
-    const [confirmLlmWikiDisable, setConfirmLlmWikiDisable] = useState(false);
-    const llmWikiAgentEnsured = useRef(false);
-
-    // The feature existed before its dedicated profile. Visiting the Plugins
-    // settings migrates enabled vaults exactly once; the backend preserves
-    // any instructions the user has already edited.
-    useEffect(() => {
-        if (!loaded) return;
-        if (!isEnabled('llm-wiki')) {
-            llmWikiAgentEnsured.current = false;
-            return;
-        }
-        if (llmWikiAgentEnsured.current) return;
-        llmWikiAgentEnsured.current = true;
-        setPluginEnabled('llm-wiki', true).catch(() => {
-            llmWikiAgentEnsured.current = false;
-        });
-    }, [isEnabled, loaded, setPluginEnabled]);
+    const [pendingLifecycle, setPendingLifecycle] = useState(null);
 
     const togglePlugin = async (pluginId, enabled) => {
-        if (pluginId === 'llm-wiki' && !enabled) {
-            setConfirmLlmWikiDisable(true);
-            return;
+        try {
+            await setPluginEnabled(pluginId, enabled);
+        } catch (error) {
+            const conflict = error?.response?.status === 409 ? error.response.data?.detail : null;
+            if (conflict?.code === 'plugin_dependency_confirmation_required') {
+                setPendingLifecycle({ pluginId, enabled, ...conflict });
+                return;
+            }
+            throw error;
         }
-        await setPluginEnabled(pluginId, enabled);
     };
 
-    const confirmDisableLlmWiki = async () => {
-        await setPluginEnabled('llm-wiki', false, { confirmDisable: true });
-        setConfirmLlmWikiDisable(false);
-        setOpenConfig((current) => (current === 'llm-wiki' ? null : current));
+    const confirmLifecycle = async () => {
+        if (!pendingLifecycle) return;
+        await setPluginEnabled(pendingLifecycle.pluginId, pendingLifecycle.enabled, {
+            confirmDependencies: pendingLifecycle.enabled,
+            confirmDisable: !pendingLifecycle.enabled,
+        });
+        setPendingLifecycle(null);
     };
 
     return (
@@ -2093,18 +2087,17 @@ export function PluginsSettings() {
                 ))}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {BUILTIN_PLUGINS.filter((plugin) => (
+                {builtinCatalog.filter((plugin) => (
                     installedFilter === 'all'
                     || (installedFilter === 'enabled' ? isEnabled(plugin.id) : !isEnabled(plugin.id))
                 )).map((plugin) => {
                     const Icon = ICONS[plugin.icon] || Puzzle;
                     const enabled = isEnabled(plugin.id);
-                    const ConfigPanel = CONFIGURABLE[plugin.id];
-                    const showConfig = ConfigPanel && enabled && openConfig === plugin.id;
+                    const hasSettings = Boolean(plugin.settingsTab);
                     return (
                         <div
                             key={plugin.id}
-                            className={`settings-plugin-item ${showConfig ? 'is-expanded' : ''}`}
+                            className="settings-plugin-item"
                             style={{
                                 display: 'flex', flexDirection: 'column', gap: 0,
                                 padding: '12px 14px', borderRadius: 10,
@@ -2122,18 +2115,18 @@ export function PluginsSettings() {
                                     {tp(`catalog.${plugin.id}.description`)}
                                 </div>
                             </div>
-                            {ConfigPanel && enabled && (
+                            {hasSettings && enabled && (
                                 <button
                                     type="button"
-                                    onClick={() => setOpenConfig((cur) => (cur === plugin.id ? null : plugin.id))}
+                                    onClick={() => onOpenSettingsTab?.(plugin.settingsTab, plugin.id)}
                                     aria-label={tp('configure')}
                                     title={tp('configure')}
                                     style={{
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         width: 30, height: 30, borderRadius: 8, flexShrink: 0,
                                         border: '1px solid var(--border-primary, #e2e8f0)', cursor: 'pointer',
-                                        background: showConfig ? '#eef2ff' : 'transparent',
-                                        color: showConfig ? '#6366f1' : 'var(--text-tertiary, #94a3b8)',
+                                        background: 'transparent',
+                                        color: 'var(--text-tertiary, #94a3b8)',
                                     }}
                                 >
                                     <Settings size={16} />
@@ -2161,7 +2154,6 @@ export function PluginsSettings() {
                                 />
                             </button>
                           </div>
-                          {showConfig && <ConfigPanel />}
                         </div>
                     );
                 })}
@@ -2170,13 +2162,21 @@ export function PluginsSettings() {
             )}
 
             <ConfirmModal
-                isOpen={confirmLlmWikiDisable}
-                onClose={() => setConfirmLlmWikiDisable(false)}
-                onConfirm={confirmDisableLlmWiki}
-                title={tp('llm_wiki_disable_title', { defaultValue: "Disable the Brain?" })}
-                message={tp('llm_wiki_disable_message', { defaultValue: "The Brain agent and skills will be suspended. Its configuration, table, notes, and sources will be preserved." })}
-                confirmText={tp('llm_wiki_disable_confirm', { defaultValue: "Disable and suspend" })}
-                isDestructive
+                isOpen={Boolean(pendingLifecycle)}
+                onClose={() => setPendingLifecycle(null)}
+                onConfirm={confirmLifecycle}
+                title={tp('dependency_confirm_title', { defaultValue: "Change related plugins?" })}
+                message={pendingLifecycle?.enabled
+                    ? tp('dependency_enable_message', {
+                        defaultValue: "This feature also needs: {{plugins}}. They will be activated together.",
+                        plugins: (pendingLifecycle?.enable || []).join(', '),
+                    })
+                    : tp('dependency_disable_message', {
+                        defaultValue: "These dependent features will also be disabled: {{plugins}}. Their data and settings will be preserved.",
+                        plugins: (pendingLifecycle?.disable || []).join(', '),
+                    })}
+                confirmText={tp('dependency_confirm_action', { defaultValue: "Confirm change" })}
+                isDestructive={!pendingLifecycle?.enabled}
             />
 
             <ThirdPartyPlugins section={section} installedFilter={installedFilter} />
