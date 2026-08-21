@@ -103,6 +103,7 @@ export function TranslateLanguagesModal({ isOpen, onClose, noteId, noteIds = [],
         onConfirm: handleSubmit,
         confirmDisabled: submitting || selected.length === 0,
         containerRef,
+        trapFocus: true,
     });
 
     if (!isOpen) return null;
@@ -110,12 +111,17 @@ export function TranslateLanguagesModal({ isOpen, onClose, noteId, noteIds = [],
     return (
         <div
             className="fixed inset-0 bg-black/60 flex items-center justify-center z-[110] p-4 font-sans backdrop-blur-sm"
-            onMouseDown={(e) => { if (e.target === e.currentTarget && !submitting) onClose(); }}
         >
             <div
                 ref={containerRef}
-                onMouseDown={(e) => e.stopPropagation()}
                 className="bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col border border-[var(--border-primary)]"
+                role="dialog"
+                aria-modal="true"
+                aria-label={isBulk
+                    ? t('translate.title_bulk', { count: noteIds.length, defaultValue: 'Translate {{count}} records' })
+                    : isPage
+                        ? t('translate.title_page', 'Translate page')
+                        : t('translate.title', 'Translate row')}
             >
                 <div className="px-5 py-3 border-b border-[var(--border-primary)] flex justify-between items-center bg-[var(--bg-secondary)] shrink-0">
                     <h2 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, FileText, Hash, FolderClosed, Clock } from 'lucide-react';
+import { Search, FileText, Hash, FolderClosed, Clock, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { isCalendarPage } from './schemaUtils';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
@@ -91,13 +91,21 @@ export function RecentModal({ isOpen, onClose, allNotes = [], onNoteSelect }) {
             ></div>
 
             {/* Modal */}
-            <div ref={panelRef} className="relative bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col font-sans border border-[var(--border-primary)]">
+            <div ref={panelRef} className="relative bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col font-sans border border-[var(--border-primary)]" role="dialog" aria-modal="true" aria-labelledby="recent-modal-title">
                 <div className="flex items-center px-4 py-3 border-b border-[var(--border-primary)] bg-[var(--bg-secondary)]">
                     <Clock size={20} className="text-[var(--text-tertiary)]/70 shrink-0 mr-3" />
-                    <h2 className="text-lg font-bold text-[var(--text-primary)] flex-1">{t('vault.recent.title')}</h2>
+                    <h2 id="recent-modal-title" className="text-lg font-bold text-[var(--text-primary)] flex-1">{t('vault.recent.title')}</h2>
                     <kbd className="hidden sm:inline-flex items-center gap-1 text-[10px] font-bold text-[var(--text-tertiary)]/60 bg-[var(--bg-primary)] px-2 py-1 rounded border border-[var(--border-primary)] shadow-sm">
                         ESC
                     </kbd>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="ml-2 rounded p-1 text-[var(--text-tertiary)] hover:bg-[var(--bg-primary)] hover:text-[var(--text-primary)]"
+                        aria-label={t('common.close', 'Close')}
+                    >
+                        <X size={16} />
+                    </button>
                 </div>
 
                 <div className="overflow-y-auto max-h-[60vh] custom-scrollbar" ref={listRef}>

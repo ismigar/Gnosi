@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
     AlertCircle,
@@ -23,6 +23,7 @@ import { useTranslation } from 'react-i18next';
 import AgentChat from '../components/AgentChat';
 import ConfirmModal from '../components/ConfirmModal';
 import NotebookCreateDialog from '../components/Notebooks/NotebookCreateDialog';
+import { useModalKeyboard } from '../hooks/useModalKeyboard';
 import { toast } from '../lib/toast';
 import './NotebooksPage.css';
 
@@ -151,6 +152,14 @@ function AddResourcesDialog({ notebookId, currentIds, onClose, onAdded }) {
     const [data, setData] = useState({ items: [], total: 0, page: 1, page_size: 50 });
     const [selected, setSelected] = useState(new Set());
     const [saving, setSaving] = useState(false);
+    const dialogRef = useRef(null);
+    useModalKeyboard({
+        isOpen: true,
+        onClose,
+        closeOnEscape: !saving,
+        containerRef: dialogRef,
+        trapFocus: true,
+    });
     useEffect(() => {
         const controller = new AbortController();
         fetch(`/api/notebooks/resources?notebook_id=${encodeURIComponent(notebookId)}&q=${encodeURIComponent(query)}&page=${data.page}&page_size=50`, { signal: controller.signal })
@@ -187,20 +196,26 @@ function AddResourcesDialog({ notebookId, currentIds, onClose, onAdded }) {
     };
     return (
         <div className="notebook-modal-backdrop">
-            <section className="notebook-modal notebook-modal--compact" role="dialog" aria-modal="true">
+            <section
+                ref={dialogRef}
+                className="notebook-modal notebook-modal--compact"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="notebook-add-resources-title"
+            >
                 <header className="notebook-modal__header">
-                    <div><h2>{t('notebooks.add_resources', 'Add Resources')}</h2><p>{t('notebooks.add_resources_help', 'Their attachment and URL fields will be indexed.')}</p></div>
-                    <button className="notebook-icon-button" onClick={onClose}><X size={18} /></button>
+                    <div><h2 id="notebook-add-resources-title">{t('notebooks.add_resources', 'Add Resources')}</h2><p>{t('notebooks.add_resources_help', 'Their attachment and URL fields will be indexed.')}</p></div>
+                    <button type="button" className="notebook-icon-button" onClick={onClose} disabled={saving} aria-label={t('common.close', 'Close')}><X size={18} /></button>
                 </header>
                 <div className="notebook-modal__body">
                     <label className="notebook-search notebook-search--library"><Search size={16} /><input value={query} onChange={(event) => {
                         setQuery(event.target.value);
                         setData((previous) => ({ ...previous, page: 1 }));
-                    }} placeholder={t('notebooks.search_resources', 'Search Resources...')} /></label>
+                    }} placeholder={t('notebooks.search_resources', 'Search Resources...')} data-autofocus /></label>
                     <div className="notebook-resource-picker__list notebook-resource-picker__list--add">
                         {data.items.map((resource) => {
                             const checked = selected.has(String(resource.id));
-                            return <button key={resource.id} className={`notebook-resource-row ${checked ? 'is-selected' : ''}`} onClick={() => setSelected((previous) => {
+                            return <button type="button" key={resource.id} className={`notebook-resource-row ${checked ? 'is-selected' : ''}`} aria-pressed={checked} onClick={() => setSelected((previous) => {
                                 const next = new Set(previous);
                                 if (checked) next.delete(String(resource.id)); else next.add(String(resource.id));
                                 return next;
@@ -209,13 +224,13 @@ function AddResourcesDialog({ notebookId, currentIds, onClose, onAdded }) {
                     </div>
                     {pageCount > 1 && (
                         <nav className="notebook-pagination notebook-pagination--compact" aria-label={t('notebooks.resource_pagination', 'Resource pages')}>
-                            <button disabled={data.page <= 1} onClick={() => setData((previous) => ({ ...previous, page: previous.page - 1 }))}><ChevronLeft size={15} /></button>
+                            <button type="button" aria-label={t('common.previous', 'Previous')} disabled={data.page <= 1} onClick={() => setData((previous) => ({ ...previous, page: previous.page - 1 }))}><ChevronLeft size={15} /></button>
                             <span>{t('notebooks.page_of', 'Page {{page}} of {{pages}}', { page: data.page, pages: pageCount })}</span>
-                            <button disabled={data.page >= pageCount} onClick={() => setData((previous) => ({ ...previous, page: previous.page + 1 }))}><ChevronRight size={15} /></button>
+                            <button type="button" aria-label={t('common.next', 'Next')} disabled={data.page >= pageCount} onClick={() => setData((previous) => ({ ...previous, page: previous.page + 1 }))}><ChevronRight size={15} /></button>
                         </nav>
                     )}
                 </div>
-                <footer className="notebook-modal__footer"><button className="btn-gnosi" onClick={onClose}>{t('common.cancel', 'Cancel')}</button><button className="btn-gnosi btn-gnosi-primary" disabled={!selected.size || saving} onClick={add}>{t('notebooks.add_selected', 'Add selected')}</button></footer>
+                <footer className="notebook-modal__footer"><button type="button" className="btn-gnosi" disabled={saving} onClick={onClose}>{t('common.cancel', 'Cancel')}</button><button type="button" className="btn-gnosi btn-gnosi-primary" disabled={!selected.size || saving} onClick={add}>{t('notebooks.add_selected', 'Add selected')}</button></footer>
             </section>
         </div>
     );

@@ -27,7 +27,7 @@
  *
  * @param {Object}   params
  * @param {boolean}  params.isOpen           - Whether the modal is visible.
- * @param {Function} params.onClose          - Negative action (Esc / backdrop).
+ * @param {Function} params.onClose          - Negative action triggered by Escape.
  * @param {Function} [params.onConfirm]      - Positive action (Enter). Omit it if the modal doesn't have one (e.g. dropdowns or lists with their own Enter handling).
  * @param {boolean}  [params.confirmDisabled] - If true, Enter does not confirm (mirrors the disabled primary button).
  * @param {React.RefObject} [params.containerRef] - Ref to the modal panel. Enter only confirms if focus is inside it; required for trapFocus.
@@ -71,6 +71,7 @@ export function useModalKeyboard({
     const onCloseRef = useRef(onClose);
     const onConfirmRef = useRef(onConfirm);
     const confirmDisabledRef = useRef(confirmDisabled);
+    const closeOnEscapeRef = useRef(closeOnEscape);
     // We keep the refs fresh in an effect (the react-hooks/refs rule forbids
     // write them during render). No deps array → runs after every
     // commit, so the listener (bound only via isOpen) always reads the
@@ -79,6 +80,7 @@ export function useModalKeyboard({
         onCloseRef.current = onClose;
         onConfirmRef.current = onConfirm;
         confirmDisabledRef.current = confirmDisabled;
+        closeOnEscapeRef.current = closeOnEscape;
     });
 
     useEffect(() => {
@@ -109,7 +111,7 @@ export function useModalKeyboard({
                         'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
                     )
                     || root;
-                try { target?.focus?.(); } catch { /* element no enfocable */ }
+                try { target?.focus?.(); } catch { /* The element may not be focusable. */ }
             }
         }
 
@@ -124,7 +126,7 @@ export function useModalKeyboard({
         };
 
         const handleKeyDown = (e) => {
-            if (closeOnEscape && e.key === 'Escape') {
+            if (closeOnEscapeRef.current && e.key === 'Escape') {
                 // With a nested modal open on top (upper layer of another one),
                 // the Esc belongs to it: we neither close nor consume the event.
                 if (!layer.isTop()) return;
@@ -196,7 +198,7 @@ export function useModalKeyboard({
                 try { previouslyFocused.focus({ preventScroll: true }); } catch { /* element is gone */ }
             }
         };
-    }, [isOpen, closeOnEscape, containerRef, trapFocus]);
+    }, [isOpen, containerRef, trapFocus]);
 }
 
 export default useModalKeyboard;

@@ -153,19 +153,11 @@ export function GlobalSearchModal({
 
     const isSaved = saved.some((s) => s.query === query.trim());
 
-    // Clicking outside must not discard an in-progress query: only close on a
-    // backdrop click when the input is empty. With text present, Esc (or an
-    // explicit close/selection) is required to dismiss the modal.
-    const handleBackdropClick = () => {
-        if (query.length > 0) return;
-        onClose();
-    };
-
     return (
         <div className="fixed inset-0 z-[150] flex items-start justify-center pt-[15vh] px-4 sm:p-0">
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={handleBackdropClick}></div>
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"></div>
 
-            <div ref={panelRef} className="relative bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col font-sans border border-[var(--border-primary)]">
+            <div ref={panelRef} className="relative bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col font-sans border border-[var(--border-primary)]" role="dialog" aria-modal="true" aria-label={t('common.search', 'Search')}>
                 <div className="flex items-center px-4 py-3 border-b border-[var(--border-primary)]">
                     <Search size={20} className="text-[var(--text-tertiary)] shrink-0" />
                     <input
@@ -186,6 +178,14 @@ export function GlobalSearchModal({
                         </button>
                     )}
                     <kbd className="hidden sm:inline-flex items-center gap-1 text-[10px] font-medium text-[var(--text-tertiary)] bg-[var(--bg-secondary)] px-2 py-1 rounded border border-[var(--border-primary)]">ESC</kbd>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="ml-2 rounded p-1 text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--text-primary)]"
+                        aria-label={t('common.close', 'Close')}
+                    >
+                        <X size={16} />
+                    </button>
                 </div>
 
                 <div className="overflow-y-auto max-h-[60vh] custom-scrollbar" ref={listRef}>

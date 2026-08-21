@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { BookOpen, Check, ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from '../../lib/toast';
+import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 
 const EMPTY_RESOURCE_IDS = Object.freeze([]);
 
@@ -20,10 +21,19 @@ export default function NotebookCreateDialog({
     const [query, setQuery] = useState('');
     const [loadingResources, setLoadingResources] = useState(false);
     const [creating, setCreating] = useState(false);
+    const dialogRef = useRef(null);
     const initialKey = useMemo(
         () => [...initialResourceIds].map(String).sort().join(':'),
         [initialResourceIds],
     );
+
+    useModalKeyboard({
+        isOpen,
+        onClose,
+        closeOnEscape: !creating,
+        containerRef: dialogRef,
+        trapFocus: true,
+    });
 
     useEffect(() => {
         if (!isOpen) return;
@@ -106,10 +116,8 @@ export default function NotebookCreateDialog({
     };
 
     return (
-        <div className="notebook-modal-backdrop" role="presentation" onMouseDown={(event) => {
-            if (event.currentTarget === event.target && !creating) onClose?.();
-        }}>
-            <form className="notebook-modal" role="dialog" aria-modal="true" aria-labelledby="notebook-create-title" onSubmit={create}>
+        <div className="notebook-modal-backdrop" role="presentation">
+            <form ref={dialogRef} className="notebook-modal" role="dialog" aria-modal="true" aria-labelledby="notebook-create-title" onSubmit={create}>
                 <header className="notebook-modal__header">
                     <div className="notebook-modal__title-wrap">
                         <span className="notebook-icon"><BookOpen size={18} /></span>
@@ -126,7 +134,7 @@ export default function NotebookCreateDialog({
                 <div className="notebook-modal__body">
                     <label className="notebook-field">
                         <span>{t('notebooks.title_label', 'Title')}</span>
-                        <input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={160} autoFocus />
+                        <input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={160} data-autofocus />
                     </label>
 
                     <div className="notebook-modal__options">
@@ -162,7 +170,7 @@ export default function NotebookCreateDialog({
                             {!loadingResources && resourceData.items.map((resource) => {
                                 const checked = selectedIds.has(String(resource.id));
                                 return (
-                                    <button key={resource.id} type="button" className={`notebook-resource-row ${checked ? 'is-selected' : ''}`} onClick={() => toggleResource(String(resource.id))}>
+                                    <button key={resource.id} type="button" aria-pressed={checked} className={`notebook-resource-row ${checked ? 'is-selected' : ''}`} onClick={() => toggleResource(String(resource.id))}>
                                         <span className="notebook-resource-row__check">{checked && <Check size={13} />}</span>
                                         <span className="notebook-resource-row__text">
                                             <strong>{resource.title}</strong>
@@ -175,9 +183,9 @@ export default function NotebookCreateDialog({
                         </div>
                         {resourcePageCount > 1 && (
                             <nav className="notebook-pagination notebook-pagination--compact" aria-label={t('notebooks.resource_pagination', 'Resource pages')}>
-                                <button type="button" disabled={resourceData.page <= 1} onClick={() => setResourceData((previous) => ({ ...previous, page: previous.page - 1 }))}><ChevronLeft size={15} /></button>
+                                <button type="button" aria-label={t('common.previous', 'Previous')} disabled={resourceData.page <= 1} onClick={() => setResourceData((previous) => ({ ...previous, page: previous.page - 1 }))}><ChevronLeft size={15} /></button>
                                 <span>{t('notebooks.page_of', 'Page {{page}} of {{pages}}', { page: resourceData.page, pages: resourcePageCount })}</span>
-                                <button type="button" disabled={resourceData.page >= resourcePageCount} onClick={() => setResourceData((previous) => ({ ...previous, page: previous.page + 1 }))}><ChevronRight size={15} /></button>
+                                <button type="button" aria-label={t('common.next', 'Next')} disabled={resourceData.page >= resourcePageCount} onClick={() => setResourceData((previous) => ({ ...previous, page: previous.page + 1 }))}><ChevronRight size={15} /></button>
                             </nav>
                         )}
                     </section>

@@ -35,15 +35,16 @@ export default function WorkspacesModal({ isOpen, onClose, currentTabs = [], onR
 
     return (
         <div className="fixed inset-0 z-[150] flex items-start justify-center px-4 pt-[14vh]">
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
-            <div ref={panelRef} className="relative w-full max-w-md overflow-hidden rounded-xl border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-2xl">
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm"></div>
+            <div ref={panelRef} className="relative w-full max-w-md overflow-hidden rounded-xl border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-2xl" role="dialog" aria-modal="true" aria-label={t('doc_tabs.workspaces_title', 'Workspaces')}>
                 <div className="flex items-center justify-between border-b border-[var(--border-primary)] px-4 py-3">
                     <span className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]"><LayoutPanelLeft size={16} /> {t('doc_tabs.workspaces_title', "Workspaces")}</span>
-                    <button onClick={onClose} className="rounded p-1 text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)]"><X size={16} /></button>
+                    <button type="button" onClick={onClose} className="rounded p-1 text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)]" aria-label={t('common.close', 'Close')}><X size={16} /></button>
                 </div>
                 <div className="border-b border-[var(--border-primary)] p-3">
                     <div className="flex gap-2">
                         <input
+                            data-autofocus
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             onKeyDown={(e) => { if (e.key === 'Enter') saveCurrent(); }}

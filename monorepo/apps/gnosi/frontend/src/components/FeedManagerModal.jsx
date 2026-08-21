@@ -185,8 +185,8 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
     const newsletterSources = sources.filter(s => s.type === 'newsletter');
 
     return (
-        <div className="settings-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-            <div ref={modalRef} className="feed-modal" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="settings-overlay">
+            <div ref={modalRef} className="feed-modal" role="dialog" aria-modal="true" aria-label={t('feed_manager.title', 'Feed Management')}>
                 {/* Header */}
                 <div className="settings-modal__header">
                     <h2 className="settings-modal__title">📡 {t('feed_manager.title', "Feed Management")}</h2>
