@@ -1,6 +1,7 @@
 """Regression tests for the version 2 LLM Wiki contracts."""
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -17,6 +18,52 @@ from backend.services import (
     llm_wiki_storage,
     llm_wiki_suggestions,
 )
+
+
+def test_streaming_probe_uses_metadata_only_and_stable_fingerprint(monkeypatch):
+    from backend.agent import web_context
+
+    calls = []
+
+    class FakeYoutubeDL:
+        def __init__(self, options):
+            calls.append(options)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def extract_info(self, url, *, download):
+            assert url == "https://www.youtube.com/watch?v=stable"
+            assert download is False
+            return {
+                "extractor_key": "Youtube",
+                "id": "stable",
+                "webpage_url": url,
+                "title": "Stable lecture",
+                "duration": 120,
+                "upload_date": "20260820",
+            }
+
+    monkeypatch.setitem(
+        sys.modules,
+        "yt_dlp",
+        SimpleNamespace(YoutubeDL=FakeYoutubeDL),
+    )
+    monkeypatch.setattr(web_context, "is_public_http_url", lambda _url: (True, ""))
+    first = llm_wiki_extractors.probe_streaming_url(
+        "https://www.youtube.com/watch?v=stable"
+    )
+    second = llm_wiki_extractors.probe_streaming_url(
+        "https://www.youtube.com/watch?v=stable",
+        fingerprint=first["stream_fingerprint"],
+    )
+
+    assert first["changed"] is True
+    assert second["changed"] is False
+    assert all(options["skip_download"] is True for options in calls)
 
 
 def _origin(text: str, *, label: str = "Source", order: int = 0) -> dict:

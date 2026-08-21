@@ -179,6 +179,22 @@ def remove_source(
     return notebook_service.remove_resource(notebook_id, context, resource_id)
 
 
+@router.post("/{notebook_id}/sources/{resource_id}/refresh", status_code=202)
+def refresh_resource(
+    notebook_id: str,
+    resource_id: str,
+    payload: NotebookRefreshRequest,
+    context: WorkspaceContext = Depends(require_role("viewer")),
+):
+    return notebook_service.request_refresh(
+        notebook_id,
+        context,
+        reason=payload.reason or "resource_retry",
+        force=True,
+        resource_ids=[resource_id],
+    )
+
+
 @router.post("/{notebook_id}/refresh", status_code=202)
 def refresh_notebook(
     notebook_id: str,
@@ -192,6 +208,14 @@ def refresh_notebook(
         reason=payload.reason,
         force=payload.force,
     )
+
+
+@router.post("/{notebook_id}/refresh/cancel")
+def cancel_notebook_refresh(
+    notebook_id: str,
+    context: WorkspaceContext = Depends(require_role("viewer")),
+):
+    return notebook_service.cancel_refresh(notebook_id, context)
 
 
 @router.get("/{notebook_id}/search")

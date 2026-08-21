@@ -88,6 +88,13 @@ pas de validateurs, un hachage borné du contenu est comparé. Une vérification
 sans changement est enregistrée, mais n'active pas de nouvelle révision de
 preuves.
 
+YouTube, Vimeo et les autres adaptateurs de streaming compatibles effectuent
+une vérification des métadonnées sans télécharger le contenu. Gnosi compare une
+empreinte déterministe de l'identité, de la durée, des horodatages, de l'état
+en direct et de la taille; le média n'est téléchargé et transcrit à nouveau que
+si elle change. Une nouvelle tentative par Ressource force uniquement la cible
+et copie les autres preuves depuis la révision active.
+
 Retirer une Ressource supprime immédiatement son appartenance au carnet. La
 recherche et l'analyse globale vérifient l'ensemble actuel des membres; les
 preuves retirées sont donc exclues avant même qu'une nouvelle révision soit prête.
@@ -107,6 +114,14 @@ après le redémarrage du processus. L'activation d'une révision est
 transactionnelle. Si le rafraîchissement d'une source déjà indexée échoue, sa
 dernière version valide reste disponible avec l'état `stale`; une nouvelle
 source en échec est signalée et exclue.
+
+Le nettoyage conserve la révision active, les trois dernières révisions
+complètes et les vingt derniers résultats d'audit par défaut, toutes les
+révisions épinglées par une conversation et celles utilisées par les analyses
+durables. Les révisions antérieures à cette politique sont protégées de façon
+conservatrice. Les limites se règlent avec
+`GNOSI_NOTEBOOK_COMPLETED_REVISION_RETENTION` et
+`GNOSI_NOTEBOOK_AUDIT_REVISION_RETENTION`.
 
 Les pièces jointes réutilisent la matérialisation, le préchargement OneDrive, le
 confinement des chemins, les limites de taille et les extracteurs de documents,
@@ -159,7 +174,9 @@ analyses. Les données originales du Vault restent hors de cette limite.
 | `GET /api/notebooks/resources` | Sélecteur paginé alphabétique avec facettes de type, auteur et étiquettes de la table Références configurée |
 | `GET/POST /api/notebooks/{id}/sources` | Inspecter ou ajouter des Ressources |
 | `DELETE /api/notebooks/{id}/sources/{resource_id}` | Exclure immédiatement une ressource |
-| `POST /api/notebooks/{id}/refresh` | Rafraîchissement ou nouvelle tentative explicite fusionnée |
+| `POST /api/notebooks/{id}/sources/{resource_id}/refresh` | Réessayer uniquement une Ressource |
+| `POST /api/notebooks/{id}/refresh` | Rafraîchissement explicite fusionné du carnet |
+| `POST /api/notebooks/{id}/refresh/cancel` | Annuler coopérativement l'ingestion active |
 | `GET /api/notebooks/{id}/conversation` | Conversation canonique du mode actif |
 | `POST /api/chat` | Conversation en streaming avec un contexte de carnet autorisé |
 
@@ -191,6 +208,12 @@ ne sonde que le carnet actif et visible : un intervalle court suit l'ingestion
 tant qu'une tâche est active, et un intervalle borné actualise la conversation
 collaborative. Les carnets inactifs ne sont pas interrogés.
 
+La progression indique la Ressource en cours et permet au créateur d'annuler
+l'indexation. Chaque Ressource affiche la dernière vérification et la raison
+bornée de l'erreur; les sources en échec affichent aussi leur propre raison. La
+nouvelle tentative individuelle est désactivée lorsqu'une autre révision est
+active.
+
 Les lecteurs de l'espace de travail voient la conversation canonique dans un
 chat clairement en lecture seule, sans zone de saisie ni actions de nouvelle
 tentative, de modification ou de retour en arrière. Seuls les éditeurs peuvent
@@ -204,6 +227,12 @@ complète contienne au moins une source. Les états par Ressource et par source
 sont `pending`, `indexing`, `available`, `stale` et `error`; le rafraîchissement
 manuel permet une nouvelle tentative. Une erreur ne remplace jamais une
 révision active complète.
+
+L'annulation est coopérative et durable : le worker vérifie l'état avant chaque
+Ressource et avant l'activation atomique. La transaction en cours est annulée
+et la dernière révision complète reste disponible; si la première ingestion
+est annulée, la conversation reste bloquée jusqu'à la réussite d'un nouveau
+rafraîchissement.
 
 Les opérateurs peuvent inspecter le dépôt SQLite et la file de tâches durable
 sous `LOCAL_DATA`, mais ne doivent jamais les déplacer dans un Vault partagé.

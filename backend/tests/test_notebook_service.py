@@ -118,6 +118,12 @@ def test_notebook_indexes_only_attachment_and_url_fields(notebook_env):
 
     detail = notebook_service.get_notebook(notebook["id"], context)
     assert detail["chat_ready"] is True
+    assert detail["source_counts"] == {
+        "total": 1,
+        "available": 1,
+        "stale": 0,
+        "error": 0,
+    }
     hits = notebook_service.search_notebook(notebook["id"], "deterministic retrieval")
     assert hits["revision"] == 1
     assert "Grounded evidence" in hits["results"][0]["text"]
@@ -700,6 +706,220 @@ def test_url_refresh_uses_validators_and_keeps_revision_when_content_is_unchange
     assert changed["revision"] == 3
     hits = notebook_service.search_notebook(notebook["id"], "version 2")
     assert "version 2" in hits["results"][0]["text"]
+
+
+def test_targeted_resource_retry_reextracts_only_the_selected_resource(
+    notebook_env,
+    monkeypatch,
+):
+    context = notebook_env["context"]
+    table, source_config, _pages = notebook_service._current_resource_snapshot(  # noqa: SLF001
+        {"source_table_id": "references-table"}
+    )
+    second_attachment = notebook_env["vault"] / "second.txt"
+    second_attachment.write_text("Second Resource evidence.", encoding="utf-8")
+    second_page = SimpleNamespace(
+        id="resource-2",
+        title="Second Resource",
+        last_modified="2026-08-20T10:00:00+00:00",
+        metadata={"files-field": "second.txt", "url-field": "", "notes-field": ""},
+    )
+    pages = [notebook_env["page"], second_page]
+    monkeypatch.setattr(
+        notebook_service,
+        "_reference_table",
+        lambda: (table["id"], table, pages),
+    )
+    monkeypatch.setattr(
+        notebook_service,
+        "_current_resource_snapshot",
+        lambda _notebook: (table, source_config, pages),
+    )
+    notebook = notebook_service.create_notebook(
+        context,
+        title="Targeted retry",
+        visibility="private",
+        conversation_mode="private_member",
+        resource_ids=["resource-1", "resource-2"],
+    )
+    _run_queued_ingest(notebook_env["vault"])
+
+    original_extract = notebook_service.llm_wiki_extractors.extract_resource_sources
+    extracted = []
+    progress_resources = []
+
+    def tracked_extract(metadata, *args, **kwargs):
+        extracted.append(metadata["files-field"])
+        progress_resources.append(
+            notebook_service.get_notebook(notebook["id"], context)["progress"][
+                "current_resource_title"
+            ]
+        )
+        return original_extract(metadata, *args, **kwargs)
+
+    monkeypatch.setattr(
+        notebook_service.llm_wiki_extractors,
+        "extract_resource_sources",
+        tracked_extract,
+    )
+    notebook_env["attachment"].write_text(
+        "Retried Resource evidence with changed content.", encoding="utf-8"
+    )
+    notebook_service.request_refresh(
+        notebook["id"],
+        context,
+        reason="resource_retry",
+        force=True,
+        resource_ids=["resource-1"],
+    )
+    result = _run_queued_ingest(notebook_env["vault"])
+
+    assert result["revision"] == 2
+    assert extracted == ["evidence.txt"]
+    assert progress_resources == ["Resource title metadata"]
+    source_detail = notebook_service.list_notebook_sources(notebook["id"], context)
+    assert source_detail["items"][0]["last_checked_at"]
+    assert notebook_service.search_notebook(
+        notebook["id"], "Second Resource evidence"
+    )["results"]
+
+
+def test_cancel_refresh_stops_a_queued_ingestion_and_exposes_diagnostics(notebook_env):
+    context = notebook_env["context"]
+    notebook = notebook_service.create_notebook(
+        context,
+        title="Cancellation diagnostics",
+        visibility="private",
+        conversation_mode="private_member",
+        resource_ids=["resource-1"],
+    )
+    queued = durable_job_queue.ready_jobs(job_type="notebook_ingest", limit=1)[0]
+
+    detail = notebook_service.cancel_refresh(notebook["id"], context)
+
+    assert durable_job_queue.get(queued["job_id"])["state"] == "cancelled"
+    assert detail["status"] == "error"
+    assert detail["progress"]["state"] == "cancelled"
+    assert detail["progress"]["cancellable"] is False
+    assert "cancelled" in detail["last_error"].lower()
+
+
+def test_streaming_refresh_uses_metadata_fingerprint_without_reextracting(
+    notebook_env,
+    monkeypatch,
+):
+    context = notebook_env["context"]
+    page = notebook_env["page"]
+    page.metadata["files-field"] = ""
+    page.metadata["url-field"] = "https://www.youtube.com/watch?v=stable"
+    extraction_calls = []
+
+    def extract_sources(*_args, **_kwargs):
+        extraction_calls.append(True)
+        origin = notebook_service.llm_wiki_extractors._finalize_origin({  # noqa: SLF001
+            "kind": "stream",
+            "label": "Stable lecture",
+            "source_url": page.metadata["url-field"],
+            "input_order": 0,
+            "segments": [{"text": "Stable streaming evidence.", "locator": {"start": 0}}],
+        })
+        origin.update({
+            "requested_url": page.metadata["url-field"],
+            "http_final_url": page.metadata["url-field"],
+            "http_content_hash": origin["content_hash"],
+            "http_stream_fingerprint": "stream-v1",
+            "http_checked_at": notebook_service._now(),  # noqa: SLF001
+        })
+        return [origin], []
+
+    monkeypatch.setattr(
+        notebook_service.llm_wiki_extractors,
+        "extract_resource_sources",
+        extract_sources,
+    )
+    notebook = notebook_service.create_notebook(
+        context,
+        title="Streaming fingerprint",
+        visibility="private",
+        conversation_mode="private_member",
+        resource_ids=["resource-1"],
+    )
+    _run_queued_ingest(notebook_env["vault"])
+    probes = []
+
+    def stable_probe(url, *, fingerprint):
+        probes.append((url, fingerprint))
+        return {
+            "changed": False,
+            "final_url": url,
+            "stream_fingerprint": fingerprint,
+            "checked_at": notebook_service._now(),  # noqa: SLF001
+        }
+
+    monkeypatch.setattr(
+        notebook_service.llm_wiki_extractors,
+        "probe_streaming_url",
+        stable_probe,
+    )
+    notebook_service.request_refresh(
+        notebook["id"], context, reason="manual", force=True
+    )
+    result = _run_queued_ingest(notebook_env["vault"])
+
+    assert result["unchanged"] is True
+    assert extraction_calls == [True]
+    assert probes == [(page.metadata["url-field"], "stream-v1")]
+
+
+def test_revision_retention_preserves_pinned_conversation_evidence(
+    notebook_env,
+    monkeypatch,
+):
+    monkeypatch.setenv("GNOSI_NOTEBOOK_COMPLETED_REVISION_RETENTION", "1")
+    context = notebook_env["context"]
+    notebook = notebook_service.create_notebook(
+        context,
+        title="Revision retention",
+        visibility="private",
+        conversation_mode="private_member",
+        resource_ids=["resource-1"],
+    )
+    _run_queued_ingest(notebook_env["vault"])
+    notebook_service.resolve_chat_context(
+        notebook["id"], context, schedule_refresh=False
+    )
+
+    for revision in range(2, 5):
+        notebook_env["attachment"].write_text(
+            f"Revision {revision} evidence with {'more ' * revision}content.",
+            encoding="utf-8",
+        )
+        notebook_service.request_refresh(
+            notebook["id"], context, reason="test", force=True
+        )
+        _run_queued_ingest(notebook_env["vault"])
+
+    with notebook_service._connect() as connection:  # noqa: SLF001
+        revisions = [
+            int(row[0])
+            for row in connection.execute(
+                "SELECT revision FROM notebook_revisions WHERE notebook_id=? ORDER BY revision",
+                (notebook["id"],),
+            ).fetchall()
+        ]
+        stale_fts = int(
+            connection.execute(
+                """SELECT COUNT(*) FROM notebook_chunks_fts WHERE notebook_id=?
+                AND revision IN (2,3)""",
+                (notebook["id"],),
+            ).fetchone()[0]
+        )
+
+    assert revisions == [1, 4]
+    assert stale_fts == 0
+    assert notebook_service.search_notebook(
+        notebook["id"], "deterministic retrieval", revision=1
+    )["results"]
 
 
 def test_resource_selector_excludes_items_already_in_notebook(notebook_env):

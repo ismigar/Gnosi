@@ -11,12 +11,15 @@ async function dismissReleaseNotes(page: Page) {
 }
 
 test('creates, ingests and refreshes a grounded PDF and web notebook', async ({ page, context }) => {
+  test.setTimeout(90_000);
   let sourceVersion = 1;
   let detailReads = 0;
   let openRefreshRequests = 0;
   let notebookCreated = false;
+  let cancelRequests = 0;
   let chatRequest: Record<string, unknown> | null = null;
   const selectedResourceIds: string[] = [];
+  const retriedResourceIds: string[] = [];
 
   await page.route('**/api/health', (route) => route.fulfill({
     json: { status: 'ok', gnosi_mode: 'personal', require_auth: false },
@@ -24,6 +27,14 @@ test('creates, ingests and refreshes a grounded PDF and web notebook', async ({ 
   await page.route('**/api/auth/me', (route) => route.fulfill({
     status: 401,
     json: { detail: 'Not authenticated' },
+  }));
+  await page.route('**/api/vault/plugins', (route) => route.fulfill({
+    json: {
+      enabled_builtin: ['ai-platform', 'grounded-notebooks'],
+      enabled_third_party: [],
+      disabled: [],
+      settings: {},
+    },
   }));
   await page.route('**/api/config', (route) => route.fulfill({
     json: {
@@ -104,8 +115,37 @@ test('creates, ingests and refreshes a grounded PDF and web notebook', async ({ 
       await route.fulfill({ json: { messages: [], session_id: 'notebook-e2e-private' } });
       return;
     }
+    if (url.pathname === '/api/notebooks/notebook-e2e/refresh/cancel' && method === 'POST') {
+      cancelRequests += 1;
+      detailReads = Math.max(detailReads, 1);
+      await route.fulfill({
+        json: {
+          id: 'notebook-e2e',
+          title: 'Grounded E2E notebook',
+          status: 'available',
+          active_revision: sourceVersion,
+          visibility: 'private',
+          conversation_mode: 'private_member',
+          conversation_session_id: 'notebook-e2e-private',
+          resource_count: 2,
+          source_counts: { total: 2, available: 2 },
+          chat_ready: true,
+          can_manage: true,
+          can_chat: true,
+          progress: { state: 'cancelled', processed: 1, total: 2, percent: 50 },
+          last_error: 'Indexing was cancelled by the notebook creator.',
+        },
+      });
+      return;
+    }
+    const retryMatch = url.pathname.match(/^\/api\/notebooks\/notebook-e2e\/sources\/([^/]+)\/refresh$/);
+    if (retryMatch && method === 'POST') {
+      retriedResourceIds.push(decodeURIComponent(retryMatch[1]));
+      await route.fulfill({ status: 202, json: { state: 'queued', revision: sourceVersion + 1 } });
+      return;
+    }
     if (url.pathname === '/api/notebooks/notebook-e2e/sources') {
-      const ready = detailReads > 0;
+      const ready = cancelRequests > 0;
       const activeRevision = ready ? sourceVersion : (sourceVersion > 1 ? sourceVersion - 1 : null);
       await route.fulfill({
         json: {
@@ -114,13 +154,16 @@ test('creates, ingests and refreshes a grounded PDF and web notebook', async ({ 
               resource_id: 'resource-pdf',
               title: 'PDF evidence',
               state: 'available',
+              last_checked_at: '2026-08-21T10:00:00Z',
               sources: [{ source_id: 'pdf-1', kind: 'pdf', label: `evidence-v${sourceVersion}.pdf`, status: 'available' }],
             },
             {
               resource_id: 'resource-web',
               title: 'Web evidence',
-              state: 'available',
-              sources: [{ source_id: 'web-1', kind: 'url', label: 'https://sources.example/article', status: 'available' }],
+              state: 'stale',
+              error: 'The last valid web evidence is retained.',
+              last_checked_at: '2026-08-21T10:00:00Z',
+              sources: [{ source_id: 'web-1', kind: 'url', label: 'https://sources.example/article', status: 'stale', error: 'Origin temporarily unavailable.' }],
             },
           ] : [],
           total: 2,
@@ -133,7 +176,7 @@ test('creates, ingests and refreshes a grounded PDF and web notebook', async ({ 
     }
     if (url.pathname === '/api/notebooks/notebook-e2e' && method === 'GET') {
       if (url.searchParams.get('refresh') === 'true') openRefreshRequests += 1;
-      const ready = detailReads > 0;
+      const ready = cancelRequests > 0;
       const activeRevision = ready ? sourceVersion : (sourceVersion > 1 ? sourceVersion - 1 : null);
       detailReads += 1;
       await route.fulfill({
@@ -150,7 +193,10 @@ test('creates, ingests and refreshes a grounded PDF and web notebook', async ({ 
           chat_ready: ready,
           can_manage: true,
           can_chat: true,
-          progress: ready ? null : { state: 'indexing', processed: 1, total: 2, percent: 50 },
+          progress: ready ? null : {
+            state: 'indexing', processed: 1, total: 2, percent: 50,
+            current_resource_title: 'Web evidence', cancellable: true,
+          },
           last_error: null,
         },
       });
@@ -190,9 +236,11 @@ test('creates, ingests and refreshes a grounded PDF and web notebook', async ({ 
     });
   });
 
-  await page.goto('/notebooks', { waitUntil: 'domcontentloaded' });
+  await page.goto('/notebooks', { waitUntil: 'domcontentloaded', timeout: 60_000 });
   await dismissReleaseNotes(page);
-  await page.getByRole('button', { name: createNotebookPattern }).first().click();
+  const createButton = page.getByRole('button', { name: createNotebookPattern }).first();
+  await expect(createButton).toBeVisible({ timeout: 30_000 });
+  await createButton.click();
   const dialog = page.getByRole('dialog');
   await expect(dialog).toContainText(/(?:no es mostr(?:a|en)|not shown|no se muestra|n'est pas affichée).*1/i);
   await dialog.getByRole('button', { name: /PDF evidence/i }).click();
@@ -200,7 +248,13 @@ test('creates, ingests and refreshes a grounded PDF and web notebook', async ({ 
   await dialog.getByRole('button', { name: createNotebookPattern }).click();
 
   await expect.poll(() => selectedResourceIds.sort()).toEqual(['resource-pdf', 'resource-web']);
+  await expect(page.getByText(/Current Resource: Web evidence|Recurs actual: Web evidence|Recurso actual: Web evidence|Ressource actuelle : Web evidence/i)).toBeVisible();
+  await page.getByRole('button', { name: /Cancel indexing|Cancel·la la indexació|Cancelar indexación|Annuler l'indexation/i }).click();
+  await expect.poll(() => cancelRequests).toBe(1);
   await expect(page.getByText(/Revision 1|Revisió 1|Revisión 1|Révision 1/i)).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText(/Last checked|Darrera comprovació|Última comprobación|Dernière vérification/i).first()).toBeVisible();
+  await page.getByRole('button', { name: /Retry Resource|Torna a intentar el Recurs|Reintentar Recurso|Réessayer la Ressource/i }).click();
+  await expect.poll(() => retriedResourceIds).toEqual(['resource-web']);
   const textarea = page.getByPlaceholder(chatPlaceholderPattern);
   await expect(textarea).toBeVisible({ timeout: 10_000 });
   await textarea.fill('What do both sources support?');
@@ -219,7 +273,7 @@ test('creates, ingests and refreshes a grounded PDF and web notebook', async ({ 
 
   sourceVersion = 2;
   detailReads = 0;
-  await page.goto('/notebooks', { waitUntil: 'domcontentloaded' });
+  await page.goto('/notebooks', { waitUntil: 'domcontentloaded', timeout: 60_000 });
   await page.getByRole('button', { name: /Grounded E2E notebook/i }).click();
   await expect(page.getByText(/Revision 2|Revisió 2|Revisión 2|Révision 2/i)).toBeVisible({ timeout: 10_000 });
   await expect(page.getByText('evidence-v2.pdf')).toBeVisible();
