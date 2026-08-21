@@ -100,11 +100,29 @@ jobs:
           python -m uvicorn backend.server:app --host 127.0.0.1 --port 59998 --lifespan off > "$RUNNER_TEMP/gnosi-live-e2e.log" 2>&1 &
           backend_pid=$!
           trap 'kill "$backend_pid" 2>/dev/null || true' EXIT
-          for attempt in $(seq 1 30); do
-            if python -c 'import requests; raise SystemExit(0 if requests.get("http://127.0.0.1:59998/api/health", timeout=1).status_code == 200 else 1)' 2>/dev/null; then
+          ready=0
+          # A cold backend import can exceed 100 seconds under ARM64/QEMU,
+          # especially immediately after the full suite. Keep the probe
+          # bounded, but allow the service enough time to become responsive.
+          for attempt in {1..90}; do
+            if ! kill -0 "$backend_pid" 2>/dev/null; then
+              echo "The live E2E backend exited before becoming ready."
+              tail -200 "$RUNNER_TEMP/gnosi-live-e2e.log"
+              exit 1
+            fi
+            if python -c 'import requests; raise SystemExit(0 if requests.get("http://127.0.0.1:59998/api/health", timeout=3).status_code == 200 else 1)' 2>/dev/null; then
+              ready=1
               break
             fi
-            sleep 1
+            sleep 2
           done
-          python -c 'import requests; raise SystemExit(0 if requests.get("http://127.0.0.1:59998/api/health", timeout=2).status_code == 200 else 1)'
-          pytest backend/tests/test_e2e_tables_assets.py backend/tests/test_vault_trash.py -q
+          if [ "$ready" -ne 1 ]; then
+            echo "The live E2E backend did not become ready before the deadline."
+            tail -200 "$RUNNER_TEMP/gnosi-live-e2e.log"
+            exit 1
+          fi
+          pytest backend/tests/test_e2e_tables_assets.py backend/tests/test_vault_trash.py -q || {
+            status=$?
+            tail -200 "$RUNNER_TEMP/gnosi-live-e2e.log"
+            exit "$status"
+          }

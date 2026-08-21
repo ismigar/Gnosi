@@ -4211,7 +4211,7 @@ export function EditorInner({
     );
 };
 
-export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}, onUpdate, allTables = [], allNotes = [], onEditSchema, onAddSchemaOption, onCreateRecord, onCreateTemplate, onDeletePage = () => {}, onOpenParallel = () => {}, onOpenPage = () => {}, onOpenInCurrentTab = null, onOpenInNewTab = null, idToTitle = {}, aliasIndex = {}, registry = { databases: [], tables: [], views: [] }, onRefreshNotes = () => {}, onUpdatePageMetadata, historyOpenSignal = 0, isCodeView = false, isEditLocked = false, referenceTableId = null, onOpenViewConfig, pageActions = null, isActivePage = true }) {
+export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}, onUpdate, allTables = [], allNotes = [], onEditSchema, onAddSchemaOption, onCreateRecord, onCreateTemplate, onCreateFromSource, onDeletePage = () => {}, onOpenParallel = () => {}, onOpenPage = () => {}, onOpenInCurrentTab = null, onOpenInNewTab = null, idToTitle = {}, aliasIndex = {}, registry = { databases: [], tables: [], views: [] }, onRefreshNotes = () => {}, onUpdatePageMetadata, historyOpenSignal = 0, isCodeView = false, isEditLocked = false, referenceTableId = null, onOpenViewConfig, pageActions = null, isActivePage = true }) {
     const { t } = useTranslation();
     const { apiFetch, role } = useApi();
     const { isEnabled: isPluginEnabled, getPluginSettings } = usePlugins();
@@ -4415,7 +4415,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         setIsPageViewModalOpen(true);
     }, []);
 
-    const contextValue = useMemo(() => ({ allTables, onEditSchema, onCreateRecord, onCreateTemplate, onDeletePage, onOpenParallel, onOpenPage, onOpenInCurrentTab, onOpenInNewTab, idToTitle, registry: registry || { databases: [], tables: [], views: [] }, pageId: noteFilename, onOpenPageViewModal: openPageViewModalFromContext, onOpenViewConfig, viewSectionNonce }), [allTables, onEditSchema, onCreateRecord, onCreateTemplate, onDeletePage, onOpenParallel, onOpenPage, onOpenInCurrentTab, onOpenInNewTab, idToTitle, registry, noteFilename, openPageViewModalFromContext, onOpenViewConfig, viewSectionNonce]);
+    const contextValue = useMemo(() => ({ allTables, onEditSchema, onCreateRecord, onCreateTemplate, onCreateFromSource, onDeletePage, onOpenParallel, onOpenPage, onOpenInCurrentTab, onOpenInNewTab, idToTitle, registry: registry || { databases: [], tables: [], views: [] }, pageId: noteFilename, referenceTableId, onOpenPageViewModal: openPageViewModalFromContext, onOpenViewConfig, viewSectionNonce }), [allTables, onEditSchema, onCreateRecord, onCreateTemplate, onCreateFromSource, onDeletePage, onOpenParallel, onOpenPage, onOpenInCurrentTab, onOpenInNewTab, idToTitle, registry, noteFilename, referenceTableId, openPageViewModalFromContext, onOpenViewConfig, viewSectionNonce]);
     // Performs the actual PATCH. Don't call this directly from key-by-key
     // events — use handleSaveMetadata (debounced) or pass {immediate:true}.
     //

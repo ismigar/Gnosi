@@ -61,6 +61,18 @@ class SchedulerManager:
             "default_interval": 1440,
             "quiet": True,
         },
+        "academic_repository_sync": {
+            "description": "Queue incremental academic repository synchronizations",
+            "default_interval": 1440,
+            "default_enabled": True,
+            "quiet": True,
+        },
+        "academic_review_updates": {
+            "description": "Queue due saved literature review searches",
+            "default_interval": 1440,
+            "default_enabled": True,
+            "quiet": True,
+        },
         "update_analytics": {
             "description": "Update statistics",
             "default_interval": 60,  # 1 hour
@@ -603,6 +615,10 @@ class SchedulerManager:
             return self._task_system_maintenance()
         elif name == "llm_wiki_maintenance":
             return self._task_llm_wiki_maintenance()
+        elif name == "academic_repository_sync":
+            return self._task_academic_repository_sync()
+        elif name == "academic_review_updates":
+            return self._task_academic_review_updates()
         elif name == "update_analytics":
             return self._task_update_analytics()
         elif name == "suggest_connections":
@@ -762,6 +778,20 @@ class SchedulerManager:
             "indexes": llm_wiki_indices.rebuild_indexes(brain_table_id, config),
             "lint": llm_wiki_lint.run_lint(brain_table_id, source_ids),
         }
+
+    def _task_academic_repository_sync(self) -> Dict[str, Any]:
+        """Queue due incremental OAI harvests without blocking the scheduler."""
+        from backend.services.literature_service import enqueue_due_syncs
+
+        queued = enqueue_due_syncs()
+        return {"queued": queued, "message": f"Queued {queued} academic repository synchronizations."}
+
+    def _task_academic_review_updates(self) -> Dict[str, Any]:
+        """Queue due saved review strategies without blocking the scheduler."""
+        from backend.services.literature_service import enqueue_due_review_updates
+
+        queued = enqueue_due_review_updates()
+        return {"queued": queued, "message": f"Queued {queued} literature review updates."}
 
 
     def _task_system_maintenance(self) -> Dict[str, Any]:

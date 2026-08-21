@@ -59,6 +59,12 @@ export const BUILTIN_PLUGINS = [
         description: 'Add working durations, predecessors, and work calendars to period fields.',
         icon: 'CalendarRange',
     },
+    {
+        id: 'resources',
+        name: 'Resources',
+        description: 'Academic search, reference import, and systematic literature review.',
+        icon: 'LibraryBig',
+    },
 ];
 
 export const PLUGIN_IDS = BUILTIN_PLUGINS.map((p) => p.id);

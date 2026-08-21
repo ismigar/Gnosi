@@ -1,15 +1,18 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-21
 source_paths:
   - backend/api/scheduler_routes.py
   - backend/scheduler/manager.py
   - backend/models/scheduler.py
+  - backend/services/durable_job_worker.py
+  - backend/services/literature_service.py
   - frontend/src/pages/SchedulerPage.jsx
   - pipeline/skills/scheduler
 tests:
   - backend/tests/test_connection_scheduler_alignment.py
   - backend/tests/test_planning_scheduler.py
+  - backend/tests/test_literature_service.py
   - e2e/tests/e2e/automation-scout.spec.ts
 ---
 
@@ -50,6 +53,20 @@ guards overlapping instances according to task policy and uses fresh database
 or provider contexts. A process restart reconciles schedules from persisted
 configuration instead of trusting only in-memory state.
 
+## Academic synchronization and review updates
+
+`academic_repository_sync` is a durable, resumable job for local OAI indexes.
+Its cursor, counts, error, cancellation state, and last successful synchronization
+are persisted outside the request process. An administrator explicitly starts
+the first harvest; after it completes, daily incremental scheduling resumes from
+the repository's last completed checkpoint and applies OAI tombstones.
+
+Saved review strategies may also schedule `academic_review_update` jobs. A run
+replays the versioned strategy, records exact per-source activity and partial
+errors, and registers only candidates whose deterministic identity is new to
+that review. The next run is persisted with the review configuration rather
+than held only by the scheduler process.
+
 ## Vault automations
 
 Vault automation rules combine triggers, conditions, and actions. Derived field
@@ -73,10 +90,13 @@ scheduled.
 - Scheduling uses explicit time zone semantics.
 - Job exceptions are isolated from the scheduler loop.
 - Background work does not reuse request-scoped database sessions.
+- A cancelled OAI harvest keeps its durable cursor and can be resumed.
+- Scheduled review refreshes are idempotent for the same deduplicated work.
 
 ## Verification focus
 
 Test config resilience, connection alignment, planning schedules, task history,
-overlap prevention, time zones, retry/idempotency, and the Playwright automation
+overlap prevention, time zones, retry/idempotency, OAI resume and cancellation,
+tombstones, and review new-result detection, plus the Playwright automation
 scout. A representative scheduled integration should run end to end against a
 safe fixture or test account.

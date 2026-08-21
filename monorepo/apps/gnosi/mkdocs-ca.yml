@@ -42,6 +42,7 @@ nav:
       - Vistes de base de dades i planificació: domains/database-views-planning.md
       - Graf de coneixement: domains/knowledge-graph.md
       - Lector, referències i citacions: domains/reader-references.md
+      - Quaderns fonamentats: domains/notebooks.md
       - Agents, models, eines i habilitats d’IA: domains/ai-agent.md
       - Correu: domains/mail.md
       - Calendari i reunions: domains/calendar-meetings.md

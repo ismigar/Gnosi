@@ -24,38 +24,41 @@ on:
 
 jobs:
   backend:
-    runs-on: [self-hosted, Linux, ARM64]
+    runs-on: ubuntu-24.04-arm
     # Ephemeral test-only value required by Compose interpolation and by the
     # fail-closed Docker startup guard. It signs no persistent sessions.
     env:
       GNOSI_JWT_SECRET: ci-only-7f15e867273441a6b3914705466593864d5f67b038f84301
-      XDG_RUNTIME_DIR: /run/user/501
     defaults:
       run:
         working-directory: monorepo/apps/gnosi
     steps:
       - uses: actions/checkout@v7
 
-      # The backend image is large (torch et al.); the stock runner disk can
-      # run out mid-build. Drop preinstalled toolchains we never use.
-      - name: Free disk space
-        working-directory: /
-        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+      - name: Check container runtime and capacity
+        run: |
+          docker version
+          df -h .
+          available_kb="$(df -Pk . | awk 'NR==2 {print $4}')"
+          if [ "${available_kb}" -lt 10485760 ]; then
+            echo "::error::Docker build requires at least 10 GiB of free runner disk space."
+            exit 1
+          fi
 
       - name: Validate docker-compose.yml
         run: |
           # compose declares both env_files; they are gitignored, so provide
           # empty stand-ins for interpolation/validation.
           touch ../../../.env_shared .env
-          nerdctl compose config -q
+          docker compose config -q
 
       - name: Build backend image
-        run: nerdctl build -f Dockerfile.backend -t gnosi-backend:ci .
+        run: docker build -f Dockerfile.backend -t gnosi-backend:ci .
 
       - name: Smoke test — backend boots and serves /api/health
         run: |
           mkdir -p /tmp/ci-vault
-          nerdctl run -d --name gnosi_ci -p 5002:5002 \
+          docker run -d --name gnosi_ci -p 5002:5002 \
             -e DIGITAL_BRAIN_VAULT_PATH=/vault \
             -e GNOSI_FILES_PROVIDER=local \
             -e GNOSI_JWT_SECRET="${GNOSI_JWT_SECRET}" \
@@ -70,21 +73,21 @@ jobs:
             sleep 2
           done
           echo "::error::backend never became healthy"
-          nerdctl logs gnosi_ci
+          docker logs gnosi_ci
           exit 1
 
       - name: Cleanup
         if: always()
-        run: nerdctl rm -f gnosi_ci 2>/dev/null || true
+        run: docker rm -f gnosi_ci 2>/dev/null || true
 
   frontend:
-    runs-on: [self-hosted, Linux, ARM64]
-    env:
-      XDG_RUNTIME_DIR: /run/user/501
+    runs-on: ubuntu-24.04-arm
     defaults:
       run:
         working-directory: monorepo/apps/gnosi
     steps:
       - uses: actions/checkout@v7
+      - name: Check container runtime
+        run: docker version
       - name: Build frontend image
-        run: nerdctl build -f Dockerfile.frontend -t gnosi-frontend:ci .
+        run: docker build -f Dockerfile.frontend -t gnosi-frontend:ci .

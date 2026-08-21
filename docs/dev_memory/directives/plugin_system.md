@@ -171,3 +171,22 @@ the existing vault plugin APIs and refresh the shared installed/catalog state
 after mutations.
 
 See `plugins-examples/README.md` for author and distribution instructions.
+
+## Academic repository contribution
+
+Plugin API v2 optionally accepts `contributes.academicRepositories`, a list of
+safe relative JSON descriptor paths. A plugin using this contribution must
+declare a sandbox backend, subscribe to `literature.search`, request the
+`network` permission, and receive an explicit per-vault grant.
+
+The descriptor supplies a stable local identifier, name, description,
+documentation URL, and coverage note. Search execution receives the repository
+identifier, query, filters, and result limit. It returns canonical academic
+work objects; the host normalizes them again before federation and
+deduplication.
+
+Direct networking remains blocked even after a network grant. Repository
+adapters use the sandbox `api.fetch` RPC, which preserves the same SSRF,
+redirect, method, response-size, and timeout controls as other data plugins.
+No credential value is sent to the sandbox environment or stored in the
+descriptor.

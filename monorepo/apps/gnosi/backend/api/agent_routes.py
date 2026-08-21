@@ -139,7 +139,7 @@ class TurnContextRef(BaseModel):
             self.ref = source_ref.lower()
             self.scope = normalize_internal_scope(self.ref, self.scope)
             return self
-        if source_type not in {"page", "table", "database", "vault"}:
+        if source_type not in {"page", "table", "database", "vault", "notebook"}:
             raise ValueError(
                 "Turn context accepts read-only Gnosi module sources only."
             )
@@ -158,6 +158,10 @@ class TurnContextRef(BaseModel):
                 }.items()
                 if value
             }
+        elif source_type == "notebook":
+            # The server replaces this with the authorized active revision.
+            # Client-provided revision values are never trusted.
+            self.scope = {}
         else:
             self.scope = {}
         return self
@@ -307,6 +311,43 @@ def _checkpoint_key(
     """Return the isolated checkpoint database key for one agent identity."""
     payload = ":".join((vault_scope, workspace_id, user_id, agent_id))
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:32]
+
+
+def _notebook_conversation_scope(
+    notebook_id: Optional[str],
+    workspace_context: WorkspaceContext,
+    *,
+    mutation: str = "read",
+) -> Optional[Dict[str, Any]]:
+    # Direct endpoint calls receive FastAPI's Query object as the Python
+    # default. Only an actual non-empty string selects notebook semantics.
+    if not isinstance(notebook_id, str) or not notebook_id.strip():
+        return None
+    from backend.services import notebook_service
+
+    notebook = notebook_service.authorize(
+        str(notebook_id), workspace_context, action="read"
+    )
+    if mutation == "rewind" and notebook["conversation_mode"] == "shared":
+        raise HTTPException(
+            status_code=409,
+            detail="Shared notebook conversations are append-only.",
+        )
+    if mutation == "clear" and (
+        notebook["conversation_mode"] == "shared"
+        and notebook["owner_user_id"] != workspace_context.user_id
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Only the notebook creator can clear the shared conversation.",
+        )
+    return {
+        "notebook": notebook,
+        "principal": notebook_service.conversation_principal(
+            notebook, workspace_context.user_id
+        ),
+        "session_id": notebook_service.conversation_session_id(notebook),
+    }
 
 
 def _validated_skill_ids(values: Optional[List[str]]) -> Optional[List[str]]:
@@ -690,6 +731,16 @@ def _public_checkpoint_message_entries(
                 "role": "user" if role == "human" else "assistant",
                 "content": content,
             }
+            if role == "human":
+                author_user_id = str(
+                    getattr(message, "additional_kwargs", {}).get(
+                        "gnosi_author_user_id",
+                        "",
+                    )
+                    or ""
+                )
+                if author_user_id:
+                    public_message["author_user_id"] = author_user_id
             if role == "ai":
                 assistant_metadata = dict(
                     getattr(message, "additional_kwargs", {}) or {}
@@ -1473,22 +1524,31 @@ async def delete_chat_session(
     agent_id: str,
     session_id: str,
     workspace_context: WorkspaceContext = Depends(require_role("editor")),
+    notebook_id: Optional[str] = Query(default=None, max_length=64),
 ):
     """Remove the persisted LangGraph checkpoints for one scoped chat thread."""
     safe_agent_id = _validated_identifier(agent_id, "agent_id")
-    safe_session_id = _validated_identifier(session_id, "session_id")
+    notebook_scope = _notebook_conversation_scope(
+        notebook_id, workspace_context, mutation="clear"
+    )
+    safe_session_id = _validated_identifier(
+        str((notebook_scope or {}).get("session_id") or session_id), "session_id"
+    )
+    principal = str(
+        (notebook_scope or {}).get("principal") or workspace_context.user_id
+    )
     _vault, vault_scope = _vault_scope()
     thread_id = _chat_thread_id(
         vault_scope=vault_scope,
         workspace_id=workspace_context.workspace_id,
-        user_id=workspace_context.user_id,
+        user_id=principal,
         agent_id=safe_agent_id,
         session_id=safe_session_id,
     )
     checkpoint_key = _checkpoint_key(
         vault_scope=vault_scope,
         workspace_id=workspace_context.workspace_id,
-        user_id=workspace_context.user_id,
+        user_id=principal,
         agent_id=safe_agent_id,
     )
     db_path = cfg.paths["CHECKPOINTS"] / f"agent_{checkpoint_key}.sqlite"
@@ -1518,22 +1578,31 @@ async def rewind_chat_session(
     session_id: str,
     payload: ChatRewindRequest,
     workspace_context: WorkspaceContext = Depends(require_role("editor")),
+    notebook_id: Optional[str] = Query(default=None, max_length=64),
 ):
     """Remove one turn and its suffix from the scoped canonical checkpoint."""
     safe_agent_id = _validated_identifier(agent_id, "agent_id")
-    safe_session_id = _validated_identifier(session_id, "session_id")
+    notebook_scope = _notebook_conversation_scope(
+        notebook_id, workspace_context, mutation="rewind"
+    )
+    safe_session_id = _validated_identifier(
+        str((notebook_scope or {}).get("session_id") or session_id), "session_id"
+    )
+    principal = str(
+        (notebook_scope or {}).get("principal") or workspace_context.user_id
+    )
     _vault, vault_scope = _vault_scope()
     thread_id = _chat_thread_id(
         vault_scope=vault_scope,
         workspace_id=workspace_context.workspace_id,
-        user_id=workspace_context.user_id,
+        user_id=principal,
         agent_id=safe_agent_id,
         session_id=safe_session_id,
     )
     checkpoint_key = _checkpoint_key(
         vault_scope=vault_scope,
         workspace_id=workspace_context.workspace_id,
-        user_id=workspace_context.user_id,
+        user_id=principal,
         agent_id=safe_agent_id,
     )
     db_path = cfg.paths["CHECKPOINTS"] / f"agent_{checkpoint_key}.sqlite"
@@ -1627,22 +1696,31 @@ async def get_chat_session(
     agent_id: str,
     session_id: str,
     workspace_context: WorkspaceContext = Depends(require_role("viewer")),
+    notebook_id: Optional[str] = Query(default=None, max_length=64),
 ):
     """Return the canonical persisted transcript for one scoped session."""
     safe_agent_id = _validated_identifier(agent_id, "agent_id")
-    safe_session_id = _validated_identifier(session_id, "session_id")
+    notebook_scope = _notebook_conversation_scope(
+        notebook_id, workspace_context
+    )
+    safe_session_id = _validated_identifier(
+        str((notebook_scope or {}).get("session_id") or session_id), "session_id"
+    )
+    principal = str(
+        (notebook_scope or {}).get("principal") or workspace_context.user_id
+    )
     _vault, vault_scope = _vault_scope()
     thread_id = _chat_thread_id(
         vault_scope=vault_scope,
         workspace_id=workspace_context.workspace_id,
-        user_id=workspace_context.user_id,
+        user_id=principal,
         agent_id=safe_agent_id,
         session_id=safe_session_id,
     )
     checkpoint_key = _checkpoint_key(
         vault_scope=vault_scope,
         workspace_id=workspace_context.workspace_id,
-        user_id=workspace_context.user_id,
+        user_id=principal,
         agent_id=safe_agent_id,
     )
     db_path = cfg.paths["CHECKPOINTS"] / f"agent_{checkpoint_key}.sqlite"
@@ -1754,16 +1832,43 @@ async def chat_endpoint(
     agent_id = ""
     session_id = ""
     vault_scope = ""
+    chat_principal = workspace_context.user_id
+    notebook_turn: Optional[Dict[str, Any]] = None
     try:
         agent_id = _validated_identifier(chat_req.agent_id, "agent_id")
         session_id = _validated_identifier(chat_req.session_id, "session_id")
         requested_skill_ids = _validated_skill_ids(chat_req.active_skill_ids)
         vault, vault_scope = _vault_scope()
+        notebook_refs = [
+            item for item in chat_req.context_refs if item.type == "notebook"
+        ]
+        if notebook_refs:
+            if len(notebook_refs) != 1 or len(chat_req.context_refs) != 1:
+                raise HTTPException(
+                    status_code=400,
+                    detail="A notebook conversation cannot mix other context sources.",
+                )
+            if chat_req.attachments or chat_req.mentions or requested_skill_ids:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Notebook conversations accept notebook evidence only.",
+                )
+            from backend.services import notebook_service
+
+            notebook_turn = await asyncio.to_thread(
+                notebook_service.resolve_chat_context,
+                notebook_refs[0].ref,
+                workspace_context,
+            )
+            chat_principal = str(notebook_turn["principal"])
+            session_id = _validated_identifier(
+                str(notebook_turn["session_id"]), "session_id"
+            )
         if chat_req.turn_id:
             turn_claimed = claim_turn(
                 vault_scope=vault_scope,
                 workspace_id=workspace_context.workspace_id,
-                user_id=workspace_context.user_id,
+                user_id=chat_principal,
                 agent_id=agent_id,
                 session_id=session_id,
                 turn_id=chat_req.turn_id,
@@ -1812,6 +1917,18 @@ async def chat_endpoint(
                 user_content += "\n\nSelected mentions context:\n" + "\n".join(mention_lines)
 
         # 2. Get the workflow only after request-owned uploads are cleaned up.
+        turn_context_refs = [
+            item.model_dump(mode="python")
+            for item in chat_req.context_refs
+        ]
+        if notebook_turn:
+            turn_context_refs = [{
+                "id": f"notebook:{notebook_turn['notebook_id']}",
+                "type": "notebook",
+                "ref": notebook_turn["notebook_id"],
+                "label": notebook_turn["title"],
+                "scope": {"revision": notebook_turn["revision"]},
+            }]
         workflow, llm_selection = await get_agent_workflow(
             request,
             agent_id,
@@ -1822,10 +1939,7 @@ async def chat_endpoint(
             vault_scope=vault_scope,
             vault_path=vault,
             active_skill_ids=requested_skill_ids,
-            turn_context_refs=[
-                item.model_dump(mode="python")
-                for item in chat_req.context_refs
-            ],
+            turn_context_refs=turn_context_refs,
         )
         workflow_ready_at = time.monotonic()
         cancel_token = create_cancel_token()
@@ -1875,6 +1989,16 @@ async def chat_endpoint(
                 additional_kwargs={
                     "gnosi_visible_content": chat_req.message,
                     **(
+                        {"gnosi_author_user_id": workspace_context.user_id}
+                        if notebook_turn
+                        else {}
+                    ),
+                    **(
+                        {"gnosi_notebook_revision": notebook_turn["revision"]}
+                        if notebook_turn
+                        else {}
+                    ),
+                    **(
                         {"gnosi_turn_id": chat_req.turn_id}
                         if chat_req.turn_id
                         else {}
@@ -1898,7 +2022,7 @@ async def chat_endpoint(
         thread_id = _chat_thread_id(
             vault_scope=vault_scope,
             workspace_id=workspace_context.workspace_id,
-            user_id=workspace_context.user_id,
+            user_id=chat_principal,
             agent_id=agent_id,
             session_id=session_id,
         )
@@ -1912,7 +2036,7 @@ async def chat_endpoint(
         checkpoint_key = _checkpoint_key(
             vault_scope=vault_scope,
             workspace_id=workspace_context.workspace_id,
-            user_id=workspace_context.user_id,
+            user_id=chat_principal,
             agent_id=agent_id,
         )
         db_path = cfg.paths["CHECKPOINTS"] / f"agent_{checkpoint_key}.sqlite"
@@ -2469,7 +2593,7 @@ async def chat_endpoint(
                         finish_turn,
                         vault_scope=vault_scope,
                         workspace_id=workspace_context.workspace_id,
-                        user_id=workspace_context.user_id,
+                        user_id=chat_principal,
                         agent_id=agent_id,
                         session_id=session_id,
                         turn_id=chat_req.turn_id,
@@ -2497,7 +2621,7 @@ async def chat_endpoint(
                 finish_turn,
                 vault_scope=vault_scope,
                 workspace_id=workspace_context.workspace_id,
-                user_id=workspace_context.user_id,
+                user_id=chat_principal,
                 agent_id=agent_id,
                 session_id=session_id,
                 turn_id=chat_req.turn_id,
@@ -2535,7 +2659,7 @@ async def chat_endpoint(
                 finish_turn,
                 vault_scope=vault_scope,
                 workspace_id=workspace_context.workspace_id,
-                user_id=workspace_context.user_id,
+                user_id=chat_principal,
                 agent_id=agent_id,
                 session_id=session_id,
                 turn_id=chat_req.turn_id,

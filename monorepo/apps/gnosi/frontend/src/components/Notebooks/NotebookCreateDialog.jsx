@@ -1,0 +1,195 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { BookOpen, Check, ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { toast } from '../../lib/toast';
+
+const EMPTY_RESOURCE_IDS = Object.freeze([]);
+
+export default function NotebookCreateDialog({
+    isOpen,
+    initialResourceIds = EMPTY_RESOURCE_IDS,
+    onClose,
+    onCreated,
+}) {
+    const { t } = useTranslation();
+    const [title, setTitle] = useState('');
+    const [visibility, setVisibility] = useState('private');
+    const [conversationMode, setConversationMode] = useState('private_member');
+    const [selectedIds, setSelectedIds] = useState(new Set());
+    const [resourceData, setResourceData] = useState({ items: [], total: 0, page: 1, page_size: 50 });
+    const [query, setQuery] = useState('');
+    const [loadingResources, setLoadingResources] = useState(false);
+    const [creating, setCreating] = useState(false);
+    const initialKey = useMemo(
+        () => [...initialResourceIds].map(String).sort().join(':'),
+        [initialResourceIds],
+    );
+
+    useEffect(() => {
+        if (!isOpen) return;
+        setTitle(t('notebooks.default_title', 'New notebook'));
+        setVisibility('private');
+        setConversationMode('private_member');
+        setSelectedIds(new Set(initialResourceIds.map(String)));
+        setQuery('');
+        setResourceData((previous) => ({ ...previous, page: 1 }));
+    }, [initialKey, initialResourceIds, isOpen, t]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const controller = new AbortController();
+        const timer = window.setTimeout(() => {
+            setLoadingResources(true);
+            fetch(`/api/notebooks/resources?q=${encodeURIComponent(query)}&page=${resourceData.page}&page_size=50`, {
+                signal: controller.signal,
+            })
+                .then((response) => response.ok ? response.json() : Promise.reject(new Error(`Resource list failed (${response.status})`)))
+                .then((data) => setResourceData({
+                    items: Array.isArray(data.items) ? data.items : [],
+                    total: Number(data.total) || 0,
+                    page: Number(data.page) || resourceData.page,
+                    page_size: Number(data.page_size) || 50,
+                }))
+                .catch((error) => {
+                    if (error.name !== 'AbortError') {
+                        console.error('Could not load notebook Resources', error);
+                        toast.error(t('notebooks.resources_error', 'Resources could not be loaded.'));
+                    }
+                })
+                .finally(() => setLoadingResources(false));
+        }, 180);
+        return () => {
+            window.clearTimeout(timer);
+            controller.abort();
+        };
+    }, [isOpen, query, resourceData.page, t]);
+
+    if (!isOpen) return null;
+
+    const resourcePageCount = Math.max(1, Math.ceil(resourceData.total / resourceData.page_size));
+
+    const toggleResource = (resourceId) => {
+        setSelectedIds((previous) => {
+            const next = new Set(previous);
+            if (next.has(resourceId)) next.delete(resourceId);
+            else next.add(resourceId);
+            return next;
+        });
+    };
+
+    const create = async (event) => {
+        event.preventDefault();
+        if (!selectedIds.size || creating) return;
+        setCreating(true);
+        try {
+            const response = await fetch('/api/notebooks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: title.trim() || t('notebooks.default_title', 'New notebook'),
+                    visibility,
+                    conversation_mode: conversationMode,
+                    resource_ids: [...selectedIds],
+                }),
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.detail || `Notebook creation failed (${response.status})`);
+            toast.success(t('notebooks.created', 'Notebook created.'));
+            onCreated?.(data);
+            onClose?.();
+        } catch (error) {
+            console.error('Could not create notebook', error);
+            toast.error(t('notebooks.create_error', 'The notebook could not be created: {{message}}', { message: error.message }));
+        } finally {
+            setCreating(false);
+        }
+    };
+
+    return (
+        <div className="notebook-modal-backdrop" role="presentation" onMouseDown={(event) => {
+            if (event.currentTarget === event.target && !creating) onClose?.();
+        }}>
+            <form className="notebook-modal" role="dialog" aria-modal="true" aria-labelledby="notebook-create-title" onSubmit={create}>
+                <header className="notebook-modal__header">
+                    <div className="notebook-modal__title-wrap">
+                        <span className="notebook-icon"><BookOpen size={18} /></span>
+                        <div>
+                            <h2 id="notebook-create-title">{t('notebooks.create_title', 'Create a notebook')}</h2>
+                            <p>{t('notebooks.create_subtitle', 'Only attachment and URL fields become sources.')}</p>
+                        </div>
+                    </div>
+                    <button type="button" className="notebook-icon-button" onClick={onClose} disabled={creating} aria-label={t('common.close', 'Close')}>
+                        <X size={18} />
+                    </button>
+                </header>
+
+                <div className="notebook-modal__body">
+                    <label className="notebook-field">
+                        <span>{t('notebooks.title_label', 'Title')}</span>
+                        <input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={160} autoFocus />
+                    </label>
+
+                    <div className="notebook-modal__options">
+                        <label className="notebook-field">
+                            <span>{t('notebooks.visibility_label', 'Visibility')}</span>
+                            <select value={visibility} onChange={(event) => setVisibility(event.target.value)}>
+                                <option value="private">{t('notebooks.visibility_private', 'Private')}</option>
+                                <option value="workspace">{t('notebooks.visibility_workspace', 'Workspace')}</option>
+                            </select>
+                        </label>
+                        <label className="notebook-field">
+                            <span>{t('notebooks.conversation_label', 'Conversation')}</span>
+                            <select value={conversationMode} onChange={(event) => setConversationMode(event.target.value)}>
+                                <option value="private_member">{t('notebooks.conversation_private', 'Private per member')}</option>
+                                <option value="shared">{t('notebooks.conversation_shared', 'Shared')}</option>
+                            </select>
+                        </label>
+                    </div>
+
+                    <section className="notebook-resource-picker" aria-label={t('notebooks.resources', 'Resources')}>
+                        <div className="notebook-resource-picker__header">
+                            <strong>{t('notebooks.selected_resources', '{{count}} Resources selected', { count: selectedIds.size })}</strong>
+                            <label className="notebook-search">
+                                <Search size={15} />
+                                <input value={query} onChange={(event) => {
+                                    setQuery(event.target.value);
+                                    setResourceData((previous) => ({ ...previous, page: 1 }));
+                                }} placeholder={t('notebooks.search_resources', 'Search Resources...')} />
+                            </label>
+                        </div>
+                        <div className="notebook-resource-picker__list">
+                            {loadingResources && <div className="notebook-empty">{t('common.loading', 'Loading...')}</div>}
+                            {!loadingResources && resourceData.items.map((resource) => {
+                                const checked = selectedIds.has(String(resource.id));
+                                return (
+                                    <button key={resource.id} type="button" className={`notebook-resource-row ${checked ? 'is-selected' : ''}`} onClick={() => toggleResource(String(resource.id))}>
+                                        <span className="notebook-resource-row__check">{checked && <Check size={13} />}</span>
+                                        <span className="notebook-resource-row__text">
+                                            <strong>{resource.title}</strong>
+                                            <small>{t('notebooks.source_count', '{{count}} source(s)', { count: resource.source_count })}</small>
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                            {!loadingResources && !resourceData.items.length && <div className="notebook-empty">{t('notebooks.no_resources', 'No Resources found.')}</div>}
+                        </div>
+                        {resourcePageCount > 1 && (
+                            <nav className="notebook-pagination notebook-pagination--compact" aria-label={t('notebooks.resource_pagination', 'Resource pages')}>
+                                <button type="button" disabled={resourceData.page <= 1} onClick={() => setResourceData((previous) => ({ ...previous, page: previous.page - 1 }))}><ChevronLeft size={15} /></button>
+                                <span>{t('notebooks.page_of', 'Page {{page}} of {{pages}}', { page: resourceData.page, pages: resourcePageCount })}</span>
+                                <button type="button" disabled={resourceData.page >= resourcePageCount} onClick={() => setResourceData((previous) => ({ ...previous, page: previous.page + 1 }))}><ChevronRight size={15} /></button>
+                            </nav>
+                        )}
+                    </section>
+                </div>
+
+                <footer className="notebook-modal__footer">
+                    <button type="button" className="btn-gnosi" onClick={onClose} disabled={creating}>{t('common.cancel', 'Cancel')}</button>
+                    <button type="submit" className="btn-gnosi btn-gnosi-primary" disabled={!selectedIds.size || creating}>
+                        {creating ? t('notebooks.creating', 'Creating...') : t('notebooks.create_action', 'Create notebook')}
+                    </button>
+                </footer>
+            </form>
+        </div>
+    );
+}

@@ -75,11 +75,16 @@
       "backend/models/pdf_annotation.py",
       "backend/services/**/*citation*.py",
       "backend/services/**/*reference*.py",
+      "backend/api/literature_routes.py",
+      "backend/services/**/*literature*.py",
+      "backend/services/academic_connectors.py",
       "frontend/src/pages/ReaderDashboard.jsx",
+      "frontend/src/pages/LiteraturePage.jsx",
+      "frontend/src/components/ResourcesPluginConfig.jsx",
       "frontend/src/components/Vault/ZoteroReaderTab.jsx"
     ],
-    "test_globs": ["backend/tests/test_*citation*.py", "backend/tests/test_*reader*.py", "e2e/tests/e2e/*citation*.spec.ts"],
-    "directives": ["gnosi_native_reference_manager.md", "pdf_quote_capture.md", "zotero_reader_translation_contribution.md"]
+    "test_globs": ["backend/tests/test_*citation*.py", "backend/tests/test_*reader*.py", "backend/tests/test_*literature*.py", "backend/tests/test_academic_connectors.py", "frontend/src/**/*Literature*.test.*", "frontend/src/**/*ResourcesPluginConfig*.test.*", "e2e/tests/e2e/*citation*.spec.ts"],
+    "directives": ["academic_literature_search_and_review.md", "gnosi_native_reference_manager.md", "pdf_quote_capture.md", "zotero_reader_translation_contribution.md"]
   },
   {
     "id": "ai-agent",
@@ -162,12 +167,13 @@
       "backend/api/integrations_routes.py",
       "backend/services/integration*.py",
       "backend/services/plugin*.py",
+      "backend/services/academic_connectors.py",
       "integrations/**/*",
       "plugins-examples/**/*",
       "mcp-servers/**/*"
     ],
     "test_globs": ["backend/tests/test_integration*.py", "backend/tests/test_plugin*.py", "integrations/**/tests/**/*"],
-    "directives": ["plugin_system.md", "integrations_persistence.md", "skill_vs_tool_architecture.md"]
+    "directives": ["academic_literature_search_and_review.md", "plugin_system.md", "integrations_persistence.md", "skill_vs_tool_architecture.md"]
   },
   {
     "id": "auth-workspaces-sharing",
@@ -196,11 +202,13 @@
       "backend/api/scheduler_routes.py",
       "backend/scheduler/**/*.py",
       "backend/models/scheduler.py",
+      "backend/services/durable_job_worker.py",
+      "backend/services/literature_service.py",
       "frontend/src/pages/SchedulerPage.jsx",
       "pipeline/skills/scheduler/**/*"
     ],
-    "test_globs": ["backend/tests/test_schedul*.py", "e2e/tests/e2e/automation*.spec.ts"],
-    "directives": ["scheduler_config_resilience.md", "autonomous_quality_loop.md", "automations_and_formulas.md"]
+    "test_globs": ["backend/tests/test_schedul*.py", "backend/tests/test_literature_service.py", "e2e/tests/e2e/automation*.spec.ts"],
+    "directives": ["academic_literature_search_and_review.md", "scheduler_config_resilience.md", "autonomous_quality_loop.md", "automations_and_formulas.md"]
   },
   {
     "id": "desktop-clients",

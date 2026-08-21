@@ -27,7 +27,7 @@ const formatTokens = (val) => {
 };
 
 export function AIUsageHistoryModal({ isOpen, onClose, activeModels = [] }) {
-    const { t, i18n } = useTranslation();
+    const { t } = useTranslation();
     const [timeframe, setTimeframe] = useState('month'); // 'day', 'week', 'month', 'quarter', 'semester', 'year', 'all'
     const [groupBy, setGroupBy] = useState('model'); // 'model', 'profile', 'provider'
     const [historyData, setHistoryData] = useState(null);
