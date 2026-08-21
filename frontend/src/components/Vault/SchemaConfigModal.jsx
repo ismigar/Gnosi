@@ -2573,10 +2573,10 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             ref={modalRef}
             className="fixed inset-0 bg-black/60 flex items-center justify-center z-[var(--z-modal-dropdown)] p-4 font-sans backdrop-blur-sm"
         >
-            <div className="bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] border border-[var(--border-primary)]">
+            <div className="bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] border border-[var(--border-primary)]" role="dialog" aria-modal="true" aria-labelledby="schema-config-title">
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-[var(--border-primary)] flex justify-between items-center bg-[var(--bg-secondary)] shrink-0">
-                    <h2 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
+                    <h2 id="schema-config-title" className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
                         <Settings size={20} className="text-[var(--gnosi-primary)]" />
                         {t('schema.manage_properties_of')} {folder}{tableName ? ` · ${tableName}` : ''}
                     </h2>

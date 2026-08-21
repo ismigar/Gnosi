@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -9,6 +9,7 @@ import { WikilinkInline } from './WikilinkInline';
 import { parseVaultMarkdownBlocks } from './vaultMarkdownBlocks';
 import { WIKILINK_HREF_SENTINEL, STYLE_HREF_SENTINEL, CITE_HREF_SENTINEL, convertWikilinksToMd, convertInlineHtmlToMd, decodeStylePayload, wikilinkUrlTransform, normalizeAssetUrl } from './vaultMarkdownUtils';
 import { openCitation } from '../../lib/fileResource';
+import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 
 /* -------------------------------------------------------------------------- */
 /*  Equations inherited from Notion                                              */
@@ -83,18 +84,33 @@ export function VaultMarkdown({
     const { t } = useTranslation();
     const [evidence, setEvidence] = useState(null);
     const [evidenceLoading, setEvidenceLoading] = useState(false);
+    const evidenceRef = useRef(null);
+    const citationRequestRef = useRef(0);
+    const closeEvidence = () => {
+        citationRequestRef.current += 1;
+        setEvidence(null);
+        setEvidenceLoading(false);
+    };
+
+    useModalKeyboard({
+        isOpen: Boolean(evidence || evidenceLoading),
+        onClose: closeEvidence,
+        containerRef: evidenceRef,
+    });
 
     const handleCitation = async (query) => {
         const resourceId = query.get('res');
         if (!resourceId) return;
         const citation = Object.fromEntries(query.entries());
+        const requestId = citationRequestRef.current + 1;
+        citationRequestRef.current = requestId;
         setEvidence(null);
         setEvidenceLoading(true);
         try {
             const result = await openCitation(resourceId, query.get('page'), { citation, t });
-            if (result) setEvidence(result);
+            if (result && citationRequestRef.current === requestId) setEvidence(result);
         } finally {
-            setEvidenceLoading(false);
+            if (citationRequestRef.current === requestId) setEvidenceLoading(false);
         }
     };
 
@@ -210,6 +226,7 @@ export function VaultMarkdown({
         {renderBlocks(parseVaultMarkdownBlocks(md))}
         {(evidence || evidenceLoading) && (
             <aside
+                ref={evidenceRef}
                 className="fixed right-4 bottom-4 z-[130] w-[min(420px,calc(100vw-2rem))] rounded-xl border border-[var(--border-primary)] bg-[var(--bg-primary)] p-4 shadow-2xl"
                 role="dialog"
                 aria-label={t('llm_wiki.evidence_title', "Citation evidence")}
@@ -229,7 +246,7 @@ export function VaultMarkdown({
                         type="button"
                         className="gnosi-close-btn"
                         aria-label={t('common.close', "Close")}
-                        onClick={() => setEvidence(null)}
+                        onClick={closeEvidence}
                     >
                         ×
                     </button>

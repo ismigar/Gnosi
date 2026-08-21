@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import './VaultTemplateMarketplace.css';
@@ -6,6 +6,7 @@ import {
     AlertTriangle, CheckCircle2, Download, FileArchive, Loader,
     PackagePlus, Send, ShieldCheck, Store, X,
 } from 'lucide-react';
+import { useModalKeyboard } from '../hooks/useModalKeyboard';
 
 const inputStyle = {
     width: '100%', padding: '9px 11px', borderRadius: 9,
@@ -46,6 +47,7 @@ export default function VaultTemplateMarketplace({ vaults, initialSection = 'cat
     const [busy, setBusy] = useState('');
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const dialogRef = useRef(null);
     const activeVault = useMemo(() => vaults.find((vault) => vault.active), [vaults]);
     const [form, setForm] = useState(() => ({
         id: slugify(activeVault?.name),
@@ -59,6 +61,8 @@ export default function VaultTemplateMarketplace({ vaults, initialSection = 'cat
         recommendedPlugins: [],
         acknowledgeFindings: false,
     }));
+
+    useModalKeyboard({ isOpen: true, onClose, containerRef: dialogRef, trapFocus: true });
 
     useEffect(() => {
         let cancelled = false;
@@ -138,12 +142,12 @@ export default function VaultTemplateMarketplace({ vaults, initialSection = 'cat
     const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
 
     return (
-        <div className="vault-template-modal" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-            <div className="vault-template-modal__content" role="dialog" aria-modal="true" aria-labelledby="vault-template-title">
+        <div className="vault-template-modal" role="presentation">
+            <div ref={dialogRef} className="vault-template-modal__content" role="dialog" aria-modal="true" aria-labelledby="vault-template-title">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
                     <Store size={20} />
                     <h2 id="vault-template-title" style={{ margin: 0, flex: 1 }}>{t('vault_templates.title')}</h2>
-                    <button type="button" onClick={onClose} aria-label={t('common.close')} className="vault-template-modal__close"><X size={18} /></button>
+                    <button type="button" onClick={onClose} aria-label={t('common.close')} className="vault-template-modal__close" data-autofocus><X size={18} /></button>
                 </div>
 
                 <div className="settings-filter-tabs" role="tablist" style={{ marginBottom: 18 }}>

@@ -112,8 +112,8 @@ export default function TagsModal({ isOpen, onClose, allNotes = [], onNoteSelect
 
     return (
         <div className="fixed inset-0 z-[150] flex items-start justify-center pt-[10vh] px-4">
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
-            <div ref={panelRef} className="relative flex h-[70vh] w-full max-w-3xl overflow-hidden rounded-xl border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-2xl">
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm"></div>
+            <div ref={panelRef} className="relative flex h-[70vh] w-full max-w-3xl overflow-hidden rounded-xl border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-2xl" role="dialog" aria-modal="true" aria-label={t('tags.title', 'Tags')}>
                 {/* Tag tree */}
                 <div className="flex w-1/2 flex-col border-r border-[var(--border-primary)]">
                     <div className="flex items-center gap-2 border-b border-[var(--border-primary)] px-3 py-2.5">
@@ -123,6 +123,7 @@ export default function TagsModal({ isOpen, onClose, allNotes = [], onNoteSelect
                     </div>
                     <div className="border-b border-[var(--border-primary)] px-2 py-1.5">
                         <input
+                            data-autofocus
                             value={filter}
                             onChange={(e) => setFilter(e.target.value)}
                             placeholder={t('tags.filter_placeholder', "Filter tags…")}
@@ -143,7 +144,7 @@ export default function TagsModal({ isOpen, onClose, allNotes = [], onNoteSelect
                         <span className="truncate text-sm font-medium text-[var(--text-secondary)]">
                             {selected ? `#${selected}` : t('tags.pick_tag', "Choose a tag")}
                         </span>
-                        <button onClick={onClose} className="rounded p-1 text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)]"><X size={16} /></button>
+                        <button type="button" onClick={onClose} className="rounded p-1 text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)]" aria-label={t('common.close', 'Close')}><X size={16} /></button>
                     </div>
                     <div className="flex-1 overflow-auto p-1.5">
                         {!selected ? (

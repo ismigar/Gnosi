@@ -1921,9 +1921,6 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         return ty === 'files' || ty === 'image' || ty === 'url' || /imatge|image|cover|portada|foto|photo|thumbnail|miniatura/i.test(f.name || '');
     });
 
-    // We don't close on click outside: with so many tabs it's easy to
-    // accidentally click the overlay and lose the config. Closing only via X / Esc.
-    const handleOverlayClick = () => {};
     const existingViewsLoadError = existingViewsStatus === 'error' && existingViewsTableId === sourceTableId;
     const isLoadingExistingViews = Boolean(sourceTableId)
         && existingViewsStatus === 'loading'
@@ -1932,12 +1929,11 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     return (
         <div
             className="fixed inset-0 bg-black/60 flex items-center justify-center z-[var(--z-modal)] p-4 backdrop-blur-sm"
-            onClick={handleOverlayClick}
         >
-            <div ref={panelRef} className="bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-2xl border border-[var(--border-primary)] flex flex-col max-h-[85vh]">
+            <div ref={panelRef} className="bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-2xl border border-[var(--border-primary)] flex flex-col max-h-[85vh]" role="dialog" aria-modal="true" aria-labelledby="page-view-modal-title">
                 {/* Header */}
                 <div className="px-5 py-4 border-b border-[var(--border-primary)] flex justify-between items-center bg-[var(--bg-secondary)] rounded-t-xl shrink-0">
-                    <h2 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
+                    <h2 id="page-view-modal-title" className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
                         <Eye size={16} className="text-[var(--gnosi-primary)]" />
                         {isTableMode
                             ? (editingView?.id ? t('view.config_title', "Configure view") : t('view.new_view', "New view"))
@@ -1945,7 +1941,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                 ? t('page_view.title_edit', "Edit database view")
                                 : t('page_view.title', "Add database view"))}
                     </h2>
-                    <button onClick={() => closeWithFlushRef.current()} className="gnosi-close-btn">
+                    <button type="button" onClick={() => closeWithFlushRef.current()} className="gnosi-close-btn" aria-label={t('common.close', 'Close')}>
                         <X size={16} />
                     </button>
                 </div>

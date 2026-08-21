@@ -84,8 +84,8 @@ export function FolderPickerModal({ isOpen, onClose, onSelect, initialPath = '' 
         // has `display: none` set in GlobalSettingsModal.css. Without
         // this class, the portal remains invisible (and clicks pass
         // through due to `pointer-events: none`).
-        <div className="settings-overlay active" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-            <div ref={modalRef} className="settings-modal active" style={{ maxWidth: '500px', height: '640px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onMouseDown={(e) => e.stopPropagation()}>
+        <div className="settings-overlay active">
+            <div ref={modalRef} className="settings-modal active" role="dialog" aria-modal="true" aria-label={t('fs_picker.title_folder', 'Select folder')} style={{ maxWidth: '500px', height: '640px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 <div className="settings-modal__header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 20px' }}>
                     <h2 className="settings-modal__title" style={{ margin: 0, fontSize: '1.1em' }}>📁 {t('fs_picker.title_folder', "Select folder")}</h2>
                     <button className="gnosi-close-btn" onClick={onClose} aria-label={t('fs_picker.close', "Close")}>

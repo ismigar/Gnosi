@@ -36,6 +36,34 @@ afterEach(async () => {
 });
 
 describe('NotebookCreateDialog', () => {
+    it('exposes dialog semantics, closes with Escape, and does not close from the backdrop', async () => {
+        globalThis.fetch = vi.fn().mockResolvedValue({
+            ok: true,
+            json: vi.fn().mockResolvedValue({ items: [], total: 0, page: 1, page_size: 50 }),
+        });
+        const onClose = vi.fn();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const root = createRoot(container);
+        mountedRoots.push({ root, container });
+
+        await act(async () => {
+            root.render(<NotebookCreateDialog isOpen onClose={onClose} onCreated={vi.fn()} />);
+        });
+        const dialog = container.querySelector('[role="dialog"]');
+        expect(dialog).toBeTruthy();
+        expect(dialog.getAttribute('aria-modal')).toBe('true');
+        expect(dialog.getAttribute('aria-labelledby')).toBe('notebook-create-title');
+        expect(document.activeElement).toBe(container.querySelector('input[data-autofocus]'));
+
+        await act(async () => container.querySelector('.notebook-modal-backdrop')
+            .dispatchEvent(new MouseEvent('click', { bubbles: true })));
+        expect(onClose).not.toHaveBeenCalled();
+
+        await act(async () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+        expect(onClose).toHaveBeenCalledOnce();
+    });
+
     it('creates a notebook from the exact selected Resource ids', async () => {
         const notebook = { id: 'notebook-1', title: 'Research' };
         globalThis.fetch = vi.fn()

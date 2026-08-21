@@ -10,6 +10,7 @@ import {
     comparisonRouteToRegistryEntry,
     matchingRegistryIndexes,
 } from '../lib/modelComparisonRegistry';
+import { useModalKeyboard } from '../hooks/useModalKeyboard';
 import './AIModelComparisonModal.css';
 
 const PROFILE_KEYS = ['worker', 'administrative', 'documentalist', 'allrounder', 'expert', 'unrated'];
@@ -82,9 +83,27 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
     const [tableViewportWidth, setTableViewportWidth] = useState(0);
     const [filterHeight, setFilterHeight] = useState(0);
     const bodyRef = React.useRef(null);
+    const modalRef = React.useRef(null);
+    const profileHelpRef = React.useRef(null);
     const tableWrapRef = React.useRef(null);
     const scrollbarRef = React.useRef(null);
     const toolbarRef = React.useRef(null);
+
+    useModalKeyboard({
+        isOpen,
+        onClose: () => {
+            if (setup) setSetup(null);
+            else onClose();
+        },
+        containerRef: modalRef,
+        trapFocus: true,
+    });
+    useModalKeyboard({
+        isOpen: isOpen && showProfileHelp,
+        onClose: () => setShowProfileHelp(false),
+        containerRef: profileHelpRef,
+        trapFocus: true,
+    });
 
     useEffect(() => {
         if (!isOpen) return undefined;
@@ -178,12 +197,6 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
     useEffect(() => {
         if (!isOpen) return undefined;
         const handleKeyDown = (event) => {
-            if (event.key === 'Escape') {
-                event.stopPropagation();
-                if (setup) setSetup(null);
-                else onClose();
-                return;
-            }
             const targetTag = event.target?.tagName;
             if (['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON', 'A'].includes(targetTag) || event.target?.isContentEditable) return;
             const body = bodyRef.current;
@@ -216,7 +229,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
         };
         window.addEventListener('keydown', handleKeyDown, true);
         return () => window.removeEventListener('keydown', handleKeyDown, true);
-    }, [isOpen, onClose, setup]);
+    }, [isOpen]);
 
     const providersById = useMemo(() => Object.fromEntries(
         (catalog?.providers || []).map((provider) => [provider.id, provider]),
@@ -615,7 +628,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
     return (
         <div className="model-comparison-layer" role="presentation">
             <div className="model-comparison-backdrop" />
-            <section className="model-comparison-modal" role="dialog" aria-modal="true" aria-labelledby="model-comparison-title">
+            <section ref={modalRef} className="model-comparison-modal" role="dialog" aria-modal="true" aria-labelledby="model-comparison-title">
                 <header className="model-comparison-header">
                     <div>
                         <h2 id="model-comparison-title">{t('model_comparison.title')}</h2>
@@ -629,6 +642,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                     className="model-comparison-body"
                     ref={bodyRef}
                     tabIndex={0}
+                    data-autofocus
                     aria-label={t('model_comparison.keyboard_scroll_hint')}
                     style={{ '--filter-sticky-height': `${filterHeight}px` }}
                 >
@@ -728,7 +742,7 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                                 </label>
                                 {metricAvailability.profile && (
                                     <label className="model-profile-filter">
-                                        <span>{t('model_comparison.profile')} <button type="button" className="model-profile-help" onMouseEnter={() => setShowProfileHelp(true)} onClick={() => setShowProfileHelp(true)} aria-label={t('model_comparison.profile_help_open')}>?</button></span>
+                                        <span>{t('model_comparison.profile')} <button type="button" className="model-profile-help" onClick={() => setShowProfileHelp(true)} aria-label={t('model_comparison.profile_help_open')}>?</button></span>
                                         <select value={profile} onChange={(event) => setProfile(event.target.value)}>
                                             <option value="all">{t('model_comparison.all_profiles')}</option>
                                             {PROFILE_KEYS.map((key) => <option key={key} value={key}>{t(`model_comparison.profiles.${key}`)}</option>)}
@@ -788,9 +802,9 @@ export function AIModelComparisonModal({ isOpen, onClose }) {
                             </div>
 
                             {showProfileHelp && (
-                                <div className="model-profile-help-backdrop" role="presentation" onMouseLeave={() => setShowProfileHelp(false)} onClick={() => setShowProfileHelp(false)}>
-                                    <section className="model-profile-help-dialog" role="dialog" aria-modal="true" aria-labelledby="model-profile-help-title" onClick={(event) => event.stopPropagation()}>
-                                        <header><div><h2 id="model-profile-help-title">{t('model_comparison.profile_help_title')}</h2><p>{t('model_comparison.profile_help_intro')}</p></div><button type="button" onClick={() => setShowProfileHelp(false)} aria-label={t('model_comparison.close')}><X size={20} /></button></header>
+                                <div className="model-profile-help-backdrop" role="presentation">
+                                    <section ref={profileHelpRef} className="model-profile-help-dialog" role="dialog" aria-modal="true" aria-labelledby="model-profile-help-title">
+                                        <header><div><h2 id="model-profile-help-title">{t('model_comparison.profile_help_title')}</h2><p>{t('model_comparison.profile_help_intro')}</p></div><button type="button" data-autofocus onClick={() => setShowProfileHelp(false)} aria-label={t('model_comparison.close')}><X size={20} /></button></header>
                                         <div className="model-profile-help-content">
                                             {PROFILE_KEYS.map((key) => <article key={key}><h3>{PROFILE_ICONS[key]} {t(`model_comparison.profiles.${key}`)}</h3><p><strong>{t(`model_comparison.profile_help.${key}.objective`)}</strong></p><p>{t(`model_comparison.profile_help.${key}.examples`)}</p></article>)}
                                             <article><h3>{t('model_comparison.profile_help_flow_title')}</h3><p>{t('model_comparison.profile_help_flow')}</p></article>

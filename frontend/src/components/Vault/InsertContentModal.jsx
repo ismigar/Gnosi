@@ -589,9 +589,9 @@ export const InsertContentModal = ({
     return (
         <>
             <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-                <div ref={panelRef} className="bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-2xl shadow-2xl w-full max-w-5xl h-[80vh] max-h-[760px] flex flex-col overflow-hidden">
+                <div ref={panelRef} className="bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-2xl shadow-2xl w-full max-w-5xl h-[80vh] max-h-[760px] flex flex-col overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="insert-content-title">
                     <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--border-primary)]">
-                        <h2 className="text-base font-semibold flex items-center gap-2">
+                        <h2 id="insert-content-title" className="text-base font-semibold flex items-center gap-2">
                             <Frame size={18} />
                             {t('insert.title', { defaultValue: "Insert content" })}
                         </h2>

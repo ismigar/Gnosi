@@ -11,7 +11,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
 | Playwright | 13 | 37 |
-| Vitest | 76 | 291 |
+| Vitest | 77 | 294 |
 | pytest | 195 | 1639 |
 
 ## Files
@@ -42,7 +42,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/components/DesktopUpdateNotice.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/DesktopUpdateNotice.test.jsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/components/GlobalTooltip.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/GlobalTooltip.test.jsx) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/components/GraphLoadingState.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/GraphLoadingState.test.jsx) | 2 | call-pattern estimate |
-| Vitest | [`frontend/src/components/Notebooks/NotebookCreateDialog.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Notebooks/NotebookCreateDialog.test.jsx) | 3 | call-pattern estimate |
+| Vitest | [`frontend/src/components/Notebooks/NotebookCreateDialog.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Notebooks/NotebookCreateDialog.test.jsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/components/ReleaseNotesDialog.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/ReleaseNotesDialog.test.jsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/components/SettingsSectionTabs.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/SettingsSectionTabs.test.jsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/ContextualLinkPasteMenu.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/ContextualLinkPasteMenu.test.jsx) | 2 | call-pattern estimate |
@@ -78,6 +78,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/components/agentChatMentionUtils.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/agentChatMentionUtils.test.js) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/components/agentChatMessageUtils.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/agentChatMessageUtils.test.js) | 16 | call-pattern estimate |
 | Vitest | [`frontend/src/components/agentRuntimeStatus.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/agentRuntimeStatus.test.js) | 3 | call-pattern estimate |
+| Vitest | [`frontend/src/hooks/useModalKeyboard.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/hooks/useModalKeyboard.test.jsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/lib/citationDeepLink.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/citationDeepLink.test.js) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/lib/desktopMenu.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/desktopMenu.test.js) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/lib/fileResourceCitation.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/fileResourceCitation.test.js) | 4 | call-pattern estimate |

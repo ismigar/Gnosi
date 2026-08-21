@@ -490,18 +490,19 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, onSelectMany 
         <div
             className="fixed inset-0 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
             style={{ zIndex: 'var(--z-modal)' }}
-            onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
         >
             <div
                 ref={modalRef}
                 className="bg-[var(--bg-primary)] text-[var(--text-primary)] border border-[var(--border-primary)]"
+                role="dialog"
+                aria-modal="true"
+                aria-label={titleText}
                 style={{
                     maxWidth: '560px', width: '100%', height: '660px',
                     display: 'flex', flexDirection: 'column', overflow: 'hidden',
                     borderRadius: '10px',
                     boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
                 }}
-                onMouseDown={(e) => e.stopPropagation()}
             >
                 <div
                     className="bg-[var(--bg-secondary)] border-b border-[var(--border-primary)]"

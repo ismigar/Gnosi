@@ -105,7 +105,7 @@ export function ShareModal({ pageId, pageTitle, open, onClose }) {
 
     return (
         <div className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-4 animate-in fade-in duration-150">
-            <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+            <div className="absolute inset-0 bg-black/40" />
             <div
                 ref={modalRef}
                 role="dialog"

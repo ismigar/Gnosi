@@ -310,13 +310,16 @@ export const MetadataLookupModal = ({
     return ReactDOM.createPortal(
         <div
             className="fixed inset-0 z-[var(--z-modal)] flex items-start justify-center pt-16 bg-black/40"
-            onMouseDown={(e) => { if (e.target === e.currentTarget) onClose?.(); }}
             onKeyDown={handleKeyDown}
         >
             <div
                 ref={panelRef}
                 className="w-full max-w-3xl rounded-xl shadow-2xl border border-[var(--border-primary)] bg-[var(--bg-primary)] overflow-hidden max-h-[85vh] flex flex-col"
-                onMouseDown={(e) => e.stopPropagation()}
+                role="dialog"
+                aria-modal="true"
+                aria-label={mode === 'create'
+                    ? t('metadata_lookup.create_title', { defaultValue: 'Create from a source' })
+                    : t('metadata_lookup.title', { defaultValue: 'Fill in metadata' })}
             >
                 <div className="flex items-center gap-3 px-4 py-3 border-b border-[var(--border-secondary)] shrink-0">
                     <Search size={18} className="text-[var(--text-tertiary)]" />
