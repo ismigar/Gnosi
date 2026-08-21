@@ -34,7 +34,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `application root` | 3 | 306 | 0 |
-| `components` | 205 | 81364 | 203 |
+| `components` | 205 | 81455 | 203 |
 | `context` | 1 | 177 | 6 |
 | `hooks` | 16 | 1241 | 7 |
 | `lib` | 21 | 2096 | 6 |
@@ -177,7 +177,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Vault/TranslateLanguagesModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/TranslateLanguagesModal.jsx) | 209 | `TranslateLanguagesModal` | `/api/vault/skills/translate-page`, `/api/vault/skills/translate-row`, `/api/vault/skills/translate-rows` |
 | [`frontend/src/components/Vault/VaultBulkActionsBar.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultBulkActionsBar.jsx) | 228 | `VaultBulkActionsBar` | — |
 | [`frontend/src/components/Vault/VaultChart.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultChart.jsx) | 300 | `VaultChart` | — |
-| [`frontend/src/components/Vault/VaultDateProperty.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultDateProperty.jsx) | 881 | `VaultDateProperty`, `addDaysISO` | — |
+| [`frontend/src/components/Vault/VaultDateProperty.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultDateProperty.jsx) | 972 | `VaultDateProperty`, `addDaysISO` | — |
 | [`frontend/src/components/Vault/VaultDocumentTabs.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultDocumentTabs.jsx) | 413 | `VaultDocumentTabs` | — |
 | [`frontend/src/components/Vault/VaultDrawings.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultDrawings.jsx) | 125 | `VaultDrawings` | `/api/vault` |
 | [`frontend/src/components/Vault/VaultEditorContext.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultEditorContext.js) | 17 | `VaultEditorContext` | — |
