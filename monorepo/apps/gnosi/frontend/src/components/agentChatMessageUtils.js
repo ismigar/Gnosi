@@ -910,3 +910,10 @@ export const mergeCanonicalMessageMetadata = (canonical, cached) => {
         return { ...normalizedMessage, ...metadata };
     });
 };
+
+export const mergeNotebookConversation = (canonical, cached) => {
+    const canonicalMessages = Array.isArray(canonical) ? canonical : [];
+    const cachedMessages = Array.isArray(cached) ? cached : [];
+    if (!canonicalMessages.length && cachedMessages.length) return cachedMessages;
+    return mergeCanonicalMessageMetadata(canonicalMessages, cachedMessages);
+};

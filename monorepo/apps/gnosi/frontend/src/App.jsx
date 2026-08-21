@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useState, Suspense, lazy } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AppSidebar } from './components/AppSidebar';
 import HomePage from './pages/HomePage';
@@ -27,6 +27,7 @@ const SchedulerPage = lazy(() => import('./pages/SchedulerPage'));
 const ComposerPage = lazy(() => import('./pages/ComposerPage'));
 const SharedPage = lazy(() => import('./pages/SharedPage'));
 const ProjectPlanningPage = lazy(() => import('./pages/ProjectPlanningPage'));
+const NotebooksPage = lazy(() => import('./pages/NotebooksPage'));
 import { Toaster } from './lib/toast';
 
 import AgentChat from './components/AgentChat';
@@ -41,6 +42,7 @@ import { LoginPage } from './components/Auth/LoginPage';
 import { GraphLoadingState } from './components/GraphLoadingState';
 import { DesktopUpdateNotice } from './components/DesktopUpdateNotice';
 import { vaultAgentContextRefs } from './lib/vaultAgentContext';
+import NotebookCreateDialog from './components/Notebooks/NotebookCreateDialog';
 
 // Fallback while the chunk for a lazy route is downloading. Discreet and centered,
 // reusing the auth bootstrap's style so there's no visual jump.
@@ -70,9 +72,11 @@ function RouteFallback() {
 function App() {
   const { t } = useTranslation();
   const location = useLocation();
+  const navigate = useNavigate();
   const { effectiveTheme } = useTheme();
   const { user, gnosiMode, requireAuth, loading } = useAuth();
   const [moduleContextOverride, setModuleContextOverride] = useState(null);
+  const [bulkNotebookResources, setBulkNotebookResources] = useState(null);
   // Captures clicks on file:// everywhere and redirects them to the system shell
   // via the backend, instead of letting Chrome open blank tabs.
   useFileLinkInterceptor();
@@ -117,6 +121,17 @@ function App() {
     window.addEventListener('gnosi:module-context', updateModuleContext);
     return () => window.removeEventListener('gnosi:module-context', updateModuleContext);
   }, [location.key]);
+
+  useEffect(() => {
+    const openNotebookCreator = (event) => {
+      const resourceIds = Array.isArray(event.detail?.resourceIds)
+        ? event.detail.resourceIds.map(String)
+        : [];
+      if (resourceIds.length) setBulkNotebookResources(resourceIds);
+    };
+    window.addEventListener('gnosi:create-notebook', openNotebookCreator);
+    return () => window.removeEventListener('gnosi:create-notebook', openNotebookCreator);
+  }, []);
 
   // Bootstrap: we wait to know the mode and whether there's a session before deciding.
   if (loading) {
@@ -176,6 +191,8 @@ function App() {
           <Route path="/media" element={<MediaCenter />} />
           <Route path="/contacts" element={<ContactsPage />} />
           <Route path="/planning" element={<ProjectPlanningPage />} />
+          <Route path="/notebooks" element={<NotebooksPage />} />
+          <Route path="/notebooks/:notebookId" element={<NotebooksPage />} />
           {/* Catch-all: a non-existent URL (typo, stale link, route wrongly
               written by code) used to render ONLY the layout with a blank body.
               We redirect to the home page (replace so as not to leave the bad URL in
@@ -189,7 +206,15 @@ function App() {
       <DesktopUpdateNotice />
       <CommandPalette />
       <PageOutline />
-      <AgentChat storageIdentity={user?.id || 'personal'} contextRefs={moduleContextRefs} />
+      {!location.pathname.startsWith('/notebooks') && (
+        <AgentChat storageIdentity={user?.id || 'personal'} contextRefs={moduleContextRefs} />
+      )}
+      <NotebookCreateDialog
+        isOpen={Array.isArray(bulkNotebookResources)}
+        initialResourceIds={bulkNotebookResources || []}
+        onClose={() => setBulkNotebookResources(null)}
+        onCreated={(notebook) => navigate(`/notebooks/${notebook.id}`)}
+      />
       <MeetingReminderWatcher />
       <MeetingRecorder />
     </div>

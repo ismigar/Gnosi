@@ -52,6 +52,7 @@ from backend.api import (
     vault_templates_routes,
     handwriting_routes,
     planning_routes,
+    notebook_routes,
 )
 from backend.scheduler.manager import scheduler_manager
 from backend.models import * # Register all models for SQLAlchemy
@@ -437,6 +438,7 @@ app.include_router(workspace_routes.router, tags=["Workspaces"])
 
 # Core Features
 app.include_router(agent_routes.router, prefix="/api")
+app.include_router(notebook_routes.router)
 app.include_router(system_routes.router, prefix="/api/system")
 app.include_router(social_routes.router, prefix="/api/social", tags=["Social"])
 
