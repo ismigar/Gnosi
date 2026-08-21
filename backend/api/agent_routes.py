@@ -58,8 +58,13 @@ from backend.agent.gnosi_tools import (
 )
 from backend.agent.model_router import record_llm_usage, usage_from_message
 from backend.agent.model_router import model_cost_rates
-from backend.services.agent_cancellation import cancel as cancel_agent_turn
-from backend.services.agent_cancellation import create_cancel_token, release as release_agent_turn
+from backend.services.agent_cancellation import (
+    bind_stream as bind_agent_stream,
+    cancel as cancel_agent_turn,
+    cancel_stream as cancel_agent_stream,
+    create_cancel_token,
+    release as release_agent_turn,
+)
 from backend.agent.model_reliability import (
     blames_the_model, model_evidence, record_failure, reliability_report,
 )
@@ -71,6 +76,7 @@ from backend.services.capability_audit import (
 )
 from backend.services.agent_quality_telemetry import record_quality_signal
 from backend.services.agent_stream_protocol import protocolize_stream
+from backend.services.agent_stream_journal import replay as replay_stream_events, scope_digest
 from backend.services.turn_idempotency import claim as claim_turn, finish as finish_turn
 from backend.services.agent_replay import read_replay, record_event as record_replay_event
 from backend.agent.semantic_interpreter import clarification_message
@@ -756,6 +762,7 @@ def _public_checkpoint_message_entries(
                     ("explanation", "gnosi_explanation"),
                     ("quality", "gnosi_quality"),
                     ("conflicts", "gnosi_conflicts"),
+                    ("evidence_security", "gnosi_evidence_security"),
                     ("timings", "gnosi_timings"),
                 ):
                     value = assistant_metadata.get(internal_key)
@@ -868,6 +875,7 @@ async def get_agent_workflow(
     vault_path: Optional[Path] = None,
     active_skill_ids: Optional[List[str]] = None,
     turn_context_refs: Optional[List[Dict[str, Any]]] = None,
+    memory_user_id: str = "",
 ):
     """
     Helper to get or build the agent workflow for a specific ID.
@@ -939,8 +947,32 @@ async def get_agent_workflow(
             separators=(",", ":"),
         ).encode("utf-8")
     ).hexdigest()[:16]
+    reviewed_memory_rows: list[dict[str, Any]] = []
+    if memory_user_id:
+        from backend.services.agent_personal_memory import search_memories
+
+        reviewed_memory_rows = await asyncio.to_thread(
+            search_memories,
+            vault_path,
+            agent_id,
+            user_message,
+            user_id=memory_user_id,
+            limit=5,
+        )
+    memory_revision = hashlib.sha256(json.dumps(
+        [
+            {"memory_id": item.get("memory_id"), "revision": item.get("revision")}
+            for item in reviewed_memory_rows
+        ],
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")).hexdigest()[:16]
+    memory_principal = hashlib.sha256(
+        str(memory_user_id or "").encode("utf-8")
+    ).hexdigest()[:12]
     cache_key = (
-        f"{vault_scope}:{agent_id}:{agent_revision}:{runtime_revision}"
+        f"{vault_scope}:{memory_principal}:{agent_id}:{agent_revision}:"
+        f"{runtime_revision}:{memory_revision}"
     )
     if use_cache and cache_key in request.app.state.agent_cache:
         cached = request.app.state.agent_cache[cache_key]
@@ -960,6 +992,8 @@ async def get_agent_workflow(
         prepared_ai_cfg=ai_cfg,
         prepared_agent_data=agent_data,
         runtime_capabilities=runtime_capabilities,
+        memory_user_id=memory_user_id,
+        reviewed_memory_rows=reviewed_memory_rows,
     )
 
     if workflow is None:
@@ -968,7 +1002,7 @@ async def get_agent_workflow(
         raise HTTPException(status_code=503, detail="No LLM provider available")
 
     if use_cache:
-        cache_prefix = f"{vault_scope}:{agent_id}:"
+        cache_prefix = f"{vault_scope}:{memory_principal}:{agent_id}:"
         for stale_key in tuple(request.app.state.agent_cache):
             if stale_key.startswith(cache_prefix) and stale_key != cache_key:
                 request.app.state.agent_cache.pop(stale_key, None)
@@ -1819,6 +1853,56 @@ async def record_chat_feedback(
     return {"status": "recorded", "event_id": event_id}
 
 
+@router.get("/chat/streams/{stream_id}")
+async def resume_agent_stream(
+    stream_id: str,
+    agent_id: str = Query(min_length=1, max_length=128),
+    session_id: str = Query(min_length=1, max_length=128),
+    after_sequence: int = Query(default=0, ge=0),
+    workspace_context: WorkspaceContext = Depends(require_role("editor")),
+):
+    """Replay encrypted short-lived events for the exact authenticated scope."""
+    safe_stream = _validated_identifier(stream_id, "stream_id")
+    safe_agent = _validated_identifier(agent_id, "agent_id")
+    safe_session = _validated_identifier(session_id, "session_id")
+    digest = scope_digest({
+        "workspace_id": workspace_context.workspace_id,
+        "user_id": workspace_context.user_id,
+        "agent_id": safe_agent,
+        "session_id": safe_session,
+    })
+    events = await asyncio.to_thread(
+        replay_stream_events, safe_stream, digest, after_sequence,
+    )
+
+    async def replay_generator():
+        for event in events:
+            yield event
+
+    return StreamingResponse(replay_generator(), media_type="application/x-ndjson")
+
+
+@router.post("/chat/streams/{stream_id}/cancel")
+async def cancel_running_agent_stream(
+    stream_id: str,
+    agent_id: str = Query(min_length=1, max_length=128),
+    session_id: str = Query(min_length=1, max_length=128),
+    workspace_context: WorkspaceContext = Depends(require_role("editor")),
+):
+    """Explicitly cancel one running stream in the exact authenticated scope."""
+    scope = {
+        "workspace_id": workspace_context.workspace_id,
+        "user_id": workspace_context.user_id,
+        "agent_id": _validated_identifier(agent_id, "agent_id"),
+        "session_id": _validated_identifier(session_id, "session_id"),
+    }
+    if not cancel_agent_stream(
+        _validated_identifier(stream_id, "stream_id"), scope,
+    ):
+        raise HTTPException(status_code=404, detail="Running agent stream not found.")
+    return {"status": "cancellation_requested"}
+
+
 @router.post("/chat")
 async def chat_endpoint(
     request: Request,
@@ -1945,9 +2029,16 @@ async def chat_endpoint(
             vault_path=vault,
             active_skill_ids=requested_skill_ids,
             turn_context_refs=turn_context_refs,
+            memory_user_id=workspace_context.user_id,
         )
         workflow_ready_at = time.monotonic()
         cancel_token = create_cancel_token()
+        bind_agent_stream(cancel_token, trace_id, {
+            "workspace_id": workspace_context.workspace_id,
+            "user_id": workspace_context.user_id,
+            "agent_id": agent_id,
+            "session_id": session_id,
+        })
 
         authorized_tool_names = _explicit_brain_write_tool_names(
             chat_req.message,
@@ -2160,9 +2251,6 @@ async def chat_endpoint(
                 session_id=session_id,
             )
             try:
-                if await request.is_disconnected():
-                    cancel_agent_turn(cancel_token)
-                    return
                 yield json.dumps({
                     "type": "turn_plan",
                     "trace_id": trace_id,
@@ -2239,6 +2327,7 @@ async def chat_endpoint(
                         "mode": llm_selection.get("mode") or chat_req.llm_mode,
                         "provider": llm_selection.get("provider"),
                         "model": llm_selection.get("model"),
+                        "strategy": llm_selection.get("model_strategy"),
                         "fallbacks": list(llm_selection.get("fallbacks") or []),
                         "provider_health": list(
                             llm_selection.get("provider_health") or []
@@ -2298,9 +2387,6 @@ async def chat_endpoint(
                                 config=config,
                                 stream_mode="updates",
                             ):
-                                if await request.is_disconnected():
-                                    cancel_agent_turn(cancel_token)
-                                    return
                                 for node_name, state_update in event.items():
                                     elapsed_seconds = time.monotonic() - request_started_at
                                     soft_seconds = int(
@@ -2417,6 +2503,29 @@ async def chat_endpoint(
                                             if not isinstance(metadata, dict):
                                                 metadata = {}
                                             metadata["gnosi_timings"] = timings
+                                            if untrusted_context_flags:
+                                                evidence_security = dict(
+                                                    metadata.get("gnosi_evidence_security") or {}
+                                                )
+                                                categories = list(
+                                                    evidence_security.get("categories") or []
+                                                )
+                                                categories.append({
+                                                    "category": "attachment_instruction_override",
+                                                    "count": min(len(untrusted_context_flags), 8),
+                                                })
+                                                evidence_security.update({
+                                                    "schema_version": 1,
+                                                    "status": "tainted",
+                                                    "severity": (
+                                                        evidence_security.get("severity")
+                                                        if evidence_security.get("severity") in {"high", "medium"}
+                                                        else "medium"
+                                                    ),
+                                                    "categories": categories[:8],
+                                                    "authorization_changed": False,
+                                                })
+                                                metadata["gnosi_evidence_security"] = evidence_security
                                             try:
                                                 msg.additional_kwargs = metadata
                                             except Exception:  # noqa: BLE001
@@ -2449,6 +2558,7 @@ async def chat_endpoint(
                                                 "explanation": metadata.get("gnosi_explanation"),
                                                 "quality": metadata.get("gnosi_quality"),
                                                 "conflicts": metadata.get("gnosi_conflicts"),
+                                                "evidence_security": metadata.get("gnosi_evidence_security"),
                                                 "provider_fallback": metadata.get("gnosi_provider_fallback"),
                                                 "timings": timings,
                                             }) + "\n"
@@ -2686,6 +2796,12 @@ async def chat_endpoint(
                 stream_id=trace_id,
                 trace_id=trace_id,
                 turn_id=chat_req.turn_id or "",
+                journal_scope={
+                    "workspace_id": workspace_context.workspace_id,
+                    "user_id": workspace_context.user_id,
+                    "agent_id": agent_id,
+                    "session_id": session_id,
+                },
             ),
             media_type="application/x-ndjson",
         )
@@ -2728,6 +2844,12 @@ async def chat_endpoint(
                     stream_id=trace_id,
                     trace_id=trace_id,
                     turn_id=chat_req.turn_id or "",
+                    journal_scope={
+                        "workspace_id": workspace_context.workspace_id,
+                        "user_id": workspace_context.user_id,
+                        "agent_id": agent_id,
+                        "session_id": session_id,
+                    },
                 ),
                 media_type="application/x-ndjson",
                 status_code=200,

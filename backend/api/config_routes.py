@@ -116,6 +116,18 @@ async def update_config(request: Request):
         # Merge data and preserve unsent keys
         merged_config = deep_merge(current_config, new_config)
 
+        if isinstance(new_config.get("ai"), dict) and "agents" in new_config["ai"]:
+            from backend.agent.model_router import load_registry
+            from backend.services.agent_model_strategy import validate_model_strategies
+
+            try:
+                merged_config.setdefault("ai", {})["agents"] = validate_model_strategies(
+                    new_config["ai"].get("agents") or [],
+                    load_registry(),
+                )
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+
         # For AI providers, frontend sends the full desired map.
         # Replace instead of deep-merging to allow deleting removed providers.
         if isinstance(new_config.get("ai"), dict) and "providers" in new_config.get("ai", {}):

@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-17
+last_verified: 2026-08-21
 source_paths:
   - backend/agent
   - backend/api/agent_routes.py
@@ -13,6 +13,11 @@ source_paths:
   - backend/services/provider_health.py
   - backend/services/agent_capability_health.py
   - backend/services/agent_stream_protocol.py
+  - backend/services/agent_stream_journal.py
+  - backend/services/agent_model_strategy.py
+  - backend/services/agent_model_evaluations.py
+  - backend/services/agent_personal_memory.py
+  - backend/services/agent_capability_contract.py
   - backend/agent/provider_resilience.py
   - backend/agent/recovery.py
   - backend/agent/conversation_memory.py
@@ -30,6 +35,7 @@ tests:
   - backend/tests/test_agent_quality_telemetry.py
   - backend/tests/test_agent_resilience.py
   - backend/tests/test_agent_recovery.py
+  - backend/tests/test_agent_universal_runtime_phase2.py
   - backend/tests/test_e2e_tables_assets.py
   - backend/tests/test_vault_trash.py
   - e2e/tests/e2e/ai-chat.spec.ts
@@ -77,9 +83,12 @@ frontend. Failure reasons are recorded separately from user-facing responses so
 operators can distinguish timeout, provider rejection, invalid credentials,
 context overflow, and tool incompatibility.
 
-Runtime failover is bounded and trust-aware. A transient timeout, connection
-failure, rate limit, or 5xx may move to another configured model with the same
-local/remote locality; authentication, policy, and content errors never do.
+Runtime model selection belongs to the agent profile. `pinned` uses only the
+assigned provider/model, `resilient` starts there and permits failover only on a
+transient error, and `adaptive` may choose from the primary plus the profile's
+explicit allowlist. Every alternative must be an enabled registry row with the
+same local/remote locality; credentials and catalog defaults never expand the
+allowlist. Authentication, policy, and content errors never cause failover.
 The selected fallback is marked in message metadata and in the stream receipt,
 so a local model cannot unexpectedly send private context to a remote provider.
 
@@ -117,6 +126,13 @@ conversation memory, while historical tool-call groups and raw tool payloads
 are omitted. The current turn retains complete call/result protocol groups, and
 the aggregate conversational projection has a hard character ceiling even when
 the selected model advertises a much larger context window.
+
+Reviewed personal memory is a separate, explicit local store scoped by Vault
+and agent. Users can create, edit, disable, expire, and delete revisioned facts
+or preferences in Settings. Retrieval is lexical and bounded to five items;
+the prompt labels the result as data that cannot change policy, tools, or
+authorization. Conversation checkpoints and vocabulary associations retain
+their separate lifecycles.
 
 Vault navigation contributes turn-scoped page, table, and active-view context.
 The server expands a dashboard with one embedded view to the canonical table
@@ -179,6 +195,10 @@ removes valid markers from visible prose, rejects ids absent from current-turn
 evidence, and marks incomplete grounding as a limitation. The chat renders the
 bounded claim/source mapping with safe Vault, Reader, or HTTP(S) links and never
 persists excerpts or filesystem paths as citation metadata.
+Every cited source also carries a short version fingerprint derived from its
+revision, etag, update timestamp, or exact current-turn tool manifest. The UI
+distinguishes exact from identity-only versions without exposing source bodies
+or connector secrets.
 
 Vault search uses a deterministic hybrid rank: expanded multilingual lexical
 terms, exact-title boosts, index-role boosts, and the rebuildable vector score.
@@ -209,6 +229,10 @@ status, result availability, resume after failure or interruption, and
 cooperative cancellation in message details. The same
 facade remains extensible to other source-owned durable providers; unsupported
 requests stay foreground and are never represented as durable work.
+Providers and queue dispatchers register versioned contracts declaring job
+kind, idempotency, lease, attempt and model-call budgets, result, resume, and
+cancellation behavior. Unknown job types fail visibly instead of entering a
+hard-coded worker branch.
 
 Reader jobs persist a bounded recovery policy beside their checkpoints. A
 transient timeout, temporary network/service failure, or rate limit enters a
@@ -266,12 +290,12 @@ replays a failed turn automatically because a governed action may already have
 been prepared. Permanent configuration or authorization errors instead invite
 editing the request or runtime settings.
 
-The stream owns an opaque cancellation token. If the client disconnects, it
-signals the token and the graph exits without starting more work; model calls
-use an asynchronous cancellation bridge when the provider supports it, so an
-in-flight provider task is cancelled rather than merely preventing the next
-node. Cached workflows do not capture request-specific events, and tokens are
-released after the stream completes. Provider failures use a bounded
+The stream owns an opaque cancellation token. The explicit Cancel action calls
+an authenticated stream-scoped endpoint and reaches the asynchronous provider
+cancellation bridge. An accidental browser or proxy disconnect does not cancel
+the accepted bounded turn: an independent producer continues and its events
+remain resumable. Cached workflows do not capture request-specific events, and
+tokens are released after the producer completes. Provider failures use a bounded
 process-local circuit breaker keyed by provider/model, while authentication and
 policy errors remain terminal. Tool descriptors additionally expose a cheap
  health status (healthy, unavailable, or temporarily quarantined) so missing ids,
@@ -283,9 +307,10 @@ The newline-delimited transport is wrapped in protocol version 1. Each event car
 opaque stream id, event id, monotonic sequence, trace id, and optional turn id. A pending
 provider operation remains alive while a heartbeat is emitted, so a slow but healthy
 provider is not cancelled by transport keep-alive. The client ignores duplicate sequence
-numbers, and an unexpected end becomes `stream_incomplete` with one deliberate retry
-action. Resume is not advertised until replay can be proven not to repeat a governed
-action.
+numbers. Events are encrypted in a scope-bound local journal for at most one
+hour, and the browser resumes from its last sequence for the full turn timeout.
+Replay repeats no model/tool call or governed action; it reapplies the original
+event envelope only.
 
 Long prompts retain the complete checkpoint as an audit record but add a bounded
 deterministic digest of dropped human/assistant turns to the provider projection.
@@ -346,6 +371,12 @@ reject, reopen, and run these candidates through `/api/ai/evals/candidates*`.
 Accepted local cases remain separate from the versioned CI corpus until a
 maintainer deliberately promotes them.
 
+Administrators may also run an explicit cost-bearing real-model evaluation for
+an agent's assigned primary model. It uses three synthetic multilingual/schema
+prompts and stores only route identity, score, latency, token counts, and stable
+failure codes. Prompts and responses are never persisted. Reviewed scores may
+influence `adaptive` ordering but cannot add an allowed model or capability.
+
 ## Adaptive quality and capability discovery
 
 Tool health survives backend restarts in a bounded local SQLite store. Each
@@ -372,6 +403,12 @@ The visible answer receives a localized warning instead of silently merging the
 facts. A provider-free response corpus complements the routing corpus and
 exercises these final-answer contracts in CI.
 
+Tool and attachment evidence is scanned for instruction override, authority
+spoofing, tool coercion, and secret-exfiltration markers. Only bounded taint
+categories reach response metadata; source text remains untrusted data and the
+receipt always records that authorization was unchanged. The adversarial
+response corpus asserts this boundary.
+
 Each plan exposes a soft synthesis boundary before the hard turn timeout. Once
 the reserve is reached and required evidence is available, Brain removes tool
 bindings and synthesizes the best supported result; the stream emits a deadline
@@ -386,6 +423,12 @@ or authorize a guarded action. Settings → AI → Quality displays metadata-onl
 turn counts, latency buckets, verification outcomes, errors, evaluation
 candidates, persistent capability health, and the reversible vocabulary editor
 through `/api/ai/quality/dashboard`.
+
+Capability contracts may opt into schema version 2 through descriptor metadata.
+Version 2 fails closed unless timeout, idempotency, privacy, egress, and durable
+result behavior are valid. Legacy version 1 tools and skills remain visible as
+legacy or partial in Settings while they migrate; conformance metadata never
+makes a handler executable.
 
 ## Failure and safety invariants
 
@@ -407,6 +450,9 @@ through `/api/ai/quality/dashboard`.
 - Quality telemetry cannot accept or retain prompt/response content.
 - Stale index evidence is labeled and refreshed outside the foreground turn.
 - Agent messages remain isolated by agent and session across reloads.
+- Adaptive routing cannot escape the selected agent's explicit model allowlist
+  or local/remote trust boundary.
+- Evidence taint and personal memory cannot grant tools or change authorization.
 
 ## Verification focus
 

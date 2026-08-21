@@ -157,7 +157,7 @@ describe('assistant message presentation metadata', () => {
             citations: {
                 status: 'complete',
                 sources: [
-                    { citation_id: 'src-1', source_id: 'note-1', title: 'Note one', source_type: 'vault_record', href: '/vault/page/note-1', raw_excerpt: 'private' },
+                    { citation_id: 'src-1', source_id: 'note-1', title: 'Note one', source_type: 'vault_record', href: '/vault/page/note-1', source_version: 'abc123', version_status: 'exact', raw_excerpt: 'private' },
                     { citation_id: 'src-2', source_id: 'bad', title: 'Bad link', source_type: 'source', href: 'javascript:alert(1)' },
                 ],
                 claims: [
@@ -191,6 +191,13 @@ describe('assistant message presentation metadata', () => {
                     raw_values: ['open', 'closed'],
                 }],
             },
+            evidence_security: {
+                status: 'tainted',
+                severity: 'high',
+                categories: [{ category: 'tool_coercion', count: 2, source_text: 'private' }],
+                authorization_changed: false,
+                raw_payload: 'must-not-be-persisted',
+            },
         });
 
         expect(metadata.plan).toMatchObject({
@@ -210,6 +217,10 @@ describe('assistant message presentation metadata', () => {
         });
         expect(metadata.citations.claims[0].citation_ids).toEqual(['src-1']);
         expect(metadata.citations.sources[0]).not.toHaveProperty('raw_excerpt');
+        expect(metadata.citations.sources[0]).toMatchObject({
+            source_version: 'abc123',
+            version_status: 'exact',
+        });
         expect(metadata.citations.sources[1].href).toBe('');
         expect(metadata.citations).not.toHaveProperty('raw_payload');
         expect(metadata.job).toMatchObject({
@@ -225,6 +236,12 @@ describe('assistant message presentation metadata', () => {
         });
         expect(metadata.quality).not.toHaveProperty('response');
         expect(metadata.conflicts.conflicts[0]).not.toHaveProperty('raw_values');
+        expect(metadata.evidenceSecurity).toMatchObject({
+            status: 'tainted',
+            severity: 'high',
+            authorization_changed: false,
+        });
+        expect(metadata.evidenceSecurity.categories[0]).not.toHaveProperty('source_text');
     });
 
     it('rewinds the complete turn containing either message', () => {

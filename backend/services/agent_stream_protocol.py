@@ -12,12 +12,13 @@ import contextlib
 import json
 import time
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import Any, Mapping
 
 
 STREAM_PROTOCOL_VERSION = 1
 STREAM_HEARTBEAT_SECONDS = 15.0
 MAX_STREAM_EVENT_BYTES = 64 * 1024
+_ACTIVE_PRODUCERS: set[asyncio.Task[Any]] = set()
 
 
 def encode_event(
@@ -73,6 +74,7 @@ async def protocolize_stream(
     trace_id: str,
     turn_id: str = "",
     heartbeat_seconds: float = STREAM_HEARTBEAT_SECONDS,
+    journal_scope: Mapping[str, Any] | None = None,
 ) -> AsyncIterator[str]:
     """Wrap a legacy NDJSON stream and emit heartbeats while it is quiet.
 
@@ -80,6 +82,65 @@ async def protocolize_stream(
     sent. Cancelling a provider-backed graph at the heartbeat boundary would
     turn a healthy slow model call into a false timeout.
     """
+    if journal_scope:
+        queue: asyncio.Queue[str | None] = asyncio.Queue()
+        subscriber_open = True
+
+        async def produce() -> None:
+            from backend.services.agent_stream_journal import append, scope_digest
+
+            digest = scope_digest(journal_scope)
+            try:
+                async for encoded in protocolize_stream(
+                    source,
+                    stream_id=stream_id,
+                    trace_id=trace_id,
+                    turn_id=turn_id,
+                    heartbeat_seconds=heartbeat_seconds,
+                ):
+                    payload: dict[str, Any] = {}
+                    try:
+                        payload = json.loads(encoded)
+                        if payload.get("type") == "stream_open":
+                            payload["resume_supported"] = True
+                            encoded = json.dumps(
+                                payload, ensure_ascii=False, separators=(",", ":")
+                            ) + "\n"
+                        sequence_value = int(payload.get("sequence") or 0)
+                        await asyncio.to_thread(
+                            append, stream_id, digest, sequence_value, encoded,
+                        )
+                    except Exception:  # noqa: BLE001
+                        # Replay persistence must not fail the live response.
+                        if isinstance(payload, dict) and payload.get("type") == "stream_open":
+                            payload["resume_supported"] = False
+                            encoded = json.dumps(
+                                payload, ensure_ascii=False, separators=(",", ":")
+                            ) + "\n"
+                    if subscriber_open:
+                        queue.put_nowait(encoded)
+            finally:
+                if subscriber_open:
+                    queue.put_nowait(None)
+
+        task = asyncio.create_task(produce())
+        _ACTIVE_PRODUCERS.add(task)
+        def producer_done(completed: asyncio.Task[Any]) -> None:
+            _ACTIVE_PRODUCERS.discard(completed)
+            with contextlib.suppress(asyncio.CancelledError):
+                completed.exception()
+
+        task.add_done_callback(producer_done)
+        try:
+            while True:
+                item = await queue.get()
+                if item is None:
+                    break
+                yield item
+        finally:
+            subscriber_open = False
+        return
+
     sequence = 0
     terminal_seen = False
     source_iterator = source.__aiter__()
@@ -99,7 +160,7 @@ async def protocolize_stream(
     yield wrapped(
         {
             "type": "stream_open",
-            "resume_supported": False,
+            "resume_supported": bool(journal_scope),
             "heartbeat_seconds": max(1, int(heartbeat_seconds)),
         }
     )

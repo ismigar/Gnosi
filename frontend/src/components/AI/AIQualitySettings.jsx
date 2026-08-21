@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Activity, Check, Loader2, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Activity, Check, Loader2, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { toast } from '../../lib/toast';
@@ -17,14 +17,29 @@ const Metric = ({ label, value }) => (
 );
 
 
-export const AIQualitySettingsPanel = ({ resources }) => {
+export const AIQualitySettingsPanel = ({ resources, agents = [] }) => {
     const { t } = useTranslation();
     const [trigger, setTrigger] = useState('');
     const [related, setRelated] = useState('');
     const [saving, setSaving] = useState(false);
+    const [selectedAgentId, setSelectedAgentId] = useState(agents[0]?.id || '');
+    const [memoryText, setMemoryText] = useState('');
+    const [editingMemory, setEditingMemory] = useState(null);
+    const [runningEvaluation, setRunningEvaluation] = useState(false);
     const quality = resources.qualityDashboard?.quality || {};
     const capabilities = resources.qualityDashboard?.capabilities || [];
     const healthyCount = capabilities.filter(item => item.status === 'healthy').length;
+    const loadAgentMemories = resources.loadAgentMemories;
+
+    useEffect(() => {
+        if (!selectedAgentId && agents[0]?.id) setSelectedAgentId(agents[0].id);
+    }, [agents, selectedAgentId]);
+
+    useEffect(() => {
+        if (selectedAgentId) loadAgentMemories(selectedAgentId).catch(error => {
+            console.error('Error loading agent memories:', error);
+        });
+    }, [loadAgentMemories, selectedAgentId]);
 
     const saveAssociation = async () => {
         const terms = related.split(',').map(value => value.trim()).filter(Boolean);
@@ -93,6 +108,144 @@ export const AIQualitySettingsPanel = ({ resources }) => {
                 {!resources.loading && capabilities.length === 0 && (
                     <span className="ai-resource-muted">{t('settings.ai.quality.no_health_data')}</span>
                 )}
+            </div>
+
+            <h4>{t('settings.ai.quality.model_evaluations')}</h4>
+            <p className="ai-resource-muted">{t('settings.ai.quality.model_evaluations_help')}</p>
+            <div className="ai-resource-editor__actions" style={{ justifyContent: 'flex-start' }}>
+                <select className="gnosi-select" value={selectedAgentId} onChange={event => setSelectedAgentId(event.target.value)}>
+                    {agents.map(agent => <option key={agent.id} value={agent.id}>{agent.name}</option>)}
+                </select>
+                <button
+                    type="button"
+                    className="btn-gnosi btn-gnosi-primary"
+                    disabled={!selectedAgentId || runningEvaluation}
+                    onClick={async () => {
+                        setRunningEvaluation(true);
+                        try {
+                            await resources.runModelEvaluation(selectedAgentId);
+                            toast.success(t('settings.ai.quality.evaluation_complete'));
+                        } catch (error) {
+                            console.error('Error running model evaluation:', error);
+                            toast.error(t('settings.ai.quality.evaluation_error'));
+                        } finally {
+                            setRunningEvaluation(false);
+                        }
+                    }}
+                >
+                    {runningEvaluation ? <Loader2 size={16} className="animate-spin" /> : <Activity size={16} />}
+                    {t('settings.ai.quality.run_evaluation')}
+                </button>
+            </div>
+            <div className="ai-resource-list">
+                {resources.modelEvaluations.slice(0, 10).map(item => (
+                    <article key={item.evaluation_id} className="ai-resource-card">
+                        <div className="ai-resource-card__main">
+                            <span className="ai-resource-card__copy">
+                                <strong>{item.provider} · {item.model}</strong>
+                                <span>{Math.round((item.score || 0) * 100)}/100 · {item.latency_ms} ms · ${Number(item.estimated_cost_usd || 0).toFixed(6)}</span>
+                            </span>
+                        </div>
+                    </article>
+                ))}
+            </div>
+
+            <h4>{t('settings.ai.quality.memory_title')}</h4>
+            <p className="ai-resource-muted">{t('settings.ai.quality.memory_help')}</p>
+            <div className="ai-resource-editor">
+                <textarea className="gnosi-input" rows={3} value={memoryText} onChange={event => setMemoryText(event.target.value)} />
+                <div className="ai-resource-editor__actions">
+                    <button type="button" className="btn-gnosi btn-gnosi-primary" disabled={!selectedAgentId || !memoryText.trim()} onClick={async () => {
+                        try {
+                            await resources.saveAgentMemory(selectedAgentId, { text: memoryText, category: 'preference' });
+                            setMemoryText('');
+                            toast.success(t('settings.ai.quality.memory_saved'));
+                        } catch (error) {
+                            console.error('Error saving agent memory:', error);
+                            toast.error(t('settings.ai.quality.memory_error'));
+                        }
+                    }}>
+                        <Plus size={16} /> {t('common.add')}
+                    </button>
+                </div>
+            </div>
+            <div className="ai-resource-list">
+                {resources.agentMemories.map(item => (
+                    <article key={item.memory_id} className="ai-resource-card">
+                        {editingMemory?.memory_id === item.memory_id ? (
+                            <div className="ai-resource-editor" style={{ flex: 1 }}>
+                                <textarea
+                                    className="gnosi-input"
+                                    rows={3}
+                                    value={editingMemory.text}
+                                    onChange={event => setEditingMemory(current => ({
+                                        ...current, text: event.target.value,
+                                    }))}
+                                />
+                                <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={editingMemory.enabled !== false}
+                                        onChange={event => setEditingMemory(current => ({
+                                            ...current, enabled: event.target.checked,
+                                        }))}
+                                    />
+                                    {t('settings.ai.quality.memory_enabled')}
+                                </label>
+                                <div className="ai-resource-editor__actions">
+                                    <button type="button" className="btn-gnosi-secondary" onClick={() => setEditingMemory(null)}>
+                                        {t('common.cancel')}
+                                    </button>
+                                    <button type="button" className="btn-gnosi btn-gnosi-primary" disabled={!editingMemory.text.trim()} onClick={async () => {
+                                        try {
+                                            await resources.saveAgentMemory(selectedAgentId, editingMemory);
+                                            setEditingMemory(null);
+                                            toast.success(t('settings.ai.quality.memory_saved'));
+                                        } catch (error) {
+                                            console.error('Error editing agent memory:', error);
+                                            toast.error(t('settings.ai.quality.memory_error'));
+                                        }
+                                    }}>
+                                        {t('common.save')}
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="ai-resource-card__main">
+                                    <span className="ai-resource-card__copy">
+                                        <strong>{item.category}{item.enabled === false ? ` · ${t('settings.ai.quality.memory_disabled')}` : ''}</strong>
+                                        <span>{item.text}</span>
+                                    </span>
+                                </div>
+                                <div className="ai-resource-card__actions">
+                                    <button type="button" onClick={() => setEditingMemory({ ...item })}>
+                                        <Pencil size={15} /> {t('common.edit')}
+                                    </button>
+                                    <button type="button" className="is-danger" onClick={async () => {
+                                try {
+                                    await resources.removeAgentMemory(selectedAgentId, item.memory_id);
+                                    toast.success(t('settings.ai.quality.memory_deleted'));
+                                } catch (error) {
+                                    console.error('Error deleting agent memory:', error);
+                                    toast.error(t('settings.ai.quality.memory_error'));
+                                }
+                                    }}>
+                                        <Trash2 size={15} /> {t('common.delete')}
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </article>
+                ))}
+            </div>
+
+            <h4>{t('settings.ai.quality.conformance_title')}</h4>
+            <p className="ai-resource-muted">{t('settings.ai.quality.conformance_help')}</p>
+            <div className="ai-resource-list" style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                <Metric label={t('settings.ai.quality.conformance_pass')} value={resources.capabilityConformance?.counts?.pass || 0} />
+                <Metric label={t('settings.ai.quality.conformance_partial')} value={resources.capabilityConformance?.counts?.partial || 0} />
+                <Metric label={t('settings.ai.quality.conformance_legacy')} value={resources.capabilityConformance?.counts?.legacy || 0} />
             </div>
 
             <h4>{t('settings.ai.quality.vocabulary_title')}</h4>

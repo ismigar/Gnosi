@@ -536,6 +536,7 @@ def _citation_evidence(
         source_kind: str,
         url: Any = "",
         marker_keys: Iterable[Any] = (),
+        version_data: Any = None,
     ) -> str:
         normalized_id = _bounded_label(source_id, "", 192)
         if not normalized_id or len(sources) >= MAX_CITATION_SOURCES:
@@ -543,6 +544,13 @@ def _citation_evidence(
         citation_id = _citation_id(source_kind, normalized_id)
         if citation_id not in seen_citations:
             seen_citations.add(citation_id)
+            version_payload = version_data if version_data not in (None, "") else {
+                "source_id": normalized_id,
+            }
+            version_fingerprint = hashlib.sha256(json.dumps(
+                version_payload, ensure_ascii=True, sort_keys=True,
+                separators=(",", ":"), default=str,
+            ).encode("utf-8")).hexdigest()[:16]
             sources.append({
                 "citation_id": citation_id,
                 "source_id": normalized_id,
@@ -552,6 +560,10 @@ def _citation_evidence(
                     source_id=normalized_id,
                     source_kind=source_kind,
                     url=url,
+                ),
+                "source_version": version_fingerprint,
+                "version_status": (
+                    "exact" if version_data not in (None, "") else "identity_only"
                 ),
             })
         for marker_key in (normalized_id, *marker_keys):
@@ -571,6 +583,7 @@ def _citation_evidence(
             title=f"{tool_name or 'Tool'} result",
             source_kind="tool_result",
             marker_keys=(tool_name,),
+            version_data=payload,
         )
         if manifest_citation:
             manifest_citations.append(manifest_citation)
@@ -610,6 +623,12 @@ def _citation_evidence(
                     source_kind=source_kind,
                     url=raw_row.get("url") or raw_row.get("href"),
                     marker_keys=(raw_row.get("citation_key"),),
+                    version_data=(
+                        raw_row.get("revision")
+                        or raw_row.get("etag")
+                        or raw_row.get("updated_at")
+                        or raw_row.get("modified_at")
+                    ),
                 )
                 if citation_id and collection_key == "records":
                     ordered_record_citations.append(citation_id)
@@ -812,6 +831,9 @@ def verify_response(
     )
 
     conflicts = detect_evidence_conflicts(payloads, tool_names)
+    from backend.services.agent_evidence_security import analyze_evidence
+
+    evidence_security = analyze_evidence(payloads)
     if conflicts.get("count"):
         if status == "passed":
             status = "limited"
@@ -866,6 +888,7 @@ def verify_response(
         "gnosi_explanation": explanation,
         "gnosi_quality": quality,
         "gnosi_conflicts": conflicts,
+        "gnosi_evidence_security": evidence_security,
     })
     if freshness:
         additional["gnosi_freshness"] = freshness

@@ -4723,7 +4723,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
                                     {aiSection === 'quality' && (
                                         <Section title={t('settings.ai.quality.title')} icon={Activity}>
-                                            <AIQualitySettingsPanel resources={aiResources} />
+                                            <AIQualitySettingsPanel resources={aiResources} agents={draft.ai.agents} />
                                         </Section>
                                     )}
                                 </>
@@ -4897,6 +4897,12 @@ function AIAgentForm({ agent, onSave, aiRegistry, skills, tools }) {
     // (directive `agent_context_sources.md`).
     const [contextRefs, setContextRefs] = useState(agent.context_refs || []);
     const [selectedSkillIds, setSelectedSkillIds] = useState(agent.skill_ids || []);
+    const [modelStrategyMode, setModelStrategyMode] = useState(
+        agent.model_strategy?.mode || 'pinned',
+    );
+    const [allowedModels, setAllowedModels] = useState(
+        agent.model_strategy?.allowed_models || [],
+    );
     const [savingAgent, setSavingAgent] = useState(false);
 
     // Group registry rows by provider for the <select> optgroups. Rows carry
@@ -4914,6 +4920,22 @@ function AIAgentForm({ agent, onSave, aiRegistry, skills, tools }) {
     // safe — neither provider ids nor model ids contain that pattern.
     const selectedKey = (provider && model) ? `${provider}||${model}` : '';
     const registryEmpty = grouped.size === 0;
+    const localProviders = ['ollama', 'lmstudio', 'local', 'llama-cpp', 'llamacpp', 'llama.cpp', 'generic'];
+    const primaryIsLocal = localProviders.includes(provider);
+    const primaryRegistryRow = (aiRegistry || []).find(row => (
+        row?.enabled === true && row.provider === provider && row.model_id === model
+    ));
+    const protectedModelTags = new Set(
+        (primaryRegistryRow?.tags || []).filter(tag => ['tools', 'vision'].includes(tag)),
+    );
+    const strategyCandidates = (aiRegistry || []).filter(row => {
+        if (!row || row.enabled !== true || !row.provider || !row.model_id) return false;
+        if (row.provider === provider && row.model_id === model) return false;
+        const candidateIsLocal = localProviders.includes(row.provider);
+        const candidateTags = new Set(row.tags || []);
+        return candidateIsLocal === primaryIsLocal
+            && [...protectedModelTags].every(tag => candidateTags.has(tag));
+    });
 
     // Evidence about the chosen model, recorded from its own past failures.
     // Only reasons the backend attributes to the MODEL land here: a rate limit
@@ -4959,6 +4981,7 @@ function AIAgentForm({ agent, onSave, aiRegistry, skills, tools }) {
                                     const [p, m] = e.target.value.split('||');
                                     setProvider(p || '');
                                     setModel(m || '');
+                                    setAllowedModels([]);
                                 }}>
                                 <option value="">{t('settings.ai.select_model_option')}</option>
                                 {[...grouped.entries()].map(([prov, modelIds]) => (
@@ -4989,6 +5012,51 @@ function AIAgentForm({ agent, onSave, aiRegistry, skills, tools }) {
                                             days: modelFault.window_days,
                                         })}
                                     </span>
+                                </div>
+                            )}
+                        </FormGroup>
+
+                        <FormGroup
+                            label={t('settings.ai.agent_model_strategy')}
+                            description={t('settings.ai.agent_model_strategy_help')}
+                        >
+                            <select
+                                className="gnosi-select"
+                                value={modelStrategyMode}
+                                onChange={event => {
+                                    const nextMode = event.target.value;
+                                    setModelStrategyMode(nextMode);
+                                    if (nextMode === 'pinned') setAllowedModels([]);
+                                }}
+                            >
+                                <option value="pinned">{t('settings.ai.model_strategy.pinned')}</option>
+                                <option value="resilient">{t('settings.ai.model_strategy.resilient')}</option>
+                                <option value="adaptive">{t('settings.ai.model_strategy.adaptive')}</option>
+                            </select>
+                            {modelStrategyMode !== 'pinned' && (
+                                <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
+                                    {strategyCandidates.map(row => {
+                                        const selected = allowedModels.some(item => (
+                                            item.provider === row.provider && item.model === row.model_id
+                                        ));
+                                        return (
+                                            <label key={`${row.provider}:${row.model_id}`} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selected}
+                                                    onChange={() => setAllowedModels(current => selected
+                                                        ? current.filter(item => !(item.provider === row.provider && item.model === row.model_id))
+                                                        : [...current, { provider: row.provider, model: row.model_id }].slice(0, 8))}
+                                                />
+                                                <span>{row.provider} · {row.model_id}</span>
+                                            </label>
+                                        );
+                                    })}
+                                    {strategyCandidates.length === 0 && (
+                                        <span style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)' }}>
+                                            {t('settings.ai.model_strategy.no_candidates')}
+                                        </span>
+                                    )}
                                 </div>
                             )}
                         </FormGroup>
@@ -5043,6 +5111,11 @@ function AIAgentForm({ agent, onSave, aiRegistry, skills, tools }) {
                                         context,
                                         context_refs: contextRefs,
                                         skill_ids: selectedSkillIds,
+                                        model_strategy: {
+                                            schema_version: 1,
+                                            mode: modelStrategyMode,
+                                            allowed_models: modelStrategyMode === 'pinned' ? [] : allowedModels,
+                                        },
                                     });
                                 } finally {
                                     setSavingAgent(false);

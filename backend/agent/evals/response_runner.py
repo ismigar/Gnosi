@@ -59,6 +59,7 @@ def evaluate_response_case(case: dict[str, Any]) -> dict[str, Any]:
         "citations": metadata.get("gnosi_citations") or {},
         "quality": metadata.get("gnosi_quality") or {},
         "conflicts": metadata.get("gnosi_conflicts") or {},
+        "evidence_security": metadata.get("gnosi_evidence_security") or {},
     }
     failures = []
     for field, expected in (case.get("expected") or {}).items():
