@@ -81,6 +81,23 @@ describe('assistant message presentation metadata', () => {
                 candidate_tools: ['inventory_context'],
                 guarded_tools: ['delete_page'],
                 selection_policy: 'safe',
+                discovery: {
+                    status: 'attention_required',
+                    domains: [{
+                        domain: 'calendar',
+                        status: 'missing_capability',
+                        candidate_tools: [],
+                        recommended_action: 'connect_or_assign_skill',
+                    }],
+                    automatic_install: false,
+                    automatic_permission_grant: false,
+                },
+            },
+            deadline: {
+                hard_seconds: 120,
+                soft_seconds: 100,
+                synthesis_reserve_seconds: 20,
+                policy: 'synthesize_or_handoff_before_hard_deadline',
             },
             memory: {
                 checkpointed: true,
@@ -98,6 +115,11 @@ describe('assistant message presentation metadata', () => {
         expect(plan.interpretation).not.toHaveProperty('query_digest');
         expect(plan.interpretation).not.toHaveProperty('normalized_query');
         expect(plan.capability_broker.candidate_tools).toEqual(['inventory_context']);
+        expect(plan.capability_broker.discovery.domains[0]).toMatchObject({
+            domain: 'calendar',
+            status: 'missing_capability',
+        });
+        expect(plan.deadline.soft_seconds).toBe(100);
         expect(plan.memory).toEqual({
             checkpointed: true,
             scope: 'agent_session',
@@ -151,6 +173,24 @@ describe('assistant message presentation metadata', () => {
                 capabilities: { status: true, result: true, resume: true, cancel: true },
                 result: 'must-not-be-persisted',
             },
+            quality: {
+                score: 85,
+                status: 'limited',
+                checks: { required_evidence: true, inventory_complete: false },
+                failed_checks: ['inventory_complete'],
+                response: 'must-not-be-persisted',
+            },
+            conflicts: {
+                status: 'conflicting',
+                conflicts: [{
+                    conflict_id: 'conflict-1',
+                    entity_id: 'record-1',
+                    field: 'status',
+                    source_names: ['source-a', 'source-b'],
+                    value_count: 2,
+                    raw_values: ['open', 'closed'],
+                }],
+            },
         });
 
         expect(metadata.plan).toMatchObject({
@@ -178,6 +218,13 @@ describe('assistant message presentation metadata', () => {
             capabilities: { status: true, result: true, resume: true, cancel: true },
         });
         expect(metadata.job).not.toHaveProperty('result');
+        expect(metadata.quality).toMatchObject({
+            score: 85,
+            status: 'limited',
+            failed_checks: ['inventory_complete'],
+        });
+        expect(metadata.quality).not.toHaveProperty('response');
+        expect(metadata.conflicts.conflicts[0]).not.toHaveProperty('raw_values');
     });
 
     it('rewinds the complete turn containing either message', () => {

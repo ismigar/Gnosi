@@ -346,6 +346,47 @@ reject, reopen, and run these candidates through `/api/ai/evals/candidates*`.
 Accepted local cases remain separate from the versioned CI corpus until a
 maintainer deliberately promotes them.
 
+## Adaptive quality and capability discovery
+
+Tool health survives backend restarts in a bounded local SQLite store. Each
+capability retains success/failure counters, a consecutive-failure window,
+temporary quarantine state, and aggregate invocation latency. Runtime catalog
+construction reads these rows in one short-lived cache snapshot rather than
+opening the database once per tool. A later successful invocation clears the
+quarantine but retains bounded service-level totals for diagnostics.
+
+Vault inventory retrieval fuses exact phrases, normalized lexical tokens,
+conservative character similarity, metadata, cached body text, and canonical
+relations while preserving an exhaustive scan of the authorized scope. Users
+can add or remove reviewed vocabulary associations through
+`/api/ai/semantic-associations`. The local store hashes the Vault scope and
+contains only bounded term pairs and a hashed author identity; it never stores
+prompts, answers, source bodies, paths, credentials, or executable text.
+
+The final deterministic verifier now publishes a response-quality score over
+visible output, required evidence, tool success, supported completion claims,
+citations, inventory pagination, and contradiction handling. Structured facts
+with the same record and field but incompatible current-turn values produce a
+bounded conflict receipt containing provenance names but not the private values.
+The visible answer receives a localized warning instead of silently merging the
+facts. A provider-free response corpus complements the routing corpus and
+exercises these final-answer contracts in CI.
+
+Each plan exposes a soft synthesis boundary before the hard turn timeout. Once
+the reserve is reached and required evidence is available, Brain removes tool
+bindings and synthesizes the best supported result; the stream emits a deadline
+stage so the client can show that transition. If required evidence is still
+missing, the evidence boundary remains authoritative rather than producing an
+unsupported answer.
+
+Capability discovery is part of the enforced turn plan. For each explicit
+domain it reports a usable capability, an assigned but guarded capability, or a
+missing connection/skill. Discovery cannot install software, grant permission,
+or authorize a guarded action. Settings → AI → Quality displays metadata-only
+turn counts, latency buckets, verification outcomes, errors, evaluation
+candidates, persistent capability health, and the reversible vocabulary editor
+through `/api/ai/quality/dashboard`.
+
 ## Failure and safety invariants
 
 - Provider failure does not silently route to a more expensive or less private

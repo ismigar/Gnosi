@@ -98,6 +98,34 @@ def test_feedback_clear_rebuilds_pending_candidates(tmp_path, monkeypatch):
     assert telemetry.list_evaluation_candidates(_scope()) == []
 
 
+def test_quality_dashboard_aggregates_turns_without_content(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        telemetry,
+        "load_params",
+        lambda strict_env=False: SimpleNamespace(
+            paths={"LOCAL_DATA": tmp_path / "local-data"}
+        ),
+    )
+    telemetry._SCHEMA_READY.clear()
+    telemetry.record_quality_signal(
+        _scope(),
+        agent_id="brain",
+        session_id="session-1",
+        turn_id="turn-1",
+        signal="turn",
+        mode="lookup",
+        verification_status="passed",
+        tool_names=["search_context"],
+        duration_ms=900,
+    )
+    dashboard = telemetry.quality_dashboard(_scope())
+
+    assert dashboard["completed_turns"] == 1
+    assert dashboard["latency_buckets"]["fast"] == 1
+    assert dashboard["verification"]["passed"] == 1
+    assert dashboard["top_tools"] == [{"tool_name": "search_context", "uses": 1}]
+
+
 def test_error_candidate_and_database_are_metadata_only(tmp_path, monkeypatch):
     local_data = tmp_path / "local-data"
     monkeypatch.setattr(

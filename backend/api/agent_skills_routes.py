@@ -51,8 +51,15 @@ from backend.services.capability_automations import (
 from backend.services.capability_audit import list_workspace_capability_events
 from backend.services.agent_quality_telemetry import (
     list_evaluation_candidates,
+    quality_dashboard,
     review_evaluation_candidate,
     reviewed_evaluation_cases,
+)
+from backend.services.agent_capability_health import list_capability_health
+from backend.services.agent_semantic_memory import (
+    add_association,
+    delete_association,
+    list_associations,
 )
 from backend.services.capability_jobs import (
     cancel_job as cancel_capability_job,
@@ -120,6 +127,15 @@ class EvaluationCandidateReviewPayload(BaseModel):
     """Administrative decision for one privacy-safe evaluation candidate."""
 
     decision: str = Field(pattern=r"^(pending_review|accepted|rejected)$")
+
+
+class SemanticAssociationPayload(BaseModel):
+    """One explicit, reversible personal vocabulary correction."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    trigger: str = Field(min_length=1, max_length=96)
+    related_terms: List[str] = Field(min_length=1, max_length=24)
 
 
 def _metadata(payload: UserSkillWritePayload) -> Dict[str, Any]:
@@ -255,6 +271,55 @@ def list_agent_evaluation_candidates(
             _automation_scope(context), limit=limit
         )
     }
+
+
+@router.get("/quality/dashboard")
+def get_agent_quality_dashboard(
+    context: WorkspaceContext = Depends(require_role("admin")),
+):
+    """Return privacy-safe agent service levels and persisted tool health."""
+    return {
+        "quality": quality_dashboard(_automation_scope(context)),
+        "capabilities": list_capability_health(limit=200),
+    }
+
+
+@router.get("/semantic-associations")
+def get_agent_semantic_associations(
+    limit: int = Query(default=200, ge=1, le=500),
+    context: WorkspaceContext = Depends(get_workspace_context),
+):
+    """List reviewable vocabulary associations for the active Vault."""
+    return {"associations": list_associations(context.vault_path, limit=limit)}
+
+
+@router.post("/semantic-associations", status_code=201)
+def create_agent_semantic_association(
+    payload: SemanticAssociationPayload,
+    context: WorkspaceContext = Depends(require_role("editor")),
+):
+    """Store an explicit term correction without conversation content."""
+    try:
+        rows = add_association(
+            context.vault_path,
+            payload.trigger,
+            payload.related_terms,
+            created_by=context.user_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"associations": rows}
+
+
+@router.delete("/semantic-associations/{association_id}")
+def remove_agent_semantic_association(
+    association_id: str,
+    context: WorkspaceContext = Depends(require_role("editor")),
+):
+    """Remove one exact vocabulary correction from the active Vault."""
+    if not delete_association(context.vault_path, association_id):
+        raise HTTPException(status_code=404, detail="Semantic association not found.")
+    return {"status": "deleted", "association_id": association_id}
 
 
 @router.post("/evals/candidates/{candidate_id}/review")

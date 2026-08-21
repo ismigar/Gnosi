@@ -367,7 +367,7 @@ def record_quality_signal(
     safe_scope = _scope(scope)
     normalized_signal = _bounded(signal, 32).lower()
     normalized_rating = _bounded(rating, 16).lower()
-    if normalized_signal not in {"feedback", "error"}:
+    if normalized_signal not in {"turn", "feedback", "error"}:
         raise ValueError("Unsupported agent quality signal.")
     if normalized_signal == "feedback" and normalized_rating not in {
         "up", "down", "clear"
@@ -458,6 +458,80 @@ def record_quality_signal(
         )
         _rebuild_candidates(connection, safe_scope)
     return event_key
+
+
+def quality_dashboard(scope: Dict[str, str]) -> Dict[str, Any]:
+    """Aggregate metadata-only service levels for the active user and Vault."""
+    safe_scope = _scope(scope)
+    with _database_connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT signal, rating, error_code, mode, verification_status,
+                   duration_bucket, tool_names_json
+            FROM agent_quality_events
+            WHERE vault_scope = ? AND workspace_id = ? AND user_id = ?
+            ORDER BY updated_at DESC LIMIT ?
+            """,
+            (*safe_scope.values(), MAX_EVENTS_PER_USER),
+        ).fetchall()
+        candidate_rows = connection.execute(
+            """
+            SELECT review_status, COUNT(*) AS count
+            FROM agent_eval_candidates
+            WHERE vault_scope = ? AND workspace_id = ? AND user_id = ?
+            GROUP BY review_status
+            """,
+            tuple(safe_scope.values()),
+        ).fetchall()
+
+    def counts(field: str) -> Dict[str, int]:
+        result: Dict[str, int] = {}
+        for row in rows:
+            value = str(row[field] or "unknown")[:128]
+            result[value] = result.get(value, 0) + 1
+        return result
+
+    tool_counts: Dict[str, int] = {}
+    for row in rows:
+        try:
+            names = json.loads(row["tool_names_json"] or "[]")
+        except (TypeError, ValueError):
+            names = []
+        for name in names[:16]:
+            safe_name = _bounded(name, 128)
+            if safe_name:
+                tool_counts[safe_name] = tool_counts.get(safe_name, 0) + 1
+    ratings = {
+        key: value
+        for key, value in counts("rating").items()
+        if key != "unknown"
+    }
+    return {
+        "schema_version": 1,
+        "event_count": len(rows),
+        "completed_turns": sum(row["signal"] == "turn" for row in rows),
+        "errors": sum(row["signal"] == "error" for row in rows),
+        "signals": counts("signal"),
+        "ratings": ratings,
+        "modes": counts("mode"),
+        "verification": counts("verification_status"),
+        "latency_buckets": counts("duration_bucket"),
+        "error_codes": {
+            key: value
+            for key, value in counts("error_code").items()
+            if key != "unknown"
+        },
+        "top_tools": [
+            {"tool_name": name, "uses": count}
+            for name, count in sorted(
+                tool_counts.items(), key=lambda item: (-item[1], item[0])
+            )[:16]
+        ],
+        "evaluation_candidates": {
+            str(row["review_status"]): int(row["count"])
+            for row in candidate_rows
+        },
+    }
 
 
 def list_evaluation_candidates(

@@ -1529,6 +1529,10 @@ const AgentChat = ({
                             setProcessingPhase(String(data.phase || 'routing'));
                             continue;
                         }
+                        if (data.type === 'deadline') {
+                            setProcessingPhase('synthesis');
+                            continue;
+                        }
                         if (data.type === 'turn_plan') {
                             turnTransparency = boundedTransparencyMetadata({
                                 plan: data.plan,
@@ -1619,6 +1623,8 @@ const AgentChat = ({
                                     freshness: data.freshness,
                                     job: data.job,
                                     explanation: data.explanation,
+                                    quality: data.quality,
+                                    conflicts: data.conflicts,
                                 });
                                 Object.entries(responseTransparency).forEach(([field, value]) => {
                                     if (value !== null) lastMsg[field] = value;
@@ -2202,7 +2208,19 @@ const AgentChat = ({
                                                     candidates: msg.plan.capability_broker.candidate_tools?.length ?? 0,
                                                     guarded: msg.plan.capability_broker.guarded_tools?.length ?? 0,
                                                 })}</div>
+                                                {msg.plan.capability_broker.discovery?.domains?.map(item => (
+                                                    <div key={item.domain}>{t('chat.capability_discovery_domain', '{{domain}}: {{status}}', {
+                                                        domain: item.domain,
+                                                        status: t(`chat.capability_discovery_status.${item.status}`, item.status),
+                                                    })}</div>
+                                                ))}
                                             </div>
+                                        )}
+                                        {msg.plan?.deadline && (
+                                            <div style={{ marginTop: '5px' }}>{t('chat.deadline_summary', 'Response window: synthesize after {{soft}} s · hard limit {{hard}} s', {
+                                                soft: msg.plan.deadline.soft_seconds,
+                                                hard: msg.plan.deadline.hard_seconds,
+                                            })}</div>
                                         )}
                                         {msg.plan?.memory?.checkpointed && (
                                             <div style={{ marginTop: '5px' }}>{t('chat.memory_summary', 'Memory: session checkpoint (historical tool payloads excluded)')}</div>
@@ -2249,6 +2267,33 @@ const AgentChat = ({
                                                         limitations: msg.verification.limitations.map(value => t(`chat.verification_limitation.${value}`, value)).join(', '),
                                                     })}</div>
                                                 )}
+                                            </div>
+                                        )}
+                                        {msg.quality && (
+                                            <div style={{ marginTop: '5px' }}>
+                                                <strong>{t('chat.quality_title', 'Response quality')}</strong>
+                                                <div>{t('chat.quality_summary', '{{score}}/100 · {{status}}', {
+                                                    score: msg.quality.score ?? 0,
+                                                    status: t(`chat.quality_status.${msg.quality.status}`, msg.quality.status),
+                                                })}</div>
+                                                {msg.quality.failed_checks?.length > 0 && (
+                                                    <div>{t('chat.quality_failed_checks', 'Needs attention: {{checks}}', {
+                                                        checks: msg.quality.failed_checks.map(value => t(`chat.quality_check.${value}`, value)).join(', '),
+                                                    })}</div>
+                                                )}
+                                            </div>
+                                        )}
+                                        {msg.conflicts?.count > 0 && (
+                                            <div style={{ marginTop: '5px' }}>
+                                                <strong>{t('chat.conflicts_title', 'Conflicting evidence')}</strong>
+                                                <div>{t('chat.conflicts_summary', '{{count}} conflicting field(s); values remain private in diagnostics.', { count: msg.conflicts.count })}</div>
+                                                {msg.conflicts.conflicts.map(item => (
+                                                    <div key={item.conflict_id}>{t('chat.conflict_item', '{{entity}} · {{field}} · {{sources}}', {
+                                                        entity: item.entity_id,
+                                                        field: item.field,
+                                                        sources: item.source_names.join(', '),
+                                                    })}</div>
+                                                ))}
                                             </div>
                                         )}
                                         {msg.freshness && (
