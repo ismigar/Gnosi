@@ -144,6 +144,7 @@ const AgentChat = ({
     forcedAgentId = '',
     notebookId = '',
     conversationMode = 'private_member',
+    readOnly = false,
 }) => {
     const { t, i18n } = useTranslation();
     const defaultSessionTitle = t('chat.default_session_title', 'New conversation');
@@ -1399,7 +1400,7 @@ const AgentChat = ({
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if ((!inputValue.trim() && attachments.length === 0) || isLoading || !agentHasModel) return;
+        if (readOnly || (!inputValue.trim() && attachments.length === 0) || isLoading || !agentHasModel) return;
 
         const turnId = crypto.randomUUID();
         const processingStartedAt = performance.now();
@@ -1434,6 +1435,7 @@ const AgentChat = ({
         let turnTransparency = boundedTransparencyMetadata({});
         let resumeStreamId = '';
         let lastStreamSequence = 0;
+        let selectedLlm = null;
 
         try {
             requestAbortRef.current?.abort();
@@ -1474,7 +1476,6 @@ const AgentChat = ({
             const decoder = new TextDecoder();
             let aiMsgAdded = false;
             let buffer = '';
-            let selectedLlm = null;
             let terminalReceived = false;
             let responseReceived = false;
             let streamDone = false;
@@ -2188,14 +2189,14 @@ const AgentChat = ({
                                 </div>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '2px', padding: '0 2px', alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
                                     <button type="button" onClick={() => copyMessage(msg.content)} aria-label={t('chat.copy_message', 'Copy message')} title={t('chat.copy_message', 'Copy message')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Copy size={13} /></button>
-                                    <button type="button" onClick={() => quoteMessage(msg)} aria-label={t('chat.reply_to_message', 'Reply to message')} title={t('chat.reply_to_message', 'Reply to message')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Reply size={13} /></button>
-                                    {msg.role === 'user' && (
+                                    {!readOnly && <button type="button" onClick={() => quoteMessage(msg)} aria-label={t('chat.reply_to_message', 'Reply to message')} title={t('chat.reply_to_message', 'Reply to message')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Reply size={13} /></button>}
+                                    {!readOnly && msg.role === 'user' && (
                                         <button type="button" onClick={() => focusComposerWith(msg.content || '')} aria-label={t('chat.edit_message', 'Edit and resend')} title={t('chat.edit_message', 'Edit and resend')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Pencil size={13} /></button>
                                     )}
-                                    {msg.role === 'assistant' && previousUserPrompt(idx) && (
+                                    {!readOnly && msg.role === 'assistant' && previousUserPrompt(idx) && (
                                         <button type="button" onClick={() => focusComposerWith(previousUserPrompt(idx))} aria-label={t('chat.regenerate_message', 'Regenerate response')} title={t('chat.regenerate_message', 'Regenerate response')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><RotateCcw size={13} /></button>
                                     )}
-                                    {msg.role === 'assistant' && msg.retryable && previousUserPrompt(idx) && (
+                                    {!readOnly && msg.role === 'assistant' && msg.retryable && previousUserPrompt(idx) && (
                                         <button type="button" onClick={() => retryMessage(idx)} aria-label={t('chat.retry_response', 'Retry response')} title={t('chat.retry_response', 'Retry response')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: isLoading ? 'default' : 'pointer', padding: '3px', opacity: isLoading ? 0.45 : 1 }} disabled={isLoading}><RotateCcw size={13} /></button>
                                     )}
                                     {msg.role === 'assistant' && (
@@ -2205,7 +2206,7 @@ const AgentChat = ({
                                             <button type="button" onClick={() => markMessage(idx, 'saved', !msg.saved)} aria-label={t('chat.save_message', 'Save message')} title={t('chat.save_message', 'Save message')} aria-pressed={Boolean(msg.saved)} style={{ background: 'none', border: 'none', color: msg.saved ? 'var(--gnosi-blue, #2563eb)' : 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Bookmark size={13} fill={msg.saved ? 'currentColor' : 'none'} /></button>
                                         </>
                                     )}
-                                    {conversationMode !== 'shared' && (msg.role === 'assistant' || msg.role === 'user') && (
+                                    {!readOnly && conversationMode !== 'shared' && (msg.role === 'assistant' || msg.role === 'user') && (
                                         msg.undo?.available
                                         || Boolean(getTurnId(msg))
                                     ) && (() => {
@@ -2497,7 +2498,11 @@ const AgentChat = ({
                     </div>
 
                     {/* Input Area */}
-                    <div style={{ padding: '10px 10px 8px 10px', borderTop: '1px solid var(--settings-border, #e5e7eb)', background: 'var(--bg-primary)' }}>
+                    {readOnly ? (
+                        <div role="status" style={{ padding: '12px 16px', borderTop: '1px solid var(--settings-border, #e5e7eb)', background: 'var(--settings-sidebar-bg, #f3f4f6)', color: 'var(--text-secondary)', fontSize: '0.78rem', textAlign: 'center' }}>
+                            {t('notebooks.chat_read_only', 'You can read this conversation. An editor role is required to send messages.')}
+                        </div>
+                    ) : <div style={{ padding: '10px 10px 8px 10px', borderTop: '1px solid var(--settings-border, #e5e7eb)', background: 'var(--bg-primary)' }}>
                         <div style={{ position: 'relative' }}>
                             <form onSubmit={handleSubmit} style={{
                                 display: 'flex', gap: '8px', alignItems: 'flex-end',
@@ -2659,7 +2664,7 @@ const AgentChat = ({
                                 </button>
                             </div>
                         </div>}
-                    </div>
+                    </div>}
                 </>
             )}
             <ConfirmModal

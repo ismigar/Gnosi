@@ -24,7 +24,7 @@ export default function NotebookCreateDialog({
     const [visibility, setVisibility] = useState('private');
     const [conversationMode, setConversationMode] = useState('private_member');
     const [selectedIds, setSelectedIds] = useState(new Set());
-    const [resourceData, setResourceData] = useState({ items: [], total: 0, page: 1, page_size: 50, facets: EMPTY_RESOURCE_FACETS });
+    const [resourceData, setResourceData] = useState({ items: [], total: 0, page: 1, page_size: 50, facets: EMPTY_RESOURCE_FACETS, hidden_without_sources: 0 });
     const [query, setQuery] = useState('');
     const [filters, setFilters] = useState({ ...EMPTY_RESOURCE_FILTERS });
     const [loadingResources, setLoadingResources] = useState(false);
@@ -73,6 +73,7 @@ export default function NotebookCreateDialog({
                     page: Number(data.page) || resourceData.page,
                     page_size: Number(data.page_size) || 50,
                     facets: normalizeResourceFacets(data.facets),
+                    hidden_without_sources: Number(data.hidden_without_sources) || 0,
                 }))
                 .catch((error) => {
                     if (error.name !== 'AbortError') {
@@ -190,6 +191,15 @@ export default function NotebookCreateDialog({
                             onChange={updateFilter}
                             disabled={loadingResources}
                         />
+                        {resourceData.hidden_without_sources > 0 && (
+                            <p className="notebook-resource-picker__notice" role="status">
+                                {t(
+                                    'notebooks.resources_without_sources_hidden',
+                                    '{{count}} Resources are not shown because they have no attachments or URLs.',
+                                    { count: resourceData.hidden_without_sources },
+                                )}
+                            </p>
+                        )}
                         <div className="notebook-resource-picker__list">
                             {loadingResources && <div className="notebook-empty">{t('common.loading', 'Loading...')}</div>}
                             {!loadingResources && resourceData.items.map((resource) => {

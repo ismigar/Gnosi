@@ -2,6 +2,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+import requests
 from fastapi import HTTPException
 
 from backend.services import context_vars, durable_job_queue, notebook_service
@@ -79,6 +80,30 @@ def _run_queued_ingest(vault: Path):
     return result
 
 
+def _write_text_pdf(path: Path, text: str) -> None:
+    from pypdf import PdfWriter
+    from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
+
+    writer = PdfWriter()
+    page = writer.add_blank_page(width=612, height=792)
+    font = DictionaryObject({
+        NameObject("/Type"): NameObject("/Font"),
+        NameObject("/Subtype"): NameObject("/Type1"),
+        NameObject("/BaseFont"): NameObject("/Helvetica"),
+    })
+    page[NameObject("/Resources")] = DictionaryObject({
+        NameObject("/Font"): DictionaryObject({
+            NameObject("/F1"): writer._add_object(font),  # noqa: SLF001
+        }),
+    })
+    content = DecodedStreamObject()
+    safe_text = text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+    content.set_data(f"BT /F1 12 Tf 72 720 Td ({safe_text}) Tj ET".encode("latin-1"))
+    page[NameObject("/Contents")] = writer._add_object(content)  # noqa: SLF001
+    with path.open("wb") as handle:
+        writer.write(handle)
+
+
 def test_notebook_indexes_only_attachment_and_url_fields(notebook_env):
     context = notebook_env["context"]
     notebook = notebook_service.create_notebook(
@@ -98,6 +123,117 @@ def test_notebook_indexes_only_attachment_and_url_fields(notebook_env):
     assert "Grounded evidence" in hits["results"][0]["text"]
     assert all("SECRET RECORD METADATA" not in item["text"] for item in hits["results"])
     assert hits["results"][0]["citation"]["href"].startswith("gnosi-cite:?")
+
+
+def test_notebook_ingests_pdf_and_web_sources_with_navigable_citations(
+    notebook_env,
+    monkeypatch,
+):
+    from backend.agent import web_context
+
+    context = notebook_env["context"]
+    page = notebook_env["page"]
+    pdf_path = notebook_env["vault"] / "evidence.pdf"
+    _write_text_pdf(pdf_path, "PDF grounded evidence appears on this page.")
+    page.metadata["files-field"] = "evidence.pdf"
+    page.metadata["url-field"] = "https://sources.example/article"
+    monkeypatch.setattr(web_context, "is_public_http_url", lambda _url: (True, ""))
+
+    def public_html(_url, **_kwargs):
+        response = requests.Response()
+        response.status_code = 200
+        response.headers.update({
+            "Content-Type": "text/html; charset=utf-8",
+            "ETag": '"web-v1"',
+            "Last-Modified": "Wed, 20 Aug 2026 10:00:00 GMT",
+        })
+        response.encoding = "utf-8"
+        response._content = (  # noqa: SLF001
+            b"<html><body><h1>Research</h1>"
+            b"<p>Web grounded evidence is independently available.</p></body></html>"
+        )
+        response.iter_content = lambda **_kwargs: iter([response._content])  # noqa: SLF001
+        return response
+
+    monkeypatch.setattr(
+        notebook_service.llm_wiki_extractors.requests,
+        "get",
+        public_html,
+    )
+    notebook = notebook_service.create_notebook(
+        context,
+        title="PDF and web",
+        visibility="private",
+        conversation_mode="private_member",
+        resource_ids=["resource-1"],
+    )
+    result = _run_queued_ingest(notebook_env["vault"])
+
+    assert result["available_sources"] == 2
+    pdf_hit = notebook_service.search_notebook(notebook["id"], "PDF grounded")["results"][0]
+    web_hit = notebook_service.search_notebook(notebook["id"], "Web grounded")["results"][0]
+    assert "page=1" in pdf_hit["citation"]["href"]
+    assert pdf_hit["citation"]["href"].startswith("gnosi-cite:?")
+    assert web_hit["citation"]["href"] == "https://sources.example/article"
+
+
+def test_attachment_change_triggers_automatic_incremental_refresh(notebook_env):
+    context = notebook_env["context"]
+    notebook = notebook_service.create_notebook(
+        context,
+        title="Automatic refresh",
+        visibility="private",
+        conversation_mode="private_member",
+        resource_ids=["resource-1"],
+    )
+    _run_queued_ingest(notebook_env["vault"])
+    notebook_env["attachment"].write_text(
+        "Updated attachment evidence after editing the source.",
+        encoding="utf-8",
+    )
+
+    queued = notebook_service.request_refresh(
+        notebook["id"], context, reason="open", force=False
+    )
+    assert queued["state"] == "queued"
+    refreshed = _run_queued_ingest(notebook_env["vault"])
+
+    assert refreshed["revision"] == 2
+    hits = notebook_service.search_notebook(notebook["id"], "Updated attachment")
+    assert "Updated attachment evidence" in hits["results"][0]["text"]
+
+
+def test_notebook_ingests_ocr_and_preserves_large_chunks(notebook_env, monkeypatch):
+    context = notebook_env["context"]
+    page = notebook_env["page"]
+    image = notebook_env["vault"] / "scan.png"
+    image.write_bytes(b"fixture image bytes")
+    large_text = notebook_env["vault"] / "large.txt"
+    large_text.write_text("Large grounded paragraph " * 1_200, encoding="utf-8")
+    page.metadata["files-field"] = ["scan.png", "large.txt"]
+    monkeypatch.setattr(
+        notebook_service.llm_wiki_extractors,
+        "_run_tesseract",
+        lambda _path: "OCR grounded evidence from a scanned source.",
+    )
+    notebook = notebook_service.create_notebook(
+        context,
+        title="OCR and large chunks",
+        visibility="private",
+        conversation_mode="private_member",
+        resource_ids=["resource-1"],
+    )
+    _run_queued_ingest(notebook_env["vault"])
+
+    assert notebook_service.search_notebook(notebook["id"], "OCR grounded")["results"]
+    with notebook_service._connect() as connection:  # noqa: SLF001
+        chunks = connection.execute(
+            "SELECT text FROM notebook_chunks WHERE notebook_id=? ORDER BY ordinal",
+            (notebook["id"],),
+        ).fetchall()
+    large_chunks = [row["text"] for row in chunks if "Large grounded paragraph" in row["text"]]
+    assert len(large_chunks) >= 2
+    assert sum(len(text) for text in large_chunks) == len("Large grounded paragraph " * 1_200) - 1
 
 
 def test_removing_resource_excludes_active_revision_immediately(notebook_env):
@@ -136,8 +272,9 @@ def test_incremental_refresh_reuses_unchanged_attachment(notebook_env, monkeypat
         notebook["id"], context, reason="test", force=True
     )
     result = _run_queued_ingest(notebook_env["vault"])
-    assert result["revision"] == 2
-    assert notebook_service.get_notebook(notebook["id"], context)["active_revision"] == 2
+    assert result["revision"] == 1
+    assert result["unchanged"] is True
+    assert notebook_service.get_notebook(notebook["id"], context)["active_revision"] == 1
 
 
 def test_failed_refresh_keeps_last_valid_source_as_stale(notebook_env, monkeypatch):
@@ -211,6 +348,113 @@ def test_three_hundred_resources_are_paged_with_multiple_sources(notebook_env, m
     assert notebook_service.get_notebook(notebook["id"], context)["resource_count"] == 300
 
 
+def test_three_hundred_resources_complete_one_bounded_ingestion_job(
+    notebook_env,
+    monkeypatch,
+):
+    context = notebook_env["context"]
+    table, source_config, _pages = notebook_service._current_resource_snapshot(  # noqa: SLF001
+        {"source_table_id": "references-table"}
+    )
+    pages = [
+        SimpleNamespace(
+            id=f"resource-{index}",
+            title=f"Resource {index:03d}",
+            last_modified="2026-08-20T10:00:00+00:00",
+            metadata={
+                "files-field": "evidence.txt",
+                "url-field": f"https://example.org/{index}",
+                "resource_marker": str(index),
+            },
+        )
+        for index in range(300)
+    ]
+    monkeypatch.setattr(
+        notebook_service,
+        "_reference_table",
+        lambda: (table["id"], table, pages),
+    )
+    monkeypatch.setattr(
+        notebook_service,
+        "_current_resource_snapshot",
+        lambda _notebook: (table, source_config, pages),
+    )
+
+    def cheap_sources(metadata, *_args, **_kwargs):
+        marker = metadata["resource_marker"]
+        attachment = notebook_service.llm_wiki_extractors._finalize_origin({  # noqa: SLF001
+            "kind": "text",
+            "label": "evidence.txt",
+            "source_url": "",
+            "input_order": 0,
+            "segments": [{"text": f"Attachment evidence {marker}", "locator": {"line_start": 1}}],
+        })
+        web = notebook_service.llm_wiki_extractors._finalize_origin({  # noqa: SLF001
+            "kind": "url",
+            "label": f"Web {marker}",
+            "source_url": f"https://example.org/{marker}",
+            "input_order": 1,
+            "segments": [{"text": f"Web evidence {marker}", "locator": {"paragraph": 1}}],
+        })
+        web.update({
+            "requested_url": f"https://example.org/{marker}",
+            "http_final_url": f"https://example.org/{marker}",
+            "http_etag": f'"{marker}"',
+            "http_last_modified": "",
+            "http_content_hash": f"raw-{marker}",
+            "http_checked_at": notebook_service._now(),  # noqa: SLF001
+        })
+        return [attachment, web], []
+
+    monkeypatch.setattr(
+        notebook_service.llm_wiki_extractors,
+        "extract_resource_sources",
+        cheap_sources,
+    )
+    heartbeat_calls = []
+    original_heartbeat = durable_job_queue.heartbeat
+
+    def heartbeat(*args, **kwargs):
+        heartbeat_calls.append(args[0])
+        return original_heartbeat(*args, **kwargs)
+
+    monkeypatch.setattr(durable_job_queue, "heartbeat", heartbeat)
+    notebook = notebook_service.create_notebook(
+        context,
+        title="Real 300 Resource ingestion",
+        visibility="workspace",
+        conversation_mode="shared",
+        resource_ids=[page.id for page in pages],
+    )
+    result = _run_queued_ingest(notebook_env["vault"])
+
+    assert result["available_sources"] == 600
+    assert len(heartbeat_calls) == 30
+    assert notebook_service.get_notebook(notebook["id"], context)["active_revision"] == 1
+
+
+def test_expired_notebook_ingestion_lease_is_recovered_after_restart(notebook_env):
+    context = notebook_env["context"]
+    notebook_service.create_notebook(
+        context,
+        title="Restart recovery",
+        visibility="private",
+        conversation_mode="private_member",
+        resource_ids=["resource-1"],
+    )
+    job = durable_job_queue.ready_jobs(job_type="notebook_ingest", limit=1)[0]
+    assert durable_job_queue.claim(job["job_id"], worker_id="stopped-worker", lease_seconds=10)
+    with durable_job_queue._connect() as connection:  # noqa: SLF001
+        connection.execute(
+            "UPDATE agent_jobs SET lease_until=? WHERE job_id=?",
+            ("2000-01-01T00:00:00+00:00", job["job_id"]),
+        )
+
+    assert durable_job_queue.reconcile_expired() == 1
+    recovered = durable_job_queue.ready_jobs(job_type="notebook_ingest", limit=1)
+    assert [item["job_id"] for item in recovered] == [job["job_id"]]
+
+
 def test_resource_selector_sorts_before_paging_and_filters_schema_facets(notebook_env, monkeypatch):
     context = notebook_env["context"]
     table = {
@@ -234,6 +478,7 @@ def test_resource_selector_sorts_before_paging_and_filters_schema_facets(noteboo
             title="Zebra",
             last_modified="2026-08-20T10:00:00+00:00",
             metadata={
+                "files": "evidence.txt",
                 "kind": "Book",
                 "authors": [{"nom": "Grace", "cognom1": "Hopper", "cognom2": ""}],
                 "tags": ["Computing"],
@@ -244,6 +489,7 @@ def test_resource_selector_sorts_before_paging_and_filters_schema_facets(noteboo
             title="Àlpha",
             last_modified="2026-08-20T10:00:00+00:00",
             metadata={
+                "files": "evidence.txt",
                 "kind": "Course",
                 "authors": [{"nom": "Ada", "cognom1": "Lovelace", "cognom2": ""}],
                 "tags": ["Education", "Computing"],
@@ -254,6 +500,7 @@ def test_resource_selector_sorts_before_paging_and_filters_schema_facets(noteboo
             title="beta",
             last_modified="2026-08-20T10:00:00+00:00",
             metadata={
+                "files": "evidence.txt",
                 "kind": "Book",
                 "authors": [{"nom": "Ada", "cognom1": "Lovelace", "cognom2": ""}],
                 "tags": ["History"],
@@ -265,6 +512,7 @@ def test_resource_selector_sorts_before_paging_and_filters_schema_facets(noteboo
             last_modified="2026-08-20T10:00:00+00:00",
             metadata={
                 "is_template": True,
+                "files": "evidence.txt",
                 "kind": "Course",
                 "authors": [
                     {"nom": "Template", "cognom1": "Author", "cognom2": ""}
@@ -310,6 +558,148 @@ def test_resource_selector_sorts_before_paging_and_filters_schema_facets(noteboo
 
     with pytest.raises(HTTPException, match="do not belong"):
         notebook_service._validate_current_resources(["course-template"])  # noqa: SLF001
+
+
+def test_resource_selector_hides_records_without_attachment_or_url_sources(
+    notebook_env,
+    monkeypatch,
+):
+    context = notebook_env["context"]
+    table, _source_config, _pages = notebook_service._current_resource_snapshot(  # noqa: SLF001
+        {"source_table_id": "references-table"}
+    )
+    pages = [
+        SimpleNamespace(
+            id="with-source",
+            title="Available source",
+            last_modified="2026-08-20T10:00:00+00:00",
+            metadata={"files-field": "evidence.txt", "url-field": ""},
+        ),
+        SimpleNamespace(
+            id="without-source",
+            title="Empty record",
+            last_modified="2026-08-20T10:00:00+00:00",
+            metadata={"files-field": "", "url-field": "", "notes-field": "Metadata only"},
+        ),
+    ]
+    monkeypatch.setattr(
+        notebook_service,
+        "_reference_table",
+        lambda: (table["id"], table, pages),
+    )
+
+    selector = notebook_service.list_reference_resources(context)
+
+    assert selector["total"] == 1
+    assert selector["hidden_without_sources"] == 1
+    assert [item["id"] for item in selector["items"]] == ["with-source"]
+    with pytest.raises(HTTPException, match="no attachment or URL sources"):
+        notebook_service._validate_current_resources(["without-source"])  # noqa: SLF001
+
+
+def test_url_refresh_uses_validators_and_keeps_revision_when_content_is_unchanged(
+    notebook_env,
+    monkeypatch,
+):
+    context = notebook_env["context"]
+    page = notebook_env["page"]
+    page.metadata["files-field"] = ""
+    page.metadata["url-field"] = "https://example.org/article"
+    version = {"value": 1}
+    extraction_calls = []
+
+    def extract_sources(*_args, **_kwargs):
+        extraction_calls.append(version["value"])
+        text = f"Grounded web evidence version {version['value']}."
+        origin = notebook_service.llm_wiki_extractors._finalize_origin({  # noqa: SLF001
+            "kind": "url",
+            "label": "Example article",
+            "source_url": "https://example.org/article",
+            "input_order": 0,
+            "segments": [{"text": text, "locator": {"paragraph": 1}}],
+        })
+        origin.update({
+            "requested_url": "https://example.org/article",
+            "http_final_url": "https://example.org/article",
+            "http_etag": f'"v{version["value"]}"',
+            "http_last_modified": "Wed, 20 Aug 2026 10:00:00 GMT",
+            "http_content_hash": f"raw-v{version['value']}",
+            "http_checked_at": notebook_service._now(),  # noqa: SLF001
+        })
+        return [origin], []
+
+    monkeypatch.setattr(
+        notebook_service.llm_wiki_extractors,
+        "extract_resource_sources",
+        extract_sources,
+    )
+    notebook = notebook_service.create_notebook(
+        context,
+        title="Conditional URL",
+        visibility="private",
+        conversation_mode="private_member",
+        resource_ids=["resource-1"],
+    )
+    _run_queued_ingest(notebook_env["vault"])
+
+    assert notebook_service.request_refresh(
+        notebook["id"], context, reason="question", force=False
+    )["state"] == "current"
+    probe_calls = []
+
+    def unchanged_probe(url, *, etag, last_modified, content_hash):
+        probe_calls.append((url, etag, last_modified, content_hash))
+        return {
+            "changed": False,
+            "final_url": url,
+            "etag": etag,
+            "last_modified": last_modified,
+            "content_hash": content_hash,
+            "checked_at": notebook_service._now(),  # noqa: SLF001
+        }
+
+    monkeypatch.setattr(
+        notebook_service.llm_wiki_extractors,
+        "probe_public_url",
+        unchanged_probe,
+    )
+    notebook_service.request_refresh(
+        notebook["id"], context, reason="manual", force=True
+    )
+    unchanged = _run_queued_ingest(notebook_env["vault"])
+
+    assert unchanged["unchanged"] is True
+    assert unchanged["revision"] == 1
+    assert extraction_calls == [1]
+    assert probe_calls == [(
+        "https://example.org/article",
+        '"v1"',
+        "Wed, 20 Aug 2026 10:00:00 GMT",
+        "raw-v1",
+    )]
+
+    version["value"] = 2
+    monkeypatch.setattr(
+        notebook_service.llm_wiki_extractors,
+        "probe_public_url",
+        lambda url, **_kwargs: {
+            "changed": True,
+            "final_url": url,
+            "etag": '"v2"',
+            "last_modified": "Thu, 21 Aug 2026 10:00:00 GMT",
+            "content_hash": "raw-v2",
+            "checked_at": notebook_service._now(),  # noqa: SLF001
+        },
+    )
+    notebook_service.request_refresh(
+        notebook["id"], context, reason="manual", force=True
+    )
+    changed = _run_queued_ingest(notebook_env["vault"])
+
+    assert changed["unchanged"] is False
+    assert changed["revision"] == 3
+    hits = notebook_service.search_notebook(notebook["id"], "version 2")
+    assert "version 2" in hits["results"][0]["text"]
 
 
 def test_resource_selector_excludes_items_already_in_notebook(notebook_env):
@@ -360,6 +750,20 @@ def test_private_and_workspace_permissions_are_isolated(notebook_env):
     with pytest.raises(HTTPException) as manage_error:
         notebook_service.authorize(private_notebook["id"], other, action="manage")
     assert manage_error.value.status_code == 403
+    viewer = WorkspaceContext(
+        owner.workspace_id,
+        "user-3",
+        "viewer",
+        owner.vault_path,
+        ["read"],
+    )
+    viewer_detail = notebook_service.get_notebook(
+        private_notebook["id"],
+        viewer,
+        schedule_refresh=False,
+    )
+    assert viewer_detail["can_chat"] is False
+    assert viewer_detail["can_manage"] is False
 
 
 def test_conversation_modes_keep_distinct_checkpoint_principals(notebook_env):

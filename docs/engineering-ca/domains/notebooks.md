@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-20
+last_verified: 2026-08-21
 source_paths:
   - backend/services/notebook_service.py
   - backend/api/notebook_routes.py
@@ -15,7 +15,9 @@ tests:
   - backend/tests/test_notebook_service.py
   - backend/tests/test_notebook_agent_context.py
   - frontend/src/components/Notebooks/NotebookCreateDialog.test.jsx
+  - frontend/src/pages/NotebooksPage.test.jsx
   - frontend/src/lib/notebookTableActions.test.js
+  - e2e/tests/e2e/notebooks.spec.ts
 ---
 
 # Quaderns fonamentats en fonts
@@ -73,6 +75,13 @@ repetits. Les fonts sense canvis reutilitzen els fragments; només es tornen a
 extreure les modificades. Una revisió incompleta mai no es fa visible. Després
 de la primera revisió correcta, la conversa continua utilitzant l'última revisió
 completa mentre s'executa el refresc.
+
+Les fonts URL només es revaliden després de
+`GNOSI_NOTEBOOK_URL_REFRESH_TTL_SECONDS` (sis hores per defecte). Gnosi envia
+els validadors ETag i Last-Modified desats mitjançant el mateix descarregador
+protegit contra SSRF i amb redireccions validades. Si el servidor no ofereix
+validadors, compara un hash acotat del contingut. Una comprovació sense canvis
+queda registrada, però no activa una revisió nova d'evidència.
 
 Retirar un Recurs n'elimina immediatament la pertinença. La recuperació i
 l'anàlisi global comproven els membres actuals, de manera que l'evidència
@@ -152,11 +161,18 @@ paginar i ofereixen filtres de tipus, autor i etiquetes derivats de l'esquema.
 Aquestes metadades només serveixen per seleccionar i mai entren a l'evidència.
 Les pàgines marcades com a plantilles de taula s'exclouen del selector, de la
 validació de peticions i de les instantànies d'ingestió.
+També s'exclouen els registres sense adjunts ni URL HTTP públiques; el selector
+indica quants se n'han omès en lloc d'oferir una opció inutilitzable.
 
 A l'escriptori, fonts, conversa incrustada i configuració es mostren juntes. Al
 mòbil es converteixen en pestanyes. Només se sondeja el quadern actiu i visible:
 un interval curt segueix la ingestió i un interval acotat actualitza la conversa
 col·laborativa.
+
+Els lectors del workspace veuen la conversa canònica en un xat clarament de
+només lectura, sense compositor ni accions de reintent, edició o rebobinat.
+Només els editors poden enviar torns i només el creador veu el refresc manual i
+la resta de controls de gestió.
 
 ## Errors, operacions i verificació
 
@@ -170,7 +186,11 @@ Vault compartit. Els mateixos camins funcionen en desplegaments natius i Docker.
 
 Les proves cobreixen exclusió de camps no font, reutilització incremental,
 retirada immediata, citacions, ACL, checkpoints, eines de només lectura,
-filtres del selector i anàlisi durable. Els límits actuals són mil Recursos per petició, dues-centes
+filtres del selector i anàlisi durable. També cobreixen PDF, URL, OCR, fragments
+grans, recuperació de lloguers caducats, validació web condicional i una
+ingestió real de 300 Recursos. Vitest i Playwright verifiquen els permisos de
+només lectura, l'exclusió de Recursos buits, la conversa fonamentada, una cita
+navegable i el refresc automàtic. Els límits actuals són mil Recursos per petició, dues-centes
 files de selector per pàgina, cinquanta resultats de recuperació i lots
 d'anàlisi acotats. La configuració i els índexs són locals a una instància i no
 se sincronitzen entre instal·lacions.

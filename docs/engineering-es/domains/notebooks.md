@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-20
+last_verified: 2026-08-21
 source_paths:
   - backend/services/notebook_service.py
   - backend/api/notebook_routes.py
@@ -15,7 +15,9 @@ tests:
   - backend/tests/test_notebook_service.py
   - backend/tests/test_notebook_agent_context.py
   - frontend/src/components/Notebooks/NotebookCreateDialog.test.jsx
+  - frontend/src/pages/NotebooksPage.test.jsx
   - frontend/src/lib/notebookTableActions.test.js
+  - e2e/tests/e2e/notebooks.spec.ts
 ---
 
 # Cuadernos fundamentados en fuentes
@@ -73,6 +75,13 @@ los disparadores repetidos. Las fuentes sin cambios reutilizan fragmentos; solo
 se vuelven a extraer las modificadas. Una revisión incompleta nunca se hace
 visible. Tras la primera revisión correcta, la conversación sigue utilizando
 la última revisión completa mientras se ejecuta la actualización.
+
+Las fuentes URL solo se revalidan después de
+`GNOSI_NOTEBOOK_URL_REFRESH_TTL_SECONDS` (seis horas por defecto). Gnosi envía
+los validadores ETag y Last-Modified guardados mediante el mismo descargador
+protegido contra SSRF y con redirecciones validadas. Si el servidor no ofrece
+validadores, compara un hash acotado del contenido. Una comprobación sin
+cambios queda registrada, pero no activa una revisión nueva de evidencia.
 
 Retirar un Recurso elimina inmediatamente su pertenencia. La recuperación y el
 análisis global comprueban los miembros actuales, de modo que la evidencia
@@ -156,10 +165,19 @@ entran en la evidencia. Las páginas marcadas como plantillas de tabla se
 excluyen del selector, de la validación de peticiones y de las instantáneas de
 ingesta.
 
+También se excluyen los registros sin adjuntos ni URL HTTP públicas; el
+selector indica cuántos se han omitido en lugar de ofrecer una opción
+inutilizable.
+
 En escritorio, fuentes, conversación integrada y configuración se muestran
 juntas. En móvil se convierten en pestañas. Solo se sondea el cuaderno activo y
 visible: un intervalo corto sigue la ingestión y otro acotado actualiza la
 conversación colaborativa.
+
+Los lectores del workspace ven la conversación canónica en un chat claramente
+de solo lectura, sin compositor ni acciones de reintento, edición o rebobinado.
+Solo los editores pueden enviar turnos y solo el creador ve la actualización
+manual y los demás controles de gestión.
 
 ## Errores, operaciones y verificación
 
@@ -174,7 +192,12 @@ nativos y Docker.
 
 Las pruebas cubren exclusión de campos no fuente, reutilización incremental,
 retirada inmediata, citas, ACL, checkpoints, herramientas de solo lectura,
-filtros del selector y análisis durable. Los límites actuales son mil Recursos por petición,
+filtros del selector y análisis durable. También cubren PDF, URL, OCR,
+fragmentos grandes, recuperación de arrendamientos caducados, validación web
+condicional y una ingesta real de 300 Recursos. Vitest y Playwright verifican
+los permisos de solo lectura, la exclusión de Recursos vacíos, la conversación
+fundamentada, una cita navegable y la actualización automática. Los límites
+actuales son mil Recursos por petición,
 doscientas filas de selector por página, cincuenta resultados de recuperación y
 lotes de análisis acotados. La configuración y los índices son locales a una
 instancia y no se sincronizan entre instalaciones.
