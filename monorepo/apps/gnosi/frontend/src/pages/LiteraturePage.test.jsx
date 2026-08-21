@@ -5,7 +5,7 @@ import axios from 'axios';
 
 import LiteraturePage from './LiteraturePage';
 
-vi.mock('axios', () => ({ default: { get: vi.fn(), post: vi.fn() } }));
+vi.mock('axios', () => ({ default: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() } }));
 vi.mock('../plugins/usePlugins', () => ({ usePlugins: () => ({ isEnabled: () => true }) }));
 vi.mock('../lib/toast', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 const translate = vi.hoisted(() => (key, values = {}) => Object.entries(values).reduce(
@@ -46,6 +46,7 @@ const work = {
 async function renderPage() {
     axios.get.mockImplementation((url) => {
         if (url === '/api/vault/literature/configuration') return Promise.resolve({ data: { sources: [{ id: 'crossref', name: 'Crossref', automated: true, enabled: true, available: true, hidden: false, kind: 'api' }] } });
+        if (url === '/api/vault/literature/searches') return Promise.resolve({ data: { searches: [] } });
         if (url === '/api/vault/literature/reviews') return Promise.resolve({ data: { reviews: [] } });
         if (url.startsWith('/api/vault/literature/searches/')) return Promise.resolve({ data: { id: 'search-1', state: 'completed', result_count: 1, source_status: { crossref: { state: 'completed', count: 1 } }, results: [work], errors: [] } });
         return Promise.resolve({ data: {} });
@@ -65,6 +66,13 @@ async function renderPage() {
 async function typeInto(input, value) {
     await act(async () => {
         Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, value);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+}
+
+async function typeIntoTextarea(input, value) {
+    await act(async () => {
+        Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(input, value);
         input.dispatchEvent(new Event('input', { bubbles: true }));
     });
 }
@@ -97,5 +105,65 @@ describe('LiteraturePage', () => {
         const add = [...container.querySelectorAll('button')].find((button) => button.textContent.includes('literature.result.add'));
         await act(async () => add.click());
         expect(axios.post).toHaveBeenCalledWith('/api/vault/literature/imports', { works: [work] });
+    });
+
+    it('sends an editable source-specific query to the federated search', async () => {
+        await renderPage();
+        const input = container.querySelector('input[aria-label="literature.search.query"]');
+        await typeInto(input, 'climate adaptation');
+        const sourceQuery = container.querySelector('.literature-source-queries textarea');
+        await typeIntoTextarea(sourceQuery, 'TITLE(climate) AND adaptation');
+        await act(async () => container.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+        expect(axios.post).toHaveBeenCalledWith('/api/vault/literature/searches', expect.objectContaining({
+            query: 'climate adaptation', source_queries: { crossref: 'TITLE(climate) AND adaptation' },
+        }));
+    });
+
+    it('uses server-sent events, supports cancellation, and falls back to the same paginated contract', async () => {
+        const streams = [];
+        class FakeEventSource {
+            constructor(url) { this.url = url; this.listeners = {}; this.closed = false; streams.push(this); }
+            addEventListener(name, listener) { this.listeners[name] = listener; }
+            close() { this.closed = true; }
+        }
+        window.EventSource = FakeEventSource;
+        await renderPage();
+        let state = 'running';
+        axios.post.mockResolvedValue({ data: { id: 'search-live', state: 'queued' } });
+        axios.get.mockImplementation((url, config) => {
+            if (url.includes('/searches/search-live')) return Promise.resolve({ data: { id: 'search-live', query: 'live evidence', state, result_count: 60, results: [work], source_status: {}, errors: [], offset: config?.params?.offset || 0 } });
+            return Promise.resolve({ data: { searches: [] } });
+        });
+        axios.delete.mockImplementation(() => { state = 'cancelled'; return Promise.resolve({ data: {} }); });
+        const input = container.querySelector('input[aria-label="literature.search.query"]');
+        await typeInto(input, 'live evidence');
+        await act(async () => container.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+        expect(streams[0].url).toContain('/searches/search-live/events?after=0');
+        await act(async () => streams[0].listeners['source.completed']({ lastEventId: '2' }));
+        expect(axios.get).toHaveBeenCalledWith('/api/vault/literature/searches/search-live', { params: { offset: 0, limit: 50 } });
+        const next = [...container.querySelectorAll('button')].find((button) => button.textContent.includes('common.next'));
+        await act(async () => next.click());
+        expect(axios.get).toHaveBeenCalledWith('/api/vault/literature/searches/search-live', { params: { offset: 50, limit: 50 } });
+        const cancel = [...container.querySelectorAll('button')].find((button) => button.textContent.includes('literature.search.cancel'));
+        await act(async () => cancel.click());
+        expect(axios.delete).toHaveBeenCalledWith('/api/vault/literature/searches/search-live');
+        expect(streams[0].closed).toBe(true);
+    });
+
+    it('creates a review with a recorded protocol and explicit eligibility criteria', async () => {
+        await renderPage();
+        const reviewTab = [...container.querySelectorAll('button')].find((button) => button.textContent.includes('literature.tabs.reviews'));
+        await act(async () => reviewTab.click());
+        const fields = container.querySelectorAll('.literature-review-list textarea');
+        await typeIntoTextarea(fields[0], 'Which interventions work?');
+        await typeIntoTextarea(fields[1], 'Search all configured academic repositories.');
+        await typeIntoTextarea(fields[2], 'Adults\nPeer reviewed');
+        await typeIntoTextarea(fields[3], 'Wrong population');
+        const create = [...container.querySelectorAll('button')].find((button) => button.textContent.includes('literature.review.create'));
+        await act(async () => create.click());
+        expect(axios.post).toHaveBeenCalledWith('/api/vault/literature/reviews', expect.objectContaining({
+            protocol: 'Search all configured academic repositories.',
+            criteria: { include: ['Adults', 'Peer reviewed'], exclude: ['Wrong population'] },
+        }));
     });
 });

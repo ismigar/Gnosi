@@ -11,7 +11,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Modules | Lines |
 | --- | ---: | ---: |
 | `agent` | 45 | 17704 |
-| `api` | 38 | 37765 |
+| `api` | 38 | 37839 |
 | `application root` | 6 | 642 |
 | `config` | 8 | 861 |
 | `data` | 2 | 295 |
@@ -20,12 +20,12 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `scheduler` | 2 | 979 |
 | `scripts` | 3 | 130 |
 | `security` | 5 | 785 |
-| `services` | 132 | 44829 |
+| `services` | 132 | 45364 |
 | `sh` | 1 | 69 |
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **262 modules** and **106115 source lines**.
+Total: **262 modules** and **106724 source lines**.
 
 ## agent
 
@@ -97,7 +97,7 @@ Total: **262 modules** and **106115 source lines**.
 | [`backend/api/handwriting_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/handwriting_routes.py) | 77 | 0 | 3 | 3 | 3 | LOCAL handwriting recognition endpoint (ink → text) using TrOCR. |
 | [`backend/api/identity_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/identity_routes.py) | 60 | 1 | 3 | 2 | 0 | No module docstring |
 | [`backend/api/integrations_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/integrations_routes.py) | 413 | 0 | 17 | 12 | 16 | No module docstring |
-| [`backend/api/literature_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/literature_routes.py) | 301 | 12 | 30 | 12 | 0 | HTTP contracts for academic search and systematic literature review. |
+| [`backend/api/literature_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/literature_routes.py) | 375 | 15 | 33 | 15 | 0 | HTTP contracts for academic search and systematic literature review. |
 | [`backend/api/mail_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/mail_routes.py) | 1942 | 0 | 62 | 43 | 30 | No module docstring |
 | [`backend/api/meeting_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/meeting_routes.py) | 58 | 0 | 3 | 2 | 2 | Endpoints for the AI meeting notetaker. |
 | [`backend/api/microsoft_auth_routes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/microsoft_auth_routes.py) | 157 | 0 | 4 | 3 | 0 | Microsoft OAuth2 authentication routes. |
@@ -206,7 +206,7 @@ Total: **262 modules** and **106115 source lines**.
 | Module | Lines | Classes | Functions | Async | Documented declarations | Purpose signal |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | [`backend/services/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/__init__.py) | 0 | 0 | 0 | 0 | 0 | No module docstring |
-| [`backend/services/academic_connectors.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/academic_connectors.py) | 814 | 1 | 36 | 20 | 12 | Authorized academic APIs, safe custom HTTP, and OAI-PMH parsing. |
+| [`backend/services/academic_connectors.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/academic_connectors.py) | 961 | 1 | 46 | 22 | 17 | Authorized academic APIs, safe custom HTTP, and OAI-PMH parsing. |
 | [`backend/services/action_rules.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/action_rules.py) | 279 | 0 | 10 | 0 | 7 | Declarative action rules per table (`table.action_rules` block). |
 | [`backend/services/active_vault_middleware.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/active_vault_middleware.py) | 108 | 1 | 2 | 0 | 2 | ASGI Middleware: sets the ACTIVE vault from `X-Vault-Id` in a context that PROPAGATES. |
 | [`backend/services/agent_cancellation.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/agent_cancellation.py) | 115 | 1 | 7 | 1 | 7 | Cooperative cancellation for streamed agent turns. |
@@ -258,11 +258,11 @@ Total: **262 modules** and **106115 source lines**.
 | [`backend/services/import_dedup.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/import_dedup.py) | 134 | 0 | 5 | 0 | 3 | Deduplication in `POST /import-references`. |
 | [`backend/services/integration_manager.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/integration_manager.py) | 337 | 1 | 0 | 0 | 0 | No module docstring |
 | [`backend/services/library_paths.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/library_paths.py) | 25 | 0 | 2 | 0 | 2 | SINGLE resolution of the attachments folder: ALWAYS `<vault>/Library`. |
-| [`backend/services/literature_ai_service.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/literature_ai_service.py) | 133 | 0 | 7 | 0 | 1 | Explicit, audited AI assistance for literature workflows. |
-| [`backend/services/literature_import_service.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/literature_import_service.py) | 194 | 0 | 6 | 1 | 4 | Atomic AcademicWork import into the designated Resources table. |
-| [`backend/services/literature_models.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/literature_models.py) | 350 | 0 | 21 | 0 | 10 | Canonical academic-work normalization and deterministic deduplication. |
-| [`backend/services/literature_review_service.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/literature_review_service.py) | 459 | 0 | 30 | 9 | 2 | Vault-native systematic-review records, blind decisions, and exports. |
-| [`backend/services/literature_service.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/literature_service.py) | 863 | 0 | 45 | 3 | 7 | Federated academic search, repository configuration, and OAI indexing. |
+| [`backend/services/literature_ai_service.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/literature_ai_service.py) | 177 | 0 | 8 | 0 | 2 | Explicit, audited AI assistance for literature workflows. |
+| [`backend/services/literature_import_service.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/literature_import_service.py) | 250 | 0 | 7 | 1 | 5 | Atomic AcademicWork import into the designated Resources table. |
+| [`backend/services/literature_models.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/literature_models.py) | 351 | 0 | 21 | 0 | 10 | Canonical academic-work normalization and deterministic deduplication. |
+| [`backend/services/literature_review_service.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/literature_review_service.py) | 593 | 0 | 32 | 10 | 4 | Vault-native systematic-review records, blind decisions, and exports. |
+| [`backend/services/literature_service.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/literature_service.py) | 1016 | 0 | 50 | 4 | 11 | Federated academic search, repository configuration, and OAI indexing. |
 | [`backend/services/llm_wiki.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/llm_wiki.py) | 1160 | 0 | 29 | 0 | 11 | Incremental Zettelkasten ingestion for Gnosi's built-in LLM Wiki. |
 | [`backend/services/llm_wiki_actions.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/llm_wiki_actions.py) | 185 | 1 | 4 | 1 | 5 | Application actions shared by LLM Wiki HTTP routes and agent tools. |
 | [`backend/services/llm_wiki_agent.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/llm_wiki_agent.py) | 215 | 1 | 7 | 0 | 8 | Lifecycle and protection rules for the built-in LLM Wiki agent profile. |

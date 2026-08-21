@@ -57,6 +57,8 @@ class SearchRequest(BaseModel):
     query: str = Field(min_length=1, max_length=2_000)
     filters: dict[str, Any] = Field(default_factory=dict)
     source_ids: list[str] = Field(default_factory=list, max_length=100)
+    source_queries: dict[str, str] = Field(default_factory=dict)
+    ai_audits: list[dict[str, Any]] = Field(default_factory=list, max_length=50)
     limit_per_source: int = Field(default=25, ge=1, le=100)
 
 
@@ -112,10 +114,30 @@ class ConflictRequest(BaseModel):
     notes: str = Field(default="", max_length=20_000)
 
 
+class FullTextRequest(BaseModel):
+    status: Literal["not_requested", "requested", "available_oa", "attached", "unavailable", "assessed"]
+    location_url: str = Field(default="", max_length=4_000)
+    license: str = Field(default="", max_length=500)
+    resource_id: str = Field(default="", max_length=160)
+    notes: str = Field(default="", max_length=20_000)
+
+
+class SnowballRequest(BaseModel):
+    seeds: list[dict[str, Any]] = Field(min_length=1, max_length=20)
+    direction: Literal["backward", "forward", "both"] = "both"
+    limit_per_seed: int = Field(default=25, ge=1, le=100)
+
+
+class ManualCaptureRequest(BaseModel):
+    value: str = Field(min_length=1, max_length=4_000)
+    kind: Literal["auto", "doi", "pmid", "arxiv", "isbn", "url"] = "auto"
+
+
 class AiOperationRequest(BaseModel):
     operation: Literal["query_strategy", "translate_query", "rerank", "screen", "synthesize", "snowball"]
     payload: dict[str, Any] = Field(default_factory=dict)
     review_id: str = Field(default="", max_length=64)
+    search_id: str = Field(default="", max_length=64)
 
 
 @router.get("/configuration")
@@ -184,7 +206,7 @@ def list_searches(limit: int = Query(default=50, ge=1, le=200), context: Workspa
 
 @router.post("/searches", status_code=202)
 async def create_search(payload: SearchRequest, context: WorkspaceContext = Depends(require_role("viewer"))):
-    return literature_service.start_search(context.vault_path, query=payload.query, filters=payload.filters, source_ids=payload.source_ids, limit_per_source=payload.limit_per_source, owner_user_id=context.user_id)
+    return literature_service.start_search(context.vault_path, query=payload.query, filters=payload.filters, source_ids=payload.source_ids, source_queries=payload.source_queries, ai_audits=payload.ai_audits, limit_per_source=payload.limit_per_source, owner_user_id=context.user_id)
 
 
 @router.get("/searches/{search_id}")
@@ -252,7 +274,8 @@ async def create_review(payload: ReviewCreateRequest, background_tasks: Backgrou
 
 @router.get("/reviews/{review_id}")
 def get_review(review_id: str, context: WorkspaceContext = Depends(require_role("viewer"))):
-    return {"review": literature_review_service.get_review(review_id), "activities": literature_review_service.list_activities(review_id), "candidates": literature_review_service.list_candidates(review_id, context)}
+    audit = literature_review_service.review_audit(review_id, context)
+    return {"review": audit["review"], "activities": audit["activities"], "candidates": audit["candidates"], "prisma": audit["prisma"]}
 
 
 @router.post("/reviews/{review_id}/activities", status_code=201)
@@ -287,11 +310,62 @@ async def resolve_conflict(review_id: str, candidate_id: str, payload: ConflictR
     return await literature_review_service.resolve_conflict(review_id, candidate_id, payload.model_dump(), background_tasks, context)
 
 
+@router.put("/reviews/{review_id}/candidates/{candidate_id}/full-text")
+async def update_candidate_full_text(review_id: str, candidate_id: str, payload: FullTextRequest, background_tasks: BackgroundTasks, context: WorkspaceContext = Depends(require_role("editor"))):
+    return await literature_review_service.update_full_text(review_id, candidate_id, payload.model_dump(), background_tasks, context)
+
+
+@router.post("/reviews/{review_id}/snowball")
+async def discover_review_citations(review_id: str, payload: SnowballRequest, background_tasks: BackgroundTasks, context: WorkspaceContext = Depends(require_role("editor"))):
+    literature_review_service.get_review(review_id)
+    result = await literature_service.discover_citation_neighbors(
+        context.vault_path,
+        payload.seeds,
+        direction=payload.direction,
+        limit_per_seed=payload.limit_per_seed,
+    )
+    result["works"] = literature_import_service.mark_resource_membership(result["works"], context)
+    activity = await literature_review_service.append_activity(
+        review_id,
+        "snowball",
+        {
+            "strategy": {"direction": payload.direction, "seed_ids": [seed.get("id") for seed in payload.seeds]},
+            "exact_queries": result["exact_queries"],
+            "source_snapshot": [{"id": result["provider"], "kind": "citation_graph"}],
+            "counts": result["counts"],
+        },
+        background_tasks,
+        context,
+    )
+    return {**result, "activity_id": activity.get("id")}
+
+
+@router.post("/manual-capture")
+async def manual_capture(payload: ManualCaptureRequest, context: WorkspaceContext = Depends(require_role("viewer"))):
+    from backend.api.vault_routes import lookup_metadata
+
+    value = payload.value.strip()
+    lookup_payload = {payload.kind: value} if payload.kind != "auto" else {
+        "doi": value, "pmid": value, "arxiv": value, "isbn": value, "url": value,
+    }
+    result = await lookup_metadata(lookup_payload)
+    if not result.get("suggested"):
+        raise HTTPException(status_code=404, detail=result.get("error") or "No academic metadata was found.")
+    work = literature_import_service.suggested_resource_to_work(
+        result["suggested"],
+        provider=str(result.get("source") or "manual"),
+        provider_id=str(result.get("identifier") or value),
+    )
+    return {"lookup": {key: result.get(key) for key in ("source", "identifier", "error")}, "work": literature_import_service.mark_resource_membership([work], context)[0]}
+
+
 @router.post("/ai")
 async def run_ai_operation(payload: AiOperationRequest, background_tasks: BackgroundTasks, context: WorkspaceContext = Depends(require_role("editor"))):
     result = await asyncio.to_thread(literature_ai_service.run_operation, payload.operation, payload.payload)
     if payload.review_id:
         await literature_review_service.append_activity(payload.review_id, f"ai:{payload.operation}", {"ai_audit": result["audit"], "notes": json.dumps(result["result"], ensure_ascii=False)}, background_tasks, context)
+    if payload.search_id:
+        literature_service.append_search_ai_audit(context.vault_path, payload.search_id, payload.operation, result["audit"])
     return result
 
 

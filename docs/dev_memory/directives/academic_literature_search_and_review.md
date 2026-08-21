@@ -121,9 +121,17 @@ Import repeats deterministic deduplication against Resources inside an atomic pe
 ## Search lifecycle
 
 - A search stores the original query, structured filters, selected sources, exact translated query per source, start and completion timestamps, errors, counts, and user-visible snapshots.
+- The exact-query audit stores the connector version, provider syntax, and the
+  effective public request parameters actually used. Never reconstruct these
+  values in the frontend from the original query.
+- Search counters distinguish raw provider occurrences, deterministic unions,
+  fuzzy warnings, and final unique works. These counters feed review activities
+  and PRISMA duplicate-removal totals.
 - Search creation returns immediately with an identifier.
 - Connectors execute independently and emit progressive source-status and result events through SSE.
-- Search state and paginated results are retrievable without SSE so reconnecting clients can resume.
+- The frontend consumes SSE with cursor replay and falls back to bounded
+  polling. Search state and paginated results remain retrievable without SSE so
+  reconnecting clients can resume.
 - Cancellation prevents new connector work and closes pending tasks where the client permits it. Completed partial results remain available.
 - Rate limits, authentication failures, parse errors, and provider outages are recorded per source and do not turn a partially successful search into a global failure.
 - Result ordering has an immutable deterministic order. Optional semantic reranking adds a separate rank and explanation without hiding the original order.
@@ -163,6 +171,8 @@ Review phases are identified, title/abstract screening, full text requested, ful
 
 In individual mode, the latest non-replaced human decision advances the candidate. In dual-blind mode, each reviewer's current decision remains hidden from the other reviewer until both have decided. Matching decisions advance the candidate; disagreements enter conflict resolution. Resolution is an explicit human decision with its own audit row. Prior decisions are never edited or deleted.
 
+Dual-blind reviews have exactly two assigned reviewers. The creator occupies one slot and must name one distinct second reviewer; silently accepting extra reviewers produces an ambiguous release condition and is not allowed.
+
 Saved strategies are versioned. Scheduled updates create a new activity, run the stored version, deduplicate against existing candidates, and flag only newly discovered works. Citation and reference snowballing records the seed, direction, provider, and resulting candidates.
 
 ## Audit and PRISMA exports
@@ -176,16 +186,31 @@ Exports are deterministic and generated from immutable activity and decision rec
 
 PRISMA counts identify database/register records, duplicate removals, screening exclusions, reports sought, reports unavailable, full-text exclusions with reasons, and included studies. Generated SVG is escaped, contains no scripts or external resources, and remains usable without the frontend.
 
+Exclusion reasons are required for human exclusions. Full-text state changes
+are explicit human actions and record whether a verified open-access location,
+an attached Resource, or an unavailable report supports the state. Do not infer
+full-text assessment merely from an open URL.
+
 ## AI assistance
 
 - AI controls are opt-in per operation.
 - Query assistance extracts editable PICO or SPIDER concepts, multilingual synonyms, variants, and Boolean proposals.
 - Source translation returns editable exact syntax for each connector.
+- Accepted source translations are persisted separately from the shared query,
+  executed only for their matching connector, and included in scheduled strategy
+  versions and request audit.
 - Semantic reranking retains and exposes deterministic rank.
 - Screening suggestions include inclusion/exclusion/uncertain, rationale, confidence, and evidence scope. They do not write a human decision or advance a phase.
 - Synthesis uses only explicitly selected works and labels whether evidence came from title, abstract, metadata, or verified full text.
 - Snowballing suggestions distinguish retrieved citation metadata from model-proposed queries.
+- Deterministic backward and forward snowballing runs before optional AI:
+  retrieve citation metadata from authorized provider APIs, preserve the seed
+  and direction, deduplicate returned works, and require a human to add them as
+  candidates.
 - Every AI activity records provider, model, timestamp, token or usage estimate, cost when supplied, evidence level, selected resource identifiers, and prompt-operation version.
+- Pre-search AI operations travel into the persisted search audit when the
+  search starts. Post-search operations append their server-produced audit to
+  that same history item; the frontend must not reconstruct model or cost data.
 - Missing providers, model errors, and cost-limit refusals return a safe user-visible error while deterministic search and review continue.
 - Local embeddings are preferred for zero-cost reranking when available and must follow the current architecture-specific dependency constraints.
 
@@ -210,6 +235,8 @@ Mutating endpoints use existing CSRF and authorization conventions. Public API r
 - `View` opens a metadata panel with variants, field provenance, OA locations, and original links. It does not store or download a file.
 - Multi-selection supports batch import and then sending successfully imported Resources to a Notebook.
 - Review views support saved strategies, candidate queues, blind screening, conflict resolution, audit history, exports, and accessible keyboard operation.
+- OAI source settings expose live received/indexed/deleted counts, incremental
+  synchronization, full reindexing, cancellation, and resumption.
 - Every user-facing string exists in Catalan, English, Spanish, and French locale catalogs.
 
 ## Restrictions and edge cases
@@ -227,6 +254,24 @@ Mutating endpoints use existing CSRF and authorization conventions. Public API r
 - Do not hard-code native paths or Docker hostnames. Use `LOCAL_DATA` and environment-aware helpers.
 - Do not advance OAI cursors on failed or cancelled jobs. Resume from the last committed token or last successful datestamp.
 - Do not delete historical source snapshots when a repository is removed. Only its reconstructible index may be deleted.
+- Do not report PRISMA duplicate removals as zero when originating searches
+  merged occurrences. Persist and aggregate measured counters instead.
+- Do not label a source query as exact when it is only the shared user query.
+- Do not apply one provider-specific AI translation to every connector. Store
+  and execute it by source identifier, while retaining the original query.
+- Do not index an arbitrary URL as verified full text. Manual capture may reuse
+  the identifier lookup service for metadata, but attachment and OA verification
+  remain explicit later actions.
+- Do not implement citation expansion by scraping result pages. Use authorized
+  Semantic Scholar references/citations or OpenAlex referenced-works/cites APIs,
+  and require human selection before creating candidates.
+- Do not make Docker CI depend on an interactively provisioned runner binary or
+  blocking sudo cleanup. Install a pinned, checksum-verified client in the job
+  workspace and fail fast when the container runtime itself is unavailable.
+- Do not import the monolithic vault API route module from a literature service
+  to resolve plugin paths or state. It initializes unrelated subsystems and can
+  make catalog requests exceed the frontend timeout. Read the requested vault's
+  `.gnosi/plugins.json` through a small service-level helper instead.
 
 ## Verification requirements
 

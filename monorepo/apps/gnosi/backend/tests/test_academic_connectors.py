@@ -130,3 +130,61 @@ def test_generic_rest_page_pagination_is_bounded(monkeypatch):
     }, "evidence", {}, 3))
     assert [work["title"] for work in works] == ["Title 1", "Title 2", "Title 3"]
     assert [call["page"] for call in calls] == [1, 2, 3]
+
+
+def test_request_audit_redacts_academic_api_credentials():
+    value = academic_connectors._auditable_url("https://api.openalex.org/works?search=test&api_key=secret")
+    assert "secret" not in value
+    assert "api_key=%5Bconfigured%5D" in value
+    assert "search=test" in value
+
+
+def test_openalex_search_sends_the_configured_api_key(monkeypatch):
+    captured = {}
+
+    async def fake_get(_url, *, params):
+        captured.update(params)
+        return {"results": []}, "https://api.openalex.org/works", {}
+
+    monkeypatch.setattr(academic_connectors, "safe_get_json", fake_get)
+    asyncio.run(academic_connectors.search_openalex("evidence", {}, 10, "configured-key"))
+    assert captured["api_key"] == "configured-key"
+    assert "mailto" not in captured
+
+
+def test_semantic_scholar_neighbors_use_supported_ids_and_relation_shape(monkeypatch):
+    calls = []
+
+    async def fake_get(url, *, params, headers):
+        calls.append((url, params, headers))
+        return {"data": [{"citedPaper": {
+            "paperId": "neighbor-1", "title": "Cited evidence", "year": 2022,
+            "authors": [{"name": "Ada Riu"}], "externalIds": {"DOI": "10.1000/cited"},
+            "url": "https://www.semanticscholar.org/paper/neighbor-1", "openAccessPdf": {},
+        }}]}, url, {}
+
+    monkeypatch.setattr(academic_connectors, "safe_get_json", fake_get)
+    seed = canonical_work("crossref", "seed", title="Seed", identifiers={"doi": "10.1000/seed", "isbn13": [], "provider": {}})
+    works = asyncio.run(academic_connectors.semantic_scholar_neighbors([seed], "backward", 5, "api-key"))
+    assert calls[0][0].endswith("/paper/DOI%3A10.1000%2Fseed/references")
+    assert calls[0][2] == {"x-api-key": "api-key"}
+    assert works[0]["title"] == "Cited evidence"
+    assert works[0]["identifiers"]["doi"] == "10.1000/cited"
+
+
+def test_generic_rest_maps_complete_canonical_contract(monkeypatch):
+    async def fake_get(*_args, **_kwargs):
+        return {"items": [{
+            "key": "one", "name": "Evidence", "journal": "Review Journal", "isbn": ["9780306406157"],
+            "citations": 7, "oa": True,
+        }]}, "https://repo.example/search", {}
+
+    monkeypatch.setattr(academic_connectors, "validate_public_https_url", lambda value: value)
+    monkeypatch.setattr(academic_connectors, "safe_get_json", fake_get)
+    works = asyncio.run(academic_connectors.search_generic_json({
+        "id": "custom", "base_url": "https://repo.example/search", "results_path": "items",
+        "mapping": {"provider_id": "key", "title": "name", "container": "journal", "isbn": "isbn", "citations": "citations", "is_oa": "oa"},
+    }, "evidence", {}, 1))
+    assert works[0]["publication"]["container_title"] == "Review Journal"
+    assert works[0]["identifiers"]["isbn13"] == ["9780306406157"]
+    assert works[0]["metrics"]["citations"] == {"custom": 7}

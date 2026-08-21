@@ -21,10 +21,11 @@ afterEach(async () => {
     vi.clearAllMocks();
 });
 
-async function renderConfig() {
+async function renderConfig(extraSources = []) {
     const configuration = { contact_email: '', source_defaults: {}, hidden_sources: [], sources: [
         { id: 'crossref', name: 'Crossref', kind: 'api', group: 'open', automated: true, implemented: true, available: true, enabled: true, hidden: false },
         { id: 'google-scholar', name: 'Google Scholar', kind: 'external', group: 'external', automated: false, implemented: false, available: false, enabled: false, hidden: false, search_url: 'https://scholar.google.com/scholar?q={query}' },
+        ...extraSources,
     ] };
     axios.get.mockImplementation((url) => {
         if (url === '/api/vault/literature/configuration') return Promise.resolve({ data: configuration });
@@ -48,5 +49,14 @@ describe('ResourcesPluginConfig', () => {
         expect(axios.put).toHaveBeenCalledWith('/api/vault/literature/configuration', { source_defaults: { crossref: false } });
         const external = container.querySelector('a[href^="https://scholar.google.com"]');
         expect(external).not.toBeNull();
+    });
+
+    it('shows live OAI progress and requests cancellation', async () => {
+        axios.delete.mockResolvedValue({ data: {} });
+        await renderConfig([{ id: 'dialnet-articles', name: 'Dialnet Articles', kind: 'oai', group: 'open', automated: true, implemented: true, available: true, enabled: true, hidden: false, sync: { state: 'running', index_size: 120, received_count: 150, indexed_count: 120, deleted_count: 2 } }]);
+        expect(container.textContent).toContain('literature.settings.sync_progress');
+        const cancel = container.querySelector('[aria-label="literature.settings.cancel_sync"]');
+        await act(async () => cancel.click());
+        expect(axios.delete).toHaveBeenCalledWith('/api/vault/literature/synchronizations/dialnet-articles');
     });
 });

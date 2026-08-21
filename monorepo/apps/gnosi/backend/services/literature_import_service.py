@@ -10,6 +10,7 @@ from fastapi import BackgroundTasks, HTTPException
 
 from backend.services.context_vars import active_vault_path, get_primary_vault_path
 from backend.services.literature_models import (
+    canonical_work,
     deterministic_key,
     normalize_arxiv,
     normalize_doi,
@@ -22,6 +23,61 @@ from backend.services.workspace_service import WorkspaceContext
 
 
 _IMPORT_LOCK = threading.RLock()
+
+
+def suggested_resource_to_work(
+    suggested: dict[str, Any], *, provider: str, provider_id: str,
+) -> dict[str, Any]:
+    """Convert the existing identifier-lookup suggestion into AcademicWork."""
+    extras = suggested.get("Zotero Extras") if isinstance(suggested.get("Zotero Extras"), dict) else {}
+    authors_value = suggested.get("Authors") or []
+    authors = [part.strip() for part in str(authors_value).split(";") if part.strip()] if isinstance(authors_value, str) else authors_value
+    item_type = str(suggested.get("Item Type") or "").casefold()
+    if "article" in item_type or "article" in str(extras.get("itemType") or "").casefold():
+        canonical_type = "journal-article"
+    elif any(value in item_type for value in ("book", "llibre", "libro", "livre")):
+        canonical_type = "book"
+    elif any(value in item_type for value in ("thesis", "tesi", "tesis", "thèse")):
+        canonical_type = "thesis"
+    elif "preprint" in item_type:
+        canonical_type = "preprint"
+    else:
+        canonical_type = "other"
+    url = str(suggested.get("URL") or extras.get("url") or "")
+    open_access = suggested.get("Open Access") is True
+    isbn_values = [value.strip() for value in str(suggested.get("ISBN") or "").replace(",", ";").split(";") if value.strip()]
+    return canonical_work(
+        provider,
+        provider_id,
+        title=suggested.get("Title"),
+        authors=authors,
+        dates={"issued": suggested.get("Any") or "", "online": "", "print": ""},
+        year=suggested.get("Any"),
+        abstract=suggested.get("Abstract") or extras.get("abstractNote") or "",
+        type=canonical_type,
+        publication={
+            "container_title": suggested.get("Llibre/Revista") or "",
+            "publisher": suggested.get("Editorial") or "",
+            "volume": suggested.get("Volum") or "",
+            "issue": suggested.get("Número") or "",
+            "pages": suggested.get("Pàgines") or "",
+        },
+        language=suggested.get("Idioma") or "",
+        identifiers={
+            "doi": suggested.get("DOI"),
+            "pmid": suggested.get("PMID"),
+            "pmcid": suggested.get("PMCID"),
+            "arxiv": suggested.get("arXiv"),
+            "isbn13": isbn_values,
+            "provider": {},
+        },
+        open_access={
+            "is_oa": open_access if "Open Access" in suggested else None,
+            "license": suggested.get("License") or extras.get("rights") or "",
+            "best_location": {"url": url, "landing_page_url": url, "pdf_url": "", "is_oa": open_access, "license": ""} if url else None,
+        },
+        locations=[{"url": url, "landing_page_url": url, "pdf_url": "", "is_oa": open_access, "license": ""}] if url else [],
+    )
 
 
 def work_to_zotero(work: dict[str, Any]) -> dict[str, Any]:

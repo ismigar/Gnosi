@@ -1,5 +1,6 @@
 from backend.services.literature_models import (
     canonical_work,
+    clean_text,
     deduplicate_works,
     deterministic_key,
     normalize_arxiv,
@@ -24,6 +25,10 @@ def test_identifier_normalization_removes_resolvers_and_versions():
     assert normalize_doi("https://doi.org/10.1000/ABC.123.") == "10.1000/abc.123"
     assert normalize_arxiv("arXiv:2401.01234v3") == "2401.01234"
     assert normalize_isbn13("978-0-306-40615-7") == "9780306406157"
+
+
+def test_provider_text_decodes_entities_before_removing_markup():
+    assert clean_text("&lt;strong&gt;Open&amp;nbsp; science&lt;/strong&gt;") == "Open science"
 
 
 def test_deterministic_key_uses_required_identifier_priority():

@@ -7,6 +7,7 @@ import unicodedata
 from copy import deepcopy
 from datetime import datetime, timezone
 from difflib import SequenceMatcher
+from html import unescape
 from typing import Any, Iterable
 
 
@@ -33,7 +34,7 @@ def now_iso() -> str:
 
 def clean_text(value: Any, limit: int = 50_000) -> str:
     """Normalize arbitrary provider text while preserving readable Unicode."""
-    text = re.sub(r"<[^>]+>", " ", str(value or ""))
+    text = re.sub(r"<[^>]+>", " ", unescape(unescape(str(value or ""))))
     text = " ".join(text.split()).strip()
     return text[:limit]
 

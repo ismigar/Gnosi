@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 from datetime import datetime, timezone
 from typing import Any
 
@@ -12,6 +13,9 @@ from backend.services.literature_models import normalize_title
 
 
 OPERATIONS = {"query_strategy", "translate_query", "rerank", "screen", "synthesize", "snowball"}
+_EMBEDDING_MODEL: Any = None
+_EMBEDDING_UNAVAILABLE = False
+_EMBEDDING_LOCK = threading.Lock()
 
 
 def _now() -> str:
@@ -48,7 +52,7 @@ def _bounded_works(values: Any, limit: int = 100) -> list[dict[str, Any]]:
     } for item in works[:limit]]
 
 
-def _local_rerank(query: str, works: list[dict[str, Any]]) -> dict[str, Any]:
+def _token_overlap_rerank(query: str, works: list[dict[str, Any]]) -> dict[str, Any]:
     query_tokens = set(normalize_title(query).split())
     ranked = []
     for ordinal, work in enumerate(works):
@@ -59,7 +63,42 @@ def _local_rerank(query: str, works: list[dict[str, Any]]) -> dict[str, Any]:
     ranked.sort(key=lambda item: (-item["score"], item["original_rank"]))
     for rank, item in enumerate(ranked, start=1):
         item["semantic_rank"] = rank
-    return {"ranking": ranked, "explanation": "Local token-overlap ranking; the original rank is preserved."}
+    return {"ranking": ranked, "explanation": "Local token-overlap fallback; the original rank is preserved."}
+
+
+def _local_embedding_rerank(query: str, works: list[dict[str, Any]]) -> tuple[dict[str, Any], str, str | None]:
+    """Use cached local embeddings when available, with a deterministic fallback."""
+    global _EMBEDDING_MODEL, _EMBEDDING_UNAVAILABLE
+    if not query.strip() or not works:
+        return _token_overlap_rerank(query, works), "local-token-overlap", "Empty query or result set."
+    if _EMBEDDING_MODEL is None and not _EMBEDDING_UNAVAILABLE:
+        with _EMBEDDING_LOCK:
+            if _EMBEDDING_MODEL is None and not _EMBEDDING_UNAVAILABLE:
+                try:
+                    from sentence_transformers import SentenceTransformer
+
+                    _EMBEDDING_MODEL = SentenceTransformer(
+                        "sentence-transformers/all-MiniLM-L6-v2",
+                        device="cpu",
+                        local_files_only=True,
+                    )
+                except (ImportError, OSError, RuntimeError, TypeError):
+                    _EMBEDDING_UNAVAILABLE = True
+    if _EMBEDDING_MODEL is None:
+        return _token_overlap_rerank(query, works), "local-token-overlap", "The local embedding model is not installed in the runtime cache."
+    texts = [query, *(f"{work.get('title', '')}. {work.get('abstract', '')}"[:10_000] for work in works)]
+    try:
+        vectors = _EMBEDDING_MODEL.encode(texts, normalize_embeddings=True, show_progress_bar=False)
+        ranked = [
+            {"id": work.get("id"), "score": round(float(vectors[0] @ vectors[index + 1]), 6), "original_rank": index + 1}
+            for index, work in enumerate(works)
+        ]
+    except (RuntimeError, ValueError, TypeError) as exc:
+        return _token_overlap_rerank(query, works), "local-token-overlap", f"Embedding inference failed: {type(exc).__name__}."
+    ranked.sort(key=lambda item: (-item["score"], item["original_rank"]))
+    for rank, item in enumerate(ranked, start=1):
+        item["semantic_rank"] = rank
+    return {"ranking": ranked, "explanation": "Local semantic embedding ranking; the original rank is preserved."}, "sentence-transformers/all-MiniLM-L6-v2", None
 
 
 def _prompt(operation: str, payload: dict[str, Any]) -> tuple[str, str, list[dict[str, Any]]]:
@@ -118,8 +157,8 @@ def run_operation(operation: str, payload: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail="Unsupported literature AI operation.")
     works = _bounded_works(payload.get("works"), 100)
     if operation == "rerank" and str(payload.get("mode") or "local") == "local":
-        result = _local_rerank(str(payload.get("query") or ""), works)
-        return {"operation": operation, "result": result, "audit": {"model": "local-token-overlap", "provider": "local", "usage": {"input_tokens": 0, "output_tokens": 0}, "cost": 0, "performed_at": _now(), "evidence_levels": sorted({_evidence_level(work) for work in works}), "resource_ids": [work.get("id") for work in works if work.get("id")], "operation_version": 1, "human_decision_required": True}}
+        result, model, fallback_reason = _local_embedding_rerank(str(payload.get("query") or ""), works)
+        return {"operation": operation, "result": result, "audit": {"model": model, "provider": "local", "usage": {"input_tokens": 0, "output_tokens": 0}, "cost": 0, "fallback_reason": fallback_reason, "performed_at": _now(), "evidence_levels": sorted({_evidence_level(work) for work in works}), "resource_ids": [work.get("id") for work in works if work.get("id")], "operation_version": 1, "human_decision_required": True}}
     system_prompt, user_message, works = _prompt(operation, payload)
     try:
         from backend.agent.factory import generate_text
@@ -130,4 +169,9 @@ def run_operation(operation: str, payload: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(status_code=503, detail="No AI provider is configured. Deterministic literature search remains available.") from exc
     except (ValueError, json.JSONDecodeError) as exc:
         raise HTTPException(status_code=502, detail="The configured AI model returned an invalid structured response.") from exc
-    return {"operation": operation, "result": result, "audit": {"model": model, "provider": "configured", "usage": None, "cost": None, "performed_at": _now(), "evidence_levels": sorted({_evidence_level(work) for work in works}), "resource_ids": [work.get("id") for work in works if work.get("id")], "operation_version": 1, "human_decision_required": True}}
+    usage = {
+        "input_tokens_estimate": max(1, len(f"{system_prompt}\n{user_message}") // 4),
+        "output_tokens_estimate": max(1, len(str(raw or "")) // 4),
+        "reported_by_provider": False,
+    }
+    return {"operation": operation, "result": result, "audit": {"model": model, "provider": "configured", "usage": usage, "cost": None, "cost_status": "Provider cost was not reported; usage is estimated.", "performed_at": _now(), "evidence_levels": sorted({_evidence_level(work) for work in works}), "resource_ids": [work.get("id") for work in works if work.get("id")], "operation_version": 1, "human_decision_required": True}}

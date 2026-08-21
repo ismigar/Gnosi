@@ -7,10 +7,11 @@ import json
 import os
 import re
 import socket
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import Any
-from urllib.parse import quote, urlencode, urljoin, urlparse
+from urllib.parse import parse_qsl, quote, urlencode, urljoin, urlparse, urlunparse
 
 import httpx
 from defusedxml import ElementTree as DefusedElementTree
@@ -22,6 +23,15 @@ USER_AGENT = "Gnosi-Literature/1.0 (+https://github.com/ismigar/Gnosi)"
 MAX_RESPONSE_BYTES = 8 * 1024 * 1024
 MAX_REDIRECTS = 3
 DEFAULT_TIMEOUT_SECONDS = 20.0
+CONNECTOR_AUDIT_VERSION = 1
+_REQUEST_AUDIT: ContextVar[list[dict[str, Any]] | None] = ContextVar(
+    "academic_request_audit",
+    default=None,
+)
+_SENSITIVE_QUERY_KEYS = {
+    "access_token", "api_key", "apikey", "email", "key", "mailto",
+    "password", "secret", "token",
+}
 
 
 class ConnectorError(RuntimeError):
@@ -30,6 +40,40 @@ class ConnectorError(RuntimeError):
     def __init__(self, message: str, *, retry_after: int | None = None) -> None:
         super().__init__(message)
         self.retry_after = retry_after
+
+
+def begin_request_audit() -> tuple[Any, list[dict[str, Any]]]:
+    """Start one task-local audit of public academic GET requests."""
+    records: list[dict[str, Any]] = []
+    return _REQUEST_AUDIT.set(records), records
+
+
+def end_request_audit(token: Any) -> None:
+    """Restore the previous request-audit context."""
+    _REQUEST_AUDIT.reset(token)
+
+
+def _auditable_url(raw_url: Any) -> str:
+    """Return a bounded URL with credential-like query values redacted."""
+    parsed = urlparse(str(raw_url or ""))
+    query = urlencode([
+        (key, "[configured]" if key.lower() in _SENSITIVE_QUERY_KEYS else value)
+        for key, value in parse_qsl(parsed.query, keep_blank_values=True)
+    ], doseq=True)
+    return urlunparse((parsed.scheme, parsed.netloc, parsed.path, "", query, ""))[:8_000]
+
+
+def _record_request(response: httpx.Response) -> None:
+    records = _REQUEST_AUDIT.get()
+    if records is None or len(records) >= 100:
+        return
+    records.append({
+        "method": "GET",
+        "url": _auditable_url(response.request.url),
+        "status_code": response.status_code,
+        "retrieved_at": datetime.now(timezone.utc).isoformat(),
+        "connector_audit_version": CONNECTOR_AUDIT_VERSION,
+    })
 
 
 def _is_public_address(raw: str) -> bool:
@@ -93,6 +137,7 @@ async def safe_get_bytes(
         for redirect_count in range(MAX_REDIRECTS + 1):
             try:
                 async with client.stream("GET", current, params=params if redirect_count == 0 else None, headers=request_headers) as response:
+                    _record_request(response)
                     if response.status_code in {301, 302, 303, 307, 308}:
                         if redirect_count >= MAX_REDIRECTS:
                             raise ConnectorError("The repository exceeded the redirect limit.")
@@ -572,46 +617,147 @@ async def search_pubmed(query: str, filters: dict[str, Any], limit: int, contact
     return works
 
 
-async def search_openalex(query: str, filters: dict[str, Any], limit: int, contact_email: str = "") -> list[dict[str, Any]]:
+def _openalex_work(item: dict[str, Any]) -> dict[str, Any]:
+    primary = item.get("primary_location") or {}
+    source = primary.get("source") or {}
+    url = primary.get("landing_page_url") or item.get("id")
+    pdf = primary.get("pdf_url") or ""
+    oa = bool((item.get("open_access") or {}).get("is_oa"))
+    citations = item.get("cited_by_count")
+    return canonical_work(
+        "openalex", item.get("id"), title=item.get("display_name"), authors=[{"literal": (entry.get("author") or {}).get("display_name"), "orcid": (entry.get("author") or {}).get("orcid")} for entry in item.get("authorships") or []],
+        dates={"issued": item.get("publication_date") or "", "online": item.get("publication_date") or "", "print": ""}, year=item.get("publication_year"), type=item.get("type") or "other",
+        publication={"container_title": source.get("display_name") or "", "publisher": source.get("host_organization_name") or "", "volume": item.get("biblio", {}).get("volume", ""), "issue": item.get("biblio", {}).get("issue", ""), "pages": item.get("biblio", {}).get("first_page", "")},
+        language=item.get("language"), identifiers={"doi": (item.get("ids") or {}).get("doi"), "pmid": (item.get("ids") or {}).get("pmid"), "pmcid": (item.get("ids") or {}).get("pmcid"), "isbn13": [], "provider": {}},
+        open_access={"is_oa": oa, "license": primary.get("license") or "", "best_location": _location(url, pdf_url=pdf, is_oa=oa, license_value=primary.get("license"))[0]}, locations=_location(url, pdf_url=pdf, is_oa=oa, license_value=primary.get("license")),
+        sources=_occurrence("openalex", item.get("id"), url, citations=citations), metrics={"citations": {"openalex": citations} if citations is not None else {}},
+    )
+
+
+async def search_openalex(query: str, filters: dict[str, Any], limit: int, api_key: str = "") -> list[dict[str, Any]]:
     params: dict[str, Any] = {"search": query, "per-page": limit}
-    if contact_email:
-        params["mailto"] = contact_email
+    if api_key:
+        params["api_key"] = api_key
     data, _, _ = await safe_get_json("https://api.openalex.org/works", params=params)
-    works = []
-    for item in data.get("results") or []:
-        primary = item.get("primary_location") or {}
-        source = primary.get("source") or {}
-        url = primary.get("landing_page_url") or item.get("id")
-        pdf = primary.get("pdf_url") or ""
-        oa = bool((item.get("open_access") or {}).get("is_oa"))
-        citations = item.get("cited_by_count")
-        works.append(canonical_work(
-            "openalex", item.get("id"), title=item.get("display_name"), authors=[{"literal": (entry.get("author") or {}).get("display_name"), "orcid": (entry.get("author") or {}).get("orcid")} for entry in item.get("authorships") or []],
-            dates={"issued": item.get("publication_date") or "", "online": item.get("publication_date") or "", "print": ""}, year=item.get("publication_year"), type=item.get("type") or "other",
-            publication={"container_title": source.get("display_name") or "", "publisher": source.get("host_organization_name") or "", "volume": item.get("biblio", {}).get("volume", ""), "issue": item.get("biblio", {}).get("issue", ""), "pages": item.get("biblio", {}).get("first_page", "")},
-            language=item.get("language"), identifiers={"doi": (item.get("ids") or {}).get("doi"), "pmid": (item.get("ids") or {}).get("pmid"), "pmcid": (item.get("ids") or {}).get("pmcid"), "isbn13": [], "provider": {}},
-            open_access={"is_oa": oa, "license": primary.get("license") or "", "best_location": _location(url, pdf_url=pdf, is_oa=oa, license_value=primary.get("license"))[0]}, locations=_location(url, pdf_url=pdf, is_oa=oa, license_value=primary.get("license")),
-            sources=_occurrence("openalex", item.get("id"), url, citations=citations), metrics={"citations": {"openalex": citations} if citations is not None else {}},
-        ))
-    return works
+    return [_openalex_work(item) for item in data.get("results") or []]
+
+
+def _openalex_identifier(work: dict[str, Any]) -> str:
+    identifiers = work.get("identifiers") if isinstance(work.get("identifiers"), dict) else {}
+    providers = identifiers.get("provider") if isinstance(identifiers.get("provider"), dict) else {}
+    provider_id = str(providers.get("openalex") or "")
+    if provider_id:
+        return provider_id.rsplit("/", 1)[-1]
+    if identifiers.get("doi"):
+        return f"doi:{identifiers['doi']}"
+    return ""
+
+
+async def openalex_neighbors(
+    seeds: list[dict[str, Any]], direction: str, limit: int, api_key: str,
+) -> list[dict[str, Any]]:
+    """Retrieve real citation neighbors through the documented OpenAlex graph fields."""
+    if not api_key:
+        raise ConnectorError("Configure an OpenAlex API key to retrieve citation neighbors.")
+    if direction not in {"backward", "forward"}:
+        raise ConnectorError("Citation direction must be backward or forward.")
+    neighbors: list[dict[str, Any]] = []
+    per_seed = max(1, min(int(limit), 100))
+    for seed in seeds[:20]:
+        identifier = _openalex_identifier(seed)
+        if not identifier:
+            continue
+        seed_data, _, _ = await safe_get_json(
+            f"https://api.openalex.org/works/{quote(identifier, safe=':')}",
+            params={"api_key": api_key},
+        )
+        openalex_id = str(seed_data.get("id") or "").rsplit("/", 1)[-1]
+        if not openalex_id:
+            continue
+        if direction == "forward":
+            data, _, _ = await safe_get_json(
+                "https://api.openalex.org/works",
+                params={"filter": f"cites:{openalex_id}", "sort": "-publication_date", "per_page": per_seed, "api_key": api_key},
+            )
+            neighbors.extend(_openalex_work(item) for item in data.get("results") or [])
+        else:
+            reference_ids = [str(value).rsplit("/", 1)[-1] for value in seed_data.get("referenced_works") or [] if value]
+            for start in range(0, min(len(reference_ids), per_seed), 100):
+                batch = reference_ids[start:start + 100]
+                if not batch:
+                    continue
+                data, _, _ = await safe_get_json(
+                    "https://api.openalex.org/works",
+                    params={"filter": f"openalex:{'|'.join(batch)}", "per_page": len(batch), "api_key": api_key},
+                )
+                neighbors.extend(_openalex_work(item) for item in data.get("results") or [])
+        if len(neighbors) >= 500:
+            break
+    return neighbors[:500]
+
+
+def _semantic_scholar_work(item: dict[str, Any]) -> dict[str, Any]:
+    external = item.get("externalIds") or {}
+    oa_pdf = item.get("openAccessPdf") or {}
+    citations = item.get("citationCount")
+    locations = _location(item.get("url"), pdf_url=oa_pdf.get("url"), is_oa=bool(oa_pdf.get("url")), license_value=oa_pdf.get("license"))
+    return canonical_work(
+        "semantic-scholar", item.get("paperId"), title=item.get("title"), authors=[{"literal": author.get("name")} for author in item.get("authors") or []],
+        dates={"issued": item.get("publicationDate") or item.get("year") or "", "online": item.get("publicationDate") or "", "print": ""}, year=item.get("year"), abstract=item.get("abstract"), type=((item.get("publicationTypes") or ["other"])[0]),
+        publication={"container_title": item.get("venue") or "", "publisher": "", "volume": "", "issue": "", "pages": ""}, identifiers={"doi": external.get("DOI"), "pmid": external.get("PubMed"), "pmcid": external.get("PubMedCentral"), "arxiv": external.get("ArXiv"), "isbn13": [], "provider": {}},
+        open_access={"is_oa": bool(oa_pdf.get("url")), "license": oa_pdf.get("license") or "", "best_location": locations[0] if locations else None},
+        locations=locations, sources=_occurrence("semantic-scholar", item.get("paperId"), item.get("url"), citations=citations), metrics={"citations": {"semantic-scholar": citations} if citations is not None else {}},
+    )
 
 
 async def search_semantic_scholar(query: str, filters: dict[str, Any], limit: int, api_key: str = "") -> list[dict[str, Any]]:
     headers = {"x-api-key": api_key} if api_key else {}
     data, _, _ = await safe_get_json("https://api.semanticscholar.org/graph/v1/paper/search", params={"query": query, "limit": min(limit, 100), "fields": "paperId,title,abstract,year,authors,venue,publicationTypes,publicationDate,externalIds,url,openAccessPdf,citationCount"}, headers=headers)
-    works = []
-    for item in data.get("data") or []:
-        external = item.get("externalIds") or {}
-        oa_pdf = item.get("openAccessPdf") or {}
-        citations = item.get("citationCount")
-        works.append(canonical_work(
-            "semantic-scholar", item.get("paperId"), title=item.get("title"), authors=[{"literal": author.get("name")} for author in item.get("authors") or []],
-            dates={"issued": item.get("publicationDate") or item.get("year") or "", "online": item.get("publicationDate") or "", "print": ""}, year=item.get("year"), abstract=item.get("abstract"), type=((item.get("publicationTypes") or ["other"])[0]),
-            publication={"container_title": item.get("venue") or "", "publisher": "", "volume": "", "issue": "", "pages": ""}, identifiers={"doi": external.get("DOI"), "pmid": external.get("PubMed"), "arxiv": external.get("ArXiv"), "isbn13": [], "provider": {}},
-            open_access={"is_oa": bool(oa_pdf.get("url")), "license": oa_pdf.get("license") or "", "best_location": _location(item.get("url"), pdf_url=oa_pdf.get("url"), is_oa=bool(oa_pdf.get("url")), license_value=oa_pdf.get("license"))[0]},
-            locations=_location(item.get("url"), pdf_url=oa_pdf.get("url"), is_oa=bool(oa_pdf.get("url")), license_value=oa_pdf.get("license")), sources=_occurrence("semantic-scholar", item.get("paperId"), item.get("url"), citations=citations), metrics={"citations": {"semantic-scholar": citations} if citations is not None else {}},
-        ))
-    return works
+    return [_semantic_scholar_work(item) for item in data.get("data") or []]
+
+
+def _semantic_scholar_identifier(work: dict[str, Any]) -> str:
+    identifiers = work.get("identifiers") if isinstance(work.get("identifiers"), dict) else {}
+    providers = identifiers.get("provider") if isinstance(identifiers.get("provider"), dict) else {}
+    semantic_id = providers.get("semantic-scholar")
+    if semantic_id:
+        return str(semantic_id)
+    for prefix, key in (("DOI", "doi"), ("PMID", "pmid"), ("PMCID", "pmcid"), ("ARXIV", "arxiv")):
+        if identifiers.get(key):
+            return f"{prefix}:{identifiers[key]}"
+    return ""
+
+
+async def semantic_scholar_neighbors(
+    seeds: list[dict[str, Any]], direction: str, limit: int, api_key: str,
+) -> list[dict[str, Any]]:
+    """Retrieve real backward or forward citation neighbors for canonical seeds."""
+    if not api_key:
+        raise ConnectorError("Configure a Semantic Scholar API key to retrieve citation neighbors.")
+    if direction not in {"backward", "forward"}:
+        raise ConnectorError("Citation direction must be backward or forward.")
+    relation = "references" if direction == "backward" else "citations"
+    paper_field = "citedPaper" if direction == "backward" else "citingPaper"
+    fields = "paperId,title,abstract,year,authors,venue,publicationTypes,publicationDate,externalIds,url,openAccessPdf,citationCount"
+    headers = {"x-api-key": api_key}
+    neighbors: list[dict[str, Any]] = []
+    per_seed = max(1, min(int(limit), 100))
+    for seed in seeds[:20]:
+        identifier = _semantic_scholar_identifier(seed)
+        if not identifier:
+            continue
+        data, _, _ = await safe_get_json(
+            f"https://api.semanticscholar.org/graph/v1/paper/{quote(identifier, safe='')}/{relation}",
+            params={"offset": 0, "limit": per_seed, "fields": fields},
+            headers=headers,
+        )
+        for relation_row in data.get("data") or []:
+            paper = relation_row.get(paper_field) if isinstance(relation_row, dict) else None
+            if isinstance(paper, dict) and paper.get("title"):
+                neighbors.append(_semantic_scholar_work(paper))
+        if len(neighbors) >= 500:
+            break
+    return neighbors[:500]
 
 
 async def search_generic_json(definition: dict[str, Any], query: str, filters: dict[str, Any], limit: int) -> list[dict[str, Any]]:
@@ -679,17 +825,18 @@ async def search_generic_json(definition: dict[str, Any], query: str, filters: d
     provider = clean_text(definition.get("id") or definition.get("name") or "custom-rest", 100)
     works = []
     for record in collected[:limit]:
-        provider_id = value_at(record, mapping.get("id")) or value_at(record, mapping.get("doi"))
+        provider_id = value_at(record, mapping.get("provider_id") or mapping.get("id")) or value_at(record, mapping.get("doi"))
         url = value_at(record, mapping.get("url")) or final_url
         authors = value_at(record, mapping.get("authors"), [])
+        citations = value_at(record, mapping.get("citations"), None)
         works.append(canonical_work(
             provider, provider_id, title=value_at(record, mapping.get("title")), authors=authors,
             dates={"issued": value_at(record, mapping.get("date")), "online": "", "print": ""}, year=value_at(record, mapping.get("year")) or value_at(record, mapping.get("date")),
-            abstract=value_at(record, mapping.get("abstract")), type=value_at(record, mapping.get("type"), "other"), publication={"container_title": value_at(record, mapping.get("publication")), "publisher": value_at(record, mapping.get("publisher")), "volume": value_at(record, mapping.get("volume")), "issue": value_at(record, mapping.get("issue")), "pages": value_at(record, mapping.get("pages"))},
-            language=value_at(record, mapping.get("language")), identifiers={"doi": value_at(record, mapping.get("doi")), "pmid": value_at(record, mapping.get("pmid")), "pmcid": value_at(record, mapping.get("pmcid")), "arxiv": value_at(record, mapping.get("arxiv")), "isbn13": value_at(record, mapping.get("isbn13"), []), "provider": {}},
+            abstract=value_at(record, mapping.get("abstract")), type=value_at(record, mapping.get("type"), "other"), publication={"container_title": value_at(record, mapping.get("container") or mapping.get("publication")), "publisher": value_at(record, mapping.get("publisher")), "volume": value_at(record, mapping.get("volume")), "issue": value_at(record, mapping.get("issue")), "pages": value_at(record, mapping.get("pages"))},
+            language=value_at(record, mapping.get("language")), identifiers={"doi": value_at(record, mapping.get("doi")), "pmid": value_at(record, mapping.get("pmid")), "pmcid": value_at(record, mapping.get("pmcid")), "arxiv": value_at(record, mapping.get("arxiv")), "isbn13": value_at(record, mapping.get("isbn") or mapping.get("isbn13"), []), "provider": {}},
             peer_reviewed=_truthy_provider_value(value_at(record, mapping.get("peer_reviewed"), None)),
             open_access={"is_oa": value_at(record, mapping.get("is_oa"), None), "license": value_at(record, mapping.get("license")), "best_location": _location(url, pdf_url=value_at(record, mapping.get("pdf_url")), is_oa=value_at(record, mapping.get("is_oa"), None), license_value=value_at(record, mapping.get("license")))[0]},
-            locations=_location(url, pdf_url=value_at(record, mapping.get("pdf_url")), is_oa=value_at(record, mapping.get("is_oa"), None), license_value=value_at(record, mapping.get("license"))), sources=_occurrence(provider, provider_id, url),
+            locations=_location(url, pdf_url=value_at(record, mapping.get("pdf_url")), is_oa=value_at(record, mapping.get("is_oa"), None), license_value=value_at(record, mapping.get("license"))), sources=_occurrence(provider, provider_id, url, citations=citations), metrics={"citations": {provider: citations} if citations not in (None, "") else {}},
         ))
     return works
 

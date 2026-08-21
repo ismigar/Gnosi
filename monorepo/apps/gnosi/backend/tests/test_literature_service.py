@@ -35,6 +35,15 @@ def test_configuration_is_vault_native_and_credentials_are_not_persisted(literat
     assert literature_service.index_path(literature_env).is_relative_to(literature_env.parent / "local-data")
 
 
+def test_catalog_loads_plugin_repositories_from_the_requested_vault(literature_env, monkeypatch):
+    captured = []
+    monkeypatch.setattr(literature_service, "_plugin_repositories", lambda vault_path: captured.append(vault_path) or [])
+
+    literature_service.catalog(literature_env)
+
+    assert captured == [literature_env]
+
+
 def test_search_route_keeps_the_asgi_event_loop():
     from backend.api import literature_routes
 
@@ -75,8 +84,11 @@ def test_oai_tombstone_removes_record_and_fts_entry(literature_env):
 
 
 def test_progressive_search_preserves_results_when_one_source_fails(literature_env, monkeypatch):
-    async def fake_search(source_id, *_args, **_kwargs):
+    received_queries = {}
+
+    async def fake_search(source_id, source_query, *_args, **_kwargs):
         await asyncio.sleep(0)
+        received_queries[source_id] = source_query
         if source_id == "datacite":
             raise academic_connectors.ConnectorError("Quota reached", retry_after=30)
         return [canonical_work(source_id, "one", title="Shared evidence", authors=["Riu, Ada"], year=2024, identifiers={"doi": "10.1000/shared", "isbn13": [], "provider": {}})]
@@ -84,7 +96,9 @@ def test_progressive_search_preserves_results_when_one_source_fails(literature_e
     async def exercise():
         monkeypatch.setattr(academic_connectors, "search_source", fake_search)
         created = literature_service.start_search(
-            literature_env, query="shared evidence", filters={}, source_ids=["crossref", "datacite"], limit_per_source=5,
+            literature_env, query="shared evidence", filters={}, source_ids=["crossref", "datacite"],
+            source_queries={"crossref": '"shared evidence" AND review', "ignored": "secret"},
+            ai_audits=[{"operation": "query_strategy", "model": "configured-model", "cost": None}], limit_per_source=5,
         )
         task = literature_service._SEARCH_TASKS[created["id"]]
         await task
@@ -95,6 +109,32 @@ def test_progressive_search_preserves_results_when_one_source_fails(literature_e
     assert len(finished["results"]) == 1
     assert finished["source_status"]["crossref"]["state"] == "completed"
     assert finished["source_status"]["datacite"]["retry_after"] == 30
+    assert finished["counts"]["raw_occurrences"] == 1
+    assert finished["counts"]["duplicates_removed"] == 0
+    assert finished["exact_queries"]["crossref"]["original_query"] == "shared evidence"
+    assert finished["exact_queries"]["crossref"]["effective_query"] == '"shared evidence" AND review'
+    assert received_queries == {"crossref": '"shared evidence" AND review', "datacite": "shared evidence"}
+    assert "ignored" not in finished["source_queries"]
+    assert finished["ai_audits"][0]["operation"] == "query_strategy"
+    literature_service.append_search_ai_audit(literature_env, finished["id"], "rerank", {"model": "local", "cost": 0})
+    assert literature_service.get_search(literature_env, finished["id"])["ai_audits"][-1] == {"operation": "rerank", "model": "local", "cost": 0}
+    assert finished["exact_queries"]["datacite"]["requests"] == []
+
+
+def test_citation_discovery_deduplicates_neighbors_and_preserves_query_audit(literature_env, monkeypatch):
+    seed = canonical_work("crossref", "seed", title="Seed", identifiers={"doi": "10.1000/seed", "isbn13": [], "provider": {}})
+    neighbor = canonical_work("semantic-scholar", "one", title="Neighbor", identifiers={"doi": "10.1000/neighbor", "isbn13": [], "provider": {}})
+
+    async def fake_neighbors(*_args, **_kwargs):
+        return [neighbor, neighbor]
+
+    monkeypatch.setattr(literature_service, "_credential_value", lambda key: "configured" if key == "semantic_scholar_api_key" else "")
+    monkeypatch.setattr(academic_connectors, "semantic_scholar_neighbors", fake_neighbors)
+    result = asyncio.run(literature_service.discover_citation_neighbors(literature_env, [seed], direction="both", limit_per_seed=5))
+    assert result["provider"] == "semantic-scholar"
+    assert len(result["works"]) == 1
+    assert result["counts"] == {"raw_occurrences": 4, "unique_works": 1, "duplicates_removed": 3, "possible_duplicate_pairs": 0}
+    assert result["exact_queries"]["semantic-scholar"]["provider_syntax"] == ["backward", "forward"]
 
 
 def test_repository_history_snapshot_keeps_used_name(literature_env, monkeypatch):

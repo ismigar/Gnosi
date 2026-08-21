@@ -75,6 +75,9 @@ PHASES = {
 }
 DECISIONS = {"include", "exclude", "uncertain"}
 REVIEWER_MODES = {"single", "dual_blind"}
+FULL_TEXT_STATUSES = {
+    "not_requested", "requested", "available_oa", "attached", "unavailable", "assessed",
+}
 
 
 def _now() -> str:
@@ -211,6 +214,8 @@ async def create_review(payload: dict[str, Any], background_tasks: BackgroundTas
     required = 2 if mode == "dual_blind" else 1
     if len(reviewers) < required:
         raise HTTPException(status_code=400, detail="Dual-blind reviews require two assigned reviewers.")
+    if mode == "dual_blind" and len(reviewers) != 2:
+        raise HTTPException(status_code=400, detail="Dual-blind reviews require exactly two assigned reviewers.")
     metadata = {
         "Question": question,
         "Protocol": str(payload.get("protocol") or "")[:50_000],
@@ -266,7 +271,8 @@ def list_activities(review_id: str) -> list[dict[str, Any]]:
 
 def _candidate_public(row: dict[str, Any]) -> dict[str, Any]:
     work = _decode(row.get("Work Snapshot"), {})
-    return {"id": row.get("id"), "title": row.get("title") or work.get("title"), "review_id": row.get("Review ID"), "work_key": row.get("Work Key"), "work": work, "sources": _decode(row.get("Sources"), []), "identifiers": _decode(row.get("Identifiers"), {}), "phase": row.get("Phase") or "identified", "full_text": row.get("Full Text") or "not_requested", "resource_id": row.get("Resource ID") or None, "activity_id": row.get("Activity ID") or None, "conflict": bool(row.get("Conflict"))}
+    evidence = work.pop("_review_full_text", {}) if isinstance(work, dict) else {}
+    return {"id": row.get("id"), "title": row.get("title") or work.get("title"), "review_id": row.get("Review ID"), "work_key": row.get("Work Key"), "work": work, "sources": _decode(row.get("Sources"), []), "identifiers": _decode(row.get("Identifiers"), {}), "phase": row.get("Phase") or "identified", "full_text": row.get("Full Text") or "not_requested", "full_text_evidence": evidence, "resource_id": row.get("Resource ID") or None, "activity_id": row.get("Activity ID") or None, "conflict": bool(row.get("Conflict"))}
 
 
 async def add_candidates(review_id: str, works: Iterable[dict[str, Any]], background_tasks: BackgroundTasks, context: WorkspaceContext, activity_id: str = "") -> dict[str, Any]:
@@ -352,8 +358,11 @@ async def submit_decision(review_id: str, candidate_id: str, payload: dict[str, 
         raise HTTPException(status_code=400, detail="Invalid screening phase or decision.")
     if phase != candidate["phase"]:
         raise HTTPException(status_code=409, detail="The candidate moved to another screening phase.")
+    reason = " ".join(str(payload.get("reason") or "").split()).strip()[:4_000]
+    if decision == "exclude" and not reason:
+        raise HTTPException(status_code=400, detail="An exclusion reason is required.")
     previous = _current_by_reviewer(_candidate_decisions(candidate_id), phase).get(context.user_id)
-    metadata = {"Review ID": review_id, "Candidate ID": candidate_id, "Reviewer ID": context.user_id, "Phase": phase, "Decision": decision, "Reason": str(payload.get("reason") or "")[:4_000], "Notes": str(payload.get("notes") or "")[:20_000], "Decided At": _now(), "Replaces Decision ID": previous["id"] if previous else "", "Resolution": False}
+    metadata = {"Review ID": review_id, "Candidate ID": candidate_id, "Reviewer ID": context.user_id, "Phase": phase, "Decision": decision, "Reason": reason, "Notes": str(payload.get("notes") or "")[:20_000], "Decided At": _now(), "Replaces Decision ID": previous["id"] if previous else "", "Resolution": False}
     created = await _create_record(table_id=DECISIONS_TABLE_ID, title=f"{candidate['title']} · {context.user_id} · {decision}", metadata=metadata, content=metadata["Notes"], background_tasks=background_tasks, context=context)
     current = _current_by_reviewer(_candidate_decisions(candidate_id), phase)
     current[context.user_id] = {"id": created.get("id"), **metadata, "reviewer_id": context.user_id, "decision": decision}
@@ -387,11 +396,111 @@ async def resolve_conflict(review_id: str, candidate_id: str, payload: dict[str,
         raise HTTPException(status_code=400, detail="Conflict resolution must include or exclude.")
     if context.user_id not in review["reviewers"] and ROLE_WEIGHTS.get(context.role.lower(), 0) < ROLE_WEIGHTS["admin"]:
         raise HTTPException(status_code=403, detail="You cannot resolve this review conflict.")
-    metadata = {"Review ID": review_id, "Candidate ID": candidate_id, "Reviewer ID": context.user_id, "Phase": candidate["phase"], "Decision": decision, "Reason": str(payload.get("reason") or "Conflict resolution")[:4_000], "Notes": str(payload.get("notes") or "")[:20_000], "Decided At": _now(), "Replaces Decision ID": "", "Resolution": True}
+    reason = " ".join(str(payload.get("reason") or "").split()).strip()[:4_000]
+    if decision == "exclude" and not reason:
+        raise HTTPException(status_code=400, detail="An exclusion reason is required.")
+    metadata = {"Review ID": review_id, "Candidate ID": candidate_id, "Reviewer ID": context.user_id, "Phase": candidate["phase"], "Decision": decision, "Reason": reason or "Conflict resolution", "Notes": str(payload.get("notes") or "")[:20_000], "Decided At": _now(), "Replaces Decision ID": "", "Resolution": True}
     created = await _create_record(table_id=DECISIONS_TABLE_ID, title=f"{candidate['title']} · conflict resolution · {decision}", metadata=metadata, content=metadata["Notes"], background_tasks=background_tasks, context=context)
     next_phase = _next_phase(candidate["phase"], decision)
     await _patch_record(candidate_id, {"Conflict": False, "Phase": next_phase}, background_tasks, context)
     return {"decision": {"id": created.get("id"), **metadata}, "phase": next_phase, "conflict": False}
+
+
+def _verified_oa_location(work: dict[str, Any], requested_url: str) -> dict[str, Any] | None:
+    """Return provider-asserted open-access evidence for an exact canonical URL."""
+    url = requested_url.strip()
+    if not url.startswith(("https://", "http://")):
+        return None
+    open_access = work.get("open_access") if isinstance(work.get("open_access"), dict) else {}
+    locations = work.get("locations") if isinstance(work.get("locations"), list) else []
+    best = open_access.get("best_location")
+    if isinstance(best, dict):
+        locations = [best, *locations]
+    for location in locations:
+        if not isinstance(location, dict):
+            continue
+        candidates = {
+            str(location.get(field) or "").strip()
+            for field in ("url", "landing_page_url", "pdf_url")
+        }
+        if url not in candidates:
+            continue
+        if location.get("is_oa") is True or open_access.get("is_oa") is True:
+            return {
+                "url": url,
+                "license": str(location.get("license") or open_access.get("license") or "")[:500],
+                "provider_asserted_oa": True,
+            }
+    return None
+
+
+async def update_full_text(
+    review_id: str,
+    candidate_id: str,
+    payload: dict[str, Any],
+    background_tasks: BackgroundTasks,
+    context: WorkspaceContext,
+) -> dict[str, Any]:
+    """Record a manual full-text workflow transition with verifiable evidence."""
+    get_review(review_id)
+    row = _record(CANDIDATES_TABLE_ID, candidate_id)
+    candidate = _candidate_public(row)
+    if candidate["review_id"] != review_id:
+        raise HTTPException(status_code=404, detail="Candidate does not belong to this review.")
+    status = str(payload.get("status") or "")
+    if status not in FULL_TEXT_STATUSES:
+        raise HTTPException(status_code=400, detail="Invalid full-text status.")
+    resource_id = str(payload.get("resource_id") or candidate.get("resource_id") or "").strip()[:160]
+    location_url = str(payload.get("location_url") or "").strip()[:4_000]
+    evidence: dict[str, Any] = {
+        "status": status,
+        "location_url": location_url,
+        "license": str(payload.get("license") or "")[:500],
+        "resource_id": resource_id,
+        "notes": str(payload.get("notes") or "")[:20_000],
+        "recorded_at": _now(),
+        "recorded_by": context.user_id,
+    }
+    if status == "available_oa":
+        verified = _verified_oa_location(candidate["work"], location_url)
+        if verified is None:
+            raise HTTPException(status_code=400, detail="Open-access availability must match a provider-verified canonical location.")
+        evidence.update(verified)
+        if not evidence["license"]:
+            evidence["license"] = verified["license"]
+    if status == "attached" and not resource_id:
+        raise HTTPException(status_code=400, detail="An attached full text requires a Resources record identifier.")
+    previous_status = candidate.get("full_text") or "not_requested"
+    if status == "assessed" and previous_status not in {"available_oa", "attached", "assessed"}:
+        raise HTTPException(status_code=409, detail="Full text must be available or attached before it can be assessed.")
+    stored_work = dict(candidate["work"])
+    stored_work["_review_full_text"] = evidence
+    patch: dict[str, Any] = {"Full Text": status, "Work Snapshot": _json(stored_work)}
+    if resource_id:
+        patch["Resource ID"] = resource_id
+    if status in {"requested", "available_oa", "attached", "unavailable"} and candidate["phase"] in {"identified", "title_abstract"}:
+        patch["Phase"] = "full_text_requested"
+    elif status == "assessed" and candidate["phase"] in {"identified", "title_abstract", "full_text_requested"}:
+        patch["Phase"] = "full_text_assessed"
+    await _patch_record(candidate_id, patch, background_tasks, context)
+    activity = await append_activity(
+        review_id,
+        "full_text_status",
+        {
+            "counts": {"candidate_id": candidate_id, "from": previous_status, "to": status},
+            "notes": _json(evidence),
+        },
+        background_tasks,
+        context,
+    )
+    return {
+        **candidate,
+        "phase": patch.get("Phase", candidate["phase"]),
+        "full_text": status,
+        "full_text_evidence": evidence,
+        "resource_id": resource_id or None,
+        "activity_id": activity.get("id"),
+    }
 
 
 def review_audit(review_id: str, context: WorkspaceContext) -> dict[str, Any]:
@@ -399,15 +508,40 @@ def review_audit(review_id: str, context: WorkspaceContext) -> dict[str, Any]:
     candidates = list_candidates(review_id, context)
     decisions = [_decision_public(row) for row in _records(DECISIONS_TABLE_ID) if str(row.get("Review ID")) == review_id]
     activities = list_activities(review_id)
-    return {"schema_version": 1, "generated_at": _now(), "review": review, "activities": activities, "candidates": candidates, "decisions": decisions, "prisma": prisma_counts(candidates, decisions)}
+    return {"schema_version": 1, "generated_at": _now(), "review": review, "activities": activities, "candidates": candidates, "decisions": decisions, "prisma": prisma_counts(candidates, decisions, activities)}
 
 
-def prisma_counts(candidates: list[dict[str, Any]], decisions: list[dict[str, Any]]) -> dict[str, Any]:
+def prisma_counts(
+    candidates: list[dict[str, Any]],
+    decisions: list[dict[str, Any]],
+    activities: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     phases = Counter(candidate.get("phase") or "identified" for candidate in candidates)
-    exclusion_reasons = Counter(decision.get("reason") or "No reason recorded" for decision in decisions if decision.get("decision") == "exclude" and not decision.get("replaces_decision_id"))
+    replaced_ids = {str(decision.get("replaces_decision_id")) for decision in decisions if decision.get("replaces_decision_id")}
+    current_decisions = [decision for decision in decisions if str(decision.get("id") or "") not in replaced_ids]
+    exclusion_reasons = Counter(
+        decision.get("reason") or "No reason recorded"
+        for decision in current_decisions
+        if decision.get("decision") == "exclude" and decision.get("phase") in {"full_text_requested", "full_text_assessed"}
+    )
+    raw_identified = 0
+    duplicates_removed = 0
+    counted_searches: set[str] = set()
+    for activity in activities or []:
+        if activity.get("activity_type") not in {"search_strategy", "scheduled_search", "snowball"}:
+            continue
+        counts = activity.get("counts") if isinstance(activity.get("counts"), dict) else {}
+        search_key = str(counts.get("search_id") or activity.get("id") or "")
+        if search_key in counted_searches:
+            continue
+        counted_searches.add(search_key)
+        raw_identified += max(0, int(counts.get("raw_occurrences") or counts.get("identified") or 0))
+        duplicates_removed += max(0, int(counts.get("duplicates_removed") or 0))
+    if not raw_identified:
+        raw_identified = len(candidates) + duplicates_removed
     sought = phases["full_text_requested"] + phases["full_text_assessed"] + phases["included"] + sum(1 for candidate in candidates if candidate.get("phase") == "excluded" and candidate.get("full_text") not in {None, "", "not_requested"})
     unavailable = sum(1 for candidate in candidates if candidate.get("full_text") == "unavailable")
-    return {"identified": len(candidates), "duplicates_removed": 0, "screened": len(candidates), "title_abstract_excluded": sum(1 for candidate in candidates if candidate.get("phase") == "excluded" and candidate.get("full_text") in {None, "", "not_requested"}), "reports_sought": sought, "reports_unavailable": unavailable, "full_text_assessed": phases["full_text_assessed"] + phases["included"], "included": phases["included"], "full_text_exclusions": dict(exclusion_reasons)}
+    return {"identified": raw_identified, "duplicates_removed": duplicates_removed, "screened": len(candidates), "title_abstract_excluded": sum(1 for candidate in candidates if candidate.get("phase") == "excluded" and candidate.get("full_text") in {None, "", "not_requested"}), "reports_sought": sought, "reports_unavailable": unavailable, "full_text_assessed": phases["full_text_assessed"] + phases["included"], "included": phases["included"], "full_text_exclusions": dict(exclusion_reasons)}
 
 
 def export_review(review_id: str, export_format: str, context: WorkspaceContext) -> tuple[bytes, str, str]:
@@ -449,7 +583,7 @@ def _prisma_svg(audit: dict[str, Any]) -> str:
             parts.append(f"<text class=\"count\" x=\"{x + 16}\" y=\"{y + 52 + line_index * 20}\">{escape(line)}</text>")
         if index < len(boxes) - 1:
             parts.append(f"<line class=\"arrow\" x1=\"210\" y1=\"{y + 86}\" x2=\"210\" y2=\"{boxes[index + 1][1] - 8}\"/>")
-    side = [(430, 220, f"Excluded before full text\n(n = {counts['title_abstract_excluded']})"), (430, 350, f"Reports unavailable\n(n = {counts['reports_unavailable']})")]
+    side = [(430, 90, f"Duplicate records removed\n(n = {counts['duplicates_removed']})"), (430, 220, f"Excluded before full text\n(n = {counts['title_abstract_excluded']})"), (430, 350, f"Reports unavailable\n(n = {counts['reports_unavailable']})")]
     for x, y, label in side:
         parts.append(f"<rect class=\"box\" x=\"{x}\" y=\"{y}\" width=\"320\" height=\"86\" rx=\"8\"/>")
         for line_index, line in enumerate(label.split("\n")):

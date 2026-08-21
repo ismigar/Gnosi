@@ -30,17 +30,36 @@ jobs:
     env:
       GNOSI_JWT_SECRET: ci-only-7f15e867273441a6b3914705466593864d5f67b038f84301
       XDG_RUNTIME_DIR: /run/user/501
+      NERDCTL_VERSION: 2.3.5
+      NERDCTL_ARM64_SHA256: 76ced9bd0d03f6140f9cf7b927958b654cb8d5ecd3c58af585d096c8bdf9d6c2
     defaults:
       run:
         working-directory: monorepo/apps/gnosi
     steps:
       - uses: actions/checkout@v7
 
-      # The backend image is large (torch et al.); the stock runner disk can
-      # run out mid-build. Drop preinstalled toolchains we never use.
-      - name: Free disk space
-        working-directory: /
-        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+      - name: Prepare container client
+        run: |
+          if command -v nerdctl >/dev/null 2>&1; then
+            nerdctl --version
+            exit 0
+          fi
+          archive="nerdctl-${NERDCTL_VERSION}-linux-arm64.tar.gz"
+          url="https://github.com/containerd/nerdctl/releases/download/v${NERDCTL_VERSION}/${archive}"
+          curl -fsSLo "${RUNNER_TEMP}/${archive}" "${url}"
+          printf '%s  %s\n' "${NERDCTL_ARM64_SHA256}" "${RUNNER_TEMP}/${archive}" | sha256sum -c -
+          mkdir -p "${RUNNER_TEMP}/nerdctl-bin"
+          tar -xzf "${RUNNER_TEMP}/${archive}" -C "${RUNNER_TEMP}/nerdctl-bin" nerdctl
+          echo "${RUNNER_TEMP}/nerdctl-bin" >> "${GITHUB_PATH}"
+
+      - name: Check runner capacity
+        run: |
+          df -h .
+          available_kb="$(df -Pk . | awk 'NR==2 {print $4}')"
+          if [ "${available_kb}" -lt 10485760 ]; then
+            echo "::error::Docker build requires at least 10 GiB of free runner disk space."
+            exit 1
+          fi
 
       - name: Validate docker-compose.yml
         run: |
@@ -81,10 +100,25 @@ jobs:
     runs-on: [self-hosted, Linux, ARM64]
     env:
       XDG_RUNTIME_DIR: /run/user/501
+      NERDCTL_VERSION: 2.3.5
+      NERDCTL_ARM64_SHA256: 76ced9bd0d03f6140f9cf7b927958b654cb8d5ecd3c58af585d096c8bdf9d6c2
     defaults:
       run:
         working-directory: monorepo/apps/gnosi
     steps:
       - uses: actions/checkout@v7
+      - name: Prepare container client
+        run: |
+          if command -v nerdctl >/dev/null 2>&1; then
+            nerdctl --version
+            exit 0
+          fi
+          archive="nerdctl-${NERDCTL_VERSION}-linux-arm64.tar.gz"
+          url="https://github.com/containerd/nerdctl/releases/download/v${NERDCTL_VERSION}/${archive}"
+          curl -fsSLo "${RUNNER_TEMP}/${archive}" "${url}"
+          printf '%s  %s\n' "${NERDCTL_ARM64_SHA256}" "${RUNNER_TEMP}/${archive}" | sha256sum -c -
+          mkdir -p "${RUNNER_TEMP}/nerdctl-bin"
+          tar -xzf "${RUNNER_TEMP}/${archive}" -C "${RUNNER_TEMP}/nerdctl-bin" nerdctl
+          echo "${RUNNER_TEMP}/nerdctl-bin" >> "${GITHUB_PATH}"
       - name: Build frontend image
         run: nerdctl build -f Dockerfile.frontend -t gnosi-frontend:ci .
