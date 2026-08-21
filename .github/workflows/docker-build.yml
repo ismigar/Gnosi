@@ -29,28 +29,58 @@ jobs:
     # fail-closed Docker startup guard. It signs no persistent sessions.
     env:
       GNOSI_JWT_SECRET: ci-only-7f15e867273441a6b3914705466593864d5f67b038f84301
-      XDG_RUNTIME_DIR: /run/user/501
       NERDCTL_VERSION: 2.3.5
-      NERDCTL_ARM64_SHA256: 76ced9bd0d03f6140f9cf7b927958b654cb8d5ecd3c58af585d096c8bdf9d6c2
+      NERDCTL_FULL_ARM64_SHA256: 6e4b687f1d138e750a3c8372abc0f81d3d7490b6359c48c0562fc7dfe98859b2
     defaults:
       run:
         working-directory: monorepo/apps/gnosi
     steps:
       - uses: actions/checkout@v7
 
-      - name: Prepare container client
+      - name: Prepare rootless container runtime
         run: |
-          if command -v nerdctl >/dev/null 2>&1; then
-            nerdctl --version
-            exit 0
+          runtime_dir="/run/user/$(id -u)"
+          if [ ! -d "${runtime_dir}" ]; then
+            echo "::error::The runner has no systemd user runtime directory at ${runtime_dir}."
+            exit 1
           fi
-          archive="nerdctl-${NERDCTL_VERSION}-linux-arm64.tar.gz"
+          echo "XDG_RUNTIME_DIR=${runtime_dir}" >> "${GITHUB_ENV}"
+          echo "DBUS_SESSION_BUS_ADDRESS=unix:path=${runtime_dir}/bus" >> "${GITHUB_ENV}"
+          export XDG_RUNTIME_DIR="${runtime_dir}"
+          export DBUS_SESSION_BUS_ADDRESS="unix:path=${runtime_dir}/bus"
+
+          tool_dir="${RUNNER_TOOL_CACHE}/nerdctl/${NERDCTL_VERSION}/arm64"
+          archive="nerdctl-full-${NERDCTL_VERSION}-linux-arm64.tar.gz"
           url="https://github.com/containerd/nerdctl/releases/download/v${NERDCTL_VERSION}/${archive}"
-          curl -fsSLo "${RUNNER_TEMP}/${archive}" "${url}"
-          printf '%s  %s\n' "${NERDCTL_ARM64_SHA256}" "${RUNNER_TEMP}/${archive}" | sha256sum -c -
-          mkdir -p "${RUNNER_TEMP}/nerdctl-bin"
-          tar -xzf "${RUNNER_TEMP}/${archive}" -C "${RUNNER_TEMP}/nerdctl-bin" nerdctl
-          echo "${RUNNER_TEMP}/nerdctl-bin" >> "${GITHUB_PATH}"
+          if [ ! -x "${tool_dir}/bin/nerdctl" ]; then
+            curl -fsSLo "${RUNNER_TEMP}/${archive}" "${url}"
+            printf '%s  %s\n' "${NERDCTL_FULL_ARM64_SHA256}" "${RUNNER_TEMP}/${archive}" | sha256sum -c -
+            mkdir -p "${tool_dir}"
+            tar -xzf "${RUNNER_TEMP}/${archive}" -C "${tool_dir}"
+          fi
+          echo "${tool_dir}/bin" >> "${GITHUB_PATH}"
+          export PATH="${tool_dir}/bin:${PATH}"
+          nerdctl --version
+
+          if ! nerdctl info >/dev/null 2>&1; then
+            containerd-rootless-setuptool.sh install
+          fi
+          if ! systemctl --user --quiet is-active buildkit.service; then
+            containerd-rootless-setuptool.sh install-buildkit
+          fi
+          for attempt in {1..30}; do
+            if nerdctl info >/dev/null 2>&1 \
+              && systemctl --user --quiet is-active buildkit.service; then
+              exit 0
+            fi
+            sleep 2
+          done
+          systemctl --user --no-pager --full status containerd.service || true
+          systemctl --user --no-pager --full status buildkit.service || true
+          journalctl --user --unit containerd.service -n 100 --no-pager || true
+          journalctl --user --unit buildkit.service -n 100 --no-pager || true
+          echo "::error::The rootless container runtime did not become ready."
+          exit 1
 
       - name: Check runner capacity
         run: |
@@ -99,26 +129,56 @@ jobs:
   frontend:
     runs-on: [self-hosted, Linux, ARM64]
     env:
-      XDG_RUNTIME_DIR: /run/user/501
       NERDCTL_VERSION: 2.3.5
-      NERDCTL_ARM64_SHA256: 76ced9bd0d03f6140f9cf7b927958b654cb8d5ecd3c58af585d096c8bdf9d6c2
+      NERDCTL_FULL_ARM64_SHA256: 6e4b687f1d138e750a3c8372abc0f81d3d7490b6359c48c0562fc7dfe98859b2
     defaults:
       run:
         working-directory: monorepo/apps/gnosi
     steps:
       - uses: actions/checkout@v7
-      - name: Prepare container client
+      - name: Prepare rootless container runtime
         run: |
-          if command -v nerdctl >/dev/null 2>&1; then
-            nerdctl --version
-            exit 0
+          runtime_dir="/run/user/$(id -u)"
+          if [ ! -d "${runtime_dir}" ]; then
+            echo "::error::The runner has no systemd user runtime directory at ${runtime_dir}."
+            exit 1
           fi
-          archive="nerdctl-${NERDCTL_VERSION}-linux-arm64.tar.gz"
+          echo "XDG_RUNTIME_DIR=${runtime_dir}" >> "${GITHUB_ENV}"
+          echo "DBUS_SESSION_BUS_ADDRESS=unix:path=${runtime_dir}/bus" >> "${GITHUB_ENV}"
+          export XDG_RUNTIME_DIR="${runtime_dir}"
+          export DBUS_SESSION_BUS_ADDRESS="unix:path=${runtime_dir}/bus"
+
+          tool_dir="${RUNNER_TOOL_CACHE}/nerdctl/${NERDCTL_VERSION}/arm64"
+          archive="nerdctl-full-${NERDCTL_VERSION}-linux-arm64.tar.gz"
           url="https://github.com/containerd/nerdctl/releases/download/v${NERDCTL_VERSION}/${archive}"
-          curl -fsSLo "${RUNNER_TEMP}/${archive}" "${url}"
-          printf '%s  %s\n' "${NERDCTL_ARM64_SHA256}" "${RUNNER_TEMP}/${archive}" | sha256sum -c -
-          mkdir -p "${RUNNER_TEMP}/nerdctl-bin"
-          tar -xzf "${RUNNER_TEMP}/${archive}" -C "${RUNNER_TEMP}/nerdctl-bin" nerdctl
-          echo "${RUNNER_TEMP}/nerdctl-bin" >> "${GITHUB_PATH}"
+          if [ ! -x "${tool_dir}/bin/nerdctl" ]; then
+            curl -fsSLo "${RUNNER_TEMP}/${archive}" "${url}"
+            printf '%s  %s\n' "${NERDCTL_FULL_ARM64_SHA256}" "${RUNNER_TEMP}/${archive}" | sha256sum -c -
+            mkdir -p "${tool_dir}"
+            tar -xzf "${RUNNER_TEMP}/${archive}" -C "${tool_dir}"
+          fi
+          echo "${tool_dir}/bin" >> "${GITHUB_PATH}"
+          export PATH="${tool_dir}/bin:${PATH}"
+          nerdctl --version
+
+          if ! nerdctl info >/dev/null 2>&1; then
+            containerd-rootless-setuptool.sh install
+          fi
+          if ! systemctl --user --quiet is-active buildkit.service; then
+            containerd-rootless-setuptool.sh install-buildkit
+          fi
+          for attempt in {1..30}; do
+            if nerdctl info >/dev/null 2>&1 \
+              && systemctl --user --quiet is-active buildkit.service; then
+              exit 0
+            fi
+            sleep 2
+          done
+          systemctl --user --no-pager --full status containerd.service || true
+          systemctl --user --no-pager --full status buildkit.service || true
+          journalctl --user --unit containerd.service -n 100 --no-pager || true
+          journalctl --user --unit buildkit.service -n 100 --no-pager || true
+          echo "::error::The rootless container runtime did not become ready."
+          exit 1
       - name: Build frontend image
         run: nerdctl build -f Dockerfile.frontend -t gnosi-frontend:ci .

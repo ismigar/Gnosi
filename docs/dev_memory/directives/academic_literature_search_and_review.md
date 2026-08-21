@@ -266,8 +266,11 @@ Mutating endpoints use existing CSRF and authorization conventions. Public API r
   Semantic Scholar references/citations or OpenAlex referenced-works/cites APIs,
   and require human selection before creating candidates.
 - Do not make Docker CI depend on an interactively provisioned runner binary or
-  blocking sudo cleanup. Install a pinned, checksum-verified client in the job
-  workspace and fail fast when the container runtime itself is unavailable.
+  blocking sudo cleanup. Install a pinned, checksum-verified full nerdctl
+  bundle in the runner tool cache, start the official rootless containerd and
+  BuildKit services when absent, and fail with their service logs if startup
+  cannot complete. Installing only the client still leaves builds without a
+  daemon.
 - Do not import the monolithic vault API route module from a literature service
   to resolve plugin paths or state. It initializes unrelated subsystems and can
   make catalog requests exceed the frontend timeout. Read the requested vault's
