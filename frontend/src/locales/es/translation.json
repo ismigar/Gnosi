@@ -1394,6 +1394,13 @@
       "configure": "Configura",
       "enable": "Activa",
       "disable": "Desactiva",
+      "activation_required_title": "{{name}} está desactivado",
+      "activation_required_description": "Activa este plugin para utilizar la función. Se conservan sus datos y configuración anteriores.",
+      "open_plugins_settings": "Abrir configuración de plugins",
+      "dependency_confirm_title": "¿Cambiar los plugins relacionados?",
+      "dependency_enable_message": "Esta función también necesita: {{plugins}}. Se activarán conjuntamente.",
+      "dependency_disable_message": "También se desactivarán estas funciones dependientes: {{plugins}}. Se conservarán sus datos y configuración.",
+      "dependency_confirm_action": "Confirmar cambio",
       "project-planning": {
         "name": "Planificación de proyectos",
         "desc": "Añade duraciones laborables, predecesoras y calendarios de trabajo a los campos de período."
@@ -1406,7 +1413,17 @@
         "canvas-cards": { "name": "Tarjetas del canvas", "description": "Inserta páginas como tarjetas dinámicas en el canvas." },
         "web-clipper": { "name": "Web Clipper", "description": "Guarda páginas web desde el navegador en la tabla que elijas y completa sus campos." },
         "llm-wiki": { "name": "Cerebro (wiki LLM)", "description": "Procesa recursos con IA para mantener una wiki de conocimiento enlazada, al estilo de Karpathy." },
-        "project-planning": { "name": "Planificación de proyectos", "description": "Añade duraciones laborables, predecesoras y calendarios de trabajo a los campos de período." }
+        "project-planning": { "name": "Planificación de proyectos", "description": "Añade duraciones laborables, predecesoras y calendarios de trabajo a los campos de período." },
+        "feeds-reader": { "name": "Feeds y boletines", "description": "Suscripciones RSS, boletines y podcasts diarios opcionales." },
+        "translation": { "name": "Traducción", "description": "Proveedores de traducción y acciones de idioma de publicación." },
+        "contacts": { "name": "Contactos", "description": "Libretas de direcciones externas y la aplicación Contactos." },
+        "mail": { "name": "Correo", "description": "Cuentas, sincronización y aplicación de correo." },
+        "calendar": { "name": "Calendario", "description": "Calendarios externos, recordatorios y espacios de reuniones." },
+        "social-publishing": { "name": "Publicación social y medios", "description": "Panel social, compositor y centro multimedia." },
+        "notion-import": { "name": "Importación de Notion", "description": "Importa espacios de Notion como datos portables del Vault." },
+        "ai-platform": { "name": "IA y agentes", "description": "Proveedores, modelos, agentes, habilidades y herramientas gobernadas." },
+        "grounded-notebooks": { "name": "Cuadernos fundamentados", "description": "Haz preguntas fundamentadas sobre fuentes de referencia seleccionadas." },
+        "automations": { "name": "Automatizaciones", "description": "Automatizaciones de usuario, programaciones e historial de ejecución." }
       },
       "planning_intro": "Elige las tablas de proyectos y tareas y define el calendario de los campos de período ampliados.",
       "planning_project_table": "Tabla de proyectos",
@@ -1601,13 +1618,19 @@
       "notion": "Importar Notion",
       "translate": "Traducción",
       "profile": "Perfil",
-      "account": "Cuenta"
+      "account": "Cuenta",
+      "web_clipper": "Web Clipper",
+      "daily_notes": "Notas diarias",
+      "project_planning": "Planificación de proyectos",
+      "llm_wiki": "Cerebro (wiki LLM)",
+      "automations": "Automatizaciones"
     },
     "navigation": {
       "basic": "Básico",
       "connections": "Conexiones",
       "knowledge": "Conocimiento e IA",
-      "advanced": "Avanzado"
+      "advanced": "Avanzado",
+      "extensions": "Extensiones"
     },
     "reader": {
       "sections_label": "Apartados del lector",
@@ -4663,6 +4686,8 @@
     "module_social_desc": "Gestiona tus redes sociales desde un solo lugar.",
     "module_media_title": "Fotos y Media",
     "module_media_desc": "Explora tu biblioteca de archivos multimedia.",
+    "module_planning_desc": "Planifica proyectos, dependencias, recursos y calendarios de trabajo.",
+    "module_notebooks_desc": "Haz preguntas fundamentadas sobre fuentes de referencia seleccionadas.",
     "module_dashboard_title": "Centro de Control",
     "module_dashboard_desc": "Monitoriza el estado del sistema y aprueba herramientas.",
     "module_settings_desc": "Gestiona los parámetros de tu ecosistema."
@@ -5501,7 +5526,9 @@
     "entries": {
       "v1_0_7": {
         "highlights": {},
-        "improvements": {},
+        "improvements": {
+          "modular_capabilities": "Las funciones secundarias ahora se activan por Vault como plugins integrados. Los Vaults existentes migran al modo de solo núcleo sin perder datos ni configuración; los enlaces compartidos, la sincronización de correo, la publicación y las automatizaciones de usuario quedan en pausa hasta que se reactiven."
+        },
         "fixes": {
           "gallery_autoria_display": "Se ha corregido el renderizado de la vista de Galería en las bases de datos al mostrar campos de autoría."
         }

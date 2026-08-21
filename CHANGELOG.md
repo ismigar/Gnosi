@@ -4,6 +4,10 @@
 
 _2026-08-19 · Stable_
 
+### Improvements
+
+- Secondary capabilities now activate per Vault as built-in plugins. Existing Vaults migrate to core-only mode without losing data or settings; sharing, mail sync, publishing and user automations stay paused until reactivated.
+
 ### Fixes
 
 - Fixed Gallery database view rendering when displaying authorship properties.

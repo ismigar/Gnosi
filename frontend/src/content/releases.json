@@ -5,7 +5,9 @@
     "channel": "stable",
     "sections": {
       "highlights": [],
-      "improvements": [],
+      "improvements": [
+        "release_notes.entries.v1_0_7.improvements.modular_capabilities"
+      ],
       "fixes": [
         "release_notes.entries.v1_0_7.fixes.gallery_autoria_display"
       ]

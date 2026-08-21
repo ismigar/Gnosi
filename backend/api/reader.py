@@ -13,6 +13,7 @@ import xml.etree.ElementTree as ET
 from fastapi.responses import FileResponse
 from backend.services.workspace_service import get_workspace_context, require_role
 from backend.services.context_vars import get_active_vault_path
+from backend.services.plugin_access import require_plugins
 
 log = logging.getLogger(__name__)
 ALLOWED_SSL_MODES = ("starttls", "ssl", "none")
@@ -327,7 +328,7 @@ def get_reader_inventory(
 
 @router.post(
     "/analysis",
-    dependencies=[Depends(require_role("editor"))],
+    dependencies=[Depends(require_role("editor")), Depends(require_plugins("ai-platform"))],
 )
 def start_reader_analysis(payload: ReaderAnalysisRequest):
     """Snapshot the selected Reader corpus and start durable topic analysis."""
@@ -375,7 +376,7 @@ def get_reader_analysis_result(job_id: str):
 
 @router.post(
     "/analysis/{job_id}/resume",
-    dependencies=[Depends(require_role("editor"))],
+    dependencies=[Depends(require_role("editor")), Depends(require_plugins("ai-platform"))],
 )
 def resume_reader_analysis(job_id: str):
     """Resume a durable job from completed checkpoints."""
@@ -616,7 +617,10 @@ def get_article(article_id: int, db: Session = Depends(get_db)):
 
 # -- Podcast --
 
-@router.post("/podcast/generate", dependencies=[Depends(require_role("editor"))])
+@router.post(
+    "/podcast/generate",
+    dependencies=[Depends(require_role("editor")), Depends(require_plugins("ai-platform"))],
+)
 def trigger_podcast_generation():
     """Launches podcast generation in the background"""
     from backend.services.audio_summarizer import start_generation_async, generation_status

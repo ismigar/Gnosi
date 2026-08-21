@@ -226,18 +226,18 @@ class ClipRequest(BaseModel):
 def _clipper_state() -> tuple[bool, dict]:
     """(enabled, settings) of the `web-clipper` plugin from `.gnosi/plugins.json`.
 
-    An unreadable state must not silently disable clipping — the previous
-    behavior (a note in `Clips/`) is the safe fallback.
+    An unreadable state uses the core-only fallback so external writes never
+    resume without explicit activation.
     """
     try:
         from backend.api.vault_routes import _load_plugins_state
         state = _load_plugins_state()
     except Exception as e:  # noqa: BLE001
         logger.warning("Could not read the plugin state for the clipper: %s", e)
-        return True, {}
-    disabled = state.get("disabled") or []
+        return False, {}
+    from backend.services import builtin_plugins
     cfg = (state.get("settings") or {}).get(web_clipper.PLUGIN_ID)
-    return (web_clipper.PLUGIN_ID not in disabled), (cfg if isinstance(cfg, dict) else {})
+    return builtin_plugins.is_enabled(state, web_clipper.PLUGIN_ID), (cfg if isinstance(cfg, dict) else {})
 
 
 def _clipper_target(cfg: dict) -> tuple[Optional[dict], Optional[dict]]:
@@ -262,7 +262,7 @@ def public_clip_config(
     """Destination and form schema for the browser extension.
 
     The extension calls this on open so its form mirrors whatever the user
-    configured in Gnosi (Settings → Plugins → Web Clipper) without shipping a
+    configured in Gnosi (Settings → Connections → Web Clipper) without shipping a
     hardcoded copy of the vault's schema.
     """
     enabled, cfg = _clipper_state()
@@ -298,7 +298,7 @@ async def public_clip(
     if not enabled:
         raise HTTPException(
             status_code=403,
-            detail="El plugin Web Clipper està desactivat a Gnosi",
+            detail="The Web Clipper plugin is disabled in Gnosi",
         )
     title = (body.title or body.url or "Clip").strip()[:200]
     tags = list(body.tags or [])

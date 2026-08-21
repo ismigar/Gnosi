@@ -1,106 +1,140 @@
-/**
- * usePlugins — shared plugin activation and configuration state.
- *
- * Minimal module-level store with subscription: all consumers (sidebar,
- * page menu, config panel) read the same set of "disabled" flags and
- * per-plugin "settings", and re-render when they change. It is loaded once
- * from `GET /api/vault/plugins` and persisted with `PUT /api/vault/plugins`.
- */
-import { useEffect, useState, useCallback } from 'react';
+/** Shared, versioned plugin activation and configuration state. */
+import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 
-let _disabled = new Set();
-let _settings = {};
-let _loaded = false;
+import { BUILTIN_PLUGINS } from './registry';
+
+const EMPTY_STATE = {
+    disabled: new Set(),
+    enabledBuiltin: new Set(),
+    enabledThirdParty: new Set(),
+    settings: {},
+    builtins: BUILTIN_PLUGINS,
+    loaded: false,
+};
+
+let _state = EMPTY_STATE;
 let _loading = null;
 const _subs = new Set();
 
+function _snapshot(payload = {}) {
+    return {
+        disabled: new Set(payload.disabled || []),
+        enabledBuiltin: new Set(payload.enabled_builtin || []),
+        enabledThirdParty: new Set(payload.enabled_third_party || []),
+        settings: payload.settings && typeof payload.settings === 'object'
+            ? payload.settings : {},
+        builtins: Array.isArray(payload.builtins) && payload.builtins.length
+            ? payload.builtins : BUILTIN_PLUGINS,
+        loaded: true,
+    };
+}
+
 function _notify() {
-    for (const fn of _subs) fn({ disabled: new Set(_disabled), settings: _settings, loaded: _loaded });
+    for (const subscriber of _subs) subscriber(_state);
 }
 
-function _persist() {
-    return axios.put('/api/vault/plugins', {
-        disabled: Array.from(_disabled),
-        settings: _settings,
-    });
+function _apply(payload) {
+    _state = _snapshot(payload);
+    _notify();
+    return _state;
 }
 
-async function _ensureLoaded() {
-    if (_loaded) return;
+async function _load(force = false) {
+    if (_state.loaded && !force) return _state;
     if (!_loading) {
         _loading = axios.get('/api/vault/plugins')
-            .then((res) => {
-                _disabled = new Set(res.data?.disabled || []);
-                _settings = (res.data?.settings && typeof res.data.settings === 'object')
-                    ? res.data.settings : {};
-                _loaded = true;
+            .then((response) => _apply(response.data || {}))
+            .catch(() => {
+                _state = { ...EMPTY_STATE, loaded: true };
                 _notify();
+                return _state;
             })
-            .catch(() => { _loaded = true; _notify(); })
             .finally(() => { _loading = null; });
     }
     return _loading;
 }
 
+export function reloadPluginState() {
+    return _load(true);
+}
+
 export function usePlugins() {
-    const [state, setState] = useState({ disabled: new Set(_disabled), settings: _settings, loaded: _loaded });
+    const [state, setState] = useState(_state);
 
     useEffect(() => {
-        const sub = (next) => setState(next);
-        _subs.add(sub);
-        _ensureLoaded();
-        return () => { _subs.delete(sub); };
+        _subs.add(setState);
+        void _load();
+        const refresh = () => {
+            _state = EMPTY_STATE;
+            _notify();
+            void _load(true);
+        };
+        window.addEventListener('gnosi:vault-changed', refresh);
+        return () => {
+            _subs.delete(setState);
+            window.removeEventListener('gnosi:vault-changed', refresh);
+        };
     }, []);
 
-    const { disabled, settings, loaded } = state;
-
-    const isEnabled = useCallback((id) => !disabled.has(id), [disabled]);
+    const isEnabled = useCallback((id) => (
+        state.enabledBuiltin.has(id) || state.enabledThirdParty.has(id)
+    ), [state.enabledBuiltin, state.enabledThirdParty]);
 
     const setPluginEnabled = useCallback(async (id, enabled, options = {}) => {
-        // LLM Wiki owns an AI profile in addition to its per-vault UI state.
-        // Its lifecycle is therefore handled by one backend operation rather
-        // than two client calls that could leave the feature and profile apart.
-        if (id === 'llm-wiki') {
-            const res = await axios.post('/api/vault/plugins/llm-wiki/lifecycle', {
+        const response = await axios.post(
+            `/api/vault/plugins/${encodeURIComponent(id)}/lifecycle`,
+            {
                 enabled,
+                confirm_dependencies: options.confirmDependencies === true,
                 confirm_disable: options.confirmDisable === true,
-            });
-            _disabled = new Set(res.data?.disabled || []);
-            _settings = (res.data?.settings && typeof res.data.settings === 'object')
-                ? res.data.settings : _settings;
-            _notify();
-            return res.data;
-        }
-        const prev = new Set(_disabled);
-        const next = new Set(_disabled);
-        if (enabled) next.delete(id); else next.add(id);
-        _disabled = next;
-        _notify();
-        try {
-            await _persist();
-        } catch {
-            _disabled = prev; // Revert on failure
-            _notify();
-        }
+            },
+        );
+        _apply(response.data || {});
+        return response.data;
     }, []);
 
-    const getPluginSettings = useCallback((id) => settings?.[id] || {}, [settings]);
+    const getPluginSettings = useCallback(
+        (id) => state.settings?.[id] || {},
+        [state.settings],
+    );
 
     const setPluginSettings = useCallback(async (id, patch) => {
-        const prev = _settings;
-        const merged = { ...(_settings[id] || {}), ...(patch || {}) };
-        _settings = { ..._settings, [id]: merged };
+        const previous = _state;
+        const merged = { ...(_state.settings?.[id] || {}), ...(patch || {}) };
+        _state = {
+            ..._state,
+            settings: { ..._state.settings, [id]: merged },
+        };
         _notify();
         try {
-            await _persist();
-        } catch {
-            _settings = prev; // Revert on failure
+            const response = await axios.put(
+                `/api/vault/plugins/${encodeURIComponent(id)}/settings`,
+                { settings: patch || {} },
+            );
+            _state = {
+                ..._state,
+                settings: {
+                    ..._state.settings,
+                    [id]: response.data?.settings || merged,
+                },
+            };
             _notify();
+        } catch (error) {
+            _state = previous;
+            _notify();
+            throw error;
         }
     }, []);
 
-    return { disabled, settings, loaded, isEnabled, setPluginEnabled, getPluginSettings, setPluginSettings };
+    return {
+        ...state,
+        isEnabled,
+        setPluginEnabled,
+        getPluginSettings,
+        setPluginSettings,
+        reload: reloadPluginState,
+    };
 }
 
 export default usePlugins;

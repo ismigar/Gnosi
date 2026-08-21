@@ -39,6 +39,34 @@ MAX_EXCERPT_CHARS = 1_200
 MAX_RECORD_CHARS = 16_000
 MAX_CALENDAR_DAYS = 366
 READER_READ_STATUSES = frozenset({"all", "read", "unread"})
+INTERNAL_SOURCE_PLUGINS = {
+    "reader": ("feeds-reader",),
+    "mail": ("mail",),
+    "calendar": ("calendar",),
+    "contacts": ("contacts",),
+    "planning": ("project-planning",),
+    "social": ("social-publishing",),
+    "meetings": ("calendar", "ai-platform"),
+    "notion": ("notion-import",),
+}
+
+
+def _internal_source_enabled(source_id: str) -> bool:
+    """Return whether this source's optional capabilities are active."""
+    required = INTERNAL_SOURCE_PLUGINS.get(str(source_id or "").strip().lower(), ())
+    if not required:
+        return True
+    from backend.api.vault_routes import _load_plugins_state
+    from backend.services import builtin_plugins
+
+    state = _load_plugins_state()
+    return all(builtin_plugins.is_enabled(state, plugin_id) for plugin_id in required)
+
+
+def _assert_internal_source_enabled(source_id: str) -> None:
+    """Reject new reads from sources whose plugins are paused."""
+    if not _internal_source_enabled(source_id):
+        raise PermissionError(f"Internal source is disabled: {source_id}")
 
 
 def _bounded_strings(value: Any, *, lower: bool = False) -> List[str]:
@@ -1277,6 +1305,7 @@ def _notion_read(scope: Dict[str, Any], record_id: str) -> Dict[str, Any]:
 def describe_internal_source(source_id: str, raw_scope: Any) -> str:
     """Return a bounded inventory for a scoped internal source."""
     source_id = str(source_id or "").strip().lower()
+    _assert_internal_source_enabled(source_id)
     scope = normalize_internal_scope(source_id, raw_scope)
     if source_id == "reader":
         payload = _reader_inventory(scope)
@@ -1312,6 +1341,7 @@ def describe_internal_source(source_id: str, raw_scope: Any) -> str:
 def search_internal_source(source_id: str, raw_scope: Any, query: str) -> str:
     """Search one scoped internal source and return bounded JSON records."""
     source_id = str(source_id or "").strip().lower()
+    _assert_internal_source_enabled(source_id)
     scope = normalize_internal_scope(source_id, raw_scope)
     if source_id == "reader":
         payload = _reader_search(scope, query)
@@ -1337,6 +1367,7 @@ def search_internal_source(source_id: str, raw_scope: Any, query: str) -> str:
 def read_internal_record(source_id: str, raw_scope: Any, record_id: str) -> str:
     """Read one exact record that remains inside the configured source scope."""
     source_id = str(source_id or "").strip().lower()
+    _assert_internal_source_enabled(source_id)
     scope = normalize_internal_scope(source_id, raw_scope)
     if source_id == "reader":
         payload = _reader_read(scope, record_id)
@@ -1423,6 +1454,8 @@ def internal_source_catalog(workspace_id: str) -> List[Dict[str, Any]]:
         },
     ]
     try:
+        if not _internal_source_enabled("reader"):
+            raise PermissionError("Reader plugin is disabled")
         db = _reader_session()
         try:
             from backend.models.reader import FeedSource
@@ -1437,9 +1470,13 @@ def internal_source_catalog(workspace_id: str) -> List[Dict[str, Any]]:
             })
         finally:
             db.close()
+    except PermissionError:
+        pass
     except Exception as error:  # noqa: BLE001
         log.warning("Could not build Reader source options: %s", error)
     try:
+        if not _internal_source_enabled("planning"):
+            raise PermissionError("Planning plugin is disabled")
         planning = _planning_snapshot()
         projects = (planning["schedule"].get("projects") or {})
         descriptors[4]["options"]["projects"] = [
@@ -1454,6 +1491,8 @@ def internal_source_catalog(workspace_id: str) -> List[Dict[str, Any]]:
             for resource in planning["state"].get("resources") or []
             if resource.get("id")
         ]
+    except PermissionError:
+        pass
     except Exception as error:  # noqa: BLE001
         log.warning("Could not build Planning source options: %s", error)
     try:
@@ -1482,6 +1521,8 @@ def internal_source_catalog(workspace_id: str) -> List[Dict[str, Any]]:
     except Exception as error:  # noqa: BLE001
         log.warning("Could not build References source options: %s", error)
     try:
+        if not _internal_source_enabled("meetings"):
+            raise PermissionError("Meeting capabilities are disabled")
         meeting_scope = normalize_internal_scope("meetings", {})
         if _meeting_pages(meeting_scope):
             descriptors.append({
@@ -1491,12 +1532,18 @@ def internal_source_catalog(workspace_id: str) -> List[Dict[str, Any]]:
                 "scope": {"date_from": "", "date_to": ""},
                 "options": {},
             })
+    except PermissionError:
+        pass
     except Exception as error:  # noqa: BLE001
         log.warning("Could not build Meetings source options: %s", error)
     if workspace_id == "personal":
-        descriptors[1]["options"]["accounts"] = _configured_accounts()
-        descriptors[2]["options"]["accounts"] = _configured_accounts(calendar=True)
+        if _internal_source_enabled("mail"):
+            descriptors[1]["options"]["accounts"] = _configured_accounts()
+        if _internal_source_enabled("calendar"):
+            descriptors[2]["options"]["accounts"] = _configured_accounts(calendar=True)
         try:
+            if not _internal_source_enabled("notion"):
+                raise PermissionError("Notion plugin is disabled")
             from backend.api.notion_routes import _get_token
             from backend.services.notion_importer import _plain_title
 
@@ -1518,21 +1565,24 @@ def internal_source_catalog(workspace_id: str) -> List[Dict[str, Any]]:
                         ],
                     },
                 })
+        except PermissionError:
+            pass
         except Exception as error:  # noqa: BLE001
             log.warning("Could not build Notion source options: %s", error)
-        descriptors.append({
-            "id": "social",
-            "name": "Social",
-            "description": "Saved drafts, scheduled posts, and publication history.",
-            "scope": {"networks": [], "statuses": []},
-            "options": {
-                "networks": ["mastodon", "bluesky", "linkedin", "facebook", "telegram"],
-                "statuses": [
-                    "esborrany", "programada", "publicant", "publicada",
-                    "parcial", "error", "cancelada",
-                ],
-            },
-        })
+        if _internal_source_enabled("social"):
+            descriptors.append({
+                "id": "social",
+                "name": "Social",
+                "description": "Saved drafts, scheduled posts, and publication history.",
+                "scope": {"networks": [], "statuses": []},
+                "options": {
+                    "networks": ["mastodon", "bluesky", "linkedin", "facebook", "telegram"],
+                    "statuses": [
+                        "esborrany", "programada", "publicant", "publicada",
+                        "parcial", "error", "cancelada",
+                    ],
+                },
+            })
     else:
         descriptors = [
             item for item in descriptors
@@ -1540,4 +1590,4 @@ def internal_source_catalog(workspace_id: str) -> List[Dict[str, Any]]:
                 "reader", "contacts", "planning", "references", "meetings"
             }
         ]
-    return descriptors
+    return [item for item in descriptors if _internal_source_enabled(item["id"])]

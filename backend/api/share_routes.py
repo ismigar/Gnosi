@@ -23,6 +23,7 @@ from backend.services.workspace_service import (
     require_role,
 )
 from backend.services.context_vars import active_vault_path, get_active_vault_path
+from backend.services.plugin_access import assert_plugins_enabled, require_plugins
 
 log = logging.getLogger(__name__)
 
@@ -78,7 +79,7 @@ def _is_active(link: ShareLink) -> bool:
 
 @router.post(
     "/vault/pages/{page_id}/share",
-    dependencies=[Depends(require_role("editor"))],
+    dependencies=[Depends(require_role("editor")), Depends(require_plugins("share-links"))],
 )
 async def create_share_link(
     page_id: str,
@@ -116,7 +117,7 @@ async def create_share_link(
 
 @router.get(
     "/vault/pages/{page_id}/shares",
-    dependencies=[Depends(require_role("viewer"))],
+    dependencies=[Depends(require_role("viewer")), Depends(require_plugins("share-links"))],
 )
 async def list_share_links(page_id: str, db: Session = Depends(get_mgmt_db)):
     """Lists the active (non-revoked, non-expired) share links for a page."""
@@ -130,7 +131,7 @@ async def list_share_links(page_id: str, db: Session = Depends(get_mgmt_db)):
 
 @router.delete(
     "/vault/share/{token}",
-    dependencies=[Depends(require_role("editor"))],
+    dependencies=[Depends(require_role("editor")), Depends(require_plugins("share-links"))],
 )
 async def revoke_share_link(token: str, db: Session = Depends(get_mgmt_db)):
     """Revokes a share link (soft-delete: keeps the row for audit)."""
@@ -178,6 +179,7 @@ async def read_shared_page(token: str, db: Session = Depends(get_mgmt_db)):
         raise HTTPException(status_code=503, detail="No vault available to serve shared page")
     tok = active_vault_path.set(Path(vault))
     try:
+        await assert_plugins_enabled("share-links")
         # Reuse the canonical page reader (it uses the active vault context).
         from backend.api.vault_routes import get_page
         page = await get_page(link.page_id)

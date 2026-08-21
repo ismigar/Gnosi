@@ -1448,6 +1448,13 @@
       "configure": "Configura",
       "enable": "Activa",
       "disable": "Desactiva",
+      "activation_required_title": "{{name}} està desactivat",
+      "activation_required_description": "Activa aquest plugin per utilitzar la funcionalitat. Les dades i la configuració anteriors es conserven.",
+      "open_plugins_settings": "Obre la configuració de plugins",
+      "dependency_confirm_title": "Vols canviar els plugins relacionats?",
+      "dependency_enable_message": "Aquesta funcionalitat també necessita: {{plugins}}. S'activaran conjuntament.",
+      "dependency_disable_message": "També es desactivaran aquestes funcionalitats dependents: {{plugins}}. Se'n conservaran les dades i la configuració.",
+      "dependency_confirm_action": "Confirma el canvi",
       "project-planning": {
         "name": "Planificació de projectes",
         "desc": "Afegeix durades laborables, predecessores i calendaris de treball als camps de període."
@@ -1460,7 +1467,17 @@
         "canvas-cards": { "name": "Targetes del canvas", "description": "Insereix pàgines com a targetes vives al canvas." },
         "web-clipper": { "name": "Web Clipper", "description": "Desa pàgines web des del navegador a la taula que triïs i omple'n els camps." },
         "llm-wiki": { "name": "Cervell (wiki LLM)", "description": "Processa recursos amb IA per mantenir un wiki de coneixement enllaçat, a l'estil de Karpathy." },
-        "project-planning": { "name": "Planificació de projectes", "description": "Afegeix durades laborables, predecessores i calendaris de treball als camps de període." }
+        "project-planning": { "name": "Planificació de projectes", "description": "Afegeix durades laborables, predecessores i calendaris de treball als camps de període." },
+        "feeds-reader": { "name": "Feeds i butlletins", "description": "Subscripcions RSS, butlletins i podcasts diaris opcionals." },
+        "translation": { "name": "Traducció", "description": "Proveïdors de traducció i accions d'idioma de publicació." },
+        "contacts": { "name": "Contactes", "description": "Llibretes d'adreces externes i l'aplicació Contactes." },
+        "mail": { "name": "Correu", "description": "Comptes, sincronització i aplicació de correu." },
+        "calendar": { "name": "Calendari", "description": "Calendaris externs, recordatoris i espais de reunions." },
+        "social-publishing": { "name": "Publicació social i mitjans", "description": "Dashboard social, compositor i centre multimèdia." },
+        "notion-import": { "name": "Importació de Notion", "description": "Importa espais de Notion com a dades portables del Vault." },
+        "ai-platform": { "name": "IA i agents", "description": "Proveïdors, models, agents, habilitats i eines governades." },
+        "grounded-notebooks": { "name": "Llibretes fonamentades", "description": "Fes preguntes fonamentades sobre fonts de referència seleccionades." },
+        "automations": { "name": "Automatitzacions", "description": "Automatitzacions d'usuari, programacions i historial d'execució." }
       },
       "planning_intro": "Tria les taules de projectes i tasques i defineix el calendari dels camps de període ampliats.",
       "planning_project_table": "Taula de projectes",
@@ -1655,13 +1672,19 @@
       "notion": "Importar Notion",
       "translate": "Traducció",
       "profile": "Perfil",
-      "account": "Compte"
+      "account": "Compte",
+      "web_clipper": "Web Clipper",
+      "daily_notes": "Notes diàries",
+      "project_planning": "Planificació de projectes",
+      "llm_wiki": "Cervell (wiki LLM)",
+      "automations": "Automatitzacions"
     },
     "navigation": {
       "basic": "Bàsic",
       "connections": "Connexions",
       "knowledge": "Coneixement i IA",
-      "advanced": "Avançat"
+      "advanced": "Avançat",
+      "extensions": "Extensions"
     },
     "reader": {
       "sections_label": "Apartats del lector",
@@ -4663,6 +4686,8 @@
     "module_social_desc": "Gestiona les teves xarxes socials des d'un sol lloc.",
     "module_media_title": "Fotos i Media",
     "module_media_desc": "Explora la teva biblioteca de mitjans.",
+    "module_planning_desc": "Planifica projectes, dependències, recursos i calendaris de treball.",
+    "module_notebooks_desc": "Fes preguntes fonamentades sobre fonts de referència seleccionades.",
     "module_dashboard_title": "Control Center",
     "module_dashboard_desc": "Monitoritza l'estat del sistema i aprova eines.",
     "module_settings_desc": "Gestiona els paràmetres del teu ecosistema."
@@ -5501,7 +5526,9 @@
     "entries": {
       "v1_0_7": {
         "highlights": {},
-        "improvements": {},
+        "improvements": {
+          "modular_capabilities": "Les funcionalitats secundàries ara s'activen per Vault com a plugins integrats. Els Vaults existents migren al mode de només nucli sense perdre dades ni configuració; la compartició, la sincronització de correu, la publicació i les automatitzacions d'usuari queden pausades fins que es reactivin."
+        },
         "fixes": {
           "gallery_autoria_display": "S'ha corregit el renderitzat de la vista de Galeria a les bases de dades quan es mostren camps d'autoria."
         }

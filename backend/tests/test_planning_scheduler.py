@@ -9,7 +9,14 @@ def test_scheduler_rebuilds_index_and_only_writes_automatic_boundaries(tmp_path,
     monkeypatch.setenv("GNOSI_LOCAL_DATA", str(tmp_path / "local"))
     config = tmp_path / ".gnosi"
     config.mkdir()
-    (config / "plugins.json").write_text(json.dumps({"settings": {"project-planning": {"task_table_id": "tasks"}}}), encoding="utf-8")
+    (config / "plugins.json").write_text(json.dumps({
+        "schema_version": 2,
+        "enabled_builtin": ["project-planning"],
+        "enabled_third_party": [],
+        "disabled": [],
+        "settings": {"project-planning": {"task_table_id": "tasks"}},
+        "granted": {},
+    }), encoding="utf-8")
     task = tmp_path / "task.md"
     task.write_text("""---
 id: task-1
@@ -39,7 +46,14 @@ def test_scheduler_preserves_manual_boundaries(tmp_path, monkeypatch):
     monkeypatch.setenv("GNOSI_LOCAL_DATA", str(tmp_path / "local"))
     config = tmp_path / ".gnosi"
     config.mkdir()
-    (config / "plugins.json").write_text(json.dumps({"settings": {"project-planning": {"task_table_id": "tasks"}}}), encoding="utf-8")
+    (config / "plugins.json").write_text(json.dumps({
+        "schema_version": 2,
+        "enabled_builtin": ["project-planning"],
+        "enabled_third_party": [],
+        "disabled": [],
+        "settings": {"project-planning": {"task_table_id": "tasks"}},
+        "granted": {},
+    }), encoding="utf-8")
     task = tmp_path / "task.md"
     task.write_text("""---
 id: task-1

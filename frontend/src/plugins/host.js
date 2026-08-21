@@ -13,6 +13,7 @@
  *   gnosi.registerCommand({id, title, icon?, run})   → command palette
  *   gnosi.registerView({id, title, icon?, render})    → own view
  *   gnosi.registerSidebarPanel({id, title, render})   → sidebar panel
+ *   gnosi.registerSettingsPanel({id, title, render})  → sandboxed Settings panel
  *   gnosi.vault.readPage(id) / writePage(id, content) → data API (gated)
  *   gnosi.fetch(url, opts)                             → network (gated)
  *   gnosi.log/warn/error(...)                          → host console
@@ -28,6 +29,7 @@ const _frames = new Map();        // pluginId → { iframe, manifest, granted }
 let _commands = [];               // { pluginId, id, title, icon }
 let _views = [];                  // { pluginId, id, title, icon }
 let _sidebar = [];                // { pluginId, id, title }
+let _settingsPanels = [];         // { pluginId, id, title, height }
 let _loaded = false;
 const _subs = new Set();
 
@@ -36,6 +38,7 @@ function _notify() {
         commands: [..._commands],
         views: [..._views],
         sidebar: [..._sidebar],
+        settingsPanels: [..._settingsPanels],
     };
     for (const fn of _subs) {
         try { fn(snapshot); } catch { /* noop */ }
@@ -44,12 +47,12 @@ function _notify() {
 
 export function subscribeHost(fn) {
     _subs.add(fn);
-    fn({ commands: [..._commands], views: [..._views], sidebar: [..._sidebar] });
+    fn({ commands: [..._commands], views: [..._views], sidebar: [..._sidebar], settingsPanels: [..._settingsPanels] });
     return () => _subs.delete(fn);
 }
 
 export function getContributions() {
-    return { commands: [..._commands], views: [..._views], sidebar: [..._sidebar] };
+    return { commands: [..._commands], views: [..._views], sidebar: [..._sidebar], settingsPanels: [..._settingsPanels] };
 }
 
 // --- Runtime injected INSIDE the iframe --------------------------------------
@@ -84,6 +87,15 @@ function _runtimeSource() {
           if (!panel || !panel.id) return;
           _cbs['panel:' + panel.id] = panel.render;
           post('register-panel', { id: panel.id, title: panel.title || panel.id });
+        },
+        registerSettingsPanel: function (panel) {
+          if (!panel || !panel.id) return;
+          _cbs['settings:' + panel.id] = panel.render;
+          post('register-settings-panel', {
+            id: panel.id,
+            title: panel.title || panel.id,
+            height: Math.max(160, Math.min(Number(panel.height) || 420, 1200))
+          });
         },
         vault: {
           readPage: function (id) { return call('vault.readPage', { pageId: id }); },
@@ -227,6 +239,11 @@ function _onMessage(entry, ev) {
         _sidebar = _sidebar.filter((s) => !(s.pluginId === pid && s.id === m.id));
         _sidebar.push({ pluginId: pid, id: m.id, title: m.title });
         _notify();
+    } else if (m.type === 'register-settings-panel') {
+        if (!granted.includes('ui:settings')) return;
+        _settingsPanels = _settingsPanels.filter((panel) => !(panel.pluginId === pid && panel.id === m.id));
+        _settingsPanels.push({ pluginId: pid, id: m.id, title: m.title, height: m.height });
+        _notify();
     } else if (m.type === 'log') {
         console[m.level === 'error' ? 'error' : m.level === 'warn' ? 'warn' : 'log'](`[plugin ${pid}]`, m.message);
     } else if (m.type === 'host-call') {
@@ -265,6 +282,7 @@ function _unmountPlugin(pid) {
     _commands = _commands.filter((c) => c.pluginId !== pid);
     _views = _views.filter((v) => v.pluginId !== pid);
     _sidebar = _sidebar.filter((s) => s.pluginId !== pid);
+    _settingsPanels = _settingsPanels.filter((panel) => panel.pluginId !== pid);
     _notify();
 }
 
@@ -274,6 +292,24 @@ export function runCommand(pluginId, commandId, arg) {
     if (!entry) return;
     entry.iframe.contentWindow.postMessage(
         { __gnosi_host: true, type: 'run', kind: 'cmd', id: commandId, arg: arg || null }, '*');
+}
+
+/** Mounts a registered Settings panel's sandbox in a visible host container. */
+export function mountSettingsPanel(pluginId, panelId, container, height = 420) {
+    const entry = _frames.get(pluginId);
+    if (!entry || !container) return () => {};
+    const { iframe } = entry;
+    iframe.removeAttribute('aria-hidden');
+    iframe.style.cssText = `display:block;width:100%;height:${Math.max(160, Math.min(Number(height) || 420, 1200))}px;border:0;background:transparent;`;
+    container.appendChild(iframe);
+    iframe.contentWindow.postMessage(
+        { __gnosi_host: true, type: 'run', kind: 'settings', id: panelId, arg: null }, '*');
+    return () => {
+        if (!_frames.has(pluginId)) return;
+        iframe.setAttribute('aria-hidden', 'true');
+        iframe.style.cssText = 'position:absolute;width:0;height:0;border:0;visibility:hidden;';
+        document.body.appendChild(iframe);
+    };
 }
 
 /** Loads (or reloads) all installed and active third-party plugins. */
@@ -290,7 +326,7 @@ export async function loadPlugins() {
         const manifest = p.manifest;
         if (!manifest || !p.enabled) continue;
         const granted = p.granted || [];
-        const wantsUI = ['ui:command', 'ui:view', 'ui:sidebar'].some((x) => granted.includes(x));
+        const wantsUI = ['ui:command', 'ui:view', 'ui:sidebar', 'ui:settings'].some((x) => granted.includes(x));
         if (!manifest.main || !wantsUI) continue;
         seen.add(manifest.id);
         try {

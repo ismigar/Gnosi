@@ -24,7 +24,7 @@ from backend.models.agent_skills import (
     ConfirmationPolicy,
     ToolEffect,
 )
-from backend.services import plugin_sandbox, plugin_system
+from backend.services import builtin_plugins, plugin_sandbox, plugin_system
 from backend.services.agent_skill_catalog import (
     ToolRegistration,
     register_plugin_skill_provider,
@@ -45,7 +45,11 @@ def _runtime_context() -> tuple[Path, dict[str, Any]]:
 
     from backend.api.vault_routes import get_p, _load_plugins_state
 
-    return get_p("GNOSI_CONFIG"), _load_plugins_state()
+    try:
+        config_dir = get_p("GNOSI_CONFIG")
+    except (AttributeError, KeyError, TypeError) as exc:
+        raise plugin_system.PluginError("No active vault is available") from exc
+    return config_dir, _load_plugins_state()
 
 
 def _safe_contribution_path(
@@ -122,9 +126,7 @@ def _plugin_snapshot(
     config_dir, state = _runtime_context()
     manifest = plugin_system.read_manifest(config_dir, plugin_id)
     granted = set(plugin_system.granted_permissions(state, plugin_id))
-    enabled = plugin_id not in {
-        str(value) for value in (state.get("disabled") or [])
-    }
+    enabled = builtin_plugins.is_enabled(state, plugin_id)
     return config_dir, state, manifest, granted, enabled
 
 
@@ -406,14 +408,13 @@ def _reconcile_agents(
         for agent in agents
         if isinstance(agent, dict)
     }
-    disabled = {str(value) for value in (state.get("disabled") or [])}
     changed = False
     active_template_ids: set[str] = set()
 
     for plugin_id, manifest in manifests.items():
         granted = set(plugin_system.granted_permissions(dict(state), plugin_id))
         active = (
-            plugin_id not in disabled
+            builtin_plugins.is_enabled(state, plugin_id)
             and "ai:agents" in granted
         )
         templates = _agent_templates(config_dir, manifest) if active else []
@@ -481,7 +482,14 @@ def reconcile_plugin_ai_contributions() -> dict[str, Any]:
     """Register catalogs and reconcile agent templates idempotently."""
 
     with _reconcile_lock:
-        config_dir, state = _runtime_context()
+        try:
+            config_dir, state = _runtime_context()
+        except plugin_system.PluginError:
+            return {
+                "plugins": [],
+                "registered_plugins": sorted(_registered_plugin_ids),
+                "agents_changed": False,
+            }
         manifests: dict[str, dict[str, Any]] = {}
         for entry in plugin_system.discover_plugins(config_dir):
             manifest = entry.get("manifest")
