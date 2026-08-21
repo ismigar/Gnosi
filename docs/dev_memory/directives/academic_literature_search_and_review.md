@@ -272,6 +272,10 @@ Mutating endpoints use existing CSRF and authorization conventions. Public API r
   to resolve plugin paths or state. It initializes unrelated subsystems and can
   make catalog requests exceed the frontend timeout. Read the requested vault's
   `.gnosi/plugins.json` through a small service-level helper instead.
+- Do not give the isolated live-E2E backend only a short fixed startup window
+  on the ARM64/QEMU runner. A cold import after the full backend suite can take
+  more than 100 seconds. Poll the process with a bounded multi-minute deadline
+  and print its captured log on early exit, timeout, or E2E failure.
 
 ## Verification requirements
 
