@@ -270,7 +270,9 @@ Mutating endpoints use existing CSRF and authorization conventions. Public API r
   bundle in the runner tool cache, start the official rootless containerd and
   BuildKit services when absent, and fail with their service logs if startup
   cannot complete. Installing only the client still leaves builds without a
-  daemon.
+  daemon. On Ubuntu runners that restrict unprivileged user namespaces, load a
+  path-scoped AppArmor profile for the checksum-verified RootlessKit binary
+  with non-interactive sudo; never disable the host-wide restriction.
 - Do not import the monolithic vault API route module from a literature service
   to resolve plugin paths or state. It initializes unrelated subsystems and can
   make catalog requests exceed the frontend timeout. Read the requested vault's
