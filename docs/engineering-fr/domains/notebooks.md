@@ -146,7 +146,7 @@ analyses. Les données originales du Vault restent hors de cette limite.
 | --- | --- |
 | `GET/POST /api/notebooks` | Bibliothèque paginée et création à partir d'identifiants de Ressources |
 | `GET/PATCH/DELETE /api/notebooks/{id}` | Détail, paramètres et suppression des données dérivées |
-| `GET /api/notebooks/resources` | Sélecteur paginé de la table Références configurée |
+| `GET /api/notebooks/resources` | Sélecteur paginé alphabétique avec facettes de type, auteur et étiquettes de la table Références configurée |
 | `GET/POST /api/notebooks/{id}/sources` | Inspecter ou ajouter des Ressources |
 | `DELETE /api/notebooks/{id}/sources/{resource_id}` | Exclure immédiatement une ressource |
 | `POST /api/notebooks/{id}/refresh` | Rafraîchissement ou nouvelle tentative explicite fusionnée |
@@ -164,6 +164,12 @@ L'action de sélection multiple n'apparaît que si l'identité de la table ouver
 correspond à celle de la table Références configurée. Elle n'est jamais activée
 par un nom ou un identifiant fixe. La boîte de dialogue accepte un titre, une
 visibilité, un mode de conversation et jusqu'à mille identifiants de Ressources.
+Les sélecteurs de création et d'ajout trient tout le catalogue par ordre
+alphabétique avant pagination et proposent des filtres de type, d'auteur et
+d'étiquettes dérivés du schéma. Ces métadonnées servent uniquement à la
+sélection et n'entrent jamais dans les preuves. Les pages marquées comme
+modèles de table sont exclues du sélecteur, de la validation des requêtes et
+des instantanés d'ingestion.
 
 Sur ordinateur, les sources, la conversation intégrée et les paramètres sont
 affichés ensemble. Sur mobile, ces panneaux deviennent des onglets. L'interface
@@ -191,10 +197,10 @@ Les tests unitaires prouvent l'exclusion des champs non sources, la réutilisati
 incrémentale, le retrait immédiat des membres, l'identité des citations,
 l'isolation des ACL, les espaces de noms de checkpoint, la validation positive
 des révisions, les outils en lecture seule et l'analyse durable épinglée. Les
-tests frontend vérifient le prédicat de l'action multiple lié à la table
-configurée et le contrat exact des identifiants sélectionnés. La validation de
-livraison exige aussi un démarrage backend propre, le build frontend et un
-parcours navigateur sur ordinateur et mobile.
+tests frontend vérifient le prédicat de l'action multiple lié à la table, les
+filtres du sélecteur dérivés du schéma et le contrat exact des identifiants
+sélectionnés. La validation de livraison exige aussi un démarrage backend
+propre, le build frontend et un parcours navigateur sur ordinateur et mobile.
 
 Les limites actuelles sont de mille Ressources par requête de création ou
 d'ajout, deux cents lignes de sélection par page, cinquante résultats de

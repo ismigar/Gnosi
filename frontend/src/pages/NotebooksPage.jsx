@@ -21,8 +21,16 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import AgentChat from '../components/AgentChat';
+import { AppHeader } from '../components/AppHeader';
 import ConfirmModal from '../components/ConfirmModal';
 import NotebookCreateDialog from '../components/Notebooks/NotebookCreateDialog';
+import NotebookResourceFilters from '../components/Notebooks/NotebookResourceFilters';
+import {
+    EMPTY_RESOURCE_FACETS,
+    EMPTY_RESOURCE_FILTERS,
+    normalizeResourceFacets,
+    notebookResourceCatalogUrl,
+} from '../components/Notebooks/notebookResourceCatalog';
 import { useModalKeyboard } from '../hooks/useModalKeyboard';
 import { toast } from '../lib/toast';
 import './NotebooksPage.css';
@@ -76,20 +84,19 @@ function NotebookLibrary({ onCreate }) {
 
     const pageCount = Math.max(1, Math.ceil((data.total || 0) / (data.page_size || 24)));
     return (
-        <main className="notebooks-page">
-            <header className="notebooks-page__hero">
-                <div>
-                    <span className="notebooks-eyebrow">{t('notebooks.eyebrow', 'Grounded knowledge')}</span>
-                    <h1>{t('notebooks.title', 'Notebooks')}</h1>
-                    <p>{t('notebooks.subtitle', 'Converse with the attachments and URLs in your Resources.')}</p>
-                </div>
-                <button className="btn-gnosi btn-gnosi-primary notebooks-primary-action" onClick={onCreate}>
+        <div className="notebooks-page">
+            <AppHeader
+                icon={BookOpen}
+                title={t('notebooks.title', 'Notebooks')}
+                subtitle={t('notebooks.subtitle', 'Converse with the attachments and URLs in your Resources.')}
+            >
+                <button type="button" className="gnosi-button gnosi-button--primary notebooks-primary-action" onClick={onCreate}>
                     <Plus size={16} />
                     {t('notebooks.create_action', 'Create notebook')}
                 </button>
-            </header>
+            </AppHeader>
 
-            <section className="notebook-library">
+            <main className="notebook-library">
                 <div className="notebook-library__toolbar">
                     <label className="notebook-search notebook-search--library">
                         <Search size={17} />
@@ -141,15 +148,16 @@ function NotebookLibrary({ onCreate }) {
                         <button disabled={data.page >= pageCount} onClick={() => setData((previous) => ({ ...previous, page: previous.page + 1 }))}><ChevronRight size={16} /></button>
                     </nav>
                 )}
-            </section>
-        </main>
+            </main>
+        </div>
     );
 }
 
 function AddResourcesDialog({ notebookId, currentIds, onClose, onAdded }) {
     const { t } = useTranslation();
     const [query, setQuery] = useState('');
-    const [data, setData] = useState({ items: [], total: 0, page: 1, page_size: 50 });
+    const [data, setData] = useState({ items: [], total: 0, page: 1, page_size: 50, facets: EMPTY_RESOURCE_FACETS });
+    const [filters, setFilters] = useState({ ...EMPTY_RESOURCE_FILTERS });
     const [selected, setSelected] = useState(new Set());
     const [saving, setSaving] = useState(false);
     const dialogRef = useRef(null);
@@ -162,18 +170,28 @@ function AddResourcesDialog({ notebookId, currentIds, onClose, onAdded }) {
     });
     useEffect(() => {
         const controller = new AbortController();
-        fetch(`/api/notebooks/resources?notebook_id=${encodeURIComponent(notebookId)}&q=${encodeURIComponent(query)}&page=${data.page}&page_size=50`, { signal: controller.signal })
+        fetch(notebookResourceCatalogUrl({
+            notebookId,
+            query,
+            page: data.page,
+            filters,
+        }), { signal: controller.signal })
             .then((response) => response.ok ? response.json() : Promise.reject(new Error(`Resource list failed (${response.status})`)))
             .then((responseData) => setData({
                 items: (responseData.items || []).filter((item) => !currentIds.has(String(item.id))),
                 total: Number(responseData.total) || 0,
                 page: Number(responseData.page) || data.page,
                 page_size: Number(responseData.page_size) || 50,
+                facets: normalizeResourceFacets(responseData.facets),
             }))
             .catch((error) => { if (error.name !== 'AbortError') console.error('Could not load Resources', error); });
         return () => controller.abort();
-    }, [currentIds, data.page, notebookId, query]);
+    }, [currentIds, data.page, filters, notebookId, query]);
     const pageCount = Math.max(1, Math.ceil(data.total / data.page_size));
+    const updateFilter = (key, value) => {
+        setFilters((previous) => key ? { ...previous, [key]: value } : { ...EMPTY_RESOURCE_FILTERS });
+        setData((previous) => ({ ...previous, page: 1 }));
+    };
     const add = async () => {
         if (!selected.size) return;
         setSaving(true);
@@ -212,6 +230,12 @@ function AddResourcesDialog({ notebookId, currentIds, onClose, onAdded }) {
                         setQuery(event.target.value);
                         setData((previous) => ({ ...previous, page: 1 }));
                     }} placeholder={t('notebooks.search_resources', 'Search Resources...')} data-autofocus /></label>
+                    <NotebookResourceFilters
+                        facets={data.facets}
+                        filters={filters}
+                        onChange={updateFilter}
+                        disabled={saving}
+                    />
                     <div className="notebook-resource-picker__list notebook-resource-picker__list--add">
                         {data.items.map((resource) => {
                             const checked = selected.has(String(resource.id));

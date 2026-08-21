@@ -131,7 +131,7 @@ fora d'aquest límit.
 | --- | --- |
 | `GET/POST /api/notebooks` | Biblioteca paginada i creació des d'identificadors de Recursos |
 | `GET/PATCH/DELETE /api/notebooks/{id}` | Detall, configuració i eliminació de dades derivades |
-| `GET /api/notebooks/resources` | Selector paginat de la taula Referències |
+| `GET /api/notebooks/resources` | Selector paginat alfabètic amb facetes de tipus, autor i etiquetes de la taula Referències |
 | `GET/POST /api/notebooks/{id}/sources` | Inspeccionar o afegir Recursos |
 | `DELETE /api/notebooks/{id}/sources/{resource_id}` | Excloure immediatament un Recurs |
 | `POST /api/notebooks/{id}/refresh` | Refresc o reintent explícit fusionat |
@@ -146,7 +146,12 @@ substitucions d'habilitats.
 
 L'acció múltiple només apareix quan la identitat de la taula oberta coincideix
 amb la de Referències; mai per un nom o ID fix. El diàleg accepta títol,
-visibilitat, mode de conversa i fins a mil identificadors de Recursos.
+visibilitat, mode de conversa i fins a mil identificadors de Recursos. Els
+selectors de creació i d'addició ordenen alfabèticament tot el catàleg abans de
+paginar i ofereixen filtres de tipus, autor i etiquetes derivats de l'esquema.
+Aquestes metadades només serveixen per seleccionar i mai entren a l'evidència.
+Les pàgines marcades com a plantilles de taula s'exclouen del selector, de la
+validació de peticions i de les instantànies d'ingestió.
 
 A l'escriptori, fonts, conversa incrustada i configuració es mostren juntes. Al
 mòbil es converteixen en pestanyes. Només se sondeja el quadern actiu i visible:
@@ -164,9 +169,8 @@ El repositori SQLite i la cua durable romanen sota `LOCAL_DATA`, mai dins d'un
 Vault compartit. Els mateixos camins funcionen en desplegaments natius i Docker.
 
 Les proves cobreixen exclusió de camps no font, reutilització incremental,
-retirada immediata, citacions, ACL, checkpoints, eines de només lectura i
-anàlisi durable. Els límits actuals són mil Recursos per petició, dues-centes
+retirada immediata, citacions, ACL, checkpoints, eines de només lectura,
+filtres del selector i anàlisi durable. Els límits actuals són mil Recursos per petició, dues-centes
 files de selector per pàgina, cinquanta resultats de recuperació i lots
 d'anàlisi acotats. La configuració i els índexs són locals a una instància i no
 se sincronitzen entre instal·lacions.
-

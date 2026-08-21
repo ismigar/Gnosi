@@ -133,7 +133,7 @@ Vault quedan fuera de este límite.
 | --- | --- |
 | `GET/POST /api/notebooks` | Biblioteca paginada y creación desde identificadores de Recursos |
 | `GET/PATCH/DELETE /api/notebooks/{id}` | Detalle, configuración y eliminación de datos derivados |
-| `GET /api/notebooks/resources` | Selector paginado de la tabla Referencias |
+| `GET /api/notebooks/resources` | Selector paginado alfabético con facetas de tipo, autor y etiquetas de la tabla Referencias |
 | `GET/POST /api/notebooks/{id}/sources` | Inspeccionar o añadir Recursos |
 | `DELETE /api/notebooks/{id}/sources/{resource_id}` | Excluir inmediatamente un Recurso |
 | `POST /api/notebooks/{id}/refresh` | Actualización o reintento explícito fusionado |
@@ -149,7 +149,12 @@ sustituciones de habilidades.
 La acción múltiple solo aparece cuando la identidad de la tabla abierta
 coincide con la de Referencias; nunca por un nombre o ID fijo. El diálogo
 acepta título, visibilidad, modo de conversación y hasta mil identificadores de
-Recursos.
+Recursos. Los selectores de creación y adición ordenan alfabéticamente todo el
+catálogo antes de paginar y ofrecen filtros de tipo, autor y etiquetas
+derivados del esquema. Estos metadatos solo sirven para seleccionar y nunca
+entran en la evidencia. Las páginas marcadas como plantillas de tabla se
+excluyen del selector, de la validación de peticiones y de las instantáneas de
+ingesta.
 
 En escritorio, fuentes, conversación integrada y configuración se muestran
 juntas. En móvil se convierten en pestañas. Solo se sondea el cuaderno activo y
@@ -168,9 +173,8 @@ dentro de un Vault compartido. Las mismas rutas funcionan en despliegues
 nativos y Docker.
 
 Las pruebas cubren exclusión de campos no fuente, reutilización incremental,
-retirada inmediata, citas, ACL, checkpoints, herramientas de solo lectura y
-análisis durable. Los límites actuales son mil Recursos por petición,
+retirada inmediata, citas, ACL, checkpoints, herramientas de solo lectura,
+filtros del selector y análisis durable. Los límites actuales son mil Recursos por petición,
 doscientas filas de selector por página, cincuenta resultados de recuperación y
 lotes de análisis acotados. La configuración y los índices son locales a una
 instancia y no se sincronizan entre instalaciones.
-

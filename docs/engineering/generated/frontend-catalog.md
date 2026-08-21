@@ -34,12 +34,12 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `application root` | 3 | 306 | 0 |
-| `components` | 203 | 81231 | 203 |
+| `components` | 205 | 81364 | 203 |
 | `context` | 1 | 177 | 6 |
 | `hooks` | 16 | 1241 | 7 |
 | `lib` | 21 | 2096 | 6 |
 | `locales` | 3 | 565 | 0 |
-| `pages` | 17 | 12769 | 52 |
+| `pages` | 17 | 12793 | 52 |
 | `plugins` | 4 | 513 | 5 |
 | `utils` | 14 | 1792 | 0 |
 
@@ -104,7 +104,9 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Minimap.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Minimap.jsx) | 311 | `Minimap` | — |
 | [`frontend/src/components/Navigation/WorkspaceSwitcher.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Navigation/WorkspaceSwitcher.jsx) | 103 | `WorkspaceSwitcher` | `/api/workspaces` |
 | [`frontend/src/components/NodeDetailsPanel.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/NodeDetailsPanel.jsx) | 145 | `NodeDetailsPanel` | — |
-| [`frontend/src/components/Notebooks/NotebookCreateDialog.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Notebooks/NotebookCreateDialog.jsx) | 203 | `NotebookCreateDialog`, `function` | `/api/notebooks` |
+| [`frontend/src/components/Notebooks/NotebookCreateDialog.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Notebooks/NotebookCreateDialog.jsx) | 228 | `NotebookCreateDialog`, `function` | `/api/notebooks` |
+| [`frontend/src/components/Notebooks/NotebookResourceFilters.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Notebooks/NotebookResourceFilters.jsx) | 69 | `NotebookResourceFilters`, `function` | — |
+| [`frontend/src/components/Notebooks/notebookResourceCatalog.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Notebooks/notebookResourceCatalog.js) | 39 | `EMPTY_RESOURCE_FACETS`, `EMPTY_RESOURCE_FILTERS`, `normalizeResourceFacets`, `notebookResourceCatalogUrl` | — |
 | [`frontend/src/components/NotionImportSettings.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/NotionImportSettings.jsx) | 834 | `NotionImportSettings`, `function` | `/api/notion-oauth/login`, `/api/notion-oauth/status`, `/api/notion/clone`, `/api/notion/clone/abort`, `/api/notion/clone/progress`, `/api/notion/databases`, `/api/notion/import-config`, `/api/notion/linked-databases`, `/api/notion/loose-pages`, `/api/notion/status`, `/api/notion/token`, `/api/notion/verify-clone`, `/api/vault/registry`, `/api/vaults` |
 | [`frontend/src/components/PageOutline.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/PageOutline.jsx) | 299 | `PageOutline`, `function` | — |
 | [`frontend/src/components/PluginsSettings.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/PluginsSettings.jsx) | 2187 | `PluginsSettings` | `/api/planning/assignments`, `/api/planning/calendars`, `/api/planning/calendars/project-default`, `/api/planning/leveling/proposal`, `/api/planning/resources`, `/api/planning/state`, `/api/vault/llm-wiki/brain/create`, `/api/vault/llm-wiki/config`, `/api/vault/llm-wiki/maintenance?semantic=false`, `/api/vault/llm-wiki/maintenance?semantic=true`, `/api/vault/llm-wiki/suggestions`, `/api/vault/plugins/catalog`, `/api/vault/plugins/catalog/install`, `/api/vault/plugins/catalog/list`, `/api/vault/plugins/install`, `/api/vault/plugins/installed`, `/api/vault/plugins/registry-url`, `/api/vault/plugins/trust`, `/api/vault/tables` |
@@ -333,7 +335,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/pages/HomePage.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/HomePage.jsx) | 148 | `HomePage` | — |
 | [`frontend/src/pages/MailPage.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/MailPage.jsx) | 401 | `MailPage`, `function` | `/api/integrations` |
 | [`frontend/src/pages/MediaCenter.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/MediaCenter.jsx) | 1622 | `MediaCenter`, `function` | `/api/vault/assets/upload`, `/api/vault/media`, `/api/vault/media/metadata`, `/api/vault/media/roots`, `/api/vault/media/tree`, `/api/vault/media/views` |
-| [`frontend/src/pages/NotebooksPage.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/NotebooksPage.jsx) | 446 | `NotebooksPage`, `function` | — |
+| [`frontend/src/pages/NotebooksPage.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/NotebooksPage.jsx) | 470 | `NotebooksPage`, `function` | — |
 | [`frontend/src/pages/PostHistory.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/PostHistory.jsx) | 135 | `PostHistory` | `/api/social/history` |
 | [`frontend/src/pages/ProjectPlanningPage.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/ProjectPlanningPage.jsx) | 103 | `ProjectPlanningPage`, `function` | `/api/planning/allocation`, `/api/planning/worklogs` |
 | [`frontend/src/pages/ReaderDashboard.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/ReaderDashboard.jsx) | 789 | `ReaderDashboard` | — |
