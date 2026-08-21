@@ -516,6 +516,19 @@ export const VaultDateProperty = ({
                     title: idToTitle[predecessorId] || predecessorId,
                 }));
             const hasPredecessors = predecessorsEnabled && selectedPredecessors.length > 0;
+            const summaryStart = periodInputValue(period.start);
+            const summaryEnd = periodInputValue(period.end, true);
+            const summaryDuration = displayDuration === ''
+                ? ''
+                : new Intl.NumberFormat(dateLocale || 'en-US', {
+                    style: 'unit',
+                    unit: periodUnit === 'hours' ? 'hour' : periodUnit === 'years' ? 'year' : 'day',
+                    unitDisplay: 'long',
+                    maximumFractionDigits: 4,
+                }).format(displayDuration);
+            const showCalculationSummary = Boolean(
+                summaryStart || summaryDuration || summaryEnd || hasPredecessors,
+            );
             const selectedConstraintType = period.constraintType || 'ASAP';
             const selectedConstraintOption = PLANNING_CONSTRAINT_OPTIONS.find(
                 ([value]) => value === selectedConstraintType,
@@ -658,6 +671,41 @@ export const VaultDateProperty = ({
                                 )}
                             </div>
                         </label>
+                    )}
+                    {showCalculationSummary && (
+                        <section
+                            aria-label={t('vault_date.period_calculation_summary', 'Calculation summary')}
+                            className="col-span-2 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)]/70 px-3 py-2 text-[11px] text-[var(--text-secondary)]"
+                        >
+                            <div className="mb-1.5 flex items-center gap-1.5 font-semibold text-[var(--text-primary)]">
+                                <CalendarIcon size={13} className="text-[var(--gnosi-primary)]" aria-hidden="true" />
+                                <span>{t('vault_date.period_calculation_summary', 'Calculation summary')}</span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                <span>
+                                    <span className="text-[var(--text-tertiary)]">{t('vault_date.period_calculation_start', 'Start')}:</span>{' '}
+                                    <strong className="font-semibold text-[var(--text-primary)]">{summaryStart || '—'}</strong>
+                                </span>
+                                <span aria-hidden="true" className="text-[var(--text-tertiary)]">→</span>
+                                <span>
+                                    <span className="text-[var(--text-tertiary)]">{t('vault_date.period_calculation_duration', 'Duration')}:</span>{' '}
+                                    <strong className="font-semibold text-[var(--text-primary)]">{summaryDuration || '—'}</strong>
+                                </span>
+                                <span aria-hidden="true" className="text-[var(--text-tertiary)]">→</span>
+                                <span>
+                                    <span className="text-[var(--text-tertiary)]">{t('vault_date.period_calculation_finish', 'Finish')}:</span>{' '}
+                                    <strong className="font-semibold text-[var(--text-primary)]">{summaryEnd || '—'}</strong>
+                                </span>
+                            </div>
+                            {hasPredecessors && period.startMode === 'auto' && (
+                                <p className="mt-1.5 border-t border-[var(--border-primary)]/70 pt-1.5 text-[var(--text-tertiary)]">
+                                    {t('vault_date.period_calculation_predecessor', 'Automatic start from')}:{' '}
+                                    <span className="font-medium text-[var(--text-secondary)]">
+                                        {selectedPredecessors.map(({ title }) => title).join(', ')}
+                                    </span>
+                                </p>
+                            )}
+                        </section>
                     )}
                     {hasPredecessors && period.dependencies.length > 0 && (
                         <div className="col-span-2 flex flex-col gap-1">
