@@ -38,6 +38,7 @@ import {
     ToolsSettingsPanel,
 } from './AI/AIResourcesSettings';
 import { useAIResources } from './AI/useAIResources';
+import { AIQualitySettingsPanel } from './AI/AIQualitySettings';
 import {
     AutomationsSettingsPanel,
     OperationsHistoryPanel,
@@ -4311,6 +4312,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             { id: 'tools', icon: Sliders, label: t('settings.ai.resources.tools_tab') },
                                             { id: 'automations', icon: Clock3, label: t('settings.ai.operations.automations_tab') },
                                             { id: 'operations', icon: History, label: t('settings.ai.operations.history_tab') },
+                                            { id: 'quality', icon: Activity, label: t('settings.ai.quality.tab') },
                                         ]}
                                         onChange={sectionId => {
                                             setAiSection(sectionId);
@@ -4716,6 +4718,12 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                     {aiSection === 'operations' && (
                                         <Section title={t('settings.ai.operations.history_title')} icon={History}>
                                             <OperationsHistoryPanel resources={aiResources} />
+                                        </Section>
+                                    )}
+
+                                    {aiSection === 'quality' && (
+                                        <Section title={t('settings.ai.quality.title')} icon={Activity}>
+                                            <AIQualitySettingsPanel resources={aiResources} />
                                         </Section>
                                     )}
                                 </>

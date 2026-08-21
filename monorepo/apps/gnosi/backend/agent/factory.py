@@ -2229,6 +2229,7 @@ class AgentState(TypedDict):
     remaining_steps: RemainingSteps
     cancel_token: str
     trace_id: str
+    turn_started_at: float
 
 
 def _turn_is_cancelled(state: Any) -> bool:
@@ -2382,15 +2383,21 @@ def _tool_policy_wrapper(tool_policies: Any):
                             policy.get("_descriptor"),
                             request,
                             error_code=type(error).__name__,
+                            duration_ms=int((time.monotonic() - started) * 1000),
                         )
                         raise
                 if getattr(result, "status", "success") != "error":
-                    record_capability_success(policy.get("_descriptor"), request)
+                    record_capability_success(
+                        policy.get("_descriptor"),
+                        request,
+                        duration_ms=int((time.monotonic() - started) * 1000),
+                    )
                 else:
                     record_capability_failure(
                         policy.get("_descriptor"),
                         request,
                         error_code="tool_result_error",
+                        duration_ms=int((time.monotonic() - started) * 1000),
                     )
                 audit(
                     "completed" if getattr(result, "status", "success") != "error" else "failed",
@@ -2456,6 +2463,7 @@ def _tool_policy_wrapper(tool_policies: Any):
                 policy.get("_descriptor"),
                 request,
                 error_code=type(error).__name__,
+                duration_ms=int((time.monotonic() - started) * 1000),
             )
             audit(
                 "failed",
@@ -2464,12 +2472,17 @@ def _tool_policy_wrapper(tool_policies: Any):
             )
             raise
         if getattr(result, "status", "success") != "error":
-            record_capability_success(policy.get("_descriptor"), request)
+            record_capability_success(
+                policy.get("_descriptor"),
+                request,
+                duration_ms=int((time.monotonic() - started) * 1000),
+            )
         else:
             record_capability_failure(
                 policy.get("_descriptor"),
                 request,
                 error_code="tool_result_error",
+                duration_ms=int((time.monotonic() - started) * 1000),
             )
         audit(
             "completed" if getattr(result, "status", "success") != "error" else "failed",
@@ -3600,6 +3613,16 @@ async def create_agent_workflow(
             max_model_calls
             and model_messages >= max(0, max_model_calls - 1)
         )
+        soft_deadline_seconds = max(
+            0,
+            int((turn_plan.get("deadline") or {}).get("soft_seconds") or 0),
+        )
+        turn_started_at = float(state.get("turn_started_at", 0.0) or 0.0)
+        soft_deadline_reached = bool(
+            soft_deadline_seconds
+            and turn_started_at
+            and time.monotonic() - turn_started_at >= soft_deadline_seconds
+        )
         personal_resources_requested = (
             "list_authored_vault_resources" in bound_tool_names
             and _personal_resource_authorship_requested(latest_user)
@@ -3676,6 +3699,15 @@ async def create_agent_workflow(
                 f"turn ({repeated_tool_name}). Stop the loop and answer directly "
                 "from the available tool evidence, including an explicit limitation "
                 "if it is empty. Do not call another tool."
+            )
+        elif soft_deadline_reached and (
+            latest_context_tool or not required_context_tool
+        ):
+            selected_brain_llm = llm
+            brain_system += (
+                "\nThe turn has entered its reserved synthesis window. Answer now "
+                "from the available evidence and do not call another tool. If the "
+                "requested work is incomplete, say so and identify the safe next step."
             )
         elif tool_budget_reached or read_budget_reached:
             # Some tool-eager models repeat broad successful reads instead of

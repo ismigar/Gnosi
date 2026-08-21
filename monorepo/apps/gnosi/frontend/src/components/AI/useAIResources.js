@@ -59,6 +59,8 @@ export const useAIResources = (enabled) => {
     const [jobs, setJobs] = useState([]);
     const [auditEvents, setAuditEvents] = useState([]);
     const [approvals, setApprovals] = useState([]);
+    const [qualityDashboard, setQualityDashboard] = useState(null);
+    const [semanticAssociations, setSemanticAssociations] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -67,13 +69,15 @@ export const useAIResources = (enabled) => {
         setLoading(true);
         setError('');
         try {
-            const [skillsPayload, toolsPayload, automationsPayload, jobsPayload, auditPayload, approvalsPayload] = await Promise.all([
+            const [skillsPayload, toolsPayload, automationsPayload, jobsPayload, auditPayload, approvalsPayload, qualityPayload, associationsPayload] = await Promise.all([
                 request('/api/ai/skills'),
                 request('/api/ai/tools'),
                 request('/api/ai/automations').catch(() => ({ automations: [] })),
                 request('/api/ai/jobs').catch(() => ({ jobs: [] })),
                 request('/api/ai/capability-audit').catch(() => ({ events: [] })),
                 request('/api/ai/approvals').catch(() => ({ approvals: [] })),
+                request('/api/ai/quality/dashboard').catch(() => null),
+                request('/api/ai/semantic-associations').catch(() => ({ associations: [] })),
             ]);
             setSkills(catalogRows(skillsPayload, 'skills').map(normalizeSkill));
             setTools(catalogRows(toolsPayload, 'tools').map(normalizeTool));
@@ -82,6 +86,8 @@ export const useAIResources = (enabled) => {
             setJobs(Array.isArray(jobsPayload?.jobs) ? jobsPayload.jobs : []);
             setAuditEvents(Array.isArray(auditPayload?.events) ? auditPayload.events : []);
             setApprovals(Array.isArray(approvalsPayload?.approvals) ? approvalsPayload.approvals : []);
+            setQualityDashboard(qualityPayload);
+            setSemanticAssociations(Array.isArray(associationsPayload?.associations) ? associationsPayload.associations : []);
         } catch (requestError) {
             console.error('Error loading AI skill and tool catalogs:', requestError);
             setError(requestError.message);
@@ -102,7 +108,9 @@ export const useAIResources = (enabled) => {
             request('/api/ai/jobs').catch(() => ({ jobs: [] })),
             request('/api/ai/capability-audit').catch(() => ({ events: [] })),
             request('/api/ai/approvals').catch(() => ({ approvals: [] })),
-        ]).then(([skillsPayload, toolsPayload, automationsPayload, jobsPayload, auditPayload, approvalsPayload]) => {
+            request('/api/ai/quality/dashboard').catch(() => null),
+            request('/api/ai/semantic-associations').catch(() => ({ associations: [] })),
+        ]).then(([skillsPayload, toolsPayload, automationsPayload, jobsPayload, auditPayload, approvalsPayload, qualityPayload, associationsPayload]) => {
             if (cancelled) return;
             setSkills(catalogRows(skillsPayload, 'skills').map(normalizeSkill));
             setTools(catalogRows(toolsPayload, 'tools').map(normalizeTool));
@@ -111,6 +119,8 @@ export const useAIResources = (enabled) => {
             setJobs(Array.isArray(jobsPayload?.jobs) ? jobsPayload.jobs : []);
             setAuditEvents(Array.isArray(auditPayload?.events) ? auditPayload.events : []);
             setApprovals(Array.isArray(approvalsPayload?.approvals) ? approvalsPayload.approvals : []);
+            setQualityDashboard(qualityPayload);
+            setSemanticAssociations(Array.isArray(associationsPayload?.associations) ? associationsPayload.associations : []);
         }).catch(requestError => {
             if (cancelled) return;
             console.error('Error loading AI skill and tool catalogs:', requestError);
@@ -257,6 +267,22 @@ export const useAIResources = (enabled) => {
         ));
     }, []);
 
+    const addSemanticAssociation = useCallback(async (trigger, relatedTerms) => {
+        await request('/api/ai/semantic-associations', {
+            method: 'POST',
+            body: JSON.stringify({ trigger, related_terms: relatedTerms }),
+        });
+        const payload = await request('/api/ai/semantic-associations');
+        setSemanticAssociations(Array.isArray(payload?.associations) ? payload.associations : []);
+    }, []);
+
+    const removeSemanticAssociation = useCallback(async associationId => {
+        await request(`/api/ai/semantic-associations/${encodeURIComponent(associationId)}`, {
+            method: 'DELETE',
+        });
+        setSemanticAssociations(current => current.filter(item => item.id !== associationId));
+    }, []);
+
     return useMemo(() => ({
         skills,
         tools,
@@ -265,6 +291,8 @@ export const useAIResources = (enabled) => {
         jobs,
         auditEvents,
         approvals,
+        qualityDashboard,
+        semanticAssociations,
         loading,
         error,
         reload,
@@ -278,10 +306,14 @@ export const useAIResources = (enabled) => {
         deleteAutomation,
         runAutomation,
         resolveApproval,
+        addSemanticAssociation,
+        removeSemanticAssociation,
     }), [
         assignAgentSkills,
         auditEvents,
         approvals,
+        qualityDashboard,
+        semanticAssociations,
         automations,
         cloneSkill,
         createSkill,
@@ -297,6 +329,8 @@ export const useAIResources = (enabled) => {
         deleteAutomation,
         runAutomation,
         resolveApproval,
+        addSemanticAssociation,
+        removeSemanticAssociation,
         updateSkill,
         validateSkill,
     ]);

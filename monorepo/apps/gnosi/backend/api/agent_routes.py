@@ -754,6 +754,8 @@ def _public_checkpoint_message_entries(
                     ("freshness", "gnosi_freshness"),
                     ("job", "gnosi_job"),
                     ("explanation", "gnosi_explanation"),
+                    ("quality", "gnosi_quality"),
+                    ("conflicts", "gnosi_conflicts"),
                     ("timings", "gnosi_timings"),
                 ):
                     value = assistant_metadata.get(internal_key)
@@ -2019,6 +2021,7 @@ async def chat_endpoint(
             "turn_plan": turn_plan,
             "cancel_token": cancel_token,
             "trace_id": trace_id,
+            "turn_started_at": time.monotonic(),
         }
         
         # 3. Configure memory thread (per agent + session)
@@ -2061,8 +2064,10 @@ async def chat_endpoint(
             active_tool_names: set[str] = set()
             used_tool_names: set[str] = set()
             last_phase = ""
+            deadline_warned = False
             quality_plan = dict(turn_plan)
             quality_verification: Dict[str, Any] = {}
+            stream_failed = False
 
             def phase_for_node(node_name: str) -> str:
                 if node_name in {"brain_tools", "coder_tools"}:
@@ -2167,7 +2172,7 @@ async def chat_endpoint(
                             "schema_version", "planner_version", "plan_id",
                             "mode", "domains", "route", "execution",
                             "output_strategy", "required_tool",
-                            "allowed_tool_count", "budgets", "interpretation",
+                            "allowed_tool_count", "budgets", "deadline", "interpretation",
                             "capability_broker", "memory", "optimization",
                         )
                     },
@@ -2297,6 +2302,26 @@ async def chat_endpoint(
                                     cancel_agent_turn(cancel_token)
                                     return
                                 for node_name, state_update in event.items():
+                                    elapsed_seconds = time.monotonic() - request_started_at
+                                    soft_seconds = int(
+                                        (turn_plan.get("deadline") or {}).get("soft_seconds") or 0
+                                    )
+                                    if (
+                                        soft_seconds
+                                        and elapsed_seconds >= soft_seconds
+                                        and not deadline_warned
+                                    ):
+                                        deadline_warned = True
+                                        yield json.dumps({
+                                            "type": "deadline",
+                                            "trace_id": trace_id,
+                                            "stage": "synthesis_reserve",
+                                            "elapsed_ms": int(elapsed_seconds * 1000),
+                                            "remaining_ms": max(
+                                                0,
+                                                int((turn_timeout_seconds - elapsed_seconds) * 1000),
+                                            ),
+                                        }) + "\n"
                                     current_phase = phase_event(phase_for_node(node_name))
                                     if current_phase:
                                         yield current_phase
@@ -2422,6 +2447,8 @@ async def chat_endpoint(
                                                 "freshness": metadata.get("gnosi_freshness"),
                                                 "job": metadata.get("gnosi_job"),
                                                 "explanation": metadata.get("gnosi_explanation"),
+                                                "quality": metadata.get("gnosi_quality"),
+                                                "conflicts": metadata.get("gnosi_conflicts"),
                                                 "provider_fallback": metadata.get("gnosi_provider_fallback"),
                                                 "timings": timings,
                                             }) + "\n"
@@ -2446,6 +2473,7 @@ async def chat_endpoint(
                 }) + "\n"
 
             except Exception as e:
+                stream_failed = True
                 error_str = str(e)
                 log.exception(
                     "Agent event generator failed (trace_id=%s; %s; active_tools=%s): %s",
@@ -2585,6 +2613,40 @@ async def chat_endpoint(
                     "message_count": 1,
                 }) + "\n"
             finally:
+                if not stream_failed:
+                    try:
+                        await asyncio.to_thread(
+                            record_quality_signal,
+                            {
+                                "vault_scope": vault_scope,
+                                "workspace_id": workspace_context.workspace_id,
+                                "user_id": workspace_context.user_id,
+                            },
+                            agent_id=agent_id,
+                            session_id=session_id,
+                            turn_id=chat_req.turn_id or trace_id,
+                            signal="turn",
+                            language=str(quality_plan.get("language") or "en"),
+                            mode=str(quality_plan.get("mode") or "analysis"),
+                            domains=quality_plan.get("domains") or [],
+                            route=str(quality_plan.get("route") or "General"),
+                            execution=str(quality_plan.get("execution") or "foreground"),
+                            output_strategy=str(
+                                quality_plan.get("output_strategy") or "model_synthesis"
+                            ),
+                            required_tool=str(quality_plan.get("required_tool") or ""),
+                            verification_status=str(
+                                quality_verification.get("status") or "not_applicable"
+                            ),
+                            limitations=quality_verification.get("limitations") or [],
+                            tool_names=sorted(used_tool_names)[:16],
+                            duration_ms=max(
+                                0,
+                                int((time.monotonic() - request_started_at) * 1000),
+                            ),
+                        )
+                    except Exception:  # noqa: BLE001
+                        log.exception("Failed to record completed agent turn telemetry.")
                 if not usage_recorded and (total_in_tok or total_out_tok):
                     await asyncio.to_thread(
                         record_llm_usage,

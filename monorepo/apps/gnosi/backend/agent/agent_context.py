@@ -330,16 +330,50 @@ def _normalized_phrase(text: Any) -> str:
     return " ".join(_normalized_words(text, minimum_length=1))
 
 
-def _inventory_query_terms(query: str) -> tuple[list[str], list[str]]:
+def _token_trigrams(token: str) -> set[str]:
+    """Return bounded character trigrams for deterministic fuzzy matching."""
+    value = f"  {str(token or '')[:64]}  "
+    return {value[index:index + 3] for index in range(max(0, len(value) - 2))}
+
+
+def _semantic_token_match(token: str, candidates: set[str]) -> bool:
+    """Match conservative inflections and close lexical forms without a model."""
+    if token in candidates:
+        return True
+    if len(token) < 5:
+        return False
+    source = _token_trigrams(token)
+    for candidate in candidates:
+        if len(candidate) < 5 or abs(len(candidate) - len(token)) > 4:
+            continue
+        target = _token_trigrams(candidate)
+        union = source | target
+        if union and len(source & target) / len(union) >= 0.62:
+            return True
+    return False
+
+
+def _inventory_query_terms(
+    query: str,
+    *,
+    vault_path: Any = None,
+) -> tuple[list[str], list[str]]:
     """Return literal terms and bounded semantic expansion terms."""
     tokens = list(dict.fromkeys(_normalized_words(query)))
     expanded: list[str] = []
-    matched_profiles: list[str] = []
     for token in tokens:
         profile = INVENTORY_CONCEPT_EXPANSIONS.get(token)
         if profile:
-            matched_profiles.append(token)
             expanded.extend(profile)
+    if vault_path:
+        try:
+            from backend.services.agent_semantic_memory import expand_terms
+
+            learned_triggers = [*tokens, " ".join(tokens)]
+            for learned_term in expand_terms(vault_path, learned_triggers):
+                expanded.extend(_normalized_words(learned_term, minimum_length=2))
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Could not read reviewed semantic associations: %s", exc)
     if not expanded:
         return tokens, []
     # Preserve the literal query in the payload while making the matcher
@@ -353,9 +387,13 @@ def _inventory_match(
     body: str,
     metadata: Any,
     related_text: str = "",
+    expanded_tokens: Optional[List[str]] = None,
 ) -> Tuple[int, List[str], str]:
     """Score one canonical record and identify where every query token matched."""
-    query_tokens, expanded_tokens = _inventory_query_terms(query)
+    query_tokens, default_expanded_tokens = _inventory_query_terms(query)
+    expanded_tokens = list(dict.fromkeys(
+        expanded_tokens if expanded_tokens is not None else default_expanded_tokens
+    ))
     if not query_tokens:
         return 1, ["all"], "direct"
     normalized_title = _normalized_phrase(title)
@@ -378,30 +416,33 @@ def _inventory_match(
         # lets “fuentes bibliográficas” reach “Cerca i recuperació d'informació”
         # while keeping ordinary multi-word queries strict.
         match_tokens = list(dict.fromkeys((*query_tokens, *expanded_tokens)))
-    matched = [token for token in match_tokens if token in combined_tokens]
+    matched = [
+        token for token in match_tokens
+        if _semantic_token_match(token, combined_tokens)
+    ]
     if (not expanded_tokens and len(matched) != len(query_tokens)) or not matched:
         return 0, [], ""
     match_kind = (
         "direct"
-        if all(token in direct_tokens for token in matched)
+        if all(_semantic_token_match(token, direct_tokens) for token in matched)
         else "relation"
     )
     basis = []
-    if any(token in title_tokens for token in matched):
+    if any(_semantic_token_match(token, title_tokens) for token in matched):
         basis.append("title")
-    if any(token in body_tokens for token in matched):
+    if any(_semantic_token_match(token, body_tokens) for token in matched):
         basis.append("body")
-    if any(token in metadata_tokens for token in matched):
+    if any(_semantic_token_match(token, metadata_tokens) for token in matched):
         basis.append("metadata")
-    if any(token in relation_tokens for token in matched):
+    if any(_semantic_token_match(token, relation_tokens) for token in matched):
         basis.append("relations")
     normalized_query = " ".join(query_tokens)
     score = (
         (100 if normalized_query and normalized_query in normalized_title else 0)
-        + (40 * sum(token in title_tokens for token in matched))
-        + (8 * sum(token in metadata_tokens for token in matched))
-        + (4 * sum(token in relation_tokens for token in matched))
-        + sum(token in body_tokens for token in matched)
+        + (40 * sum(_semantic_token_match(token, title_tokens) for token in matched))
+        + (8 * sum(_semantic_token_match(token, metadata_tokens) for token in matched))
+        + (4 * sum(_semantic_token_match(token, relation_tokens) for token in matched))
+        + sum(_semantic_token_match(token, body_tokens) for token in matched)
     )
     return max(1, score), basis, match_kind
 
@@ -1124,8 +1165,10 @@ def build_context_tools(raw_refs: Any) -> List[Any]:
         bounded_query = " ".join(str(query or "").split())[
             :MAX_CONTEXT_INVENTORY_QUERY_CHARS
         ]
+        root = _vault_root()
         _literal_query_terms, semantic_query_terms = _inventory_query_terms(
-            bounded_query
+            bounded_query,
+            vault_path=root,
         )
         requested_types = []
         seen_requested = set()
@@ -1208,7 +1251,6 @@ def build_context_tools(raw_refs: Any) -> List[Any]:
         matches = []
         direct_body_reads = 0
         cache_covered_records = 0
-        root = _vault_root()
         for record in canonical_records:
             table = record["table"]
             if requested_types and str(table.get("id") or "") not in resolved_table_ids:
@@ -1237,6 +1279,7 @@ def build_context_tools(raw_refs: Any) -> List[Any]:
                 body,
                 record["metadata"],
                 related_text,
+                semantic_query_terms,
             )
             if not score:
                 continue
@@ -1301,7 +1344,7 @@ def build_context_tools(raw_refs: Any) -> List[Any]:
             "query_expansion": {
                 "applied": bool(semantic_query_terms),
                 "terms": semantic_query_terms[:24],
-                "method": "bounded_concept_vocabulary"
+                "method": "bounded_and_reviewed_semantic_vocabulary"
                 if semantic_query_terms else "literal_tokens",
             },
             "include_relations": bool(include_relations),

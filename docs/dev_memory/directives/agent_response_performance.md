@@ -167,6 +167,37 @@ back to a direct governed read, but normal warm requests must not reopen every V
 - Repeated feedback for the same turn is idempotent. Clearing or changing a rating rebuilds the
   derived candidate counts rather than appending duplicate observations.
 
+## Adaptive quality extension
+
+The universal agent improves from operational evidence without retaining prompts,
+answers, or source bodies:
+
+- Capability health is persisted across backend restarts with bounded counters,
+  latency summaries, cooldowns, and a successful-probe recovery path. Health data
+  never grants a capability and remains separate from authorization.
+- Vault discovery fuses exact title, lexical, normalized semantic-token, metadata,
+  and relation evidence. Exact inventories still scan the complete authorized scope;
+  semantic ranking may order results but must not turn an exhaustive request into top-k.
+- Explicit user vocabulary associations are stored as small, reviewable, reversible
+  term mappings scoped to the active Vault. They never contain source bodies, prompts,
+  credentials, or executable instructions and never authorize a tool.
+- Deterministic response evaluation scores evidence, citations, completion support,
+  result completeness, tool success, and contradiction handling. The CI corpus covers
+  final-response contracts as well as routing contracts without calling a model.
+- Every turn reserves a soft synthesis deadline before its hard cancellation boundary.
+  The plan exposes deadline stages and the stream warns when it enters the synthesis
+  reserve. Work that cannot finish safely becomes a durable job or a visibly partial
+  response; a consequential action is never replayed.
+- Conflicting structured facts from current-turn evidence are reported with bounded
+  source provenance. The verifier must not silently merge incompatible values or expose
+  raw private evidence in presentation metadata.
+- Capability discovery explains which assigned capability can satisfy the request and
+  which domain is missing. It may recommend connection or assignment, but installation,
+  permission grants, and guarded execution remain explicit user actions.
+- A workspace-scoped quality dashboard aggregates metadata-only service levels: volume,
+  latency buckets, verification outcomes, errors, ratings, tool health, and evaluation
+  candidates. It does not expose conversation or source content.
+
 ## Turn tool selection
 
 - The ToolNode retains the complete active-skill runtime so server-authored calls and
