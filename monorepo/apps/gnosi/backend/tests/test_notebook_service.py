@@ -211,6 +211,107 @@ def test_three_hundred_resources_are_paged_with_multiple_sources(notebook_env, m
     assert notebook_service.get_notebook(notebook["id"], context)["resource_count"] == 300
 
 
+def test_resource_selector_sorts_before_paging_and_filters_schema_facets(notebook_env, monkeypatch):
+    context = notebook_env["context"]
+    table = {
+        "id": "references-table",
+        "name": "References",
+        "properties": [
+            {"id": "files", "name": "Attachments", "type": "files"},
+            {"id": "kind", "name": "Item Type", "type": "select"},
+            {"id": "authors", "name": "Autoría", "type": "autoria"},
+            {
+                "id": "tags",
+                "name": "Etiquetes",
+                "type": "multi_select",
+                "config": {"role": "tags"},
+            },
+        ],
+    }
+    pages = [
+        SimpleNamespace(
+            id="zebra",
+            title="Zebra",
+            last_modified="2026-08-20T10:00:00+00:00",
+            metadata={
+                "kind": "Book",
+                "authors": [{"nom": "Grace", "cognom1": "Hopper", "cognom2": ""}],
+                "tags": ["Computing"],
+            },
+        ),
+        SimpleNamespace(
+            id="alpha",
+            title="Àlpha",
+            last_modified="2026-08-20T10:00:00+00:00",
+            metadata={
+                "kind": "Course",
+                "authors": [{"nom": "Ada", "cognom1": "Lovelace", "cognom2": ""}],
+                "tags": ["Education", "Computing"],
+            },
+        ),
+        SimpleNamespace(
+            id="beta",
+            title="beta",
+            last_modified="2026-08-20T10:00:00+00:00",
+            metadata={
+                "kind": "Book",
+                "authors": [{"nom": "Ada", "cognom1": "Lovelace", "cognom2": ""}],
+                "tags": ["History"],
+            },
+        ),
+        SimpleNamespace(
+            id="course-template",
+            title="Course template",
+            last_modified="2026-08-20T10:00:00+00:00",
+            metadata={
+                "is_template": True,
+                "kind": "Course",
+                "authors": [
+                    {"nom": "Template", "cognom1": "Author", "cognom2": ""}
+                ],
+                "tags": ["Education"],
+            },
+        ),
+    ]
+    monkeypatch.setattr(
+        notebook_service,
+        "_reference_table",
+        lambda: (table["id"], table, pages),
+    )
+
+    first_page = notebook_service.list_reference_resources(context, page=1, page_size=2)
+
+    assert first_page["total"] == 3
+    assert [item["title"] for item in first_page["items"]] == ["Àlpha", "beta"]
+    assert first_page["facets"]["types"] == [
+        {"value": "Book", "count": 2},
+        {"value": "Course", "count": 1},
+    ]
+    assert first_page["facets"]["authors"] == [
+        {"value": "Ada Lovelace", "count": 2},
+        {"value": "Grace Hopper", "count": 1},
+    ]
+    assert first_page["facets"]["tags"] == [
+        {"value": "Computing", "count": 2},
+        {"value": "Education", "count": 1},
+        {"value": "History", "count": 1},
+    ]
+    assert "metadata" not in first_page["items"][0]
+
+    filtered = notebook_service.list_reference_resources(
+        context,
+        resource_type="Course",
+        author="Ada Lovelace",
+        tag="Computing",
+    )
+
+    assert filtered["total"] == 1
+    assert [item["id"] for item in filtered["items"]] == ["alpha"]
+
+    with pytest.raises(HTTPException, match="do not belong"):
+        notebook_service._validate_current_resources(["course-template"])  # noqa: SLF001
+
+
 def test_resource_selector_excludes_items_already_in_notebook(notebook_env):
     context = notebook_env["context"]
     notebook = notebook_service.create_notebook(

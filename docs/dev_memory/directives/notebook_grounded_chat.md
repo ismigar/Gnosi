@@ -2,7 +2,7 @@
 
 > ID: NOTEBOOK_GROUNDED_CHAT_2026_08_20
 > Status: ACTIVE
-> Last verified: 2026-08-20
+> Last verified: 2026-08-21
 
 ## 1. Objectives and Scope
 
@@ -68,6 +68,12 @@
 10. Remove resource membership immediately from future retrieval. Delete only
     derived notebook data and conversations when deleting a notebook.
 
+The Resource selector resolves type, authorship, and tags from the configured
+table schema. It derives bounded facet values from record metadata for
+selection only, sorts the complete matching catalog accent-insensitively, and
+only then applies pagination. Selector metadata never becomes notebook
+evidence.
+
 ## 4. Tools and Libraries
 
 - Python standard library SQLite, hashing, JSON, URL, and concurrency modules.
@@ -84,6 +90,13 @@
 
 - Do not identify the References table by a fixed name or ID. Always use the
   configured reference-table source of truth.
+- Do not expose or accept pages marked `is_template` as Resources. Table
+  templates are authoring helpers, not records or notebook sources.
+- Do not sort Resource rows after pagination or infer selector filters from one
+  page. Filter and sort the complete authorized catalog before slicing it.
+- Do not bind type, author, or tag filters to fixed property IDs. Prefer
+  explicit semantic roles and schema types, with localized name compatibility
+  only as a fallback.
 - Do not index record body text, titles, tags, or arbitrary metadata. Schema and
   record metadata may be inspected only to locate attachment and URL values.
 - Do not add a new embedding service, ML dependency, or remote embedding call.
@@ -118,6 +131,8 @@
 | 2026-08-20 | A real model tool call supplied the raw notebook ID instead of the prefixed context ID | Both stable identifiers were present in the tool context but only the presentation ID was accepted | Resolve notebook tools by either the context ID or its exact notebook ref; never guess or broaden to another notebook. |
 | 2026-08-20 | Provider failure disappeared from the embedded chat after the next transcript refresh | The canonical checkpoint was empty and replaced the local retryable error | Retain a non-empty local transcript while the canonical notebook transcript is empty; an explicit clear remounts the chat. |
 | 2026-08-20 | Durable analysis test failed only in a clean clone | The fixture relied on an active Vault left behind by another test process | Patch the context-variable Vault provider explicitly in notebook service fixtures; never depend on ambient application state. |
+| 2026-08-21 | Resource pages preserved registry order and exposed no metadata filters | The selector paginated raw records before applying a stable catalog order or deriving schema facets | Resolve semantic filter properties, filter and sort the complete catalog, then paginate; keep that metadata outside evidence ingestion. |
+| 2026-08-21 | Resource templates appeared beside records in the notebook selector | The low-level table reader intentionally returns templates and the notebook boundary did not apply the table-record rule | Exclude `is_template` pages in selector, validation, and ingestion snapshots; enforce the rule server-side. |
 
 When a failure reveals a new constraint, fix the implementation first, add the
 general rule to this section, and rerun the smallest reproducible test plus the
@@ -156,7 +171,7 @@ complete affected verification gate.
 - A load test covers at least 300 resources with pagination and multiple source
   fields.
 - Frontend tests cover the bulk action, creation dialog, library, source state,
-  source selector, permissions, and responsive layout.
+  source selector, schema-derived filters, permissions, and responsive layout.
 - A real end-to-end flow creates a notebook from two records, ingests a PDF,
   performs required retrieval, follows a citation, changes the attachment, and
   observes an automatic refresh.

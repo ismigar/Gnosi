@@ -213,4 +213,55 @@ describe('NotebookCreateDialog', () => {
         const request = globalThis.fetch.mock.calls.find(([, options]) => options?.method === 'POST');
         expect(JSON.parse(request[1].body).resource_ids.sort()).toEqual(['resource-1', 'resource-51']);
     });
+
+    it('requests the selected type, author, and tag filters from the shared catalog', async () => {
+        globalThis.fetch = vi.fn().mockResolvedValue({
+            ok: true,
+            json: vi.fn().mockResolvedValue({
+                items: [],
+                total: 0,
+                page: 1,
+                page_size: 50,
+                facets: {
+                    types: [{ value: 'Course', count: 2 }],
+                    authors: [{ value: 'Ada Lovelace', count: 1 }],
+                    tags: [{ value: 'Education', count: 1 }],
+                },
+            }),
+        });
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const root = createRoot(container);
+        mountedRoots.push({ root, container });
+
+        await act(async () => {
+            root.render(<NotebookCreateDialog isOpen onClose={vi.fn()} onCreated={vi.fn()} />);
+        });
+        await act(async () => {
+            await new Promise((resolve) => window.setTimeout(resolve, 220));
+        });
+
+        const setFilter = async (label, value) => {
+            const select = [...container.querySelectorAll('label')]
+                .find((candidate) => candidate.textContent.includes(label))
+                ?.querySelector('select');
+            expect(select).toBeTruthy();
+            await act(async () => {
+                select.value = value;
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+                await new Promise((resolve) => window.setTimeout(resolve, 220));
+            });
+        };
+
+        await setFilter('Type', 'Course');
+        await setFilter('Author', 'Ada Lovelace');
+        await setFilter('Tag', 'Education');
+
+        const urls = globalThis.fetch.mock.calls.map(([url]) => new URL(url, 'https://gnosi.local'));
+        const filtered = urls.at(-1).searchParams;
+        expect(filtered.get('type')).toBe('Course');
+        expect(filtered.get('author')).toBe('Ada Lovelace');
+        expect(filtered.get('tag')).toBe('Education');
+        expect(filtered.get('page')).toBe('1');
+    });
 });

@@ -3,6 +3,13 @@ import { BookOpen, Check, ChevronLeft, ChevronRight, Search, X } from 'lucide-re
 import { useTranslation } from 'react-i18next';
 import { toast } from '../../lib/toast';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
+import NotebookResourceFilters from './NotebookResourceFilters';
+import {
+    EMPTY_RESOURCE_FACETS,
+    EMPTY_RESOURCE_FILTERS,
+    normalizeResourceFacets,
+    notebookResourceCatalogUrl,
+} from './notebookResourceCatalog';
 
 const EMPTY_RESOURCE_IDS = Object.freeze([]);
 
@@ -17,8 +24,9 @@ export default function NotebookCreateDialog({
     const [visibility, setVisibility] = useState('private');
     const [conversationMode, setConversationMode] = useState('private_member');
     const [selectedIds, setSelectedIds] = useState(new Set());
-    const [resourceData, setResourceData] = useState({ items: [], total: 0, page: 1, page_size: 50 });
+    const [resourceData, setResourceData] = useState({ items: [], total: 0, page: 1, page_size: 50, facets: EMPTY_RESOURCE_FACETS });
     const [query, setQuery] = useState('');
+    const [filters, setFilters] = useState({ ...EMPTY_RESOURCE_FILTERS });
     const [loadingResources, setLoadingResources] = useState(false);
     const [creating, setCreating] = useState(false);
     const dialogRef = useRef(null);
@@ -42,6 +50,7 @@ export default function NotebookCreateDialog({
         setConversationMode('private_member');
         setSelectedIds(new Set(initialResourceIds.map(String)));
         setQuery('');
+        setFilters({ ...EMPTY_RESOURCE_FILTERS });
         setResourceData((previous) => ({ ...previous, page: 1 }));
     }, [initialKey, initialResourceIds, isOpen, t]);
 
@@ -50,7 +59,11 @@ export default function NotebookCreateDialog({
         const controller = new AbortController();
         const timer = window.setTimeout(() => {
             setLoadingResources(true);
-            fetch(`/api/notebooks/resources?q=${encodeURIComponent(query)}&page=${resourceData.page}&page_size=50`, {
+            fetch(notebookResourceCatalogUrl({
+                query,
+                page: resourceData.page,
+                filters,
+            }), {
                 signal: controller.signal,
             })
                 .then((response) => response.ok ? response.json() : Promise.reject(new Error(`Resource list failed (${response.status})`)))
@@ -59,6 +72,7 @@ export default function NotebookCreateDialog({
                     total: Number(data.total) || 0,
                     page: Number(data.page) || resourceData.page,
                     page_size: Number(data.page_size) || 50,
+                    facets: normalizeResourceFacets(data.facets),
                 }))
                 .catch((error) => {
                     if (error.name !== 'AbortError') {
@@ -72,7 +86,7 @@ export default function NotebookCreateDialog({
             window.clearTimeout(timer);
             controller.abort();
         };
-    }, [isOpen, query, resourceData.page, t]);
+    }, [filters, isOpen, query, resourceData.page, t]);
 
     if (!isOpen) return null;
 
@@ -85,6 +99,11 @@ export default function NotebookCreateDialog({
             else next.add(resourceId);
             return next;
         });
+    };
+
+    const updateFilter = (key, value) => {
+        setFilters((previous) => key ? { ...previous, [key]: value } : { ...EMPTY_RESOURCE_FILTERS });
+        setResourceData((previous) => ({ ...previous, page: 1 }));
     };
 
     const create = async (event) => {
@@ -165,6 +184,12 @@ export default function NotebookCreateDialog({
                                 }} placeholder={t('notebooks.search_resources', 'Search Resources...')} />
                             </label>
                         </div>
+                        <NotebookResourceFilters
+                            facets={resourceData.facets}
+                            filters={filters}
+                            onChange={updateFilter}
+                            disabled={loadingResources}
+                        />
                         <div className="notebook-resource-picker__list">
                             {loadingResources && <div className="notebook-empty">{t('common.loading', 'Loading...')}</div>}
                             {!loadingResources && resourceData.items.map((resource) => {

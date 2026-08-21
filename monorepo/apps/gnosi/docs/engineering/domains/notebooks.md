@@ -136,7 +136,7 @@ analysis rows. Original Vault data is outside this deletion boundary.
 | --- | --- |
 | `GET/POST /api/notebooks` | Paginated library and creation from Resource IDs |
 | `GET/PATCH/DELETE /api/notebooks/{id}` | Detail, settings, and derived-data deletion |
-| `GET /api/notebooks/resources` | Paginated selector from the configured References table |
+| `GET /api/notebooks/resources` | Alphabetical paginated selector with type, author, and tag facets from the configured References table |
 | `GET/POST /api/notebooks/{id}/sources` | Inspect or add Resource membership |
 | `DELETE /api/notebooks/{id}/sources/{resource_id}` | Exclude one Resource immediately |
 | `POST /api/notebooks/{id}/refresh` | Coalesced explicit refresh or retry |
@@ -153,7 +153,11 @@ skill overrides.
 The multi-select action appears only when the open table identity equals the
 configured References table identity. It is never enabled by a fixed name or
 ID. The creation dialog accepts a title, visibility, conversation mode, and up
-to one thousand selected Resource IDs.
+to one thousand selected Resource IDs. Creation and add-source selectors sort
+the full matching catalog accent-insensitively before pagination and expose
+schema-derived type, author, and tag filters. Filter metadata is selection-only
+and never enters notebook evidence. Pages marked as table templates are
+excluded by the selector, request validation, and ingestion snapshots.
 
 Desktop layout shows sources, embedded chat, and settings together. Mobile
 layout presents the same panels as tabs. The UI polls only the visible active
@@ -179,9 +183,10 @@ and Docker deployments.
 Unit coverage proves source-field exclusion, incremental reuse, immediate
 membership removal, citation identity, ACL isolation, checkpoint namespaces,
 positive revision validation, read-only notebook tools, and durable pinned
-analysis. Frontend coverage proves the configured-table bulk-action predicate
-and exact selected-ID creation contract. Release verification also requires a
-clean backend start, frontend build, and desktop plus mobile browser flow.
+analysis. Frontend coverage proves the configured-table bulk-action predicate,
+schema-derived selector filters, and exact selected-ID creation contract.
+Release verification also requires a clean backend start, frontend build, and
+desktop plus mobile browser flow.
 
 Current load limits are one thousand Resources per create/add request, two
 hundred selector rows per page, fifty retrieval results, and bounded analysis

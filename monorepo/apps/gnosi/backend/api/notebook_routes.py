@@ -66,6 +66,9 @@ def list_reference_resources(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),
     notebook_id: Optional[str] = Query(default=None, max_length=64),
+    resource_type: str = Query(default="", alias="type", max_length=160),
+    author: str = Query(default="", max_length=160),
+    tag: str = Query(default="", max_length=160),
     context: WorkspaceContext = Depends(require_role("viewer")),
 ):
     return notebook_service.list_reference_resources(
@@ -74,6 +77,9 @@ def list_reference_resources(
         page=page,
         page_size=page_size,
         exclude_notebook_id=notebook_id,
+        resource_type=resource_type,
+        author=author,
+        tag=tag,
     )
 
 
