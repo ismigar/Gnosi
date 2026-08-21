@@ -61,6 +61,13 @@ CREDENTIAL_INFO = {
         "name": "DeepL",
         "description": "API key for DeepL translation (used by translate_row skill)",
     },
+    "core_api_key": {"name": "CORE", "description": "API key for CORE academic search"},
+    "openalex_api_key": {"name": "OpenAlex", "description": "API key for OpenAlex academic search"},
+    "semantic_scholar_api_key": {"name": "Semantic Scholar", "description": "API key for Semantic Scholar"},
+    "springer_nature_api_key": {"name": "Springer Nature", "description": "API key for Springer Nature"},
+    "scopus_api_key": {"name": "Scopus", "description": "API key for Scopus"},
+    "web_of_science_api_key": {"name": "Web of Science", "description": "API key for Web of Science"},
+    "dimensions_api_key": {"name": "Dimensions", "description": "API key for Dimensions"},
 }
 
 CREDENTIAL_KEYS = list(CREDENTIAL_INFO.keys())

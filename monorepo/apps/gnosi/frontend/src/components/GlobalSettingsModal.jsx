@@ -605,9 +605,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [graphNodes, setGraphNodes] = useState(null);
     const [graphNodesLoading, setGraphNodesLoading] = useState(false);
     const graphNodesFetchedRef = useRef(false);
-    // Designated reference table (Settings → backend get_reference_table_id).
-    const [referenceTable, setReferenceTable] = useState({ table_id: null, configured: false, name: null });
-    const [refBusy, setRefBusy] = useState(false);
     // Configured model registry (GET /api/ai/models) — the enabled models the
     // user activated through the comparison workflow. Agent creation chooses
     // from this, NOT the full catalog: an agent runs on a configured model.
@@ -1679,58 +1676,6 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         } catch (e) { console.error("Databases fetch error:", e); }
     };
 
-    // --- Reference table (Zotero style) ------------------------------
-    const loadReferenceTable = async () => {
-        try {
-            const res = await fetch('/api/vault/reference-table');
-            if (res.ok) setReferenceTable(await res.json());
-        } catch (e) { console.error("Reference table fetch error:", e); }
-    };
-
-    // Designates an existing table as the reference table (or disables it
-    // with an empty id). The backend guarantees the citable schema for it.
-    const handleSetReferenceTable = async (tableId) => {
-        setRefBusy(true);
-        try {
-            if (!tableId) {
-                await fetch('/api/vault/reference-table', { method: 'DELETE' });
-            } else {
-                await fetch('/api/vault/reference-table', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ table_id: tableId }),
-                });
-            }
-            await loadReferenceTable();
-        } catch (e) {
-            console.error("Set reference table error:", e);
-        } finally { setRefBusy(false); }
-    };
-
-    // Creates a new table that's already citable and designates it.
-    const handleCreateReferenceTable = async () => {
-        setRefBusy(true);
-        try {
-            await fetch('/api/vault/reference-table/create', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({}),
-            });
-            await Promise.all([loadReferenceTable(), loadTablesAndDatabases()]);
-        } catch (e) {
-            console.error("Create reference table error:", e);
-        } finally { setRefBusy(false); }
-    };
-
-    useEffect(() => {
-        if (activeTab === 'references' && isOpen) {
-            loadReferenceTable();
-            loadTablesAndDatabases();
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTab, isOpen]);
-
-
     const loadNewsletterSources = async () => {
         setNewsletterSourcesLoading(true);
         setNewsletterSourcesError('');
@@ -2491,37 +2436,20 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         <Trans i18nKey="settings.references.intro" components={{ b: <strong /> }} />
                                     </p>
                                     <div style={{ marginBottom: '16px', padding: '18px 20px', background: 'var(--settings-sidebar-bg)', borderRadius: '16px', border: '1px solid var(--settings-border)' }}>
-                                        <label style={{ fontSize: '0.72rem', fontWeight: '800', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: '10px' }}>
-                                            {tn('references.table_label')}
-                                        </label>
-                                        <select
-                                            value={referenceTable?.table_id || ''}
-                                            disabled={refBusy}
-                                            onChange={(e) => handleSetReferenceTable(e.target.value)}
-                                            className="gnosi-input"
-                                            style={{ width: '100%' }}
-                                        >
-                                            <option value="">{tn('references.none_option')}</option>
-                                            {tables.map(tbl => (
-                                                <option key={tbl.id} value={tbl.id}>{tbl.name}</option>
-                                            ))}
-                                        </select>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '12px' }}>
-                                            <button
-                                                type="button"
-                                                onClick={handleCreateReferenceTable}
-                                                disabled={refBusy}
-                                                style={{ padding: '8px 14px', border: '1px solid var(--settings-border)', borderRadius: '12px', background: 'var(--settings-bg)', cursor: refBusy ? 'default' : 'pointer', fontWeight: '700', color: 'var(--text-primary)', fontSize: '0.8rem', opacity: refBusy ? 0.6 : 1 }}
-                                            >
-                                                {tn('references.create_table')}
-                                            </button>
-                                            {refBusy && <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>{tn('references.saving')}</span>}
-                                        </div>
-                                        <p style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', marginTop: '10px', marginBottom: 0 }}>
-                                            {referenceTable?.configured
-                                                ? tn('references.active_at', { name: referenceTable.name })
-                                                : tn('references.none_hint')}
+                                        <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: 0 }}>
+                                            {t('literature.settings.references_moved')}
                                         </p>
+                                        <button
+                                            type="button"
+                                            className="btn-gnosi btn-gnosi-primary"
+                                            onClick={() => {
+                                                window.sessionStorage.setItem('gnosi:configure-plugin', 'resources');
+                                                setIsAdvancedOpen(true);
+                                                setActiveTab('plugins');
+                                            }}
+                                        >
+                                            {t('literature.settings.open_resources_plugin')}
+                                        </button>
                                     </div>
                                 </Section>
                             )}

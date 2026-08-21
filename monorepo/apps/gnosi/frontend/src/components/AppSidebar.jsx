@@ -1,6 +1,6 @@
-import React, { useState, useEffect, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { Home, Network, BookOpen, Gauge, Share2, Settings, Menu, X, FileText, Calendar, Inbox, LayoutGrid, Clock, PenTool, Image as ImageIcon, Users, User, LogOut, CalendarRange, CircleHelp, NotebookTabs } from 'lucide-react';
+import { Home, Network, BookOpen, Gauge, Share2, Settings, Menu, X, FileText, Calendar, Inbox, LayoutGrid, Clock, PenTool, Image as ImageIcon, Users, User, LogOut, CalendarRange, CircleHelp, NotebookTabs, LibraryBig } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 // The Settings modal drags in the BlockEditor (blocknote/tiptap) and other
 // heavy views. By lazy-loading it we avoid these libraries
@@ -12,6 +12,7 @@ import { WorkspaceSwitcher } from './Navigation/WorkspaceSwitcher';
 import VaultMenu from './VaultMenu';
 import { useAuth } from '../context/AuthContext';
 import { toast } from '../lib/toast';
+import { usePlugins } from '../plugins/usePlugins';
 
 export const ENGINEERING_DOCUMENTATION_URL = 'https://gnosi.temenosismael.org/engineering/';
 
@@ -40,6 +41,7 @@ const navItems = [
     { to: '/calendar',          icon: Calendar,   labelKey: 'sidebar.nav_calendar',  shortcut: 'Ctrl 5' },
     { to: '/reader',            icon: BookOpen,   labelKey: 'sidebar.nav_reader',    shortcut: 'Ctrl 6' },
     { to: '/notebooks',         icon: NotebookTabs, labelKey: 'sidebar.nav_notebooks', shortcut: '' },
+    { to: '/literature',        icon: LibraryBig, labelKey: 'sidebar.nav_literature', shortcut: '', plugin: 'resources' },
     { to: '/social-dashboard',  icon: Share2,     labelKey: 'sidebar.nav_social',    shortcut: 'Ctrl 7' },
     { to: '/media',             icon: ImageIcon,  labelKey: 'sidebar.nav_media',     shortcut: 'Ctrl 8' },
     { to: '/planning',          icon: CalendarRange, labelKey: 'sidebar.nav_planning', shortcut: '' },
@@ -62,6 +64,11 @@ export function AppSidebar() {
     const { t } = useTranslation();
     const navigate = useNavigate();
     const { user, logout } = useAuth();
+    const { isEnabled: isPluginEnabled } = usePlugins();
+    const visibleNavItems = useMemo(
+        () => navItems.filter((item) => !item.plugin || isPluginEnabled(item.plugin)),
+        [isPluginEnabled],
+    );
 
     // The command palette (and other places) can request opening settings.
     useEffect(() => {
@@ -108,9 +115,9 @@ export function AppSidebar() {
             const tag = document.activeElement?.tagName;
             if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
             const idx = parseInt(e.key) - 1;
-            if (idx >= 0 && idx < navItems.length) {
+            if (idx >= 0 && idx < visibleNavItems.length) {
                 e.preventDefault();
-                navigate(navItems[idx].to);
+                navigate(visibleNavItems[idx].to);
                 setMobileOpen(false);
             } else if (e.key === ',') {
                 e.preventDefault();
@@ -119,7 +126,7 @@ export function AppSidebar() {
         };
         window.addEventListener('keydown', handler);
         return () => window.removeEventListener('keydown', handler);
-    }, [navigate]);
+    }, [navigate, visibleNavItems]);
 
     return (
         <>
@@ -161,7 +168,7 @@ export function AppSidebar() {
 
                 {/* Nav Items */}
                 <div className="app-sidebar__nav">
-                    {navItems.map(({ to, icon: Icon, labelKey, shortcut }) => {
+                    {visibleNavItems.map(({ to, icon: Icon, labelKey, shortcut }) => {
                         const label = t(labelKey);
                         return (
                             <NavLink

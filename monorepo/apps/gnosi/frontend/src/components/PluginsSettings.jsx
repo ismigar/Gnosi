@@ -1,15 +1,17 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { useTranslation, Trans } from 'react-i18next';
-import { CalendarDays, CalendarRange, Hash, MessageSquare, Share2, LayoutDashboard, BrainCircuit, Puzzle, Settings, Trash2, Upload, Download, ShieldCheck, Globe, KeyRound, Scissors, PackageCheck, Store, RefreshCw, Search, Send } from 'lucide-react';
+import { CalendarDays, CalendarRange, Hash, MessageSquare, Share2, LayoutDashboard, BrainCircuit, Puzzle, Settings, Trash2, Upload, Download, ShieldCheck, Globe, KeyRound, Scissors, PackageCheck, Store, RefreshCw, Search, Send, LibraryBig } from 'lucide-react';
 import { BUILTIN_PLUGINS } from '../plugins/registry';
 import { usePlugins } from '../plugins/usePlugins';
 import { reloadPlugins } from '../plugins/usePluginHost';
 import ConfirmModal from './ConfirmModal';
 import { sortFieldItems } from '../utils/fieldOrdering';
 import { SettingsSectionTabs } from './SettingsSectionTabs';
+import ResourcesPluginConfig from './ResourcesPluginConfig';
+import './ResourcesPluginConfig.css';
 
-const ICONS = { CalendarDays, CalendarRange, Hash, MessageSquare, Share2, LayoutDashboard, BrainCircuit, Scissors };
+const ICONS = { CalendarDays, CalendarRange, Hash, MessageSquare, Share2, LayoutDashboard, BrainCircuit, Scissors, LibraryBig };
 
 const isValidIsoDate = (value) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -2014,6 +2016,7 @@ const CONFIGURABLE = {
     'llm-wiki': LlmWikiConfig,
     'web-clipper': WebClipperConfig,
     'project-planning': ProjectPlanningConfig,
+    resources: ResourcesPluginConfig,
 };
 
 export function PluginsSettings() {
@@ -2025,6 +2028,14 @@ export function PluginsSettings() {
     const [installedFilter, setInstalledFilter] = useState('all');
     const [confirmLlmWikiDisable, setConfirmLlmWikiDisable] = useState(false);
     const llmWikiAgentEnsured = useRef(false);
+
+    useEffect(() => {
+        const requested = window.sessionStorage.getItem('gnosi:configure-plugin');
+        if (requested && CONFIGURABLE[requested]) {
+            setOpenConfig(requested);
+            window.sessionStorage.removeItem('gnosi:configure-plugin');
+        }
+    }, []);
 
     // The feature existed before its dedicated profile. Visiting the Plugins
     // settings migrates enabled vaults exactly once; the backend preserves

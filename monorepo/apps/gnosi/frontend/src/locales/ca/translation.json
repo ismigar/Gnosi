@@ -480,7 +480,8 @@
     "logout_tooltip_title": "{{user}} — Tancar sessió",
     "logout_tooltip_label": "Tancar sessió ({{user}})",
     "vault_menu_active": "VAULT ACTIU",
-    "vault_menu_new": "Nou vault"
+    "vault_menu_new": "Nou vault",
+    "nav_literature": "Cerca bibliogràfica"
   },
   "shell": {
     "go_back": "Enrere",
@@ -1208,7 +1209,14 @@
     "configure_view_tooltip": "Configurar Vista",
     "wip_tooltip": "En desenvolupament per propera iteració",
     "soon_badge": "Aviat",
-    "records_count_many": "{{count}} registres", "export_quick_views": "Copia la configuració", "import_quick_views": "Importa la configuració", "import_quick_views_hint": "Enganxa una configuració copiada d’una altra vista.", "quick_views_copied": "Configuració de vista copiada", "quick_views_copy_error": "No s’ha pogut copiar la configuració", "quick_views_imported": "Configuració de vista importada", "quick_views_import_error": "Aquesta configuració no és vàlida"
+    "records_count_many": "{{count}} registres",
+    "export_quick_views": "Copia la configuració",
+    "import_quick_views": "Importa la configuració",
+    "import_quick_views_hint": "Enganxa una configuració copiada d’una altra vista.",
+    "quick_views_copied": "Configuració de vista copiada",
+    "quick_views_copy_error": "No s’ha pogut copiar la configuració",
+    "quick_views_imported": "Configuració de vista importada",
+    "quick_views_import_error": "Aquesta configuració no és vàlida"
   },
   "icon_picker": {
     "tabs": {
@@ -1453,14 +1461,42 @@
         "desc": "Afegeix durades laborables, predecessores i calendaris de treball als camps de període."
       },
       "catalog": {
-        "daily-notes": { "name": "Notes diàries", "description": "Accés ràpid a la nota diària i la navegació per dates, a l'estil d'Obsidian." },
-        "tags-page": { "name": "Pàgina d'etiquetes", "description": "Índex de totes les etiquetes del vault amb recompte i navegació." },
-        "page-comments": { "name": "Comentaris", "description": "Fil de comentaris per pàgina, a l'estil de Notion." },
-        "share-links": { "name": "Compartició externa", "description": "Enllaços públics de només lectura per a pàgines." },
-        "canvas-cards": { "name": "Targetes del canvas", "description": "Insereix pàgines com a targetes vives al canvas." },
-        "web-clipper": { "name": "Web Clipper", "description": "Desa pàgines web des del navegador a la taula que triïs i omple'n els camps." },
-        "llm-wiki": { "name": "Cervell (wiki LLM)", "description": "Processa recursos amb IA per mantenir un wiki de coneixement enllaçat, a l'estil de Karpathy." },
-        "project-planning": { "name": "Planificació de projectes", "description": "Afegeix durades laborables, predecessores i calendaris de treball als camps de període." }
+        "daily-notes": {
+          "name": "Notes diàries",
+          "description": "Accés ràpid a la nota diària i la navegació per dates, a l'estil d'Obsidian."
+        },
+        "tags-page": {
+          "name": "Pàgina d'etiquetes",
+          "description": "Índex de totes les etiquetes del vault amb recompte i navegació."
+        },
+        "page-comments": {
+          "name": "Comentaris",
+          "description": "Fil de comentaris per pàgina, a l'estil de Notion."
+        },
+        "share-links": {
+          "name": "Compartició externa",
+          "description": "Enllaços públics de només lectura per a pàgines."
+        },
+        "canvas-cards": {
+          "name": "Targetes del canvas",
+          "description": "Insereix pàgines com a targetes vives al canvas."
+        },
+        "web-clipper": {
+          "name": "Web Clipper",
+          "description": "Desa pàgines web des del navegador a la taula que triïs i omple'n els camps."
+        },
+        "llm-wiki": {
+          "name": "Cervell (wiki LLM)",
+          "description": "Processa recursos amb IA per mantenir un wiki de coneixement enllaçat, a l'estil de Karpathy."
+        },
+        "project-planning": {
+          "name": "Planificació de projectes",
+          "description": "Afegeix durades laborables, predecessores i calendaris de treball als camps de període."
+        },
+        "resources": {
+          "name": "Recursos",
+          "description": "Cerca acadèmica federada, importació, repositoris i revisions de literatura."
+        }
       },
       "planning_intro": "Tria les taules de projectes i tasques i defineix el calendari dels camps de període ampliats.",
       "planning_project_table": "Taula de projectes",
@@ -3403,7 +3439,49 @@
     "group_this_month": "Aquest mes",
     "position": "{{current}} de {{total}}",
     "return_to_last_record": "Torna a l’últim registre",
-    "open_reading_pane": "Obre el panell de lectura", "reading_pane": "Panell de lectura", "previous_record": "Registre anterior", "next_record": "Registre següent", "no_excerpt": "Aquest registre encara no té extracte.", "reading_preferences": "Preferències de lectura", "visible_tags": "Etiquetes visibles", "excerpt_length": "Longitud de l’extracte", "empty_search": "Cap registre no coincideix amb la cerca.", "empty_search_hint": "Prova amb menys paraules o neteja la cerca.", "empty_hint": "Crea el primer registre o ajusta els filtres de la vista.", "clear_search": "Neteja la cerca", "adjust_view": "Ajusta la vista", "create_record": "Crea un registre", "apply_field_to_selection": "Aplica un camp a la selecció", "batch_update": "Actualitza la selecció…", "resize_reading_pane": "Redimensiona el panell de lectura", "clean_reading": "Lectura neta", "show_details": "Mostra els detalls", "reading_shortcuts": "Fes servir ← → per navegar · Esc per tancar", "sync_saving": "Desant els canvis…", "sync_saved": "Canvis desats", "sync_error": "Els canvis necessiten atenció", "bulk_saved": "Canvis desats", "bulk_undone": "Canvis desfets", "bulk_save_error": "No s’han pogut desar alguns canvis", "focus_feed": "Feed de focus", "reading_progress": "{{read}} de {{total}} llegits", "confirm_bulk_update": "Confirma l’actualització en lot", "bulk_preview_title": "Revisa l’actualització en lot", "bulk_preview_hint": "{{count}} registres: {{field}} → {{value}}", "apply_changes": "Aplica els canvis", "dock_pane": "Acobla el panell", "undock_pane": "Desacobla el panell", "summary_model": "Model del resum", "summary_model_placeholder": "Selecciona un model actiu", "summary_model_saved": "Model de resum desat", "summary_model_error": "No s’ha pogut desar el model de resum", "summarize": "Resumeix", "summarizing": "Resumint…", "summary": "Resum d’IA", "summary_error": "No s’ha pogut crear el resum", "summary_error_hint": "Comprova que el model seleccionat estigui actiu i disponible."
+    "open_reading_pane": "Obre el panell de lectura",
+    "reading_pane": "Panell de lectura",
+    "previous_record": "Registre anterior",
+    "next_record": "Registre següent",
+    "no_excerpt": "Aquest registre encara no té extracte.",
+    "reading_preferences": "Preferències de lectura",
+    "visible_tags": "Etiquetes visibles",
+    "excerpt_length": "Longitud de l’extracte",
+    "empty_search": "Cap registre no coincideix amb la cerca.",
+    "empty_search_hint": "Prova amb menys paraules o neteja la cerca.",
+    "empty_hint": "Crea el primer registre o ajusta els filtres de la vista.",
+    "clear_search": "Neteja la cerca",
+    "adjust_view": "Ajusta la vista",
+    "create_record": "Crea un registre",
+    "apply_field_to_selection": "Aplica un camp a la selecció",
+    "batch_update": "Actualitza la selecció…",
+    "resize_reading_pane": "Redimensiona el panell de lectura",
+    "clean_reading": "Lectura neta",
+    "show_details": "Mostra els detalls",
+    "reading_shortcuts": "Fes servir ← → per navegar · Esc per tancar",
+    "sync_saving": "Desant els canvis…",
+    "sync_saved": "Canvis desats",
+    "sync_error": "Els canvis necessiten atenció",
+    "bulk_saved": "Canvis desats",
+    "bulk_undone": "Canvis desfets",
+    "bulk_save_error": "No s’han pogut desar alguns canvis",
+    "focus_feed": "Feed de focus",
+    "reading_progress": "{{read}} de {{total}} llegits",
+    "confirm_bulk_update": "Confirma l’actualització en lot",
+    "bulk_preview_title": "Revisa l’actualització en lot",
+    "bulk_preview_hint": "{{count}} registres: {{field}} → {{value}}",
+    "apply_changes": "Aplica els canvis",
+    "dock_pane": "Acobla el panell",
+    "undock_pane": "Desacobla el panell",
+    "summary_model": "Model del resum",
+    "summary_model_placeholder": "Selecciona un model actiu",
+    "summary_model_saved": "Model de resum desat",
+    "summary_model_error": "No s’ha pogut desar el model de resum",
+    "summarize": "Resumeix",
+    "summarizing": "Resumint…",
+    "summary": "Resum d’IA",
+    "summary_error": "No s’ha pogut crear el resum",
+    "summary_error_hint": "Comprova que el model seleccionat estigui actiu i disponible."
   },
   "files": {
     "delete_title": "Eliminar fitxer",
@@ -4224,7 +4302,32 @@
     "profile_help_open": "Mostra l'explicació dels perfils",
     "profile_help_title": "Perfils de l’equip de treball",
     "profile_help_intro": "Tria el perfil segons la complexitat, el volum i el cost de la tasca.",
-    "profile_help": {"worker": {"objective": "Tasques massives, senzilles i molt barates.", "examples": "Classificar correus, corregir ortografia o traduir etiquetes curtes."}, "administrative": {"objective": "Execució directa i sortida estructurada.", "examples": "Extreure factures a JSON, ordenar apunts o respondre preguntes freqüents."}, "documentalist": {"objective": "Analitzar grans volums de text amb context ampli.", "examples": "Revisar PDFs extensos, repositoris sencers o molts llibres i transcripcions."}, "allrounder": {"objective": "Equilibri per al treball diari.", "examples": "Redactar contingut, fer brainstorming o crear material educatiu."}, "expert": {"objective": "Raonament profund per a problemes complexos i crítics.", "examples": "Depurar codi, analitzar riscos i resoldre matemàtiques avançades."}, "unrated": {"objective": "Models sense benchmark d’intel·ligència comparable.", "examples": "Consulta les altres mètriques abans d’assignar-los una tasca."}},
+    "profile_help": {
+      "worker": {
+        "objective": "Tasques massives, senzilles i molt barates.",
+        "examples": "Classificar correus, corregir ortografia o traduir etiquetes curtes."
+      },
+      "administrative": {
+        "objective": "Execució directa i sortida estructurada.",
+        "examples": "Extreure factures a JSON, ordenar apunts o respondre preguntes freqüents."
+      },
+      "documentalist": {
+        "objective": "Analitzar grans volums de text amb context ampli.",
+        "examples": "Revisar PDFs extensos, repositoris sencers o molts llibres i transcripcions."
+      },
+      "allrounder": {
+        "objective": "Equilibri per al treball diari.",
+        "examples": "Redactar contingut, fer brainstorming o crear material educatiu."
+      },
+      "expert": {
+        "objective": "Raonament profund per a problemes complexos i crítics.",
+        "examples": "Depurar codi, analitzar riscos i resoldre matemàtiques avançades."
+      },
+      "unrated": {
+        "objective": "Models sense benchmark d’intel·ligència comparable.",
+        "examples": "Consulta les altres mètriques abans d’assignar-los una tasca."
+      }
+    },
     "profile_help_flow_title": "Combinació recomanada",
     "profile_help_flow": "Documentalista extreu els punts clau → Perit decideix l’estratègia → Totterreny redacta → Peó o Administratiu tradueix i formata.",
     "all_profiles": "Tots els perfils",
@@ -4255,7 +4358,12 @@
     "availability": "Estat",
     "modes": "Modes compatibles",
     "all_modes": "Tots els modes",
-    "modes_list": {"text": "Text", "image": "Imatge", "audio": "Àudio", "video": "Vídeo"},
+    "modes_list": {
+      "text": "Text",
+      "image": "Imatge",
+      "audio": "Àudio",
+      "video": "Vídeo"
+    },
     "all_availability": "Actius i inactius",
     "active": "Actiu",
     "inactive": "Inactiu",
@@ -4301,8 +4409,33 @@
       "router_help": "El model quedarà disponible per al router automàtic i també a Models del router.",
       "activate": "Activa el model"
     },
-    "profiles": { "worker": "Peó", "administrative": "Administratiu", "documentalist": "Documentalista", "allrounder": "Totterreny", "expert": "Perit / Director", "unrated": "Sense puntuació" },
-    "columns": { "model": "Model", "creator": "Creador", "provider": "Proveïdor", "modes": "Modes compatibles", "intelligence": "Intel·ligència", "coding": "Codi", "agentic": "Agents", "input_price": "Entrada {{symbol}}/1M", "output_price": "Sortida {{symbol}}/1M", "context": "Context", "speed": "Velocitat", "latency": "Latència", "uptime": "Disponibilitat", "profile": "Ús recomanat", "quantization": "Quantització", "monthly_cost": "Est. {{symbol}}/mes", "available": "Disponible" }
+    "profiles": {
+      "worker": "Peó",
+      "administrative": "Administratiu",
+      "documentalist": "Documentalista",
+      "allrounder": "Totterreny",
+      "expert": "Perit / Director",
+      "unrated": "Sense puntuació"
+    },
+    "columns": {
+      "model": "Model",
+      "creator": "Creador",
+      "provider": "Proveïdor",
+      "modes": "Modes compatibles",
+      "intelligence": "Intel·ligència",
+      "coding": "Codi",
+      "agentic": "Agents",
+      "input_price": "Entrada {{symbol}}/1M",
+      "output_price": "Sortida {{symbol}}/1M",
+      "context": "Context",
+      "speed": "Velocitat",
+      "latency": "Latència",
+      "uptime": "Disponibilitat",
+      "profile": "Ús recomanat",
+      "quantization": "Quantització",
+      "monthly_cost": "Est. {{symbol}}/mes",
+      "available": "Disponible"
+    }
   },
   "tags": {
     "empty": "Encara no hi ha etiquetes. Afegeix-ne via la propietat «tags».",
@@ -4671,7 +4804,33 @@
     "no_files": "No s'han trobat fitxers"
   },
   "planning_page": {
-    "title": "Planificació de projectes", "subtitle": "Calendari, camí crític, recursos i diagnòstics.", "project_id": "ID del projecte", "project": "Projecte", "default_project": "Projecte predeterminat", "refresh": "Actualitza", "load_error": "No s'ha pogut carregar la planificació.", "critical_tasks": "Tasques crítiques", "estimated_cost": "Cost estimat", "warnings": "Avisos", "schedule": "Calendari", "task": "Tasca", "start": "Inici", "finish": "Fi", "slack": "Folgança", "diagnostics": "Diagnòstics", "baselines": "Línies base", "baseline_name": "Nom de la línia base", "create": "Crea", "worklogs": "Registres de treball", "add_worklog": "Afegeix registre", "entries": "entrades", "resource_heatmap": "Càrrega de recursos", "leveling": "Anivellament de recursos", "generate_proposal": "Genera proposta", "proposed_changes": "canvis proposats", "apply_proposal": "Aplica la proposta"
+    "title": "Planificació de projectes",
+    "subtitle": "Calendari, camí crític, recursos i diagnòstics.",
+    "project_id": "ID del projecte",
+    "project": "Projecte",
+    "default_project": "Projecte predeterminat",
+    "refresh": "Actualitza",
+    "load_error": "No s'ha pogut carregar la planificació.",
+    "critical_tasks": "Tasques crítiques",
+    "estimated_cost": "Cost estimat",
+    "warnings": "Avisos",
+    "schedule": "Calendari",
+    "task": "Tasca",
+    "start": "Inici",
+    "finish": "Fi",
+    "slack": "Folgança",
+    "diagnostics": "Diagnòstics",
+    "baselines": "Línies base",
+    "baseline_name": "Nom de la línia base",
+    "create": "Crea",
+    "worklogs": "Registres de treball",
+    "add_worklog": "Afegeix registre",
+    "entries": "entrades",
+    "resource_heatmap": "Càrrega de recursos",
+    "leveling": "Anivellament de recursos",
+    "generate_proposal": "Genera proposta",
+    "proposed_changes": "canvis proposats",
+    "apply_proposal": "Aplica la proposta"
   },
   "vault_date": {
     "days_placeholder": "dies",
@@ -4883,14 +5042,57 @@
     "job_retry_budget": "Intent {{attempt}}/{{maxAttempts}} · crides al model {{used}}/{{budget}}",
     "job_retry_scheduled": "reintent següent {{time}}",
     "job_retry_exhausted": "pressupost de reintents exhaurit",
-    "mode": {"conversation": "conversa", "lookup": "consulta", "inventory": "inventari", "analysis": "anàlisi", "action": "acció"},
-    "route": {"General": "general", "Brain": "Cervell", "Coder": "codi"},
-    "execution": {"foreground": "primer pla", "background": "segon pla"},
-    "privacy_classification": {"standard": "estàndard", "external_read": "lectura externa", "private_local_processing": "processament privat local", "private_remote_processing": "processament privat remot"},
-    "verification_status": {"passed": "verificada", "limited": "amb limitacions", "blocked": "bloquejada", "not_applicable": "no aplicable"},
-    "verification_limitation": {"required_source_not_inspected": "no s'ha consultat la font requerida", "tool_error_conflicts_with_completion_claim": "una eina ha fallat i contradiu la finalització", "action_completion_without_tool_evidence": "l'acció no té evidència d'eina", "one_or_more_tools_failed": "una o més eines han fallat", "claim_citations_incomplete": "les afirmacions no tenen cites completes"},
-    "freshness_status": {"fresh": "actualitzat", "stale_while_revalidate": "antic mentre s'actualitza", "missing": "absent", "unknown": "desconegut"},
-    "job_status": {"queued": "a la cua", "pending": "pendent", "running": "en execució", "retry_wait": "esperant reintent", "completed": "completada", "failed": "fallida", "cancelled": "cancel·lada", "interrupted": "interrompuda"},
+    "mode": {
+      "conversation": "conversa",
+      "lookup": "consulta",
+      "inventory": "inventari",
+      "analysis": "anàlisi",
+      "action": "acció"
+    },
+    "route": {
+      "General": "general",
+      "Brain": "Cervell",
+      "Coder": "codi"
+    },
+    "execution": {
+      "foreground": "primer pla",
+      "background": "segon pla"
+    },
+    "privacy_classification": {
+      "standard": "estàndard",
+      "external_read": "lectura externa",
+      "private_local_processing": "processament privat local",
+      "private_remote_processing": "processament privat remot"
+    },
+    "verification_status": {
+      "passed": "verificada",
+      "limited": "amb limitacions",
+      "blocked": "bloquejada",
+      "not_applicable": "no aplicable"
+    },
+    "verification_limitation": {
+      "required_source_not_inspected": "no s'ha consultat la font requerida",
+      "tool_error_conflicts_with_completion_claim": "una eina ha fallat i contradiu la finalització",
+      "action_completion_without_tool_evidence": "l'acció no té evidència d'eina",
+      "one_or_more_tools_failed": "una o més eines han fallat",
+      "claim_citations_incomplete": "les afirmacions no tenen cites completes"
+    },
+    "freshness_status": {
+      "fresh": "actualitzat",
+      "stale_while_revalidate": "antic mentre s'actualitza",
+      "missing": "absent",
+      "unknown": "desconegut"
+    },
+    "job_status": {
+      "queued": "a la cua",
+      "pending": "pendent",
+      "running": "en execució",
+      "retry_wait": "esperant reintent",
+      "completed": "completada",
+      "failed": "fallida",
+      "cancelled": "cancel·lada",
+      "interrupted": "interrompuda"
+    },
     "timing_total": "Total del servidor: {{count}} ms",
     "timing_setup": "Preparació: {{count}} ms",
     "timing_routing": "Encaminament: {{count}} ms",
@@ -4942,7 +5144,11 @@
     "processing": "Processant...",
     "processing_with_seconds": "Processant... {{count}} s",
     "processing_phase_label": "{{phase}} · {{count}} s",
-    "processing_phase": {"routing": "Entenent la petició…", "model": "Generant la resposta…", "tools": "Utilitzant eines…"},
+    "processing_phase": {
+      "routing": "Entenent la petició…",
+      "model": "Generant la resposta…",
+      "tools": "Utilitzant eines…"
+    },
     "processing_seconds": "{{count}} s",
     "attachment_fallback_name": "archivo",
     "attach_files": "Adjuntar archivos",
@@ -5427,7 +5633,14 @@
           "native_local_data_fallback": "S'ha corregit el directori de dades locals i la sincronització de versions de la versió 1.0.6 a tots els manifests d'empaquetat."
         }
       },
-      "v1_0_5": { "highlights": {}, "improvements": {}, "fixes": { "macos_intel_cryptography": "Les compilacions de macOS per a Intel inclouen ara la roda de criptografia compatible amb aquesta arquitectura.", "pinned_backend_runtime": "Les aplicacions empaquetades fixen el runtime de Python del backend perquè s’iniciïn de manera consistent després d’instal·lar-les." } },
+      "v1_0_5": {
+        "highlights": {},
+        "improvements": {},
+        "fixes": {
+          "macos_intel_cryptography": "Les compilacions de macOS per a Intel inclouen ara la roda de criptografia compatible amb aquesta arquitectura.",
+          "pinned_backend_runtime": "Les aplicacions empaquetades fixen el runtime de Python del backend perquè s’iniciïn de manera consistent després d’instal·lar-les."
+        }
+      },
       "v1_0_4": {
         "highlights": {},
         "improvements": {},
@@ -5525,6 +5738,209 @@
           "plugins": "Les versions inclouen els paquets oficials de plugins i el seu índex de distribució."
         }
       }
+    }
+  },
+  "literature": {
+    "eyebrow": "Recursos acadèmics",
+    "title": "Cerca bibliogràfica",
+    "subtitle": "Cerca, compara i revisa literatura acadèmica sense perdre la procedència.",
+    "tabs_label": "Seccions de literatura",
+    "tabs": {
+      "search": "Cerca",
+      "reviews": "Revisions"
+    },
+    "disabled": {
+      "title": "El plugin Recursos està desactivat",
+      "help": "Activa'l a Configuració > Plugins per utilitzar la cerca bibliogràfica."
+    },
+    "search": {
+      "placeholder": "Pregunta, títol, autor o consulta booleana…",
+      "query": "Consulta bibliogràfica",
+      "submit": "Cerca",
+      "filters": "Filtres",
+      "sources": "Fonts",
+      "sources_selected": "{{count}} seleccionades",
+      "show_less_sources": "Mostra'n menys",
+      "show_all_sources": "Mostra totes les fonts",
+      "result_count": "{{count}} resultats",
+      "date_from": "Des de l'any",
+      "date_to": "Fins a l'any",
+      "language": "Idioma",
+      "document_type": "Tipus de document",
+      "any": "Qualsevol",
+      "article": "Article",
+      "book": "Llibre",
+      "thesis": "Tesi",
+      "preprint": "Preprint",
+      "open_access_only": "Només accés obert",
+      "peer_reviewed_only": "Només revisats per parells",
+      "partial_errors": "Algunes fonts no han respost",
+      "load_error": "No s'ha pogut carregar la configuració de cerca.",
+      "start_error": "No s'ha pogut iniciar la cerca.",
+      "state": {
+        "queued": "En cua",
+        "running": "Cercant",
+        "completed": "Completada",
+        "failed": "Amb errors",
+        "cancelled": "Cancel·lada"
+      }
+    },
+    "empty": {
+      "title": "Comença una cerca acadèmica",
+      "help": "Selecciona les fonts, aplica filtres i escriu una consulta. Els resultats apareixeran progressivament.",
+      "no_results": "Cap resultat",
+      "no_results_help": "Prova una consulta més àmplia o activa més fonts."
+    },
+    "result": {
+      "authors": "Autoria",
+      "year": "Any",
+      "publication": "Publicació",
+      "language": "Idioma",
+      "identifiers": "Identificadors",
+      "open_access": "Accés obert",
+      "unknown": "Desconegut",
+      "occurrences": "{{count}} coincidències",
+      "oa": "Accés obert",
+      "already_added": "Ja és a Recursos",
+      "unknown_author": "Autoria desconeguda",
+      "citations": "{{count}} cites a {{provider}}",
+      "possible_duplicates": "{{count}} possibles duplicats",
+      "view": "Veure",
+      "add": "Afegir a Recursos",
+      "select": "Selecciona {{title}}"
+    },
+    "preview": {
+      "eyebrow": "Previsualització",
+      "abstract": "Resum",
+      "no_abstract": "No hi ha resum disponible.",
+      "field_provenance": "Procedència per camp",
+      "conflicts": "Variants conflictives",
+      "locations": "Ubicacions verificades",
+      "original_sources": "Fonts originals"
+    },
+    "bulk": {
+      "selected": "{{count}} seleccionats",
+      "add_resources": "Afegir a Recursos",
+      "send_notebook": "Enviar a un Quadern",
+      "add_review": "Afegir a una revisió"
+    },
+    "import": {
+      "success": "Recursos importats correctament.",
+      "error": "No s'han pogut importar els recursos."
+    },
+    "ai": {
+      "assist": "Ajuda IA",
+      "build_query": "Genera una estratègia editable",
+      "proposal": "Proposta d'estratègia",
+      "use_query": "Utilitza aquesta consulta",
+      "human_control": "La IA només proposa; la decisió final sempre és humana.",
+      "error": "No s'ha pogut generar la proposta IA."
+    },
+    "review": {
+      "title": "Revisions de literatura",
+      "question": "Pregunta de recerca",
+      "mode": "Modalitat",
+      "single": "Cribratge individual",
+      "dual_blind": "Doble cec",
+      "reviewers": "Revisors",
+      "reviewers_placeholder": "nom1, nom2",
+      "create": "Crea la revisió",
+      "select_title": "Selecciona una revisió",
+      "select_help": "Crea o obre una revisió per gestionar candidats, decisions i exportacions.",
+      "eyebrow": "Protocol de revisió",
+      "add_selected": "Afegeix {{count}} seleccionats",
+      "no_candidates": "Encara no hi ha candidats.",
+      "blind_pending": "Decisió oculta pendent",
+      "conflict": "Requereix consens",
+      "resolve_include": "Consens: incloure",
+      "resolve_exclude": "Consens: excloure",
+      "include": "Incloure",
+      "uncertain": "Dubtós",
+      "exclude": "Excloure",
+      "load_error": "No s'han pogut carregar les revisions.",
+      "create_error": "No s'ha pogut crear la revisió.",
+      "candidates_added": "Candidats afegits a la revisió.",
+      "candidates_error": "No s'han pogut afegir els candidats.",
+      "decision_error": "No s'ha pogut desar la decisió.",
+      "export_error": "No s'ha pogut generar l'exportació.",
+      "save_strategy": "Desa l'estratègia",
+      "strategy_saved": "Estratègia versionada desada a la revisió.",
+      "strategy_error": "No s'ha pogut desar l'estratègia.",
+      "synthesize": "Sintetitza",
+      "snowball": "Amplia citacions",
+      "ai_synthesize": "Síntesi assistida",
+      "ai_snowball": "Proposta de citacions",
+      "schedule_updates": "Actualitzacions programades",
+      "every_days": "Cada (dies)",
+      "schedule_help": "Repeteix l'estratègia desada i només afegeix candidats nous.",
+      "schedule_saved": "Programació de la revisió desada.",
+      "schedule_error": "No s'ha pogut desar la programació.",
+      "schedule_needs_strategy": "Fes una cerca abans d'activar les actualitzacions.",
+      "phase": {
+        "identified": "Identificats",
+        "title_abstract": "Títol i resum",
+        "full_text_requested": "Text complet sol·licitat",
+        "full_text_assessed": "Text complet avaluat",
+        "included": "Inclosos",
+        "excluded": "Exclosos"
+      }
+    },
+    "settings": {
+      "resources_table": "Taula de Recursos",
+      "resources_table_help": "És l'única taula de destinació per a les importacions bibliogràfiques.",
+      "no_resources_table": "Cap taula configurada",
+      "create_resources_table": "Crea la taula Recursos",
+      "contact_title": "Contacte i credencials",
+      "contact_help": "PubMed i Unpaywall requereixen un correu de contacte; altres fonts poden requerir claus.",
+      "contact_placeholder": "recerca@exemple.org",
+      "manage_credentials": "Gestiona credencials",
+      "sources_title": "Repositoris acadèmics",
+      "sources_help": "Defineix els valors predeterminats, amaga fonts o sincronitza índexs OAI locals.",
+      "hide_hidden": "Amaga els ocults",
+      "show_hidden": "Restaura fonts",
+      "index_records": "{{count}} registres indexats",
+      "synchronize": "Sincronitza",
+      "external_only": "Només enllaç extern",
+      "metric_only": "Només mètrica",
+      "credential_missing": "Falta configuració",
+      "index_empty": "Pendent d'indexar",
+      "adapter_pending": "Connector pendent",
+      "ready": "Disponible",
+      "restore": "Restaura",
+      "hide": "Amaga",
+      "open_external": "Obre",
+      "add_repository": "Afegeix repositori",
+      "edit_repository": "Edita el repositori",
+      "repository_help": "Només HTTPS. REST admet exclusivament GET amb resposta JSON.",
+      "repository_name": "Nom",
+      "repository_kind": "Protocol",
+      "repository_url": "URL base",
+      "metadata_prefix": "Format de metadades",
+      "oai_set": "Set OAI opcional",
+      "query_parameter": "Paràmetre de consulta",
+      "results_path": "Ruta dels resultats",
+      "pagination": "Paginació",
+      "title_mapping": "Mapatge del títol",
+      "doi_mapping": "Mapatge del DOI",
+      "test_repository": "Prova el repositori",
+      "delete_repository_title": "Elimina el repositori",
+      "delete_repository_message": "Vols eliminar {{name}}? L'historial conservarà la configuració utilitzada.",
+      "delete_index_too": "Elimina també l'índex local reconstruïble",
+      "load_error": "No s'ha pogut carregar la configuració de Recursos.",
+      "save_error": "No s'ha pogut desar la configuració.",
+      "reference_saved": "Taula de Recursos actualitzada.",
+      "reference_error": "No s'ha pogut configurar la taula de Recursos.",
+      "reference_created": "Taula de Recursos creada.",
+      "repository_saved": "Repositori desat.",
+      "repository_error": "No s'ha pogut desar el repositori.",
+      "test_ok": "Connexió correcta: {{count}} registres en {{latency}} ms.",
+      "test_error": "La prova del repositori ha fallat.",
+      "repository_deleted": "Repositori eliminat.",
+      "repository_delete_error": "No s'ha pogut eliminar el repositori.",
+      "sync_started": "Sincronització iniciada en segon pla.",
+      "sync_error": "No s'ha pogut iniciar la sincronització.",
+      "references_moved": "La taula de referències ara es configura al plugin Recursos.",
+      "open_resources_plugin": "Obre la configuració de Recursos"
     }
   }
 }

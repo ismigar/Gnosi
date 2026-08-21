@@ -21,6 +21,17 @@ storage, and user data native to Gnosi.
 Citation rendering and bibliography already use citeproc-js, CSL, and the
 Resources table.
 
+The Resources built-in plugin now owns selection and creation of the Resources
+table. `/api/vault/reference-table` remains the single source of truth; the
+former References setting is only a direct link to the plugin panel.
+
+Federated literature import is another reference input path. It converts the
+canonical academic-work contract through the same Zotero-to-Resources mapper,
+item-type normalization, author normalization, and citation-key generator used
+by identifier lookup. Import repeats deterministic DOI, PMID/PMCID, arXiv,
+ISBN-13, and title/year/first-author matching inside one process lock. An
+existing resource is returned instead of creating a second page.
+
 ## Canonical reference fields
 
 CSL readers use stable persisted field identifiers such as Citation Key, Item
@@ -75,6 +86,10 @@ Keep legacy type maps internally consistent and covered by invariants.
   idempotent backed-up migration.
 - Web capture may return multiple candidates and must ask the user to choose.
 - User bibliographic data remains in its source language.
+- Search preview never writes a page or downloads a file. Full-text attachment
+  remains an explicit user action and requires a verified open-access location.
+- Do not create a parallel Resources table configuration in literature search;
+  always resolve `/api/vault/reference-table` at import time.
 
 ## Data migration record
 

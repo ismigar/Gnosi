@@ -1,11 +1,12 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-21
 source_paths:
   - backend/api/integrations_routes.py
   - backend/services/integration_manager.py
   - backend/services/plugin_system.py
   - backend/services/plugin_sandbox.py
+  - backend/services/academic_connectors.py
   - backend/services/marketplace_http.py
   - backend/services/marketplace_submission.py
   - plugins-examples
@@ -16,6 +17,7 @@ tests:
   - backend/tests/test_plugin_sandbox.py
   - backend/tests/test_plugin_signing.py
   - backend/tests/test_mcp_tool_contributions.py
+  - backend/tests/test_academic_connectors.py
   - integrations/libreoffice-cite/tests
 ---
 
@@ -63,6 +65,19 @@ Executable plugin behavior runs through a sandbox boundary with a constrained
 environment and timeout. Plugins do not receive the complete host environment
 or arbitrary secret access.
 
+API v2 plugins may declare `contributes.academicRepositories` to provide a
+complex academic search adapter. The contribution requires the `network`
+permission, runs in the existing sandbox, and returns the normalized
+`AcademicWork` contract. Built-in and custom repository definitions use the
+same catalog surface, so per-search activation, source provenance, and partial
+errors do not depend on connector origin.
+
+Administrators can also define HTTPS OAI-PMH repositories or declarative
+GET/JSON REST repositories. OAI supports sets, resumption tokens, incremental
+harvests, and tombstones. REST definitions have bounded page, offset, cursor,
+or `Link` pagination plus explicit JSON field mapping. Arbitrary methods and
+executable mapping code are not accepted.
+
 Direct networking stays disabled in both plugin runtimes. A granted `network`
 capability exposes only the host RPC, which rejects private destinations and
 bounds methods, redirects, time, and response size. UI frames keep
@@ -107,10 +122,14 @@ credential access automatically.
 - Compatibility and permission validation occurs before activation.
 - Official indexes and remote packages fail closed when integrity metadata is missing.
 - Direct plugin sockets and browser connections never bypass the host RPC.
+- Academic repository URLs pass HTTPS, DNS/IP, redirect, timeout, response-size,
+  and safe XML validation before data reaches a connector.
+- External-only services are never exposed as automated connectors.
 - MCP tool origin and effect remain visible after catalog normalization.
 
 ## Verification focus
 
 Run plugin manifest, signing, sandbox, state-race, AI contribution, MCP routing,
-retry, and connector tests. A live integration test uses a dedicated test
-account and must not mutate production data unintentionally.
+retry, academic repository permission, SSRF, XML, pagination, and connector
+tests. A live integration test uses a dedicated test account, a bounded result
+page, and must not mutate production data unintentionally.

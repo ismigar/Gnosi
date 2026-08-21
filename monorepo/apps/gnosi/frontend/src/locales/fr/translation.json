@@ -1083,14 +1083,42 @@
         "desc": "Ajoute les durées ouvrées, les prédécesseurs et les calendriers de travail aux champs de période."
       },
       "catalog": {
-        "daily-notes": { "name": "Notes quotidiennes", "description": "Accès rapide à la note quotidienne et à la navigation par date, comme dans Obsidian." },
-        "tags-page": { "name": "Page des étiquettes", "description": "Index de toutes les étiquettes du coffre avec compteurs et navigation." },
-        "page-comments": { "name": "Commentaires", "description": "Fil de commentaires par page, comme dans Notion." },
-        "share-links": { "name": "Partage externe", "description": "Liens publics en lecture seule vers les pages." },
-        "canvas-cards": { "name": "Cartes du canvas", "description": "Intégrez des pages sous forme de cartes interactives sur le canvas." },
-        "web-clipper": { "name": "Web Clipper", "description": "Enregistrez des pages web depuis le navigateur dans la table de votre choix et renseignez ses champs." },
-        "llm-wiki": { "name": "Cerveau (wiki LLM)", "description": "Traitez des ressources avec l'IA pour maintenir un wiki de connaissances relié, comme Karpathy." },
-        "project-planning": { "name": "Planification de projets", "description": "Ajoute les durées ouvrées, les prédécesseurs et les calendriers de travail aux champs de période." }
+        "daily-notes": {
+          "name": "Notes quotidiennes",
+          "description": "Accès rapide à la note quotidienne et à la navigation par date, comme dans Obsidian."
+        },
+        "tags-page": {
+          "name": "Page des étiquettes",
+          "description": "Index de toutes les étiquettes du coffre avec compteurs et navigation."
+        },
+        "page-comments": {
+          "name": "Commentaires",
+          "description": "Fil de commentaires par page, comme dans Notion."
+        },
+        "share-links": {
+          "name": "Partage externe",
+          "description": "Liens publics en lecture seule vers les pages."
+        },
+        "canvas-cards": {
+          "name": "Cartes du canvas",
+          "description": "Intégrez des pages sous forme de cartes interactives sur le canvas."
+        },
+        "web-clipper": {
+          "name": "Web Clipper",
+          "description": "Enregistrez des pages web depuis le navigateur dans la table de votre choix et renseignez ses champs."
+        },
+        "llm-wiki": {
+          "name": "Cerveau (wiki LLM)",
+          "description": "Traitez des ressources avec l'IA pour maintenir un wiki de connaissances relié, comme Karpathy."
+        },
+        "project-planning": {
+          "name": "Planification de projets",
+          "description": "Ajoute les durées ouvrées, les prédécesseurs et les calendriers de travail aux champs de période."
+        },
+        "resources": {
+          "name": "Ressources",
+          "description": "Recherche académique fédérée, importation, dépôts et revues de littérature."
+        }
       },
       "planning_intro": "Choisissez les tables des projets et des tâches, puis définissez le calendrier des champs de période enrichis.",
       "planning_project_table": "Table des projets",
@@ -2381,7 +2409,49 @@
     "group_this_month": "Ce mois-ci",
     "position": "{{current}} sur {{total}}",
     "return_to_last_record": "Revenir au dernier enregistrement",
-    "open_reading_pane": "Ouvrir le panneau de lecture", "reading_pane": "Panneau de lecture", "previous_record": "Enregistrement précédent", "next_record": "Enregistrement suivant", "no_excerpt": "Cet enregistrement n’a pas encore d’extrait.", "reading_preferences": "Préférences de lecture", "visible_tags": "Étiquettes visibles", "excerpt_length": "Longueur de l’extrait", "empty_search": "Aucun enregistrement ne correspond à cette recherche.", "empty_search_hint": "Essayez moins de mots ou effacez la recherche.", "empty_hint": "Créez le premier enregistrement ou ajustez les filtres de la vue.", "clear_search": "Effacer la recherche", "adjust_view": "Ajuster la vue", "create_record": "Créer un enregistrement", "apply_field_to_selection": "Appliquer un champ à la sélection", "batch_update": "Mettre à jour la sélection…", "resize_reading_pane": "Redimensionner le panneau de lecture", "clean_reading": "Lecture épurée", "show_details": "Afficher les détails", "reading_shortcuts": "Utilisez ← → pour naviguer · Échap pour fermer", "sync_saving": "Enregistrement des modifications…", "sync_saved": "Modifications enregistrées", "sync_error": "Les modifications nécessitent une attention", "bulk_saved": "Modifications enregistrées", "bulk_undone": "Modifications annulées", "bulk_save_error": "Certaines modifications n’ont pas pu être enregistrées", "focus_feed": "Feed concentré", "reading_progress": "{{read}} sur {{total}} lus", "confirm_bulk_update": "Confirmer la mise à jour groupée", "bulk_preview_title": "Vérifier la mise à jour groupée", "bulk_preview_hint": "{{count}} enregistrements : {{field}} → {{value}}", "apply_changes": "Appliquer les modifications", "dock_pane": "Ancrer le panneau", "undock_pane": "Détacher le panneau", "summary_model": "Modèle de résumé", "summary_model_placeholder": "Sélectionnez un modèle actif", "summary_model_saved": "Modèle de résumé enregistré", "summary_model_error": "Impossible d’enregistrer le modèle de résumé", "summarize": "Résumer", "summarizing": "Résumé en cours…", "summary": "Résumé IA", "summary_error": "Impossible de créer le résumé", "summary_error_hint": "Vérifiez que le modèle sélectionné est actif et disponible."
+    "open_reading_pane": "Ouvrir le panneau de lecture",
+    "reading_pane": "Panneau de lecture",
+    "previous_record": "Enregistrement précédent",
+    "next_record": "Enregistrement suivant",
+    "no_excerpt": "Cet enregistrement n’a pas encore d’extrait.",
+    "reading_preferences": "Préférences de lecture",
+    "visible_tags": "Étiquettes visibles",
+    "excerpt_length": "Longueur de l’extrait",
+    "empty_search": "Aucun enregistrement ne correspond à cette recherche.",
+    "empty_search_hint": "Essayez moins de mots ou effacez la recherche.",
+    "empty_hint": "Créez le premier enregistrement ou ajustez les filtres de la vue.",
+    "clear_search": "Effacer la recherche",
+    "adjust_view": "Ajuster la vue",
+    "create_record": "Créer un enregistrement",
+    "apply_field_to_selection": "Appliquer un champ à la sélection",
+    "batch_update": "Mettre à jour la sélection…",
+    "resize_reading_pane": "Redimensionner le panneau de lecture",
+    "clean_reading": "Lecture épurée",
+    "show_details": "Afficher les détails",
+    "reading_shortcuts": "Utilisez ← → pour naviguer · Échap pour fermer",
+    "sync_saving": "Enregistrement des modifications…",
+    "sync_saved": "Modifications enregistrées",
+    "sync_error": "Les modifications nécessitent une attention",
+    "bulk_saved": "Modifications enregistrées",
+    "bulk_undone": "Modifications annulées",
+    "bulk_save_error": "Certaines modifications n’ont pas pu être enregistrées",
+    "focus_feed": "Feed concentré",
+    "reading_progress": "{{read}} sur {{total}} lus",
+    "confirm_bulk_update": "Confirmer la mise à jour groupée",
+    "bulk_preview_title": "Vérifier la mise à jour groupée",
+    "bulk_preview_hint": "{{count}} enregistrements : {{field}} → {{value}}",
+    "apply_changes": "Appliquer les modifications",
+    "dock_pane": "Ancrer le panneau",
+    "undock_pane": "Détacher le panneau",
+    "summary_model": "Modèle de résumé",
+    "summary_model_placeholder": "Sélectionnez un modèle actif",
+    "summary_model_saved": "Modèle de résumé enregistré",
+    "summary_model_error": "Impossible d’enregistrer le modèle de résumé",
+    "summarize": "Résumer",
+    "summarizing": "Résumé en cours…",
+    "summary": "Résumé IA",
+    "summary_error": "Impossible de créer le résumé",
+    "summary_error_hint": "Vérifiez que le modèle sélectionné est actif et disponible."
   },
   "files": {
     "delete_title": "Supprimer le fichier",
@@ -2473,7 +2543,8 @@
     "logout_tooltip_title": "{{user}} — Se déconnecter",
     "logout_tooltip_label": "Se déconnecter ({{user}})",
     "vault_menu_active": "VAULT ACTIF",
-    "vault_menu_new": "Nouveau vault"
+    "vault_menu_new": "Nouveau vault",
+    "nav_literature": "Recherche bibliographique"
   },
   "shell": {
     "translate_record": "Traduire l'enregistrement",
@@ -2565,7 +2636,14 @@
     "configure_view_tooltip": "Configurer la vue",
     "wip_tooltip": "En développement pour une prochaine itération",
     "soon_badge": "Bientôt",
-    "records_count_many": "{{count}} enregistrements", "export_quick_views": "Copier la configuration", "import_quick_views": "Importer la configuration", "import_quick_views_hint": "Collez une configuration copiée depuis une autre vue.", "quick_views_copied": "Configuration de vue copiée", "quick_views_copy_error": "Impossible de copier la configuration", "quick_views_imported": "Configuration de vue importée", "quick_views_import_error": "Cette configuration n’est pas valide"
+    "records_count_many": "{{count}} enregistrements",
+    "export_quick_views": "Copier la configuration",
+    "import_quick_views": "Importer la configuration",
+    "import_quick_views_hint": "Collez une configuration copiée depuis une autre vue.",
+    "quick_views_copied": "Configuration de vue copiée",
+    "quick_views_copy_error": "Impossible de copier la configuration",
+    "quick_views_imported": "Configuration de vue importée",
+    "quick_views_import_error": "Cette configuration n’est pas valide"
   },
   "errors": {
     "hide_main_view": "Impossible de masquer la vue principale",
@@ -4224,7 +4302,32 @@
     "profile_help_open": "Mostrar explicaciones de los perfiles",
     "profile_help_title": "Perfiles del equipo de trabajo",
     "profile_help_intro": "Elige un perfil según la complejidad, el volumen y el coste de la tarea.",
-    "profile_help": {"worker": {"objective": "Tareas masivas, sencillas y muy baratas.", "examples": "Clasificar correos, corregir ortografía o traducir etiquetas cortas."}, "administrative": {"objective": "Ejecución directa y salida estructurada.", "examples": "Extraer facturas a JSON, ordenar notas o responder preguntas frecuentes."}, "documentalist": {"objective": "Analizar grandes volúmenes de texto con contexto amplio.", "examples": "Revisar PDFs extensos, repositorios completos o libros y transcripciones."}, "allrounder": {"objective": "Equilibrio para el trabajo diario.", "examples": "Redactar contenido, hacer brainstorming o crear material educativo."}, "expert": {"objective": "Razonamiento profundo para problemas complejos y críticos.", "examples": "Depurar código, analizar riesgos o resolver matemáticas avanzadas."}, "unrated": {"objective": "Modèles sans indice d’intelligence comparable.", "examples": "Examinez les autres métriques avant de leur attribuer une tâche."}},
+    "profile_help": {
+      "worker": {
+        "objective": "Tareas masivas, sencillas y muy baratas.",
+        "examples": "Clasificar correos, corregir ortografía o traducir etiquetas cortas."
+      },
+      "administrative": {
+        "objective": "Ejecución directa y salida estructurada.",
+        "examples": "Extraer facturas a JSON, ordenar notas o responder preguntas frecuentes."
+      },
+      "documentalist": {
+        "objective": "Analizar grandes volúmenes de texto con contexto amplio.",
+        "examples": "Revisar PDFs extensos, repositorios completos o libros y transcripciones."
+      },
+      "allrounder": {
+        "objective": "Equilibrio para el trabajo diario.",
+        "examples": "Redactar contenido, hacer brainstorming o crear material educativo."
+      },
+      "expert": {
+        "objective": "Razonamiento profundo para problemas complejos y críticos.",
+        "examples": "Depurar código, analizar riesgos o resolver matemáticas avanzadas."
+      },
+      "unrated": {
+        "objective": "Modèles sans indice d’intelligence comparable.",
+        "examples": "Examinez les autres métriques avant de leur attribuer une tâche."
+      }
+    },
     "profile_help_flow_title": "Combinación recomendada",
     "profile_help_flow": "Documentalista extrae los puntos clave → Perito decide la estrategia → Totterreno redacta → Peón o Administrativo traduce y formatea.",
     "all_profiles": "Tous les profils",
@@ -4255,7 +4358,12 @@
     "availability": "État",
     "modes": "Modes pris en charge",
     "all_modes": "Tous les modes",
-    "modes_list": {"text": "Texte", "image": "Image", "audio": "Audio", "video": "Vidéo"},
+    "modes_list": {
+      "text": "Texte",
+      "image": "Image",
+      "audio": "Audio",
+      "video": "Vidéo"
+    },
     "all_availability": "Actifs et inactifs",
     "active": "Actif",
     "inactive": "Inactif",
@@ -4301,8 +4409,33 @@
       "router_help": "Le modèle sera disponible pour le routeur automatique et dans Modèles du routeur.",
       "activate": "Activer le modèle"
     },
-    "profiles": { "worker": "Exécutant", "administrative": "Administratif", "documentalist": "Documentaliste", "allrounder": "Polyvalent", "expert": "Expert / Directeur", "unrated": "Non évalué" },
-    "columns": { "model": "Modèle", "creator": "Créateur", "provider": "Fournisseur", "modes": "Modes pris en charge", "intelligence": "Intelligence", "coding": "Code", "agentic": "Agents", "input_price": "Entrée {{symbol}}/1M", "output_price": "Sortie {{symbol}}/1M", "context": "Contexte", "speed": "Vitesse", "latency": "Latence", "uptime": "Disponibilité", "profile": "Usage recommandé", "quantization": "Quantification", "monthly_cost": "Est. {{symbol}}/mois", "available": "Disponible" }
+    "profiles": {
+      "worker": "Exécutant",
+      "administrative": "Administratif",
+      "documentalist": "Documentaliste",
+      "allrounder": "Polyvalent",
+      "expert": "Expert / Directeur",
+      "unrated": "Non évalué"
+    },
+    "columns": {
+      "model": "Modèle",
+      "creator": "Créateur",
+      "provider": "Fournisseur",
+      "modes": "Modes pris en charge",
+      "intelligence": "Intelligence",
+      "coding": "Code",
+      "agentic": "Agents",
+      "input_price": "Entrée {{symbol}}/1M",
+      "output_price": "Sortie {{symbol}}/1M",
+      "context": "Contexte",
+      "speed": "Vitesse",
+      "latency": "Latence",
+      "uptime": "Disponibilité",
+      "profile": "Usage recommandé",
+      "quantization": "Quantification",
+      "monthly_cost": "Est. {{symbol}}/mois",
+      "available": "Disponible"
+    }
   },
   "tags": {
     "empty": "Aucune étiquette pour l'instant. Ajoutez-en via la propriété « tags ».",
@@ -4671,7 +4804,33 @@
     "no_files": "Aucun fichier trouvé"
   },
   "planning_page": {
-    "title": "Planification de projets", "subtitle": "Planning, chemin critique, ressources et diagnostics.", "project_id": "ID du projet", "project": "Projet", "default_project": "Projet par défaut", "refresh": "Actualiser", "load_error": "Impossible de charger le planning du projet.", "critical_tasks": "Tâches critiques", "estimated_cost": "Coût estimé", "warnings": "Avertissements", "schedule": "Planning", "task": "Tâche", "start": "Début", "finish": "Fin", "slack": "Marge", "diagnostics": "Diagnostics", "baselines": "Références", "baseline_name": "Nom de la référence", "create": "Créer", "worklogs": "Journaux de travail", "add_worklog": "Ajouter un journal", "entries": "entrées", "resource_heatmap": "Charge des ressources", "leveling": "Nivellement des ressources", "generate_proposal": "Générer une proposition", "proposed_changes": "modifications proposées", "apply_proposal": "Appliquer la proposition"
+    "title": "Planification de projets",
+    "subtitle": "Planning, chemin critique, ressources et diagnostics.",
+    "project_id": "ID du projet",
+    "project": "Projet",
+    "default_project": "Projet par défaut",
+    "refresh": "Actualiser",
+    "load_error": "Impossible de charger le planning du projet.",
+    "critical_tasks": "Tâches critiques",
+    "estimated_cost": "Coût estimé",
+    "warnings": "Avertissements",
+    "schedule": "Planning",
+    "task": "Tâche",
+    "start": "Début",
+    "finish": "Fin",
+    "slack": "Marge",
+    "diagnostics": "Diagnostics",
+    "baselines": "Références",
+    "baseline_name": "Nom de la référence",
+    "create": "Créer",
+    "worklogs": "Journaux de travail",
+    "add_worklog": "Ajouter un journal",
+    "entries": "entrées",
+    "resource_heatmap": "Charge des ressources",
+    "leveling": "Nivellement des ressources",
+    "generate_proposal": "Générer une proposition",
+    "proposed_changes": "modifications proposées",
+    "apply_proposal": "Appliquer la proposition"
   },
   "vault_date": {
     "days_placeholder": "jours",
@@ -4883,14 +5042,57 @@
     "job_retry_budget": "Tentative {{attempt}}/{{maxAttempts}} · appels au modèle {{used}}/{{budget}}",
     "job_retry_scheduled": "prochaine tentative {{time}}",
     "job_retry_exhausted": "budget de tentatives épuisé",
-    "mode": {"conversation": "conversation", "lookup": "recherche", "inventory": "inventaire", "analysis": "analyse", "action": "action"},
-    "route": {"General": "général", "Brain": "Cerveau", "Coder": "code"},
-    "execution": {"foreground": "premier plan", "background": "arrière-plan"},
-    "privacy_classification": {"standard": "standard", "external_read": "lecture externe", "private_local_processing": "traitement privé local", "private_remote_processing": "traitement privé distant"},
-    "verification_status": {"passed": "vérifiée", "limited": "avec limites", "blocked": "bloquée", "not_applicable": "non applicable"},
-    "verification_limitation": {"required_source_not_inspected": "la source requise n'a pas été consultée", "tool_error_conflicts_with_completion_claim": "un outil a échoué et contredit l'achèvement", "action_completion_without_tool_evidence": "l'action n'a aucune preuve d'outil", "one_or_more_tools_failed": "un ou plusieurs outils ont échoué", "claim_citations_incomplete": "les affirmations n'ont pas de citations complètes"},
-    "freshness_status": {"fresh": "à jour", "stale_while_revalidate": "ancien pendant l'actualisation", "missing": "absent", "unknown": "inconnu"},
-    "job_status": {"queued": "en file", "pending": "en attente", "running": "en cours", "retry_wait": "en attente d'une nouvelle tentative", "completed": "terminée", "failed": "échouée", "cancelled": "annulée", "interrupted": "interrompue"},
+    "mode": {
+      "conversation": "conversation",
+      "lookup": "recherche",
+      "inventory": "inventaire",
+      "analysis": "analyse",
+      "action": "action"
+    },
+    "route": {
+      "General": "général",
+      "Brain": "Cerveau",
+      "Coder": "code"
+    },
+    "execution": {
+      "foreground": "premier plan",
+      "background": "arrière-plan"
+    },
+    "privacy_classification": {
+      "standard": "standard",
+      "external_read": "lecture externe",
+      "private_local_processing": "traitement privé local",
+      "private_remote_processing": "traitement privé distant"
+    },
+    "verification_status": {
+      "passed": "vérifiée",
+      "limited": "avec limites",
+      "blocked": "bloquée",
+      "not_applicable": "non applicable"
+    },
+    "verification_limitation": {
+      "required_source_not_inspected": "la source requise n'a pas été consultée",
+      "tool_error_conflicts_with_completion_claim": "un outil a échoué et contredit l'achèvement",
+      "action_completion_without_tool_evidence": "l'action n'a aucune preuve d'outil",
+      "one_or_more_tools_failed": "un ou plusieurs outils ont échoué",
+      "claim_citations_incomplete": "les affirmations n'ont pas de citations complètes"
+    },
+    "freshness_status": {
+      "fresh": "à jour",
+      "stale_while_revalidate": "ancien pendant l'actualisation",
+      "missing": "absent",
+      "unknown": "inconnu"
+    },
+    "job_status": {
+      "queued": "en file",
+      "pending": "en attente",
+      "running": "en cours",
+      "retry_wait": "en attente d'une nouvelle tentative",
+      "completed": "terminée",
+      "failed": "échouée",
+      "cancelled": "annulée",
+      "interrupted": "interrompue"
+    },
     "timing_total": "Total du serveur : {{count}} ms",
     "timing_setup": "Préparation : {{count}} ms",
     "timing_routing": "Routage : {{count}} ms",
@@ -4942,7 +5144,11 @@
     "processing": "Traitement en cours...",
     "processing_with_seconds": "Traitement en cours... {{count}} s",
     "processing_phase_label": "{{phase}} · {{count}} s",
-    "processing_phase": {"routing": "Compréhension de la demande…", "model": "Génération de la réponse…", "tools": "Utilisation des outils…"},
+    "processing_phase": {
+      "routing": "Compréhension de la demande…",
+      "model": "Génération de la réponse…",
+      "tools": "Utilisation des outils…"
+    },
     "processing_seconds": "{{count}} s",
     "attachment_fallback_name": "fichier",
     "attach_files": "Joindre des fichiers",
@@ -5427,7 +5633,14 @@
           "native_local_data_fallback": "Correction du répertoire de données locales et de la synchronisation des versions de la release 1.0.6 dans tous les manifestes."
         }
       },
-      "v1_0_5": { "highlights": {}, "improvements": {}, "fixes": { "macos_intel_cryptography": "Les versions macOS Intel incluent désormais la roue cryptographique compatible avec cette architecture.", "pinned_backend_runtime": "Les applications empaquetées figent le runtime Python du backend afin de démarrer de manière cohérente après l’installation." } },
+      "v1_0_5": {
+        "highlights": {},
+        "improvements": {},
+        "fixes": {
+          "macos_intel_cryptography": "Les versions macOS Intel incluent désormais la roue cryptographique compatible avec cette architecture.",
+          "pinned_backend_runtime": "Les applications empaquetées figent le runtime Python du backend afin de démarrer de manière cohérente après l’installation."
+        }
+      },
       "v1_0_4": {
         "highlights": {},
         "improvements": {},
@@ -5525,6 +5738,209 @@
           "plugins": "Les versions incluent les paquets officiels des plugins et leur index de distribution."
         }
       }
+    }
+  },
+  "literature": {
+    "eyebrow": "Ressources académiques",
+    "title": "Recherche bibliographique",
+    "subtitle": "Search, compare, and review academic literature without losing provenance.",
+    "tabs_label": "Literature sections",
+    "tabs": {
+      "search": "Rechercher",
+      "reviews": "Revues"
+    },
+    "disabled": {
+      "title": "The Resources plugin is disabled",
+      "help": "Enable it in Settings > Plugins to use literature search."
+    },
+    "search": {
+      "placeholder": "Question, title, author, or Boolean query…",
+      "query": "Literature query",
+      "submit": "Rechercher",
+      "filters": "Filtres",
+      "sources": "Sources",
+      "sources_selected": "{{count}} selected",
+      "show_less_sources": "Show fewer",
+      "show_all_sources": "Show all sources",
+      "result_count": "{{count}} results",
+      "date_from": "From year",
+      "date_to": "To year",
+      "language": "Langue",
+      "document_type": "Document type",
+      "any": "Any",
+      "article": "Article",
+      "book": "Livre",
+      "thesis": "Thèse",
+      "preprint": "Preprint",
+      "open_access_only": "Open access only",
+      "peer_reviewed_only": "Peer reviewed only",
+      "partial_errors": "Some sources did not respond",
+      "load_error": "Could not load search settings.",
+      "start_error": "Could not start the search.",
+      "state": {
+        "queued": "Queued",
+        "running": "Searching",
+        "completed": "Completed",
+        "failed": "With errors",
+        "cancelled": "Cancelled"
+      }
+    },
+    "empty": {
+      "title": "Start an academic search",
+      "help": "Select sources, apply filters, and enter a query. Results will appear progressively.",
+      "no_results": "No results",
+      "no_results_help": "Try a broader query or enable more sources."
+    },
+    "result": {
+      "authors": "Auteurs",
+      "year": "Année",
+      "publication": "Publication",
+      "language": "Langue",
+      "identifiers": "Identifiants",
+      "open_access": "Accès ouvert",
+      "unknown": "Inconnu",
+      "occurrences": "{{count}} occurrences",
+      "oa": "Accès ouvert",
+      "already_added": "Already in Resources",
+      "unknown_author": "Unknown authorship",
+      "citations": "{{count}} citations in {{provider}}",
+      "possible_duplicates": "{{count}} possible duplicates",
+      "view": "Voir",
+      "add": "Add to Resources",
+      "select": "Select {{title}}"
+    },
+    "preview": {
+      "eyebrow": "Aperçu",
+      "abstract": "Résumé",
+      "no_abstract": "No abstract is available.",
+      "field_provenance": "Field provenance",
+      "conflicts": "Conflicting variants",
+      "locations": "Verified locations",
+      "original_sources": "Original sources"
+    },
+    "bulk": {
+      "selected": "{{count}} selected",
+      "add_resources": "Add to Resources",
+      "send_notebook": "Send to a Notebook",
+      "add_review": "Add to a review"
+    },
+    "import": {
+      "success": "Resources imported successfully.",
+      "error": "Could not import the resources."
+    },
+    "ai": {
+      "assist": "AI assist",
+      "build_query": "Build an editable strategy",
+      "proposal": "Strategy proposal",
+      "use_query": "Use this query",
+      "human_control": "AI only suggests; the final decision is always human.",
+      "error": "Could not generate the AI proposal."
+    },
+    "review": {
+      "title": "Literature reviews",
+      "question": "Research question",
+      "mode": "Mode",
+      "single": "Single screening",
+      "dual_blind": "Double blind",
+      "reviewers": "Reviewers",
+      "reviewers_placeholder": "name1, name2",
+      "create": "Create review",
+      "select_title": "Select a review",
+      "select_help": "Create or open a review to manage candidates, decisions, and exports.",
+      "eyebrow": "Review protocol",
+      "add_selected": "Add {{count}} selected",
+      "no_candidates": "There are no candidates yet.",
+      "blind_pending": "Hidden decision pending",
+      "conflict": "Consensus required",
+      "resolve_include": "Consensus: include",
+      "resolve_exclude": "Consensus: exclude",
+      "include": "Inclure",
+      "uncertain": "Incertain",
+      "exclude": "Exclure",
+      "load_error": "Could not load reviews.",
+      "create_error": "Could not create the review.",
+      "candidates_added": "Candidates added to the review.",
+      "candidates_error": "Could not add candidates.",
+      "decision_error": "Could not save the decision.",
+      "export_error": "Impossible de générer l’exportation.",
+      "save_strategy": "Enregistrer la stratégie",
+      "strategy_saved": "Stratégie versionnée enregistrée dans la revue.",
+      "strategy_error": "Impossible d’enregistrer la stratégie.",
+      "synthesize": "Synthétiser",
+      "snowball": "Étendre les citations",
+      "ai_synthesize": "Synthèse assistée",
+      "ai_snowball": "Proposition de citations",
+      "schedule_updates": "Mises à jour planifiées",
+      "every_days": "Tous les (jours)",
+      "schedule_help": "Répète la stratégie enregistrée et ajoute uniquement les nouveaux candidats.",
+      "schedule_saved": "Planification de la revue enregistrée.",
+      "schedule_error": "Impossible d’enregistrer la planification.",
+      "schedule_needs_strategy": "Lancez une recherche avant d’activer les mises à jour.",
+      "phase": {
+        "identified": "Identified",
+        "title_abstract": "Title and abstract",
+        "full_text_requested": "Full text requested",
+        "full_text_assessed": "Full text assessed",
+        "included": "Included",
+        "excluded": "Excluded"
+      }
+    },
+    "settings": {
+      "resources_table": "Resources table",
+      "resources_table_help": "This is the single destination table for literature imports.",
+      "no_resources_table": "No table configured",
+      "create_resources_table": "Create Resources table",
+      "contact_title": "Contact and credentials",
+      "contact_help": "PubMed and Unpaywall require a contact email; other sources may require keys.",
+      "contact_placeholder": "research@example.org",
+      "manage_credentials": "Manage credentials",
+      "sources_title": "Academic repositories",
+      "sources_help": "Set defaults, hide sources, or synchronize local OAI indexes.",
+      "hide_hidden": "Hide hidden",
+      "show_hidden": "Restore sources",
+      "index_records": "{{count}} indexed records",
+      "synchronize": "Synchronize",
+      "external_only": "External link only",
+      "metric_only": "Metric only",
+      "credential_missing": "Configuration missing",
+      "index_empty": "Awaiting indexing",
+      "adapter_pending": "Connector pending",
+      "ready": "Disponible",
+      "restore": "Restaurer",
+      "hide": "Masquer",
+      "open_external": "Ouvrir",
+      "add_repository": "Add repository",
+      "edit_repository": "Edit repository",
+      "repository_help": "HTTPS only. REST supports GET with a JSON response.",
+      "repository_name": "Nom",
+      "repository_kind": "Protocole",
+      "repository_url": "Base URL",
+      "metadata_prefix": "Metadata format",
+      "oai_set": "Optional OAI set",
+      "query_parameter": "Query parameter",
+      "results_path": "Results path",
+      "pagination": "Pagination",
+      "title_mapping": "Title mapping",
+      "doi_mapping": "DOI mapping",
+      "test_repository": "Test repository",
+      "delete_repository_title": "Delete repository",
+      "delete_repository_message": "Delete {{name}}? Search history will keep the configuration used.",
+      "delete_index_too": "Also delete the rebuildable local index",
+      "load_error": "Could not load Resources settings.",
+      "save_error": "Could not save settings.",
+      "reference_saved": "Resources table updated.",
+      "reference_error": "Could not configure the Resources table.",
+      "reference_created": "Resources table created.",
+      "repository_saved": "Repository saved.",
+      "repository_error": "Could not save the repository.",
+      "test_ok": "Connection successful: {{count}} records in {{latency}} ms.",
+      "test_error": "Repository test failed.",
+      "repository_deleted": "Repository deleted.",
+      "repository_delete_error": "Could not delete the repository.",
+      "sync_started": "Background synchronization started.",
+      "sync_error": "Could not start synchronization.",
+      "references_moved": "The references table is now configured in the Resources plugin.",
+      "open_resources_plugin": "Open Resources settings"
     }
   }
 }

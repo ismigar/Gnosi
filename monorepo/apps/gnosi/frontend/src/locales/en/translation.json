@@ -528,7 +528,8 @@
     "logout_tooltip_title": "{{user}} — Sign out",
     "logout_tooltip_label": "Sign out ({{user}})",
     "vault_menu_active": "ACTIVE VAULT",
-    "vault_menu_new": "New vault"
+    "vault_menu_new": "New vault",
+    "nav_literature": "Literature search"
   },
   "shell": {
     "go_back": "Go back",
@@ -1247,7 +1248,14 @@
     "last_load_time": "Last load: {{duration}} ms",
     "configure_view_tooltip": "Configure View",
     "wip_tooltip": "In development for a future iteration",
-    "soon_badge": "Soon", "export_quick_views": "Copy configuration", "import_quick_views": "Import configuration", "import_quick_views_hint": "Paste a configuration copied from another view.", "quick_views_copied": "View configuration copied", "quick_views_copy_error": "Could not copy the configuration", "quick_views_imported": "View configuration imported", "quick_views_import_error": "That configuration is not valid"
+    "soon_badge": "Soon",
+    "export_quick_views": "Copy configuration",
+    "import_quick_views": "Import configuration",
+    "import_quick_views_hint": "Paste a configuration copied from another view.",
+    "quick_views_copied": "View configuration copied",
+    "quick_views_copy_error": "Could not copy the configuration",
+    "quick_views_imported": "View configuration imported",
+    "quick_views_import_error": "That configuration is not valid"
   },
   "fs_picker": {
     "title_any": "Select file or folder",
@@ -1438,14 +1446,42 @@
         "desc": "Add working durations, predecessors, and work calendars to period fields."
       },
       "catalog": {
-        "daily-notes": { "name": "Daily notes", "description": "Quick access to the daily note and date navigation, in the style of Obsidian." },
-        "tags-page": { "name": "Tags page", "description": "Index of every vault tag with counts and navigation." },
-        "page-comments": { "name": "Comments", "description": "Per-page comment thread, in the style of Notion." },
-        "share-links": { "name": "External sharing", "description": "Public read-only links for pages." },
-        "canvas-cards": { "name": "Canvas cards", "description": "Embed pages as live cards on the drawing canvas." },
-        "web-clipper": { "name": "Web Clipper", "description": "Save web pages from the browser to a table of your choice and populate its fields." },
-        "llm-wiki": { "name": "Brain (LLM Wiki)", "description": "Process resources with AI to maintain a linked knowledge wiki, in the style of Karpathy." },
-        "project-planning": { "name": "Project planning", "description": "Add working durations, predecessors, and work calendars to period fields." }
+        "daily-notes": {
+          "name": "Daily notes",
+          "description": "Quick access to the daily note and date navigation, in the style of Obsidian."
+        },
+        "tags-page": {
+          "name": "Tags page",
+          "description": "Index of every vault tag with counts and navigation."
+        },
+        "page-comments": {
+          "name": "Comments",
+          "description": "Per-page comment thread, in the style of Notion."
+        },
+        "share-links": {
+          "name": "External sharing",
+          "description": "Public read-only links for pages."
+        },
+        "canvas-cards": {
+          "name": "Canvas cards",
+          "description": "Embed pages as live cards on the drawing canvas."
+        },
+        "web-clipper": {
+          "name": "Web Clipper",
+          "description": "Save web pages from the browser to a table of your choice and populate its fields."
+        },
+        "llm-wiki": {
+          "name": "Brain (LLM Wiki)",
+          "description": "Process resources with AI to maintain a linked knowledge wiki, in the style of Karpathy."
+        },
+        "project-planning": {
+          "name": "Project planning",
+          "description": "Add working durations, predecessors, and work calendars to period fields."
+        },
+        "resources": {
+          "name": "Resources",
+          "description": "Federated academic search, imports, repositories, and literature reviews."
+        }
       },
       "planning_intro": "Choose the project and task tables, then define the calendar used by enhanced period fields.",
       "planning_project_table": "Projects table",
@@ -3374,7 +3410,49 @@
     "group_this_month": "This month",
     "position": "{{current}} of {{total}}",
     "return_to_last_record": "Return to last record",
-    "open_reading_pane": "Open reading pane", "reading_pane": "Reading pane", "previous_record": "Previous record", "next_record": "Next record", "no_excerpt": "This record has no excerpt yet.", "reading_preferences": "Reading preferences", "visible_tags": "Visible tags", "excerpt_length": "Excerpt length", "empty_search": "No records match this search.", "empty_search_hint": "Try fewer words or clear the search.", "empty_hint": "Create the first record or adjust the view filters.", "clear_search": "Clear search", "adjust_view": "Adjust view", "create_record": "Create record", "apply_field_to_selection": "Apply a field to the selection", "batch_update": "Update selected…", "resize_reading_pane": "Resize reading pane", "clean_reading": "Clean reading", "show_details": "Show details", "reading_shortcuts": "Use ← → to navigate · Esc to close", "sync_saving": "Saving changes…", "sync_saved": "Changes saved", "sync_error": "Changes need attention", "bulk_saved": "Changes saved", "bulk_undone": "Changes undone", "bulk_save_error": "Some changes could not be saved", "focus_feed": "Focus feed", "reading_progress": "{{read}} of {{total}} read", "confirm_bulk_update": "Confirm batch update", "bulk_preview_title": "Review batch update", "bulk_preview_hint": "{{count}} records: {{field}} → {{value}}", "apply_changes": "Apply changes", "dock_pane": "Dock pane", "undock_pane": "Float pane", "summary_model": "Summary model", "summary_model_placeholder": "Select an active model", "summary_model_saved": "Summary model saved", "summary_model_error": "Could not save the summary model", "summarize": "Summarize", "summarizing": "Summarizing…", "summary": "AI summary", "summary_error": "Could not create the summary", "summary_error_hint": "Check that the selected model is active and available."
+    "open_reading_pane": "Open reading pane",
+    "reading_pane": "Reading pane",
+    "previous_record": "Previous record",
+    "next_record": "Next record",
+    "no_excerpt": "This record has no excerpt yet.",
+    "reading_preferences": "Reading preferences",
+    "visible_tags": "Visible tags",
+    "excerpt_length": "Excerpt length",
+    "empty_search": "No records match this search.",
+    "empty_search_hint": "Try fewer words or clear the search.",
+    "empty_hint": "Create the first record or adjust the view filters.",
+    "clear_search": "Clear search",
+    "adjust_view": "Adjust view",
+    "create_record": "Create record",
+    "apply_field_to_selection": "Apply a field to the selection",
+    "batch_update": "Update selected…",
+    "resize_reading_pane": "Resize reading pane",
+    "clean_reading": "Clean reading",
+    "show_details": "Show details",
+    "reading_shortcuts": "Use ← → to navigate · Esc to close",
+    "sync_saving": "Saving changes…",
+    "sync_saved": "Changes saved",
+    "sync_error": "Changes need attention",
+    "bulk_saved": "Changes saved",
+    "bulk_undone": "Changes undone",
+    "bulk_save_error": "Some changes could not be saved",
+    "focus_feed": "Focus feed",
+    "reading_progress": "{{read}} of {{total}} read",
+    "confirm_bulk_update": "Confirm batch update",
+    "bulk_preview_title": "Review batch update",
+    "bulk_preview_hint": "{{count}} records: {{field}} → {{value}}",
+    "apply_changes": "Apply changes",
+    "dock_pane": "Dock pane",
+    "undock_pane": "Float pane",
+    "summary_model": "Summary model",
+    "summary_model_placeholder": "Select an active model",
+    "summary_model_saved": "Summary model saved",
+    "summary_model_error": "Could not save the summary model",
+    "summarize": "Summarize",
+    "summarizing": "Summarizing…",
+    "summary": "AI summary",
+    "summary_error": "Could not create the summary",
+    "summary_error_hint": "Check that the selected model is active and available."
   },
   "files": {
     "delete_title": "Delete file",
@@ -4529,7 +4607,33 @@
     "no_files": "No files found"
   },
   "planning_page": {
-    "title": "Project planning", "subtitle": "Schedule, critical path, resources and diagnostics.", "project_id": "Project ID", "project": "Project", "default_project": "Default project", "refresh": "Refresh", "load_error": "Could not load the project schedule.", "critical_tasks": "Critical tasks", "estimated_cost": "Estimated cost", "warnings": "Warnings", "schedule": "Schedule", "task": "Task", "start": "Start", "finish": "Finish", "slack": "Slack", "diagnostics": "Diagnostics", "baselines": "Baselines", "baseline_name": "Baseline name", "create": "Create", "worklogs": "Work logs", "add_worklog": "Add work log", "entries": "entries", "resource_heatmap": "Resource load", "leveling": "Resource leveling", "generate_proposal": "Generate proposal", "proposed_changes": "proposed changes", "apply_proposal": "Apply proposal"
+    "title": "Project planning",
+    "subtitle": "Schedule, critical path, resources and diagnostics.",
+    "project_id": "Project ID",
+    "project": "Project",
+    "default_project": "Default project",
+    "refresh": "Refresh",
+    "load_error": "Could not load the project schedule.",
+    "critical_tasks": "Critical tasks",
+    "estimated_cost": "Estimated cost",
+    "warnings": "Warnings",
+    "schedule": "Schedule",
+    "task": "Task",
+    "start": "Start",
+    "finish": "Finish",
+    "slack": "Slack",
+    "diagnostics": "Diagnostics",
+    "baselines": "Baselines",
+    "baseline_name": "Baseline name",
+    "create": "Create",
+    "worklogs": "Work logs",
+    "add_worklog": "Add work log",
+    "entries": "entries",
+    "resource_heatmap": "Resource load",
+    "leveling": "Resource leveling",
+    "generate_proposal": "Generate proposal",
+    "proposed_changes": "proposed changes",
+    "apply_proposal": "Apply proposal"
   },
   "vault_date": {
     "days_placeholder": "days",
@@ -4739,14 +4843,57 @@
     "job_retry_budget": "Attempt {{attempt}}/{{maxAttempts}} · model calls {{used}}/{{budget}}",
     "job_retry_scheduled": "next retry {{time}}",
     "job_retry_exhausted": "retry budget exhausted",
-    "mode": {"conversation": "conversation", "lookup": "lookup", "inventory": "inventory", "analysis": "analysis", "action": "action"},
-    "route": {"General": "general", "Brain": "Brain", "Coder": "code"},
-    "execution": {"foreground": "foreground", "background": "background"},
-    "privacy_classification": {"standard": "standard", "external_read": "external read", "private_local_processing": "private local processing", "private_remote_processing": "private remote processing"},
-    "verification_status": {"passed": "verified", "limited": "limited", "blocked": "blocked", "not_applicable": "not applicable"},
-    "verification_limitation": {"required_source_not_inspected": "required source was not inspected", "tool_error_conflicts_with_completion_claim": "a tool failed and conflicts with the completion claim", "action_completion_without_tool_evidence": "the action has no tool evidence", "one_or_more_tools_failed": "one or more tools failed", "claim_citations_incomplete": "claims do not have complete citations"},
-    "freshness_status": {"fresh": "fresh", "stale_while_revalidate": "stale while revalidating", "missing": "missing", "unknown": "unknown"},
-    "job_status": {"queued": "queued", "pending": "pending", "running": "running", "retry_wait": "waiting to retry", "completed": "completed", "failed": "failed", "cancelled": "cancelled", "interrupted": "interrupted"},
+    "mode": {
+      "conversation": "conversation",
+      "lookup": "lookup",
+      "inventory": "inventory",
+      "analysis": "analysis",
+      "action": "action"
+    },
+    "route": {
+      "General": "general",
+      "Brain": "Brain",
+      "Coder": "code"
+    },
+    "execution": {
+      "foreground": "foreground",
+      "background": "background"
+    },
+    "privacy_classification": {
+      "standard": "standard",
+      "external_read": "external read",
+      "private_local_processing": "private local processing",
+      "private_remote_processing": "private remote processing"
+    },
+    "verification_status": {
+      "passed": "verified",
+      "limited": "limited",
+      "blocked": "blocked",
+      "not_applicable": "not applicable"
+    },
+    "verification_limitation": {
+      "required_source_not_inspected": "required source was not inspected",
+      "tool_error_conflicts_with_completion_claim": "a tool failed and conflicts with the completion claim",
+      "action_completion_without_tool_evidence": "the action has no tool evidence",
+      "one_or_more_tools_failed": "one or more tools failed",
+      "claim_citations_incomplete": "claims do not have complete citations"
+    },
+    "freshness_status": {
+      "fresh": "fresh",
+      "stale_while_revalidate": "stale while revalidating",
+      "missing": "missing",
+      "unknown": "unknown"
+    },
+    "job_status": {
+      "queued": "queued",
+      "pending": "pending",
+      "running": "running",
+      "retry_wait": "waiting to retry",
+      "completed": "completed",
+      "failed": "failed",
+      "cancelled": "cancelled",
+      "interrupted": "interrupted"
+    },
     "timing_total": "Server total: {{count}} ms",
     "timing_setup": "Setup: {{count}} ms",
     "timing_routing": "Routing: {{count}} ms",
@@ -4796,7 +4943,11 @@
     "processing": "Processing...",
     "processing_with_seconds": "Processing... {{count}} s",
     "processing_phase_label": "{{phase}} · {{count}} s",
-    "processing_phase": {"routing": "Understanding request…", "model": "Generating response…", "tools": "Using tools…"},
+    "processing_phase": {
+      "routing": "Understanding request…",
+      "model": "Generating response…",
+      "tools": "Using tools…"
+    },
     "processing_seconds": "{{count}} s",
     "attachment_fallback_name": "file",
     "attach_files": "Attach files",
@@ -5166,7 +5317,32 @@
     "profile_help_open": "Show profile explanations",
     "profile_help_title": "AI work-team profiles",
     "profile_help_intro": "Choose a profile based on task complexity, volume, and cost.",
-    "profile_help": {"worker": {"objective": "Massive, simple, very low-cost tasks.", "examples": "Classify emails, fix spelling, or translate short labels."}, "administrative": {"objective": "Direct execution with structured output.", "examples": "Extract invoices to JSON, organize notes, or answer FAQs."}, "documentalist": {"objective": "Analyze large text volumes with a large context window.", "examples": "Review long PDFs, whole repositories, or books and transcripts."}, "allrounder": {"objective": "Balanced everyday work.", "examples": "Write content, brainstorm, or create learning material."}, "expert": {"objective": "Deep reasoning for complex, critical problems.", "examples": "Debug code, analyze risks, or solve advanced mathematics."}, "unrated": {"objective": "Models without a comparable intelligence benchmark.", "examples": "Review the other metrics before assigning them a task."}},
+    "profile_help": {
+      "worker": {
+        "objective": "Massive, simple, very low-cost tasks.",
+        "examples": "Classify emails, fix spelling, or translate short labels."
+      },
+      "administrative": {
+        "objective": "Direct execution with structured output.",
+        "examples": "Extract invoices to JSON, organize notes, or answer FAQs."
+      },
+      "documentalist": {
+        "objective": "Analyze large text volumes with a large context window.",
+        "examples": "Review long PDFs, whole repositories, or books and transcripts."
+      },
+      "allrounder": {
+        "objective": "Balanced everyday work.",
+        "examples": "Write content, brainstorm, or create learning material."
+      },
+      "expert": {
+        "objective": "Deep reasoning for complex, critical problems.",
+        "examples": "Debug code, analyze risks, or solve advanced mathematics."
+      },
+      "unrated": {
+        "objective": "Models without a comparable intelligence benchmark.",
+        "examples": "Review the other metrics before assigning them a task."
+      }
+    },
     "profile_help_flow_title": "Recommended workflow",
     "profile_help_flow": "Documentalist extracts key points → Expert decides the strategy → All-rounder writes → Worker or Administrative translates and formats.",
     "all_profiles": "All profiles",
@@ -5196,7 +5372,12 @@
     "availability": "Status",
     "modes": "Supported modes",
     "all_modes": "All modes",
-    "modes_list": {"text": "Text", "image": "Image", "audio": "Audio", "video": "Video"},
+    "modes_list": {
+      "text": "Text",
+      "image": "Image",
+      "audio": "Audio",
+      "video": "Video"
+    },
     "all_availability": "Active and inactive",
     "active": "Active",
     "inactive": "Inactive",
@@ -5242,8 +5423,33 @@
       "router_help": "The model will be available to the automatic router and under Router models.",
       "activate": "Enable model"
     },
-    "profiles": { "worker": "Worker", "administrative": "Administrative", "documentalist": "Documentalist", "allrounder": "All-rounder", "expert": "Expert / Director", "unrated": "Unrated" },
-    "columns": { "model": "Model", "creator": "Creator", "provider": "Provider", "modes": "Supported modes", "intelligence": "Intelligence", "coding": "Coding", "agentic": "Agentic", "input_price": "Input {{symbol}}/1M", "output_price": "Output {{symbol}}/1M", "context": "Context", "speed": "Speed", "latency": "Latency", "uptime": "Uptime", "profile": "Recommended use", "quantization": "Quantization", "monthly_cost": "Est. {{symbol}}/month", "available": "Available" }
+    "profiles": {
+      "worker": "Worker",
+      "administrative": "Administrative",
+      "documentalist": "Documentalist",
+      "allrounder": "All-rounder",
+      "expert": "Expert / Director",
+      "unrated": "Unrated"
+    },
+    "columns": {
+      "model": "Model",
+      "creator": "Creator",
+      "provider": "Provider",
+      "modes": "Supported modes",
+      "intelligence": "Intelligence",
+      "coding": "Coding",
+      "agentic": "Agentic",
+      "input_price": "Input {{symbol}}/1M",
+      "output_price": "Output {{symbol}}/1M",
+      "context": "Context",
+      "speed": "Speed",
+      "latency": "Latency",
+      "uptime": "Uptime",
+      "profile": "Recommended use",
+      "quantization": "Quantization",
+      "monthly_cost": "Est. {{symbol}}/month",
+      "available": "Available"
+    }
   },
   "relation_item": {
     "open_new_tab": "Open in a new tab",
@@ -5376,7 +5582,14 @@
           "native_local_data_fallback": "Fixed local data directory fallbacks and release version synchronization across desktop packaging manifests."
         }
       },
-      "v1_0_5": { "highlights": {}, "improvements": {}, "fixes": { "macos_intel_cryptography": "macOS Intel builds now include the cryptography wheel compatible with this architecture.", "pinned_backend_runtime": "Packaged applications pin the backend Python runtime so they start consistently after installation." } },
+      "v1_0_5": {
+        "highlights": {},
+        "improvements": {},
+        "fixes": {
+          "macos_intel_cryptography": "macOS Intel builds now include the cryptography wheel compatible with this architecture.",
+          "pinned_backend_runtime": "Packaged applications pin the backend Python runtime so they start consistently after installation."
+        }
+      },
       "v1_0_4": {
         "highlights": {},
         "improvements": {},
@@ -5474,6 +5687,209 @@
           "plugins": "Official plugin packages and their distribution index are included with releases."
         }
       }
+    }
+  },
+  "literature": {
+    "eyebrow": "Academic resources",
+    "title": "Literature search",
+    "subtitle": "Search, compare, and review academic literature without losing provenance.",
+    "tabs_label": "Literature sections",
+    "tabs": {
+      "search": "Search",
+      "reviews": "Reviews"
+    },
+    "disabled": {
+      "title": "The Resources plugin is disabled",
+      "help": "Enable it in Settings > Plugins to use literature search."
+    },
+    "search": {
+      "placeholder": "Question, title, author, or Boolean query…",
+      "query": "Literature query",
+      "submit": "Search",
+      "filters": "Filters",
+      "sources": "Sources",
+      "sources_selected": "{{count}} selected",
+      "show_less_sources": "Show fewer",
+      "show_all_sources": "Show all sources",
+      "result_count": "{{count}} results",
+      "date_from": "From year",
+      "date_to": "To year",
+      "language": "Language",
+      "document_type": "Document type",
+      "any": "Any",
+      "article": "Article",
+      "book": "Book",
+      "thesis": "Thesis",
+      "preprint": "Preprint",
+      "open_access_only": "Open access only",
+      "peer_reviewed_only": "Peer reviewed only",
+      "partial_errors": "Some sources did not respond",
+      "load_error": "Could not load search settings.",
+      "start_error": "Could not start the search.",
+      "state": {
+        "queued": "Queued",
+        "running": "Searching",
+        "completed": "Completed",
+        "failed": "With errors",
+        "cancelled": "Cancelled"
+      }
+    },
+    "empty": {
+      "title": "Start an academic search",
+      "help": "Select sources, apply filters, and enter a query. Results will appear progressively.",
+      "no_results": "No results",
+      "no_results_help": "Try a broader query or enable more sources."
+    },
+    "result": {
+      "authors": "Authors",
+      "year": "Year",
+      "publication": "Publication",
+      "language": "Language",
+      "identifiers": "Identifiers",
+      "open_access": "Open access",
+      "unknown": "Unknown",
+      "occurrences": "{{count}} occurrences",
+      "oa": "Open access",
+      "already_added": "Already in Resources",
+      "unknown_author": "Unknown authorship",
+      "citations": "{{count}} citations in {{provider}}",
+      "possible_duplicates": "{{count}} possible duplicates",
+      "view": "View",
+      "add": "Add to Resources",
+      "select": "Select {{title}}"
+    },
+    "preview": {
+      "eyebrow": "Preview",
+      "abstract": "Abstract",
+      "no_abstract": "No abstract is available.",
+      "field_provenance": "Field provenance",
+      "conflicts": "Conflicting variants",
+      "locations": "Verified locations",
+      "original_sources": "Original sources"
+    },
+    "bulk": {
+      "selected": "{{count}} selected",
+      "add_resources": "Add to Resources",
+      "send_notebook": "Send to a Notebook",
+      "add_review": "Add to a review"
+    },
+    "import": {
+      "success": "Resources imported successfully.",
+      "error": "Could not import the resources."
+    },
+    "ai": {
+      "assist": "AI assist",
+      "build_query": "Build an editable strategy",
+      "proposal": "Strategy proposal",
+      "use_query": "Use this query",
+      "human_control": "AI only suggests; the final decision is always human.",
+      "error": "Could not generate the AI proposal."
+    },
+    "review": {
+      "title": "Literature reviews",
+      "question": "Research question",
+      "mode": "Mode",
+      "single": "Single screening",
+      "dual_blind": "Double blind",
+      "reviewers": "Reviewers",
+      "reviewers_placeholder": "name1, name2",
+      "create": "Create review",
+      "select_title": "Select a review",
+      "select_help": "Create or open a review to manage candidates, decisions, and exports.",
+      "eyebrow": "Review protocol",
+      "add_selected": "Add {{count}} selected",
+      "no_candidates": "There are no candidates yet.",
+      "blind_pending": "Hidden decision pending",
+      "conflict": "Consensus required",
+      "resolve_include": "Consensus: include",
+      "resolve_exclude": "Consensus: exclude",
+      "include": "Include",
+      "uncertain": "Uncertain",
+      "exclude": "Exclude",
+      "load_error": "Could not load reviews.",
+      "create_error": "Could not create the review.",
+      "candidates_added": "Candidates added to the review.",
+      "candidates_error": "Could not add candidates.",
+      "decision_error": "Could not save the decision.",
+      "export_error": "Could not generate the export.",
+      "save_strategy": "Save strategy",
+      "strategy_saved": "Versioned strategy saved to the review.",
+      "strategy_error": "Could not save the strategy.",
+      "synthesize": "Synthesize",
+      "snowball": "Expand citations",
+      "ai_synthesize": "Assisted synthesis",
+      "ai_snowball": "Citation proposal",
+      "schedule_updates": "Scheduled updates",
+      "every_days": "Every (days)",
+      "schedule_help": "Repeats the saved strategy and adds only new candidates.",
+      "schedule_saved": "Review schedule saved.",
+      "schedule_error": "Could not save the schedule.",
+      "schedule_needs_strategy": "Run a search before enabling updates.",
+      "phase": {
+        "identified": "Identified",
+        "title_abstract": "Title and abstract",
+        "full_text_requested": "Full text requested",
+        "full_text_assessed": "Full text assessed",
+        "included": "Included",
+        "excluded": "Excluded"
+      }
+    },
+    "settings": {
+      "resources_table": "Resources table",
+      "resources_table_help": "This is the single destination table for literature imports.",
+      "no_resources_table": "No table configured",
+      "create_resources_table": "Create Resources table",
+      "contact_title": "Contact and credentials",
+      "contact_help": "PubMed and Unpaywall require a contact email; other sources may require keys.",
+      "contact_placeholder": "research@example.org",
+      "manage_credentials": "Manage credentials",
+      "sources_title": "Academic repositories",
+      "sources_help": "Set defaults, hide sources, or synchronize local OAI indexes.",
+      "hide_hidden": "Hide hidden",
+      "show_hidden": "Restore sources",
+      "index_records": "{{count}} indexed records",
+      "synchronize": "Synchronize",
+      "external_only": "External link only",
+      "metric_only": "Metric only",
+      "credential_missing": "Configuration missing",
+      "index_empty": "Awaiting indexing",
+      "adapter_pending": "Connector pending",
+      "ready": "Available",
+      "restore": "Restore",
+      "hide": "Hide",
+      "open_external": "Open",
+      "add_repository": "Add repository",
+      "edit_repository": "Edit repository",
+      "repository_help": "HTTPS only. REST supports GET with a JSON response.",
+      "repository_name": "Name",
+      "repository_kind": "Protocol",
+      "repository_url": "Base URL",
+      "metadata_prefix": "Metadata format",
+      "oai_set": "Optional OAI set",
+      "query_parameter": "Query parameter",
+      "results_path": "Results path",
+      "pagination": "Pagination",
+      "title_mapping": "Title mapping",
+      "doi_mapping": "DOI mapping",
+      "test_repository": "Test repository",
+      "delete_repository_title": "Delete repository",
+      "delete_repository_message": "Delete {{name}}? Search history will keep the configuration used.",
+      "delete_index_too": "Also delete the rebuildable local index",
+      "load_error": "Could not load Resources settings.",
+      "save_error": "Could not save settings.",
+      "reference_saved": "Resources table updated.",
+      "reference_error": "Could not configure the Resources table.",
+      "reference_created": "Resources table created.",
+      "repository_saved": "Repository saved.",
+      "repository_error": "Could not save the repository.",
+      "test_ok": "Connection successful: {{count}} records in {{latency}} ms.",
+      "test_error": "Repository test failed.",
+      "repository_deleted": "Repository deleted.",
+      "repository_delete_error": "Could not delete the repository.",
+      "sync_started": "Background synchronization started.",
+      "sync_error": "Could not start synchronization.",
+      "references_moved": "The references table is now configured in the Resources plugin.",
+      "open_resources_plugin": "Open Resources settings"
     }
   }
 }

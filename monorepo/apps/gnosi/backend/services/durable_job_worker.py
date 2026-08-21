@@ -50,6 +50,48 @@ class DurableJobWorker:
         for item in durable_job_queue.ready_jobs(limit=32):
             job_type = str(item.get("job_type") or "")
             payload = item.get("payload") if isinstance(item.get("payload"), dict) else {}
+            if job_type == "academic_repository_sync":
+                vault_path = str(payload.get("vault_path") or "").strip()
+                source_id = str(payload.get("source_id") or "").strip()
+                job_id = str(payload.get("job_id") or item.get("job_id") or "").strip()
+                if not vault_path or not source_id or not job_id:
+                    log.warning("Ignoring malformed durable academic repository payload")
+                    durable_job_queue.reject(
+                        str(item.get("job_id") or ""),
+                        "Durable academic repository payload is incomplete.",
+                    )
+                    continue
+                try:
+                    from backend.services import literature_service
+
+                    literature_service.launch_sync(
+                        Path(vault_path),
+                        source_id,
+                        job_id,
+                        full=bool(payload.get("full")),
+                    )
+                    dispatched += 1
+                except Exception:  # noqa: BLE001
+                    log.exception("Could not dispatch academic repository job %s", job_id)
+                continue
+
+            if job_type == "academic_review_update":
+                review_id = str(payload.get("review_id") or "")
+                vault_path = str(payload.get("vault_path") or "")
+                job_id = str(payload.get("job_id") or item.get("job_id") or "")
+                strategy = payload.get("strategy") if isinstance(payload.get("strategy"), dict) else {}
+                if not review_id or not vault_path or not job_id or not strategy.get("query"):
+                    log.warning("Ignoring malformed durable literature review update payload")
+                    durable_job_queue.reject(str(item.get("job_id") or ""), "Durable literature review update payload is incomplete.")
+                    continue
+                try:
+                    from backend.services import literature_service
+
+                    literature_service.launch_review_update(Path(vault_path), review_id, job_id, strategy, int(payload.get("interval_days") or 7))
+                    dispatched += 1
+                except Exception:  # noqa: BLE001
+                    log.exception("Could not dispatch literature review update %s", job_id)
+                continue
             if job_type in {"notebook_ingest", "notebook_analysis"}:
                 vault_path = str(payload.get("vault_path") or "").strip()
                 job_id = str(payload.get("job_id") or item.get("job_id") or "").strip()
