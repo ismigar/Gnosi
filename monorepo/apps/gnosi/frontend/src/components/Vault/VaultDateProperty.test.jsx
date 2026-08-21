@@ -55,8 +55,8 @@ const notes = [
     },
 ];
 
-function PlanningPeriodFixture() {
-    const [period, setPeriod] = useState(initialPeriod);
+function PlanningPeriodFixture({ initialValue = initialPeriod }) {
+    const [period, setPeriod] = useState(initialValue);
 
     return (
         <VaultDateProperty
@@ -104,6 +104,15 @@ describe('VaultDateProperty planning constraints', () => {
         await act(async () => {
             root.render(<PlanningPeriodFixture />);
         });
+
+        const calculationSummary = container.querySelector(
+            'section[aria-label="Calculation summary"]',
+        );
+        expect(calculationSummary).toBeTruthy();
+        expect(calculationSummary.textContent).toContain('Start: 2026');
+        expect(calculationSummary.textContent).toContain('Duration: 2 years');
+        expect(calculationSummary.textContent).toContain('Finish: 2028');
+        expect(calculationSummary.textContent).not.toContain('Automatic start from');
 
         const ruleSelect = [...container.querySelectorAll('select')]
             .find((select) => select.querySelector('option[value="SNET"]'));
@@ -158,5 +167,34 @@ describe('VaultDateProperty planning constraints', () => {
         expect(container.querySelector(
             'button[title="It is required by the selected rule and changes the automatic schedule; a deadline only raises a warning."]',
         )).toBeTruthy();
+    });
+
+    it('identifies the predecessor that drives an automatic start', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const root = createRoot(container);
+        mountedRoots.push({ root, container });
+
+        await act(async () => {
+            root.render(
+                <PlanningPeriodFixture
+                    initialValue={{
+                        ...initialPeriod,
+                        start: '-2400-01-01T09:00',
+                        end: '-2398-01-01T09:00',
+                        startMode: 'auto',
+                    }}
+                />,
+            );
+        });
+
+        const calculationSummary = container.querySelector(
+            'section[aria-label="Calculation summary"]',
+        );
+        expect(calculationSummary.textContent).toContain('Start: -2400');
+        expect(calculationSummary.textContent).toContain('Finish: -2398');
+        expect(calculationSummary.textContent).toContain(
+            'Automatic start from: Previous task',
+        );
     });
 });

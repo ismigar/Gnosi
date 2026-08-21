@@ -11,7 +11,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
 | Playwright | 13 | 37 |
-| Vitest | 79 | 298 |
+| Vitest | 79 | 299 |
 | pytest | 195 | 1640 |
 
 ## Files
@@ -51,7 +51,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/components/Vault/MarkdownCodeTextarea.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/MarkdownCodeTextarea.test.jsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/PageLinksGraph.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PageLinksGraph.test.js) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/RelationItem.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/RelationItem.test.js) | 3 | call-pattern estimate |
-| Vitest | [`frontend/src/components/Vault/VaultDateProperty.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultDateProperty.test.jsx) | 1 | call-pattern estimate |
+| Vitest | [`frontend/src/components/Vault/VaultDateProperty.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultDateProperty.test.jsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/VaultMarkdown.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultMarkdown.test.jsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/WikilinkHoverPreview.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/WikilinkHoverPreview.test.jsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/contextualLinkPasteUtils.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/contextualLinkPasteUtils.test.js) | 3 | call-pattern estimate |

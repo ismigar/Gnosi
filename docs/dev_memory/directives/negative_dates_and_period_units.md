@@ -62,3 +62,7 @@ days, or years.
 - Do not describe deadlines as hard constraints. A constraint date changes the
   automatic schedule, while a deadline only reports when the desired finish is
   exceeded.
+- Keep a compact read-only calculation summary next to the period controls. It
+  must show the effective start, duration, and finish in the configured unit,
+  preserve signed BCE values, and identify the predecessor source when it is
+  driving an automatic start.
