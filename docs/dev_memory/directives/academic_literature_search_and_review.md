@@ -265,14 +265,11 @@ Mutating endpoints use existing CSRF and authorization conventions. Public API r
 - Do not implement citation expansion by scraping result pages. Use authorized
   Semantic Scholar references/citations or OpenAlex referenced-works/cites APIs,
   and require human selection before creating candidates.
-- Do not make Docker CI depend on an interactively provisioned runner binary or
-  blocking sudo cleanup. Install a pinned, checksum-verified full nerdctl
-  bundle in the runner tool cache, start the official rootless containerd and
-  BuildKit services when absent, and fail with their service logs if startup
-  cannot complete. Installing only the client still leaves builds without a
-  daemon. On Ubuntu runners that restrict unprivileged user namespaces, load a
-  path-scoped AppArmor profile for the checksum-verified RootlessKit binary
-  with non-interactive sudo; never disable the host-wide restriction.
+- Do not make Docker CI depend on a mutable self-hosted container runtime or
+  privileged host security changes. Run the Docker deployment guard on the
+  standard GitHub-hosted ARM64 Ubuntu image, which provides an isolated Docker
+  runtime for every job. Keep the heavy workflow path-scoped and weekly, and
+  reassess runner billing if the repository stops being public.
 - Do not import the monolithic vault API route module from a literature service
   to resolve plugin paths or state. It initializes unrelated subsystems and can
   make catalog requests exceed the frontend timeout. Read the requested vault's

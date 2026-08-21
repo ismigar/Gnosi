@@ -257,3 +257,12 @@ adding a new workflow or job, do not default to `ubuntu-latest`; use
 `[self-hosted, Linux, ARM64]` unless the job genuinely requires a hosted
 platform (for example, the macOS Intel, macOS arm64, or Windows release matrix).
 Verify the runner labels and required tools before merging the workflow.
+
+The Docker deployment guard is an explicit exception: use the standard
+`ubuntu-24.04-arm` GitHub-hosted image. The local ARM64 runner deliberately has
+no privileged Docker daemon, and Ubuntu AppArmor blocks an unprivileged
+RootlessKit daemon without a persistent host security exception. Docker CI must
+not weaken that host policy or depend on interactive sudo. Gnosi is public, so
+standard GitHub-hosted runners are free and unlimited; reassess this choice if
+the repository becomes private. See the [GitHub-hosted runners
+reference](https://docs.github.com/en/actions/reference/runners/github-hosted-runners).

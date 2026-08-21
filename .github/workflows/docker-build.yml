@@ -24,88 +24,20 @@ on:
 
 jobs:
   backend:
-    runs-on: [self-hosted, Linux, ARM64]
+    runs-on: ubuntu-24.04-arm
     # Ephemeral test-only value required by Compose interpolation and by the
     # fail-closed Docker startup guard. It signs no persistent sessions.
     env:
       GNOSI_JWT_SECRET: ci-only-7f15e867273441a6b3914705466593864d5f67b038f84301
-      NERDCTL_VERSION: 2.3.5
-      NERDCTL_FULL_ARM64_SHA256: 6e4b687f1d138e750a3c8372abc0f81d3d7490b6359c48c0562fc7dfe98859b2
     defaults:
       run:
         working-directory: monorepo/apps/gnosi
     steps:
       - uses: actions/checkout@v7
 
-      - name: Prepare rootless container runtime
+      - name: Check container runtime and capacity
         run: |
-          runtime_dir="/run/user/$(id -u)"
-          if [ ! -d "${runtime_dir}" ]; then
-            echo "::error::The runner has no systemd user runtime directory at ${runtime_dir}."
-            exit 1
-          fi
-          echo "XDG_RUNTIME_DIR=${runtime_dir}" >> "${GITHUB_ENV}"
-          echo "DBUS_SESSION_BUS_ADDRESS=unix:path=${runtime_dir}/bus" >> "${GITHUB_ENV}"
-          export XDG_RUNTIME_DIR="${runtime_dir}"
-          export DBUS_SESSION_BUS_ADDRESS="unix:path=${runtime_dir}/bus"
-
-          tool_dir="${RUNNER_TOOL_CACHE}/nerdctl/${NERDCTL_VERSION}/arm64"
-          archive="nerdctl-full-${NERDCTL_VERSION}-linux-arm64.tar.gz"
-          url="https://github.com/containerd/nerdctl/releases/download/v${NERDCTL_VERSION}/${archive}"
-          if [ ! -x "${tool_dir}/bin/nerdctl" ]; then
-            curl -fsSLo "${RUNNER_TEMP}/${archive}" "${url}"
-            printf '%s  %s\n' "${NERDCTL_FULL_ARM64_SHA256}" "${RUNNER_TEMP}/${archive}" | sha256sum -c -
-            mkdir -p "${tool_dir}"
-            tar -xzf "${RUNNER_TEMP}/${archive}" -C "${tool_dir}"
-          fi
-          echo "${tool_dir}/bin" >> "${GITHUB_PATH}"
-          export PATH="${tool_dir}/bin:${PATH}"
-          nerdctl --version
-
-          apparmor_userns="/proc/sys/kernel/apparmor_restrict_unprivileged_userns"
-          if [ -r "${apparmor_userns}" ] && [ "$(cat "${apparmor_userns}")" = "1" ]; then
-            if ! sudo -n true; then
-              echo "::error::RootlessKit needs a scoped AppArmor profile, but the runner has no non-interactive sudo access."
-              exit 1
-            fi
-            rootlesskit_path="$(readlink -f "$(command -v rootlesskit)")"
-            profile_id="${rootlesskit_path#/}"
-            profile_id="${profile_id//\//.}"
-            profile_file="/etc/apparmor.d/${profile_id}"
-            sudo -n tee "${profile_file}" >/dev/null <<EOF
-          abi <abi/4.0>,
-          include <tunables/global>
-
-          ${rootlesskit_path} flags=(unconfined) {
-            userns,
-            include if exists <local/${profile_id}>
-          }
-          EOF
-            sudo -n apparmor_parser -r "${profile_file}"
-          fi
-
-          if ! nerdctl info >/dev/null 2>&1; then
-            containerd-rootless-setuptool.sh install
-          fi
-          if ! systemctl --user --quiet is-active buildkit.service; then
-            containerd-rootless-setuptool.sh install-buildkit
-          fi
-          for attempt in {1..30}; do
-            if nerdctl info >/dev/null 2>&1 \
-              && systemctl --user --quiet is-active buildkit.service; then
-              exit 0
-            fi
-            sleep 2
-          done
-          systemctl --user --no-pager --full status containerd.service || true
-          systemctl --user --no-pager --full status buildkit.service || true
-          journalctl --user --unit containerd.service -n 100 --no-pager || true
-          journalctl --user --unit buildkit.service -n 100 --no-pager || true
-          echo "::error::The rootless container runtime did not become ready."
-          exit 1
-
-      - name: Check runner capacity
-        run: |
+          docker version
           df -h .
           available_kb="$(df -Pk . | awk 'NR==2 {print $4}')"
           if [ "${available_kb}" -lt 10485760 ]; then
@@ -118,15 +50,15 @@ jobs:
           # compose declares both env_files; they are gitignored, so provide
           # empty stand-ins for interpolation/validation.
           touch ../../../.env_shared .env
-          nerdctl compose config -q
+          docker compose config -q
 
       - name: Build backend image
-        run: nerdctl build -f Dockerfile.backend -t gnosi-backend:ci .
+        run: docker build -f Dockerfile.backend -t gnosi-backend:ci .
 
       - name: Smoke test — backend boots and serves /api/health
         run: |
           mkdir -p /tmp/ci-vault
-          nerdctl run -d --name gnosi_ci -p 5002:5002 \
+          docker run -d --name gnosi_ci -p 5002:5002 \
             -e DIGITAL_BRAIN_VAULT_PATH=/vault \
             -e GNOSI_FILES_PROVIDER=local \
             -e GNOSI_JWT_SECRET="${GNOSI_JWT_SECRET}" \
@@ -141,88 +73,21 @@ jobs:
             sleep 2
           done
           echo "::error::backend never became healthy"
-          nerdctl logs gnosi_ci
+          docker logs gnosi_ci
           exit 1
 
       - name: Cleanup
         if: always()
-        run: nerdctl rm -f gnosi_ci 2>/dev/null || true
+        run: docker rm -f gnosi_ci 2>/dev/null || true
 
   frontend:
-    runs-on: [self-hosted, Linux, ARM64]
-    env:
-      NERDCTL_VERSION: 2.3.5
-      NERDCTL_FULL_ARM64_SHA256: 6e4b687f1d138e750a3c8372abc0f81d3d7490b6359c48c0562fc7dfe98859b2
+    runs-on: ubuntu-24.04-arm
     defaults:
       run:
         working-directory: monorepo/apps/gnosi
     steps:
       - uses: actions/checkout@v7
-      - name: Prepare rootless container runtime
-        run: |
-          runtime_dir="/run/user/$(id -u)"
-          if [ ! -d "${runtime_dir}" ]; then
-            echo "::error::The runner has no systemd user runtime directory at ${runtime_dir}."
-            exit 1
-          fi
-          echo "XDG_RUNTIME_DIR=${runtime_dir}" >> "${GITHUB_ENV}"
-          echo "DBUS_SESSION_BUS_ADDRESS=unix:path=${runtime_dir}/bus" >> "${GITHUB_ENV}"
-          export XDG_RUNTIME_DIR="${runtime_dir}"
-          export DBUS_SESSION_BUS_ADDRESS="unix:path=${runtime_dir}/bus"
-
-          tool_dir="${RUNNER_TOOL_CACHE}/nerdctl/${NERDCTL_VERSION}/arm64"
-          archive="nerdctl-full-${NERDCTL_VERSION}-linux-arm64.tar.gz"
-          url="https://github.com/containerd/nerdctl/releases/download/v${NERDCTL_VERSION}/${archive}"
-          if [ ! -x "${tool_dir}/bin/nerdctl" ]; then
-            curl -fsSLo "${RUNNER_TEMP}/${archive}" "${url}"
-            printf '%s  %s\n' "${NERDCTL_FULL_ARM64_SHA256}" "${RUNNER_TEMP}/${archive}" | sha256sum -c -
-            mkdir -p "${tool_dir}"
-            tar -xzf "${RUNNER_TEMP}/${archive}" -C "${tool_dir}"
-          fi
-          echo "${tool_dir}/bin" >> "${GITHUB_PATH}"
-          export PATH="${tool_dir}/bin:${PATH}"
-          nerdctl --version
-
-          apparmor_userns="/proc/sys/kernel/apparmor_restrict_unprivileged_userns"
-          if [ -r "${apparmor_userns}" ] && [ "$(cat "${apparmor_userns}")" = "1" ]; then
-            if ! sudo -n true; then
-              echo "::error::RootlessKit needs a scoped AppArmor profile, but the runner has no non-interactive sudo access."
-              exit 1
-            fi
-            rootlesskit_path="$(readlink -f "$(command -v rootlesskit)")"
-            profile_id="${rootlesskit_path#/}"
-            profile_id="${profile_id//\//.}"
-            profile_file="/etc/apparmor.d/${profile_id}"
-            sudo -n tee "${profile_file}" >/dev/null <<EOF
-          abi <abi/4.0>,
-          include <tunables/global>
-
-          ${rootlesskit_path} flags=(unconfined) {
-            userns,
-            include if exists <local/${profile_id}>
-          }
-          EOF
-            sudo -n apparmor_parser -r "${profile_file}"
-          fi
-
-          if ! nerdctl info >/dev/null 2>&1; then
-            containerd-rootless-setuptool.sh install
-          fi
-          if ! systemctl --user --quiet is-active buildkit.service; then
-            containerd-rootless-setuptool.sh install-buildkit
-          fi
-          for attempt in {1..30}; do
-            if nerdctl info >/dev/null 2>&1 \
-              && systemctl --user --quiet is-active buildkit.service; then
-              exit 0
-            fi
-            sleep 2
-          done
-          systemctl --user --no-pager --full status containerd.service || true
-          systemctl --user --no-pager --full status buildkit.service || true
-          journalctl --user --unit containerd.service -n 100 --no-pager || true
-          journalctl --user --unit buildkit.service -n 100 --no-pager || true
-          echo "::error::The rootless container runtime did not become ready."
-          exit 1
+      - name: Check container runtime
+        run: docker version
       - name: Build frontend image
-        run: nerdctl build -f Dockerfile.frontend -t gnosi-frontend:ci .
+        run: docker build -f Dockerfile.frontend -t gnosi-frontend:ci .
