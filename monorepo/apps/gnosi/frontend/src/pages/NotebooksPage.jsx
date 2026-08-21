@@ -7,6 +7,7 @@ import {
     CheckCircle2,
     ChevronLeft,
     ChevronRight,
+    CircleStop,
     Globe2,
     LoaderCircle,
     Lock,
@@ -282,6 +283,8 @@ export function NotebookDetail({ notebookId }) {
     const [showClear, setShowClear] = useState(false);
     const [chatEpoch, setChatEpoch] = useState(0);
     const [removingId, setRemovingId] = useState('');
+    const [retryingId, setRetryingId] = useState('');
+    const [cancelling, setCancelling] = useState(false);
 
     const load = useCallback(async ({ refresh = false, page = sources.page } = {}) => {
         try {
@@ -346,6 +349,42 @@ export function NotebookDetail({ notebookId }) {
             toast.error(t('notebooks.refresh_error', 'The notebook refresh could not be started.'));
         }
     };
+    const retryResource = async (resourceId) => {
+        setRetryingId(resourceId);
+        try {
+            const response = await fetch(
+                `/api/notebooks/${encodeURIComponent(notebookId)}/sources/${encodeURIComponent(resourceId)}/refresh`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ force: true, reason: 'resource_retry' }),
+                },
+            );
+            if (!response.ok) throw new Error(`Resource retry failed (${response.status})`);
+            toast.success(t('notebooks.resource_retry_started', 'Resource retry started.'));
+            await load({ refresh: false });
+        } catch (error) {
+            console.error('Could not retry notebook Resource', error);
+            toast.error(t('notebooks.resource_retry_error', 'The Resource retry could not be started.'));
+        } finally {
+            setRetryingId('');
+        }
+    };
+    const cancelRefresh = async () => {
+        setCancelling(true);
+        try {
+            const response = await fetch(`/api/notebooks/${encodeURIComponent(notebookId)}/refresh/cancel`, { method: 'POST' });
+            if (!response.ok) throw new Error(`Notebook cancellation failed (${response.status})`);
+            setNotebook(await response.json());
+            toast.success(t('notebooks.index_cancelled', 'Indexing cancelled.'));
+            await load({ refresh: false });
+        } catch (error) {
+            console.error('Could not cancel notebook indexing', error);
+            toast.error(t('notebooks.index_cancel_error', 'Indexing could not be cancelled.'));
+        } finally {
+            setCancelling(false);
+        }
+    };
     const remove = async (resourceId) => {
         setRemovingId(resourceId);
         try {
@@ -398,7 +437,14 @@ export function NotebookDetail({ notebookId }) {
             </header>
 
             {notebook.progress && ACTIVE_STATES.has(notebook.progress.state) && (
-                <div className="notebook-progress" role="status"><div><LoaderCircle size={15} className="animate-spin" /><span>{t('notebooks.index_progress', 'Indexing {{processed}} of {{total}} Resources', notebook.progress)}</span></div><div className="notebook-progress__track"><span style={{ width: `${notebook.progress.percent || 0}%` }} /></div></div>
+                <div className="notebook-progress">
+                    <div className="notebook-progress__summary">
+                        <div role="status" aria-live="polite"><LoaderCircle size={15} className="animate-spin" /><span>{t('notebooks.index_progress', 'Indexing {{processed}} of {{total}} Resources', notebook.progress)}</span></div>
+                        {notebook.can_manage && notebook.progress.cancellable && <button type="button" disabled={cancelling} onClick={cancelRefresh}><CircleStop size={14} />{t('notebooks.cancel_indexing', 'Cancel indexing')}</button>}
+                    </div>
+                    {notebook.progress.current_resource_title && <span className="notebook-progress__resource">{t('notebooks.current_resource', 'Current Resource: {{resource}}', { resource: notebook.progress.current_resource_title })}</span>}
+                    <div className="notebook-progress__track"><span style={{ width: `${notebook.progress.percent || 0}%` }} /></div>
+                </div>
             )}
             {notebook.last_error && <div className="notebook-warning"><AlertCircle size={16} /><span>{notebook.last_error}</span></div>}
 
@@ -418,13 +464,14 @@ export function NotebookDetail({ notebookId }) {
                                     <div><strong>{resource.title || resource.resource_id}</strong><StatusBadge status={resource.state} /></div>
                                     {notebook.can_manage && (
                                         <div className="notebook-source-card__actions">
-                                            {['error', 'stale'].includes(resource.state) && <button className="notebook-icon-button notebook-icon-button--small" onClick={refresh} aria-label={t('notebooks.retry_resource', 'Retry Resource')}><RefreshCw size={13} /></button>}
+                                            {['error', 'stale'].includes(resource.state) && <button className="notebook-icon-button notebook-icon-button--small" disabled={retryingId === resource.resource_id || ACTIVE_STATES.has(notebook.progress?.state)} onClick={() => retryResource(resource.resource_id)} aria-label={t('notebooks.retry_resource', 'Retry Resource')}><RefreshCw size={13} className={retryingId === resource.resource_id ? 'animate-spin' : ''} /></button>}
                                             <button className="notebook-icon-button notebook-icon-button--small" disabled={removingId === resource.resource_id} onClick={() => remove(resource.resource_id)} aria-label={t('notebooks.remove_resource', 'Remove Resource')}><X size={14} /></button>
                                         </div>
                                     )}
                                 </div>
                                 {resource.error && <p className="notebook-source-error">{resource.error}</p>}
-                                <ul>{(resource.sources || []).map((source) => <li key={source.source_id}><span>{source.kind === 'url' ? <Globe2 size={13} /> : <BookOpen size={13} />}{source.label}</span><StatusBadge status={source.status} /></li>)}</ul>
+                                {resource.last_checked_at && <p className="notebook-source-checked">{t('notebooks.last_checked', 'Last checked: {{time}}', { time: new Date(resource.last_checked_at).toLocaleString() })}</p>}
+                                <ul>{(resource.sources || []).map((source) => <li key={source.source_id}><div className="notebook-source-card__source"><span>{source.kind === 'url' ? <Globe2 size={13} /> : <BookOpen size={13} />}{source.label}</span>{source.error && <small>{source.error}</small>}</div><StatusBadge status={source.status} /></li>)}</ul>
                             </article>
                         ))}
                     </div>

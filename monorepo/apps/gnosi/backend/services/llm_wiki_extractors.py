@@ -587,6 +587,67 @@ def is_streaming_url(url: str) -> bool:
     return _looks_like_streaming_page(url)
 
 
+def _streaming_metadata_fingerprint(info: dict[str, Any]) -> str:
+    """Build a stable fingerprint without downloading streaming media bytes."""
+    payload = {
+        key: info.get(key)
+        for key in (
+            "extractor_key",
+            "id",
+            "webpage_url",
+            "title",
+            "duration",
+            "upload_date",
+            "timestamp",
+            "release_timestamp",
+            "modified_timestamp",
+            "live_status",
+            "filesize",
+            "filesize_approx",
+        )
+        if info.get(key) not in (None, "")
+    }
+    encoded = json.dumps(
+        payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def probe_streaming_url(url: str, *, fingerprint: str = "") -> dict[str, Any]:
+    """Probe streaming metadata without downloading or transcribing the media."""
+    from backend.agent.web_context import is_public_http_url
+
+    ok, reason = is_public_http_url(str(url))
+    if not ok:
+        raise ExtractionError(f"Unsafe URL blocked: {reason}")
+    try:
+        import yt_dlp
+    except Exception as exc:
+        raise ExtractionError("yt-dlp is not installed") from exc
+    options = {
+        "quiet": True,
+        "no_warnings": True,
+        "noplaylist": True,
+        "skip_download": True,
+        "socket_timeout": max(_HTTP_TIMEOUT),
+    }
+    with yt_dlp.YoutubeDL(options) as ydl:
+        info = ydl.extract_info(str(url), download=False)
+    if not isinstance(info, dict):
+        raise ExtractionError("The streaming source metadata is unavailable")
+    current_fingerprint = _streaming_metadata_fingerprint(info)
+    return {
+        "changed": not bool(fingerprint) or current_fingerprint != str(fingerprint),
+        "requested_url": str(url),
+        "final_url": str(info.get("webpage_url") or url),
+        "stream_fingerprint": current_fingerprint,
+        "checked_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
 def probe_public_url(
     url: str,
     *,
@@ -640,6 +701,9 @@ def _extract_url(url: str, input_order: int) -> list[dict[str, Any]]:
             origin["http_etag"] = ""
             origin["http_last_modified"] = ""
             origin["http_content_hash"] = str(origin.get("content_hash") or "")
+            origin["http_stream_fingerprint"] = str(
+                origin.get("stream_fingerprint") or ""
+            )
             origin["http_checked_at"] = checked_at
         return origins
 
@@ -770,6 +834,11 @@ def _looks_like_streaming_page(url: str) -> bool:
 
 
 def _extract_streaming_url(url: str, input_order: int) -> list[dict[str, Any]]:
+    from backend.agent.web_context import is_public_http_url
+
+    ok, reason = is_public_http_url(str(url))
+    if not ok:
+        raise ExtractionError(f"Unsafe URL blocked: {reason}")
     try:
         import yt_dlp
     except Exception as exc:
@@ -803,6 +872,7 @@ def _extract_streaming_url(url: str, input_order: int) -> list[dict[str, Any]]:
             "kind": "stream",
             "label": str(info.get("title") or url),
             "source_url": str(info.get("webpage_url") or url),
+            "stream_fingerprint": _streaming_metadata_fingerprint(info),
             "input_order": input_order,
             "segments": segments,
         })]

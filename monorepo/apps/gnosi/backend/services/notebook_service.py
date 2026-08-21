@@ -68,6 +68,10 @@ _THREADS: dict[str, threading.Thread] = {}
 _ANALYSIS_THREADS: dict[str, threading.Thread] = {}
 
 
+class NotebookIngestionCancelled(RuntimeError):
+    """Raised when a durable notebook ingestion is cancelled cooperatively."""
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -132,6 +136,7 @@ def _ensure_schema(connection: sqlite3.Connection) -> None:
                 fingerprint TEXT,
                 url_validators_json TEXT NOT NULL DEFAULT '{}',
                 url_checked_at TEXT,
+                last_checked_at TEXT,
                 state TEXT NOT NULL DEFAULT 'pending',
                 error TEXT,
                 updated_at TEXT NOT NULL,
@@ -152,6 +157,10 @@ def _ensure_schema(connection: sqlite3.Connection) -> None:
                 created_at TEXT NOT NULL,
                 completed_at TEXT,
                 error TEXT,
+                current_resource_id TEXT,
+                current_resource_title TEXT,
+                cancel_requested_at TEXT,
+                retention_eligible INTEGER NOT NULL DEFAULT 0,
                 PRIMARY KEY(notebook_id, revision)
             );
 
@@ -227,6 +236,18 @@ def _ensure_schema(connection: sqlite3.Connection) -> None:
                 created_at TEXT NOT NULL,
                 PRIMARY KEY(notebook_id, principal_id, session_id)
             );
+
+            CREATE TABLE IF NOT EXISTS notebook_revision_pins (
+                notebook_id TEXT NOT NULL,
+                revision INTEGER NOT NULL,
+                pin_type TEXT NOT NULL,
+                pin_id TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY(notebook_id, revision, pin_type, pin_id),
+                FOREIGN KEY(notebook_id, revision)
+                    REFERENCES notebook_revisions(notebook_id, revision)
+                    ON DELETE CASCADE
+            );
             """
         )
         resource_columns = {
@@ -242,6 +263,24 @@ def _ensure_schema(connection: sqlite3.Connection) -> None:
             connection.execute(
                 "ALTER TABLE notebook_resources ADD COLUMN url_checked_at TEXT"
             )
+        if "last_checked_at" not in resource_columns:
+            connection.execute(
+                "ALTER TABLE notebook_resources ADD COLUMN last_checked_at TEXT"
+            )
+        revision_columns = {
+            str(row[1])
+            for row in connection.execute("PRAGMA table_info(notebook_revisions)")
+        }
+        for column, declaration in (
+            ("current_resource_id", "TEXT"),
+            ("current_resource_title", "TEXT"),
+            ("cancel_requested_at", "TEXT"),
+            ("retention_eligible", "INTEGER NOT NULL DEFAULT 0"),
+        ):
+            if column not in revision_columns:
+                connection.execute(
+                    f"ALTER TABLE notebook_revisions ADD COLUMN {column} {declaration}"
+                )
         connection.commit()
 
 
@@ -381,7 +420,7 @@ def _summary(connection: sqlite3.Connection, notebook: dict[str, Any]) -> dict[s
             source_counts["total"] += count
             if status in {"available", "stale"}:
                 source_counts["available"] += count
-            if status in source_counts:
+            if status in {"stale", "error"}:
                 source_counts[status] += count
     latest_revision = connection.execute(
         """SELECT * FROM notebook_revisions WHERE notebook_id=?
@@ -400,6 +439,10 @@ def _summary(connection: sqlite3.Connection, notebook: dict[str, Any]) -> dict[s
             "percent": round((processed / total) * 100) if total else 0,
             "job_id": latest_revision["job_id"],
             "error": latest_revision["error"],
+            "current_resource_id": latest_revision["current_resource_id"],
+            "current_resource_title": latest_revision["current_resource_title"],
+            "cancel_requested_at": latest_revision["cancel_requested_at"],
+            "cancellable": latest_revision["state"] in RUNNING_REVISION_STATES,
         }
     return {
         **notebook,
@@ -978,6 +1021,8 @@ def list_notebook_sources(
                     "state": resource["state"],
                     "error": resource["error"],
                     "updated_at": resource["updated_at"],
+                    "last_checked_at": resource["last_checked_at"],
+                    "url_checked_at": resource["url_checked_at"],
                     "sources": sources,
                 }
             )
@@ -1103,7 +1148,8 @@ def _load_url_validators(resource: sqlite3.Row | dict[str, Any]) -> dict[str, di
             str(key): str(value or "")[:1_000]
             for key, value in metadata.items()
             if key in {
-                "final_url", "etag", "last_modified", "content_hash", "checked_at"
+                "final_url", "etag", "last_modified", "content_hash",
+                "stream_fingerprint", "checked_at"
             }
         }
         for url, metadata in parsed.items()
@@ -1120,8 +1166,21 @@ def _probe_resource_urls(
     for url in urls:
         cached = previous.get(url, {})
         if llm_wiki_extractors.is_streaming_url(url):
-            changed = True
-            current[url] = cached
+            result = llm_wiki_extractors.probe_streaming_url(
+                url,
+                fingerprint=cached.get("stream_fingerprint", ""),
+            )
+            changed = changed or bool(result.get("changed"))
+            current[url] = {
+                "final_url": str(result.get("final_url") or url)[:4_000],
+                "etag": "",
+                "last_modified": "",
+                "content_hash": str(cached.get("content_hash") or "")[:128],
+                "stream_fingerprint": str(
+                    result.get("stream_fingerprint") or ""
+                )[:128],
+                "checked_at": str(result.get("checked_at") or _now()),
+            }
             continue
         result = llm_wiki_extractors.probe_public_url(
             url,
@@ -1135,6 +1194,7 @@ def _probe_resource_urls(
             "etag": str(result.get("etag") or "")[:1_000],
             "last_modified": str(result.get("last_modified") or "")[:1_000],
             "content_hash": str(result.get("content_hash") or "")[:128],
+            "stream_fingerprint": "",
             "checked_at": str(result.get("checked_at") or _now()),
         }
     return changed, current
@@ -1153,6 +1213,7 @@ def _url_validators_from_origins(
             "etag": origin.get("http_etag"),
             "last_modified": origin.get("http_last_modified"),
             "content_hash": origin.get("http_content_hash"),
+            "stream_fingerprint": origin.get("http_stream_fingerprint"),
             "checked_at": origin.get("http_checked_at"),
         }, *(origin.get("http_sources") or [])]
         for item in candidates:
@@ -1164,6 +1225,9 @@ def _url_validators_from_origins(
                 "etag": str(item.get("etag") or "")[:1_000],
                 "last_modified": str(item.get("last_modified") or "")[:1_000],
                 "content_hash": str(item.get("content_hash") or "")[:128],
+                "stream_fingerprint": str(
+                    item.get("stream_fingerprint") or ""
+                )[:128],
                 "checked_at": str(item.get("checked_at") or _now()),
             }
     return {
@@ -1210,16 +1274,150 @@ def _needs_refresh(notebook: dict[str, Any]) -> bool:
     return False
 
 
+def _retention_limit(name: str, default: int, maximum: int) -> int:
+    try:
+        value = int(str(os.environ.get(name, default)))
+    except ValueError:
+        value = default
+    return max(1, min(value, maximum))
+
+
+def _pin_active_notebook_revision(
+    notebook_id: str,
+    *,
+    pin_type: str,
+    pin_id: str,
+) -> int:
+    """Atomically pin and return the currently active evidence revision."""
+    with _WRITE_LOCK, _connect() as connection:
+        row = connection.execute(
+            "SELECT active_revision FROM notebooks WHERE id=?",
+            (str(notebook_id),),
+        ).fetchone()
+        revision = int(row["active_revision"] or 0) if row else 0
+        if revision <= 0:
+            raise HTTPException(
+                status_code=409,
+                detail="The notebook has no active evidence revision.",
+            )
+        connection.execute(
+            """INSERT OR IGNORE INTO notebook_revision_pins
+            (notebook_id,revision,pin_type,pin_id,created_at) VALUES(?,?,?,?,?)""",
+            (
+                str(notebook_id),
+                int(revision),
+                _bounded_text(pin_type, 40, "reference"),
+                _bounded_text(pin_id, 300, "reference"),
+                _now(),
+            ),
+        )
+        connection.commit()
+    return revision
+
+
+def _prune_notebook_revisions(
+    connection: sqlite3.Connection,
+    notebook_id: str,
+) -> list[int]:
+    """Delete eligible obsolete revisions while preserving stable references."""
+    notebook = connection.execute(
+        "SELECT active_revision FROM notebooks WHERE id=?", (str(notebook_id),)
+    ).fetchone()
+    protected: set[int] = set()
+    if notebook and notebook["active_revision"] is not None:
+        protected.add(int(notebook["active_revision"]))
+    protected.update(
+        int(row[0])
+        for row in connection.execute(
+            "SELECT DISTINCT revision FROM notebook_revision_pins WHERE notebook_id=?",
+            (str(notebook_id),),
+        ).fetchall()
+    )
+    protected.update(
+        int(row[0])
+        for row in connection.execute(
+            "SELECT DISTINCT revision FROM notebook_analyses WHERE notebook_id=?",
+            (str(notebook_id),),
+        ).fetchall()
+    )
+    completed_limit = _retention_limit(
+        "GNOSI_NOTEBOOK_COMPLETED_REVISION_RETENTION", 3, 50
+    )
+    audit_limit = _retention_limit(
+        "GNOSI_NOTEBOOK_AUDIT_REVISION_RETENTION", 20, 200
+    )
+    protected.update(
+        int(row[0])
+        for row in connection.execute(
+            """SELECT revision FROM notebook_revisions WHERE notebook_id=?
+            AND state='completed' ORDER BY revision DESC LIMIT ?""",
+            (str(notebook_id), completed_limit),
+        ).fetchall()
+    )
+    protected.update(
+        int(row[0])
+        for row in connection.execute(
+            """SELECT revision FROM notebook_revisions WHERE notebook_id=?
+            AND state IN ('unchanged','failed','cancelled')
+            ORDER BY revision DESC LIMIT ?""",
+            (str(notebook_id), audit_limit),
+        ).fetchall()
+    )
+    candidates = [
+        int(row[0])
+        for row in connection.execute(
+            """SELECT revision FROM notebook_revisions WHERE notebook_id=?
+            AND retention_eligible=1
+            AND state IN ('completed','unchanged','failed','cancelled')""",
+            (str(notebook_id),),
+        ).fetchall()
+        if int(row[0]) not in protected
+    ]
+    for revision in candidates:
+        connection.execute(
+            "DELETE FROM notebook_chunks_fts WHERE notebook_id=? AND revision=?",
+            (str(notebook_id), revision),
+        )
+        connection.execute(
+            "DELETE FROM notebook_revisions WHERE notebook_id=? AND revision=?",
+            (str(notebook_id), revision),
+        )
+    return candidates
+
+
 def request_refresh(
     notebook_id: str,
     context: WorkspaceContext,
     *,
     reason: str,
     force: bool = False,
+    resource_ids: Optional[Iterable[Any]] = None,
 ) -> dict[str, Any]:
-    notebook = authorize(notebook_id, context, action="read")
+    target_resource_ids = (
+        _normalize_resource_ids(resource_ids) if resource_ids is not None else []
+    )
+    notebook = authorize(
+        notebook_id,
+        context,
+        action="manage" if target_resource_ids else "read",
+    )
     notebook = {**notebook, "vault_path": str(context.vault_path)}
     with _WRITE_LOCK, _connect() as connection:
+        if target_resource_ids:
+            placeholders = ",".join("?" for _ in target_resource_ids)
+            present = {
+                str(row[0])
+                for row in connection.execute(
+                    f"""SELECT resource_id FROM notebook_resources
+                    WHERE notebook_id=? AND resource_id IN ({placeholders})""",
+                    [notebook_id, *target_resource_ids],
+                ).fetchall()
+            }
+            if present != set(target_resource_ids):
+                raise HTTPException(
+                    status_code=404,
+                    detail="One or more Resources are not in this notebook.",
+                )
         running = connection.execute(
             """SELECT * FROM notebook_revisions WHERE notebook_id=?
             AND state IN ('queued','indexing') ORDER BY revision DESC LIMIT 1""",
@@ -1246,8 +1444,9 @@ def request_refresh(
         timestamp = _now()
         connection.execute(
             """INSERT INTO notebook_revisions
-            (notebook_id,revision,job_id,state,total_resources,created_at)
-            VALUES(?,?,?,?,?,?)""",
+            (notebook_id,revision,job_id,state,total_resources,created_at,
+             retention_eligible)
+            VALUES(?,?,?,?,?,?,1)""",
             (notebook_id, next_revision, job_id, "queued", resource_count, timestamp),
         )
         connection.execute(
@@ -1264,6 +1463,7 @@ def request_refresh(
         "requested_by": context.user_id,
         "reason": _bounded_text(reason, 80, "refresh"),
         "force": bool(force),
+        "target_resource_ids": target_resource_ids,
     }
     durable_job_queue.enqueue(
         "notebook_ingest",
@@ -1274,6 +1474,51 @@ def request_refresh(
     )
     launch_ingest(Path(context.vault_path), job_id)
     return {"job_id": job_id, "revision": next_revision, "state": "queued"}
+
+
+def cancel_refresh(
+    notebook_id: str,
+    context: WorkspaceContext,
+) -> dict[str, Any]:
+    """Cancel the active ingestion while retaining the last complete revision."""
+    authorize(notebook_id, context, action="manage")
+    with _connect() as connection:
+        revision = connection.execute(
+            """SELECT * FROM notebook_revisions WHERE notebook_id=?
+            AND state IN ('queued','indexing') ORDER BY revision DESC LIMIT 1""",
+            (str(notebook_id),),
+        ).fetchone()
+        if revision is None:
+            raise HTTPException(status_code=409, detail="No indexing job is active.")
+        job_id = str(revision["job_id"] or "")
+        revision_number = int(revision["revision"])
+    message = "Indexing was cancelled by the notebook creator."
+    if not job_id or not durable_job_queue.cancel(job_id, reason=message):
+        raise HTTPException(
+            status_code=409,
+            detail="The indexing job has already finished.",
+        )
+    with _WRITE_LOCK, _connect() as connection:
+        timestamp = _now()
+        connection.execute(
+            """UPDATE notebook_revisions SET state='cancelled',completed_at=?,
+            cancel_requested_at=?,error=? WHERE notebook_id=? AND revision=?""",
+            (
+                timestamp,
+                timestamp,
+                message,
+                str(notebook_id),
+                revision_number,
+            ),
+        )
+        connection.execute(
+            """UPDATE notebooks SET status=CASE WHEN active_revision IS NULL
+            THEN 'error' ELSE 'available' END,last_error=?,updated_at=? WHERE id=?""",
+            (message, timestamp, str(notebook_id)),
+        )
+        _prune_notebook_revisions(connection, str(notebook_id))
+        connection.commit()
+    return get_notebook(notebook_id, context)
 
 
 def _insert_source(
@@ -1477,6 +1722,44 @@ def _copy_resource_revision(
     return copied
 
 
+def _copy_resource_errors(
+    connection: sqlite3.Connection,
+    *,
+    notebook_id: str,
+    from_revision: int,
+    to_revision: int,
+    resource_id: str,
+) -> int:
+    """Copy excluded error markers when a targeted retry defers a Resource."""
+    sources = connection.execute(
+        """SELECT * FROM notebook_sources WHERE notebook_id=? AND revision=?
+        AND resource_id=? AND status='error'""",
+        (notebook_id, from_revision, resource_id),
+    ).fetchall()
+    for source in sources:
+        connection.execute(
+            """INSERT OR REPLACE INTO notebook_sources
+            (notebook_id,revision,source_id,resource_id,kind,label,source_url,
+             fingerprint,snapshot_id,status,error,origin_json)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (
+                notebook_id,
+                to_revision,
+                source["source_id"],
+                resource_id,
+                source["kind"],
+                source["label"],
+                source["source_url"],
+                source["fingerprint"],
+                source["snapshot_id"],
+                "error",
+                source["error"],
+                source["origin_json"],
+            ),
+        )
+    return len(sources)
+
+
 def _run_ingest(vault_path: Path, job_id: str, worker_id: str) -> dict[str, Any]:
     item = durable_job_queue.get(job_id)
     payload = item.get("payload") if isinstance(item, dict) else None
@@ -1485,11 +1768,18 @@ def _run_ingest(vault_path: Path, job_id: str, worker_id: str) -> dict[str, Any]
     notebook_id = str(payload.get("notebook_id") or "")
     revision = int(payload.get("revision") or 0)
     force_url_check = bool(payload.get("force"))
+    target_resource_ids = {
+        str(value)
+        for value in payload.get("target_resource_ids") or []
+        if str(value).strip()
+    }
     notebook = _notebook_row(notebook_id)
     from backend.services.context_vars import active_vault_path
 
     token = active_vault_path.set(Path(vault_path).resolve())
     try:
+        if durable_job_queue.is_cancelled(job_id):
+            raise NotebookIngestionCancelled("Notebook ingestion was cancelled.")
         table, source_config, pages = _current_resource_snapshot(notebook)
         pages_by_id = {str(page.id): page for page in pages}
         with _WRITE_LOCK, _connect() as connection:
@@ -1515,19 +1805,68 @@ def _run_ingest(vault_path: Path, job_id: str, worker_id: str) -> dict[str, Any]
         active_revision = notebook.get("active_revision")
         available_sources = 0
         error_sources = 0
-        changed_any = active_revision is None or str(payload.get("reason") or "") in {
-            "source_removed",
-            "sources_added",
-        }
+        changed_any = (
+            bool(target_resource_ids)
+            or active_revision is None
+            or str(payload.get("reason") or "")
+            in {"source_removed", "sources_added"}
+        )
         for index, resource in enumerate(resources, start=1):
+            if durable_job_queue.is_cancelled(job_id):
+                raise NotebookIngestionCancelled("Notebook ingestion was cancelled.")
             resource_id = str(resource["resource_id"])
             page = pages_by_id.get(resource_id)
+            resource_title = _bounded_text(
+                getattr(page, "title", "") if page is not None else resource_id,
+                500,
+                resource_id,
+            )
+            with _WRITE_LOCK, _connect() as connection:
+                connection.execute(
+                    """UPDATE notebook_revisions SET current_resource_id=?,
+                    current_resource_title=? WHERE notebook_id=? AND revision=?""",
+                    (resource_id, resource_title, notebook_id, revision),
+                )
+                connection.commit()
             state = "available"
             error: Optional[str] = None
             fingerprint = ""
             url_validators = _load_url_validators(resource)
             url_checked_at = str(resource["url_checked_at"] or "") or None
             with _WRITE_LOCK, _connect() as connection:
+                if (
+                    target_resource_ids
+                    and resource_id not in target_resource_ids
+                    and active_revision is not None
+                ):
+                    available_sources += _copy_resource_revision(
+                        connection,
+                        notebook_id=notebook_id,
+                        from_revision=int(active_revision),
+                        to_revision=revision,
+                        resource_id=resource_id,
+                    )
+                    error_sources += _copy_resource_errors(
+                        connection,
+                        notebook_id=notebook_id,
+                        from_revision=int(active_revision),
+                        to_revision=revision,
+                        resource_id=resource_id,
+                    )
+                    connection.execute(
+                        """UPDATE notebook_revisions SET processed_resources=?,
+                        available_sources=?,error_sources=?
+                        WHERE notebook_id=? AND revision=?""",
+                        (
+                            index,
+                            available_sources,
+                            error_sources,
+                            notebook_id,
+                            revision,
+                        ),
+                    )
+                    connection.commit()
+                    continue
                 if page is None:
                     changed_any = True
                     error = "The Resource no longer exists in the notebook source table."
@@ -1564,6 +1903,7 @@ def _run_ingest(vault_path: Path, job_id: str, worker_id: str) -> dict[str, Any]
                     can_reuse = (
                         active_revision is not None
                         and not fingerprint_changed
+                        and resource_id not in target_resource_ids
                     )
                     if can_reuse and has_url and (
                         force_url_check or _url_refresh_due(resource, has_url)
@@ -1662,14 +2002,17 @@ def _run_ingest(vault_path: Path, job_id: str, worker_id: str) -> dict[str, Any]
                                 state = "error"
                         elif warnings:
                             state = "stale"
+                if durable_job_queue.is_cancelled(job_id):
+                    raise NotebookIngestionCancelled("Notebook ingestion was cancelled.")
                 connection.execute(
                     """UPDATE notebook_resources SET fingerprint=?,url_validators_json=?,
-                    url_checked_at=?,state=?,error=?,updated_at=?
+                    url_checked_at=?,last_checked_at=?,state=?,error=?,updated_at=?
                     WHERE notebook_id=? AND resource_id=?""",
                     (
                         fingerprint,
                         json.dumps(url_validators, ensure_ascii=False, separators=(",", ":")),
                         url_checked_at,
+                        _now(),
                         state,
                         error,
                         _now(),
@@ -1686,6 +2029,8 @@ def _run_ingest(vault_path: Path, job_id: str, worker_id: str) -> dict[str, Any]
             if index % 10 == 0:
                 durable_job_queue.heartbeat(job_id, worker_id)
         with _WRITE_LOCK, _connect() as connection:
+            if durable_job_queue.is_cancelled(job_id):
+                raise NotebookIngestionCancelled("Notebook ingestion was cancelled.")
             completed_at = _now()
             if (
                 available_sources > 0
@@ -1703,7 +2048,8 @@ def _run_ingest(vault_path: Path, job_id: str, worker_id: str) -> dict[str, Any]
                 )
                 connection.execute(
                     """UPDATE notebook_revisions SET state='unchanged',completed_at=?,
-                    available_sources=0,error_sources=0 WHERE notebook_id=? AND revision=?""",
+                    available_sources=0,error_sources=0,current_resource_id=NULL,
+                    current_resource_title=NULL WHERE notebook_id=? AND revision=?""",
                     (completed_at, notebook_id, revision),
                 )
                 connection.execute(
@@ -1715,7 +2061,8 @@ def _run_ingest(vault_path: Path, job_id: str, worker_id: str) -> dict[str, Any]
             elif available_sources > 0:
                 connection.execute(
                     """UPDATE notebook_revisions SET state='completed',completed_at=?,
-                    available_sources=?,error_sources=? WHERE notebook_id=? AND revision=?""",
+                    available_sources=?,error_sources=?,current_resource_id=NULL,
+                    current_resource_title=NULL WHERE notebook_id=? AND revision=?""",
                     (completed_at, available_sources, error_sources, notebook_id, revision),
                 )
                 connection.execute(
@@ -1732,6 +2079,7 @@ def _run_ingest(vault_path: Path, job_id: str, worker_id: str) -> dict[str, Any]
                 message = "No notebook source could be indexed."
                 connection.execute(
                     """UPDATE notebook_revisions SET state='failed',completed_at=?,error=?
+                    ,current_resource_id=NULL,current_resource_title=NULL
                     WHERE notebook_id=? AND revision=?""",
                     (completed_at, message, notebook_id, revision),
                 )
@@ -1744,6 +2092,7 @@ def _run_ingest(vault_path: Path, job_id: str, worker_id: str) -> dict[str, Any]
                         notebook_id,
                     ),
                 )
+            _prune_notebook_revisions(connection, notebook_id)
             connection.commit()
         return {
             "notebook_id": notebook_id,
@@ -1763,7 +2112,43 @@ def _ingest_thread(vault_path: Path, job_id: str) -> None:
             return
         result = _run_ingest(vault_path, job_id, worker_id)
         durable_job_queue.complete(job_id, worker_id, result)
+    except NotebookIngestionCancelled:
+        durable_job_queue.cancel(job_id, reason="Notebook ingestion was cancelled.")
+        item = durable_job_queue.get(job_id)
+        payload = item.get("payload") if isinstance(item, dict) else {}
+        notebook_id = str((payload or {}).get("notebook_id") or "")
+        revision = int((payload or {}).get("revision") or 0)
+        if notebook_id and revision:
+            timestamp = _now()
+            with _WRITE_LOCK, _connect() as connection:
+                connection.execute(
+                    """UPDATE notebook_revisions SET state='cancelled',error=?,
+                    completed_at=COALESCE(completed_at,?),
+                    cancel_requested_at=COALESCE(cancel_requested_at,?)
+                    WHERE notebook_id=? AND revision=?""",
+                    (
+                        "Indexing was cancelled by the notebook creator.",
+                        timestamp,
+                        timestamp,
+                        notebook_id,
+                        revision,
+                    ),
+                )
+                connection.execute(
+                    """UPDATE notebooks SET status=CASE WHEN active_revision IS NULL
+                    THEN 'error' ELSE 'available' END,last_error=?,updated_at=?
+                    WHERE id=?""",
+                    (
+                        "Indexing was cancelled by the notebook creator.",
+                        timestamp,
+                        notebook_id,
+                    ),
+                )
+                _prune_notebook_revisions(connection, notebook_id)
+                connection.commit()
     except Exception as exc:  # noqa: BLE001
+        if durable_job_queue.is_cancelled(job_id):
+            return
         log.exception("Notebook ingestion failed for durable job %s", job_id)
         durable_job_queue.fail(job_id, worker_id, exc)
         item = durable_job_queue.get(job_id)
@@ -1782,6 +2167,7 @@ def _ingest_thread(vault_path: Path, job_id: str) -> None:
                     THEN 'error' ELSE 'available' END,last_error=?,updated_at=? WHERE id=?""",
                     (_bounded_text(exc, 2_000), _now(), notebook_id),
                 )
+                _prune_notebook_revisions(connection, notebook_id)
                 connection.commit()
     finally:
         with _THREAD_LOCK:
@@ -1823,9 +2209,14 @@ def resolve_chat_context(
             detail="The notebook is still preparing its first available source.",
         )
     scope = register_conversation_principal(notebook, context.user_id)
+    pinned_revision = _pin_active_notebook_revision(
+        notebook_id,
+        pin_type="conversation",
+        pin_id=f"{scope['principal_id']}:{scope['session_id']}",
+    )
     return {
         "notebook_id": notebook_id,
-        "revision": int(notebook["active_revision"]),
+        "revision": pinned_revision,
         "principal": scope["principal_id"],
         "session_id": scope["session_id"],
         "conversation_mode": notebook["conversation_mode"],

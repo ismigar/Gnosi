@@ -83,6 +83,13 @@ protegido contra SSRF y con redirecciones validadas. Si el servidor no ofrece
 validadores, compara un hash acotado del contenido. Una comprobación sin
 cambios queda registrada, pero no activa una revisión nueva de evidencia.
 
+YouTube, Vimeo y los demás adaptadores de streaming compatibles realizan una
+comprobación de metadatos sin descargar el contenido. Gnosi compara una huella
+determinista de identidad, duración, marcas temporales, estado en directo y
+tamaño; solo vuelve a descargar y transcribir cuando cambia. Un reintento por
+Recurso fuerza únicamente el Recurso seleccionado y copia el resto de la
+revisión activa.
+
 Retirar un Recurso elimina inmediatamente su pertenencia. La recuperación y el
 análisis global comprueban los miembros actuales, de modo que la evidencia
 retirada queda excluida antes de que una revisión nueva esté preparada.
@@ -101,6 +108,13 @@ el proceso. La activación de una revisión es transaccional. Si falla la
 actualización de una fuente ya indexada, su última versión válida sigue
 disponible con estado `stale`; una fuente nueva fallida muestra el error y
 queda excluida.
+
+La limpieza conserva la revisión activa, las tres revisiones completas y los
+veinte resultados de auditoría más recientes por defecto, todas las revisiones
+fijadas por conversaciones y las usadas por análisis durables. Las revisiones
+anteriores a esta política se protegen de forma conservadora. Los límites se
+ajustan con `GNOSI_NOTEBOOK_COMPLETED_REVISION_RETENTION` y
+`GNOSI_NOTEBOOK_AUDIT_REVISION_RETENTION`.
 
 Los adjuntos reutilizan la materialización, el precalentamiento de OneDrive, la
 contención de rutas, los límites de tamaño y los extractores de documentos, OCR
@@ -145,7 +159,9 @@ Vault quedan fuera de este límite.
 | `GET /api/notebooks/resources` | Selector paginado alfabético con facetas de tipo, autor y etiquetas de la tabla Referencias |
 | `GET/POST /api/notebooks/{id}/sources` | Inspeccionar o añadir Recursos |
 | `DELETE /api/notebooks/{id}/sources/{resource_id}` | Excluir inmediatamente un Recurso |
-| `POST /api/notebooks/{id}/refresh` | Actualización o reintento explícito fusionado |
+| `POST /api/notebooks/{id}/sources/{resource_id}/refresh` | Reintentar solo un Recurso |
+| `POST /api/notebooks/{id}/refresh` | Actualización explícita fusionada del cuaderno |
+| `POST /api/notebooks/{id}/refresh/cancel` | Cancelar cooperativamente la ingesta activa |
 | `GET /api/notebooks/{id}/conversation` | Conversación canónica del modo activo |
 | `POST /api/chat` | Conversación en streaming con contexto de cuaderno autorizado |
 
@@ -174,6 +190,11 @@ juntas. En móvil se convierten en pestañas. Solo se sondea el cuaderno activo 
 visible: un intervalo corto sigue la ingestión y otro acotado actualiza la
 conversación colaborativa.
 
+El progreso muestra el Recurso actual y permite al creador cancelar la
+indexación. Cada Recurso muestra la última comprobación y el motivo acotado del
+error; las fuentes fallidas también muestran su propio motivo. El reintento
+individual se desactiva mientras hay otra revisión en curso.
+
 Los lectores del workspace ven la conversación canónica en un chat claramente
 de solo lectura, sin compositor ni acciones de reintento, edición o rebobinado.
 Solo los editores pueden enviar turnos y solo el creador ve la actualización
@@ -185,6 +206,12 @@ La primera conversación queda bloqueada hasta que una revisión activa completa
 contiene una fuente. Los estados son `pending`, `indexing`, `available`,
 `stale` y `error`; la actualización manual permite reintentar. Un error
 nunca sustituye una revisión completa.
+
+La cancelación es cooperativa y durable: el worker comprueba el estado antes de
+cada Recurso y antes de la activación atómica. La transacción en curso se
+revierte y la última revisión completa sigue disponible; si se cancela la
+primera ingesta, la conversación queda bloqueada hasta que una actualización
+termine correctamente.
 
 El repositorio SQLite y la cola durable permanecen bajo `LOCAL_DATA`, nunca
 dentro de un Vault compartido. Las mismas rutas funcionan en despliegues

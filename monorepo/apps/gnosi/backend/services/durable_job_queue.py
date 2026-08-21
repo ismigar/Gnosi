@@ -182,6 +182,24 @@ def fail(job_id: str, worker_id: str, error: Any, retry_at: Optional[datetime] =
     return cursor.rowcount == 1
 
 
+def cancel(job_id: str, *, reason: Any = "Job cancelled by user.") -> bool:
+    """Cancel a queued job or request cooperative cancellation of a running job."""
+    message = str(reason or "Job cancelled by user.")[:MAX_ERROR_CHARS]
+    with _LOCK, _connect() as connection:
+        cursor = connection.execute(
+            """UPDATE agent_jobs SET state='cancelled', lease_until=NULL, error=?,
+            updated_at=? WHERE job_id=? AND state IN ('queued','running')""",
+            (message, _iso(), str(job_id)),
+        )
+    return cursor.rowcount == 1
+
+
+def is_cancelled(job_id: str) -> bool:
+    """Return whether a job has been cooperatively cancelled."""
+    item = get(job_id)
+    return bool(item and item.get("state") == "cancelled")
+
+
 def requeue(job_id: str, *, available_at: Optional[datetime] = None) -> bool:
     """Put a failed/interrupted job back into the durable queue."""
     with _connect() as connection:

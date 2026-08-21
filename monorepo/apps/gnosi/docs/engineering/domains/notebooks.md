@@ -83,6 +83,13 @@ redirect-validating downloader and falls back to a bounded response-content
 hash when a server does not provide validators. An unchanged check records an
 audit outcome but does not activate a new evidence revision.
 
+YouTube, Vimeo, and other supported streaming adapters use a metadata-only
+provider probe after the same TTL. Gnosi compares a deterministic fingerprint
+of the media identity, duration, timestamps, live state, and size metadata; it
+downloads and transcribes the media again only when that fingerprint changes.
+A per-Resource retry bypasses reuse for the selected Resource while copying all
+non-target evidence from the active revision.
+
 Removing a Resource deletes notebook membership immediately. Retrieval and
 whole-notebook analysis join against current membership, so removed evidence is
 excluded before a replacement revision is ready.
@@ -100,6 +107,14 @@ Queued or expired leased jobs resume after process restart. Revision activation
 is transactional. If a previously indexed source fails to refresh, its last
 valid representation remains available with `stale` status; a new failed
 source is reported and excluded.
+
+New revisions are retention-eligible. Cleanup preserves the active revision,
+the configured recent completed and audit windows, every revision pinned by a
+conversation, and every revision used by a durable analysis. Revisions created
+before this policy remain conservatively protected. The default windows are
+three completed revisions and twenty audit outcomes, configurable with
+`GNOSI_NOTEBOOK_COMPLETED_REVISION_RETENTION` and
+`GNOSI_NOTEBOOK_AUDIT_REVISION_RETENTION`.
 
 Attachments use the existing materialization, OneDrive warm-up, path
 containment, size limits, document extraction, OCR, and media extraction
@@ -148,7 +163,9 @@ analysis rows. Original Vault data is outside this deletion boundary.
 | `GET /api/notebooks/resources` | Alphabetical paginated selector with type, author, and tag facets from the configured References table |
 | `GET/POST /api/notebooks/{id}/sources` | Inspect or add Resource membership |
 | `DELETE /api/notebooks/{id}/sources/{resource_id}` | Exclude one Resource immediately |
-| `POST /api/notebooks/{id}/refresh` | Coalesced explicit refresh or retry |
+| `POST /api/notebooks/{id}/sources/{resource_id}/refresh` | Retry only one Resource while reusing non-target evidence |
+| `POST /api/notebooks/{id}/refresh` | Coalesced explicit notebook refresh |
+| `POST /api/notebooks/{id}/refresh/cancel` | Cooperatively cancel the active ingestion job |
 | `GET /api/notebooks/{id}/conversation` | Canonical active-mode transcript |
 | `POST /api/chat` | Streaming conversation with an authorized notebook context |
 
@@ -176,6 +193,12 @@ notebook: ingestion progress uses a short interval while a job is active, and
 the transcript uses a bounded interval for collaborative updates. Inactive
 notebooks are not polled.
 
+Active progress identifies the Resource currently being processed and offers
+the creator a cancellation action. Each Resource reports its last successful
+check and bounded error reason; failed individual sources expose their own
+reason. Retry controls call the per-Resource contract and are disabled while a
+different ingestion revision is active.
+
 Workspace viewers receive the canonical transcript in a visibly read-only
 chat without composer, retry, edit, or rewind actions. Only editors can send a
 turn, and only the creator sees manual refresh and other management controls.
@@ -186,6 +209,12 @@ The first conversation stays blocked until at least one source exists in a
 complete active revision. Per-Resource and per-source states expose `pending`,
 `indexing`, `available`, `stale`, and `error`; manual refresh provides retry.
 Errors do not replace a complete active revision.
+
+Cancellation is cooperative: the queue moves to a durable `cancelled` state,
+the worker checks it before every Resource and before activation, and any
+in-flight Resource transaction rolls back. The last complete revision stays
+available; cancelling the first ingestion leaves chat blocked with a visible
+error until a new refresh succeeds.
 
 Operators can inspect the notebook SQLite repository and durable job queue
 below `LOCAL_DATA`, but must not move either into a shared Vault. Backend code

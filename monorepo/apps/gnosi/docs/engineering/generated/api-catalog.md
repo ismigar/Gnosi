@@ -9,7 +9,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 ## Summary
 
 - Registered routers: **35**
-- Discovered operations: **516**
+- Discovered operations: **518**
 - Unregistered route modules: **0**
 
 ## Router registrations
@@ -243,13 +243,15 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `DELETE` | `/api/notebooks/{notebook_id}` | `delete_notebook` | Notebooks | Depends(require_role('viewer')) | Delete notebook | [`backend/api/notebook_routes.py:113`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/notebook_routes.py#L113) |
 | `GET` | `/api/notebooks/{notebook_id}` | `get_notebook` | Notebooks | Depends(require_role('viewer')) | Get notebook | [`backend/api/notebook_routes.py:87`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/notebook_routes.py#L87) |
 | `PATCH` | `/api/notebooks/{notebook_id}` | `update_notebook` | Notebooks | Depends(require_role('viewer')) | Update notebook | [`backend/api/notebook_routes.py:98`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/notebook_routes.py#L98) |
-| `GET` | `/api/notebooks/{notebook_id}/conversation` | `get_conversation` | Notebooks | Depends(require_role('viewer')) | Return the canonical shared or per-member notebook transcript. | [`backend/api/notebook_routes.py:224`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/notebook_routes.py#L224) |
-| `GET` | `/api/notebooks/{notebook_id}/evidence/{chunk_id}` | `read_evidence` | Notebooks | Depends(require_role('viewer')) | Read evidence | [`backend/api/notebook_routes.py:211`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/notebook_routes.py#L211) |
-| `POST` | `/api/notebooks/{notebook_id}/refresh` | `refresh_notebook` | Notebooks | Depends(require_role('viewer')) | Refresh notebook | [`backend/api/notebook_routes.py:183`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/notebook_routes.py#L183) |
-| `GET` | `/api/notebooks/{notebook_id}/search` | `search_notebook` | Notebooks | Depends(require_role('viewer')) | Search notebook | [`backend/api/notebook_routes.py:198`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/notebook_routes.py#L198) |
+| `GET` | `/api/notebooks/{notebook_id}/conversation` | `get_conversation` | Notebooks | Depends(require_role('viewer')) | Return the canonical shared or per-member notebook transcript. | [`backend/api/notebook_routes.py:248`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/notebook_routes.py#L248) |
+| `GET` | `/api/notebooks/{notebook_id}/evidence/{chunk_id}` | `read_evidence` | Notebooks | Depends(require_role('viewer')) | Read evidence | [`backend/api/notebook_routes.py:235`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/notebook_routes.py#L235) |
+| `POST` | `/api/notebooks/{notebook_id}/refresh` | `refresh_notebook` | Notebooks | Depends(require_role('viewer')) | Refresh notebook | [`backend/api/notebook_routes.py:199`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/notebook_routes.py#L199) |
+| `POST` | `/api/notebooks/{notebook_id}/refresh/cancel` | `cancel_notebook_refresh` | Notebooks | Depends(require_role('viewer')) | Cancel notebook refresh | [`backend/api/notebook_routes.py:214`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/notebook_routes.py#L214) |
+| `GET` | `/api/notebooks/{notebook_id}/search` | `search_notebook` | Notebooks | Depends(require_role('viewer')) | Search notebook | [`backend/api/notebook_routes.py:222`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/notebook_routes.py#L222) |
 | `GET` | `/api/notebooks/{notebook_id}/sources` | `list_sources` | Notebooks | Depends(require_role('viewer')) | List sources | [`backend/api/notebook_routes.py:151`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/notebook_routes.py#L151) |
 | `POST` | `/api/notebooks/{notebook_id}/sources` | `add_sources` | Notebooks | Depends(require_role('viewer')) | Add sources | [`backend/api/notebook_routes.py:163`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/notebook_routes.py#L163) |
 | `DELETE` | `/api/notebooks/{notebook_id}/sources/{resource_id}` | `remove_source` | Notebooks | Depends(require_role('viewer')) | Remove source | [`backend/api/notebook_routes.py:174`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/notebook_routes.py#L174) |
+| `POST` | `/api/notebooks/{notebook_id}/sources/{resource_id}/refresh` | `refresh_resource` | Notebooks | Depends(require_role('viewer')) | Refresh resource | [`backend/api/notebook_routes.py:183`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/notebook_routes.py#L183) |
 | `GET` | `/api/notion-oauth/callback` | `callback` | Notion MCP OAuth | — | Callback | [`backend/api/notion_oauth_routes.py:132`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/notion_oauth_routes.py#L132) |
 | `GET` | `/api/notion-oauth/login` | `login` | Notion MCP OAuth | — | Login | [`backend/api/notion_oauth_routes.py:106`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/notion_oauth_routes.py#L106) |
 | `GET` | `/api/notion-oauth/status` | `status` | Notion MCP OAuth | — | Status | [`backend/api/notion_oauth_routes.py:101`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/api/notion_oauth_routes.py#L101) |
