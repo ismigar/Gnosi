@@ -183,6 +183,7 @@ const AgentChat = ({
     const inputRef = useRef(null);
     const fileInputRef = useRef(null);
     const requestAbortRef = useRef(null);
+    const activeStreamRef = useRef('');
     const processingStartedAtRef = useRef(null);
     const historyHydrationRef = useRef(0);
     const activeScopeRef = useRef('');
@@ -1431,6 +1432,8 @@ const AgentChat = ({
         const requestScope = `${browserStorageScope}:${selectedAgentId}:${sessionId}`;
         let turnMetrics = null;
         let turnTransparency = boundedTransparencyMetadata({});
+        let resumeStreamId = '';
+        let lastStreamSequence = 0;
 
         try {
             requestAbortRef.current?.abort();
@@ -1475,7 +1478,6 @@ const AgentChat = ({
             let terminalReceived = false;
             let responseReceived = false;
             let streamDone = false;
-            let lastStreamSequence = 0;
 
             while (!streamDone) {
                 const { done, value } = await reader.read();
@@ -1505,7 +1507,12 @@ const AgentChat = ({
                             lastStreamSequence = data.sequence;
                         }
 
-                        if (data.type === 'stream_open' || data.type === 'heartbeat') {
+                        if (data.type === 'stream_open') {
+                            resumeStreamId = String(data.stream_id || '');
+                            activeStreamRef.current = resumeStreamId;
+                            continue;
+                        }
+                        if (data.type === 'heartbeat') {
                             continue;
                         }
 
@@ -1514,6 +1521,7 @@ const AgentChat = ({
                                 mode: data.mode || 'agent_default',
                                 provider: data.provider,
                                 model: data.model,
+                                strategy: data.strategy,
                             };
                             continue;
                         }
@@ -1625,6 +1633,7 @@ const AgentChat = ({
                                     explanation: data.explanation,
                                     quality: data.quality,
                                     conflicts: data.conflicts,
+                                    evidence_security: data.evidence_security,
                                 });
                                 Object.entries(responseTransparency).forEach(([field, value]) => {
                                     if (value !== null) lastMsg[field] = value;
@@ -1673,7 +1682,82 @@ const AgentChat = ({
                 });
             }
         } catch (error) {
-            if (error.name !== 'AbortError' && activeScopeRef.current === requestScope) {
+            let recovered = false;
+            if (
+                error.name !== 'AbortError'
+                && resumeStreamId
+                && activeScopeRef.current === requestScope
+            ) {
+                try {
+                    let recoveredMessageSeen = false;
+                    for (let attempt = 0; attempt < 120 && !recovered; attempt += 1) {
+                        const resumeUrl = new URL(
+                            `/api/chat/streams/${encodeURIComponent(resumeStreamId)}`,
+                            window.location.origin,
+                        );
+                        resumeUrl.searchParams.set('agent_id', selectedAgentId);
+                        resumeUrl.searchParams.set('session_id', sessionId);
+                        resumeUrl.searchParams.set('after_sequence', String(lastStreamSequence));
+                        const resumed = await fetch(resumeUrl.pathname + resumeUrl.search);
+                        if (!resumed.ok) break;
+                        const events = (await resumed.text())
+                            .split('\n')
+                            .filter(Boolean)
+                            .map(line => JSON.parse(line));
+                        let terminal = false;
+                        let recoveredMessage = null;
+                        for (const data of events) {
+                            if (Number.isInteger(data.sequence)) {
+                                if (data.sequence <= lastStreamSequence) continue;
+                                lastStreamSequence = data.sequence;
+                            }
+                            if (data.type === 'turn_metrics') turnMetrics = boundedTurnMetrics(data);
+                            if (data.type === 'message' || data.type === 'thought' || data.type === 'error') {
+                                recoveredMessage = data;
+                            }
+                            if (data.type === 'done') terminal = true;
+                        }
+                        if (recoveredMessage) {
+                            recoveredMessageSeen = true;
+                            setMessages(previous => {
+                                if (activeScopeRef.current !== requestScope) return previous;
+                                const index = previous.findLastIndex(message => (
+                                    message?.turnId === turnId && message?.role !== 'user'
+                                ));
+                                const content = recoveredMessage.type === 'error'
+                                    ? `${t('chat.error_prefix', 'Error')}: ${recoveredMessage.content || t('errors.unknown', 'Unknown error')}`
+                                    : recoveredMessage.content;
+                                const transparency = boundedTransparencyMetadata({
+                                    plan: recoveredMessage.plan,
+                                    privacy: recoveredMessage.privacy,
+                                    verification: recoveredMessage.verification,
+                                    citations: recoveredMessage.citations,
+                                    freshness: recoveredMessage.freshness,
+                                    job: recoveredMessage.job,
+                                    explanation: recoveredMessage.explanation,
+                                    quality: recoveredMessage.quality,
+                                    conflicts: recoveredMessage.conflicts,
+                                    evidence_security: recoveredMessage.evidence_security,
+                                });
+                                const recoveredFields = Object.fromEntries(
+                                    Object.entries(transparency).filter(([, value]) => value !== null),
+                                );
+                                if (index < 0) return [...previous, {
+                                    role: 'assistant', content, turnId, llm: selectedLlm, ...recoveredFields,
+                                }];
+                                return previous.map((message, itemIndex) => itemIndex === index
+                                    ? { ...message, content, turnId, ...recoveredFields }
+                                    : message);
+                            });
+                        }
+                        recovered = terminal && recoveredMessageSeen;
+                        if (!recovered) await new Promise(resolve => window.setTimeout(resolve, 1000));
+                    }
+                } catch (resumeError) {
+                    console.error('Could not resume agent stream', resumeError);
+                }
+            }
+            if (error.name !== 'AbortError' && !recovered && activeScopeRef.current === requestScope) {
                 const errorMessage = typeof error.message === 'string'
                     ? error.message.trim()
                     : '';
@@ -1716,6 +1800,7 @@ const AgentChat = ({
                 ));
             });
             requestAbortRef.current = null;
+            activeStreamRef.current = '';
             processingStartedAtRef.current = null;
             setIsLoading(false);
             setProcessingPhase('routing');
@@ -2028,11 +2113,15 @@ const AgentChat = ({
                                                                         rel={source.href.startsWith('http') ? 'noreferrer' : undefined}
                                                                         style={{ color: 'var(--gnosi-blue, #2563eb)', textDecoration: 'underline' }}
                                                                     >
-                                                                        {source.title}
+                                                                        {source.title}{source.version_status === 'exact'
+                                                                            ? ` · ${t('chat.citation_versioned', 'version verified')}`
+                                                                            : ''}
                                                                     </a>
                                                                 ) : (
                                                                     <span key={source.citation_id} title={t('chat.citation_link_unavailable', 'This evidence has no direct link.')}>
-                                                                        {source.title}
+                                                                        {source.title}{source.version_status === 'exact'
+                                                                            ? ` · ${t('chat.citation_versioned', 'version verified')}`
+                                                                            : ''}
                                                                     </span>
                                                                 ))}
                                                             </div>
@@ -2145,6 +2234,9 @@ const AgentChat = ({
                                 {detailsMessageIndex === idx && (
                                     <div style={{ alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', margin: '0 4px', padding: '6px 8px', borderRadius: '8px', background: 'var(--settings-sidebar-bg, #f3f4f6)', color: 'var(--text-secondary)', fontSize: '0.68rem' }}>
                                         {msg.llm?.model && <div>{t('chat.agent_model', 'Model: {{model}}', { model: msg.llm.model })}</div>}
+                                        {msg.llm?.strategy?.mode && <div>{t('chat.agent_model_strategy', 'Strategy: {{strategy}}', {
+                                            strategy: t(`settings.ai.model_strategy.${msg.llm.strategy.mode}`, msg.llm.strategy.mode),
+                                        })}</div>}
                                         {msg.timings && (
                                             <>
                                                 <div>{t('chat.timing_total', 'Server total: {{count}} ms', { count: msg.timings.total_ms ?? 0 })}</div>
@@ -2283,6 +2375,14 @@ const AgentChat = ({
                                                 )}
                                             </div>
                                         )}
+                                        {msg.evidenceSecurity?.status === 'tainted' && (
+                                            <div style={{ marginTop: '5px' }}>
+                                                <strong>{t('chat.evidence_security_title', 'Untrusted evidence detected')}</strong>
+                                                <div>{t('chat.evidence_security_summary', '{{count}} suspicious pattern categories were isolated; authorization was not changed.', {
+                                                    count: msg.evidenceSecurity.categories?.length ?? 0,
+                                                })}</div>
+                                            </div>
+                                        )}
                                         {msg.conflicts?.count > 0 && (
                                             <div style={{ marginTop: '5px' }}>
                                                 <strong>{t('chat.conflicts_title', 'Conflicting evidence')}</strong>
@@ -2373,7 +2473,20 @@ const AgentChat = ({
                                 })}
                                 <button
                                     type="button"
-                                    onClick={() => requestAbortRef.current?.abort()}
+                                    onClick={() => {
+                                        const streamId = activeStreamRef.current;
+                                        if (streamId) {
+                                            const params = new URLSearchParams({
+                                                agent_id: selectedAgentId,
+                                                session_id: sessionId,
+                                            });
+                                            void fetch(
+                                                `/api/chat/streams/${encodeURIComponent(streamId)}/cancel?${params}`,
+                                                { method: 'POST' },
+                                            ).catch(error => console.error('Could not cancel agent stream:', error));
+                                        }
+                                        requestAbortRef.current?.abort();
+                                    }}
                                     style={{ border: 'none', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', textDecoration: 'underline', fontSize: '0.76rem' }}
                                 >
                                     {t('chat.cancel_response', 'Cancel')}

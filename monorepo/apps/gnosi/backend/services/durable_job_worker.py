@@ -8,13 +8,127 @@ from __future__ import annotations
 
 import threading
 import time
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from backend.config.logger_config import get_logger
 from backend.services import durable_job_queue
 
 log = get_logger(__name__)
+JobDispatcher = Callable[[dict[str, Any], dict[str, Any]], bool]
+
+
+@dataclass(frozen=True)
+class DurableJobDispatcherContract:
+    """Versioned execution contract owned by one durable job provider."""
+
+    job_type: str
+    provider: str
+    dispatch: JobDispatcher
+    schema_version: int = 2
+    idempotency: str = "idempotency_key_required"
+    lease_seconds: int = 300
+    max_attempts: int = 3
+    model_call_budget: int = 0
+    supports_resume: bool = True
+    supports_cancel: bool = True
+
+
+_DISPATCHERS: dict[str, DurableJobDispatcherContract] = {}
+_DISPATCHER_LOCK = threading.RLock()
+
+
+def register_job_dispatcher(
+    job_type: str | DurableJobDispatcherContract,
+    dispatcher: JobDispatcher | None = None,
+    *,
+    replace: bool = False,
+) -> None:
+    """Register a provider-owned durable queue dispatcher."""
+    contract = job_type if isinstance(job_type, DurableJobDispatcherContract) else DurableJobDispatcherContract(
+        job_type=str(job_type or ""), provider="legacy", dispatch=dispatcher, schema_version=1,
+    )
+    normalized = str(contract.job_type or "").strip().lower()
+    if not normalized or len(normalized) > 96 or not callable(contract.dispatch):
+        raise ValueError("Invalid durable job dispatcher contract.")
+    if contract.schema_version >= 2:
+        if not str(contract.provider or "").strip() or contract.idempotency != "idempotency_key_required":
+            raise ValueError("Durable job dispatcher v2 requires provider and idempotency policy.")
+        if not 10 <= int(contract.lease_seconds) <= 3_600:
+            raise ValueError("Durable job dispatcher lease is outside the supported range.")
+        if not 1 <= int(contract.max_attempts) <= 20 or not 0 <= int(contract.model_call_budget) <= 64:
+            raise ValueError("Durable job dispatcher budgets are outside the supported range.")
+    contract = DurableJobDispatcherContract(**{**contract.__dict__, "job_type": normalized})
+    with _DISPATCHER_LOCK:
+        if normalized in _DISPATCHERS and not replace:
+            raise ValueError(f"Durable job dispatcher already registered: {normalized}")
+        _DISPATCHERS[normalized] = contract
+
+
+def _notebook_dispatcher(item: dict[str, Any], payload: dict[str, Any]) -> bool:
+    vault_path = str(payload.get("vault_path") or "").strip()
+    job_id = str(payload.get("job_id") or item.get("job_id") or "").strip()
+    if not vault_path or not job_id:
+        raise ValueError("Durable notebook payload is missing vault_path or job_id.")
+    from backend.services import notebook_service
+
+    if str(item.get("job_type")) == "notebook_ingest":
+        notebook_service.launch_ingest(Path(vault_path), job_id)
+    else:
+        notebook_service.launch_analysis(Path(vault_path), job_id)
+    return True
+
+
+def _reader_dispatcher(item: dict[str, Any], payload: dict[str, Any]) -> bool:
+    vault_path = str(payload.get("vault_path") or "").strip()
+    job_id = str(payload.get("job_id") or item.get("job_id") or "").strip()
+    if not vault_path or not job_id:
+        raise ValueError("Durable Reader payload is missing vault_path or job_id.")
+    from backend.services import reader_analysis
+
+    reader_analysis._launch(  # noqa: SLF001
+        Path(vault_path), job_id,
+        model_call=reader_analysis._default_model_call,  # noqa: SLF001
+    )
+    return True
+
+
+def _ensure_dispatchers() -> None:
+    with _DISPATCHER_LOCK:
+        _DISPATCHERS.setdefault("notebook_ingest", DurableJobDispatcherContract(
+            job_type="notebook_ingest", provider="notebook", dispatch=_notebook_dispatcher,
+            model_call_budget=0,
+        ))
+        _DISPATCHERS.setdefault("notebook_analysis", DurableJobDispatcherContract(
+            job_type="notebook_analysis", provider="notebook", dispatch=_notebook_dispatcher,
+            model_call_budget=16,
+        ))
+        _DISPATCHERS.setdefault("reader_analysis", DurableJobDispatcherContract(
+            job_type="reader_analysis", provider="reader", dispatch=_reader_dispatcher,
+            model_call_budget=16,
+        ))
+
+
+def dispatcher_contracts() -> list[dict[str, Any]]:
+    """Return public metadata for diagnostics without exposing callables."""
+    _ensure_dispatchers()
+    with _DISPATCHER_LOCK:
+        contracts = list(_DISPATCHERS.values())
+    return [
+        {
+            "schema_version": item.schema_version,
+            "job_type": item.job_type,
+            "provider": item.provider,
+            "idempotency": item.idempotency,
+            "lease_seconds": item.lease_seconds,
+            "max_attempts": item.max_attempts,
+            "model_call_budget": item.model_call_budget,
+            "supports_resume": item.supports_resume,
+            "supports_cancel": item.supports_cancel,
+        }
+        for item in sorted(contracts, key=lambda value: value.job_type)
+    ]
 
 
 class DurableJobWorker:
@@ -45,58 +159,27 @@ class DurableJobWorker:
 
     def run_once(self) -> int:
         """Dispatch ready jobs and return how many were handed to providers."""
+        _ensure_dispatchers()
         durable_job_queue.reconcile_expired()
         dispatched = 0
         for item in durable_job_queue.ready_jobs(limit=32):
             job_type = str(item.get("job_type") or "")
             payload = item.get("payload") if isinstance(item.get("payload"), dict) else {}
-            if job_type in {"notebook_ingest", "notebook_analysis"}:
-                vault_path = str(payload.get("vault_path") or "").strip()
-                job_id = str(payload.get("job_id") or item.get("job_id") or "").strip()
-                if not vault_path or not job_id:
-                    log.warning("Ignoring malformed durable notebook ingestion payload")
-                    durable_job_queue.reject(
-                        str(item.get("job_id") or ""),
-                        "Durable notebook payload is missing vault_path or job_id.",
-                    )
-                    continue
-                try:
-                    from backend.services import notebook_service
-
-                    if job_type == "notebook_ingest":
-                        notebook_service.launch_ingest(Path(vault_path), job_id)
-                    else:
-                        notebook_service.launch_analysis(Path(vault_path), job_id)
-                    dispatched += 1
-                except Exception:  # noqa: BLE001
-                    log.exception("Could not dispatch durable notebook job %s", job_id)
-                continue
-            if job_type != "reader_analysis":
+            with _DISPATCHER_LOCK:
+                contract = _DISPATCHERS.get(job_type)
+            if contract is None:
                 durable_job_queue.reject(
                     str(item.get("job_id") or ""),
                     "No durable worker is registered for this job type.",
                 )
                 continue
-            vault_path = str(payload.get("vault_path") or "").strip()
-            job_id = str(payload.get("job_id") or item.get("job_id") or "").strip()
-            if not vault_path or not job_id:
-                log.warning("Ignoring malformed durable Reader job payload")
-                durable_job_queue.reject(
-                    str(item.get("job_id") or ""),
-                    "Durable Reader job payload is missing vault_path or job_id.",
-                )
-                continue
             try:
-                from backend.services import reader_analysis
-
-                reader_analysis._launch(  # noqa: SLF001
-                    Path(vault_path),
-                    job_id,
-                    model_call=reader_analysis._default_model_call,  # noqa: SLF001
-                )
-                dispatched += 1
+                if contract.dispatch(item, payload):
+                    dispatched += 1
+            except ValueError as error:
+                durable_job_queue.reject(str(item.get("job_id") or ""), str(error))
             except Exception:  # noqa: BLE001
-                log.exception("Could not dispatch durable Reader job %s", job_id)
+                log.exception("Could not dispatch durable job %s", item.get("job_id"))
         return dispatched
 
     def _run(self) -> None:

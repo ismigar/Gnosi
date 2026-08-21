@@ -129,6 +129,18 @@ class EvaluationCandidateReviewPayload(BaseModel):
     decision: str = Field(pattern=r"^(pending_review|accepted|rejected)$")
 
 
+class PersonalMemoryPayload(BaseModel):
+    """Explicit user-owned memory fields."""
+
+    model_config = ConfigDict(extra="forbid")
+    text: str = Field(min_length=1, max_length=4_000)
+    category: str = Field(default="preference", max_length=48)
+    provenance: str = Field(default="user", max_length=96)
+    expires_at: Optional[str] = Field(default=None, max_length=40)
+    enabled: bool = True
+    expected_revision: Optional[int] = Field(default=None, ge=1)
+
+
 class SemanticAssociationPayload(BaseModel):
     """One explicit, reversible personal vocabulary correction."""
 
@@ -181,6 +193,20 @@ def _automation_scope(context: WorkspaceContext) -> Dict[str, str]:
         "user_id": context.user_id,
         "role": context.role,
     }
+
+
+def _require_configured_agent(agent_id: str) -> dict[str, Any]:
+    ai = dict(load_params(strict_env=False).get("ai", {}) or {})
+    agent = next(
+        (
+            item for item in (ai.get("agents") or [])
+            if isinstance(item, dict) and str(item.get("id")) == str(agent_id)
+        ),
+        None,
+    )
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found.")
+    return agent
 
 
 @router.get("/jobs")
@@ -284,6 +310,23 @@ def get_agent_quality_dashboard(
     }
 
 
+@router.get("/quality/conformance")
+def get_agent_capability_conformance(
+    context: WorkspaceContext = Depends(require_role("admin")),
+):
+    """Report versioned skill/tool contract coverage without granting access."""
+    from backend.services.agent_capability_conformance import conformance_report
+
+    report = conformance_report(
+        get_tool_catalog().list(),
+        get_skill_catalog().list_entries(Path(context.vault_path)),
+    )
+    from backend.services.durable_job_worker import dispatcher_contracts
+
+    report["durable_job_dispatchers"] = dispatcher_contracts()
+    return report
+
+
 @router.get("/semantic-associations")
 def get_agent_semantic_associations(
     limit: int = Query(default=200, ge=1, le=500),
@@ -320,6 +363,119 @@ def remove_agent_semantic_association(
     if not delete_association(context.vault_path, association_id):
         raise HTTPException(status_code=404, detail="Semantic association not found.")
     return {"status": "deleted", "association_id": association_id}
+
+
+@router.get("/agents/{agent_id}/memories")
+def get_agent_memories(
+    agent_id: str,
+    context: WorkspaceContext = Depends(get_workspace_context),
+):
+    from backend.services.agent_personal_memory import list_memories
+
+    _require_configured_agent(agent_id)
+    return {"memories": list_memories(
+        context.vault_path, agent_id, user_id=context.user_id,
+    )}
+
+
+@router.post("/agents/{agent_id}/memories", status_code=201)
+def create_agent_memory(
+    agent_id: str,
+    payload: PersonalMemoryPayload,
+    context: WorkspaceContext = Depends(require_role("editor")),
+):
+    from backend.services.agent_personal_memory import create_memory
+
+    _require_configured_agent(agent_id)
+    try:
+        return create_memory(
+            context.vault_path, agent_id, payload.text,
+            category=payload.category, provenance=payload.provenance,
+            expires_at=payload.expires_at, user_id=context.user_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.put("/agents/{agent_id}/memories/{memory_id}")
+def edit_agent_memory(
+    agent_id: str,
+    memory_id: str,
+    payload: PersonalMemoryPayload,
+    context: WorkspaceContext = Depends(require_role("editor")),
+):
+    from backend.services.agent_personal_memory import update_memory
+
+    _require_configured_agent(agent_id)
+    if payload.expected_revision is None:
+        raise HTTPException(status_code=400, detail="expected_revision is required")
+    try:
+        return update_memory(
+            context.vault_path, agent_id, memory_id,
+            text=payload.text, category=payload.category, enabled=payload.enabled,
+            expires_at=payload.expires_at, expected_revision=payload.expected_revision,
+            user_id=context.user_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.delete("/agents/{agent_id}/memories/{memory_id}")
+def remove_agent_memory(
+    agent_id: str,
+    memory_id: str,
+    context: WorkspaceContext = Depends(require_role("editor")),
+):
+    from backend.services.agent_personal_memory import delete_memory
+
+    _require_configured_agent(agent_id)
+    if not delete_memory(
+        context.vault_path, agent_id, memory_id, user_id=context.user_id,
+    ):
+        raise HTTPException(status_code=404, detail="Memory not found.")
+    return {"status": "deleted", "memory_id": memory_id}
+
+
+@router.get("/evals/models")
+def get_model_evaluations(
+    limit: int = Query(default=50, ge=1, le=200),
+    context: WorkspaceContext = Depends(require_role("admin")),
+):
+    from backend.services.agent_model_evaluations import list_evaluations
+
+    return {"evaluations": list_evaluations(limit)}
+
+
+@router.post("/evals/models/{agent_id}/run")
+async def run_agent_model_evaluation(
+    agent_id: str,
+    context: WorkspaceContext = Depends(require_role("admin")),
+):
+    """Run explicit synthetic model calls and persist metadata-only scores."""
+    from langchain_core.messages import HumanMessage
+    from backend.agent.factory import get_llm
+    from backend.security.ai_credentials import resolve_provider_api_key
+    from backend.services.agent_model_evaluations import evaluate_with_invoker
+
+    ai = dict(load_params(strict_env=False).get("ai", {}) or {})
+    agent = _require_configured_agent(agent_id)
+    provider = str(agent.get("provider") or "")
+    model = str(agent.get("model") or "")
+    provider_config = dict((ai.get("providers") or {}).get(provider) or {})
+    llm = get_llm(
+        provider=provider, model=model,
+        api_key=resolve_provider_api_key(provider, provider_config),
+        base_url=provider_config.get("base_url"), timeout=45,
+    )
+    if llm is None:
+        raise HTTPException(status_code=409, detail="Agent model is unavailable.")
+    return await asyncio.to_thread(
+        evaluate_with_invoker,
+        provider,
+        model,
+        agent_id,
+        lambda prompt: llm.invoke([HumanMessage(content=prompt)]),
+    )
 
 
 @router.post("/evals/candidates/{candidate_id}/review")

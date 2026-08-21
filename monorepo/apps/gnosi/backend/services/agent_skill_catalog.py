@@ -20,6 +20,7 @@ from backend.models.agent_skills import (
     SkillKind,
     ToolDescriptor,
 )
+from backend.services.agent_capability_contract import validate_versioned_capability
 
 
 class CatalogConflictError(ValueError):
@@ -108,7 +109,9 @@ def _coerce_plugin_skill(plugin_id: str, value: Any) -> SkillDescriptor:
     raw = value.model_dump(mode="python") if isinstance(value, SkillDescriptor) else dict(value)
     raw["origin"] = _plugin_origin(plugin_id).model_dump(mode="python")
     try:
-        return SkillDescriptor.model_validate(raw)
+        descriptor = SkillDescriptor.model_validate(raw)
+        validate_versioned_capability(descriptor)
+        return descriptor
     except Exception as exc:
         raise CatalogProviderError(
             f"plugin {plugin_id!r} published an invalid skill: {exc}"
@@ -132,6 +135,7 @@ def _coerce_plugin_tool(plugin_id: str, value: Any) -> ToolRegistration:
     raw["origin"] = _plugin_origin(plugin_id).model_dump(mode="python")
     try:
         descriptor = ToolDescriptor.model_validate(raw)
+        validate_versioned_capability(descriptor)
     except Exception as exc:
         raise CatalogProviderError(
             f"plugin {plugin_id!r} published an invalid tool: {exc}"
@@ -162,6 +166,7 @@ def _coerce_generated_tool(value: Any) -> ToolRegistration:
     ).model_dump(mode="python")
     try:
         descriptor = ToolDescriptor.model_validate(raw)
+        validate_versioned_capability(descriptor)
     except Exception as exc:
         raise CatalogProviderError(
             f"generated tool provider published an invalid tool: {exc}"
@@ -192,6 +197,7 @@ def _coerce_mcp_tool(value: Any) -> ToolRegistration:
     ).model_dump(mode="python")
     try:
         descriptor = ToolDescriptor.model_validate(raw)
+        validate_versioned_capability(descriptor)
     except Exception as exc:
         raise CatalogProviderError(
             f"MCP tool provider published an invalid tool: {exc}"
@@ -227,6 +233,7 @@ class ToolCatalog:
             type=OriginType.CORE, id="gnosi"
         ).model_dump(mode="python")
         parsed = ToolDescriptor.model_validate(raw)
+        validate_versioned_capability(parsed)
         if handler is not None and not _is_runtime_handler(handler):
             raise TypeError(f"tool handler for {parsed.id!r} is not executable")
         with self._lock:
@@ -365,6 +372,7 @@ class SkillCatalog:
             type=OriginType.CORE, id="gnosi"
         ).model_dump(mode="python")
         parsed = SkillDescriptor.model_validate(raw)
+        validate_versioned_capability(parsed)
         with self._lock:
             if parsed.id in self._core:
                 raise CatalogConflictError(f"duplicate skill ID: {parsed.id}")
@@ -406,6 +414,7 @@ class SkillCatalog:
 
             user_skills, _ = UserSkillStore(vault_path).load_all()
             for descriptor in user_skills:
+                validate_versioned_capability(descriptor)
                 if descriptor.id in result:
                     raise CatalogConflictError(
                         f"duplicate skill ID: {descriptor.id}"

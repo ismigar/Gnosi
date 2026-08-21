@@ -87,13 +87,15 @@ def _registered_vault_paths() -> set[Path]:
 
 
 async def _confirmation_maintenance_loop() -> None:
-    """Enforce confirmation expiry and retention without user traffic."""
+    """Enforce bounded agent-state retention without user traffic."""
     from backend.agent.action_confirmations import maintain_confirmation_store
     from backend.api.vault_routes import cleanup_pending_table_asset_quarantines
+    from backend.services.agent_stream_journal import cleanup as cleanup_agent_streams
 
     while True:
         try:
             await asyncio.to_thread(maintain_confirmation_store)
+            await asyncio.to_thread(cleanup_agent_streams)
             vault_paths = await asyncio.to_thread(_registered_vault_paths)
             for vault_path in vault_paths:
                 await asyncio.to_thread(
@@ -102,7 +104,7 @@ async def _confirmation_maintenance_loop() -> None:
                 )
         except Exception as exc:  # noqa: BLE001
             log.warning("Could not maintain agent action state: %s", exc)
-        await asyncio.sleep(60 * 60)
+        await asyncio.sleep(10 * 60)
 
 
 @asynccontextmanager

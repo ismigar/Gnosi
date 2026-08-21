@@ -29,6 +29,12 @@ class JobProvider:
     resume: Optional[JobAction] = None
     cancel: Optional[JobAction] = None
     estimate: Optional[JobEstimate] = None
+    schema_version: int = 2
+    job_kinds: tuple[str, ...] = ()
+    idempotency: str = "idempotency_key_required"
+    lease_seconds: int = 300
+    max_attempts: int = 3
+    model_call_budget: int = 0
 
 
 _LOCK = threading.RLock()
@@ -69,6 +75,13 @@ def register_job_provider(provider: JobProvider, *, replace: bool = False) -> No
     normalized = _normalize_provider(provider.name)
     if normalized != provider.name:
         raise ValueError("Job provider names must already be normalized.")
+    if provider.schema_version >= 2:
+        if provider.idempotency != "idempotency_key_required":
+            raise ValueError("Durable job provider v2 requires idempotency keys.")
+        if not 10 <= int(provider.lease_seconds) <= 3_600:
+            raise ValueError("Durable job provider lease is outside the supported range.")
+        if not 1 <= int(provider.max_attempts) <= 20 or not 0 <= int(provider.model_call_budget) <= 64:
+            raise ValueError("Durable job provider budgets are outside the supported range.")
     with _LOCK:
         if normalized in _PROVIDERS and not replace:
             raise ValueError(f"Capability job provider already exists: {normalized}")
@@ -91,6 +104,8 @@ def _reader_provider() -> JobProvider:
             language=str(parameters.get("language") or "Catalan"),
             guidance=str(parameters.get("guidance") or ""),
         ) if kind == "topic_evolution" else _unsupported_kind("reader", kind),
+        job_kinds=("topic_evolution",),
+        model_call_budget=16,
     )
 
 
@@ -132,6 +147,14 @@ def _public_job(provider: JobProvider, payload: Dict[str, Any]) -> Dict[str, Any
             isinstance(row.get("retry"), dict)
             and row["retry"].get("automatic_enabled")
         ),
+    }
+    row["contract"] = {
+        "schema_version": provider.schema_version,
+        "job_kinds": list(provider.job_kinds),
+        "idempotency": provider.idempotency,
+        "lease_seconds": provider.lease_seconds,
+        "max_attempts": provider.max_attempts,
+        "model_call_budget": provider.model_call_budget,
     }
     return row
 

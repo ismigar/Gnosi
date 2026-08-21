@@ -638,6 +638,8 @@ export const boundedCitations = value => {
             title: boundedString(source?.title, 240),
             source_type: boundedString(source?.source_type, 64),
             href: boundedSourceHref(source?.href),
+            source_version: boundedString(source?.source_version, 128),
+            version_status: boundedString(source?.version_status, 32),
         })).filter(source => source.citation_id && source.title)
         : [];
     const knownIds = new Set(sources.map(source => source.citation_id));
@@ -763,6 +765,23 @@ export const boundedConflicts = value => {
     };
 };
 
+export const boundedEvidenceSecurity = value => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    return {
+        schema_version: boundedCount(value.schema_version),
+        status: boundedString(value.status, 32),
+        severity: boundedString(value.severity, 32),
+        categories: Array.isArray(value.categories)
+            ? value.categories.slice(0, 8).map(item => ({
+                category: boundedString(item?.category, 64),
+                count: boundedCount(item?.count),
+            })).filter(item => item.category)
+            : [],
+        scanned_char_bucket: boundedCount(value.scanned_char_bucket),
+        authorization_changed: Boolean(value.authorization_changed),
+    };
+};
+
 export const boundedTransparencyMetadata = value => ({
     plan: boundedTurnPlan(value?.plan),
     privacy: boundedPrivacy(value?.privacy),
@@ -773,6 +792,7 @@ export const boundedTransparencyMetadata = value => ({
     explanation: boundedExplanation(value?.explanation),
     quality: boundedQuality(value?.quality),
     conflicts: boundedConflicts(value?.conflicts),
+    evidenceSecurity: boundedEvidenceSecurity(value?.evidence_security || value?.evidenceSecurity),
 });
 
 export const isRetryableErrorCode = (value) => new Set([
