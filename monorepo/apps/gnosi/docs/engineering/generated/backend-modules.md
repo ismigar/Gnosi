@@ -20,12 +20,12 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `scheduler` | 2 | 949 |
 | `scripts` | 3 | 130 |
 | `security` | 5 | 785 |
-| `services` | 136 | 44055 |
+| `services` | 136 | 44442 |
 | `sh` | 1 | 69 |
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **266 modules** and **105833 source lines**.
+Total: **266 modules** and **106220 source lines**.
 
 ## agent
 
@@ -273,7 +273,7 @@ Total: **266 modules** and **105833 source lines**.
 | [`backend/services/llm_wiki_ai_contributions.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/llm_wiki_ai_contributions.py) | 263 | 0 | 4 | 0 | 2 | Declarative agent skills and governed tools contributed by LLM Wiki. |
 | [`backend/services/llm_wiki_assist.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/llm_wiki_assist.py) | 185 | 0 | 7 | 0 | 4 | Accessible editing for the Brain Inbox (F6). |
 | [`backend/services/llm_wiki_config.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/llm_wiki_config.py) | 462 | 0 | 29 | 0 | 12 | Per-vault configuration for the built-in LLM Wiki ("Brain") plugin. |
-| [`backend/services/llm_wiki_extractors.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/llm_wiki_extractors.py) | 807 | 1 | 30 | 0 | 6 | Ordered, provenance-preserving source extraction for LLM Wiki. |
+| [`backend/services/llm_wiki_extractors.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/llm_wiki_extractors.py) | 932 | 1 | 34 | 0 | 8 | Ordered, provenance-preserving source extraction for LLM Wiki. |
 | [`backend/services/llm_wiki_indices.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/llm_wiki_indices.py) | 923 | 0 | 44 | 0 | 17 | Deterministic managed indexes and logs for the LLM Wiki Brain table. |
 | [`backend/services/llm_wiki_lint.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/llm_wiki_lint.py) | 296 | 0 | 8 | 0 | 3 | LLM Wiki (Brain) lint — the "Lint" operation of Karpathy's pattern. |
 | [`backend/services/llm_wiki_pdf_annotations.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/llm_wiki_pdf_annotations.py) | 302 | 0 | 9 | 0 | 2 | Persistent PDF highlights generated from grounded LLM Wiki citations. |
@@ -290,7 +290,7 @@ Total: **266 modules** and **105833 source lines**.
 | [`backend/services/meeting_notes.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/meeting_notes.py) | 161 | 0 | 6 | 0 | 3 | AI-powered meeting minutes taker orchestrator. |
 | [`backend/services/meeting_reminders.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/meeting_reminders.py) | 328 | 0 | 15 | 0 | 4 | AI-powered meeting reminder engine (agenda). |
 | [`backend/services/microsoft_mail_service.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/microsoft_mail_service.py) | 397 | 0 | 20 | 0 | 8 | Microsoft Graph API mail service. |
-| [`backend/services/notebook_service.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/notebook_service.py) | 2069 | 0 | 57 | 0 | 11 | Local, revisioned storage and retrieval for grounded notebooks. |
+| [`backend/services/notebook_service.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/notebook_service.py) | 2331 | 0 | 65 | 0 | 13 | Local, revisioned storage and retrieval for grounded notebooks. |
 | [`backend/services/notion_attachments.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/notion_attachments.py) | 182 | 0 | 8 | 0 | 6 | Downloading Notion attachments (clone) → local Vault, with path rewriting. |
 | [`backend/services/notion_clone.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/notion_clone.py) | 636 | 1 | 13 | 0 | 12 | Orchestrator for the EXACT CLONE of Notion → Gnosi (into a new folder, Notion = source of truth). |
 | [`backend/services/notion_clone_verify.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/notion_clone_verify.py) | 217 | 0 | 5 | 0 | 5 | Health check of a Notion clone (Notion ↔ vault clone). |

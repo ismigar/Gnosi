@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-20
+last_verified: 2026-08-21
 source_paths:
   - backend/services/notebook_service.py
   - backend/api/notebook_routes.py
@@ -15,7 +15,9 @@ tests:
   - backend/tests/test_notebook_service.py
   - backend/tests/test_notebook_agent_context.py
   - frontend/src/components/Notebooks/NotebookCreateDialog.test.jsx
+  - frontend/src/pages/NotebooksPage.test.jsx
   - frontend/src/lib/notebookTableActions.test.js
+  - e2e/tests/e2e/notebooks.spec.ts
 ---
 
 # Carnets fondés sur les sources
@@ -77,6 +79,14 @@ leurs fragments; seules les sources modifiées sont extraites à nouveau. Une
 révision incomplète n'est jamais rendue visible. Après la première révision
 réussie, la conversation continue d'utiliser la dernière révision complète
 pendant le rafraîchissement.
+
+Les sources URL ne sont revalidées qu'après
+`GNOSI_NOTEBOOK_URL_REFRESH_TTL_SECONDS` (six heures par défaut). Gnosi envoie
+les validateurs ETag et Last-Modified enregistrés via le même téléchargeur
+protégé contre le SSRF et validant les redirections. Si le serveur ne fournit
+pas de validateurs, un hachage borné du contenu est comparé. Une vérification
+sans changement est enregistrée, mais n'active pas de nouvelle révision de
+preuves.
 
 Retirer une Ressource supprime immédiatement son appartenance au carnet. La
 recherche et l'analyse globale vérifient l'ensemble actuel des membres; les
@@ -171,11 +181,21 @@ sélection et n'entrent jamais dans les preuves. Les pages marquées comme
 modèles de table sont exclues du sélecteur, de la validation des requêtes et
 des instantanés d'ingestion.
 
+Les enregistrements sans pièce jointe ni URL HTTP publique sont également
+exclus; le sélecteur indique combien ont été omis au lieu de proposer un choix
+inutilisable.
+
 Sur ordinateur, les sources, la conversation intégrée et les paramètres sont
 affichés ensemble. Sur mobile, ces panneaux deviennent des onglets. L'interface
 ne sonde que le carnet actif et visible : un intervalle court suit l'ingestion
 tant qu'une tâche est active, et un intervalle borné actualise la conversation
 collaborative. Les carnets inactifs ne sont pas interrogés.
+
+Les lecteurs de l'espace de travail voient la conversation canonique dans un
+chat clairement en lecture seule, sans zone de saisie ni actions de nouvelle
+tentative, de modification ou de retour en arrière. Seuls les éditeurs peuvent
+envoyer un tour, et seul le créateur voit le rafraîchissement manuel et les
+autres contrôles de gestion.
 
 ## Comportement et opérations en cas de défaillance
 
@@ -196,11 +216,14 @@ chemins dérivés de la configuration fonctionnent en déploiement natif et Dock
 Les tests unitaires prouvent l'exclusion des champs non sources, la réutilisation
 incrémentale, le retrait immédiat des membres, l'identité des citations,
 l'isolation des ACL, les espaces de noms de checkpoint, la validation positive
-des révisions, les outils en lecture seule et l'analyse durable épinglée. Les
-tests frontend vérifient le prédicat de l'action multiple lié à la table, les
-filtres du sélecteur dérivés du schéma et le contrat exact des identifiants
-sélectionnés. La validation de livraison exige aussi un démarrage backend
-propre, le build frontend et un parcours navigateur sur ordinateur et mobile.
+des révisions, les outils en lecture seule et l'analyse durable épinglée. Ils
+couvrent également PDF, URL, OCR, grands fragments, reprise des baux expirés,
+validation web conditionnelle et ingestion réelle de 300 Ressources. Vitest et
+Playwright vérifient les permissions en lecture seule, l'exclusion des
+Ressources vides, la conversation fondée, une citation navigable et le
+rafraîchissement automatique. La validation de livraison exige aussi un
+démarrage backend propre, le build frontend et un parcours navigateur sur
+ordinateur et mobile.
 
 Les limites actuelles sont de mille Ressources par requête de création ou
 d'ajout, deux cents lignes de sélection par page, cinquante résultats de

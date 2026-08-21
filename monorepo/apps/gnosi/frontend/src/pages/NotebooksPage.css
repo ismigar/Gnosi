@@ -68,6 +68,7 @@
 .notebook-resource-filters { min-width: 0; margin: 0; padding: .65rem; border: 1px solid var(--border-primary); border-radius: .7rem; }
 .notebook-resource-filters legend { padding: 0 .25rem; color: var(--text-secondary); font-size: .68rem; font-weight: 700; }
 .notebook-resource-picker > .notebook-resource-filters { border-width: 0 0 1px; border-radius: 0; }
+.notebook-resource-picker__notice { margin: 0; padding: .5rem .7rem; border-bottom: 1px solid var(--border-primary); color: var(--text-secondary); background: color-mix(in srgb, var(--gnosi-primary) 5%, var(--bg-primary)); font-size: .7rem; line-height: 1.35; }
 .notebook-resource-filters__controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); align-items: end; gap: .55rem; }
 .notebook-resource-filter { display: grid; min-width: 0; gap: .28rem; color: var(--text-secondary); font-size: .66rem; font-weight: 700; }
 .notebook-resource-filter select { width: 100%; min-width: 0; padding: .5rem 1.8rem .5rem .6rem; border: 1px solid var(--border-primary); border-radius: .55rem; outline: none; background: var(--bg-primary); color: var(--text-primary); font-size: .72rem; font-weight: 500; }

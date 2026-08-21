@@ -7,12 +7,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import sqlite3
 import threading
 import unicodedata
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable, Optional
 from urllib.parse import urlencode
@@ -129,6 +130,8 @@ def _ensure_schema(connection: sqlite3.Connection) -> None:
                 resource_id TEXT NOT NULL,
                 ordinal INTEGER NOT NULL,
                 fingerprint TEXT,
+                url_validators_json TEXT NOT NULL DEFAULT '{}',
+                url_checked_at TEXT,
                 state TEXT NOT NULL DEFAULT 'pending',
                 error TEXT,
                 updated_at TEXT NOT NULL,
@@ -226,6 +229,20 @@ def _ensure_schema(connection: sqlite3.Connection) -> None:
             );
             """
         )
+        resource_columns = {
+            str(row[1])
+            for row in connection.execute("PRAGMA table_info(notebook_resources)")
+        }
+        if "url_validators_json" not in resource_columns:
+            connection.execute(
+                "ALTER TABLE notebook_resources ADD COLUMN "
+                "url_validators_json TEXT NOT NULL DEFAULT '{}'"
+            )
+        if "url_checked_at" not in resource_columns:
+            connection.execute(
+                "ALTER TABLE notebook_resources ADD COLUMN url_checked_at TEXT"
+            )
+        connection.commit()
 
 
 def _row_dict(row: Optional[sqlite3.Row]) -> Optional[dict[str, Any]]:
@@ -573,6 +590,44 @@ def _resource_facets(rows: list[tuple[Any, dict[str, list[str]]]]) -> dict[str, 
     return result
 
 
+def _source_property_ids(source_config: dict[str, Any]) -> list[str]:
+    """Return the configured attachment and URL property identifiers."""
+    return [
+        *(str(value) for value in source_config.get("attachment_property_ids") or []),
+        *(str(value) for value in source_config.get("url_property_ids") or []),
+    ]
+
+
+def _resource_source_count(
+    metadata: dict[str, Any],
+    table: dict[str, Any],
+    source_config: dict[str, Any],
+) -> int:
+    """Count usable attachment and public HTTP URL cell values for a Resource."""
+    props_by_id = {
+        str(prop.get("id") or ""): prop
+        for prop in table.get("properties") or []
+        if isinstance(prop, dict)
+    }
+    count = 0
+    attachment_ids = {
+        str(value) for value in source_config.get("attachment_property_ids") or []
+    }
+    for prop_id in _source_property_ids(source_config):
+        values = llm_wiki_extractors._values_for_property(  # noqa: SLF001
+            metadata,
+            props_by_id.get(prop_id),
+        )
+        if prop_id in attachment_ids:
+            count += len(values)
+        else:
+            count += sum(
+                value.lower().startswith(("http://", "https://"))
+                for value in values
+            )
+    return count
+
+
 def list_reference_resources(
     context: WorkspaceContext,
     *,
@@ -604,6 +659,16 @@ def list_reference_resources(
         resources = [item for item in resources if str(item.id) not in associated]
     source_config = llm_wiki_config.auto_detect_source(table)
     source_config["include_body"] = False
+    source_counts = {
+        str(resource.id): _resource_source_count(
+            resource.metadata or {}, table, source_config
+        )
+        for resource in resources
+    }
+    hidden_without_sources = sum(count == 0 for count in source_counts.values())
+    resources = [
+        resource for resource in resources if source_counts[str(resource.id)] > 0
+    ]
     normalized_query = _bounded_text(query, 200).casefold()
     if normalized_query:
         resources = [item for item in resources if normalized_query in str(item.title or "").casefold()]
@@ -649,25 +714,12 @@ def list_reference_resources(
     total = len(rows)
     selected = rows[(page - 1) * page_size:page * page_size]
     items = []
-    props_by_id = {
-        str(prop.get("id") or ""): prop
-        for prop in table.get("properties") or []
-        if isinstance(prop, dict)
-    }
-    source_property_ids = [
-        *(source_config.get("attachment_property_ids") or []),
-        *(source_config.get("url_property_ids") or []),
-    ]
     for resource, filter_values in selected:
-        source_count = sum(
-            len(llm_wiki_extractors._values_for_property(resource.metadata, props_by_id.get(str(prop_id))))  # noqa: SLF001
-            for prop_id in source_property_ids
-        )
         items.append({
             "id": str(resource.id),
             "title": str(resource.title or resource.id),
             "last_modified": resource.last_modified,
-            "source_count": source_count,
+            "source_count": source_counts[str(resource.id)],
             "resource_type": filter_values["type"][0] if filter_values["type"] else None,
             "authors": filter_values["author"],
             "tags": filter_values["tag"],
@@ -678,20 +730,30 @@ def list_reference_resources(
         "page_size": page_size,
         "total": total,
         "table_id": table_id,
-        "source_fields": len(source_property_ids),
+        "source_fields": len(_source_property_ids(source_config)),
+        "hidden_without_sources": hidden_without_sources,
         "facets": facets,
     }
 
 
 def _validate_current_resources(resource_ids: Iterable[Any]) -> tuple[str, list[str]]:
     normalized = _normalize_resource_ids(resource_ids)
-    table_id, _table, pages = _reference_table()
-    available = {str(page.id) for page in _selectable_reference_pages(pages)}
+    table_id, table, pages = _reference_table()
+    source_config = llm_wiki_config.auto_detect_source(table)
+    source_config["include_body"] = False
+    available = {
+        str(page.id)
+        for page in _selectable_reference_pages(pages)
+        if _resource_source_count(page.metadata or {}, table, source_config) > 0
+    }
     missing = [resource_id for resource_id in normalized if resource_id not in available]
     if missing:
         raise HTTPException(
             status_code=400,
-            detail=f"{len(missing)} selected Resources do not belong to the configured References table.",
+            detail=(
+                f"{len(missing)} selected Resources do not belong to the configured "
+                "References table or have no attachment or URL sources."
+            ),
         )
     return table_id, normalized
 
@@ -986,6 +1048,130 @@ def resource_fingerprint(
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest(), has_url
 
 
+def _url_refresh_ttl() -> timedelta:
+    raw = str(os.environ.get("GNOSI_NOTEBOOK_URL_REFRESH_TTL_SECONDS", "21600"))
+    try:
+        seconds = int(raw)
+    except ValueError:
+        seconds = 21_600
+    return timedelta(seconds=max(60, min(seconds, 604_800)))
+
+
+def _url_refresh_due(resource: sqlite3.Row | dict[str, Any], has_url: bool) -> bool:
+    if not has_url:
+        return False
+    try:
+        checked_at = str(resource["url_checked_at"] or "")
+    except (KeyError, IndexError):
+        checked_at = ""
+    if not checked_at:
+        return True
+    try:
+        checked = datetime.fromisoformat(checked_at.replace("Z", "+00:00"))
+        if checked.tzinfo is None:
+            checked = checked.replace(tzinfo=timezone.utc)
+    except ValueError:
+        return True
+    return datetime.now(timezone.utc) - checked.astimezone(timezone.utc) >= _url_refresh_ttl()
+
+
+def _url_values(
+    metadata: dict[str, Any],
+    table: dict[str, Any],
+    source_config: dict[str, Any],
+) -> list[str]:
+    return [
+        value
+        for kind, value in _property_values(metadata, table, source_config)
+        if kind == "url"
+    ]
+
+
+def _load_url_validators(resource: sqlite3.Row | dict[str, Any]) -> dict[str, dict[str, str]]:
+    try:
+        raw = resource["url_validators_json"]
+    except (KeyError, IndexError):
+        raw = "{}"
+    try:
+        parsed = json.loads(str(raw or "{}"))
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(parsed, dict):
+        return {}
+    return {
+        str(url): {
+            str(key): str(value or "")[:1_000]
+            for key, value in metadata.items()
+            if key in {
+                "final_url", "etag", "last_modified", "content_hash", "checked_at"
+            }
+        }
+        for url, metadata in parsed.items()
+        if isinstance(metadata, dict)
+    }
+
+
+def _probe_resource_urls(
+    urls: list[str],
+    previous: dict[str, dict[str, str]],
+) -> tuple[bool, dict[str, dict[str, str]]]:
+    changed = False
+    current: dict[str, dict[str, str]] = {}
+    for url in urls:
+        cached = previous.get(url, {})
+        if llm_wiki_extractors.is_streaming_url(url):
+            changed = True
+            current[url] = cached
+            continue
+        result = llm_wiki_extractors.probe_public_url(
+            url,
+            etag=cached.get("etag", ""),
+            last_modified=cached.get("last_modified", ""),
+            content_hash=cached.get("content_hash", ""),
+        )
+        changed = changed or bool(result.get("changed"))
+        current[url] = {
+            "final_url": str(result.get("final_url") or url)[:4_000],
+            "etag": str(result.get("etag") or "")[:1_000],
+            "last_modified": str(result.get("last_modified") or "")[:1_000],
+            "content_hash": str(result.get("content_hash") or "")[:128],
+            "checked_at": str(result.get("checked_at") or _now()),
+        }
+    return changed, current
+
+
+def _url_validators_from_origins(
+    urls: list[str],
+    origins: list[dict[str, Any]],
+    previous: dict[str, dict[str, str]],
+) -> dict[str, dict[str, str]]:
+    discovered: dict[str, dict[str, str]] = {}
+    for origin in origins:
+        candidates = [{
+            "requested_url": origin.get("requested_url"),
+            "final_url": origin.get("http_final_url"),
+            "etag": origin.get("http_etag"),
+            "last_modified": origin.get("http_last_modified"),
+            "content_hash": origin.get("http_content_hash"),
+            "checked_at": origin.get("http_checked_at"),
+        }, *(origin.get("http_sources") or [])]
+        for item in candidates:
+            requested_url = str(item.get("requested_url") or "")
+            if not requested_url:
+                continue
+            discovered[requested_url] = {
+                "final_url": str(item.get("final_url") or requested_url)[:4_000],
+                "etag": str(item.get("etag") or "")[:1_000],
+                "last_modified": str(item.get("last_modified") or "")[:1_000],
+                "content_hash": str(item.get("content_hash") or "")[:128],
+                "checked_at": str(item.get("checked_at") or _now()),
+            }
+    return {
+        url: discovered.get(url, previous.get(url, {}))
+        for url in urls
+    }
+
+
 def _current_resource_snapshot(notebook: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any], list[Any]]:
     from backend.api.vault_routes import _get_pages_for_table, _table_by_id
 
@@ -1003,7 +1189,8 @@ def _needs_refresh(notebook: dict[str, Any]) -> bool:
     pages_by_id = {str(page.id): page for page in pages}
     with _connect() as connection:
         resources = connection.execute(
-            "SELECT resource_id,fingerprint FROM notebook_resources WHERE notebook_id=?",
+            """SELECT resource_id,fingerprint,url_checked_at
+            FROM notebook_resources WHERE notebook_id=?""",
             (notebook["id"],),
         ).fetchall()
     if notebook.get("active_revision") is None:
@@ -1016,7 +1203,9 @@ def _needs_refresh(notebook: dict[str, Any]) -> bool:
             page.metadata or {}, table, source_config, Path(notebook["vault_path"])
             if notebook.get("vault_path") else Path(".")
         )
-        if has_url or fingerprint != str(resource["fingerprint"] or ""):
+        if fingerprint != str(resource["fingerprint"] or ""):
+            return True
+        if _url_refresh_due(resource, has_url):
             return True
     return False
 
@@ -1074,6 +1263,7 @@ def request_refresh(
         "workspace_id": context.workspace_id,
         "requested_by": context.user_id,
         "reason": _bounded_text(reason, 80, "refresh"),
+        "force": bool(force),
     }
     durable_job_queue.enqueue(
         "notebook_ingest",
@@ -1130,7 +1320,7 @@ def _insert_source(
     for ordinal, chunk in enumerate(chunks):
         segments = chunk.get("segments") or []
         text = "\n\n".join(
-            str(segment.get("text") or "").strip()
+            str(segment.get("text") or "")
             for segment in segments
             if str(segment.get("text") or "").strip()
         )
@@ -1294,6 +1484,7 @@ def _run_ingest(vault_path: Path, job_id: str, worker_id: str) -> dict[str, Any]
         raise RuntimeError("Notebook ingestion payload is unavailable.")
     notebook_id = str(payload.get("notebook_id") or "")
     revision = int(payload.get("revision") or 0)
+    force_url_check = bool(payload.get("force"))
     notebook = _notebook_row(notebook_id)
     from backend.services.context_vars import active_vault_path
 
@@ -1324,14 +1515,21 @@ def _run_ingest(vault_path: Path, job_id: str, worker_id: str) -> dict[str, Any]
         active_revision = notebook.get("active_revision")
         available_sources = 0
         error_sources = 0
+        changed_any = active_revision is None or str(payload.get("reason") or "") in {
+            "source_removed",
+            "sources_added",
+        }
         for index, resource in enumerate(resources, start=1):
             resource_id = str(resource["resource_id"])
             page = pages_by_id.get(resource_id)
             state = "available"
             error: Optional[str] = None
             fingerprint = ""
+            url_validators = _load_url_validators(resource)
+            url_checked_at = str(resource["url_checked_at"] or "") or None
             with _WRITE_LOCK, _connect() as connection:
                 if page is None:
+                    changed_any = True
                     error = "The Resource no longer exists in the notebook source table."
                     copied = 0
                     if active_revision is not None:
@@ -1361,11 +1559,32 @@ def _run_ingest(vault_path: Path, job_id: str, worker_id: str) -> dict[str, Any]
                     fingerprint, has_url = resource_fingerprint(
                         page.metadata or {}, table, source_config, Path(vault_path)
                     )
+                    urls = _url_values(page.metadata or {}, table, source_config)
+                    fingerprint_changed = fingerprint != str(resource["fingerprint"] or "")
                     can_reuse = (
                         active_revision is not None
-                        and not has_url
-                        and fingerprint == str(resource["fingerprint"] or "")
+                        and not fingerprint_changed
                     )
+                    if can_reuse and has_url and (
+                        force_url_check or _url_refresh_due(resource, has_url)
+                    ):
+                        try:
+                            url_changed, url_validators = _probe_resource_urls(
+                                urls,
+                                url_validators,
+                            )
+                            url_checked_at = _now()
+                            can_reuse = not url_changed
+                            changed_any = changed_any or url_changed
+                        except Exception as exc:  # noqa: BLE001
+                            log.warning(
+                                "Notebook URL revalidation failed for Resource %s: %s",
+                                resource_id,
+                                exc,
+                            )
+                            can_reuse = False
+                    if fingerprint_changed:
+                        changed_any = True
                     copied = 0
                     if can_reuse:
                         copied = _copy_resource_revision(
@@ -1378,6 +1597,7 @@ def _run_ingest(vault_path: Path, job_id: str, worker_id: str) -> dict[str, Any]
                     if copied:
                         available_sources += copied
                     else:
+                        changed_any = True
                         origins, warnings = llm_wiki_extractors.extract_resource_sources(
                             page.metadata or {},
                             "",
@@ -1385,6 +1605,12 @@ def _run_ingest(vault_path: Path, job_id: str, worker_id: str) -> dict[str, Any]
                             table,
                             source_config,
                         )
+                        url_validators = _url_validators_from_origins(
+                            urls,
+                            origins,
+                            url_validators,
+                        )
+                        url_checked_at = _now() if has_url else None
                         for origin in origins:
                             _insert_source(
                                 connection,
@@ -1437,9 +1663,19 @@ def _run_ingest(vault_path: Path, job_id: str, worker_id: str) -> dict[str, Any]
                         elif warnings:
                             state = "stale"
                 connection.execute(
-                    """UPDATE notebook_resources SET fingerprint=?,state=?,error=?,updated_at=?
+                    """UPDATE notebook_resources SET fingerprint=?,url_validators_json=?,
+                    url_checked_at=?,state=?,error=?,updated_at=?
                     WHERE notebook_id=? AND resource_id=?""",
-                    (fingerprint, state, error, _now(), notebook_id, resource_id),
+                    (
+                        fingerprint,
+                        json.dumps(url_validators, ensure_ascii=False, separators=(",", ":")),
+                        url_checked_at,
+                        state,
+                        error,
+                        _now(),
+                        notebook_id,
+                        resource_id,
+                    ),
                 )
                 connection.execute(
                     """UPDATE notebook_revisions SET processed_resources=?,
@@ -1451,7 +1687,32 @@ def _run_ingest(vault_path: Path, job_id: str, worker_id: str) -> dict[str, Any]
                 durable_job_queue.heartbeat(job_id, worker_id)
         with _WRITE_LOCK, _connect() as connection:
             completed_at = _now()
-            if available_sources > 0:
+            if (
+                available_sources > 0
+                and active_revision is not None
+                and not changed_any
+                and error_sources == 0
+            ):
+                connection.execute(
+                    "DELETE FROM notebook_chunks_fts WHERE notebook_id=? AND revision=?",
+                    (notebook_id, revision),
+                )
+                connection.execute(
+                    "DELETE FROM notebook_sources WHERE notebook_id=? AND revision=?",
+                    (notebook_id, revision),
+                )
+                connection.execute(
+                    """UPDATE notebook_revisions SET state='unchanged',completed_at=?,
+                    available_sources=0,error_sources=0 WHERE notebook_id=? AND revision=?""",
+                    (completed_at, notebook_id, revision),
+                )
+                connection.execute(
+                    """UPDATE notebooks SET status='available',last_error=NULL,
+                    updated_at=? WHERE id=?""",
+                    (completed_at, notebook_id),
+                )
+                revision = int(active_revision)
+            elif available_sources > 0:
                 connection.execute(
                     """UPDATE notebook_revisions SET state='completed',completed_at=?,
                     available_sources=?,error_sources=? WHERE notebook_id=? AND revision=?""",
@@ -1489,6 +1750,7 @@ def _run_ingest(vault_path: Path, job_id: str, worker_id: str) -> dict[str, Any]
             "revision": revision,
             "available_sources": available_sources,
             "error_sources": error_sources,
+            "unchanged": bool(active_revision is not None and not changed_any and error_sources == 0),
         }
     finally:
         active_vault_path.reset(token)

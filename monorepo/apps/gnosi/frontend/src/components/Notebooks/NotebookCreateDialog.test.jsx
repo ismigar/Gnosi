@@ -36,6 +36,35 @@ afterEach(async () => {
 });
 
 describe('NotebookCreateDialog', () => {
+    it('explains why Resources without attachment or URL sources are omitted', async () => {
+        globalThis.fetch = vi.fn().mockResolvedValue({
+            ok: true,
+            json: vi.fn().mockResolvedValue({
+                items: [{ id: 'resource-1', title: 'Paper', source_count: 1 }],
+                total: 1,
+                page: 1,
+                page_size: 50,
+                hidden_without_sources: 3,
+            }),
+        });
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const root = createRoot(container);
+        mountedRoots.push({ root, container });
+
+        await act(async () => {
+            root.render(<NotebookCreateDialog isOpen onClose={vi.fn()} onCreated={vi.fn()} />);
+        });
+        await act(async () => {
+            await new Promise((resolve) => window.setTimeout(resolve, 220));
+        });
+
+        expect(container.textContent).toContain(
+            '3 Resources are not shown because they have no attachments or URLs.',
+        );
+        expect(container.textContent).toContain('Paper');
+    });
+
     it('exposes dialog semantics, closes with Escape, and does not close from the backdrop', async () => {
         globalThis.fetch = vi.fn().mockResolvedValue({
             ok: true,

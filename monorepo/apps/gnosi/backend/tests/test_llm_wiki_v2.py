@@ -5,6 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+import requests
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -532,6 +533,64 @@ def test_public_url_helpers_detect_podcast_media_and_block_local_ssrf(monkeypatc
     )
     with pytest.raises(llm_wiki_extractors.ExtractionError, match="Unsafe URL blocked"):
         llm_wiki_extractors._download_public_url("http://127.0.0.1/private")  # noqa: SLF001
+
+
+def test_public_url_probe_uses_conditional_validators_and_accepts_not_modified(
+    monkeypatch,
+):
+    from backend.agent import web_context
+
+    monkeypatch.setattr(web_context, "is_public_http_url", lambda _url: (True, ""))
+    captured_headers = {}
+
+    def not_modified(_url, **kwargs):
+        captured_headers.update(kwargs["headers"])
+        response = requests.Response()
+        response.status_code = 304
+        response.headers.update({
+            "ETag": '"version-1"',
+            "Last-Modified": "Wed, 20 Aug 2026 10:00:00 GMT",
+        })
+        response._content = b""  # noqa: SLF001
+        return response
+
+    monkeypatch.setattr(llm_wiki_extractors.requests, "get", not_modified)
+
+    result = llm_wiki_extractors.probe_public_url(
+        "https://example.org/article",
+        etag='"version-1"',
+        last_modified="Wed, 20 Aug 2026 10:00:00 GMT",
+        content_hash="existing-hash",
+    )
+
+    assert result["changed"] is False
+    assert result["content_hash"] == "existing-hash"
+    assert captured_headers["If-None-Match"] == '"version-1"'
+    assert captured_headers["If-Modified-Since"] == "Wed, 20 Aug 2026 10:00:00 GMT"
+
+
+def test_public_url_probe_falls_back_to_content_hash(monkeypatch):
+    from backend.agent import web_context
+
+    monkeypatch.setattr(web_context, "is_public_http_url", lambda _url: (True, ""))
+    content = b"Stable source content"
+
+    def unchanged_content(_url, **_kwargs):
+        response = requests.Response()
+        response.status_code = 200
+        response.headers.update({"Content-Type": "text/plain"})
+        response._content = content  # noqa: SLF001
+        response.iter_content = lambda **_kwargs: iter([content])
+        return response
+
+    monkeypatch.setattr(llm_wiki_extractors.requests, "get", unchanged_content)
+
+    result = llm_wiki_extractors.probe_public_url(
+        "https://example.org/article",
+        content_hash=llm_wiki_extractors.hashlib.sha256(content).hexdigest(),
+    )
+
+    assert result["changed"] is False
 
 
 def test_plan_validation_requires_exact_evidence_and_preserves_source_order():

@@ -156,7 +156,7 @@ function NotebookLibrary({ onCreate }) {
 function AddResourcesDialog({ notebookId, currentIds, onClose, onAdded }) {
     const { t } = useTranslation();
     const [query, setQuery] = useState('');
-    const [data, setData] = useState({ items: [], total: 0, page: 1, page_size: 50, facets: EMPTY_RESOURCE_FACETS });
+    const [data, setData] = useState({ items: [], total: 0, page: 1, page_size: 50, facets: EMPTY_RESOURCE_FACETS, hidden_without_sources: 0 });
     const [filters, setFilters] = useState({ ...EMPTY_RESOURCE_FILTERS });
     const [selected, setSelected] = useState(new Set());
     const [saving, setSaving] = useState(false);
@@ -183,6 +183,7 @@ function AddResourcesDialog({ notebookId, currentIds, onClose, onAdded }) {
                 page: Number(responseData.page) || data.page,
                 page_size: Number(responseData.page_size) || 50,
                 facets: normalizeResourceFacets(responseData.facets),
+                hidden_without_sources: Number(responseData.hidden_without_sources) || 0,
             }))
             .catch((error) => { if (error.name !== 'AbortError') console.error('Could not load Resources', error); });
         return () => controller.abort();
@@ -236,6 +237,15 @@ function AddResourcesDialog({ notebookId, currentIds, onClose, onAdded }) {
                         onChange={updateFilter}
                         disabled={saving}
                     />
+                    {data.hidden_without_sources > 0 && (
+                        <p className="notebook-resource-picker__notice" role="status">
+                            {t(
+                                'notebooks.resources_without_sources_hidden',
+                                '{{count}} Resources are not shown because they have no attachments or URLs.',
+                                { count: data.hidden_without_sources },
+                            )}
+                        </p>
+                    )}
                     <div className="notebook-resource-picker__list notebook-resource-picker__list--add">
                         {data.items.map((resource) => {
                             const checked = selected.has(String(resource.id));
@@ -260,7 +270,7 @@ function AddResourcesDialog({ notebookId, currentIds, onClose, onAdded }) {
     );
 }
 
-function NotebookDetail({ notebookId }) {
+export function NotebookDetail({ notebookId }) {
     const { t } = useTranslation();
     const navigate = useNavigate();
     const [notebook, setNotebook] = useState(null);
@@ -324,12 +334,16 @@ function NotebookDetail({ notebookId }) {
         setNotebook(await response.json());
     };
     const refresh = async () => {
-        const response = await fetch(`/api/notebooks/${encodeURIComponent(notebookId)}/refresh`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ force: true, reason: 'manual' }),
-        });
-        if (response.ok) {
+        try {
+            const response = await fetch(`/api/notebooks/${encodeURIComponent(notebookId)}/refresh`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ force: true, reason: 'manual' }),
+            });
+            if (!response.ok) throw new Error(`Notebook refresh failed (${response.status})`);
             toast.success(t('notebooks.refresh_started', 'Refresh started.'));
             void load({ refresh: false });
+        } catch (error) {
+            console.error('Could not refresh notebook', error);
+            toast.error(t('notebooks.refresh_error', 'The notebook refresh could not be started.'));
         }
     };
     const remove = async (resourceId) => {
@@ -378,7 +392,7 @@ function NotebookDetail({ notebookId }) {
                     <div><StatusBadge status={notebook.status} /><span>{t('notebooks.revision_label', 'Revision {{revision}}', { revision: notebook.active_revision || '—' })}</span></div>
                 </div>
                 <div className="notebook-detail__actions">
-                    <button className="btn-gnosi" onClick={refresh}><RefreshCw size={15} />{t('notebooks.refresh', 'Refresh')}</button>
+                    {notebook.can_manage && <button className="btn-gnosi" onClick={refresh}><RefreshCw size={15} />{t('notebooks.refresh', 'Refresh')}</button>}
                     {notebook.can_manage && <button className="notebook-icon-button notebook-icon-button--danger" onClick={() => setShowDelete(true)} aria-label={t('notebooks.delete', 'Delete notebook')}><Trash2 size={17} /></button>}
                 </div>
             </header>
@@ -434,6 +448,7 @@ function NotebookDetail({ notebookId }) {
                             notebookId={notebook.id}
                             conversationMode={notebook.conversation_mode}
                             contextRefs={chatContext}
+                            readOnly={!notebook.can_chat}
                         />
                     ) : <div className="notebook-chat-blocked"><LoaderCircle size={26} className={notebook.status !== 'error' ? 'animate-spin' : ''} /><h2>{t('notebooks.chat_preparing_title', 'Preparing the first sources')}</h2><p>{t('notebooks.chat_preparing_description', 'Conversation becomes available when at least one source has been indexed.')}</p></div>}
                 </section>

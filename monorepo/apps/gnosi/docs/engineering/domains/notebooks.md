@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-20
+last_verified: 2026-08-21
 source_paths:
   - backend/services/notebook_service.py
   - backend/api/notebook_routes.py
@@ -15,7 +15,9 @@ tests:
   - backend/tests/test_notebook_service.py
   - backend/tests/test_notebook_agent_context.py
   - frontend/src/components/Notebooks/NotebookCreateDialog.test.jsx
+  - frontend/src/pages/NotebooksPage.test.jsx
   - frontend/src/lib/notebookTableActions.test.js
+  - e2e/tests/e2e/notebooks.spec.ts
 ---
 
 # Grounded notebooks
@@ -73,6 +75,13 @@ triggers are coalesced by the durable job queue. Unchanged sources reuse their
 chunks; changed sources are re-extracted. An incomplete revision is never made
 visible. After the first successful revision, chat continues against the last
 complete revision while a refresh runs.
+
+URL sources are revalidated only after
+`GNOSI_NOTEBOOK_URL_REFRESH_TTL_SECONDS` (six hours by default). Gnosi sends
+persisted ETag and Last-Modified validators through the same SSRF-safe,
+redirect-validating downloader and falls back to a bounded response-content
+hash when a server does not provide validators. An unchanged check records an
+audit outcome but does not activate a new evidence revision.
 
 Removing a Resource deletes notebook membership immediately. Retrieval and
 whole-notebook analysis join against current membership, so removed evidence is
@@ -158,12 +167,18 @@ the full matching catalog accent-insensitively before pagination and expose
 schema-derived type, author, and tag filters. Filter metadata is selection-only
 and never enters notebook evidence. Pages marked as table templates are
 excluded by the selector, request validation, and ingestion snapshots.
+Records with no attachment or public HTTP URL values are also excluded; the
+selector reports how many were omitted instead of offering an unusable choice.
 
 Desktop layout shows sources, embedded chat, and settings together. Mobile
 layout presents the same panels as tabs. The UI polls only the visible active
 notebook: ingestion progress uses a short interval while a job is active, and
 the transcript uses a bounded interval for collaborative updates. Inactive
 notebooks are not polled.
+
+Workspace viewers receive the canonical transcript in a visibly read-only
+chat without composer, retry, edit, or rewind actions. Only editors can send a
+turn, and only the creator sees manual refresh and other management controls.
 
 ## Failure behavior and operations
 
@@ -183,8 +198,11 @@ and Docker deployments.
 Unit coverage proves source-field exclusion, incremental reuse, immediate
 membership removal, citation identity, ACL isolation, checkpoint namespaces,
 positive revision validation, read-only notebook tools, and durable pinned
-analysis. Frontend coverage proves the configured-table bulk-action predicate,
-schema-derived selector filters, and exact selected-ID creation contract.
+analysis. It also exercises PDF, URL, OCR, large-chunk, expired-lease recovery,
+conditional web validation, and a 300-Resource ingestion job. Frontend and
+Playwright coverage prove read-only permissions, omitted empty Resources, the
+configured-table bulk action, selectors, grounded chat, a navigable citation,
+and automatic source refresh.
 Release verification also requires a clean backend start, frontend build, and
 desktop plus mobile browser flow.
 
