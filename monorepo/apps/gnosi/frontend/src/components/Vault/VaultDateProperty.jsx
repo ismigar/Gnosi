@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Calendar as CalendarIcon, ChevronDown, Clock, Repeat, Search, X } from 'lucide-react';
 import { useLocaleSettings } from '../../hooks/useLocaleSettings';
@@ -54,6 +54,15 @@ const PLANNING_CONSTRAINT_OPTIONS = [
     ['MFO', 'vault_date.period_constraint_option_mfo'],
 ];
 
+const PLANNING_CONSTRAINTS_REQUIRING_DATE = new Set([
+    'SNET',
+    'SNLT',
+    'FNET',
+    'FNLT',
+    'MSO',
+    'MFO',
+]);
+
 export const VaultDateProperty = ({
     value,
     onChange,
@@ -77,11 +86,17 @@ export const VaultDateProperty = ({
     const [periodDrafts, setPeriodDrafts] = useState({});
     const [predecessorOpen, setPredecessorOpen] = useState(false);
     const [showConstraintHelp, setShowConstraintHelp] = useState(false);
+    const [showAllConstraintRules, setShowAllConstraintRules] = useState(false);
+    const [showConstraintDateHelp, setShowConstraintDateHelp] = useState(false);
     const [showDurationHelp, setShowDurationHelp] = useState(false);
     const [showPredecessorsHelp, setShowPredecessorsHelp] = useState(false);
     const [showDependencyDetailsHelp, setShowDependencyDetailsHelp] = useState(false);
     const [showDeadlineHelp, setShowDeadlineHelp] = useState(false);
     const predecessorPickerRef = useRef(null);
+    const constraintDateInputRef = useRef(null);
+    const pendingConstraintDateFocusRef = useRef(false);
+    const constraintDateHelpId = useId();
+    const constraintDateErrorId = useId();
     // The interface language to format the date shown in the input
     // (previously it was hardcoded to 'ca-ES', ignoring the user's preference).
     const { dateLocale } = useLocaleSettings();
@@ -95,6 +110,12 @@ export const VaultDateProperty = ({
         document.addEventListener('mousedown', handleOutsideClick);
         return () => document.removeEventListener('mousedown', handleOutsideClick);
     }, []);
+
+    useEffect(() => {
+        if (!pendingConstraintDateFocusRef.current || !constraintDateInputRef.current) return;
+        constraintDateInputRef.current.focus();
+        pendingConstraintDateFocusRef.current = false;
+    }, [value]);
 
     // Initial formatting and syncing
     useEffect(() => {
@@ -495,6 +516,40 @@ export const VaultDateProperty = ({
                     title: idToTitle[predecessorId] || predecessorId,
                 }));
             const hasPredecessors = predecessorsEnabled && selectedPredecessors.length > 0;
+            const summaryStart = periodInputValue(period.start);
+            const summaryEnd = periodInputValue(period.end, true);
+            const summaryDuration = displayDuration === ''
+                ? ''
+                : new Intl.NumberFormat(dateLocale || 'en-US', {
+                    style: 'unit',
+                    unit: periodUnit === 'hours' ? 'hour' : periodUnit === 'years' ? 'year' : 'day',
+                    unitDisplay: 'long',
+                    maximumFractionDigits: 4,
+                }).format(displayDuration);
+            const showCalculationSummary = Boolean(
+                summaryStart || summaryDuration || summaryEnd || hasPredecessors,
+            );
+            const selectedConstraintType = period.constraintType || 'ASAP';
+            const selectedConstraintOption = PLANNING_CONSTRAINT_OPTIONS.find(
+                ([value]) => value === selectedConstraintType,
+            ) || PLANNING_CONSTRAINT_OPTIONS[0];
+            const constraintRequiresDate = PLANNING_CONSTRAINTS_REQUIRING_DATE.has(
+                selectedConstraintType,
+            );
+            const constraintDateDraft = draftValue('constraintDate', period.constraintDate);
+            const constraintDateMissing = constraintRequiresDate
+                && String(constraintDateDraft || '').trim() === '';
+            const constraintDateDescribedBy = [
+                showConstraintDateHelp ? constraintDateHelpId : '',
+                constraintDateMissing ? constraintDateErrorId : '',
+            ].filter(Boolean).join(' ') || undefined;
+            const handleConstraintTypeChange = (event) => {
+                const constraintType = event.target.value;
+                if (PLANNING_CONSTRAINTS_REQUIRING_DATE.has(constraintType)) {
+                    pendingConstraintDateFocusRef.current = true;
+                }
+                commit({ ...period, constraintType });
+            };
 
             return (
                 <div className="grid min-w-[430px] grid-cols-2 gap-2 p-1 text-xs">
@@ -511,21 +566,6 @@ export const VaultDateProperty = ({
                             className={periodInputClass}
                         />
                     </label>
-                    {hasPredecessors && ['SNET', 'SNLT', 'FNET', 'FNLT', 'MSO', 'MFO'].includes(period.constraintType) && (
-                        <label className="flex flex-col gap-1">
-                            <span className="flex h-4 items-center text-[10px] font-semibold text-[var(--text-tertiary)]">
-                                {periodDateLabel('constraint_date')}
-                            </span>
-                            <input
-                                type="text"
-                                value={draftValue('constraintDate', period.constraintDate)}
-                                placeholder={periodUnit === 'hours' ? 'YYYY-MM-DDTHH:mm' : periodUnit === 'days' ? 'YYYY-MM-DD' : 'YYYY'}
-                                onChange={(event) => updateDraft('constraintDate', event.target.value)}
-                                onBlur={() => commitDraft('constraintDate', (constraintDate) => commit({ ...period, constraintDate }))}
-                                className={periodInputClass}
-                            />
-                        </label>
-                    )}
                     <label className="flex flex-col gap-1">
                         <span className="flex h-4 items-center gap-1 text-[10px] font-semibold text-[var(--text-tertiary)]">
                             <span>{t(`vault_date.period_duration_${periodUnit}`, periodUnit === 'hours' ? 'Hours' : periodUnit === 'years' ? 'Years' : 'Days')}</span>
@@ -632,6 +672,41 @@ export const VaultDateProperty = ({
                             </div>
                         </label>
                     )}
+                    {showCalculationSummary && (
+                        <section
+                            aria-label={t('vault_date.period_calculation_summary', 'Calculation summary')}
+                            className="col-span-2 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)]/70 px-3 py-2 text-[11px] text-[var(--text-secondary)]"
+                        >
+                            <div className="mb-1.5 flex items-center gap-1.5 font-semibold text-[var(--text-primary)]">
+                                <CalendarIcon size={13} className="text-[var(--gnosi-primary)]" aria-hidden="true" />
+                                <span>{t('vault_date.period_calculation_summary', 'Calculation summary')}</span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                <span>
+                                    <span className="text-[var(--text-tertiary)]">{t('vault_date.period_calculation_start', 'Start')}:</span>{' '}
+                                    <strong className="font-semibold text-[var(--text-primary)]">{summaryStart || '—'}</strong>
+                                </span>
+                                <span aria-hidden="true" className="text-[var(--text-tertiary)]">→</span>
+                                <span>
+                                    <span className="text-[var(--text-tertiary)]">{t('vault_date.period_calculation_duration', 'Duration')}:</span>{' '}
+                                    <strong className="font-semibold text-[var(--text-primary)]">{summaryDuration || '—'}</strong>
+                                </span>
+                                <span aria-hidden="true" className="text-[var(--text-tertiary)]">→</span>
+                                <span>
+                                    <span className="text-[var(--text-tertiary)]">{t('vault_date.period_calculation_finish', 'Finish')}:</span>{' '}
+                                    <strong className="font-semibold text-[var(--text-primary)]">{summaryEnd || '—'}</strong>
+                                </span>
+                            </div>
+                            {hasPredecessors && period.startMode === 'auto' && (
+                                <p className="mt-1.5 border-t border-[var(--border-primary)]/70 pt-1.5 text-[var(--text-tertiary)]">
+                                    {t('vault_date.period_calculation_predecessor', 'Automatic start from')}:{' '}
+                                    <span className="font-medium text-[var(--text-secondary)]">
+                                        {selectedPredecessors.map(({ title }) => title).join(', ')}
+                                    </span>
+                                </p>
+                            )}
+                        </section>
+                    )}
                     {hasPredecessors && period.dependencies.length > 0 && (
                         <div className="col-span-2 flex flex-col gap-1">
                             <span className="flex items-center gap-1 text-[10px] font-semibold text-[var(--text-tertiary)]">
@@ -671,7 +746,7 @@ export const VaultDateProperty = ({
                         </div>
                     )}
                     {hasPredecessors && (
-                        <>
+                        <div className="col-span-2 grid grid-cols-2 gap-2">
                             <label className="flex flex-col gap-1">
                                 <span className="flex h-4 items-center gap-1 text-[10px] font-semibold text-[var(--text-tertiary)]">
                                     <span>{t('vault_date.period_constraint', 'Scheduling rule')}</span>
@@ -683,41 +758,18 @@ export const VaultDateProperty = ({
                                         onClick={(event) => {
                                             event.preventDefault();
                                             event.stopPropagation();
-                                            setShowConstraintHelp((open) => !open);
+                                            const nextOpen = !showConstraintHelp;
+                                            setShowConstraintHelp(nextOpen);
+                                            if (!nextOpen) setShowAllConstraintRules(false);
                                         }}
                                         className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-[var(--border-primary)] text-[9px] font-bold leading-none text-[var(--text-tertiary)] transition-colors hover:border-[var(--gnosi-primary)] hover:text-[var(--gnosi-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--gnosi-primary)]/20"
                                     >
                                         ?
                                     </button>
                                 </span>
-                                {showConstraintHelp && (
-                                    <div
-                                        role="region"
-                                        aria-label={t('vault_date.period_constraint_help_title', 'Scheduling rule explanations')}
-                                        className="rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)]/70 p-2 text-[11px] text-[var(--text-secondary)] animate-in fade-in duration-150"
-                                    >
-                                        <span className="block mb-1 text-[11px] text-[var(--text-tertiary)] font-normal">
-                                            {t('vault_date.period_constraint_hint', 'ASAP starts as soon as possible; ALAP postpones it as late as possible.')}
-                                        </span>
-                                        <div className="mb-1 font-semibold text-[var(--text-primary)]">
-                                            {t('vault_date.period_constraint_help_title', 'Scheduling rule explanations')}
-                                        </div>
-                                        <p className="mb-2 text-[var(--text-tertiary)]">
-                                            {t('vault_date.period_constraint_help_intro', 'Use a constraint date with SNET, SNLT, FNET, FNLT, MSO, or MFO. ASAP and ALAP do not need one.')}
-                                        </p>
-                                        <dl className="grid gap-1">
-                                            {PLANNING_CONSTRAINT_OPTIONS.map(([value, descriptionKey]) => (
-                                                <div key={value} className="grid grid-cols-[2.5rem_1fr] gap-2">
-                                                    <dt className="font-semibold text-[var(--text-primary)]">{value}</dt>
-                                                    <dd>{t(descriptionKey)}</dd>
-                                                </div>
-                                            ))}
-                                        </dl>
-                                    </div>
-                                )}
                                 <select
-                                    value={period.constraintType || 'ASAP'}
-                                    onChange={(event) => commit({ ...period, constraintType: event.target.value })}
+                                    value={selectedConstraintType}
+                                    onChange={handleConstraintTypeChange}
                                     className={periodSelectClass}
                                 >
                                     <option value="ASAP">ASAP</option><option value="ALAP">ALAP</option>
@@ -726,14 +778,56 @@ export const VaultDateProperty = ({
                                     <option value="MSO">MSO</option><option value="MFO">MFO</option>
                                 </select>
                             </label>
+                            {constraintRequiresDate && (
+                                <label className="flex flex-col gap-1">
+                                    <span className="flex h-4 items-center gap-1 text-[10px] font-semibold text-[var(--text-tertiary)]">
+                                        <span>{periodDateLabel('constraint_date')}</span>
+                                        <button
+                                            type="button"
+                                            aria-expanded={showConstraintDateHelp}
+                                            aria-label={t('vault_date.period_constraint_date_hint', 'It is required by the selected rule and changes the automatic schedule; a deadline only raises a warning.')}
+                                            title={t('vault_date.period_constraint_date_hint', 'It is required by the selected rule and changes the automatic schedule; a deadline only raises a warning.')}
+                                            onClick={(event) => {
+                                                event.preventDefault();
+                                                event.stopPropagation();
+                                                setShowConstraintDateHelp((open) => !open);
+                                            }}
+                                            className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-[var(--border-primary)] text-[9px] font-bold leading-none text-[var(--text-tertiary)] transition-colors hover:border-[var(--gnosi-primary)] hover:text-[var(--gnosi-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--gnosi-primary)]/20"
+                                        >
+                                            ?
+                                        </button>
+                                    </span>
+                                    <input
+                                        ref={constraintDateInputRef}
+                                        type="text"
+                                        value={constraintDateDraft}
+                                        placeholder={periodUnit === 'hours' ? 'YYYY-MM-DDTHH:mm' : periodUnit === 'days' ? 'YYYY-MM-DD' : 'YYYY'}
+                                        aria-invalid={constraintDateMissing}
+                                        aria-describedby={constraintDateDescribedBy}
+                                        onChange={(event) => updateDraft('constraintDate', event.target.value)}
+                                        onBlur={() => commitDraft('constraintDate', (constraintDate) => commit({ ...period, constraintDate }))}
+                                        className={`${periodInputClass} ${constraintDateMissing ? 'border-[var(--status-error)] focus:border-[var(--status-error)] focus:ring-[var(--status-error)]/20' : ''}`}
+                                    />
+                                    {showConstraintDateHelp && (
+                                        <span id={constraintDateHelpId} className="text-[11px] text-[var(--text-tertiary)] animate-in fade-in duration-150">
+                                            {t('vault_date.period_constraint_date_hint', 'It is required by the selected rule and changes the automatic schedule; a deadline only raises a warning.')}
+                                        </span>
+                                    )}
+                                    {constraintDateMissing && (
+                                        <span id={constraintDateErrorId} role="alert" className="text-[11px] font-medium text-[var(--status-error)]">
+                                            {t('vault_date.period_constraint_date_required', 'Enter a constraint date for the selected scheduling rule.')}
+                                        </span>
+                                    )}
+                                </label>
+                            )}
                             <label className="flex flex-col gap-1">
                                 <span className="flex h-4 items-center gap-1 text-[10px] font-semibold text-[var(--text-tertiary)]">
                                     <span>{periodDateLabel('deadline')}</span>
                                     <button
                                         type="button"
                                         aria-expanded={showDeadlineHelp}
-                                        aria-label={t('vault_date.period_deadline_hint', 'Latest date or year by which the task must finish.')}
-                                        title={t('vault_date.period_deadline_hint', 'Latest date or year by which the task must finish.')}
+                                        aria-label={t('vault_date.period_deadline_hint', 'Sets the desired latest finish. Exceeding it raises a warning but does not move schedule dates.')}
+                                        title={t('vault_date.period_deadline_hint', 'Sets the desired latest finish. Exceeding it raises a warning but does not move schedule dates.')}
                                         onClick={(event) => {
                                             event.preventDefault();
                                             event.stopPropagation();
@@ -746,7 +840,7 @@ export const VaultDateProperty = ({
                                 </span>
                                 {showDeadlineHelp && (
                                     <span className="text-[11px] text-[var(--text-tertiary)] animate-in fade-in duration-150">
-                                        {t('vault_date.period_deadline_hint', 'Latest date or year by which the task must finish.')}
+                                        {t('vault_date.period_deadline_hint', 'Sets the desired latest finish. Exceeding it raises a warning but does not move schedule dates.')}
                                     </span>
                                 )}
                                 <input
@@ -758,7 +852,52 @@ export const VaultDateProperty = ({
                                     className={periodInputClass}
                                 />
                             </label>
-                        </>
+                            {showConstraintHelp && (
+                                <div
+                                    role="region"
+                                    aria-label={t('vault_date.period_constraint_help_title', 'Scheduling rule explanations')}
+                                    className="col-span-2 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)]/70 p-2 text-[11px] text-[var(--text-secondary)] animate-in fade-in duration-150"
+                                >
+                                    <div className="mb-1 font-semibold text-[var(--text-primary)]">
+                                        {t('vault_date.period_constraint_selected_title', 'Selected rule')}
+                                    </div>
+                                    <p className="mb-2 text-[var(--text-tertiary)]">
+                                        {t('vault_date.period_constraint_help_intro', 'Use a constraint date with SNET, SNLT, FNET, FNLT, MSO, or MFO. ASAP and ALAP do not need one.')}
+                                    </p>
+                                    <dl className="grid gap-1">
+                                        <div
+                                            aria-current="true"
+                                            className="grid grid-cols-[2.5rem_1fr] gap-2 rounded-md border border-[var(--gnosi-primary)]/30 bg-[var(--gnosi-primary)]/10 px-2 py-1.5"
+                                        >
+                                            <dt className="font-semibold text-[var(--gnosi-primary)]">{selectedConstraintOption[0]}</dt>
+                                            <dd>{t(selectedConstraintOption[1])}</dd>
+                                        </div>
+                                        {showAllConstraintRules && PLANNING_CONSTRAINT_OPTIONS
+                                            .filter(([value]) => value !== selectedConstraintType)
+                                            .map(([value, descriptionKey]) => (
+                                                <div key={value} className="grid grid-cols-[2.5rem_1fr] gap-2 px-2 py-1">
+                                                    <dt className="font-semibold text-[var(--text-primary)]">{value}</dt>
+                                                    <dd>{t(descriptionKey)}</dd>
+                                                </div>
+                                            ))}
+                                    </dl>
+                                    <button
+                                        type="button"
+                                        aria-expanded={showAllConstraintRules}
+                                        onClick={(event) => {
+                                            event.preventDefault();
+                                            event.stopPropagation();
+                                            setShowAllConstraintRules((showAll) => !showAll);
+                                        }}
+                                        className="mt-2 inline-flex items-center rounded-md border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 font-semibold text-[var(--gnosi-primary)] transition-colors hover:border-[var(--gnosi-primary)]/50 hover:bg-[var(--gnosi-primary)]/5 focus:outline-none focus:ring-2 focus:ring-[var(--gnosi-primary)]/20"
+                                    >
+                                        {showAllConstraintRules
+                                            ? t('vault_date.period_constraint_show_selected', 'Show only the selected rule')
+                                            : t('vault_date.period_constraint_show_all', 'Show all rules')}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     )}
                 </div>
             );

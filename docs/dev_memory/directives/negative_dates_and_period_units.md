@@ -55,4 +55,14 @@ days, or years.
 - Keep dependency relations, lag, scheduling rules, and deadlines explained
   inline in the period editor; retain the compact stored relation codes for
   compatibility, but do not expose unexplained abbreviations as the only UI.
-
+- Keep the constraint date adjacent to its scheduling rule, focus it when a
+  date-based rule is selected, and surface a required-field error while it is
+  empty. Show the selected rule first in contextual help, with the complete
+  rule list behind a secondary disclosure.
+- Do not describe deadlines as hard constraints. A constraint date changes the
+  automatic schedule, while a deadline only reports when the desired finish is
+  exceeded.
+- Keep a compact read-only calculation summary next to the period controls. It
+  must show the effective start, duration, and finish in the configured unit,
+  preserve signed BCE values, and identify the predecessor source when it is
+  driving an automatic start.
