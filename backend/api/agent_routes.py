@@ -168,7 +168,19 @@ class TurnContextRef(BaseModel):
         elif source_type == "notebook":
             # The server replaces this with the authorized active revision.
             # Client-provided revision values are never trusted.
-            self.scope = {}
+            requested_scope = self.scope if isinstance(self.scope, dict) else {}
+            selection = str(requested_scope.get("selection") or "all").lower()
+            source_ids = list(dict.fromkeys(
+                str(value).strip()[:128]
+                for value in (requested_scope.get("source_ids") or [])
+                if str(value or "").strip()
+            ))
+            if len(source_ids) > 1_000:
+                raise ValueError("A notebook turn accepts at most 1,000 sources.")
+            self.scope = {
+                "selection": "sources" if selection == "sources" else "all",
+                "source_ids": source_ids if selection == "sources" else [],
+            }
         else:
             self.scope = {}
         return self
@@ -184,7 +196,8 @@ class ChatRequest(BaseModel):
     mentions: List[MentionRef] = Field(default_factory=list, max_length=20)
     attachments: List[AttachmentRef] = Field(default_factory=list, max_length=8)
     active_skill_ids: Optional[List[str]] = Field(default=None, max_length=64)
-    context_refs: List[TurnContextRef] = Field(default_factory=list, max_length=8)
+    context_refs: List[TurnContextRef] = Field(default_factory=list, max_length=16)
+    notebook_id: Optional[str] = Field(default=None, max_length=64)
     turn_id: Optional[str] = Field(
         default=None,
         min_length=1,
@@ -1930,7 +1943,7 @@ async def chat_endpoint(
             item for item in chat_req.context_refs if item.type == "notebook"
         ]
         if notebook_refs:
-            if len(notebook_refs) != 1 or len(chat_req.context_refs) != 1:
+            if len(notebook_refs) != len(chat_req.context_refs):
                 raise HTTPException(
                     status_code=400,
                     detail="A notebook conversation cannot mix other context sources.",
@@ -1942,9 +1955,13 @@ async def chat_endpoint(
                 )
             from backend.services import notebook_service
 
+            primary_notebook_id = str(
+                chat_req.notebook_id or notebook_refs[0].ref
+            ).strip()
             notebook_turn = await asyncio.to_thread(
-                notebook_service.resolve_chat_context,
-                notebook_refs[0].ref,
+                notebook_service.resolve_chat_contexts,
+                primary_notebook_id,
+                [item.model_dump(mode="python") for item in notebook_refs],
                 workspace_context,
             )
             chat_principal = str(notebook_turn["principal"])
@@ -2011,13 +2028,7 @@ async def chat_endpoint(
             for item in chat_req.context_refs
         ]
         if notebook_turn:
-            turn_context_refs = [{
-                "id": f"notebook:{notebook_turn['notebook_id']}",
-                "type": "notebook",
-                "ref": notebook_turn["notebook_id"],
-                "label": notebook_turn["title"],
-                "scope": {"revision": notebook_turn["revision"]},
-            }]
+            turn_context_refs = notebook_turn["contexts"]
         workflow, llm_selection = await get_agent_workflow(
             request,
             agent_id,

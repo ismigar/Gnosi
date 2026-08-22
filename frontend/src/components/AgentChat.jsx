@@ -1452,6 +1452,7 @@ const AgentChat = ({
                     mentions,
                     attachments: attachmentsPayload,
                     context_refs: contextRefs,
+                    notebook_id: notebookId || undefined,
                     turn_id: turnId,
                 }),
                 signal: controller.signal,

@@ -12,13 +12,15 @@ vi.mock('react-i18next', () => ({
             .replace('{{resources}}', values.resources ?? '{{resources}}')
             .replace('{{sources}}', values.sources ?? '{{sources}}')
             .replace('{{resource}}', values.resource ?? '{{resource}}')
-            .replace('{{time}}', values.time ?? '{{time}}'),
+            .replace('{{time}}', values.time ?? '{{time}}')
+            .replace('{{count}}', values.count ?? '{{count}}')
+            .replace('{{notebooks}}', values.notebooks ?? '{{notebooks}}'),
     }),
 }));
 
 vi.mock('../components/AgentChat', () => ({
-    default: ({ readOnly }) => (
-        <div data-testid="agent-chat" data-read-only={String(readOnly)}>
+    default: ({ readOnly, contextRefs }) => (
+        <div data-testid="agent-chat" data-read-only={String(readOnly)} data-context={JSON.stringify(contextRefs)}>
             {readOnly ? 'Read-only conversation' : 'Editable conversation'}
         </div>
     ),
@@ -65,9 +67,11 @@ describe('NotebookDetail permissions', () => {
         globalThis.fetch = vi.fn().mockImplementation((url) => Promise.resolve({
             ok: true,
             status: 200,
-            json: vi.fn().mockResolvedValue(String(url).includes('/sources?')
-                ? { items: [], total: 0, page: 1, page_size: 50, active_revision: 1 }
-                : notebook),
+            json: vi.fn().mockResolvedValue(String(url).includes('/chat-sources')
+                ? { sources: [{ source_id: 'source-1', label: 'Source', kind: 'file', status: 'available' }], notebooks: [] }
+                : String(url).includes('/sources?')
+                    ? { items: [], total: 0, page: 1, page_size: 50, active_revision: 1 }
+                    : notebook),
         }));
         const container = document.createElement('div');
         document.body.appendChild(container);
@@ -107,7 +111,9 @@ describe('NotebookDetail permissions', () => {
         globalThis.fetch = vi.fn().mockImplementation((url, options = {}) => Promise.resolve({
             ok: true,
             status: options.method === 'POST' ? 202 : 200,
-            json: vi.fn().mockResolvedValue(String(url).includes('/sources?') ? sourceData : notebook),
+            json: vi.fn().mockResolvedValue(String(url).includes('/chat-sources')
+                ? { sources: [{ source_id: 'source-1', label: 'Source', kind: 'file', status: 'available' }], notebooks: [] }
+                : String(url).includes('/sources?') ? sourceData : notebook),
         }));
         const container = document.createElement('div');
         document.body.appendChild(container);
@@ -151,9 +157,11 @@ describe('NotebookDetail permissions', () => {
         globalThis.fetch = vi.fn().mockImplementation((url) => Promise.resolve({
             ok: true,
             status: 200,
-            json: vi.fn().mockResolvedValue(String(url).includes('/sources?')
-                ? { items: [], total: 0, page: 1, page_size: 50, active_revision: 1 }
-                : notebook),
+            json: vi.fn().mockResolvedValue(String(url).includes('/chat-sources')
+                ? { sources: [{ source_id: 'source-1', label: 'Source', kind: 'file', status: 'available' }], notebooks: [] }
+                : String(url).includes('/sources?')
+                    ? { items: [], total: 0, page: 1, page_size: 50, active_revision: 1 }
+                    : notebook),
         }));
         const container = document.createElement('div');
         document.body.appendChild(container);
@@ -179,5 +187,62 @@ describe('NotebookDetail permissions', () => {
             '/api/notebooks/notebook-1/refresh/cancel',
             { method: 'POST' },
         );
+    });
+
+    it('selects individual sources and includes every source from another notebook', async () => {
+        const notebook = {
+            id: 'notebook-1', title: 'Primary', status: 'available', active_revision: 2,
+            visibility: 'private', conversation_mode: 'private_member',
+            conversation_session_id: 'notebook-notebook-1-private', resource_count: 1,
+            source_counts: { total: 2, available: 2 }, chat_ready: true,
+            can_manage: true, can_chat: true, progress: null, last_error: null,
+        };
+        const chatSources = {
+            sources: [
+                { source_id: 'source-a', label: 'Paper.pdf', kind: 'file', status: 'available' },
+                { source_id: 'source-b', label: 'Article', kind: 'url', status: 'available' },
+            ],
+            notebooks: [{ id: 'notebook-2', title: 'Related notebook', source_count: 3 }],
+        };
+        globalThis.fetch = vi.fn().mockImplementation((url) => {
+            const value = String(url);
+            const payload = value.includes('/chat-sources')
+                ? chatSources
+                : value.includes('/sources?')
+                    ? { items: [], total: 0, page: 1, page_size: 50, active_revision: 2 }
+                    : notebook;
+            return Promise.resolve({ ok: true, status: 200, json: vi.fn().mockResolvedValue(payload) });
+        });
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const root = createRoot(container);
+        mountedRoots.push({ root, container });
+
+        await act(async () => {
+            root.render(<React.StrictMode><MemoryRouter><NotebookDetail notebookId="notebook-1" /></MemoryRouter></React.StrictMode>);
+            await Promise.resolve();
+            await Promise.resolve();
+            await Promise.resolve();
+        });
+        const choose = [...container.querySelectorAll('button')]
+            .find((button) => button.textContent === 'Choose sources');
+        expect(choose?.disabled).toBe(false);
+        await act(async () => choose.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+        const checkboxes = [...container.querySelectorAll('.notebook-context-option input')];
+        expect(checkboxes).toHaveLength(3);
+        expect(checkboxes.map((input) => input.checked)).toEqual([true, true, false]);
+        await act(async () => {
+            checkboxes[0].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+            checkboxes[2].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        });
+        const apply = [...container.querySelectorAll('button')]
+            .find((button) => button.textContent === 'Apply');
+        await act(async () => apply.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+
+        const context = JSON.parse(container.querySelector('[data-testid="agent-chat"]')?.dataset.context || '[]');
+        expect(context).toEqual([
+            expect.objectContaining({ ref: 'notebook-1', scope: { selection: 'sources', source_ids: ['source-b'] } }),
+            expect.objectContaining({ ref: 'notebook-2', scope: { selection: 'all', source_ids: [] } }),
+        ]);
     });
 });

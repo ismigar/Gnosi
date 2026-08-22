@@ -273,6 +273,99 @@ function AddResourcesDialog({ notebookId, currentIds, onClose, onAdded }) {
     );
 }
 
+function ChatContextDialog({ options, selectedSourceIds, selectedNotebookIds, onApply, onClose }) {
+    const { t } = useTranslation();
+    const [sourceIds, setSourceIds] = useState(() => new Set(selectedSourceIds));
+    const [notebookIds, setNotebookIds] = useState(() => new Set(selectedNotebookIds));
+    const dialogRef = useRef(null);
+    const totalSelected = sourceIds.size + (options.notebooks || [])
+        .filter((notebook) => notebookIds.has(String(notebook.id)))
+        .reduce((total, notebook) => total + Number(notebook.source_count || 0), 0);
+    useModalKeyboard({
+        isOpen: true,
+        onClose,
+        onConfirm: () => onApply(sourceIds, notebookIds),
+        confirmDisabled: totalSelected === 0,
+        containerRef: dialogRef,
+        trapFocus: true,
+    });
+    const toggle = (setter, id) => setter((previous) => {
+        const next = new Set(previous);
+        if (next.has(id)) next.delete(id); else next.add(id);
+        return next;
+    });
+    const allSourcesSelected = options.sources.length > 0
+        && options.sources.every((source) => sourceIds.has(String(source.source_id)));
+    return (
+        <div className="notebook-modal-backdrop">
+            <section
+                ref={dialogRef}
+                className="notebook-modal notebook-modal--compact notebook-context-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="notebook-chat-context-title"
+            >
+                <header className="notebook-modal__header">
+                    <div>
+                        <h2 id="notebook-chat-context-title">{t('notebooks.chat_context_title', 'Choose conversation sources')}</h2>
+                        <p>{t('notebooks.chat_context_help', 'Your next questions will use only these sources. Other notebooks contribute all their available sources.')}</p>
+                    </div>
+                    <button type="button" className="notebook-icon-button" onClick={onClose} aria-label={t('common.close', 'Close')}><X size={18} /></button>
+                </header>
+                <div className="notebook-modal__body">
+                    <fieldset className="notebook-context-group">
+                        <legend>{t('notebooks.this_notebook_sources', 'Sources in this notebook')}</legend>
+                        <button
+                            type="button"
+                            className="notebook-context-select-all"
+                            aria-pressed={allSourcesSelected}
+                            onClick={() => setSourceIds(allSourcesSelected
+                                ? new Set()
+                                : new Set(options.sources.map((source) => String(source.source_id))))}
+                        >
+                            {allSourcesSelected ? t('notebooks.clear_source_selection', 'Clear selection') : t('notebooks.select_all_sources', 'Select all sources')}
+                        </button>
+                        <div className="notebook-context-list">
+                            {options.sources.map((source) => {
+                                const id = String(source.source_id);
+                                const checked = sourceIds.has(id);
+                                return (
+                                    <label key={id} className="notebook-context-option">
+                                        <input type="checkbox" checked={checked} onChange={() => toggle(setSourceIds, id)} />
+                                        <span>{source.kind === 'url' ? <Globe2 size={14} /> : <BookOpen size={14} />}</span>
+                                        <span><strong>{source.label}</strong><small>{source.status === 'stale' ? t('notebooks.status.stale', 'Outdated') : t('notebooks.status.available', 'Available')}</small></span>
+                                    </label>
+                                );
+                            })}
+                        </div>
+                    </fieldset>
+                    <fieldset className="notebook-context-group">
+                        <legend>{t('notebooks.other_notebooks', 'Other notebooks')}</legend>
+                        <p>{t('notebooks.other_notebooks_help', 'Selecting a notebook includes all its available sources.')}</p>
+                        <div className="notebook-context-list">
+                            {options.notebooks.length ? options.notebooks.map((item) => {
+                                const id = String(item.id);
+                                return (
+                                    <label key={id} className="notebook-context-option">
+                                        <input type="checkbox" checked={notebookIds.has(id)} onChange={() => toggle(setNotebookIds, id)} />
+                                        <BookOpen size={14} />
+                                        <span><strong>{item.title}</strong><small>{t('notebooks.source_count', '{{count}} source(s)', { count: item.source_count })}</small></span>
+                                    </label>
+                                );
+                            }) : <p className="notebook-empty">{t('notebooks.no_other_notebooks', 'No other available notebooks.')}</p>}
+                        </div>
+                    </fieldset>
+                </div>
+                <footer className="notebook-modal__footer">
+                    <span className="notebook-context-count" role="status">{t('notebooks.chat_context_count', '{{count}} source(s) selected', { count: totalSelected })}</span>
+                    <button type="button" className="btn-gnosi" onClick={onClose}>{t('common.cancel', 'Cancel')}</button>
+                    <button type="button" className="btn-gnosi btn-gnosi-primary" disabled={totalSelected === 0} onClick={() => onApply(sourceIds, notebookIds)}>{t('notebooks.apply_chat_context', 'Apply')}</button>
+                </footer>
+            </section>
+        </div>
+    );
+}
+
 export function NotebookDetail({ notebookId }) {
     const { t } = useTranslation();
     const navigate = useNavigate();
@@ -283,6 +376,12 @@ export function NotebookDetail({ notebookId }) {
     const [showAdd, setShowAdd] = useState(false);
     const [showDelete, setShowDelete] = useState(false);
     const [showClear, setShowClear] = useState(false);
+    const [showChatContext, setShowChatContext] = useState(false);
+    const [chatOptions, setChatOptions] = useState({ sources: [], notebooks: [] });
+    const [chatOptionsLoaded, setChatOptionsLoaded] = useState(false);
+    const [selectedSourceIds, setSelectedSourceIds] = useState(new Set());
+    const [selectedNotebookIds, setSelectedNotebookIds] = useState(new Set());
+    const chatSelectionInitializedRef = useRef(false);
     const [chatEpoch, setChatEpoch] = useState(0);
     const [removingId, setRemovingId] = useState('');
     const [retryingId, setRetryingId] = useState('');
@@ -336,6 +435,45 @@ export function NotebookDetail({ notebookId }) {
     }, [navigate, notebookId, sources.page, t]);
 
     useEffect(() => { void load({ refresh: true }); }, [notebookId]); // eslint-disable-line react-hooks/exhaustive-deps
+    useEffect(() => {
+        if (!notebook?.chat_ready) return undefined;
+        const controller = new AbortController();
+        fetch(`/api/notebooks/${encodeURIComponent(notebookId)}/chat-sources`, { signal: controller.signal })
+            .then((response) => response.ok ? response.json() : Promise.reject(new Error(`Chat source list failed (${response.status})`)))
+            .then((data) => {
+                if (!Array.isArray(data.sources) || !Array.isArray(data.notebooks)) {
+                    throw new Error('Chat source list returned an invalid payload');
+                }
+                const nextOptions = {
+                    sources: data.sources,
+                    notebooks: data.notebooks,
+                };
+                setChatOptions(nextOptions);
+                setChatOptionsLoaded(true);
+                const availableSourceIds = new Set(
+                    nextOptions.sources.map((source) => String(source.source_id)),
+                );
+                if (!chatSelectionInitializedRef.current) {
+                    chatSelectionInitializedRef.current = true;
+                    setSelectedSourceIds(availableSourceIds);
+                } else {
+                    setSelectedSourceIds((previous) => new Set(
+                        [...previous].filter((id) => availableSourceIds.has(id)),
+                    ));
+                }
+                setSelectedNotebookIds((previous) => {
+                    const available = new Set(nextOptions.notebooks.map((item) => String(item.id)));
+                    return new Set([...previous].filter((id) => available.has(id)));
+                });
+            })
+            .catch((error) => {
+                if (error.name !== 'AbortError') {
+                    console.error('Could not load notebook chat sources', error);
+                    toast.error(t('notebooks.chat_context_error', 'Conversation sources could not be loaded.'));
+                }
+            });
+        return () => controller.abort();
+    }, [notebook?.active_revision, notebook?.chat_ready, notebookId]); // eslint-disable-line react-hooks/exhaustive-deps
     useEffect(() => {
         if (!notebook || !ACTIVE_STATES.has(notebook.progress?.state)) return undefined;
         const timer = window.setInterval(() => {
@@ -439,7 +577,30 @@ export function NotebookDetail({ notebookId }) {
 
     if (loading || !notebook) return <div className="notebooks-page notebook-detail-loading"><LoaderCircle className="animate-spin" /> {t('common.loading', 'Loading...')}</div>;
     const sourcePageCount = Math.max(1, Math.ceil((sources.total || 0) / (sources.page_size || 50)));
-    const chatContext = [{ id: `notebook:${notebook.id}`, type: 'notebook', ref: notebook.id, label: notebook.title, scope: {} }];
+    const selectedNotebookOptions = (chatOptions.notebooks || [])
+        .filter((item) => selectedNotebookIds.has(String(item.id)));
+    const selectedSourceCount = (chatOptionsLoaded
+        ? selectedSourceIds.size
+        : Number(notebook.source_counts?.available || 0)) + selectedNotebookOptions
+        .reduce((total, item) => total + Number(item.source_count || 0), 0);
+    const chatContext = [
+        {
+            id: `notebook:${notebook.id}`,
+            type: 'notebook',
+            ref: notebook.id,
+            label: notebook.title,
+            scope: chatOptionsLoaded
+                ? { selection: 'sources', source_ids: [...selectedSourceIds] }
+                : { selection: 'all', source_ids: [] },
+        },
+        ...selectedNotebookOptions.map((item) => ({
+            id: `notebook:${item.id}`,
+            type: 'notebook',
+            ref: item.id,
+            label: item.title,
+            scope: { selection: 'all', source_ids: [] },
+        })),
+    ];
     return (
         <div className="notebook-detail">
             <header className="notebook-detail__header">
@@ -545,17 +706,30 @@ export function NotebookDetail({ notebookId }) {
                     hidden={useResponsiveTabs && mobileTab !== 'chat'}
                 >
                     {notebook.chat_ready ? (
-                        <AgentChat
-                            key={`${notebook.conversation_session_id}:${chatEpoch}`}
-                            embedded
-                            storageIdentity={localStorage.getItem('gnosi_user_id') || 'personal'}
-                            forcedSessionId={notebook.conversation_session_id}
-                            forcedAgentId="gnosy"
-                            notebookId={notebook.id}
-                            conversationMode={notebook.conversation_mode}
-                            contextRefs={chatContext}
-                            readOnly={!notebook.can_chat}
-                        />
+                        <>
+                            <div className="notebook-chat-context-bar">
+                                <div>
+                                    <BookOpen size={15} aria-hidden="true" />
+                                    <span>{t('notebooks.chat_context_summary', '{{sources}} sources · {{notebooks}} notebooks', { sources: selectedSourceCount, notebooks: 1 + selectedNotebookOptions.length })}</span>
+                                </div>
+                                <button type="button" disabled={!chatOptionsLoaded} onClick={() => setShowChatContext(true)}>{t('notebooks.choose_chat_sources', 'Choose sources')}</button>
+                            </div>
+                            {selectedSourceCount > 0 ? (
+                                <AgentChat
+                                    key={`${notebook.conversation_session_id}:${chatEpoch}`}
+                                    embedded
+                                    storageIdentity={localStorage.getItem('gnosi_user_id') || 'personal'}
+                                    forcedSessionId={notebook.conversation_session_id}
+                                    forcedAgentId="gnosy"
+                                    notebookId={notebook.id}
+                                    conversationMode={notebook.conversation_mode}
+                                    contextRefs={chatContext}
+                                    readOnly={!notebook.can_chat}
+                                />
+                            ) : (
+                                <div className="notebook-chat-blocked"><BookOpen size={26} /><h2>{t('notebooks.no_chat_sources_title', 'Choose at least one source')}</h2><p>{t('notebooks.no_chat_sources_description', 'Select sources from this notebook or add another notebook to start a grounded conversation.')}</p></div>
+                            )}
+                        </>
                     ) : <div className="notebook-chat-blocked"><LoaderCircle size={26} className={notebook.status !== 'error' ? 'animate-spin' : ''} /><h2>{t('notebooks.chat_preparing_title', 'Preparing the first sources')}</h2><p>{t('notebooks.chat_preparing_description', 'Conversation becomes available when at least one source has been indexed.')}</p></div>}
                 </section>
 
@@ -578,6 +752,17 @@ export function NotebookDetail({ notebookId }) {
                 </aside>
             </div>
             {showAdd && <AddResourcesDialog notebookId={notebook.id} currentIds={currentIds} onClose={() => setShowAdd(false)} onAdded={() => load({ refresh: false })} />}
+            {showChatContext && <ChatContextDialog
+                options={chatOptions}
+                selectedSourceIds={selectedSourceIds}
+                selectedNotebookIds={selectedNotebookIds}
+                onClose={() => setShowChatContext(false)}
+                onApply={(nextSourceIds, nextNotebookIds) => {
+                    setSelectedSourceIds(new Set(nextSourceIds));
+                    setSelectedNotebookIds(new Set(nextNotebookIds));
+                    setShowChatContext(false);
+                }}
+            />}
             <ConfirmModal isOpen={showDelete} onClose={() => setShowDelete(false)} onConfirm={deleteNotebook} title={t('notebooks.delete_title', 'Delete notebook?')} message={t('notebooks.delete_message', 'Indexes and notebook conversations will be deleted. Original Resources, attachments, and URLs will not be changed.')} confirmText={t('notebooks.delete', 'Delete notebook')} cancelText={t('common.cancel', 'Cancel')} isDestructive />
             <ConfirmModal isOpen={showClear} onClose={() => setShowClear(false)} onConfirm={clearConversation} title={t('notebooks.clear_conversation_title', 'Clear this conversation?')} message={t('notebooks.clear_conversation_message', 'This removes the active conversation history. It does not change sources or other conversation modes.')} confirmText={t('notebooks.clear_conversation', 'Clear conversation')} cancelText={t('common.cancel', 'Cancel')} isDestructive />
         </div>

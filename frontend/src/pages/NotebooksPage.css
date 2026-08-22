@@ -114,8 +114,26 @@
 .notebook-settings-note { margin: .8rem 1rem 0; }
 .notebook-settings-note { color: var(--text-secondary); font-size: .72rem; line-height: 1.5; }
 .notebook-clear-conversation { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; margin: .9rem 1rem 0; padding: .55rem .7rem; border: 1px solid color-mix(in srgb, var(--status-error, #dc2626) 35%, var(--border-primary)); border-radius: .55rem; background: transparent; color: var(--status-error, #dc2626); cursor: pointer; font: inherit; font-size: .72rem; font-weight: 600; }
-.notebook-chat-panel { display: flex; }
+.notebook-chat-panel { display: flex; flex-direction: column; }
 .gnosi-embedded-chat { flex: 1; min-width: 0; }
+.notebook-chat-context-bar { min-height: 42px; display: flex; align-items: center; justify-content: space-between; gap: .7rem; padding: .5rem .7rem; border-bottom: 1px solid var(--border-primary); background: var(--bg-secondary); color: var(--text-secondary); font-size: .7rem; }
+.notebook-chat-context-bar > div { min-width: 0; display: flex; align-items: center; gap: .4rem; }
+.notebook-chat-context-bar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.notebook-chat-context-bar button,
+.notebook-context-select-all { flex: 0 0 auto; padding: .35rem .55rem; border: 1px solid var(--border-primary); border-radius: .45rem; background: var(--bg-primary); color: var(--text-primary); cursor: pointer; font: inherit; font-weight: 600; }
+.notebook-context-modal .notebook-modal__body { gap: 1.15rem; }
+.notebook-context-group { min-width: 0; margin: 0; padding: .7rem; border: 1px solid var(--border-primary); border-radius: .7rem; }
+.notebook-context-group legend { padding: 0 .3rem; font-size: .78rem; font-weight: 700; }
+.notebook-context-group > p { margin: 0 0 .65rem; color: var(--text-secondary); font-size: .68rem; }
+.notebook-context-select-all { margin-bottom: .55rem; font-size: .68rem; }
+.notebook-context-list { max-height: 210px; display: grid; gap: .3rem; overflow-y: auto; }
+.notebook-context-option { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: center; gap: .55rem; padding: .55rem; border-radius: .55rem; cursor: pointer; }
+.notebook-context-option:hover { background: var(--bg-secondary); }
+.notebook-context-option input { width: 1rem; height: 1rem; accent-color: var(--gnosi-primary); }
+.notebook-context-option > span:last-child { min-width: 0; display: grid; gap: .15rem; }
+.notebook-context-option strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .74rem; }
+.notebook-context-option small { color: var(--text-secondary); font-size: .64rem; }
+.notebook-context-count { margin-right: auto; align-self: center; color: var(--text-secondary); font-size: .68rem; }
 .notebook-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: .6rem; padding: .85rem 1rem; border-bottom: 1px solid var(--border-primary); }
 .notebook-panel-heading h2 { margin: 0; font-size: .86rem; }
 .notebook-panel-heading span { display: block; margin-top: .2rem; color: var(--text-secondary); font-size: .66rem; }

@@ -19,7 +19,24 @@ def test_notebook_turn_ref_discards_client_revision():
         scope={"revision": 999},
     )
     assert ref.type == "notebook"
-    assert ref.scope == {}
+    assert ref.scope == {"selection": "all", "source_ids": []}
+
+
+def test_notebook_turn_ref_keeps_bounded_source_selection_but_not_revision():
+    ref = TurnContextRef(
+        id="notebook:test",
+        type="notebook",
+        ref="notebook-id",
+        scope={
+            "revision": 999,
+            "selection": "sources",
+            "source_ids": ["source-2", "source-1", "source-2"],
+        },
+    )
+    assert ref.scope == {
+        "selection": "sources",
+        "source_ids": ["source-2", "source-1"],
+    }
 
 
 def test_normalized_notebook_ref_requires_server_pinned_revision():
@@ -36,7 +53,11 @@ def test_normalized_notebook_ref_requires_server_pinned_revision():
         "label": "Research",
         "scope": {"revision": 3},
     }])
-    assert normalized[0]["scope"] == {"revision": 3}
+    assert normalized[0]["scope"] == {
+        "revision": 3,
+        "selection": "all",
+        "source_ids": [],
+    }
 
 
 def test_notebook_context_requires_real_search_and_exposes_read_only_tools(monkeypatch):
@@ -45,16 +66,16 @@ def test_notebook_context_requires_real_search_and_exposes_read_only_tools(monke
         "type": "notebook",
         "ref": "notebook-id",
         "label": "Research",
-        "scope": {"revision": 3},
+        "scope": {"revision": 3, "selection": "sources", "source_ids": ["source-1"]},
     }]
     monkeypatch.setattr(
         notebook_service,
         "search_notebook",
-        lambda notebook_id, query, revision, limit: {
+        lambda notebook_id, query, revision, source_ids, limit: {
             "notebook_id": notebook_id,
             "revision": revision,
             "query": query,
-            "results": [{"chunk_id": "chunk-1", "text": "Evidence"}],
+            "results": [{"chunk_id": "chunk-1", "text": "Evidence", "source_ids": source_ids}],
         },
     )
     tools = build_context_tools(refs)
@@ -70,6 +91,7 @@ def test_notebook_context_requires_real_search_and_exposes_read_only_tools(monke
     result = search_tool.invoke({"query": "What is supported?", "limit": 5})
     assert "EXTERNAL CONTENT" in result
     assert '"revision": 3' in result
+    assert '"source_ids": ["source-1"]' in result
     raw_id_result = search_tool.invoke({
         "source_id": "notebook-id",
         "query": "What is supported?",
