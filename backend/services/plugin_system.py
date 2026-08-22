@@ -157,7 +157,7 @@ def validate_manifest(raw: Any) -> Dict[str, Any]:
     contributes_raw = raw.get("contributes") or {}
     if not isinstance(contributes_raw, dict):
         raise PluginError("contributes must be an object")
-    allowed_contributions = {"skills", "agents", "agentTools"}
+    allowed_contributions = {"skills", "agents", "agentTools", "academicRepositories"}
     unknown_contributions = set(contributes_raw) - allowed_contributions
     if unknown_contributions:
         raise PluginError(
@@ -189,11 +189,19 @@ def validate_manifest(raw: Any) -> Dict[str, Any]:
         raise PluginError(
             "plugins that contribute agent tools must declare the ai:tools permission"
         )
+    if contributes.get("academicRepositories") and "network" not in permissions:
+        raise PluginError(
+            "plugins that contribute academic repositories must declare the network permission"
+        )
     if contributes and api_version < 2:
         raise PluginError("AI contributions require plugin apiVersion 2")
     if contributes.get("agentTools") and not raw.get("backend"):
         raise PluginError(
             "plugins that contribute agent tools must declare a sandbox backend entry"
+        )
+    if contributes.get("academicRepositories") and not raw.get("backend"):
+        raise PluginError(
+            "plugins that contribute academic repositories must declare a sandbox backend entry"
         )
 
     return {

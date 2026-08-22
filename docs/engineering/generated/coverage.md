@@ -9,18 +9,18 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Domain | Status | Guide | Source files | Test files | Directives found |
 | --- | --- | --- | ---: | ---: | ---: |
 | `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 14 | 4 | 2 |
-| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 182 | 12 | 4 |
-| `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 16 | 9 | 3 |
+| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 184 | 12 | 4 |
+| `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 16 | 10 | 3 |
 | `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 10 | 12 | 3 |
-| `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 7 | 1 | 3 |
+| `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 16 | 10 | 4 |
 | `ai-agent` | **covered** | [`AI agents, models, tools, and skills`](../domains/ai-agent.md) | 67 | 21 | 4 |
 | `mail` | **covered** | [`Mail`](../domains/mail.md) | 15 | 6 | 4 |
 | `calendar-meetings` | **covered** | [`Calendar and meetings`](../domains/calendar-meetings.md) | 11 | 4 | 3 |
 | `contacts` | **covered** | [`Contacts`](../domains/contacts.md) | 9 | 2 | 2 |
 | `social-publishing` | **covered** | [`Social publishing and media`](../domains/social-publishing.md) | 6 | 0 | 3 |
-| `integrations-plugins` | **covered** | [`Integrations and plugins`](../domains/integrations-plugins.md) | 47 | 7 | 3 |
+| `integrations-plugins` | **covered** | [`Integrations and plugins`](../domains/integrations-plugins.md) | 48 | 7 | 4 |
 | `auth-workspaces-sharing` | **covered** | [`Authentication, workspaces, and sharing`](../domains/auth-workspaces-sharing.md) | 12 | 9 | 3 |
-| `automation-scheduling` | **covered** | [`Automation and scheduling`](../domains/automation-scheduling.md) | 6 | 1 | 3 |
+| `automation-scheduling` | **covered** | [`Automation and scheduling`](../domains/automation-scheduling.md) | 8 | 2 | 4 |
 | `desktop-clients` | **covered** | [`Desktop and companion clients`](../domains/desktop-clients.md) | 51 | 5 | 3 |
 
 ## Platform foundation and runtime
@@ -54,9 +54,9 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 ## Reader, references, and citations
 
 - Guide: [`Reader, references, and citations`](../domains/reader-references.md)
-- Source patterns: `backend/api/reader.py`, `backend/models/reader.py`, `backend/models/pdf_annotation.py`, `backend/services/**/*citation*.py`, `backend/services/**/*reference*.py`, `frontend/src/pages/ReaderDashboard.jsx`, `frontend/src/components/Vault/ZoteroReaderTab.jsx`
-- Test patterns: `backend/tests/test_*citation*.py`, `backend/tests/test_*reader*.py`, `e2e/tests/e2e/*citation*.spec.ts`
-- Directives: `docs/dev_memory/directives/gnosi_native_reference_manager.md`, `docs/dev_memory/directives/pdf_quote_capture.md`, `docs/dev_memory/directives/zotero_reader_translation_contribution.md`
+- Source patterns: `backend/api/reader.py`, `backend/models/reader.py`, `backend/models/pdf_annotation.py`, `backend/services/**/*citation*.py`, `backend/services/**/*reference*.py`, `backend/api/literature_routes.py`, `backend/services/**/*literature*.py`, `backend/services/academic_connectors.py`, `frontend/src/pages/ReaderDashboard.jsx`, `frontend/src/pages/LiteraturePage.jsx`, `frontend/src/components/ResourcesPluginConfig.jsx`, `frontend/src/components/Vault/ZoteroReaderTab.jsx`
+- Test patterns: `backend/tests/test_*citation*.py`, `backend/tests/test_*reader*.py`, `backend/tests/test_*literature*.py`, `backend/tests/test_academic_connectors.py`, `frontend/src/**/*Literature*.test.*`, `frontend/src/**/*ResourcesPluginConfig*.test.*`, `e2e/tests/e2e/*citation*.spec.ts`
+- Directives: `docs/dev_memory/directives/academic_literature_search_and_review.md`, `docs/dev_memory/directives/gnosi_native_reference_manager.md`, `docs/dev_memory/directives/pdf_quote_capture.md`, `docs/dev_memory/directives/zotero_reader_translation_contribution.md`
 
 ## AI agents, models, tools, and skills
 
@@ -96,9 +96,9 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 ## Integrations and plugins
 
 - Guide: [`Integrations and plugins`](../domains/integrations-plugins.md)
-- Source patterns: `backend/api/integrations_routes.py`, `backend/services/integration*.py`, `backend/services/plugin*.py`, `integrations/**/*`, `plugins-examples/**/*`, `mcp-servers/**/*`
+- Source patterns: `backend/api/integrations_routes.py`, `backend/services/integration*.py`, `backend/services/plugin*.py`, `backend/services/academic_connectors.py`, `integrations/**/*`, `plugins-examples/**/*`, `mcp-servers/**/*`
 - Test patterns: `backend/tests/test_integration*.py`, `backend/tests/test_plugin*.py`, `integrations/**/tests/**/*`
-- Directives: `docs/dev_memory/directives/plugin_system.md`, `docs/dev_memory/directives/integrations_persistence.md`, `docs/dev_memory/directives/skill_vs_tool_architecture.md`
+- Directives: `docs/dev_memory/directives/academic_literature_search_and_review.md`, `docs/dev_memory/directives/plugin_system.md`, `docs/dev_memory/directives/integrations_persistence.md`, `docs/dev_memory/directives/skill_vs_tool_architecture.md`
 
 ## Authentication, workspaces, and sharing
 
@@ -110,9 +110,9 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 ## Automation and scheduling
 
 - Guide: [`Automation and scheduling`](../domains/automation-scheduling.md)
-- Source patterns: `backend/api/scheduler_routes.py`, `backend/scheduler/**/*.py`, `backend/models/scheduler.py`, `frontend/src/pages/SchedulerPage.jsx`, `pipeline/skills/scheduler/**/*`
-- Test patterns: `backend/tests/test_schedul*.py`, `e2e/tests/e2e/automation*.spec.ts`
-- Directives: `docs/dev_memory/directives/scheduler_config_resilience.md`, `docs/dev_memory/directives/autonomous_quality_loop.md`, `docs/dev_memory/directives/automations_and_formulas.md`
+- Source patterns: `backend/api/scheduler_routes.py`, `backend/scheduler/**/*.py`, `backend/models/scheduler.py`, `backend/services/durable_job_worker.py`, `backend/services/literature_service.py`, `frontend/src/pages/SchedulerPage.jsx`, `pipeline/skills/scheduler/**/*`
+- Test patterns: `backend/tests/test_schedul*.py`, `backend/tests/test_literature_service.py`, `e2e/tests/e2e/automation*.spec.ts`
+- Directives: `docs/dev_memory/directives/academic_literature_search_and_review.md`, `docs/dev_memory/directives/scheduler_config_resilience.md`, `docs/dev_memory/directives/autonomous_quality_loop.md`, `docs/dev_memory/directives/automations_and_formulas.md`
 
 ## Desktop and companion clients
 

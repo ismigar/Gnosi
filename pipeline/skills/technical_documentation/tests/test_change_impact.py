@@ -1,5 +1,6 @@
 """Tests for functional-change documentation enforcement."""
 
+from pathlib import Path
 from subprocess import CompletedProcess
 
 from pipeline.skills.technical_documentation.scripts.check_change_impact import (
@@ -110,7 +111,8 @@ def test_changed_files_includes_committed_and_local_changes(monkeypatch):
         assert kwargs["check"] is True
         assert kwargs["capture_output"] is True
         assert kwargs["text"] is True
-        return CompletedProcess(command, 0, stdout=outputs[tuple(command)])
+        normalized_command = (Path(command[0]).name, *command[1:])
+        return CompletedProcess(command, 0, stdout=outputs[normalized_command])
 
     monkeypatch.setattr(
         "pipeline.skills.technical_documentation.scripts.check_change_impact.subprocess.run",

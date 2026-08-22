@@ -1,0 +1,189 @@
+.resources-plugin-config {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.resources-plugin-config__error,
+.resources-plugin-config__notice {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 11px;
+    border-radius: 9px;
+    font-size: 12px;
+}
+
+.resources-plugin-config__error {
+    color: var(--status-error, #b91c1c);
+    background: color-mix(in srgb, var(--status-error, #ef4444) 9%, transparent);
+    border: 1px solid color-mix(in srgb, var(--status-error, #ef4444) 24%, transparent);
+}
+
+.resources-plugin-config__notice {
+    color: var(--status-success, #15803d);
+    background: color-mix(in srgb, var(--status-success, #22c55e) 9%, transparent);
+    border: 1px solid color-mix(in srgb, var(--status-success, #22c55e) 24%, transparent);
+}
+
+.resources-plugin-config__section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+    border: 1px solid var(--border-primary);
+    border-radius: 12px;
+    background: var(--bg-primary);
+}
+
+.resources-plugin-config__heading,
+.resources-plugin-config__row,
+.resources-plugin-config__source,
+.resources-plugin-config__source-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.resources-plugin-config__heading {
+    justify-content: space-between;
+}
+
+.resources-plugin-config__heading h4 {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-primary);
+}
+
+.resources-plugin-config__heading p {
+    margin: 3px 0 0;
+    font-size: 11px;
+    line-height: 1.45;
+    color: var(--text-tertiary);
+}
+
+.resources-plugin-config__row > :is(input, select, textarea):first-child {
+    flex: 1;
+}
+
+.resources-plugin-config__action {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.resources-plugin-config__add-button {
+    width: 100%;
+}
+
+.resources-plugin-config__sources {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 430px;
+    overflow: auto;
+}
+
+.resources-plugin-config__source {
+    justify-content: space-between;
+    padding: 10px;
+    border: 1px solid var(--border-primary);
+    border-radius: 9px;
+    background: var(--bg-secondary);
+}
+
+.resources-plugin-config__source-main {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.resources-plugin-config__source-main strong {
+    font-size: 12px;
+    color: var(--text-primary);
+}
+
+.resources-plugin-config__source-main small {
+    flex-basis: 100%;
+    color: var(--text-tertiary);
+    font-size: 10px;
+}
+
+.resources-plugin-config__source-main small.is-error {
+    color: var(--status-error);
+}
+
+.resources-plugin-config__status {
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--status-warning, #f59e0b) 13%, transparent);
+    color: var(--status-warning, #a16207);
+    font-size: 10px;
+}
+
+.resources-plugin-config__status.is-ready {
+    background: color-mix(in srgb, var(--status-success, #22c55e) 13%, transparent);
+    color: var(--status-success, #15803d);
+}
+
+.resources-plugin-config__icon-button {
+    border-color: var(--border-primary);
+    color: var(--text-secondary);
+    background: var(--bg-primary);
+}
+
+.resources-plugin-config__icon-button.is-danger {
+    color: var(--status-error);
+}
+
+.resource-source-switch {
+    flex: 0 0 auto;
+    border: 0;
+    padding: 0;
+}
+
+.resources-plugin-config__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.resources-plugin-config__grid label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.resources-plugin-config__grid label.is-wide {
+    grid-column: 1 / -1;
+}
+
+.resources-plugin-config__delete-index {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: -10px 0 16px;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+@media (max-width: 720px) {
+    .resources-plugin-config__row,
+    .resources-plugin-config__source {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .resources-plugin-config__source-actions {
+        justify-content: flex-end;
+        flex-wrap: wrap;
+    }
+
+    .resources-plugin-config__grid {
+        grid-template-columns: 1fr;
+    }
+}

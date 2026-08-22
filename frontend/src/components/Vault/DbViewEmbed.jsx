@@ -13,6 +13,7 @@ import PromptModal from '../PromptModal';
 import { toast } from '../../lib/toast';
 import { IconRenderer } from './IconRenderer';
 import { getTemplateMenuIcon } from './templateMenuUtils';
+import { ReferenceImportExport } from './ReferenceImportExport';
 
 // Scrollable container to fit the full view components (which
 // assume a height) within the embed's document flow. At module level
@@ -195,6 +196,7 @@ async function patchSectionConfig(pageId, section, patch) {
 function ViewActionsBar({
     onCreate,
     onCreateTemplate,
+    onCreateFromSource,
     onAddView,
     templates = [],
     onOpenConfig,
@@ -512,6 +514,15 @@ function ViewActionsBar({
                                 >
                                     <LayoutTemplate size={14} className="text-[var(--text-tertiary)]" />
                                     <span>{t('views_header.new_template', "New template")}</span>
+                                </button>
+                            )}
+                            {onCreateFromSource && (
+                                <button
+                                    onClick={() => { setShowNewMenu(false); onCreateFromSource(); }}
+                                    className="w-full flex items-center gap-2 px-3 py-2 !text-xs text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] text-left"
+                                >
+                                    <Search size={14} className="text-[var(--text-tertiary)]" />
+                                    <span>{t('views_header.new_from_source')}</span>
                                 </button>
                             )}
                             {templates.length > 0 && (
@@ -1896,9 +1907,14 @@ export function DbViewEmbed({ block }) {
                         {t('views_header.records_count', { count: rows.length })}
                     </span>
                 </div>
+                <div className="flex items-center gap-2">
+                {ctx.referenceTableId === tableId && (
+                    <ReferenceImportExport tableId={tableId} onImported={reload} />
+                )}
                 <ViewActionsBar
                     onCreate={tableId ? handleCreate : null}
                     onCreateTemplate={tableId ? () => ctx.onCreateTemplate?.(tableId) : null}
+                    onCreateFromSource={ctx.referenceTableId === tableId ? () => ctx.onCreateFromSource?.(tableId) : null}
                     onAddView={tableId ? () => handleAddView('table') : null}
                     templates={templates}
                     onOpenConfig={onOpenPageViewModal && tableId ? handleOpenConfig : null}
@@ -1922,6 +1938,7 @@ export function DbViewEmbed({ block }) {
                     onToggleGroup={viewType === 'feed' ? toggleFeedGroupMode : null}
                     loadDuration={loadDuration}
                 />
+                </div>
             </div>
             {/* Tabs of views for THIS block: the section's view (anchor)
                 + those that have been explicitly pinned to it. Not all the

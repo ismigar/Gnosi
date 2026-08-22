@@ -25,6 +25,7 @@ import { TranslateLanguagesModal } from '../components/Vault/TranslateLanguagesM
 import { VaultDocumentTabs } from '../components/Vault/VaultDocumentTabs';
 import { ZoteroReaderTab } from '../components/Vault/ZoteroReaderTab';
 import { VaultViewsHeader } from '../components/Vault/VaultViewsHeader';
+import { selectResourceTemplate } from '../components/Vault/resourceTemplateSelection';
 import VaultDrawings from '../components/Vault/VaultDrawings';
 import { VaultGraph } from '../components/Vault/VaultGraph';
 import { VaultTrashView } from '../components/Vault/VaultTrashView';
@@ -1502,6 +1503,11 @@ export default function VaultDashboard() {
         try {
             const sug = suggested || {};
             const title = (sug.Title || sug.title || t('common.new')).toString();
+            const tableTemplates = pages.filter((page) => (
+                resolvePageTableId(page) === tableId && page.metadata?.is_template
+            ));
+            const template = selectResourceTemplate(tableTemplates, sug);
+            let initialContent = '';
             let initialMeta = {
                 ...sug,
                 is_template: false,
@@ -1509,10 +1515,22 @@ export default function VaultDashboard() {
                 database_table_id: tableId,
                 id: undefined,
             };
+            if (template) {
+                const { data: templateData } = await axios.get(`/api/vault/pages/${template.id}`);
+                initialContent = templateData.content || '';
+                initialMeta = {
+                    ...templateData.metadata,
+                    ...initialMeta,
+                    is_template: false,
+                    table_id: tableId,
+                    database_table_id: tableId,
+                    id: undefined,
+                };
+            }
             initialMeta = applySchemaDefaults(tableId, initialMeta, title);
             const res = await axios.post(`/api/vault/pages`, {
                 title,
-                content: "",
+                content: initialContent,
                 is_database: false,
                 metadata: initialMeta,
             });
@@ -1523,7 +1541,7 @@ export default function VaultDashboard() {
             console.error("Error creating the record from a source:", err);
             toast.error(t('errors.record_create', { defaultValue: "Error creating the record" }));
         }
-    }, [applySchemaDefaults, fetchPages, loadPage, t]);
+    }, [applySchemaDefaults, fetchPages, loadPage, pages, resolvePageTableId, t]);
 
 
     // Daily Notes (Obsidian style): opens (or creates) the daily note for a date.
@@ -3795,6 +3813,7 @@ export default function VaultDashboard() {
                 key={tab.id}
                 noteFilename={tab.id}
                 referenceTableId={refTableId}
+                onCreateFromSource={(tableId) => setCreateSourceTableId(tableId)}
                 initialContent={tab.content}
                 initialMetadata={tab.metadata}
                 isCodeView={Boolean(codeViewByTabId[tab.id])}

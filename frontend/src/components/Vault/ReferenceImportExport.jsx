@@ -12,11 +12,13 @@
 import React, { useCallback, useRef, useState } from 'react';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
-import { Upload, Download, Loader2, ChevronDown } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Upload, Download, Loader2, ChevronDown, LibraryBig } from 'lucide-react';
 import { toast } from '../../lib/toast';
 
 export function ReferenceImportExport({ tableId, onImported }) {
     const { t } = useTranslation();
+    const navigate = useNavigate();
     const fileRef = useRef(null);
     const [busy, setBusy] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
@@ -103,6 +105,15 @@ export function ReferenceImportExport({ tableId, onImported }) {
 
     return (
         <div className="flex items-center gap-1">
+            <button
+                type="button"
+                onClick={() => navigate('/literature')}
+                className={btnCls}
+                aria-label={t('literature.title')}
+            >
+                <LibraryBig size={13} />
+                {t('literature.title')}
+            </button>
             <input
                 ref={fileRef}
                 type="file"
@@ -115,7 +126,7 @@ export function ReferenceImportExport({ tableId, onImported }) {
                 onClick={() => fileRef.current?.click()}
                 disabled={busy}
                 className={btnCls}
-                title={t('references_io.import_title', { defaultValue: "Import references (.bib / .ris)" })}
+                aria-label={t('references_io.import_title', { defaultValue: "Import references (.bib / .ris)" })}
             >
                 {busy ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
                 {t('references_io.import', { defaultValue: "Import" })}
@@ -126,7 +137,7 @@ export function ReferenceImportExport({ tableId, onImported }) {
                     onClick={() => setMenuOpen((o) => !o)}
                     disabled={busy}
                     className={btnCls}
-                    title={t('references_io.export_title', { defaultValue: "Export references" })}
+                    aria-label={t('references_io.export_title', { defaultValue: "Export references" })}
                 >
                     <Download size={13} />
                     {t('references_io.export', { defaultValue: "Export" })}

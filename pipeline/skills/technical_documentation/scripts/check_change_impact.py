@@ -5,12 +5,14 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path, PurePosixPath
+import shutil
 import subprocess
 import sys
 
 
 APP_ROOT = Path(__file__).resolve().parents[4]
 REPOSITORY_ROOT = APP_ROOT.parents[2]
+SYSTEM_GIT_CANDIDATES = (Path("/usr/bin/git"), Path("/usr/local/bin/git"))
 APP_PREFIX = "monorepo/apps/gnosi/"
 IMPLEMENTATION_PREFIXES = (
     f"{APP_PREFIX}backend/",
@@ -81,6 +83,17 @@ DEPENDENCY_MANIFEST_NAMES = {
 }
 
 
+def git_executable() -> str:
+    """Return an available Git executable for local and service environments."""
+    discovered = shutil.which("git")
+    if discovered:
+        return discovered
+    for candidate in SYSTEM_GIT_CANDIDATES:
+        if candidate.is_file():
+            return str(candidate)
+    raise FileNotFoundError("Git executable not found in PATH or system locations")
+
+
 def is_implementation_path(path: str) -> bool:
     """Return whether a repository path can change shipped behavior."""
     if path in IMPLEMENTATION_FILES:
@@ -141,11 +154,12 @@ def changed_files(base_ref: str) -> set[str]:
     if not base_ref or set(base_ref) == {"0"}:
         return set()
 
+    git = git_executable()
     commands = (
-        ("git", "diff", "--name-only", f"{base_ref}...HEAD"),
-        ("git", "diff", "--name-only"),
-        ("git", "diff", "--name-only", "--cached"),
-        ("git", "ls-files", "--others", "--exclude-standard"),
+        (git, "diff", "--name-only", f"{base_ref}...HEAD"),
+        (git, "diff", "--name-only"),
+        (git, "diff", "--name-only", "--cached"),
+        (git, "ls-files", "--others", "--exclude-standard"),
     )
     paths: set[str] = set()
     for command in commands:
