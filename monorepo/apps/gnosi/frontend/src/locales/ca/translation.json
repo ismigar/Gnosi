@@ -404,6 +404,10 @@
     "calendar_color_update_error": "No s'ha pogut actualitzar el color del calendari",
     "error_deleting_event": "No s'ha pogut eliminar l'esdeveniment"
   },
+  "accessibility": {
+    "skip_to_content": "Vés al contingut principal",
+    "route_loaded": "S’ha carregat {{page}}"
+  },
   "sidebar": {
     "main_navigation": "Navegació principal",
     "my_vault": "El meu Coneixement",
@@ -607,6 +611,8 @@
     "active": "Actiu",
     "inactive": "Inactiu",
     "run_now": "Executar Ara",
+    "toggle_task": "Activa o desactiva {{task}}",
+    "task_interval_label": "Interval de {{task}}",
     "frequency_days_one": "Cada {{count}} dia",
     "frequency_days_other": "Cada {{count}} dies",
     "frequency_hours_one": "Cada {{count}} hora",
@@ -2795,6 +2801,7 @@
     "type_business": "Empresa",
     "search_placeholder": "Cerca contactes...",
     "filter_all": "Tots",
+    "filter_type": "Filtra els contactes per tipus",
     "filter_personal": "Personal",
     "filter_business": "Empresa",
     "no_contacts": "No tens cap contacte encara.",
@@ -3186,6 +3193,7 @@
     "ai_draft_ok": "Esborrany generat amb IA",
     "ai_draft_error": "Error generant l'esborrany",
     "select_mail": "Selecciona un correu",
+    "select_message": "Selecciona el missatge {{subject}}",
     "select_mail_hint": "Tria un missatge de la llista per començar.",
     "loading": "Carregant contingut...",
     "original_message": "Missatge original",
@@ -3916,7 +3924,9 @@
     "date_30d": "30 dies",
     "date_year": "Aquest any",
     "date_custom": "Personalitzat",
+    "date_filter_label": "Filtre de data",
     "size_all": "Tot",
+    "size_filter_label": "Filtre de mida",
     "sort_mtime": "Modificació",
     "sort_filename": "Nom",
     "sort_size": "Mida",
@@ -3924,6 +3934,8 @@
     "sort_field_title": "Camp d'ordenació",
     "sort_desc": "Descendent",
     "sort_asc": "Ascendent",
+    "grid_view": "Vista de quadrícula",
+    "list_view": "Vista de llista",
     "tag_placeholder": "Tag + Enter",
     "update_view": "Actualitzar vista",
     "update_view_title": "Sobreescriu la vista activa amb els filtres actuals",
@@ -4746,7 +4758,7 @@
     "no_files": "No s'han trobat fitxers"
   },
   "planning_page": {
-    "title": "Planificació de projectes", "subtitle": "Calendari, camí crític, recursos i diagnòstics.", "project_id": "ID del projecte", "project": "Projecte", "default_project": "Projecte predeterminat", "refresh": "Actualitza", "load_error": "No s'ha pogut carregar la planificació.", "critical_tasks": "Tasques crítiques", "estimated_cost": "Cost estimat", "warnings": "Avisos", "schedule": "Calendari", "task": "Tasca", "start": "Inici", "finish": "Fi", "slack": "Folgança", "diagnostics": "Diagnòstics", "baselines": "Línies base", "baseline_name": "Nom de la línia base", "create": "Crea", "worklogs": "Registres de treball", "add_worklog": "Afegeix registre", "entries": "entrades", "resource_heatmap": "Càrrega de recursos", "leveling": "Anivellament de recursos", "generate_proposal": "Genera proposta", "proposed_changes": "canvis proposats", "apply_proposal": "Aplica la proposta"
+    "title": "Planificació de projectes", "subtitle": "Calendari, camí crític, recursos i diagnòstics.", "project_id": "ID del projecte", "project": "Projecte", "default_project": "Projecte predeterminat", "refresh": "Actualitza", "load_error": "No s'ha pogut carregar la planificació.", "critical_tasks": "Tasques crítiques", "estimated_cost": "Cost estimat", "warnings": "Avisos", "schedule": "Calendari", "task": "Tasca", "start": "Inici", "finish": "Fi", "slack": "Folgança", "diagnostics": "Diagnòstics", "baselines": "Línies base", "baseline_name": "Nom de la línia base", "create": "Crea", "worklogs": "Registres de treball", "worklog_task": "Tasca del registre de treball", "worklog_date": "Data del registre de treball", "worklog_hours": "Hores del registre de treball", "add_worklog": "Afegeix registre", "entries": "entrades", "resource_heatmap": "Càrrega de recursos", "leveling": "Anivellament de recursos", "generate_proposal": "Genera proposta", "proposed_changes": "canvis proposats", "apply_proposal": "Aplica la proposta"
   },
   "vault_date": {
     "days_placeholder": "dies",
@@ -5424,6 +5436,7 @@
     "title": "Quaderns",
     "eyebrow": "Coneixement fonamentat",
     "subtitle": "Conversa amb els adjunts i les URL dels teus Recursos.",
+    "mobile_tabs_label": "Seccions del quadern",
     "create_action": "Crea un quadern",
     "create_from_selection": "Crea un quadern amb la selecció",
     "create_title": "Crea un quadern",

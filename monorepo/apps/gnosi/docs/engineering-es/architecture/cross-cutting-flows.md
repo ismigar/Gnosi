@@ -1,15 +1,18 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-21
 source_paths:
   - backend/server.py
   - backend/services/context_vars.py
   - backend/services/auth_service.py
   - backend/security/keychain_manager.py
   - frontend/src/context/AuthContext.jsx
+  - frontend/src/hooks/useModalKeyboard.js
+  - frontend/src/index.css
 tests:
   - backend/tests/test_auth_central_gate.py
   - backend/tests/test_workspace_bootstrap_race.py
+  - e2e/tests/accessibility/accessibility.spec.ts
 ---
 
 # Corrientes intersectoriales
@@ -62,6 +65,19 @@ Los registros están orientados al desarrollador y escritos en inglés. No deben
 ## Internacionalización
 
 Las cadenas de interfaz visibles para el usuario pasan por `react-i18next` y existen en los cuatro catálogos locales: catalán, inglés, español y francés. Los comentarios de código, docstrings, registros de desarrolladores, documentación técnica pública e identificadores son en inglés a menos que se persista un identificador o valor de compatibilidad.
+
+## Accesibilidad
+
+La carcasa de la aplicación es responsable de la única región principal, la
+navegación de salto, los tokens de foco visible y los anuncios discretos de
+cambio de ruta. Los dominios heredan estas primitivas y mantienen los nombres
+accesibles en los mismos cuatro catálogos de idioma que las etiquetas visuales.
+
+Los diálogos cancelables usan la capa compartida de teclado: solo el diálogo
+superior gestiona Escape, Tab queda atrapado en su interior y el foco vuelve al
+elemento que lo abrió. Las pestañas adaptables exponen relaciones completas con
+sus paneles y foco roving. Playwright combina axe WCAG 2.2 AA con pruebas
+explícitas de teclado.
 
 ## Política de efectos exteriores
 

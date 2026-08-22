@@ -1,15 +1,18 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-21
 source_paths:
   - backend/server.py
   - backend/services/context_vars.py
   - backend/services/auth_service.py
   - backend/security/keychain_manager.py
   - frontend/src/context/AuthContext.jsx
+  - frontend/src/hooks/useModalKeyboard.js
+  - frontend/src/index.css
 tests:
   - backend/tests/test_auth_central_gate.py
   - backend/tests/test_workspace_bootstrap_race.py
+  - e2e/tests/accessibility/accessibility.spec.ts
 ---
 
 # Flux transversaux
@@ -62,6 +65,20 @@ Les journaux sont orientés vers le développeur et rédigés en anglais. Ils ne
 ## Internationalisation
 
 Les chaînes frontales visibles par l'utilisateur passent par `react-i18next` et existent dans les quatre catalogues locaux: catalan, anglais, espagnol et français. Les commentaires de code, les documents, les journaux de développeur, la documentation technique publique et les identificateurs sont anglais à moins qu'un identifiant ou une valeur de compatibilité ne persiste déjà.
+
+## Accessibilité
+
+La structure de l’application porte l’unique région principale, la navigation
+d’évitement, les jetons de focus visible et les annonces discrètes de changement
+d’itinéraire. Les domaines héritent de ces primitives et conservent les noms
+accessibles dans les mêmes quatre catalogues de langue que les étiquettes
+visuelles.
+
+Les dialogues annulables utilisent la couche clavier partagée : seul le
+dialogue supérieur gère Échap, Tab reste à l’intérieur et le focus revient à
+l’élément déclencheur. Les onglets adaptatifs exposent des relations complètes
+avec leurs panneaux et un focus roving. Playwright combine axe WCAG 2.2 AA avec
+des assertions clavier explicites.
 
 ## Politique des effets externes
 

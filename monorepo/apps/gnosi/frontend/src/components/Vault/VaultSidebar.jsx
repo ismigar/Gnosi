@@ -991,7 +991,7 @@ export const VaultSidebar = ({
                     icon={Search}
                     label={t('sidebar.search')}
                     onClick={onSearch}
-                    rightElement={<span className="text-[10px] font-semibold text-[var(--text-secondary)]/60 border border-[var(--border-primary)] bg-[var(--bg-secondary)] rounded px-1.5 py-0.5">{t('sidebar.search_shortcut', { shortcut: globalSearchShortcut })}</span>}
+                    rightElement={<span className="text-[10px] font-semibold text-[var(--text-secondary)] border border-[var(--border-primary)] bg-[var(--bg-secondary)] rounded px-1.5 py-0.5">{t('sidebar.search_shortcut', { shortcut: globalSearchShortcut })}</span>}
                 />
                 <NavItem icon={Clock} label={t('sidebar.recent')} onClick={onOpenRecent} />
                 {onOpenDaily && (

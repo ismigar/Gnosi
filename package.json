@@ -5,6 +5,7 @@
     "scripts": {
         "test:e2e": "npm --prefix monorepo/apps/gnosi/e2e test",
         "test:e2e:smoke": "npm --prefix monorepo/apps/gnosi/e2e run test:smoke",
+        "test:e2e:a11y": "npm --prefix monorepo/apps/gnosi/e2e run test:a11y",
         "test:e2e:ui": "npm --prefix monorepo/apps/gnosi/e2e run test:ui",
         "test:e2e:update": "npm --prefix monorepo/apps/gnosi/e2e exec -- playwright test --update-snapshots",
         "test:e2e:linux-baselines": "bash monorepo/apps/gnosi/pipeline/skills/playwright_e2e/scripts/generate_linux_baselines.sh",

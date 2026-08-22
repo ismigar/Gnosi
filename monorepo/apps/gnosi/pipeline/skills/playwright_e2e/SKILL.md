@@ -10,7 +10,7 @@ End-to-end testing skill for the Gnosi frontend. Replaces the historical manual 
 
 | Layer | Location | Notes |
 |-------|----------|-------|
-| **App under test** | `monorepo/apps/gnosi/frontend` | Served by Docker `gnosi_frontend` on `localhost:5173` |
+| **App under test** | `monorepo/apps/gnosi/frontend` | Served natively on `localhost:5173`; Docker remains a supported deployment mode |
 | **Test project** | `monorepo/apps/gnosi/e2e` | Separate npm project — runs on the **host** (macOS), NOT inside the Alpine frontend container |
 | **Skill (this folder)** | `pipeline/skills/playwright_e2e` | SOPs, helper scripts, baseline-generation tooling |
 | **CI** | `.github/workflows/e2e.yml` | Sharded 2-way Ubuntu runners |
@@ -30,6 +30,7 @@ Defined in [`e2e/playwright.config.ts`](../../e2e/playwright.config.ts):
 | `setup` | `tests/setup/` | seeds localStorage | Generates `tests/.auth/state.json` for downstream projects |
 | `chromium-anon` | `tests/anon/` | none | **Smoke** — 5 tests, ~10s, runs on every push |
 | `chromium-auth` | `tests/e2e/` | from setup | Feature tests: vault, calendar, contacts, AI chat (12 tests) |
+| `accessibility` | `tests/accessibility/` | from setup | Axe WCAG 2.2 AA route matrix plus keyboard/focus contracts |
 | `visual` | `tests/visual/` | from setup | Pixel-diff regression on 4 routes |
 
 ---
@@ -40,6 +41,7 @@ From the **monorepo root** (`monorepo/`) or **git root** (`Projectes/`):
 
 ```bash
 npm run test:e2e:smoke          # smoke only (~10s) — pre-push hook uses this
+npm run test:e2e:a11y           # axe + keyboard accessibility gate
 npm run test:e2e                # full suite (~3min)
 npm run test:e2e:ui             # interactive UI mode (best DX for debugging)
 npm run test:e2e:update         # regenerate visual baselines (current platform)
@@ -51,6 +53,7 @@ From `apps/gnosi/e2e/` directly (low-level):
 ```bash
 npx playwright test --project=chromium-anon   # smoke
 npx playwright test --project=chromium-auth   # features only
+npx playwright test --project=accessibility   # accessibility gate only
 npx playwright test --headed                  # see browser
 npx playwright test --debug                   # step-through inspector
 npx playwright show-report                    # last HTML report
@@ -106,6 +109,21 @@ Only when the visual change is **intentional** (UI redesign, branding update). F
    reporting 18 failures. Before launching, `pgrep -fl 'playwright test'` must
    return no processes. Judge results by your run's exit code and output, not
    by `.last-run.json` (last writer wins).
+9. **Axe is not the keyboard gate** — keep the explicit skip-link, focus-order,
+   mobile-tab, dialog, and live-region assertions. A zero-violation axe result
+   does not prove those behaviors.
+10. **No permanent application violation allowlist** — fix first-party markup
+    or shared tokens. Exclude only an uncontrollable third-party subtree and
+    document the reason next to that narrow exclusion.
+11. **Responsive navigation uses boolean `inert`** — React 19 drops an empty
+    string expression for this boolean attribute. Pass the hidden-state
+    boolean and assert both `inert` and focus restoration in the mobile test.
+12. **One bounded shell reload** — if `#page-content-scroll` does not appear
+    during native Vite bootstrap, the accessibility helper may reload once.
+    A second failure is real and must fail the gate; never loop retries.
+13. **Native controls first** — scrollable list rows, calendar dates, toggles,
+    and sliders must use buttons or associated labels. A pointer-only `div`
+    is not an acceptable keyboard implementation.
 
 ---
 
@@ -173,5 +191,4 @@ GitHub Actions workflow: [`.github/workflows/e2e.yml`](../../../../monorepo/.git
 
 - [ ] Page Object Model when suite passes ~10 specs per area.
 - [ ] Auth setup with real OAuth flow (currently fakes localStorage).
-- [ ] Accessibility audits via `@axe-core/playwright`.
 - [ ] Cross-browser matrix (Firefox + WebKit) for release branches.

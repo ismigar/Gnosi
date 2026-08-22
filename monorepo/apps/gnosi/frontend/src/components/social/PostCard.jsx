@@ -18,10 +18,10 @@ const PostCard = ({ post }) => {
 
     // Use specific colors for networks (simulated with standard classes for now)
     const getNetworkColor = (net) => {
-        if (net === 'mastodon') return 'text-purple-400';
-        if (net === 'bluesky') return 'text-blue-400';
-        if (net === 'linkedin') return 'text-blue-600';
-        return 'text-zinc-400';
+        if (net === 'mastodon') return 'text-purple-700 dark:text-purple-300';
+        if (net === 'bluesky') return 'text-blue-700 dark:text-blue-300';
+        if (net === 'linkedin') return 'text-blue-700 dark:text-blue-300';
+        return 'text-[var(--text-secondary)]';
     };
 
     const handleLike = async (e) => {

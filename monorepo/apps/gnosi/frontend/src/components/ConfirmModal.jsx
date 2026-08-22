@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useId, useRef, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertCircle, X, Check } from 'lucide-react';
 import { useModalKeyboard } from '../hooks/useModalKeyboard';
@@ -26,6 +26,8 @@ export const ConfirmModal = ({
     const resolvedConfirmText = confirmText ?? t('common.confirm', "Confirm");
     const resolvedCancelText = cancelText ?? t('common.cancel', "Cancel");
     const modalRef = useRef(null);
+    const titleId = useId();
+    const messageId = useId();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isAcknowledged, setIsAcknowledged] = useState(false);
 
@@ -74,6 +76,8 @@ export const ConfirmModal = ({
             onClick={handleBackdropClick}
             role="dialog"
             aria-modal="true"
+            aria-labelledby={titleId}
+            aria-describedby={messageId}
         >
             <div className="absolute inset-0 bg-[var(--bg-primary)]/40 backdrop-blur-sm transition-opacity" />
 
@@ -98,10 +102,10 @@ export const ConfirmModal = ({
                 </div>
 
                 <div>
-                    <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">
+                    <h3 id={titleId} className="text-lg font-semibold text-[var(--text-primary)] mb-2">
                         {resolvedTitle}
                     </h3>
-                    <div className="text-sm text-[var(--text-secondary)] leading-relaxed mb-6">
+                    <div id={messageId} className="text-sm text-[var(--text-secondary)] leading-relaxed mb-6">
                         {resolvedMessage}
                     </div>
                 </div>

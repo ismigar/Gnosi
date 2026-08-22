@@ -35,6 +35,18 @@ function Dialog({ open, onClose, label = 'Test dialog' }) {
     );
 }
 
+function EmptyDialog({ open, onClose }) {
+    const dialogRef = useRef(null);
+    useModalKeyboard({
+        isOpen: open,
+        onClose,
+        containerRef: dialogRef,
+        trapFocus: true,
+    });
+    if (!open) return null;
+    return <section ref={dialogRef} role="dialog" aria-modal="true" aria-label="Empty dialog" />;
+}
+
 function NestedDialogs({ parentOpen, childOpen, onParentClose, onChildClose }) {
     const parentRef = useRef(null);
     const childRef = useRef(null);
@@ -114,5 +126,24 @@ describe('useModalKeyboard accessibility contract', () => {
         ));
         await act(async () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
         expect(onParentClose).toHaveBeenCalledOnce();
+    });
+
+    it('focuses an empty dialog container and keeps Tab inside it', async () => {
+        const opener = document.createElement('button');
+        document.body.appendChild(opener);
+        opener.focus();
+        const onClose = vi.fn();
+        await render(<EmptyDialog open onClose={onClose} />);
+
+        const dialog = container.querySelector('[role="dialog"]');
+        expect(dialog.getAttribute('tabindex')).toBe('-1');
+        expect(document.activeElement).toBe(dialog);
+
+        await act(async () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true })));
+        expect(document.activeElement).toBe(dialog);
+
+        await act(async () => root.render(<EmptyDialog open={false} onClose={onClose} />));
+        expect(document.activeElement).toBe(opener);
+        opener.remove();
     });
 });

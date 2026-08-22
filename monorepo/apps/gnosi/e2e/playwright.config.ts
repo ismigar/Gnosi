@@ -16,7 +16,7 @@ const DEFAULT_BASE_URL = fs.existsSync(CERT_FILE)
  *
  * Architecture:
  * - Frontend runs natively through the Gnosi LaunchAgent on localhost:5173.
- * - Tests run on the host (macOS) and connect over HTTP.
+ * - Tests run on the host (macOS) and connect over HTTP or local mkcert HTTPS.
  * - We do NOT start a webServer here — anti-ghosting (see environment_integrity.md):
  *   if 5173 is not up, tests fail by design instead of spinning a second instance.
  * - Docker remains a supported deployment target, but it is not the local fallback.
@@ -75,6 +75,16 @@ export default defineConfig({
     {
       name: 'chromium-auth',
       testDir: './tests/e2e',
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: STORAGE_STATE,
+      },
+      dependencies: ['setup'],
+    },
+    {
+      name: 'accessibility',
+      testDir: './tests/accessibility',
+      fullyParallel: false,
       use: {
         ...devices['Desktop Chrome'],
         storageState: STORAGE_STATE,

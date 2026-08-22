@@ -1,13 +1,14 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-21
 source_paths:
   - backend/tests
   - frontend/src
   - e2e
   - requirements.txt
   - frontend/package.json
-tests: []
+tests:
+  - e2e/tests/accessibility/accessibility.spec.ts
 ---
 
 # Stratégie d'essai
@@ -50,6 +51,22 @@ Playwright fonctionne comme un projet de niveau hôte contre l'application nativ
 
 Les instantanés visuels couvrent les pages représentatives des bureaux et des mobiles. Pour un changement d'interface, inspectez la page rendue, cliquez sur le contrôle modifié, regardez la console et prenez une capture d'écran. Confirmez que les modaux, les superpositions, les toasts et les menus utilisent le système d'index z enregistré et ne captent pas l'interaction.
 
+## Porte d’accessibilité
+
+Le projet Playwright `accessibility` est une porte bloquante WCAG 2.2 AA. Il
+exécute axe sur un itinéraire représentatif de chaque domaine principal dans
+les thèmes clair et sombre, y compris le contraste des couleurs, les étiquettes,
+les régions et les relations ARIA. Le balisage propre à l’application reste
+toujours dans l’audit. Les données de test déterministes activent les modules
+optionnels de la matrice d’itinéraires, et chaque itinéraire échoue également
+en cas d’erreur de page non gérée dans le navigateur ; une surface défaillante
+ne peut pas réussir axe.
+
+Les tests d’interaction complètent axe avec la navigation d’évitement, le focus
+visible et ordonné, le clavier complet, le focus roving des onglets mobiles,
+Échap dans les dialogues annulables, le focus trap et le retour du focus, les
+noms accessibles et les annonces de changement d’itinéraire.
+
 ## Essais de déploiement
 
 Docker CI construit des images de backend et de frontend, valide Composer et exerce le paramètre santé avec le stockage local. Electron release CI possède des emballages multiplateformes; une compilation locale macOS ne peut pas valider les artefacts Windows et Linux.
@@ -62,6 +79,7 @@ Docker CI construit des images de backend et de frontend, valide Composer et exe
 | Logique générée du catalogue | Essais d'unités de générateur, déterminisme à deux commandes, validateur, construction de documents stricts. |
 | Comportement du moteur | Régression des pytests étroits plus suite d'intégration affectée. |
 | Comportement de la frontée | Vitest lorsque possible, i18n vérifier, construction de production, action du navigateur et capture d'écran. |
+| Accessibilité ou jeton d’interface partagé | Vitest de la primitive, parité des quatre langues, matrice axe en clair et sombre, tests clavier et capture du navigateur. |
 | Comportement de l'autorité/de la sécurité/de la voie | Tests négatifs et tentatives croisées, pas seulement le chemin doré. |
 | Déploiement/dépendance | Vérification autochtone plus Docker ou colis IC, selon le cas. |
 

@@ -46,6 +46,23 @@ import { vaultAgentContextRefs } from './lib/vaultAgentContext';
 import { PluginRoute, PluginSurface } from './components/PluginGate';
 import { usePlugins } from './plugins/usePlugins';
 
+const ROUTE_ANNOUNCEMENT_LABELS = [
+  { match: (path) => path === '/', key: 'fs_picker.home', fallback: 'Home' },
+  { match: (path) => path.startsWith('/vault'), key: 'sidebar.nav_vault', fallback: 'Knowledge' },
+  { match: (path) => path.startsWith('/notebooks'), key: 'sidebar.nav_notebooks', fallback: 'Notebooks' },
+  { match: (path) => path === '/graph', key: 'sidebar.nav_graph', fallback: 'Graph' },
+  { match: (path) => path === '/contacts', key: 'sidebar.nav_contacts', fallback: 'Contacts' },
+  { match: (path) => path === '/mail', key: 'sidebar.nav_mail', fallback: 'Mail' },
+  { match: (path) => path === '/calendar', key: 'sidebar.nav_calendar', fallback: 'Calendar' },
+  { match: (path) => path === '/reader', key: 'sidebar.nav_reader', fallback: 'Reader' },
+  { match: (path) => path === '/social-dashboard', key: 'sidebar.nav_social', fallback: 'Social' },
+  { match: (path) => path === '/media', key: 'sidebar.nav_media', fallback: 'Photos' },
+  { match: (path) => path === '/planning', key: 'sidebar.nav_planning', fallback: 'Planning' },
+  { match: (path) => path === '/dashboard', key: 'sidebar.nav_dashboard', fallback: 'Dashboard' },
+  { match: (path) => path === '/scheduler', key: 'scheduler.title', fallback: 'Scheduler' },
+  { match: (path) => path === '/composer', key: 'social.composer', fallback: 'Composer' },
+];
+
 // Fallback while the chunk for a lazy route is downloading. Discreet and centered,
 // reusing the auth bootstrap's style so there's no visual jump.
 function RouteFallback() {
@@ -81,6 +98,12 @@ function App() {
   const [moduleContextOverride, setModuleContextOverride] = useState(null);
   const [bulkNotebookResources, setBulkNotebookResources] = useState(null);
   const [vaultRevision, setVaultRevision] = useState(0);
+  const mainContentRef = React.useRef(null);
+  const routeAnnouncement = useMemo(() => {
+    const route = ROUTE_ANNOUNCEMENT_LABELS.find(({ match }) => match(location.pathname));
+    const page = route ? t(route.key, route.fallback) : t('fs_picker.home', 'Home');
+    return t('accessibility.route_loaded', '{{page}} loaded', { page });
+  }, [location.pathname, t]);
   // Captures clicks on file:// everywhere and redirects them to the system shell
   // via the backend, instead of letting Chrome open blank tabs.
   useFileLinkInterceptor();
@@ -122,6 +145,11 @@ function App() {
   const moduleContextRefs = moduleContextOverride?.locationKey === location.key
     ? moduleContextOverride.refs
     : defaultModuleContextRefs;
+
+  const handleSkipToContent = (event) => {
+    event.preventDefault();
+    mainContentRef.current?.focus({ preventScroll: true });
+  };
 
   useLayoutEffect(() => {
     const updateModuleContext = (event) => {
@@ -195,11 +223,35 @@ function App() {
 
   return (
     <div className="gnosi-app-shell">
+      <a
+        className="gnosi-skip-link"
+        href="#page-content-scroll"
+        onClick={handleSkipToContent}
+        data-testid="skip-to-content"
+      >
+        {t('accessibility.skip_to_content', 'Skip to main content')}
+      </a>
       {/* Global sidebar always present */}
       <AppSidebar />
 
-      {/* Contingut principal */}
-      <div key={vaultRevision} id="page-content-scroll" className="gnosi-app-content">
+      <p
+        className="sr-only"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        data-testid="route-announcer"
+      >
+        {routeAnnouncement}
+      </p>
+
+      {/* Main product surface */}
+      <main
+        key={vaultRevision}
+        id="page-content-scroll"
+        ref={mainContentRef}
+        className="gnosi-app-content"
+        tabIndex={-1}
+      >
         <Suspense fallback={<RouteFallback />}>
         <Routes>
           <Route path="/" element={<HomePage />} />
@@ -225,7 +277,7 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         </Suspense>
-      </div>
+      </main>
       {/* Toasts use the registered global notification layer. */}
       <Toaster position="bottom-right" containerStyle={{ zIndex: 'var(--z-toast)' }} />
       <DesktopUpdateNotice />

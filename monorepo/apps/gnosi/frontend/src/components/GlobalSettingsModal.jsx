@@ -2458,7 +2458,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                     </aside>
 
                     {/* CONTENT AREA */}
-                    <main className="settings-main gnosi-modal-scroll">
+                    <div className="settings-main gnosi-modal-scroll">
                         <div className="settings-content-wrap">
                             
                              {/* API I TOKENS (PAT) */}
@@ -4939,7 +4939,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             )}
 
                         </div>
-                    </main>
+                    </div>
                 </div>
               )}
             </div>

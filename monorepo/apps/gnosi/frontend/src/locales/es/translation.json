@@ -404,6 +404,10 @@
     "calendar_color_update_error": "No se pudo actualizar el color del calendario",
     "error_deleting_event": "No se pudo eliminar el evento"
   },
+  "accessibility": {
+    "skip_to_content": "Ir al contenido principal",
+    "route_loaded": "Se ha cargado {{page}}"
+  },
   "sidebar": {
     "main_navigation": "Navegación principal",
     "my_vault": "Mi Conocimiento",
@@ -607,6 +611,8 @@
     "active": "Activo",
     "inactive": "Inactivo",
     "run_now": "Ejecutar Ahora",
+    "toggle_task": "Activa o desactiva {{task}}",
+    "task_interval_label": "Intervalo de {{task}}",
     "frequency_days_one": "Cada {{count}} día",
     "frequency_days_other": "Cada {{count}} días",
     "frequency_hours_one": "Cada {{count}} hora",
@@ -2741,6 +2747,7 @@
     "type_business": "Empresa",
     "search_placeholder": "Buscar contactos...",
     "filter_all": "Todos",
+    "filter_type": "Filtrar contactos por tipo",
     "filter_personal": "Personal",
     "filter_business": "Empresa",
     "no_contacts": "Aún no tienes ningún contacto.",
@@ -3130,6 +3137,7 @@
     "ai_draft_ok": "Borrador generado con IA",
     "ai_draft_error": "Error generando el borrador",
     "select_mail": "Selecciona un correo",
+    "select_message": "Selecciona el mensaje {{subject}}",
     "select_mail_hint": "Elige un mensaje de la lista para comenzar.",
     "loading": "Cargando contenido...",
     "original_message": "Mensaje original",
@@ -3862,7 +3870,9 @@
     "date_30d": "30 días",
     "date_year": "Este año",
     "date_custom": "Personalizado",
+    "date_filter_label": "Filtro de fecha",
     "size_all": "Todo",
+    "size_filter_label": "Filtro de tamaño",
     "sort_mtime": "Modificación",
     "sort_filename": "Nombre",
     "sort_size": "Tamaño",
@@ -3870,6 +3880,8 @@
     "sort_field_title": "Campo de ordenación",
     "sort_desc": "Descendente",
     "sort_asc": "Ascendente",
+    "grid_view": "Vista de cuadrícula",
+    "list_view": "Vista de lista",
     "tag_placeholder": "Tag + Enter",
     "update_view": "Actualizar vista",
     "update_view_title": "Sobrescribe la vista activa con los filtros actuales",
@@ -4746,7 +4758,7 @@
     "no_files": "No se han encontrado archivos"
   },
   "planning_page": {
-    "title": "Planificación de proyectos", "subtitle": "Calendario, ruta crítica, recursos y diagnósticos.", "project_id": "ID del proyecto", "project": "Proyecto", "default_project": "Proyecto predeterminado", "refresh": "Actualizar", "load_error": "No se ha podido cargar la planificación.", "critical_tasks": "Tareas críticas", "estimated_cost": "Coste estimado", "warnings": "Avisos", "schedule": "Calendario", "task": "Tarea", "start": "Inicio", "finish": "Fin", "slack": "Holgura", "diagnostics": "Diagnósticos", "baselines": "Líneas base", "baseline_name": "Nombre de la línea base", "create": "Crear", "worklogs": "Registros de trabajo", "add_worklog": "Añadir registro", "entries": "entradas", "resource_heatmap": "Carga de recursos", "leveling": "Nivelación de recursos", "generate_proposal": "Generar propuesta", "proposed_changes": "cambios propuestos", "apply_proposal": "Aplicar propuesta"
+    "title": "Planificación de proyectos", "subtitle": "Calendario, ruta crítica, recursos y diagnósticos.", "project_id": "ID del proyecto", "project": "Proyecto", "default_project": "Proyecto predeterminado", "refresh": "Actualizar", "load_error": "No se ha podido cargar la planificación.", "critical_tasks": "Tareas críticas", "estimated_cost": "Coste estimado", "warnings": "Avisos", "schedule": "Calendario", "task": "Tarea", "start": "Inicio", "finish": "Fin", "slack": "Holgura", "diagnostics": "Diagnósticos", "baselines": "Líneas base", "baseline_name": "Nombre de la línea base", "create": "Crear", "worklogs": "Registros de trabajo", "worklog_task": "Tarea del registro de trabajo", "worklog_date": "Fecha del registro de trabajo", "worklog_hours": "Horas del registro de trabajo", "add_worklog": "Añadir registro", "entries": "entradas", "resource_heatmap": "Carga de recursos", "leveling": "Nivelación de recursos", "generate_proposal": "Generar propuesta", "proposed_changes": "cambios propuestos", "apply_proposal": "Aplicar propuesta"
   },
   "vault_date": {
     "days_placeholder": "días",
@@ -5424,6 +5436,7 @@
     "title": "Cuadernos",
     "eyebrow": "Conocimiento fundamentado",
     "subtitle": "Conversa con los adjuntos y las URL de tus Recursos.",
+    "mobile_tabs_label": "Secciones del cuaderno",
     "create_action": "Crear cuaderno",
     "create_from_selection": "Crear cuaderno con la selección",
     "create_title": "Crear un cuaderno",

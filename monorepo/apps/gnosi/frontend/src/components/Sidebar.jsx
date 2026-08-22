@@ -84,7 +84,7 @@ export function Sidebar({
                         style={{
                             width: '100%',
                             padding: '8px',
-                            backgroundColor: isPathfindingMode ? 'var(--status-error)' : 'var(--gnosi-blue)',
+                            backgroundColor: isPathfindingMode ? 'var(--status-error)' : 'var(--gnosi-action-bg)',
                             color: 'white',
                             border: 'none',
                             borderRadius: '4px',

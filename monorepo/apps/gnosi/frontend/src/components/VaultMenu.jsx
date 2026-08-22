@@ -79,7 +79,7 @@ export default function VaultMenu() {
 
     return (
         <>
-            <button ref={btnRef} className="app-sidebar__item" title={`${vaultLabel}: ${active?.name || '…'}`} onClick={toggle}>
+            <button ref={btnRef} className="app-sidebar__item" title={`${vaultLabel}: ${active?.name || '…'}`} aria-label={`${vaultLabel}: ${active?.name || '…'}`} onClick={toggle}>
                 <VaultIcon size={16} strokeWidth={1.5} />
                 <span className="app-sidebar__tooltip"><span>{vaultLabel}: {active?.name || '…'}</span></span>
             </button>

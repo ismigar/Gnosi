@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useId, useRef, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pencil, X } from 'lucide-react';
 import { useModalKeyboard } from '../hooks/useModalKeyboard';
@@ -28,6 +28,9 @@ export const PromptModal = ({
     const resolvedCancelText = cancelText ?? t('common.cancel_short', "Cancel");
     const modalRef = useRef(null);
     const inputRef = useRef(null);
+    const titleId = useId();
+    const messageId = useId();
+    const inputId = useId();
     const [value, setValue] = useState(defaultValue);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -76,6 +79,8 @@ export const PromptModal = ({
             onClick={handleBackdropClick}
             role="dialog"
             aria-modal="true"
+            aria-labelledby={titleId}
+            aria-describedby={message ? messageId : undefined}
         >
             <div className="absolute inset-0 bg-[var(--bg-primary)]/40 backdrop-blur-sm transition-opacity" />
 
@@ -100,21 +105,23 @@ export const PromptModal = ({
                 </div>
 
                 <div>
-                    <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">
+                    <h3 id={titleId} className="text-lg font-semibold text-[var(--text-primary)] mb-2">
                         {resolvedTitle}
                     </h3>
                     {message && (
-                        <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-4">
+                        <p id={messageId} className="text-sm text-[var(--text-secondary)] leading-relaxed mb-4">
                             {message}
                         </p>
                     )}
                     {label && (
-                        <label className="block text-xs font-medium text-[var(--text-tertiary)] mb-1">
+                        <label htmlFor={inputId} className="block text-xs font-medium text-[var(--text-tertiary)] mb-1">
                             {label}
                         </label>
                     )}
                     <input
+                        id={inputId}
                         ref={inputRef}
+                        aria-label={!label ? resolvedTitle : undefined}
                         type={inputType}
                         value={value}
                         onChange={(e) => setValue(e.target.value)}

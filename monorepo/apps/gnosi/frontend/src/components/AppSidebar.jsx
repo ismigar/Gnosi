@@ -13,6 +13,8 @@ import VaultMenu from './VaultMenu';
 import { useAuth } from '../context/AuthContext';
 import { toast } from '../lib/toast';
 import { usePlugins } from '../plugins/usePlugins';
+import { useMediaQuery } from '../hooks/useMediaQuery';
+import { useModalKeyboard } from '../hooks/useModalKeyboard';
 
 export const ENGINEERING_DOCUMENTATION_URL = 'https://gnosi.temenosismael.org/engineering/';
 
@@ -60,6 +62,9 @@ export function AppSidebar() {
     const [settingsOpen, setSettingsOpen] = useState(initialSettingsRequest.open);
     const [settingsTab, setSettingsTab] = useState(initialSettingsRequest.tab);
     const [gnosiMode, setGnosiMode] = useState('personal');
+    const mobileToggleRef = React.useRef(null);
+    const navigationRef = React.useRef(null);
+    const isCompact = useMediaQuery('(max-width: 767px)');
     const { t } = useTranslation();
     const navigate = useNavigate();
     const { user, logout } = useAuth();
@@ -68,6 +73,13 @@ export function AppSidebar() {
         () => navItems.filter((item) => !item.pluginId || isEnabled(item.pluginId)),
         [isEnabled],
     );
+
+    useModalKeyboard({
+        isOpen: isCompact && mobileOpen,
+        onClose: () => setMobileOpen(false),
+        containerRef: navigationRef,
+        trapFocus: true,
+    });
 
     // The command palette (and other places) can request opening settings.
     useEffect(() => {
@@ -131,6 +143,7 @@ export function AppSidebar() {
         <>
             {/* Mobile Toggle */}
             <button
+                ref={mobileToggleRef}
                 className="app-sidebar-mobile-toggle"
                 onClick={() => setMobileOpen(!mobileOpen)}
                 aria-expanded={mobileOpen}
@@ -145,19 +158,29 @@ export function AppSidebar() {
                 <div
                     className="app-sidebar-overlay"
                     onClick={() => setMobileOpen(false)}
+                    aria-hidden="true"
                 />
             )}
 
             {/* Sidebar */}
             <nav
+                ref={navigationRef}
                 id="gnosi-global-navigation"
                 aria-label={t('sidebar.main_navigation', 'Main navigation')}
+                aria-hidden={isCompact && !mobileOpen ? 'true' : undefined}
+                inert={isCompact && !mobileOpen}
                 className={`app-sidebar ${mobileOpen ? 'app-sidebar--open' : ''}`}
             >
                 <div className="app-sidebar__header">
                     {/* Logo */}
                     <div className="app-sidebar__logo-wrapper">
-                        <Link to="/" className="app-sidebar__logo" title="Gnosi" onClick={() => setMobileOpen(false)}>
+                        <Link
+                            to="/"
+                            className="app-sidebar__logo"
+                            title="Gnosi"
+                            aria-label={t('command_palette.nav_home', 'Go to Home')}
+                            onClick={() => setMobileOpen(false)}
+                        >
                             G
                         </Link>
                     </div>
@@ -175,6 +198,7 @@ export function AppSidebar() {
                                 to={to}
                                 end={to === '/'}
                                 title={label}
+                                aria-label={label}
                                 onClick={() => setMobileOpen(false)}
                                 className={({ isActive }) =>
                                     `app-sidebar__item ${isActive ? 'app-sidebar__item--active' : ''}`
@@ -208,6 +232,7 @@ export function AppSidebar() {
                     <NavLink
                         to="/dashboard"
                         title={t('sidebar.nav_dashboard')}
+                        aria-label={t('sidebar.nav_dashboard')}
                         onClick={() => setMobileOpen(false)}
                         className={({ isActive }) =>
                             `app-sidebar__item ${isActive ? 'app-sidebar__item--active' : ''}`
@@ -221,6 +246,7 @@ export function AppSidebar() {
                     <button
                         className="app-sidebar__item"
                         title={t('sidebar.nav_settings')}
+                        aria-label={t('sidebar.nav_settings')}
                         onClick={() => setSettingsOpen(true)}
                     >
                         <Settings size={16} strokeWidth={1.5} />
@@ -234,6 +260,7 @@ export function AppSidebar() {
                         <button
                             className="app-sidebar__item"
                             title={t('sidebar.logout_tooltip_title', "{{user}} — Sign out", { user: user.name || user.email })}
+                            aria-label={t('sidebar.logout_tooltip_label', "Sign out ({{user}})", { user: user.name || user.email })}
                             onClick={handleLogout}
                         >
                             <LogOut size={16} strokeWidth={1.5} />

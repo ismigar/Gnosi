@@ -16,7 +16,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Frontend unit test files | 77 |
 | Registered FastAPI routers | 35 |
 | Runtime skill contracts | 23 |
-| Development-memory directives | 192 |
+| Development-memory directives | 193 |
 
 ## Owned application surfaces
 
@@ -28,7 +28,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `electron/` | 28 | Desktop lifecycle, backend packaging, IPC, and updates |
 | `integrations/` | 12 | Office and external-system adapters |
 | `web-clipper/` | 11 | Browser extension capture surface |
-| `e2e/` | 27 | Host-level Playwright acceptance tests |
+| `e2e/` | 28 | Host-level Playwright acceptance tests |
 | `sh/` | 22 | Native and self-host operational scripts |
 
 ## Exclusion boundary

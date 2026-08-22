@@ -124,7 +124,7 @@ export default function ContactsPage() {
             <AppHeader icon={Users} title={t('contacts.title', "Contacts")}>
                 <button
                     onClick={handleCreateNew}
-                    className="flex items-center gap-1.5 h-7 px-3 bg-[var(--gnosi-blue)] hover:opacity-90 text-white rounded-md border-none font-bold text-[11px] uppercase tracking-tight cursor-pointer transition-all shadow-sm"
+                    className="flex items-center gap-1.5 h-7 px-3 bg-[var(--gnosi-action-bg)] hover:opacity-90 text-white rounded-md border-none font-bold text-[11px] uppercase tracking-tight cursor-pointer transition-all shadow-sm"
                 >
                     <Plus size={14} />
                     {t('contacts.new_contact', "New Contact")}
@@ -164,7 +164,7 @@ export default function ContactsPage() {
                         />
                     ) : (
                         <div className="h-full flex items-center justify-center p-10 text-center">
-                            <div className="opacity-50">
+                            <div>
                                 <div className="mb-4 inline-flex p-6 rounded-full border border-dashed border-[var(--border-primary)]">
                                     <Users size={48} strokeWidth={1} className="text-[var(--text-secondary)]" />
                                 </div>

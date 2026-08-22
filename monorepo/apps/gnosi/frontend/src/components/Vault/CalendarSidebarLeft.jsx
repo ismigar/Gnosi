@@ -110,30 +110,32 @@ export const CalendarSidebarLeft = ({
                 </button>
                 <span className="font-semibold text-[var(--text-primary)]">{capitalizedMonth}</span>
                 <div className="flex gap-1">
-                    <button onClick={handlePrevMonth} className="p-1 hover:bg-[var(--bg-secondary)] rounded text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"><ChevronLeft size={16} /></button>
-                    <button onClick={handleNextMonth} className="p-1 hover:bg-[var(--bg-secondary)] rounded text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"><ChevronRight size={16} /></button>
+                    <button type="button" onClick={handlePrevMonth} aria-label={t('calendar.prev', 'Previous')} className="p-1 hover:bg-[var(--bg-secondary)] rounded text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"><ChevronLeft size={16} /></button>
+                    <button type="button" onClick={handleNextMonth} aria-label={t('calendar.next', 'Next')} className="p-1 hover:bg-[var(--bg-secondary)] rounded text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"><ChevronRight size={16} /></button>
                 </div>
             </div>
 
             {/* Mini Calendar Grid */}
             <div className="px-4 pb-4">
-                <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-semibold text-[var(--text-tertiary)]/60 mb-2">
+                <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-semibold text-[var(--text-tertiary)] mb-2">
                     {daysOfWeek.map(d => <div key={d}>{d}</div>)}
                 </div>
                 <div className="grid grid-cols-7 gap-y-1 gap-x-1 text-center text-[13px]">
-                    {gridDays.map((dayObj, i) => (
-                        <div
-                            key={i}
+                    {gridDays.map((dayObj) => (
+                        <button
+                            type="button"
+                            key={dayObj.date.toISOString()}
                             onClick={() => handleDayClick(dayObj.date)}
+                            aria-label={dayObj.date.toLocaleDateString(i18n.resolvedLanguage || i18n.language || 'en', { dateStyle: 'full' })}
                             className={`py-1 flex items-center justify-center w-6 h-6 mx-auto transition-colors ${dayObj.isToday
-                                ? 'bg-[var(--gnosi-primary)] text-white font-semibold rounded-full cursor-pointer shadow-sm'
+                                ? 'bg-[var(--gnosi-action-bg)] text-white font-semibold rounded-full cursor-pointer shadow-sm'
                                 : dayObj.isCurrent
                                     ? 'text-[var(--text-primary)] font-bold cursor-pointer hover:bg-[var(--bg-secondary)] rounded-full'
-                                    : 'text-[var(--text-tertiary)]/40 cursor-default font-normal'
+                                    : 'text-[var(--text-tertiary)] cursor-pointer font-normal hover:bg-[var(--bg-secondary)] rounded-full'
                                 }`}
                         >
                             {dayObj.num}
-                        </div>
+                        </button>
                     ))}
                 </div>
             </div>
@@ -172,7 +174,7 @@ export const CalendarSidebarLeft = ({
                         return (
                             <div key={account} className="mb-2">
                                 {isAccount && hasMultiple && (
-                                    <div className="px-2 py-1 text-[10px] font-bold text-[var(--text-tertiary)]/50 uppercase tracking-tighter">
+                                    <div className="px-2 py-1 text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-tighter">
                                         {account}
                                     </div>
                                 )}
@@ -183,7 +185,7 @@ export const CalendarSidebarLeft = ({
                                     const displayName = config?.name || getCalendarName(source);
 
                                     return (
-                                        <div key={source} className={`flex items-center justify-between group rounded transition-colors mb-0.5 px-2 py-1.5 -mx-2 hover:bg-[var(--bg-secondary)] border border-transparent ${isEditing ? '!bg-[var(--bg-primary)] border-[var(--border-primary)] shadow-sm' : ''} ${!isVisible && !isEditing ? 'opacity-50' : ''}`}>
+                                        <div key={source} className={`flex items-center justify-between group rounded transition-colors mb-0.5 px-2 py-1.5 -mx-2 hover:bg-[var(--bg-secondary)] border border-transparent ${isEditing ? '!bg-[var(--bg-primary)] border-[var(--border-primary)] shadow-sm' : ''}`}>
                                             <div className="flex items-center gap-2.5 w-full" onClick={() => {
                                                 if (isEditing) return;
                                                 // If clicking the name area (not the color box specifically), just toggle

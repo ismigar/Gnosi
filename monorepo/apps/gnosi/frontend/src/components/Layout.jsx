@@ -65,7 +65,7 @@ export function Layout({ children, sidebar, controls, bottomPanel, containerStyl
           </button>
       </AppHeader>
 
-      <main id="main-content">
+      <div id="main-content">
         {isCompact && isPanelOpen && (
           <button
             type="button"
@@ -94,7 +94,7 @@ export function Layout({ children, sidebar, controls, bottomPanel, containerStyl
         >
           {sidebar}
         </aside>
-      </main>
+      </div>
 
       <div id="bottom-panel-wrapper" style={{
         display: 'flex',

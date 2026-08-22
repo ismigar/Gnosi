@@ -96,7 +96,7 @@ export const VaultShell = ({
             </aside>
 
             {/* Main Area */}
-            <main className="vault-shell__main">
+            <div className="vault-shell__main">
                 {/* Minimal Top Bar (Page actions) */}
                 <header className="vault-shell__header h-12 flex items-center justify-between px-4 shrink-0 z-20 border-b border-[var(--border-primary)]">
                     <div className="flex items-center gap-1 overflow-hidden">
@@ -225,7 +225,7 @@ export const VaultShell = ({
                 <div className="flex-1 flex flex-col overflow-hidden relative min-w-0">
                     {children}
                 </div>
-            </main>
+            </div>
         </div>
     );
 };

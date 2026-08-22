@@ -51,41 +51,6 @@ const DB_VIEW_SWITCHER = [
 const EMPTY_SET = new Set();
 const EMPTY_ARRAY = [];
 
-// Utility to create pastel colors and handle CSS variables
-const getPastelColor = (color = 'var(--gnosi-primary)', opacity = 0.15) => {
-    const finalColor = color || 'var(--gnosi-primary)';
-    
-    // If it's a CSS variable
-    if (finalColor.startsWith('var(')) {
-        const varName = finalColor.match(/\(([^)]+)\)/)?.[1] || '--gnosi-primary';
-        return { 
-            bg: `rgba(var(${varName}-rgb, 59, 130, 246), ${opacity})`, 
-            border: `var(${varName})`,
-            text: `var(${varName})`
-        };
-    }
-    
-    // If it's Hex
-    if (finalColor.startsWith('#')) {
-        const r = parseInt(finalColor.slice(1, 3), 16);
-        const g = parseInt(finalColor.slice(3, 5), 16);
-        const b = parseInt(finalColor.slice(5, 7), 16);
-        
-        const tr = Math.floor(r * 0.6);
-        const tg = Math.floor(g * 0.6);
-        const tb = Math.floor(b * 0.6);
-        const textColor = `rgb(${tr}, ${tg}, ${tb})`;
-
-        return { 
-            bg: `rgba(${r}, ${g}, ${b}, ${opacity})`, 
-            border: finalColor,
-            text: textColor
-        };
-    }
-    
-    return { bg: finalColor, border: finalColor, text: finalColor };
-};
-
 // Folds accents for accent-insensitive search ("reunio" finds "Reunió"),
 // as expected in a Catalan/Spanish vault (NFD + removal of the combining
 // marks U+0300–U+036F: accents, cedilla, tilde).
@@ -695,16 +660,12 @@ export const DigitalBrainCalendar = ({
                         const eventDate = arg.event.start || new Date(arg.event.startStr);
                         const eventDateStart = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate()).getTime();
                         
-                        let isPast = false;
-                        if (isAllDay) {
-                            isPast = eventDateStart < todayStart;
-                        } else {
-                            const endTime = (arg.event.end || eventDate).getTime();
-                            isPast = endTime < now.getTime();
-                        }
+                        const isPast = isAllDay
+                            ? eventDateStart < todayStart
+                            : (arg.event.end || eventDate).getTime() < now.getTime();
 
                         if (isPast) {
-                            classes += ' gnosi-event-past opacity-60 grayscale-[0.3]';
+                            classes += ' gnosi-event-past';
                         } else {
                             classes += ' gnosi-event-future font-bold shadow-md';
                         }
@@ -722,34 +683,23 @@ export const DigitalBrainCalendar = ({
                         const eventDate = arg.event.start || new Date(arg.event.startStr);
                         const eventDateStart = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate()).getTime();
                         
-                        let isPast = false;
-                        if (isAllDay) {
-                            isPast = eventDateStart < todayStart;
-                        } else {
-                            const endTime = (arg.event.end || eventDate).getTime();
-                            isPast = endTime < now.getTime();
-                        }
+                        const isPast = isAllDay
+                            ? eventDateStart < todayStart
+                            : (arg.event.end || eventDate).getTime() < now.getTime();
 
                         const color = arg.event.backgroundColor || arg.event.borderColor;
-                        // Double intensity: 1.0 for future (solid), 0.45 for past (previously 0.15)
-                        const bgOpacity = isPast ? 0.45 : 1.0;
-                        const pastel = getPastelColor(color, bgOpacity);
 
                         return (
                             <div className="fc-event-main-frame flex items-center px-1.5 overflow-hidden h-full rounded border-l-[4px] border-l-current shadow-sm"
                                 style={{
-                                    backgroundColor: pastel.bg,
-                                    // White text ONLY on solid background (future); in the
-                                    // past ones (pastel bg at 45%) white was illegible
-                                    // with light colors in light mode.
-                                    color: (bgOpacity >= 1 ? '#ffffff' : pastel.text),
-                                    borderLeftColor: pastel.border,
+                                    backgroundColor: 'var(--bg-secondary)',
+                                    color: 'var(--text-primary)',
+                                    borderLeftColor: color || 'var(--gnosi-action-bg)',
                                     minHeight: '1.4rem',
                                     fontWeight: isPast ? '600' : '800'
                                 }}>
                                 {!isAllDay && (
-                                    <div className="fc-event-time flex-shrink-0 text-[0.65rem] opacity-90 font-black mr-1.5"
-                                         style={{ color: '#ffffff' }}>
+                                    <div className="fc-event-time flex-shrink-0 text-[0.65rem] font-black mr-1.5 text-[var(--text-secondary)]">
                                         {arg.timeText}
                                     </div>
                                 )}
@@ -968,14 +918,14 @@ export const DigitalBrainCalendar = ({
                     margin: 0 2px !important;
                 }
                 .fc .fc-button-primary {
-                    background-color: var(--gnosi-primary);
-                    border-color: var(--gnosi-primary);
+                    background-color: var(--gnosi-action-bg);
+                    border-color: var(--gnosi-action-bg);
                 }
                 .fc .fc-button-primary:not(:disabled):active, 
                 .fc .fc-button-primary:not(:disabled).fc-button-active {
-                    background-color: var(--gnosi-primary);
+                    background-color: var(--gnosi-action-bg);
                     filter: brightness(0.9);
-                    border-color: var(--gnosi-primary);
+                    border-color: var(--gnosi-action-bg);
                 }
                 .fc-theme-standard td, .fc-theme-standard th, .fc-scrollgrid {
                     border-color: var(--border-primary) !important;
@@ -984,7 +934,7 @@ export const DigitalBrainCalendar = ({
                     background-color: transparent !important;
                 }
                 .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
-                    background-color: var(--gnosi-primary);
+                    background-color: var(--gnosi-action-bg);
                     color: #ffffff !important;
                     border-radius: 50%;
                     width: 26px;

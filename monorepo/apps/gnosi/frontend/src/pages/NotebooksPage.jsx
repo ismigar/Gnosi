@@ -33,10 +33,12 @@ import {
     notebookResourceCatalogUrl,
 } from '../components/Notebooks/notebookResourceCatalog';
 import { useModalKeyboard } from '../hooks/useModalKeyboard';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import { toast } from '../lib/toast';
 import './NotebooksPage.css';
 
 const ACTIVE_STATES = new Set(['queued', 'indexing']);
+const MOBILE_TAB_IDS = ['sources', 'chat', 'settings'];
 
 function StatusBadge({ status }) {
     const { t } = useTranslation();
@@ -97,7 +99,7 @@ function NotebookLibrary({ onCreate }) {
                 </button>
             </AppHeader>
 
-            <main className="notebook-library">
+            <div className="notebook-library">
                 <div className="notebook-library__toolbar">
                     <label className="notebook-search notebook-search--library">
                         <Search size={17} />
@@ -149,7 +151,7 @@ function NotebookLibrary({ onCreate }) {
                         <button disabled={data.page >= pageCount} onClick={() => setData((previous) => ({ ...previous, page: previous.page + 1 }))}><ChevronRight size={16} /></button>
                     </nav>
                 )}
-            </main>
+            </div>
         </div>
     );
 }
@@ -285,6 +287,22 @@ export function NotebookDetail({ notebookId }) {
     const [removingId, setRemovingId] = useState('');
     const [retryingId, setRetryingId] = useState('');
     const [cancelling, setCancelling] = useState(false);
+    const mobileTabRefs = useRef({});
+    const useResponsiveTabs = useMediaQuery('(max-width: 1120px)');
+
+    const selectMobileTabFromKeyboard = (event, currentTab) => {
+        const currentIndex = MOBILE_TAB_IDS.indexOf(currentTab);
+        let nextIndex = null;
+        if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % MOBILE_TAB_IDS.length;
+        if (event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + MOBILE_TAB_IDS.length) % MOBILE_TAB_IDS.length;
+        if (event.key === 'Home') nextIndex = 0;
+        if (event.key === 'End') nextIndex = MOBILE_TAB_IDS.length - 1;
+        if (nextIndex === null) return;
+        event.preventDefault();
+        const nextTab = MOBILE_TAB_IDS[nextIndex];
+        setMobileTab(nextTab);
+        mobileTabRefs.current[nextTab]?.focus();
+    };
 
     const load = useCallback(async ({ refresh = false, page = sources.page } = {}) => {
         try {
@@ -423,7 +441,7 @@ export function NotebookDetail({ notebookId }) {
     const sourcePageCount = Math.max(1, Math.ceil((sources.total || 0) / (sources.page_size || 50)));
     const chatContext = [{ id: `notebook:${notebook.id}`, type: 'notebook', ref: notebook.id, label: notebook.title, scope: {} }];
     return (
-        <main className="notebook-detail">
+        <div className="notebook-detail">
             <header className="notebook-detail__header">
                 <button className="notebook-icon-button" onClick={() => navigate('/notebooks')} aria-label={t('notebooks.back_library', 'Back to library')}><ArrowLeft size={19} /></button>
                 <div className="notebook-detail__identity">
@@ -439,23 +457,58 @@ export function NotebookDetail({ notebookId }) {
             {notebook.progress && ACTIVE_STATES.has(notebook.progress.state) && (
                 <div className="notebook-progress">
                     <div className="notebook-progress__summary">
-                        <div role="status" aria-live="polite"><LoaderCircle size={15} className="animate-spin" /><span>{t('notebooks.index_progress', 'Indexing {{processed}} of {{total}} Resources', notebook.progress)}</span></div>
+                        <div role="status" aria-live="polite" aria-atomic="true"><LoaderCircle size={15} className="animate-spin" /><span>{t('notebooks.index_progress', 'Indexing {{processed}} of {{total}} Resources', notebook.progress)}</span></div>
                         {notebook.can_manage && notebook.progress.cancellable && <button type="button" disabled={cancelling} onClick={cancelRefresh}><CircleStop size={14} />{t('notebooks.cancel_indexing', 'Cancel indexing')}</button>}
                     </div>
                     {notebook.progress.current_resource_title && <span className="notebook-progress__resource">{t('notebooks.current_resource', 'Current Resource: {{resource}}', { resource: notebook.progress.current_resource_title })}</span>}
                     <div className="notebook-progress__track"><span style={{ width: `${notebook.progress.percent || 0}%` }} /></div>
                 </div>
             )}
-            {notebook.last_error && <div className="notebook-warning"><AlertCircle size={16} /><span>{notebook.last_error}</span></div>}
+            {notebook.last_error && <div className="notebook-warning" role="alert"><AlertCircle size={16} /><span>{notebook.last_error}</span></div>}
 
-            <nav className="notebook-mobile-tabs">
-                <button className={mobileTab === 'sources' ? 'is-active' : ''} onClick={() => setMobileTab('sources')}><BookOpen size={15} />{t('notebooks.sources_tab', 'Sources')}</button>
-                <button className={mobileTab === 'chat' ? 'is-active' : ''} onClick={() => setMobileTab('chat')}><MessageSquare size={15} />{t('notebooks.chat_tab', 'Conversation')}</button>
-                <button className={mobileTab === 'settings' ? 'is-active' : ''} onClick={() => setMobileTab('settings')}><Settings2 size={15} />{t('notebooks.settings_tab', 'Settings')}</button>
-            </nav>
+            <div
+                className="notebook-mobile-tabs"
+                role="tablist"
+                aria-label={t('notebooks.mobile_tabs_label', 'Notebook sections')}
+            >
+                {MOBILE_TAB_IDS.map((tabId) => {
+                    const labels = {
+                        sources: t('notebooks.sources_tab', 'Sources'),
+                        chat: t('notebooks.chat_tab', 'Conversation'),
+                        settings: t('notebooks.settings_tab', 'Settings'),
+                    };
+                    const icons = { sources: BookOpen, chat: MessageSquare, settings: Settings2 };
+                    const Icon = icons[tabId];
+                    const selected = mobileTab === tabId;
+                    return (
+                        <button
+                            key={tabId}
+                            id={`notebook-${tabId}-tab`}
+                            ref={(element) => { mobileTabRefs.current[tabId] = element; }}
+                            type="button"
+                            role="tab"
+                            aria-selected={selected}
+                            aria-controls={`notebook-${tabId}-panel`}
+                            tabIndex={selected ? 0 : -1}
+                            className={selected ? 'is-active' : ''}
+                            onClick={() => setMobileTab(tabId)}
+                            onKeyDown={(event) => selectMobileTabFromKeyboard(event, tabId)}
+                        >
+                            <Icon size={15} aria-hidden="true" />
+                            {labels[tabId]}
+                        </button>
+                    );
+                })}
+            </div>
 
             <div className="notebook-workspace">
-                <aside className={`notebook-sources-panel ${mobileTab === 'sources' ? 'is-mobile-active' : ''}`}>
+                <aside
+                    id="notebook-sources-panel"
+                    className={`notebook-sources-panel notebook-mobile-tabpanel ${mobileTab === 'sources' ? 'is-mobile-active' : ''}`}
+                    role={useResponsiveTabs ? 'tabpanel' : undefined}
+                    aria-labelledby={useResponsiveTabs ? 'notebook-sources-tab' : undefined}
+                    hidden={useResponsiveTabs && mobileTab !== 'sources'}
+                >
                     <div className="notebook-panel-heading"><div><h2>{t('notebooks.sources_tab', 'Sources')}</h2><span>{t('notebooks.resources_sources_summary', '{{resources}} Resources · {{sources}} sources', { resources: notebook.resource_count, sources: notebook.source_counts?.total || 0 })}</span></div>{notebook.can_manage && <button className="notebook-icon-button" onClick={() => setShowAdd(true)} aria-label={t('notebooks.add_resources', 'Add Resources')}><Plus size={17} /></button>}</div>
                     <div className="notebook-source-list">
                         {(sources.items || []).map((resource) => (
@@ -484,7 +537,13 @@ export function NotebookDetail({ notebookId }) {
                     )}
                 </aside>
 
-                <section className={`notebook-chat-panel ${mobileTab === 'chat' ? 'is-mobile-active' : ''}`}>
+                <section
+                    id="notebook-chat-panel"
+                    className={`notebook-chat-panel notebook-mobile-tabpanel ${mobileTab === 'chat' ? 'is-mobile-active' : ''}`}
+                    role={useResponsiveTabs ? 'tabpanel' : undefined}
+                    aria-labelledby={useResponsiveTabs ? 'notebook-chat-tab' : undefined}
+                    hidden={useResponsiveTabs && mobileTab !== 'chat'}
+                >
                     {notebook.chat_ready ? (
                         <AgentChat
                             key={`${notebook.conversation_session_id}:${chatEpoch}`}
@@ -500,7 +559,13 @@ export function NotebookDetail({ notebookId }) {
                     ) : <div className="notebook-chat-blocked"><LoaderCircle size={26} className={notebook.status !== 'error' ? 'animate-spin' : ''} /><h2>{t('notebooks.chat_preparing_title', 'Preparing the first sources')}</h2><p>{t('notebooks.chat_preparing_description', 'Conversation becomes available when at least one source has been indexed.')}</p></div>}
                 </section>
 
-                <aside className={`notebook-settings-panel ${mobileTab === 'settings' ? 'is-mobile-active' : ''}`}>
+                <aside
+                    id="notebook-settings-panel"
+                    className={`notebook-settings-panel notebook-mobile-tabpanel ${mobileTab === 'settings' ? 'is-mobile-active' : ''}`}
+                    role={useResponsiveTabs ? 'tabpanel' : undefined}
+                    aria-labelledby={useResponsiveTabs ? 'notebook-settings-tab' : undefined}
+                    hidden={useResponsiveTabs && mobileTab !== 'settings'}
+                >
                     <div className="notebook-panel-heading"><div><h2>{t('notebooks.settings_tab', 'Settings')}</h2><span>{t('notebooks.settings_help', 'Access and conversation behavior')}</span></div></div>
                     <label className="notebook-field"><span>{t('notebooks.visibility_label', 'Visibility')}</span><select value={notebook.visibility} disabled={!notebook.can_manage} onChange={(event) => patchNotebook({ visibility: event.target.value })}><option value="private">{t('notebooks.visibility_private', 'Private')}</option><option value="workspace">{t('notebooks.visibility_workspace', 'Workspace')}</option></select></label>
                     <label className="notebook-field"><span>{t('notebooks.conversation_label', 'Conversation')}</span><select value={notebook.conversation_mode} disabled={!notebook.can_manage} onChange={(event) => patchNotebook({ conversation_mode: event.target.value })}><option value="private_member">{t('notebooks.conversation_private', 'Private per member')}</option><option value="shared">{t('notebooks.conversation_shared', 'Shared')}</option></select></label>
@@ -515,7 +580,7 @@ export function NotebookDetail({ notebookId }) {
             {showAdd && <AddResourcesDialog notebookId={notebook.id} currentIds={currentIds} onClose={() => setShowAdd(false)} onAdded={() => load({ refresh: false })} />}
             <ConfirmModal isOpen={showDelete} onClose={() => setShowDelete(false)} onConfirm={deleteNotebook} title={t('notebooks.delete_title', 'Delete notebook?')} message={t('notebooks.delete_message', 'Indexes and notebook conversations will be deleted. Original Resources, attachments, and URLs will not be changed.')} confirmText={t('notebooks.delete', 'Delete notebook')} cancelText={t('common.cancel', 'Cancel')} isDestructive />
             <ConfirmModal isOpen={showClear} onClose={() => setShowClear(false)} onConfirm={clearConversation} title={t('notebooks.clear_conversation_title', 'Clear this conversation?')} message={t('notebooks.clear_conversation_message', 'This removes the active conversation history. It does not change sources or other conversation modes.')} confirmText={t('notebooks.clear_conversation', 'Clear conversation')} cancelText={t('common.cancel', 'Cancel')} isDestructive />
-        </main>
+        </div>
     );
 }
 

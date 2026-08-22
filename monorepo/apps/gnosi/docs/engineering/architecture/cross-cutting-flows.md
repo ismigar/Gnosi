@@ -1,15 +1,18 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-21
 source_paths:
   - backend/server.py
   - backend/services/context_vars.py
   - backend/services/auth_service.py
   - backend/security/keychain_manager.py
   - frontend/src/context/AuthContext.jsx
+  - frontend/src/hooks/useModalKeyboard.js
+  - frontend/src/index.css
 tests:
   - backend/tests/test_auth_central_gate.py
   - backend/tests/test_workspace_bootstrap_race.py
+  - e2e/tests/accessibility/accessibility.spec.ts
 ---
 
 # Cross-cutting flows
@@ -81,6 +84,20 @@ User-visible frontend strings pass through `react-i18next` and exist in all
 four locale catalogs: Catalan, English, Spanish, and French. Code comments,
 docstrings, developer logs, public technical documentation, and identifiers are
 English unless an identifier or compatibility value is already persisted.
+
+## Accessibility
+
+The application shell owns the single main landmark, skip navigation, visible
+focus tokens, and polite route announcements. Product domains inherit those
+primitives and keep accessible names in the same four locale catalogs as visual
+labels.
+
+Cancelable modal dialogs use the shared keyboard layer so only the topmost
+dialog handles Escape, Tab remains inside it, and focus returns to the opener.
+Responsive tab sets expose complete tab-to-panel relationships and roving
+keyboard focus. Playwright combines axe WCAG 2.2 AA scans across the product
+route matrix with explicit keyboard assertions because neither layer proves the
+other.
 
 ## External-effect policy
 

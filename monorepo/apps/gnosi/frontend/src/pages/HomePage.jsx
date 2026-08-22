@@ -145,7 +145,7 @@ function HomePage() {
                 {MODULES.filter(({ pluginId }) => !pluginId || isEnabled(pluginId)).map(({ to, id, icon: Icon, titleKey, title, descKey, description }) => {
                     if (id === 'settings') {
                         return (
-                            <button key={id} onClick={handleSettingsClick} className="home-card">
+                            <button key={id} onClick={handleSettingsClick} className="home-card" data-testid="home-settings-card">
                                 <div className="home-card__icon-wrap">
                                     <Icon size={28} strokeWidth={1.5} />
                                 </div>

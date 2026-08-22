@@ -969,8 +969,9 @@ export default function CalendarPage() {
                             <button
                                 key={view.id}
                                 onClick={() => handleViewChange(view.id)}
+                                aria-pressed={activeView === view.id}
                                 className={`${btnClass} ${activeView === view.id
-                                    ? 'bg-[var(--bg-primary)] text-[var(--gnosi-primary)] border-[var(--border-primary)] shadow-sm'
+                                    ? 'bg-[var(--bg-primary)] text-[var(--sidebar-item-active-text)] border-[var(--border-primary)] shadow-sm'
                                     : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--gnosi-primary)] hover:bg-[var(--bg-tertiary)]'
                                     }`}
                             >
@@ -1032,7 +1033,7 @@ export default function CalendarPage() {
 
                 <div className="calendar-workspace__canvas">
                     {loading ? (
-                        <div className="flex items-center justify-center h-full text-slate-500">
+                        <div className="flex items-center justify-center h-full text-[var(--text-secondary)]" role="status" aria-live="polite">
                             {t('calendar.loading_events')}
                         </div>
                     ) : (
