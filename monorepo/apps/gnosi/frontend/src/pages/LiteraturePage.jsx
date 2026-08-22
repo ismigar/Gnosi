@@ -4,15 +4,16 @@ import { useTranslation } from 'react-i18next';
 import {
     Archive, ArrowLeft, BookOpenCheck, Bot, Check, ChevronDown, ChevronRight,
     CircleAlert, Clock3, Download, ExternalLink, Eye, FilePlus2, Filter, LibraryBig,
-    LoaderCircle, NotebookTabs, Plus, RefreshCw, Search, Sparkles, Users, X,
+    LoaderCircle, NotebookTabs, Plus, RefreshCw, Search, Settings, Sparkles, Users, X,
 } from 'lucide-react';
 
 import { usePlugins } from '../plugins/usePlugins';
 import { toast } from '../lib/toast';
+import { AppHeader } from '../components/AppHeader';
 import './LiteraturePage.css';
 
 const EMPTY_FILTERS = {
-    date_from: '', date_to: '', language: '', type: '', peer_reviewed: null, open_access: null,
+    date_from: '', date_to: '', language: '', type: '', peer_reviewed: null, open_access: null, full_text: null,
 };
 const SEARCH_PAGE_SIZE = 50;
 const TERMINAL_SEARCH_STATES = new Set(['completed', 'cancelled', 'failed']);
@@ -24,7 +25,15 @@ function authorLine(work) {
     )).filter(Boolean).join('; ');
 }
 
-function SourcePicker({ sources, selected, onChange, statuses, t }) {
+function sourceAvailabilityLabel(source, t) {
+    if (source.available) return '';
+    if (source.requires_contact) return t('literature.search.source_requires_contact');
+    if (source.credential_status === 'missing') return t('literature.search.source_requires_credentials');
+    if (source.kind === 'oai') return t('literature.search.source_requires_index');
+    return t('literature.search.source_unavailable');
+}
+
+function SourcePicker({ sources, selected, onChange, statuses, onConfigure, t }) {
     const [expanded, setExpanded] = useState(false);
     const automated = sources.filter((source) => source.automated && !source.hidden);
     const visible = expanded ? automated : automated.slice(0, 12);
@@ -38,7 +47,7 @@ function SourcePicker({ sources, selected, onChange, statuses, t }) {
                 {visible.map((source) => {
                     const status = statuses?.[source.id];
                     return (
-                        <label key={source.id} className={`literature-source-chip ${selected.has(source.id) ? 'is-selected' : ''} ${!source.available ? 'is-unavailable' : ''}`}>
+                        <label key={source.id} title={sourceAvailabilityLabel(source, t)} className={`literature-source-chip ${selected.has(source.id) ? 'is-selected' : ''} ${!source.available ? 'is-unavailable' : ''}`}>
                             <input type="checkbox" checked={selected.has(source.id)} disabled={!source.available} onChange={(event) => onChange(source.id, event.target.checked)} />
                             <span>{source.name}</span>
                             {status?.state === 'running' && <LoaderCircle size={12} className="spin" />}
@@ -49,6 +58,7 @@ function SourcePicker({ sources, selected, onChange, statuses, t }) {
                 })}
             </div>
             {automated.length > 12 && <button type="button" className="literature-link-button" onClick={() => setExpanded((value) => !value)}>{expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />} {expanded ? t('literature.search.show_less_sources') : t('literature.search.show_all_sources')}</button>}
+            {automated.some((source) => !source.available) && <button type="button" className="literature-link-button" onClick={onConfigure}><Settings size={14} /> {t('literature.search.configure_sources')}</button>}
         </div>
     );
 }
@@ -428,6 +438,7 @@ export default function LiteraturePage() {
     const [manualValue, setManualValue] = useState('');
     const [manualKind, setManualKind] = useState('auto');
     const [manualWork, setManualWork] = useState(null);
+    const queryInputRef = useRef(null);
     const pollRef = useRef(null);
     const eventSourceRef = useRef(null);
     const eventCursorRef = useRef(0);
@@ -570,6 +581,11 @@ export default function LiteraturePage() {
     };
 
     const runAiQuery = async () => {
+        if (!query.trim()) {
+            queryInputRef.current?.focus();
+            toast.error(t('literature.ai.enter_question'));
+            return;
+        }
         setBusy('ai');
         try {
             const response = await axios.post('/api/vault/literature/ai', { operation: 'query_strategy', payload: { question: query, framework: 'PICO', languages: ['ca', 'es', 'en', 'fr'] } });
@@ -665,20 +681,31 @@ export default function LiteraturePage() {
         });
     }, []);
 
+    const openResourcesSettings = () => {
+        try {
+            window.sessionStorage.setItem('gnosi:configure-plugin', 'resources');
+        } catch {
+            // Settings can still be opened when session storage is unavailable.
+        }
+        window.dispatchEvent(new CustomEvent('open-settings', { detail: 'plugins' }));
+    };
+
     if (!isEnabled('resources')) {
         return <main className="literature-page"><div className="literature-empty"><LibraryBig size={36} /><h1>{t('literature.disabled.title')}</h1><p>{t('literature.disabled.help')}</p></div></main>;
     }
 
     return (
         <main className="literature-page">
-            <header className="literature-page__header"><div><span>{t('literature.eyebrow')}</span><h1>{t('literature.title')}</h1><p>{t('literature.subtitle')}</p></div><nav aria-label={t('literature.tabs_label')}><button type="button" className={tab === 'search' ? 'is-active' : ''} onClick={() => setTab('search')}><Search size={15} /> {t('literature.tabs.search')}</button><button type="button" className={tab === 'reviews' ? 'is-active' : ''} onClick={() => setTab('reviews')}><BookOpenCheck size={15} /> {t('literature.tabs.reviews')}</button></nav></header>
+            <AppHeader icon={LibraryBig} title={t('literature.title')} subtitle={t('literature.subtitle')}>
+                <nav className="literature-page__tabs" aria-label={t('literature.tabs_label')}><button type="button" className={tab === 'search' ? 'is-active' : ''} onClick={() => setTab('search')}><Search size={15} /> {t('literature.tabs.search')}</button><button type="button" className={tab === 'reviews' ? 'is-active' : ''} onClick={() => setTab('reviews')}><BookOpenCheck size={15} /> {t('literature.tabs.reviews')}</button></nav>
+            </AppHeader>
             {tab === 'reviews' ? <ReviewWorkspace selectedWorks={selectedWorks} currentSearch={searchResult} t={t} /> : <>
                 <section className="literature-search-panel">
                     <form onSubmit={startSearch}>
-                        <div className="literature-search-box"><Search size={19} /><input value={query} onChange={(event) => { setQuery(event.target.value); setSourceQueries({}); setAiProposal(null); setAiAudits([]); }} placeholder={t('literature.search.placeholder')} aria-label={t('literature.search.query')} /><button type="button" className="literature-ai-button" disabled={!query.trim() || busy === 'ai'} onClick={() => void runAiQuery()} title={t('literature.ai.build_query')}><Sparkles size={16} /> {t('literature.ai.assist')}</button><button type="submit" className="btn-gnosi btn-gnosi-primary" disabled={!query.trim() || !selectedSources.size || busy === 'search'}>{busy === 'search' ? <LoaderCircle size={16} className="spin" /> : <Search size={16} />} {t('literature.search.submit')}</button></div>
+                        <div className="literature-search-box"><Search size={19} /><input ref={queryInputRef} value={query} onChange={(event) => { setQuery(event.target.value); setSourceQueries({}); setAiProposal(null); setAiAudits([]); }} placeholder={t('literature.search.placeholder')} aria-label={t('literature.search.query')} /><button type="button" className="literature-ai-button" disabled={busy === 'ai'} onClick={() => void runAiQuery()} title={t('literature.ai.build_query')}><Sparkles size={16} /> {t('literature.ai.assist')}</button><button type="submit" className="btn-gnosi btn-gnosi-primary" disabled={!query.trim() || !selectedSources.size || busy === 'search'}>{busy === 'search' ? <LoaderCircle size={16} className="spin" /> : <Search size={16} />} {t('literature.search.submit')}</button></div>
                         <div className="literature-search-toolbar"><button type="button" className="literature-link-button" onClick={() => setShowFilters((value) => !value)}><Filter size={14} /> {t('literature.search.filters')} {showFilters ? <ChevronDown size={13} /> : <ChevronRight size={13} />}</button><button type="button" className="literature-link-button" onClick={() => setShowHistory((value) => !value)}><Clock3 size={14} /> {t('literature.search.history')}</button>{results.length > 1 && <button type="button" className="literature-link-button" disabled={busy === 'rerank'} onClick={() => void rerankResults()}><Sparkles size={14} /> {t('literature.ai.rerank')}</button>}{rerankAudit && <span className="literature-search-state">{t('literature.ai.reranked_by', { model: rerankAudit.model })}</span>}{searchResult && <span className={`literature-search-state is-${searchResult.state}`}>{t(`literature.search.state.${searchResult.state}`)} · {t('literature.search.result_count', { count: searchResult.result_count || 0 })}</span>}{searchResult && !TERMINAL_SEARCH_STATES.has(searchResult.state) && <button type="button" className="literature-link-button is-danger" disabled={busy === 'cancel'} onClick={() => void cancelSearch()}><X size={14} /> {t('literature.search.cancel')}</button>}</div>
-                        {showFilters && <div className="literature-filters"><label><span>{t('literature.search.date_from')}</span><input type="date" value={filters.date_from} onChange={(event) => setFilters((current) => ({ ...current, date_from: event.target.value }))} /></label><label><span>{t('literature.search.date_to')}</span><input type="date" value={filters.date_to} onChange={(event) => setFilters((current) => ({ ...current, date_to: event.target.value }))} /></label><label><span>{t('literature.search.language')}</span><input value={filters.language} onChange={(event) => setFilters((current) => ({ ...current, language: event.target.value }))} placeholder="ca, es, en…" /></label><label><span>{t('literature.search.document_type')}</span><select value={filters.type} onChange={(event) => setFilters((current) => ({ ...current, type: event.target.value }))}><option value="">{t('literature.search.any')}</option><option value="journal-article">{t('literature.search.article')}</option><option value="book">{t('literature.search.book')}</option><option value="thesis">{t('literature.search.thesis')}</option><option value="preprint">{t('literature.search.preprint')}</option></select></label><label className="is-check"><input type="checkbox" checked={filters.open_access === true} onChange={(event) => setFilters((current) => ({ ...current, open_access: event.target.checked ? true : null }))} /> {t('literature.search.open_access_only')}</label><label className="is-check"><input type="checkbox" checked={filters.peer_reviewed === true} onChange={(event) => setFilters((current) => ({ ...current, peer_reviewed: event.target.checked ? true : null }))} /> {t('literature.search.peer_reviewed_only')}</label></div>}
-                        <SourcePicker sources={configuration.sources || []} selected={selectedSources} statuses={searchResult?.source_status} onChange={(sourceId, checked) => setSelectedSources((current) => { const next = new Set(current); if (checked) next.add(sourceId); else next.delete(sourceId); return next; })} t={t} />
+                        {showFilters && <div className="literature-filters"><label><span>{t('literature.search.date_from')}</span><input type="date" value={filters.date_from} onChange={(event) => setFilters((current) => ({ ...current, date_from: event.target.value }))} /></label><label><span>{t('literature.search.date_to')}</span><input type="date" value={filters.date_to} onChange={(event) => setFilters((current) => ({ ...current, date_to: event.target.value }))} /></label><label><span>{t('literature.search.language')}</span><select value={filters.language} onChange={(event) => setFilters((current) => ({ ...current, language: event.target.value }))}><option value="">{t('literature.search.any')}</option><option value="ca">Català</option><option value="es">Español</option><option value="en">English</option><option value="fr">Français</option><option value="pt">Português</option><option value="de">Deutsch</option><option value="it">Italiano</option></select></label><label><span>{t('literature.search.document_type')}</span><select value={filters.type} onChange={(event) => setFilters((current) => ({ ...current, type: event.target.value }))}><option value="">{t('literature.search.any')}</option><option value="journal-article">{t('literature.search.article')}</option><option value="book">{t('literature.search.book')}</option><option value="thesis">{t('literature.search.thesis')}</option><option value="preprint">{t('literature.search.preprint')}</option></select></label><label className="is-check"><input type="checkbox" checked={filters.open_access === true} onChange={(event) => setFilters((current) => ({ ...current, open_access: event.target.checked ? true : null }))} /> {t('literature.search.open_access_only')}</label><label className="is-check"><input type="checkbox" checked={filters.full_text === true} onChange={(event) => setFilters((current) => ({ ...current, full_text: event.target.checked ? true : null }))} /> {t('literature.search.full_text_only')}</label><label className="is-check"><input type="checkbox" checked={filters.peer_reviewed === true} onChange={(event) => setFilters((current) => ({ ...current, peer_reviewed: event.target.checked ? true : null }))} /> {t('literature.search.peer_reviewed_only')}</label></div>}
+                        <SourcePicker sources={configuration.sources || []} selected={selectedSources} statuses={searchResult?.source_status} onConfigure={openResourcesSettings} onChange={(sourceId, checked) => setSelectedSources((current) => { const next = new Set(current); if (checked) next.add(sourceId); else next.delete(sourceId); return next; })} t={t} />
                         <details className="literature-source-queries"><summary>{t('literature.search.source_queries')}</summary><p>{t('literature.search.source_queries_help')}</p>{(configuration.sources || []).filter((source) => selectedSources.has(source.id)).map((source) => <label key={source.id}><span>{source.name}</span><textarea rows={2} value={sourceQueries[source.id] || ''} onChange={(event) => setSourceQueries((current) => ({ ...current, [source.id]: event.target.value }))} placeholder={query || t('literature.search.query')} /><button type="button" className="btn-gnosi-secondary" disabled={!query.trim() || busy === `translate:${source.id}`} onClick={() => void runAiTranslation(source.id)}><Sparkles size={14} /> {t('literature.ai.translate_source')}</button></label>)}</details>
                     </form>
                     {showHistory && <div className="literature-search-history"><header><strong>{t('literature.search.history')}</strong><button type="button" className="literature-icon-button" onClick={() => void loadSearchHistory()} aria-label={t('literature.search.refresh_history')}><RefreshCw size={14} /></button></header>{searchHistory.length === 0 ? <p>{t('literature.search.no_history')}</p> : searchHistory.map((item) => <button type="button" key={item.id} className={searchResult?.id === item.id ? 'is-active' : ''} onClick={() => void openSearch(item.id)}><span>{item.query}</span><small>{t(`literature.search.state.${item.state}`)} · {t('literature.search.result_count', { count: item.result_count || 0 })}</small></button>)}</div>}

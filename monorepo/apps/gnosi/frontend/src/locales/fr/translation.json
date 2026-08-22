@@ -5771,6 +5771,11 @@
       "filters": "Filtres",
       "sources": "Sources",
       "sources_selected": "{{count}} sélectionnées",
+      "source_requires_contact": "Nécessite une adresse e-mail de contact dans les paramètres des Ressources.",
+      "source_requires_credentials": "Nécessite des identifiants ou un abonnement dans les paramètres des Ressources.",
+      "source_requires_index": "Nécessite une première synchronisation de l'index local.",
+      "source_unavailable": "Cette source n'est pas disponible actuellement.",
+      "configure_sources": "Configurer les sources",
       "show_less_sources": "Afficher moins",
       "show_all_sources": "Afficher toutes les sources",
       "source_queries": "Requêtes propres à chaque source",
@@ -5786,6 +5791,7 @@
       "thesis": "Thèse",
       "preprint": "Preprint",
       "open_access_only": "Accès ouvert uniquement",
+      "full_text_only": "Textes intégraux vérifiés uniquement",
       "peer_reviewed_only": "Évaluation par les pairs uniquement",
       "history": "Historique des recherches",
       "refresh_history": "Actualiser l’historique",
@@ -5858,6 +5864,7 @@
       "error": "Impossible d'importer les ressources."
     },
     "ai": {
+      "enter_question": "Écrivez une question ou une requête avant de demander l'aide de l'IA.",
       "assist": "Aide IA",
       "build_query": "Créer une stratégie modifiable",
       "proposal": "Proposition de stratégie",

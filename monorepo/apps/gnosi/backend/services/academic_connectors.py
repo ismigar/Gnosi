@@ -281,6 +281,15 @@ def filter_works(works: list[dict[str, Any]], filters: dict[str, Any]) -> list[d
             continue
         if selected.get("open_access") is True and (work.get("open_access") or {}).get("is_oa") is not True:
             continue
+        if selected.get("full_text") is True:
+            locations = work.get("locations") or []
+            has_verified_full_text = any(
+                isinstance(location, dict)
+                and (location.get("pdf_url") or location.get("is_oa") is True)
+                for location in locations
+            )
+            if not has_verified_full_text:
+                continue
         if selected.get("peer_reviewed") is True and work.get("peer_reviewed") is not True:
             continue
         result.append(work)

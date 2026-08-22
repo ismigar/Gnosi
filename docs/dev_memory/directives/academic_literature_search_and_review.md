@@ -227,9 +227,15 @@ Mutating endpoints use existing CSRF and authorization conventions. Public API r
 ## User interface
 
 - Register the built-in `resources` plugin and enable it by default.
+- The Literature route uses the shared `AppHeader` rather than a route-specific
+  hero. The standard title, vault badge, subtitle, and action area are the
+  sole page-header contract.
 - Add its configuration panel to plugin settings and keep the former References setting as a direct link into this panel.
 - Add Literature Search to the sidebar and every Resources table view.
 - The search form supports Boolean text, dates, language, document type, peer-review, open-access, and per-search source selection.
+- Language uses a controlled selector with canonical language codes. Full-text
+  filtering means a provider reported a verified open location or file URL; it
+  does not download, attach, or claim that the text was read.
 - Results arrive progressively and show provider status without moving already reviewed items unexpectedly.
 - Every deduplicated result shows source badges and occurrence count, authors, year, publication, abstract, identifiers, OA state, provider-specific citation counts, Resources membership, `View`, and `Add to Resources`.
 - `View` opens a metadata panel with variants, field provenance, OA locations, and original links. It does not store or download a file.
@@ -257,6 +263,9 @@ Mutating endpoints use existing CSRF and authorization conventions. Public API r
 - Do not report PRISMA duplicate removals as zero when originating searches
   merged occurrences. Persist and aggregate measured counters instead.
 - Do not label a source query as exact when it is only the shared user query.
+- Do not leave an AI action silently disabled because a prerequisite is empty.
+  Focus the missing query and explain what is needed; a configured-provider
+  failure remains distinct from missing input.
 - Do not apply one provider-specific AI translation to every connector. Store
   and execute it by source identifier, while retaining the original query.
 - Do not index an arbitrary URL as verified full text. Manual capture may reuse
