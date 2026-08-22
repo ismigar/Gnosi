@@ -1,10 +1,12 @@
 """Regression tests for the version 2 LLM Wiki contracts."""
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+import requests
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -16,6 +18,52 @@ from backend.services import (
     llm_wiki_storage,
     llm_wiki_suggestions,
 )
+
+
+def test_streaming_probe_uses_metadata_only_and_stable_fingerprint(monkeypatch):
+    from backend.agent import web_context
+
+    calls = []
+
+    class FakeYoutubeDL:
+        def __init__(self, options):
+            calls.append(options)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def extract_info(self, url, *, download):
+            assert url == "https://www.youtube.com/watch?v=stable"
+            assert download is False
+            return {
+                "extractor_key": "Youtube",
+                "id": "stable",
+                "webpage_url": url,
+                "title": "Stable lecture",
+                "duration": 120,
+                "upload_date": "20260820",
+            }
+
+    monkeypatch.setitem(
+        sys.modules,
+        "yt_dlp",
+        SimpleNamespace(YoutubeDL=FakeYoutubeDL),
+    )
+    monkeypatch.setattr(web_context, "is_public_http_url", lambda _url: (True, ""))
+    first = llm_wiki_extractors.probe_streaming_url(
+        "https://www.youtube.com/watch?v=stable"
+    )
+    second = llm_wiki_extractors.probe_streaming_url(
+        "https://www.youtube.com/watch?v=stable",
+        fingerprint=first["stream_fingerprint"],
+    )
+
+    assert first["changed"] is True
+    assert second["changed"] is False
+    assert all(options["skip_download"] is True for options in calls)
 
 
 def _origin(text: str, *, label: str = "Source", order: int = 0) -> dict:
@@ -532,6 +580,64 @@ def test_public_url_helpers_detect_podcast_media_and_block_local_ssrf(monkeypatc
     )
     with pytest.raises(llm_wiki_extractors.ExtractionError, match="Unsafe URL blocked"):
         llm_wiki_extractors._download_public_url("http://127.0.0.1/private")  # noqa: SLF001
+
+
+def test_public_url_probe_uses_conditional_validators_and_accepts_not_modified(
+    monkeypatch,
+):
+    from backend.agent import web_context
+
+    monkeypatch.setattr(web_context, "is_public_http_url", lambda _url: (True, ""))
+    captured_headers = {}
+
+    def not_modified(_url, **kwargs):
+        captured_headers.update(kwargs["headers"])
+        response = requests.Response()
+        response.status_code = 304
+        response.headers.update({
+            "ETag": '"version-1"',
+            "Last-Modified": "Wed, 20 Aug 2026 10:00:00 GMT",
+        })
+        response._content = b""  # noqa: SLF001
+        return response
+
+    monkeypatch.setattr(llm_wiki_extractors.requests, "get", not_modified)
+
+    result = llm_wiki_extractors.probe_public_url(
+        "https://example.org/article",
+        etag='"version-1"',
+        last_modified="Wed, 20 Aug 2026 10:00:00 GMT",
+        content_hash="existing-hash",
+    )
+
+    assert result["changed"] is False
+    assert result["content_hash"] == "existing-hash"
+    assert captured_headers["If-None-Match"] == '"version-1"'
+    assert captured_headers["If-Modified-Since"] == "Wed, 20 Aug 2026 10:00:00 GMT"
+
+
+def test_public_url_probe_falls_back_to_content_hash(monkeypatch):
+    from backend.agent import web_context
+
+    monkeypatch.setattr(web_context, "is_public_http_url", lambda _url: (True, ""))
+    content = b"Stable source content"
+
+    def unchanged_content(_url, **_kwargs):
+        response = requests.Response()
+        response.status_code = 200
+        response.headers.update({"Content-Type": "text/plain"})
+        response._content = content  # noqa: SLF001
+        response.iter_content = lambda **_kwargs: iter([content])
+        return response
+
+    monkeypatch.setattr(llm_wiki_extractors.requests, "get", unchanged_content)
+
+    result = llm_wiki_extractors.probe_public_url(
+        "https://example.org/article",
+        content_hash=llm_wiki_extractors.hashlib.sha256(content).hexdigest(),
+    )
+
+    assert result["changed"] is False
 
 
 def test_plan_validation_requires_exact_evidence_and_preserves_source_order():

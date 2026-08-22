@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Sparkles, Loader2, X, RefreshCw, Check } from 'lucide-react';
 import axios from 'axios';
 import { toast } from '../../lib/toast';
+import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 
 /**
  * AI content-generation modal for the Vault editor (Notion style).
@@ -14,7 +15,7 @@ import { toast } from '../../lib/toast';
  *
  * Props:
  *   request: { mode, context, anchor } | null  — opens the modal when not null
- *   onClose():            closes (X / Esc / click outside)
+ *   onClose():            closes from the explicit close action or Escape
  *   onInsert(md, anchor): inserts the generated markdown at the `anchor` position
  *   t:                    i18n function (optional; falls back to defaultValue)
  */
@@ -44,6 +45,7 @@ export default function AIGenerateModal({ request, onClose, onInsert, t }) {
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState('');
     const inputRef = useRef(null);
+    const dialogRef = useRef(null);
 
     const open = !!request;
 
@@ -63,18 +65,13 @@ export default function AIGenerateModal({ request, onClose, onInsert, t }) {
         onClose?.();
     }, [loading, onClose]);
 
-    // Esc to close.
-    useEffect(() => {
-        if (!open) return undefined;
-        const onKey = (e) => {
-            if (e.key === 'Escape') {
-                e.stopPropagation();
-                handleClose();
-            }
-        };
-        window.addEventListener('keydown', onKey, true);
-        return () => window.removeEventListener('keydown', onKey, true);
-    }, [open, handleClose]);
+    useModalKeyboard({
+        isOpen: open,
+        onClose: handleClose,
+        closeOnEscape: !loading,
+        containerRef: dialogRef,
+        trapFocus: true,
+    });
 
     const needsPrompt = mode === 'free';
 
@@ -125,11 +122,12 @@ export default function AIGenerateModal({ request, onClose, onInsert, t }) {
     return createPortal(
         <div
             className="fixed inset-0 z-[var(--z-modal)] flex items-start justify-center bg-black/40 pt-[12vh] px-4"
-            onMouseDown={(e) => { if (e.target === e.currentTarget) handleClose(); }}
         >
             <div
+                ref={dialogRef}
                 className="w-full max-w-xl rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] shadow-2xl"
                 role="dialog"
+                aria-modal="true"
                 aria-label={tr('editor.ai_title', 'Generate with AI')}
             >
                 {/* Header */}
@@ -141,6 +139,7 @@ export default function AIGenerateModal({ request, onClose, onInsert, t }) {
                         onClick={handleClose}
                         className="ml-auto rounded p-1 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]"
                         aria-label={tr('common.close', 'Close')}
+                        data-autofocus={mode !== 'free' ? true : undefined}
                     >
                         <X size={18} />
                     </button>
@@ -179,6 +178,7 @@ export default function AIGenerateModal({ request, onClose, onInsert, t }) {
                     {/* Free-form instruction */}
                     <textarea
                         ref={inputRef}
+                        data-autofocus={mode === 'free' ? true : undefined}
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
                         onKeyDown={onCtrlEnter}

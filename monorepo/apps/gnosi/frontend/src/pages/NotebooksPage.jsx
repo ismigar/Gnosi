@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
     AlertCircle,
@@ -7,6 +7,7 @@ import {
     CheckCircle2,
     ChevronLeft,
     ChevronRight,
+    CircleStop,
     Globe2,
     LoaderCircle,
     Lock,
@@ -21,8 +22,17 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import AgentChat from '../components/AgentChat';
+import { AppHeader } from '../components/AppHeader';
 import ConfirmModal from '../components/ConfirmModal';
 import NotebookCreateDialog from '../components/Notebooks/NotebookCreateDialog';
+import NotebookResourceFilters from '../components/Notebooks/NotebookResourceFilters';
+import {
+    EMPTY_RESOURCE_FACETS,
+    EMPTY_RESOURCE_FILTERS,
+    normalizeResourceFacets,
+    notebookResourceCatalogUrl,
+} from '../components/Notebooks/notebookResourceCatalog';
+import { useModalKeyboard } from '../hooks/useModalKeyboard';
 import { toast } from '../lib/toast';
 import './NotebooksPage.css';
 
@@ -75,20 +85,19 @@ function NotebookLibrary({ onCreate }) {
 
     const pageCount = Math.max(1, Math.ceil((data.total || 0) / (data.page_size || 24)));
     return (
-        <main className="notebooks-page">
-            <header className="notebooks-page__hero">
-                <div>
-                    <span className="notebooks-eyebrow">{t('notebooks.eyebrow', 'Grounded knowledge')}</span>
-                    <h1>{t('notebooks.title', 'Notebooks')}</h1>
-                    <p>{t('notebooks.subtitle', 'Converse with the attachments and URLs in your Resources.')}</p>
-                </div>
-                <button className="btn-gnosi btn-gnosi-primary notebooks-primary-action" onClick={onCreate}>
+        <div className="notebooks-page">
+            <AppHeader
+                icon={BookOpen}
+                title={t('notebooks.title', 'Notebooks')}
+                subtitle={t('notebooks.subtitle', 'Converse with the attachments and URLs in your Resources.')}
+            >
+                <button type="button" className="gnosi-button gnosi-button--primary notebooks-primary-action" onClick={onCreate}>
                     <Plus size={16} />
                     {t('notebooks.create_action', 'Create notebook')}
                 </button>
-            </header>
+            </AppHeader>
 
-            <section className="notebook-library">
+            <main className="notebook-library">
                 <div className="notebook-library__toolbar">
                     <label className="notebook-search notebook-search--library">
                         <Search size={17} />
@@ -140,31 +149,51 @@ function NotebookLibrary({ onCreate }) {
                         <button disabled={data.page >= pageCount} onClick={() => setData((previous) => ({ ...previous, page: previous.page + 1 }))}><ChevronRight size={16} /></button>
                     </nav>
                 )}
-            </section>
-        </main>
+            </main>
+        </div>
     );
 }
 
 function AddResourcesDialog({ notebookId, currentIds, onClose, onAdded }) {
     const { t } = useTranslation();
     const [query, setQuery] = useState('');
-    const [data, setData] = useState({ items: [], total: 0, page: 1, page_size: 50 });
+    const [data, setData] = useState({ items: [], total: 0, page: 1, page_size: 50, facets: EMPTY_RESOURCE_FACETS, hidden_without_sources: 0 });
+    const [filters, setFilters] = useState({ ...EMPTY_RESOURCE_FILTERS });
     const [selected, setSelected] = useState(new Set());
     const [saving, setSaving] = useState(false);
+    const dialogRef = useRef(null);
+    useModalKeyboard({
+        isOpen: true,
+        onClose,
+        closeOnEscape: !saving,
+        containerRef: dialogRef,
+        trapFocus: true,
+    });
     useEffect(() => {
         const controller = new AbortController();
-        fetch(`/api/notebooks/resources?notebook_id=${encodeURIComponent(notebookId)}&q=${encodeURIComponent(query)}&page=${data.page}&page_size=50`, { signal: controller.signal })
+        fetch(notebookResourceCatalogUrl({
+            notebookId,
+            query,
+            page: data.page,
+            filters,
+        }), { signal: controller.signal })
             .then((response) => response.ok ? response.json() : Promise.reject(new Error(`Resource list failed (${response.status})`)))
             .then((responseData) => setData({
                 items: (responseData.items || []).filter((item) => !currentIds.has(String(item.id))),
                 total: Number(responseData.total) || 0,
                 page: Number(responseData.page) || data.page,
                 page_size: Number(responseData.page_size) || 50,
+                facets: normalizeResourceFacets(responseData.facets),
+                hidden_without_sources: Number(responseData.hidden_without_sources) || 0,
             }))
             .catch((error) => { if (error.name !== 'AbortError') console.error('Could not load Resources', error); });
         return () => controller.abort();
-    }, [currentIds, data.page, notebookId, query]);
+    }, [currentIds, data.page, filters, notebookId, query]);
     const pageCount = Math.max(1, Math.ceil(data.total / data.page_size));
+    const updateFilter = (key, value) => {
+        setFilters((previous) => key ? { ...previous, [key]: value } : { ...EMPTY_RESOURCE_FILTERS });
+        setData((previous) => ({ ...previous, page: 1 }));
+    };
     const add = async () => {
         if (!selected.size) return;
         setSaving(true);
@@ -187,20 +216,41 @@ function AddResourcesDialog({ notebookId, currentIds, onClose, onAdded }) {
     };
     return (
         <div className="notebook-modal-backdrop">
-            <section className="notebook-modal notebook-modal--compact" role="dialog" aria-modal="true">
+            <section
+                ref={dialogRef}
+                className="notebook-modal notebook-modal--compact"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="notebook-add-resources-title"
+            >
                 <header className="notebook-modal__header">
-                    <div><h2>{t('notebooks.add_resources', 'Add Resources')}</h2><p>{t('notebooks.add_resources_help', 'Their attachment and URL fields will be indexed.')}</p></div>
-                    <button className="notebook-icon-button" onClick={onClose}><X size={18} /></button>
+                    <div><h2 id="notebook-add-resources-title">{t('notebooks.add_resources', 'Add Resources')}</h2><p>{t('notebooks.add_resources_help', 'Their attachment and URL fields will be indexed.')}</p></div>
+                    <button type="button" className="notebook-icon-button" onClick={onClose} disabled={saving} aria-label={t('common.close', 'Close')}><X size={18} /></button>
                 </header>
                 <div className="notebook-modal__body">
                     <label className="notebook-search notebook-search--library"><Search size={16} /><input value={query} onChange={(event) => {
                         setQuery(event.target.value);
                         setData((previous) => ({ ...previous, page: 1 }));
-                    }} placeholder={t('notebooks.search_resources', 'Search Resources...')} /></label>
+                    }} placeholder={t('notebooks.search_resources', 'Search Resources...')} data-autofocus /></label>
+                    <NotebookResourceFilters
+                        facets={data.facets}
+                        filters={filters}
+                        onChange={updateFilter}
+                        disabled={saving}
+                    />
+                    {data.hidden_without_sources > 0 && (
+                        <p className="notebook-resource-picker__notice" role="status">
+                            {t(
+                                'notebooks.resources_without_sources_hidden',
+                                '{{count}} Resources are not shown because they have no attachments or URLs.',
+                                { count: data.hidden_without_sources },
+                            )}
+                        </p>
+                    )}
                     <div className="notebook-resource-picker__list notebook-resource-picker__list--add">
                         {data.items.map((resource) => {
                             const checked = selected.has(String(resource.id));
-                            return <button key={resource.id} className={`notebook-resource-row ${checked ? 'is-selected' : ''}`} onClick={() => setSelected((previous) => {
+                            return <button type="button" key={resource.id} className={`notebook-resource-row ${checked ? 'is-selected' : ''}`} aria-pressed={checked} onClick={() => setSelected((previous) => {
                                 const next = new Set(previous);
                                 if (checked) next.delete(String(resource.id)); else next.add(String(resource.id));
                                 return next;
@@ -209,19 +259,19 @@ function AddResourcesDialog({ notebookId, currentIds, onClose, onAdded }) {
                     </div>
                     {pageCount > 1 && (
                         <nav className="notebook-pagination notebook-pagination--compact" aria-label={t('notebooks.resource_pagination', 'Resource pages')}>
-                            <button disabled={data.page <= 1} onClick={() => setData((previous) => ({ ...previous, page: previous.page - 1 }))}><ChevronLeft size={15} /></button>
+                            <button type="button" aria-label={t('common.previous', 'Previous')} disabled={data.page <= 1} onClick={() => setData((previous) => ({ ...previous, page: previous.page - 1 }))}><ChevronLeft size={15} /></button>
                             <span>{t('notebooks.page_of', 'Page {{page}} of {{pages}}', { page: data.page, pages: pageCount })}</span>
-                            <button disabled={data.page >= pageCount} onClick={() => setData((previous) => ({ ...previous, page: previous.page + 1 }))}><ChevronRight size={15} /></button>
+                            <button type="button" aria-label={t('common.next', 'Next')} disabled={data.page >= pageCount} onClick={() => setData((previous) => ({ ...previous, page: previous.page + 1 }))}><ChevronRight size={15} /></button>
                         </nav>
                     )}
                 </div>
-                <footer className="notebook-modal__footer"><button className="btn-gnosi" onClick={onClose}>{t('common.cancel', 'Cancel')}</button><button className="btn-gnosi btn-gnosi-primary" disabled={!selected.size || saving} onClick={add}>{t('notebooks.add_selected', 'Add selected')}</button></footer>
+                <footer className="notebook-modal__footer"><button type="button" className="btn-gnosi" disabled={saving} onClick={onClose}>{t('common.cancel', 'Cancel')}</button><button type="button" className="btn-gnosi btn-gnosi-primary" disabled={!selected.size || saving} onClick={add}>{t('notebooks.add_selected', 'Add selected')}</button></footer>
             </section>
         </div>
     );
 }
 
-function NotebookDetail({ notebookId }) {
+export function NotebookDetail({ notebookId }) {
     const { t } = useTranslation();
     const navigate = useNavigate();
     const [notebook, setNotebook] = useState(null);
@@ -233,6 +283,8 @@ function NotebookDetail({ notebookId }) {
     const [showClear, setShowClear] = useState(false);
     const [chatEpoch, setChatEpoch] = useState(0);
     const [removingId, setRemovingId] = useState('');
+    const [retryingId, setRetryingId] = useState('');
+    const [cancelling, setCancelling] = useState(false);
 
     const load = useCallback(async ({ refresh = false, page = sources.page } = {}) => {
         try {
@@ -285,12 +337,52 @@ function NotebookDetail({ notebookId }) {
         setNotebook(await response.json());
     };
     const refresh = async () => {
-        const response = await fetch(`/api/notebooks/${encodeURIComponent(notebookId)}/refresh`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ force: true, reason: 'manual' }),
-        });
-        if (response.ok) {
+        try {
+            const response = await fetch(`/api/notebooks/${encodeURIComponent(notebookId)}/refresh`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ force: true, reason: 'manual' }),
+            });
+            if (!response.ok) throw new Error(`Notebook refresh failed (${response.status})`);
             toast.success(t('notebooks.refresh_started', 'Refresh started.'));
             void load({ refresh: false });
+        } catch (error) {
+            console.error('Could not refresh notebook', error);
+            toast.error(t('notebooks.refresh_error', 'The notebook refresh could not be started.'));
+        }
+    };
+    const retryResource = async (resourceId) => {
+        setRetryingId(resourceId);
+        try {
+            const response = await fetch(
+                `/api/notebooks/${encodeURIComponent(notebookId)}/sources/${encodeURIComponent(resourceId)}/refresh`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ force: true, reason: 'resource_retry' }),
+                },
+            );
+            if (!response.ok) throw new Error(`Resource retry failed (${response.status})`);
+            toast.success(t('notebooks.resource_retry_started', 'Resource retry started.'));
+            await load({ refresh: false });
+        } catch (error) {
+            console.error('Could not retry notebook Resource', error);
+            toast.error(t('notebooks.resource_retry_error', 'The Resource retry could not be started.'));
+        } finally {
+            setRetryingId('');
+        }
+    };
+    const cancelRefresh = async () => {
+        setCancelling(true);
+        try {
+            const response = await fetch(`/api/notebooks/${encodeURIComponent(notebookId)}/refresh/cancel`, { method: 'POST' });
+            if (!response.ok) throw new Error(`Notebook cancellation failed (${response.status})`);
+            setNotebook(await response.json());
+            toast.success(t('notebooks.index_cancelled', 'Indexing cancelled.'));
+            await load({ refresh: false });
+        } catch (error) {
+            console.error('Could not cancel notebook indexing', error);
+            toast.error(t('notebooks.index_cancel_error', 'Indexing could not be cancelled.'));
+        } finally {
+            setCancelling(false);
         }
     };
     const remove = async (resourceId) => {
@@ -339,13 +431,20 @@ function NotebookDetail({ notebookId }) {
                     <div><StatusBadge status={notebook.status} /><span>{t('notebooks.revision_label', 'Revision {{revision}}', { revision: notebook.active_revision || '—' })}</span></div>
                 </div>
                 <div className="notebook-detail__actions">
-                    <button className="btn-gnosi" onClick={refresh}><RefreshCw size={15} />{t('notebooks.refresh', 'Refresh')}</button>
+                    {notebook.can_manage && <button className="btn-gnosi" onClick={refresh}><RefreshCw size={15} />{t('notebooks.refresh', 'Refresh')}</button>}
                     {notebook.can_manage && <button className="notebook-icon-button notebook-icon-button--danger" onClick={() => setShowDelete(true)} aria-label={t('notebooks.delete', 'Delete notebook')}><Trash2 size={17} /></button>}
                 </div>
             </header>
 
             {notebook.progress && ACTIVE_STATES.has(notebook.progress.state) && (
-                <div className="notebook-progress" role="status"><div><LoaderCircle size={15} className="animate-spin" /><span>{t('notebooks.index_progress', 'Indexing {{processed}} of {{total}} Resources', notebook.progress)}</span></div><div className="notebook-progress__track"><span style={{ width: `${notebook.progress.percent || 0}%` }} /></div></div>
+                <div className="notebook-progress">
+                    <div className="notebook-progress__summary">
+                        <div role="status" aria-live="polite"><LoaderCircle size={15} className="animate-spin" /><span>{t('notebooks.index_progress', 'Indexing {{processed}} of {{total}} Resources', notebook.progress)}</span></div>
+                        {notebook.can_manage && notebook.progress.cancellable && <button type="button" disabled={cancelling} onClick={cancelRefresh}><CircleStop size={14} />{t('notebooks.cancel_indexing', 'Cancel indexing')}</button>}
+                    </div>
+                    {notebook.progress.current_resource_title && <span className="notebook-progress__resource">{t('notebooks.current_resource', 'Current Resource: {{resource}}', { resource: notebook.progress.current_resource_title })}</span>}
+                    <div className="notebook-progress__track"><span style={{ width: `${notebook.progress.percent || 0}%` }} /></div>
+                </div>
             )}
             {notebook.last_error && <div className="notebook-warning"><AlertCircle size={16} /><span>{notebook.last_error}</span></div>}
 
@@ -365,13 +464,14 @@ function NotebookDetail({ notebookId }) {
                                     <div><strong>{resource.title || resource.resource_id}</strong><StatusBadge status={resource.state} /></div>
                                     {notebook.can_manage && (
                                         <div className="notebook-source-card__actions">
-                                            {['error', 'stale'].includes(resource.state) && <button className="notebook-icon-button notebook-icon-button--small" onClick={refresh} aria-label={t('notebooks.retry_resource', 'Retry Resource')}><RefreshCw size={13} /></button>}
+                                            {['error', 'stale'].includes(resource.state) && <button className="notebook-icon-button notebook-icon-button--small" disabled={retryingId === resource.resource_id || ACTIVE_STATES.has(notebook.progress?.state)} onClick={() => retryResource(resource.resource_id)} aria-label={t('notebooks.retry_resource', 'Retry Resource')}><RefreshCw size={13} className={retryingId === resource.resource_id ? 'animate-spin' : ''} /></button>}
                                             <button className="notebook-icon-button notebook-icon-button--small" disabled={removingId === resource.resource_id} onClick={() => remove(resource.resource_id)} aria-label={t('notebooks.remove_resource', 'Remove Resource')}><X size={14} /></button>
                                         </div>
                                     )}
                                 </div>
                                 {resource.error && <p className="notebook-source-error">{resource.error}</p>}
-                                <ul>{(resource.sources || []).map((source) => <li key={source.source_id}><span>{source.kind === 'url' ? <Globe2 size={13} /> : <BookOpen size={13} />}{source.label}</span><StatusBadge status={source.status} /></li>)}</ul>
+                                {resource.last_checked_at && <p className="notebook-source-checked">{t('notebooks.last_checked', 'Last checked: {{time}}', { time: new Date(resource.last_checked_at).toLocaleString() })}</p>}
+                                <ul>{(resource.sources || []).map((source) => <li key={source.source_id}><div className="notebook-source-card__source"><span>{source.kind === 'url' ? <Globe2 size={13} /> : <BookOpen size={13} />}{source.label}</span>{source.error && <small>{source.error}</small>}</div><StatusBadge status={source.status} /></li>)}</ul>
                             </article>
                         ))}
                     </div>
@@ -395,6 +495,7 @@ function NotebookDetail({ notebookId }) {
                             notebookId={notebook.id}
                             conversationMode={notebook.conversation_mode}
                             contextRefs={chatContext}
+                            readOnly={!notebook.can_chat}
                         />
                     ) : <div className="notebook-chat-blocked"><LoaderCircle size={26} className={notebook.status !== 'error' ? 'animate-spin' : ''} /><h2>{t('notebooks.chat_preparing_title', 'Preparing the first sources')}</h2><p>{t('notebooks.chat_preparing_description', 'Conversation becomes available when at least one source has been indexed.')}</p></div>}
                 </section>

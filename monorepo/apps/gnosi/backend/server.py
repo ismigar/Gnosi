@@ -55,6 +55,7 @@ from backend.api import (
     notebook_routes,
 )
 from backend.scheduler.manager import scheduler_manager
+from backend.services.plugin_access import require_plugins
 from backend.models import * # Register all models for SQLAlchemy
 
 log = logging.getLogger(__name__)
@@ -87,13 +88,15 @@ def _registered_vault_paths() -> set[Path]:
 
 
 async def _confirmation_maintenance_loop() -> None:
-    """Enforce confirmation expiry and retention without user traffic."""
+    """Enforce bounded agent-state retention without user traffic."""
     from backend.agent.action_confirmations import maintain_confirmation_store
     from backend.api.vault_routes import cleanup_pending_table_asset_quarantines
+    from backend.services.agent_stream_journal import cleanup as cleanup_agent_streams
 
     while True:
         try:
             await asyncio.to_thread(maintain_confirmation_store)
+            await asyncio.to_thread(cleanup_agent_streams)
             vault_paths = await asyncio.to_thread(_registered_vault_paths)
             for vault_path in vault_paths:
                 await asyncio.to_thread(
@@ -102,7 +105,7 @@ async def _confirmation_maintenance_loop() -> None:
                 )
         except Exception as exc:  # noqa: BLE001
             log.warning("Could not maintain agent action state: %s", exc)
-        await asyncio.sleep(60 * 60)
+        await asyncio.sleep(10 * 60)
 
 
 @asynccontextmanager
@@ -122,6 +125,11 @@ async def lifespan(app: FastAPI):
     confirmation_maintenance_task = asyncio.create_task(
         _confirmation_maintenance_loop()
     )
+    plugin_state = vault_routes._load_plugins_state()
+    ai_platform_enabled = vault_routes.builtin_plugins.is_enabled(
+        plugin_state, "ai-platform"
+    )
+    mail_enabled = vault_routes.builtin_plugins.is_enabled(plugin_state, "mail")
 
     # 0c. Reconcile declarative plugin contributions before any agent graph is
     # built. This applies the idempotent Brain migration and restores/suspends
@@ -132,7 +140,7 @@ async def lifespan(app: FastAPI):
             reconcile_plugin_ai_contributions,
         )
 
-        if vault_routes._llm_wiki_enabled(vault_routes._load_plugins_state()):
+        if ai_platform_enabled and vault_routes._llm_wiki_enabled(plugin_state):
             transition_agent(True)
         reconcile_plugin_ai_contributions()
     except Exception as exc:  # noqa: BLE001
@@ -140,30 +148,34 @@ async def lifespan(app: FastAPI):
 
     # 1. Init MCP Client
     mcp_client = MultiServerMCPClient(MCP_SERVERS)
-    try:
-        await mcp_client.start()
-        log.info("✅ MCP Client started.")
-        app.state.mcp_client = mcp_client
+    if ai_platform_enabled:
+        try:
+            await mcp_client.start()
+            log.info("✅ MCP Client started.")
+            app.state.mcp_client = mcp_client
 
-        # 2. Discover Tools
-        log.info("🔍 Discovering tools...")
-        tools_list = await mcp_client.get_all_tools()
-        log.info(f"🛠️ Found {len(tools_list)} tools.")
-        app.state.tools_list = tools_list
+            # 2. Discover Tools
+            log.info("🔍 Discovering tools...")
+            tools_list = await mcp_client.get_all_tools()
+            log.info(f"🛠️ Found {len(tools_list)} tools.")
+            app.state.tools_list = tools_list
 
-        # 3. Build Agent Graph
-        workflow, _ = await create_agent_workflow(
-            tools_list,
-            mcp_client,
-            agent_id="gnosy",
-        )
-        if workflow:
-            app.state.agent_workflow = workflow
-            app.state.agent_app = workflow.compile()
-            log.info("🧠 Agent Graph built and ready.")
+            # 3. Build Agent Graph
+            workflow, _ = await create_agent_workflow(
+                tools_list,
+                mcp_client,
+                agent_id="gnosy",
+            )
+            if workflow:
+                app.state.agent_workflow = workflow
+                app.state.agent_app = workflow.compile()
+                log.info("🧠 Agent Graph built and ready.")
 
-    except Exception as e:
-        log.error(f"❌ Error during startup: {e}")
+        except Exception as e:
+            log.error(f"❌ Error during startup: {e}")
+    else:
+        app.state.tools_list = []
+        log.info("AI platform plugin is disabled; MCP and agent startup are paused.")
 
     # 4. Warm up the vault page index. We do this in two phases:
     #    a) SYNC: load the persisted disk cache so the very first request
@@ -303,12 +315,13 @@ async def lifespan(app: FastAPI):
     #    daemon thread that keeps an IDLE connection open on INBOX. The
     #    EXISTS/EXPUNGE/FETCH events are published to SSE clients
     #    (/api/mail/events).
-    try:
-        from backend.services.imap_idle_service import idle_manager
-        idle_manager.start_all()
-        log.info("📬 IMAP IDLE workers started.")
-    except Exception as e:
-        log.warning(f"⚠️ Could not start IMAP IDLE workers: {e}")
+    if mail_enabled:
+        try:
+            from backend.services.imap_idle_service import idle_manager
+            idle_manager.start_all()
+            log.info("📬 IMAP IDLE workers started.")
+        except Exception as e:
+            log.warning(f"⚠️ Could not start IMAP IDLE workers: {e}")
 
     yield
 
@@ -437,14 +450,14 @@ async def global_exception_handler(request: _Request, exc: Exception):
 app.include_router(workspace_routes.router, tags=["Workspaces"])
 
 # Core Features
-app.include_router(agent_routes.router, prefix="/api")
-app.include_router(notebook_routes.router)
+app.include_router(agent_routes.router, prefix="/api", dependencies=[Depends(require_plugins("ai-platform"))])
+app.include_router(notebook_routes.router, dependencies=[Depends(require_plugins("grounded-notebooks", "ai-platform"))])
 app.include_router(system_routes.router, prefix="/api/system")
-app.include_router(social_routes.router, prefix="/api/social", tags=["Social"])
+app.include_router(social_routes.router, prefix="/api/social", tags=["Social"], dependencies=[Depends(require_plugins("social-publishing"))])
 
 # Vault and Graph
 app.include_router(vault_routes.router, prefix="/api/vault", tags=["Vault"])
-app.include_router(planning_routes.router, prefix="/api", tags=["Project Planning"])
+app.include_router(planning_routes.router, prefix="/api", tags=["Project Planning"], dependencies=[Depends(require_plugins("project-planning"))])
 app.include_router(handwriting_routes.router, tags=["Handwriting"])
 app.include_router(vault_graph_routes.router, prefix="/api", tags=["Vault Graph"])
 app.include_router(vault_views_routes.router, prefix="/api", tags=["Vault Views"])
@@ -455,15 +468,15 @@ app.include_router(collab_routes.router, prefix="/api/vault", tags=["Collaborati
 app.include_router(share_routes.router, prefix="/api", tags=["Share"])
 
 # Components
-app.include_router(calendar_routes.router, tags=["Calendar"])
-app.include_router(mail_routes.router, tags=["Mail"])
-app.include_router(reader.router, tags=["Reader"])
-app.include_router(meeting_routes.router, tags=["Meetings"])
-app.include_router(tools_routes.router, tags=["Tools"])
+app.include_router(calendar_routes.router, tags=["Calendar"], dependencies=[Depends(require_plugins("calendar"))])
+app.include_router(mail_routes.router, tags=["Mail"], dependencies=[Depends(require_plugins("mail"))])
+app.include_router(reader.router, tags=["Reader"], dependencies=[Depends(require_plugins("feeds-reader"))])
+app.include_router(meeting_routes.router, tags=["Meetings"], dependencies=[Depends(require_plugins("calendar", "ai-platform"))])
+app.include_router(tools_routes.router, tags=["Tools"], dependencies=[Depends(require_plugins("ai-platform"))])
 app.include_router(analytics_routes.router, tags=["Analytics"])
 # app.include_router(sync_routes.router, tags=["Sync"])
-app.include_router(scheduler_routes.router, tags=["Scheduler"])
-app.include_router(contacts_routes.router, prefix="/api", tags=["Contacts"])
+app.include_router(scheduler_routes.router, tags=["Scheduler"], dependencies=[Depends(require_plugins("automations"))])
+app.include_router(contacts_routes.router, prefix="/api", tags=["Contacts"], dependencies=[Depends(require_plugins("contacts"))])
 app.include_router(public_routes.router, prefix="/api", tags=["Public API / PAT"])
 
 # Integrations and Config
@@ -474,10 +487,10 @@ app.include_router(auth_routes.router, tags=["Auth"])
 app.include_router(config_routes.router, prefix="/api", tags=["Config"])
 app.include_router(env_routes.router, prefix="/api", tags=["Env"])
 app.include_router(credentials_routes.router, prefix="/api", tags=["Credentials"])
-app.include_router(ai_routes.router, prefix="/api", tags=["AI Settings"])
-app.include_router(agent_skills_routes.router, prefix="/api", tags=["AI Skills"])
-app.include_router(notion_routes.router, prefix="/api", tags=["Notion Import"])
-app.include_router(notion_oauth_routes.router, prefix="/api", tags=["Notion MCP OAuth"])
+app.include_router(ai_routes.router, prefix="/api", tags=["AI Settings"], dependencies=[Depends(require_plugins("ai-platform"))])
+app.include_router(agent_skills_routes.router, prefix="/api", tags=["AI Skills"], dependencies=[Depends(require_plugins("ai-platform"))])
+app.include_router(notion_routes.router, prefix="/api", tags=["Notion Import"], dependencies=[Depends(require_plugins("notion-import"))])
+app.include_router(notion_oauth_routes.router, prefix="/api", tags=["Notion MCP OAuth"], dependencies=[Depends(require_plugins("notion-import"))])
 app.include_router(vaults_routes.router, prefix="/api", tags=["Vaults"])
 app.include_router(vault_templates_routes.router, prefix="/api", tags=["Vault templates"])
 app.include_router(identity_routes.router, tags=["Identity"])

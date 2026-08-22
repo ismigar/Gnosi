@@ -3,10 +3,11 @@ import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { Vault as VaultIcon, Check, Plus, Loader } from 'lucide-react';
+import { setActiveVaultCookie } from '../lib/fileResource';
 
 /**
  * GLOBAL vault selector for the sidebar (personal multi-vault mode). Icon + popover
- * with the list of vaults: click to switch (reloads the app from that vault) or create a
+ * with the list of vaults: click to switch reactively or create a
  * new one. This lets you choose which vault you use from Knowledge, Graph, etc. Full
  * management (deleting) is in Settings → Clone from Notion (VaultSwitcher).
  */
@@ -48,7 +49,9 @@ export default function VaultMenu() {
             const target = vaults.find(v => v.id === id);
             if (target?.name) localStorage.setItem('gnosi_active_vault_name', target.name);
         } catch { /* */ }
-        window.location.reload();
+        setActiveVaultCookie(id);
+        setOpen(false);
+        window.dispatchEvent(new CustomEvent('gnosi:vault-changed', { detail: { id } }));
     };
 
     const create = async () => {

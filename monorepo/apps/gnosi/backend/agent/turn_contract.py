@@ -226,6 +226,15 @@ def build_turn_plan(
         mode == "inventory" and required_tool_name == "inventory_context"
     )
     budgets = turn_budgets_for_mode(mode)
+    if deterministic_output:
+        # Exact inventories are rendered from the governed result. Avoid
+        # reserving or accidentally spending a model call after that result.
+        budgets["max_model_calls"] = 0
+        budgets["max_tool_calls"] = min(budgets["max_tool_calls"], 2)
+        budgets["max_read_tool_results"] = min(
+            budgets["max_read_tool_results"],
+            budgets["max_tool_calls"],
+        )
 
     allowed_tool_names: list[str] = []
     for item in tools:
@@ -276,6 +285,32 @@ def build_turn_plan(
         if name in allowed_tool_names
     ]
     capability_broker["candidate_tools"] = broker_candidates[:24]
+    domain_discovery = []
+    for domain in domains[:8]:
+        matching = [
+            str(item.get("name") or "")
+            for item in tools
+            if item.get("name") and _tool_matches_domains(str(item.get("name")), [domain])
+        ][:8]
+        usable = [name for name in matching if name in allowed_tool_names]
+        domain_discovery.append({
+            "domain": domain,
+            "status": "ready" if usable else "assigned_but_guarded" if matching else "missing_capability",
+            "candidate_tools": usable,
+            "recommended_action": (
+                None if usable else "authorize_current_action" if matching else "connect_or_assign_skill"
+            ),
+        })
+    capability_broker["discovery"] = {
+        "status": (
+            "ready"
+            if not domain_discovery or all(item["status"] == "ready" for item in domain_discovery)
+            else "attention_required"
+        ),
+        "domains": domain_discovery,
+        "automatic_install": False,
+        "automatic_permission_grant": False,
+    }
 
     durable_tool = (
         required_tool_name
@@ -349,6 +384,24 @@ def build_turn_plan(
         "allowed_tool_names": allowed_tool_names,
         "allowed_tool_count": len(allowed_tool_names),
         "budgets": budgets,
+        "deadline": {
+            "hard_seconds": int(budgets.get("timeout_seconds", 0)),
+            "synthesis_reserve_seconds": min(
+                20,
+                max(5, int(budgets.get("timeout_seconds", 0)) // 6),
+            ),
+            "soft_seconds": max(
+                1,
+                int(budgets.get("timeout_seconds", 0))
+                - min(20, max(5, int(budgets.get("timeout_seconds", 0)) // 6)),
+            ),
+            "policy": "synthesize_or_handoff_before_hard_deadline",
+        },
+        "optimization": {
+            "deterministic_no_model": deterministic_output,
+            "bounded_tool_calls": int(budgets.get("max_tool_calls", 0)),
+            "prompt_cache": "disabled_for_private_content",
+        },
         "privacy": {
             "classification": privacy_classification,
             "private_source_count": sum(
@@ -483,6 +536,7 @@ def _citation_evidence(
         source_kind: str,
         url: Any = "",
         marker_keys: Iterable[Any] = (),
+        version_data: Any = None,
     ) -> str:
         normalized_id = _bounded_label(source_id, "", 192)
         if not normalized_id or len(sources) >= MAX_CITATION_SOURCES:
@@ -490,6 +544,13 @@ def _citation_evidence(
         citation_id = _citation_id(source_kind, normalized_id)
         if citation_id not in seen_citations:
             seen_citations.add(citation_id)
+            version_payload = version_data if version_data not in (None, "") else {
+                "source_id": normalized_id,
+            }
+            version_fingerprint = hashlib.sha256(json.dumps(
+                version_payload, ensure_ascii=True, sort_keys=True,
+                separators=(",", ":"), default=str,
+            ).encode("utf-8")).hexdigest()[:16]
             sources.append({
                 "citation_id": citation_id,
                 "source_id": normalized_id,
@@ -499,6 +560,10 @@ def _citation_evidence(
                     source_id=normalized_id,
                     source_kind=source_kind,
                     url=url,
+                ),
+                "source_version": version_fingerprint,
+                "version_status": (
+                    "exact" if version_data not in (None, "") else "identity_only"
                 ),
             })
         for marker_key in (normalized_id, *marker_keys):
@@ -518,6 +583,7 @@ def _citation_evidence(
             title=f"{tool_name or 'Tool'} result",
             source_kind="tool_result",
             marker_keys=(tool_name,),
+            version_data=payload,
         )
         if manifest_citation:
             manifest_citations.append(manifest_citation)
@@ -557,6 +623,12 @@ def _citation_evidence(
                     source_kind=source_kind,
                     url=raw_row.get("url") or raw_row.get("href"),
                     marker_keys=(raw_row.get("citation_key"),),
+                    version_data=(
+                        raw_row.get("revision")
+                        or raw_row.get("etag")
+                        or raw_row.get("updated_at")
+                        or raw_row.get("modified_at")
+                    ),
                 )
                 if citation_id and collection_key == "records":
                     ordered_record_citations.append(citation_id)
@@ -752,6 +824,21 @@ def verify_response(
         if status == "passed":
             status = "limited"
         limitations.append("claim_citations_incomplete")
+    from backend.services.agent_response_quality import (
+        conflict_notice,
+        detect_evidence_conflicts,
+        evaluate_response_quality,
+    )
+
+    conflicts = detect_evidence_conflicts(payloads, tool_names)
+    from backend.services.agent_evidence_security import analyze_evidence
+
+    evidence_security = analyze_evidence(payloads)
+    if conflicts.get("count"):
+        if status == "passed":
+            status = "limited"
+        limitations.append("conflicting_source_facts")
+        text = f"{text.rstrip()}\n\n{conflict_notice(language, int(conflicts['count']))}"
     explanation = {
         "mode": str(plan.get("mode") or "conversation"),
         "route": str(plan.get("route") or "General"),
@@ -775,6 +862,15 @@ def verify_response(
             "claim_citations_complete": citation_status in {"complete", "not_applicable"},
         },
     }
+    quality = evaluate_response_quality(
+        text=text,
+        plan=plan,
+        verification=verification,
+        citations=citations,
+        payloads=payloads,
+        conflicts=conflicts,
+    )
+    explanation["quality_score"] = quality["score"]
     additional = dict(getattr(response, "additional_kwargs", {}) or {})
     additional.update({
         "gnosi_plan": {
@@ -783,13 +879,16 @@ def verify_response(
                 "schema_version", "planner_version", "plan_id", "mode", "domains",
                 "route", "execution", "output_strategy", "required_tool",
                 "allowed_tool_count", "budgets",
-                "interpretation", "capability_broker", "memory",
+                "deadline", "interpretation", "capability_broker", "memory",
             )
         },
         "gnosi_privacy": dict(plan.get("privacy") or {}),
         "gnosi_verification": verification,
         "gnosi_citations": citations,
         "gnosi_explanation": explanation,
+        "gnosi_quality": quality,
+        "gnosi_conflicts": conflicts,
+        "gnosi_evidence_security": evidence_security,
     })
     if freshness:
         additional["gnosi_freshness"] = freshness

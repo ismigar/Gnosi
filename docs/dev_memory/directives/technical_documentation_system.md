@@ -1,7 +1,7 @@
 # Directive: Technical Documentation System
 
 > Status: ACTIVE
-> Last verified: 2026-08-02
+> Last verified: 2026-08-20
 
 ## Objective
 
@@ -67,9 +67,9 @@ catalogs. It never points to a development-only localhost address.
 The portal reuses Gnosi's public-site shell through one MkDocs theme override:
 the product header and menu sit above the technical header, and the public-site
 footer follows the documentation content. The shared template resolves English,
-Catalan, and Spanish labels from the active MkDocs locale. Keep this shell in a
-single override directory; do not fork its markup into the three documentation
-trees.
+Catalan, Spanish, and French labels from the active MkDocs locale. Keep this
+shell in a single override directory; do not fork its markup into the four
+documentation trees.
 
 ## Information architecture
 
@@ -145,7 +145,10 @@ provider, or application-shell changes cannot merge without a reviewed or
 generated Markdown update. Routine frontend component, page, styling, and test
 changes do not require prose documentation when the existing contract remains
 accurate. The locale mirror check then blocks documentation changes until the
-Catalan and Spanish portals match the English source tree.
+Catalan, Spanish, and French portals match the English source tree. Reviewed
+guides are localized in all four portals. French generated source catalogs keep
+their canonical English evidence while their navigation remains localized;
+this avoids machine-translating code-derived identifiers and route evidence.
 
 ## Restrictions and edge cases
 

@@ -28,6 +28,19 @@ def test_validate_manifest_ok():
     assert m["main"] == "main.js"
 
 
+def test_settings_ui_permission_is_additive_in_api_v2():
+    manifest = ps.validate_manifest({
+        "id": "settings-panel",
+        "version": "1.0.0",
+        "apiVersion": 2,
+        "main": "main.js",
+        "permissions": ["ui:settings", "settings"],
+    })
+
+    assert manifest["apiVersion"] == 2
+    assert manifest["permissions"] == ["ui:settings", "settings"]
+
+
 def test_validate_manifest_ai_contributions_require_matching_permissions():
     manifest = ps.validate_manifest({
         "id": "ai-plugin",

@@ -8,9 +8,11 @@ on:
       - "apps/gnosi/docs/engineering/**"
       - "apps/gnosi/docs/engineering-ca/**"
       - "apps/gnosi/docs/engineering-es/**"
+      - "apps/gnosi/docs/engineering-fr/**"
       - "apps/gnosi/mkdocs.yml"
       - "apps/gnosi/mkdocs-ca.yml"
       - "apps/gnosi/mkdocs-es.yml"
+      - "apps/gnosi/mkdocs-fr.yml"
       - "apps/gnosi/requirements-docs.txt"
       - "apps/gnosi/pipeline/skills/technical_documentation/**"
       - ".github/workflows/documentation-pages.yml"
@@ -62,6 +64,9 @@ jobs:
 
       - name: Build Spanish portal
         run: mkdocs build --strict --config-file mkdocs-es.yml
+
+      - name: Build French portal
+        run: mkdocs build --strict --config-file mkdocs-fr.yml
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v6

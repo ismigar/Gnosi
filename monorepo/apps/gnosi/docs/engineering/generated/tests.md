@@ -10,9 +10,9 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
-| Playwright | 13 | 37 |
-| Vitest | 77 | 294 |
-| pytest | 194 | 1630 |
+| Playwright | 14 | 38 |
+| Vitest | 84 | 312 |
+| pytest | 197 | 1673 |
 
 ## Files
 
@@ -28,6 +28,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Playwright | [`e2e/tests/e2e/drawing-save-guard.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/e2e/tests/e2e/drawing-save-guard.spec.ts) | 3 | call-pattern estimate |
 | Playwright | [`e2e/tests/e2e/mail-composer-paste.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/e2e/tests/e2e/mail-composer-paste.spec.ts) | 2 | call-pattern estimate |
 | Playwright | [`e2e/tests/e2e/mail-reply-quoted-cid.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/e2e/tests/e2e/mail-reply-quoted-cid.spec.ts) | 1 | call-pattern estimate |
+| Playwright | [`e2e/tests/e2e/notebooks.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/e2e/tests/e2e/notebooks.spec.ts) | 1 | call-pattern estimate |
 | Playwright | [`e2e/tests/e2e/vault-title-edit.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/e2e/tests/e2e/vault-title-edit.spec.ts) | 3 | call-pattern estimate |
 | Playwright | [`e2e/tests/e2e/vault.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/e2e/tests/e2e/vault.spec.ts) | 3 | call-pattern estimate |
 | Playwright | [`e2e/tests/visual/regression.spec.ts`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/e2e/tests/visual/regression.spec.ts) | 1 | call-pattern estimate |
@@ -38,11 +39,13 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/components/AI/useAIResources.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AI/useAIResources.test.jsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/components/AgentConfirmations.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AgentConfirmations.test.js) | 7 | call-pattern estimate |
 | Vitest | [`frontend/src/components/AgentContextSources.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AgentContextSources.test.jsx) | 4 | call-pattern estimate |
-| Vitest | [`frontend/src/components/AppSidebar.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AppSidebar.test.jsx) | 1 | call-pattern estimate |
+| Vitest | [`frontend/src/components/AppSidebar.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AppSidebar.test.jsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/components/DesktopUpdateNotice.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/DesktopUpdateNotice.test.jsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/components/GlobalTooltip.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/GlobalTooltip.test.jsx) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/components/GraphLoadingState.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/GraphLoadingState.test.jsx) | 2 | call-pattern estimate |
-| Vitest | [`frontend/src/components/Notebooks/NotebookCreateDialog.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Notebooks/NotebookCreateDialog.test.jsx) | 3 | call-pattern estimate |
+| Vitest | [`frontend/src/components/Notebooks/NotebookCreateDialog.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Notebooks/NotebookCreateDialog.test.jsx) | 6 | call-pattern estimate |
+| Vitest | [`frontend/src/components/Notebooks/notebookResourceCatalog.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Notebooks/notebookResourceCatalog.test.js) | 2 | call-pattern estimate |
+| Vitest | [`frontend/src/components/PluginGate.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/PluginGate.test.jsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/components/ReleaseNotesDialog.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/ReleaseNotesDialog.test.jsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/components/SettingsSectionTabs.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/SettingsSectionTabs.test.jsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/ContextualLinkPasteMenu.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/ContextualLinkPasteMenu.test.jsx) | 2 | call-pattern estimate |
@@ -50,6 +53,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/components/Vault/MarkdownCodeTextarea.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/MarkdownCodeTextarea.test.jsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/PageLinksGraph.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PageLinksGraph.test.js) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/RelationItem.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/RelationItem.test.js) | 3 | call-pattern estimate |
+| Vitest | [`frontend/src/components/Vault/VaultDateProperty.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultDateProperty.test.jsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/VaultMarkdown.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultMarkdown.test.jsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/WikilinkHoverPreview.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/WikilinkHoverPreview.test.jsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/contextualLinkPasteUtils.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/contextualLinkPasteUtils.test.js) | 3 | call-pattern estimate |
@@ -79,6 +83,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/components/agentChatMentionUtils.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/agentChatMentionUtils.test.js) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/components/agentChatMessageUtils.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/agentChatMessageUtils.test.js) | 16 | call-pattern estimate |
 | Vitest | [`frontend/src/components/agentRuntimeStatus.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/agentRuntimeStatus.test.js) | 3 | call-pattern estimate |
+| Vitest | [`frontend/src/hooks/useModalKeyboard.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/hooks/useModalKeyboard.test.jsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/lib/citationDeepLink.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/citationDeepLink.test.js) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/lib/desktopMenu.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/desktopMenu.test.js) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/lib/fileResourceCitation.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/fileResourceCitation.test.js) | 4 | call-pattern estimate |
@@ -88,6 +93,9 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/lib/vaultAgentContext.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/vaultAgentContext.test.js) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/locales/blocknote/registry.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/locales/blocknote/registry.test.js) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/locales/registry.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/locales/registry.test.js) | 5 | call-pattern estimate |
+| Vitest | [`frontend/src/pages/NotebooksPage.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/NotebooksPage.test.jsx) | 3 | call-pattern estimate |
+| Vitest | [`frontend/src/plugins/host.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/plugins/host.test.js) | 1 | call-pattern estimate |
+| Vitest | [`frontend/src/plugins/registry.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/plugins/registry.test.js) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/utils/calendarUtils.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/calendarUtils.test.js) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/utils/fieldOrdering.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/fieldOrdering.test.js) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/utils/graphConnections.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/graphConnections.test.js) | 2 | call-pattern estimate |
@@ -114,20 +122,22 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/conftest.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/conftest.py) | 0 | Python AST |
 | pytest | [`backend/tests/test_action_rules.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_action_rules.py) | 14 | Python AST |
 | pytest | [`backend/tests/test_agent_action_confirmations.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_action_confirmations.py) | 23 | Python AST |
+| pytest | [`backend/tests/test_agent_adaptive_quality.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_adaptive_quality.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_agent_chat_model_selection.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_chat_model_selection.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_agent_chat_safety.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_chat_safety.py) | 51 | Python AST |
 | pytest | [`backend/tests/test_agent_context_sources.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_context_sources.py) | 27 | Python AST |
 | pytest | [`backend/tests/test_agent_create_page_containment.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_create_page_containment.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_agent_phase_three.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_phase_three.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_agent_phase_two.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_phase_two.py) | 5 | Python AST |
-| pytest | [`backend/tests/test_agent_quality_telemetry.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_quality_telemetry.py) | 5 | Python AST |
+| pytest | [`backend/tests/test_agent_quality_telemetry.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_quality_telemetry.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_agent_read_pdf_containment.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_read_pdf_containment.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_agent_recovery.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_recovery.py) | 2 | Python AST |
-| pytest | [`backend/tests/test_agent_resilience.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_resilience.py) | 10 | Python AST |
+| pytest | [`backend/tests/test_agent_resilience.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_resilience.py) | 13 | Python AST |
 | pytest | [`backend/tests/test_agent_skill_catalog.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_skill_catalog.py) | 16 | Python AST |
 | pytest | [`backend/tests/test_agent_skill_runtime.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_skill_runtime.py) | 36 | Python AST |
 | pytest | [`backend/tests/test_agent_skills_api.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_skills_api.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_agent_turn_contract.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_turn_contract.py) | 12 | Python AST |
+| pytest | [`backend/tests/test_agent_universal_runtime_phase2.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_agent_universal_runtime_phase2.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_ai_model_registry_api.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_ai_model_registry_api.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_ai_timeout.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_ai_timeout.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_app_config_language.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_app_config_language.py) | 2 | Python AST |
@@ -146,6 +156,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_auto_provisioned_migration.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_auto_provisioned_migration.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_bibtex_export_escape.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_bibtex_export_escape.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_bibtex_latex_accents.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_bibtex_latex_accents.py) | 4 | Python AST |
+| pytest | [`backend/tests/test_builtin_plugins.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_builtin_plugins.py) | 11 | Python AST |
 | pytest | [`backend/tests/test_bulk_update_index_refresh.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_bulk_update_index_refresh.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_bulk_update_metadata.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_bulk_update_metadata.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_cache.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_cache.py) | 8 | Python AST |
@@ -192,7 +203,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_linkable_pages_exclude_trash.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_linkable_pages_exclude_trash.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_agent.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_llm_wiki_agent.py) | 11 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_pdf_annotations.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_llm_wiki_pdf_annotations.py) | 3 | Python AST |
-| pytest | [`backend/tests/test_llm_wiki_v2.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_llm_wiki_v2.py) | 34 | Python AST |
+| pytest | [`backend/tests/test_llm_wiki_v2.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_llm_wiki_v2.py) | 37 | Python AST |
 | pytest | [`backend/tests/test_lookup_normalizers.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_lookup_normalizers.py) | 17 | Python AST |
 | pytest | [`backend/tests/test_mail_decoding.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_mail_decoding.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_mail_ingester_savepoint.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_mail_ingester_savepoint.py) | 2 | Python AST |
@@ -209,7 +220,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_model_reliability.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_model_reliability.py) | 9 | Python AST |
 | pytest | [`backend/tests/test_model_router.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_model_router.py) | 26 | Python AST |
 | pytest | [`backend/tests/test_notebook_agent_context.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_notebook_agent_context.py) | 3 | Python AST |
-| pytest | [`backend/tests/test_notebook_service.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_notebook_service.py) | 9 | Python AST |
+| pytest | [`backend/tests/test_notebook_service.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_notebook_service.py) | 21 | Python AST |
 | pytest | [`backend/tests/test_notion_attachments.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_notion_attachments.py) | 11 | Python AST |
 | pytest | [`backend/tests/test_notion_block_md_escaping.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_notion_block_md_escaping.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_notion_clone.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_notion_clone.py) | 22 | Python AST |
@@ -238,7 +249,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_plugin_network_guard.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_plugin_network_guard.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_plugin_sandbox.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_plugin_sandbox.py) | 11 | Python AST |
 | pytest | [`backend/tests/test_plugin_signing.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_plugin_signing.py) | 13 | Python AST |
-| pytest | [`backend/tests/test_plugin_system.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_plugin_system.py) | 29 | Python AST |
+| pytest | [`backend/tests/test_plugin_system.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_plugin_system.py) | 30 | Python AST |
 | pytest | [`backend/tests/test_plugins_state_race.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_plugins_state_race.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_project_planning.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_project_planning.py) | 12 | Python AST |
 | pytest | [`backend/tests/test_promote_zotero_extra.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_promote_zotero_extra.py) | 7 | Python AST |
@@ -293,9 +304,9 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_zotero_to_recursos_mapper.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_zotero_to_recursos_mapper.py) | 15 | Python AST |
 | pytest | [`integrations/libreoffice-cite/tests/test_doc_traversal.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/integrations/libreoffice-cite/tests/test_doc_traversal.py) | 9 | Python AST |
 | pytest | [`mcp-servers/drupal-proxy/test_proxy.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/mcp-servers/drupal-proxy/test_proxy.py) | 0 | Python AST |
-| pytest | [`pipeline/skills/technical_documentation/tests/test_change_impact.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_change_impact.py) | 9 | Python AST |
+| pytest | [`pipeline/skills/technical_documentation/tests/test_change_impact.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_change_impact.py) | 8 | Python AST |
 | pytest | [`pipeline/skills/technical_documentation/tests/test_generate.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_generate.py) | 11 | Python AST |
-| pytest | [`pipeline/skills/technical_documentation/tests/test_localize.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_localize.py) | 2 | Python AST |
+| pytest | [`pipeline/skills/technical_documentation/tests/test_localize.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_localize.py) | 3 | Python AST |
 | pytest | [`pipeline/skills/technical_documentation/tests/test_pre_pr.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_pre_pr.py) | 3 | Python AST |
 | pytest | [`pipeline/skills/technical_documentation/tests/test_publication.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_publication.py) | 7 | Python AST |
 | pytest | [`pipeline/skills/technical_documentation/tests/test_validate.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/technical_documentation/tests/test_validate.py) | 3 | Python AST |

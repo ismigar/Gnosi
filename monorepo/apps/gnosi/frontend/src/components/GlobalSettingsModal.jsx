@@ -25,7 +25,13 @@ import IdentityProfile from './Vault/IdentityProfile';
 import AccountSettings from './Auth/AccountSettings';
 import { WorkspaceMembersPanel } from './Workspace/WorkspaceMembersPanel';
 import ApiTokensSettings from './ApiTokensSettings';
-import { PluginsSettings } from './PluginsSettings';
+import {
+    DailyNotesConfig,
+    LlmWikiConfig,
+    PluginsSettings,
+    ProjectPlanningConfig,
+    WebClipperConfig,
+} from './PluginsSettings';
 import AIModelComparisonModal from './AIModelComparisonModal';
 import AIUsageHistoryModal from './AIUsageHistoryModal';
 import { registryEntryMatchesModel } from '../lib/modelComparisonRegistry';
@@ -38,6 +44,7 @@ import {
     ToolsSettingsPanel,
 } from './AI/AIResourcesSettings';
 import { useAIResources } from './AI/useAIResources';
+import { AIQualitySettingsPanel } from './AI/AIQualitySettings';
 import {
     AutomationsSettingsPanel,
     OperationsHistoryPanel,
@@ -48,6 +55,9 @@ import { availableLocales, resolveLocale } from '../locales/registry';
 import { sortFieldItems } from '../utils/fieldOrdering';
 import { SettingsSectionTabs } from './SettingsSectionTabs';
 import { SocialNetworkIcon, isKnownSocialNetwork } from './social/SocialNetworkIcon';
+import { usePlugins } from '../plugins/usePlugins';
+import { usePluginHost } from '../plugins/usePluginHost';
+import PluginSettingsPanel from './PluginSettingsPanel';
 import './GlobalSettingsModal.css';
 import './AI/AIResourcesSettings.css';
 
@@ -67,6 +77,22 @@ const DATE_FORMATS = [
     { value: 'MM/DD/YYYY', labelKey: 'settings.language.date_format_mdy' },
     { value: 'YYYY-MM-DD', labelKey: 'settings.language.date_format_iso' },
 ];
+
+const SETTINGS_TAB_PLUGINS = {
+    'web-clipper': 'web-clipper',
+    reader: 'feeds-reader',
+    calendar: 'calendar',
+    contacts: 'contacts',
+    mail: 'mail',
+    social: 'social-publishing',
+    notion: 'notion-import',
+    'daily-notes': 'daily-notes',
+    'project-planning': 'project-planning',
+    ai: 'ai-platform',
+    'llm-wiki': 'llm-wiki',
+    translate: 'translation',
+    automations: 'automations',
+};
 
 const NOTION_COLORS = [
     { name: 'default', color: 'currentColor' },
@@ -549,6 +575,8 @@ const SettingsNavGroup = ({ label, children }) => (
 export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' }) {
     const { t, i18n } = useTranslation();
     const { role } = useApi();
+    const { isEnabled } = usePlugins();
+    const { settingsPanels } = usePluginHost();
     const tn = useCallback((k, opts) => t('settings.' + k, opts), [t]);
     
     // -- UNIFIED DRAFT STATE --
@@ -579,6 +607,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [readerSection, setReaderSection] = useState(
         initialTab === 'newsletters' ? 'subscriptions' : 'podcast',
     );
+    const effectiveReaderSection = isEnabled('ai-platform') ? readerSection : 'subscriptions';
     const [aiSection, setAiSection] = useState('agents');
     const [generalSection, setGeneralSection] = useState('system');
     const [mailSection, setMailSection] = useState('accounts');
@@ -587,7 +616,30 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [isAdvancedOpen, setIsAdvancedOpen] = useState(
         () => ['api', 'plugins'].includes(initialTab)
     );
-    const aiResources = useAIResources(isOpen && activeTab === 'ai');
+    const aiResources = useAIResources(
+        isOpen
+        && isEnabled('ai-platform')
+        && ['ai', 'automations'].includes(activeTab),
+    );
+
+    useEffect(() => {
+        const requestedTab = initialTab === 'newsletters' ? 'reader' : initialTab;
+        setActiveTab(requestedTab);
+        if (['api', 'plugins', 'automations'].includes(requestedTab)) setIsAdvancedOpen(true);
+    }, [initialTab]);
+
+    useEffect(() => {
+        if (!activeTab.startsWith('extension:')) return;
+        const exists = settingsPanels.some((panel) => (
+            `extension:${panel.pluginId}:${panel.id}` === activeTab
+        ));
+        if (!exists) setActiveTab('plugins');
+    }, [activeTab, settingsPanels]);
+
+    useEffect(() => {
+        const pluginId = SETTINGS_TAB_PLUGINS[activeTab];
+        if (pluginId && !isEnabled(pluginId)) setActiveTab('plugins');
+    }, [activeTab, isEnabled]);
     const [integrations, setIntegrations] = useState({ calendars: [], contacts: [], mail_accounts: [] });
     // Prevent autosave until every request that hydrates the unified draft has
     // settled. Saving a partially hydrated draft can remove protected agents or
@@ -1107,17 +1159,22 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             identityLoadedRef.current = false;
             lastSavedData.current = null; // Reset baseline to avoid spurious saves
             loadConfig(hydrationGeneration);
-            loadAiCatalog(hydrationGeneration);
-            loadAiRegistry();
+            aiCatalogLoadedRef.current = !isEnabled('ai-platform');
+            if (isEnabled('ai-platform')) {
+                loadAiCatalog(hydrationGeneration);
+                loadAiRegistry();
+            }
             loadTablesAndDatabases();
             loadIntegrations(hydrationGeneration);
-            loadNewsletterSources();
-            loadNewsletterAccount();
-            checkGoogleAuth();
+            if (isEnabled('feeds-reader')) {
+                loadNewsletterSources();
+                loadNewsletterAccount();
+            }
+            if (isEnabled('calendar')) checkGoogleAuth();
             loadIdentity(hydrationGeneration);
-            loadSocialSettings();
+            if (isEnabled('social-publishing')) loadSocialSettings();
         }
-    }, [isOpen]);
+    }, [isOpen, isEnabled]);
 
     const loadIdentity = async (hydrationGeneration = null) => {
         try {
@@ -1138,7 +1195,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     };
 
     useEffect(() => {
-        if (activeTab === 'calendar' && isOpen) {
+        if (activeTab === 'calendar' && isOpen && isEnabled('calendar')) {
             fetch('/api/calendar/calendars')
                 .then(r => {
                     const authErr = r.headers.get('X-Calendar-Auth-Error') || '';
@@ -1151,14 +1208,14 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                 .then(setGoogleSubCalendars)
                 .catch(() => {});
         }
-    }, [activeTab, isOpen]);
+    }, [activeTab, isOpen, isEnabled]);
 
     // Translate tab: loads the state of the DeepL key (Keychain) and the URL of
     // Softcatalà (env). It's called on every tab open to
     // reflectir canvis fets via /api/credentials/migrate o edicions
     // externes a .env_shared.
     useEffect(() => {
-        if (activeTab !== 'translate' || !isOpen) return;
+        if (activeTab !== 'translate' || !isOpen || !isEnabled('translation')) return;
         let cancelled = false;
         setTranslateState(s => ({ ...s, loading: true }));
         Promise.all([
@@ -1178,7 +1235,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             }));
         });
         return () => { cancelled = true; };
-    }, [activeTab, isOpen]);
+    }, [activeTab, isOpen, isEnabled]);
 
     // Autosave the DeepL key: debounced after the user types/pastes it. On
     // success the input is cleared (the key is never echoed back) — but only
@@ -1258,7 +1315,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     // data, removes it from the Set. This corrects the persisted ERROR state
     // to localStorage for accounts that are already working correctly.
     useEffect(() => {
-        if (activeTab !== 'mail' || !isOpen) return;
+        if (activeTab !== 'mail' || !isOpen || !isEnabled('mail')) return;
         const accs = [
             ...(integrations.mail_accounts || []),
             ...(integrations.emails || []),
@@ -1296,7 +1353,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             });
         });
         return () => { cancelled = true; };
-    }, [activeTab, isOpen, integrations.mail_accounts, integrations.emails]);
+    }, [activeTab, isOpen, integrations.mail_accounts, integrations.emails, isEnabled]);
 
     // Canonical keyboard: Esc closes and Tab does a focus-trap inside the panel (with
     // focus restoration). WITHOUT onConfirm: it's a settings panel
@@ -1365,7 +1422,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
             // Canvis newsletter POP3
             let hasNewsletterChanges = false;
-            if (newsletterAccountLoaded) {
+            if (isEnabled('feeds-reader') && newsletterAccountLoaded) {
                 const currentNewsletter = JSON.stringify({ ...newsletterAccount, _passwordDirty: newsletterPasswordDirty });
                 hasNewsletterChanges = lastSavedNewsletterAccountRef.current !== currentNewsletter;
             }
@@ -1461,10 +1518,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                     settings: { ...prev.settings, ...(cfg.settings || {}) },
                     paths: { ...prev.paths, ...(cfg.paths || {}) },
                     graph: { ...prev.graph, ...(cfg.graph || {}) },
-                    ai: { 
-                        ...prev.ai, 
-                        agents: cfg.ai?.agents || [], 
-                        active_agent_id: cfg.ai?.active_agent_id || ''
+                    ai: {
+                        ...prev.ai,
+                        agents: cfg.ai?.agents || [],
+                        active_agent_id: cfg.ai?.active_agent_id || '',
+                        providers: cfg.ai?.providers || prev.ai.providers,
                     }
                 }));
                 // Sync the backend-persisted theme into the localStorage channel the
@@ -1655,7 +1713,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     };
 
     useEffect(() => {
-        if (!isOpen) return undefined;
+        if (!isOpen || !isEnabled('ai-platform')) return undefined;
         const reloadAiRegistry = () => {
             void loadAiRegistry();
         };
@@ -1663,7 +1721,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         return () => {
             window.removeEventListener('gnosi-ai-models-changed', reloadAiRegistry);
         };
-    }, [isOpen]);
+    }, [isOpen, isEnabled]);
 
     const loadTablesAndDatabases = async () => {
         // Vault Tables and Databases — used by the Calendar
@@ -1933,7 +1991,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     // Skips the very first run (load) and any change that doesn't actually
     // differ from the last persisted state.
     useEffect(() => {
-        if (!isOpen || !newsletterAccountLoaded) return;
+        if (!isOpen || !isEnabled('feeds-reader') || !newsletterAccountLoaded) return;
         const current = JSON.stringify({ ...newsletterAccount, _passwordDirty: newsletterPasswordDirty });
         if (lastSavedNewsletterAccountRef.current === current) return;
 
@@ -1951,7 +2009,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         return () => {
             if (newsletterAccountSaveTimerRef.current) clearTimeout(newsletterAccountSaveTimerRef.current);
         };
-    }, [newsletterAccount, newsletterPasswordDirty, newsletterAccountLoaded, isOpen]);
+    }, [newsletterAccount, newsletterPasswordDirty, newsletterAccountLoaded, isOpen, isEnabled]);
 
     // Auto-save Effect
     useEffect(() => {
@@ -2337,21 +2395,45 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                 <SidebarItem id="workspace" icon={Users} label={t('settings.tabs.workspace') || 'Workspace'} active={activeTab === 'workspace'} onClick={() => { setActiveTab('workspace'); setAddAccountType(null); }} />
                             </SettingsNavGroup>
 
-                            <SettingsNavGroup label={t('settings.navigation.connections')}>
-                                <SidebarItem id="calendar" icon={Calendar} label={t('settings.tabs.calendar') || 'Calendari'} active={activeTab === 'calendar'} onClick={() => { setActiveTab('calendar'); setAddAccountType(null); }} />
-                                <SidebarItem id="contacts" icon={Users} label={t('settings.tabs.contacts') || 'Contactes'} active={activeTab === 'contacts'} onClick={() => { setActiveTab('contacts'); setAddAccountType(null); }} />
-                                <SidebarItem id="mail" icon={Mail} label={t('settings.tabs.mail_accounts') || 'Correu'} active={activeTab === 'mail'} onClick={() => { setActiveTab('mail'); setAddAccountType(null); }} />
-                                <SidebarItem id="reader" icon={Newspaper} label={t('settings.tabs.reader')} active={activeTab === 'reader'} onClick={() => { setActiveTab('reader'); setAddAccountType(null); }} />
-                                <SidebarItem id="social" icon={Share2} label={t('settings.tabs.social') || 'Social'} active={activeTab === 'social'} onClick={() => { setActiveTab('social'); setAddAccountType(null); }} />
-                                <SidebarItem id="notion" icon={Database} label={t('settings.tabs.notion') || 'Importar Notion'} active={activeTab === 'notion'} onClick={() => { setActiveTab('notion'); setAddAccountType(null); }} />
-                            </SettingsNavGroup>
+                            {['web-clipper', 'feeds-reader', 'calendar', 'contacts', 'mail', 'social-publishing', 'notion-import'].some(isEnabled) && (
+                                <SettingsNavGroup label={t('settings.navigation.connections')}>
+                                    {isEnabled('web-clipper') && <SidebarItem id="web-clipper" icon={LucideIcons.Scissors} label={t('settings.tabs.web_clipper', 'Web Clipper')} active={activeTab === 'web-clipper'} onClick={() => { setActiveTab('web-clipper'); setAddAccountType(null); }} />}
+                                    {isEnabled('feeds-reader') && <SidebarItem id="reader" icon={Newspaper} label={t('settings.tabs.reader')} active={activeTab === 'reader'} onClick={() => { setActiveTab('reader'); setAddAccountType(null); }} />}
+                                    {isEnabled('calendar') && <SidebarItem id="calendar" icon={Calendar} label={t('settings.tabs.calendar') || 'Calendari'} active={activeTab === 'calendar'} onClick={() => { setActiveTab('calendar'); setAddAccountType(null); }} />}
+                                    {isEnabled('contacts') && <SidebarItem id="contacts" icon={Users} label={t('settings.tabs.contacts') || 'Contactes'} active={activeTab === 'contacts'} onClick={() => { setActiveTab('contacts'); setAddAccountType(null); }} />}
+                                    {isEnabled('mail') && <SidebarItem id="mail" icon={Mail} label={t('settings.tabs.mail_accounts') || 'Correu'} active={activeTab === 'mail'} onClick={() => { setActiveTab('mail'); setAddAccountType(null); }} />}
+                                    {isEnabled('social-publishing') && <SidebarItem id="social" icon={Share2} label={t('settings.tabs.social') || 'Social'} active={activeTab === 'social'} onClick={() => { setActiveTab('social'); setAddAccountType(null); }} />}
+                                    {isEnabled('notion-import') && <SidebarItem id="notion" icon={Database} label={t('settings.tabs.notion') || 'Importar Notion'} active={activeTab === 'notion'} onClick={() => { setActiveTab('notion'); setAddAccountType(null); }} />}
+                                </SettingsNavGroup>
+                            )}
 
                             <SettingsNavGroup label={t('settings.navigation.knowledge')}>
                                 <SidebarItem id="references" icon={BookOpen} label={t('settings.tabs.references') || 'Referències'} active={activeTab === 'references'} onClick={() => { setActiveTab('references'); setAddAccountType(null); }} />
                                 <SidebarItem id="graph" icon={Share2} label={t('settings.tabs.graph') || 'Grafe'} active={activeTab === 'graph'} onClick={() => { setActiveTab('graph'); setAddAccountType(null); }} />
-                                <SidebarItem id="ai" icon={Cpu} label={t('settings.tabs.ai') || 'IA i Agents'} active={activeTab === 'ai'} onClick={() => { setActiveTab('ai'); setAddAccountType(null); }} />
-                                <SidebarItem id="translate" icon={Languages} label={t('settings.tabs.translate') || 'Traducció'} active={activeTab === 'translate'} onClick={() => { setActiveTab('translate'); setAddAccountType(null); }} />
+                                {isEnabled('daily-notes') && <SidebarItem id="daily-notes" icon={LucideIcons.CalendarDays} label={t('settings.tabs.daily_notes', 'Daily notes')} active={activeTab === 'daily-notes'} onClick={() => { setActiveTab('daily-notes'); setAddAccountType(null); }} />}
+                                {isEnabled('project-planning') && <SidebarItem id="project-planning" icon={LucideIcons.CalendarRange} label={t('settings.tabs.project_planning', 'Project planning')} active={activeTab === 'project-planning'} onClick={() => { setActiveTab('project-planning'); setAddAccountType(null); }} />}
+                                {isEnabled('ai-platform') && <SidebarItem id="ai" icon={Cpu} label={t('settings.tabs.ai') || 'IA i Agents'} active={activeTab === 'ai'} onClick={() => { setActiveTab('ai'); setAddAccountType(null); }} />}
+                                {isEnabled('llm-wiki') && <SidebarItem id="llm-wiki" icon={LucideIcons.BrainCircuit} label={t('settings.tabs.llm_wiki', 'Brain (LLM Wiki)')} active={activeTab === 'llm-wiki'} onClick={() => { setActiveTab('llm-wiki'); setAddAccountType(null); }} />}
+                                {isEnabled('translation') && <SidebarItem id="translate" icon={Languages} label={t('settings.tabs.translate') || 'Traducció'} active={activeTab === 'translate'} onClick={() => { setActiveTab('translate'); setAddAccountType(null); }} />}
                             </SettingsNavGroup>
+
+                            {settingsPanels.length > 0 && (
+                                <SettingsNavGroup label={t('settings.navigation.extensions', 'Extensions')}>
+                                    {settingsPanels.map((panel) => {
+                                        const tabId = `extension:${panel.pluginId}:${panel.id}`;
+                                        return (
+                                            <SidebarItem
+                                                key={tabId}
+                                                id={tabId}
+                                                icon={LucideIcons.Puzzle}
+                                                label={panel.title}
+                                                active={activeTab === tabId}
+                                                onClick={() => { setActiveTab(tabId); setAddAccountType(null); }}
+                                            />
+                                        );
+                                    })}
+                                </SettingsNavGroup>
+                            )}
 
                             <section className="settings-sidebar-group settings-sidebar-group--advanced">
                                 <button
@@ -2365,6 +2447,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                 </button>
                                 {isAdvancedOpen && (
                                     <div className="settings-sidebar-group__content">
+                                        {isEnabled('automations') && <SidebarItem id="automations" icon={Clock3} label={t('settings.tabs.automations', 'Automations')} active={activeTab === 'automations'} onClick={() => { setActiveTab('automations'); setAddAccountType(null); }} />}
                                         <SidebarItem id="plugins" icon={LucideIcons.Puzzle} label={t('settings.tabs.plugins', 'Plugins')} active={activeTab === 'plugins'} onClick={() => { setActiveTab('plugins'); setAddAccountType(null); }} />
                                         <SidebarItem id="api" icon={LucideIcons.KeyRound} label={t('settings.tabs.api', { defaultValue: 'API i tokens' })} active={activeTab === 'api'} onClick={() => { setActiveTab('api'); setAddAccountType(null); }} />
                                     </div>
@@ -3515,7 +3598,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             )}
 
                             {/* SOCIAL */}
-                            {activeTab === 'social' && (
+                            {activeTab === 'social' && isEnabled('social-publishing') && (
                                 <>
                                     <SettingsSectionTabs
                                         ariaLabel={tn('social.sections_label')}
@@ -3628,19 +3711,19 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             )}
 
                             {/* READER */}
-                            {activeTab === 'reader' && (
+                            {activeTab === 'reader' && isEnabled('feeds-reader') && (
                                 <>
                                     <SettingsSectionTabs
                                         ariaLabel={t('settings.reader.sections_label')}
-                                        activeId={readerSection}
+                                        activeId={effectiveReaderSection}
                                         onChange={setReaderSection}
                                         items={[
-                                            { id: 'podcast', icon: Newspaper, label: t('settings.reader.podcast_tab') },
+                                            ...(isEnabled('ai-platform') ? [{ id: 'podcast', icon: Newspaper, label: t('settings.reader.podcast_tab') }] : []),
                                             { id: 'subscriptions', icon: Rss, label: t('settings.reader.subscriptions_tab') },
                                         ]}
                                     />
 
-                                    {readerSection === 'podcast' && (
+                                    {effectiveReaderSection === 'podcast' && (
                                     <Section title={t('settings.reader.podcast_title')} icon={Newspaper}>
                                     <div className="settings-desc" style={{ marginBottom: '24px', lineHeight: 1.6 }}>
                                         {t('settings.reader.podcast_description')}
@@ -3697,7 +3780,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                     )}
 
                                     {/* SUBSCRIPTIONS — dynamic form + list */}
-                                    {readerSection === 'subscriptions' && (
+                                    {effectiveReaderSection === 'subscriptions' && (
                                 <Section title={t('subs_section_title')} icon={Rss} extra={
                                     <div style={{ display: 'inline-flex', gap: '8px' }}>
                                         <button onClick={() => loadNewsletterSources()} disabled={newsletterSourcesLoading} className="btn-gnosi-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 18px', fontSize: '0.85rem', borderRadius: '12px', whiteSpace: 'nowrap', opacity: newsletterSourcesLoading ? 0.6 : 1, cursor: newsletterSourcesLoading ? 'wait' : 'pointer' }}>{newsletterSourcesLoading ? t('subs_btn_reload_loading') : t('subs_btn_reload')}</button>
@@ -4299,7 +4382,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             )}
 
                             {/* IA */}
-                            {activeTab === 'ai' && (
+                            {activeTab === 'ai' && isEnabled('ai-platform') && (
                                 <>
                                     <SettingsSectionTabs
                                         ariaLabel={t('settings.ai.resources.sections_label')}
@@ -4309,8 +4392,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             { id: 'agents', icon: Bot, label: t('settings.ai.resources.agents_tab') },
                                             { id: 'skills', icon: Zap, label: t('settings.ai.resources.skills_tab') },
                                             { id: 'tools', icon: Sliders, label: t('settings.ai.resources.tools_tab') },
-                                            { id: 'automations', icon: Clock3, label: t('settings.ai.operations.automations_tab') },
                                             { id: 'operations', icon: History, label: t('settings.ai.operations.history_tab') },
+                                            { id: 'quality', icon: Activity, label: t('settings.ai.quality.tab') },
                                         ]}
                                         onChange={sectionId => {
                                             setAiSection(sectionId);
@@ -4707,23 +4790,46 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         </Section>
                                     )}
 
-                                    {aiSection === 'automations' && (
-                                        <Section title={t('settings.ai.operations.automations_title')} icon={Clock3}>
-                                            <AutomationsSettingsPanel resources={aiResources} agents={draft.ai.agents} />
-                                        </Section>
-                                    )}
-
                                     {aiSection === 'operations' && (
                                         <Section title={t('settings.ai.operations.history_title')} icon={History}>
                                             <OperationsHistoryPanel resources={aiResources} />
                                         </Section>
                                     )}
+
+                                    {aiSection === 'quality' && (
+                                        <Section title={t('settings.ai.quality.title')} icon={Activity}>
+                                            <AIQualitySettingsPanel resources={aiResources} agents={draft.ai.agents} />
+                                        </Section>
+                                    )}
                                 </>
+                            )}
+
+                            {activeTab === 'web-clipper' && isEnabled('web-clipper') && <WebClipperConfig />}
+                            {activeTab === 'daily-notes' && isEnabled('daily-notes') && <DailyNotesConfig />}
+                            {activeTab === 'project-planning' && isEnabled('project-planning') && <ProjectPlanningConfig />}
+                            {activeTab === 'llm-wiki' && isEnabled('llm-wiki') && <LlmWikiConfig />}
+
+                            {activeTab === 'automations' && isEnabled('automations') && (
+                                <Section title={t('settings.ai.operations.automations_title')} icon={Clock3}>
+                                    {isEnabled('ai-platform') ? (
+                                        <AutomationsSettingsPanel resources={aiResources} agents={draft.ai.agents} />
+                                    ) : (
+                                        <div className="ai-resource-alert">
+                                            <Cpu size={18} />
+                                            <span>{t('settings.plugins.dependency_enable_message', {
+                                                plugins: t('settings.plugins.catalog.ai-platform.name', 'AI and agents'),
+                                            })}</span>
+                                            <button type="button" className="btn-gnosi-secondary" onClick={() => setActiveTab('plugins')}>
+                                                {t('settings.plugins.open_plugins_settings', 'Open plugin settings')}
+                                            </button>
+                                        </div>
+                                    )}
+                                </Section>
                             )}
 
 
                             {/* NOTION IMPORT */}
-                            {activeTab === 'notion' && (
+                            {activeTab === 'notion' && isEnabled('notion-import') && (
                                 <Section title={t('settings.tabs.notion')} icon={Database}>
                                     <NotionImportSettings />
                                 </Section>
@@ -4731,11 +4837,19 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
                             {/* PLUGINS */}
                             {activeTab === 'plugins' && (
-                                <PluginsSettings />
+                                <PluginsSettings onOpenSettingsTab={(tab) => setActiveTab(tab)} />
+                            )}
+
+                            {activeTab.startsWith('extension:') && (
+                                <PluginSettingsPanel
+                                    panel={settingsPanels.find((panel) => (
+                                        `extension:${panel.pluginId}:${panel.id}` === activeTab
+                                    ))}
+                                />
                             )}
 
                             {/* TRANSLATION */}
-                            {activeTab === 'translate' && (
+                            {activeTab === 'translate' && isEnabled('translation') && (
                                 <Section
                                     title={t('translate_settings.section_title') || 'Serveis de traducció'}
                                     icon={Languages}
@@ -4889,6 +5003,12 @@ function AIAgentForm({ agent, onSave, aiRegistry, skills, tools }) {
     // (directive `agent_context_sources.md`).
     const [contextRefs, setContextRefs] = useState(agent.context_refs || []);
     const [selectedSkillIds, setSelectedSkillIds] = useState(agent.skill_ids || []);
+    const [modelStrategyMode, setModelStrategyMode] = useState(
+        agent.model_strategy?.mode || 'pinned',
+    );
+    const [allowedModels, setAllowedModels] = useState(
+        agent.model_strategy?.allowed_models || [],
+    );
     const [savingAgent, setSavingAgent] = useState(false);
 
     // Group registry rows by provider for the <select> optgroups. Rows carry
@@ -4906,6 +5026,22 @@ function AIAgentForm({ agent, onSave, aiRegistry, skills, tools }) {
     // safe — neither provider ids nor model ids contain that pattern.
     const selectedKey = (provider && model) ? `${provider}||${model}` : '';
     const registryEmpty = grouped.size === 0;
+    const localProviders = ['ollama', 'lmstudio', 'local', 'llama-cpp', 'llamacpp', 'llama.cpp', 'generic'];
+    const primaryIsLocal = localProviders.includes(provider);
+    const primaryRegistryRow = (aiRegistry || []).find(row => (
+        row?.enabled === true && row.provider === provider && row.model_id === model
+    ));
+    const protectedModelTags = new Set(
+        (primaryRegistryRow?.tags || []).filter(tag => ['tools', 'vision'].includes(tag)),
+    );
+    const strategyCandidates = (aiRegistry || []).filter(row => {
+        if (!row || row.enabled !== true || !row.provider || !row.model_id) return false;
+        if (row.provider === provider && row.model_id === model) return false;
+        const candidateIsLocal = localProviders.includes(row.provider);
+        const candidateTags = new Set(row.tags || []);
+        return candidateIsLocal === primaryIsLocal
+            && [...protectedModelTags].every(tag => candidateTags.has(tag));
+    });
 
     // Evidence about the chosen model, recorded from its own past failures.
     // Only reasons the backend attributes to the MODEL land here: a rate limit
@@ -4951,6 +5087,7 @@ function AIAgentForm({ agent, onSave, aiRegistry, skills, tools }) {
                                     const [p, m] = e.target.value.split('||');
                                     setProvider(p || '');
                                     setModel(m || '');
+                                    setAllowedModels([]);
                                 }}>
                                 <option value="">{t('settings.ai.select_model_option')}</option>
                                 {[...grouped.entries()].map(([prov, modelIds]) => (
@@ -4981,6 +5118,51 @@ function AIAgentForm({ agent, onSave, aiRegistry, skills, tools }) {
                                             days: modelFault.window_days,
                                         })}
                                     </span>
+                                </div>
+                            )}
+                        </FormGroup>
+
+                        <FormGroup
+                            label={t('settings.ai.agent_model_strategy')}
+                            description={t('settings.ai.agent_model_strategy_help')}
+                        >
+                            <select
+                                className="gnosi-select"
+                                value={modelStrategyMode}
+                                onChange={event => {
+                                    const nextMode = event.target.value;
+                                    setModelStrategyMode(nextMode);
+                                    if (nextMode === 'pinned') setAllowedModels([]);
+                                }}
+                            >
+                                <option value="pinned">{t('settings.ai.model_strategy.pinned')}</option>
+                                <option value="resilient">{t('settings.ai.model_strategy.resilient')}</option>
+                                <option value="adaptive">{t('settings.ai.model_strategy.adaptive')}</option>
+                            </select>
+                            {modelStrategyMode !== 'pinned' && (
+                                <div style={{ display: 'grid', gap: 8, marginTop: 10 }}>
+                                    {strategyCandidates.map(row => {
+                                        const selected = allowedModels.some(item => (
+                                            item.provider === row.provider && item.model === row.model_id
+                                        ));
+                                        return (
+                                            <label key={`${row.provider}:${row.model_id}`} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selected}
+                                                    onChange={() => setAllowedModels(current => selected
+                                                        ? current.filter(item => !(item.provider === row.provider && item.model === row.model_id))
+                                                        : [...current, { provider: row.provider, model: row.model_id }].slice(0, 8))}
+                                                />
+                                                <span>{row.provider} · {row.model_id}</span>
+                                            </label>
+                                        );
+                                    })}
+                                    {strategyCandidates.length === 0 && (
+                                        <span style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)' }}>
+                                            {t('settings.ai.model_strategy.no_candidates')}
+                                        </span>
+                                    )}
                                 </div>
                             )}
                         </FormGroup>
@@ -5035,6 +5217,11 @@ function AIAgentForm({ agent, onSave, aiRegistry, skills, tools }) {
                                         context,
                                         context_refs: contextRefs,
                                         skill_ids: selectedSkillIds,
+                                        model_strategy: {
+                                            schema_version: 1,
+                                            mode: modelStrategyMode,
+                                            allowed_models: modelStrategyMode === 'pinned' ? [] : allowedModels,
+                                        },
                                     });
                                 } finally {
                                     setSavingAgent(false);

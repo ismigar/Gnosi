@@ -1,21 +1,27 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-21
 source_paths:
   - backend/api/integrations_routes.py
   - backend/services/integration_manager.py
   - backend/services/plugin_system.py
+  - backend/services/builtin_plugins.py
+  - backend/services/plugin_access.py
   - backend/services/plugin_sandbox.py
   - backend/services/marketplace_http.py
   - backend/services/marketplace_submission.py
   - plugins-examples
+  - frontend/src/plugins
   - mcp-servers
   - integrations
 tests:
+  - backend/tests/test_builtin_plugins.py
   - backend/tests/test_plugin_system.py
   - backend/tests/test_plugin_sandbox.py
   - backend/tests/test_plugin_signing.py
   - backend/tests/test_mcp_tool_contributions.py
+  - frontend/src/plugins/host.test.js
+  - frontend/src/plugins/registry.test.js
   - integrations/libreoffice-cite/tests
 ---
 
@@ -59,6 +65,27 @@ manifest structure, signatures where required, and declared effects. Enabling
 reconciles managed settings, AI profiles, skills, or tools idempotently.
 Disabling suspends managed contributions while preserving user-owned overrides.
 
+Built-in secondary capabilities use the same per-Vault lifecycle boundary. The
+authoritative registry declares dependencies, routes, UI surfaces and Settings
+destinations. `.gnosi/plugins.json` schema version 2 records explicit
+`enabled_builtin` and `enabled_third_party` lists while retaining `disabled` for
+older clients. Migration from an older or missing schema is atomic and
+idempotent: every optional capability starts disabled and all settings,
+permissions and unknown forward-compatible records are retained.
+
+Lifecycle changes go through the general
+`POST /api/vault/plugins/{id}/lifecycle` contract. A change with prerequisites
+or enabled dependents first returns a structured conflict; an administrator
+then confirms the grouped activation or cascade. Disabled routes fail before
+their feature implementation runs, and scheduled external work checks the same
+registry. Core maintenance, Markdown, database calendar views, contact fields,
+media attachments and drawings do not depend on these plugins.
+
+Plugins Settings owns installation, activation, permission grants, updates and
+removal. Configuration for active capabilities is exposed under Connections,
+Knowledge or Advanced. A configure action opens that destination directly and
+capabilities without global configuration do not create empty pages.
+
 Executable plugin behavior runs through a sandbox boundary with a constrained
 environment and timeout. Plugins do not receive the complete host environment
 or arbitrary secret access.
@@ -68,6 +95,13 @@ capability exposes only the host RPC, which rejects private destinations and
 bounds methods, redirects, time, and response size. UI frames keep
 `connect-src 'none'`; the parent calls the same backend boundary after checking
 the plugin's declared and granted permissions.
+
+Third-party plugins may declare the additive `ui:settings` permission and call
+`gnosi.registerSettingsPanel(...)`. Active and granted panels appear in the
+dynamic Extensions group, render inside the existing opaque-origin iframe
+sandbox and disappear as soon as the plugin is disabled, revoked or removed.
+Reading or writing the plugin's own configuration additionally requires the
+existing `settings` permission. The host API remains at major version 2.
 
 ## Marketplace distribution
 
@@ -107,6 +141,8 @@ credential access automatically.
 - Compatibility and permission validation occurs before activation.
 - Official indexes and remote packages fail closed when integrity metadata is missing.
 - Direct plugin sockets and browser connections never bypass the host RPC.
+- A disabled capability cannot start a new route, sync, automation or external effect.
+- Disabling or migrating never deletes plugin data, settings, credentials or profiles.
 - MCP tool origin and effect remain visible after catalog normalization.
 
 ## Verification focus

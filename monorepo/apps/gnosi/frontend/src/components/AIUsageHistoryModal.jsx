@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { X, Calendar, BarChart3, Clock, Loader2, ArrowUpRight, Cpu, Layers, Filter, Activity } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import './AIUsageHistoryModal.css';
+import { useModalKeyboard } from '../hooks/useModalKeyboard';
 
 const PROFILE_ICONS = {
     worker: '🟢',
@@ -27,11 +28,14 @@ const formatTokens = (val) => {
 };
 
 export function AIUsageHistoryModal({ isOpen, onClose, activeModels = [] }) {
-    const { t, i18n } = useTranslation();
+    const { t } = useTranslation();
     const [timeframe, setTimeframe] = useState('month'); // 'day', 'week', 'month', 'quarter', 'semester', 'year', 'all'
     const [groupBy, setGroupBy] = useState('model'); // 'model', 'profile', 'provider'
     const [historyData, setHistoryData] = useState(null);
     const [loading, setLoading] = useState(false);
+    const dialogRef = useRef(null);
+
+    useModalKeyboard({ isOpen, onClose, containerRef: dialogRef, trapFocus: true });
 
     useEffect(() => {
         if (!isOpen) return undefined;
@@ -174,8 +178,8 @@ export function AIUsageHistoryModal({ isOpen, onClose, activeModels = [] }) {
 
     return (
         <div className="usage-history-layer" role="presentation">
-            <div className="usage-history-backdrop" onClick={onClose} />
-            <section className="usage-history-modal" role="dialog" aria-modal="true" aria-labelledby="usage-history-title">
+            <div className="usage-history-backdrop" />
+            <section ref={dialogRef} className="usage-history-modal" role="dialog" aria-modal="true" aria-labelledby="usage-history-title">
                 <header className="usage-history-header">
                     <div>
                         <h2 id="usage-history-title">
@@ -184,7 +188,7 @@ export function AIUsageHistoryModal({ isOpen, onClose, activeModels = [] }) {
                         </h2>
                         <p>{t('settings.ai.history_subtitle', 'Analitza l’evolució del consum de toquens i costos per períodes, perfils i proveïdors.')}</p>
                     </div>
-                    <button type="button" className="gnosi-close-btn" onClick={onClose} aria-label={t('common.close', 'Tancar')}>
+                    <button type="button" className="gnosi-close-btn" onClick={onClose} aria-label={t('common.close', 'Close')} data-autofocus>
                         <X size={20} />
                     </button>
                 </header>

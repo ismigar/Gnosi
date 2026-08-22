@@ -61,3 +61,6 @@ jobs:
 
       - name: Build Spanish portal with strict warnings
         run: mkdocs build --strict --config-file mkdocs-es.yml
+
+      - name: Build French portal with strict warnings
+        run: mkdocs build --strict --config-file mkdocs-fr.yml

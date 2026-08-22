@@ -1,14 +1,15 @@
 """Cooperative cancellation for streamed agent turns.
 
-Only an opaque token is stored in graph state.  The event stream owns the
-in-process event and marks it when the client disconnects; cached workflows can
-therefore remain shared safely between requests.
+Only an opaque token is stored in graph state. The explicit cancel endpoint
+marks the in-process event; an accidental client disconnect leaves the bounded
+producer running so it can be resumed without repeating work.
 """
 
 from __future__ import annotations
 
 import asyncio
 import contextlib
+import hashlib
 import threading
 import time
 import uuid
@@ -17,6 +18,7 @@ from typing import Any, Awaitable
 
 _LOCK = threading.RLock()
 _TOKENS: dict[str, tuple[threading.Event, float]] = {}
+_STREAMS: dict[str, tuple[str, str]] = {}
 _TTL_SECONDS = 180.0
 
 
@@ -28,6 +30,17 @@ def _prune(now: float) -> None:
     for token, (_event, expires_at) in list(_TOKENS.items()):
         if expires_at <= now:
             _TOKENS.pop(token, None)
+            for stream_id, (bound_token, _scope) in list(_STREAMS.items()):
+                if bound_token == token:
+                    _STREAMS.pop(stream_id, None)
+
+
+def _scope_digest(scope: dict[str, Any]) -> str:
+    values = [
+        str(scope.get(key) or "")
+        for key in ("workspace_id", "user_id", "agent_id", "session_id")
+    ]
+    return hashlib.sha256("\0".join(values).encode("utf-8")).hexdigest()
 
 
 def create_cancel_token() -> str:
@@ -50,6 +63,27 @@ def cancel(token: str) -> bool:
         return True
 
 
+def bind_stream(token: str, stream_id: str, scope: dict[str, Any]) -> None:
+    """Bind an opaque public stream id to one request cancellation token."""
+    with _LOCK:
+        if token not in _TOKENS:
+            raise ValueError("Unknown agent cancellation token.")
+        _STREAMS[str(stream_id)[:128]] = (token, _scope_digest(scope))
+
+
+def cancel_stream(stream_id: str, scope: dict[str, Any]) -> bool:
+    """Cancel a stream only when the exact authenticated scope matches."""
+    with _LOCK:
+        binding = _STREAMS.get(str(stream_id or ""))
+        if not binding or binding[1] != _scope_digest(scope):
+            return False
+        item = _TOKENS.get(binding[0])
+        if not item:
+            return False
+        item[0].set()
+        return True
+
+
 def is_cancelled(token: str) -> bool:
     """Read the cancellation signal without leaking the event into checkpoints."""
     if not token:
@@ -63,6 +97,9 @@ def release(token: str) -> None:
     """Release a completed token."""
     with _LOCK:
         _TOKENS.pop(str(token or ""), None)
+        for stream_id, (bound_token, _scope) in list(_STREAMS.items()):
+            if bound_token == str(token or ""):
+                _STREAMS.pop(stream_id, None)
 
 
 async def await_with_cancellation(

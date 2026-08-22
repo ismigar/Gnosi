@@ -81,6 +81,23 @@ describe('assistant message presentation metadata', () => {
                 candidate_tools: ['inventory_context'],
                 guarded_tools: ['delete_page'],
                 selection_policy: 'safe',
+                discovery: {
+                    status: 'attention_required',
+                    domains: [{
+                        domain: 'calendar',
+                        status: 'missing_capability',
+                        candidate_tools: [],
+                        recommended_action: 'connect_or_assign_skill',
+                    }],
+                    automatic_install: false,
+                    automatic_permission_grant: false,
+                },
+            },
+            deadline: {
+                hard_seconds: 120,
+                soft_seconds: 100,
+                synthesis_reserve_seconds: 20,
+                policy: 'synthesize_or_handoff_before_hard_deadline',
             },
             memory: {
                 checkpointed: true,
@@ -98,6 +115,11 @@ describe('assistant message presentation metadata', () => {
         expect(plan.interpretation).not.toHaveProperty('query_digest');
         expect(plan.interpretation).not.toHaveProperty('normalized_query');
         expect(plan.capability_broker.candidate_tools).toEqual(['inventory_context']);
+        expect(plan.capability_broker.discovery.domains[0]).toMatchObject({
+            domain: 'calendar',
+            status: 'missing_capability',
+        });
+        expect(plan.deadline.soft_seconds).toBe(100);
         expect(plan.memory).toEqual({
             checkpointed: true,
             scope: 'agent_session',
@@ -135,7 +157,7 @@ describe('assistant message presentation metadata', () => {
             citations: {
                 status: 'complete',
                 sources: [
-                    { citation_id: 'src-1', source_id: 'note-1', title: 'Note one', source_type: 'vault_record', href: '/vault/page/note-1', raw_excerpt: 'private' },
+                    { citation_id: 'src-1', source_id: 'note-1', title: 'Note one', source_type: 'vault_record', href: '/vault/page/note-1', source_version: 'abc123', version_status: 'exact', raw_excerpt: 'private' },
                     { citation_id: 'src-2', source_id: 'bad', title: 'Bad link', source_type: 'source', href: 'javascript:alert(1)' },
                 ],
                 claims: [
@@ -150,6 +172,31 @@ describe('assistant message presentation metadata', () => {
                 result_available: false,
                 capabilities: { status: true, result: true, resume: true, cancel: true },
                 result: 'must-not-be-persisted',
+            },
+            quality: {
+                score: 85,
+                status: 'limited',
+                checks: { required_evidence: true, inventory_complete: false },
+                failed_checks: ['inventory_complete'],
+                response: 'must-not-be-persisted',
+            },
+            conflicts: {
+                status: 'conflicting',
+                conflicts: [{
+                    conflict_id: 'conflict-1',
+                    entity_id: 'record-1',
+                    field: 'status',
+                    source_names: ['source-a', 'source-b'],
+                    value_count: 2,
+                    raw_values: ['open', 'closed'],
+                }],
+            },
+            evidence_security: {
+                status: 'tainted',
+                severity: 'high',
+                categories: [{ category: 'tool_coercion', count: 2, source_text: 'private' }],
+                authorization_changed: false,
+                raw_payload: 'must-not-be-persisted',
             },
         });
 
@@ -170,6 +217,10 @@ describe('assistant message presentation metadata', () => {
         });
         expect(metadata.citations.claims[0].citation_ids).toEqual(['src-1']);
         expect(metadata.citations.sources[0]).not.toHaveProperty('raw_excerpt');
+        expect(metadata.citations.sources[0]).toMatchObject({
+            source_version: 'abc123',
+            version_status: 'exact',
+        });
         expect(metadata.citations.sources[1].href).toBe('');
         expect(metadata.citations).not.toHaveProperty('raw_payload');
         expect(metadata.job).toMatchObject({
@@ -178,6 +229,19 @@ describe('assistant message presentation metadata', () => {
             capabilities: { status: true, result: true, resume: true, cancel: true },
         });
         expect(metadata.job).not.toHaveProperty('result');
+        expect(metadata.quality).toMatchObject({
+            score: 85,
+            status: 'limited',
+            failed_checks: ['inventory_complete'],
+        });
+        expect(metadata.quality).not.toHaveProperty('response');
+        expect(metadata.conflicts.conflicts[0]).not.toHaveProperty('raw_values');
+        expect(metadata.evidenceSecurity).toMatchObject({
+            status: 'tainted',
+            severity: 'high',
+            authorization_changed: false,
+        });
+        expect(metadata.evidenceSecurity.categories[0]).not.toHaveProperty('source_text');
     });
 
     it('rewinds the complete turn containing either message', () => {

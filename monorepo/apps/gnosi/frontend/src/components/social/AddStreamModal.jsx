@@ -60,21 +60,22 @@ const AddStreamModal = ({ isOpen, onClose, onAdd }) => {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             {/* Backdrop */}
             <div
                 className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
-                onMouseDown={onClose}
             />
 
             {/* Modal Content */}
-            <div ref={modalRef} onMouseDown={(e) => e.stopPropagation()} className="relative w-full max-w-md bg-[#18181b] border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div ref={modalRef} className="relative w-full max-w-md bg-[#18181b] border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200" role="dialog" aria-modal="true" aria-label={t('social.add_stream_title', 'Add New Stream')}>
                 {/* Header */}
                 <div className="flex items-center justify-between p-6 border-b border-white/5 bg-white/5">
                     <h2 className="text-xl font-semibold text-white">{t('social.add_stream_title', 'Add New Stream')}</h2>
                     <button
+                        type="button"
                         onClick={onClose}
                         className="text-zinc-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10"
+                        aria-label={t('common.close', 'Close')}
                     >
                         <X size={20} />
                     </button>

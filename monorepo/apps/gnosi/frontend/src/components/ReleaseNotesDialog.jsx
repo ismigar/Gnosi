@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { CheckCircle2, Download, Rocket, Sparkles, Wrench, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { RELEASES, RELEASE_NOTE_SECTIONS } from '../lib/releaseNotes';
+import { useModalKeyboard } from '../hooks/useModalKeyboard';
 
 const SECTION_ICONS = {
   highlights: Sparkles,
@@ -12,6 +13,9 @@ const SECTION_ICONS = {
 
 export function ReleaseNotesDialog({ open, onClose, initialVersion }) {
   const { t, i18n } = useTranslation();
+  const dialogRef = useRef(null);
+
+  useModalKeyboard({ isOpen: open, onClose, containerRef: dialogRef, trapFocus: true });
 
   if (!open) return null;
 
@@ -24,9 +28,9 @@ export function ReleaseNotesDialog({ open, onClose, initialVersion }) {
     <div
       className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm"
       role="presentation"
-      onMouseDown={(event) => event.target === event.currentTarget && onClose()}
     >
       <section
+        ref={dialogRef}
         className="flex max-h-[min(48rem,calc(100vh-2rem))] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)] shadow-2xl"
         role="dialog"
         aria-modal="true"
@@ -49,6 +53,7 @@ export function ReleaseNotesDialog({ open, onClose, initialVersion }) {
             onClick={onClose}
             className="rounded-lg p-2 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--text-primary)]"
             aria-label={t('release_notes.close')}
+            data-autofocus
           >
             <X size={19} aria-hidden="true" />
           </button>

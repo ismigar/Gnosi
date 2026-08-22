@@ -47,6 +47,7 @@ PERMISSIONS: Dict[str, str] = {
     "ui:command": "Add commands to the palette and menus",
     "ui:view": "Register custom views and screens",
     "ui:sidebar": "Add panels to the sidebar",
+    "ui:settings": "Add a sandboxed panel to Settings",
     "settings": "Save the plugin's own settings",
     "ai:skills": "Contribute declarative skills to AI agents",
     "ai:agents": "Contribute managed AI agent templates",
@@ -435,7 +436,9 @@ def granted_permissions(state: Dict[str, Any], plugin_id: str) -> List[str]:
 
 def has_permission(state: Dict[str, Any], plugin_id: str, permission: str) -> bool:
     """True if the plugin is active AND has the permission granted by the user."""
-    if plugin_id in set(state.get("disabled") or []):
+    from backend.services import builtin_plugins
+
+    if not builtin_plugins.is_enabled(state, plugin_id):
         return False
     return permission in granted_permissions(state, plugin_id)
 

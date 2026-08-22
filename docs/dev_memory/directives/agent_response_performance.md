@@ -167,6 +167,37 @@ back to a direct governed read, but normal warm requests must not reopen every V
 - Repeated feedback for the same turn is idempotent. Clearing or changing a rating rebuilds the
   derived candidate counts rather than appending duplicate observations.
 
+## Adaptive quality extension
+
+The universal agent improves from operational evidence without retaining prompts,
+answers, or source bodies:
+
+- Capability health is persisted across backend restarts with bounded counters,
+  latency summaries, cooldowns, and a successful-probe recovery path. Health data
+  never grants a capability and remains separate from authorization.
+- Vault discovery fuses exact title, lexical, normalized semantic-token, metadata,
+  and relation evidence. Exact inventories still scan the complete authorized scope;
+  semantic ranking may order results but must not turn an exhaustive request into top-k.
+- Explicit user vocabulary associations are stored as small, reviewable, reversible
+  term mappings scoped to the active Vault. They never contain source bodies, prompts,
+  credentials, or executable instructions and never authorize a tool.
+- Deterministic response evaluation scores evidence, citations, completion support,
+  result completeness, tool success, and contradiction handling. The CI corpus covers
+  final-response contracts as well as routing contracts without calling a model.
+- Every turn reserves a soft synthesis deadline before its hard cancellation boundary.
+  The plan exposes deadline stages and the stream warns when it enters the synthesis
+  reserve. Work that cannot finish safely becomes a durable job or a visibly partial
+  response; a consequential action is never replayed.
+- Conflicting structured facts from current-turn evidence are reported with bounded
+  source provenance. The verifier must not silently merge incompatible values or expose
+  raw private evidence in presentation metadata.
+- Capability discovery explains which assigned capability can satisfy the request and
+  which domain is missing. It may recommend connection or assignment, but installation,
+  permission grants, and guarded execution remain explicit user actions.
+- A workspace-scoped quality dashboard aggregates metadata-only service levels: volume,
+  latency buckets, verification outcomes, errors, ratings, tool health, and evaluation
+  candidates. It does not expose conversation or source content.
+
 ## Turn tool selection
 
 - The ToolNode retains the complete active-skill runtime so server-authored calls and
@@ -198,6 +229,13 @@ diagnostics. Recoverable failures carry a stable error code plus advisory recove
 metadata. The client may prefill the original request for one deliberate retry; the
 server never replays a failed turn automatically because a governed action may already
 have been prepared.
+
+The transport additionally wraps each newline-delimited event in protocol version 1 with
+an opaque stream id, event id, sequence, trace id, and optional turn id. A heartbeat is
+sent while a provider call is quiet without cancelling that call. The client ignores
+duplicate sequence numbers, and an unexpected end emits `stream_incomplete` with one
+explicit retry action. Resume is deliberately not advertised until the server can
+replay from a durable event log without repeating a governed action.
 
 ## Verification
 
@@ -302,6 +340,10 @@ have been prepared.
   look richer. Resolve the authorized source when the user opens it.
 - Do not automatically retry an unknown, permanent, cancelled, destructive, or externally
   ambiguous outcome. Retry classification and the persisted attempt/cost budget are mandatory.
+- Do not cancel a provider task merely to emit a heartbeat. Keep the pending async
+  operation alive and only cancel it when the request itself is cancelled or disconnected.
+- Do not accept a stream event larger than the transport bound. Emit a safe protocol error
+  envelope and keep the event ordering contract valid.
 - Do not make a daemon timer the only recovery mechanism. A persisted due retry must reconcile
   through the provider after process restart.
 - Do not collect response text or user prompts as quality telemetry. A maintainer may author a

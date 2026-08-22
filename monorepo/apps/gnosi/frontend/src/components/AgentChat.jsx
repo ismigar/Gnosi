@@ -144,6 +144,7 @@ const AgentChat = ({
     forcedAgentId = '',
     notebookId = '',
     conversationMode = 'private_member',
+    readOnly = false,
 }) => {
     const { t, i18n } = useTranslation();
     const defaultSessionTitle = t('chat.default_session_title', 'New conversation');
@@ -183,6 +184,7 @@ const AgentChat = ({
     const inputRef = useRef(null);
     const fileInputRef = useRef(null);
     const requestAbortRef = useRef(null);
+    const activeStreamRef = useRef('');
     const processingStartedAtRef = useRef(null);
     const historyHydrationRef = useRef(0);
     const activeScopeRef = useRef('');
@@ -1398,7 +1400,7 @@ const AgentChat = ({
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if ((!inputValue.trim() && attachments.length === 0) || isLoading || !agentHasModel) return;
+        if (readOnly || (!inputValue.trim() && attachments.length === 0) || isLoading || !agentHasModel) return;
 
         const turnId = crypto.randomUUID();
         const processingStartedAt = performance.now();
@@ -1431,6 +1433,9 @@ const AgentChat = ({
         const requestScope = `${browserStorageScope}:${selectedAgentId}:${sessionId}`;
         let turnMetrics = null;
         let turnTransparency = boundedTransparencyMetadata({});
+        let resumeStreamId = '';
+        let lastStreamSequence = 0;
+        let selectedLlm = null;
 
         try {
             requestAbortRef.current?.abort();
@@ -1471,7 +1476,6 @@ const AgentChat = ({
             const decoder = new TextDecoder();
             let aiMsgAdded = false;
             let buffer = '';
-            let selectedLlm = null;
             let terminalReceived = false;
             let responseReceived = false;
             let streamDone = false;
@@ -1496,11 +1500,29 @@ const AgentChat = ({
                     try {
                         const data = JSON.parse(line);
 
+                        // The server envelope makes reconnects and proxy retries
+                        // safe at the presentation layer. Never apply a duplicate
+                        // event, while remaining compatible with legacy payloads.
+                        if (Number.isInteger(data.sequence)) {
+                            if (data.sequence <= lastStreamSequence) continue;
+                            lastStreamSequence = data.sequence;
+                        }
+
+                        if (data.type === 'stream_open') {
+                            resumeStreamId = String(data.stream_id || '');
+                            activeStreamRef.current = resumeStreamId;
+                            continue;
+                        }
+                        if (data.type === 'heartbeat') {
+                            continue;
+                        }
+
                         if (data.type === 'llm_selected') {
                             selectedLlm = {
                                 mode: data.mode || 'agent_default',
                                 provider: data.provider,
                                 model: data.model,
+                                strategy: data.strategy,
                             };
                             continue;
                         }
@@ -1510,6 +1532,14 @@ const AgentChat = ({
                         }
                         if (data.type === 'phase') {
                             setProcessingPhase(String(data.phase || 'routing'));
+                            continue;
+                        }
+                        if (data.type === 'progress') {
+                            setProcessingPhase(String(data.phase || 'routing'));
+                            continue;
+                        }
+                        if (data.type === 'deadline') {
+                            setProcessingPhase('synthesis');
                             continue;
                         }
                         if (data.type === 'turn_plan') {
@@ -1602,6 +1632,9 @@ const AgentChat = ({
                                     freshness: data.freshness,
                                     job: data.job,
                                     explanation: data.explanation,
+                                    quality: data.quality,
+                                    conflicts: data.conflicts,
+                                    evidence_security: data.evidence_security,
                                 });
                                 Object.entries(responseTransparency).forEach(([field, value]) => {
                                     if (value !== null) lastMsg[field] = value;
@@ -1650,7 +1683,82 @@ const AgentChat = ({
                 });
             }
         } catch (error) {
-            if (error.name !== 'AbortError' && activeScopeRef.current === requestScope) {
+            let recovered = false;
+            if (
+                error.name !== 'AbortError'
+                && resumeStreamId
+                && activeScopeRef.current === requestScope
+            ) {
+                try {
+                    let recoveredMessageSeen = false;
+                    for (let attempt = 0; attempt < 120 && !recovered; attempt += 1) {
+                        const resumeUrl = new URL(
+                            `/api/chat/streams/${encodeURIComponent(resumeStreamId)}`,
+                            window.location.origin,
+                        );
+                        resumeUrl.searchParams.set('agent_id', selectedAgentId);
+                        resumeUrl.searchParams.set('session_id', sessionId);
+                        resumeUrl.searchParams.set('after_sequence', String(lastStreamSequence));
+                        const resumed = await fetch(resumeUrl.pathname + resumeUrl.search);
+                        if (!resumed.ok) break;
+                        const events = (await resumed.text())
+                            .split('\n')
+                            .filter(Boolean)
+                            .map(line => JSON.parse(line));
+                        let terminal = false;
+                        let recoveredMessage = null;
+                        for (const data of events) {
+                            if (Number.isInteger(data.sequence)) {
+                                if (data.sequence <= lastStreamSequence) continue;
+                                lastStreamSequence = data.sequence;
+                            }
+                            if (data.type === 'turn_metrics') turnMetrics = boundedTurnMetrics(data);
+                            if (data.type === 'message' || data.type === 'thought' || data.type === 'error') {
+                                recoveredMessage = data;
+                            }
+                            if (data.type === 'done') terminal = true;
+                        }
+                        if (recoveredMessage) {
+                            recoveredMessageSeen = true;
+                            setMessages(previous => {
+                                if (activeScopeRef.current !== requestScope) return previous;
+                                const index = previous.findLastIndex(message => (
+                                    message?.turnId === turnId && message?.role !== 'user'
+                                ));
+                                const content = recoveredMessage.type === 'error'
+                                    ? `${t('chat.error_prefix', 'Error')}: ${recoveredMessage.content || t('errors.unknown', 'Unknown error')}`
+                                    : recoveredMessage.content;
+                                const transparency = boundedTransparencyMetadata({
+                                    plan: recoveredMessage.plan,
+                                    privacy: recoveredMessage.privacy,
+                                    verification: recoveredMessage.verification,
+                                    citations: recoveredMessage.citations,
+                                    freshness: recoveredMessage.freshness,
+                                    job: recoveredMessage.job,
+                                    explanation: recoveredMessage.explanation,
+                                    quality: recoveredMessage.quality,
+                                    conflicts: recoveredMessage.conflicts,
+                                    evidence_security: recoveredMessage.evidence_security,
+                                });
+                                const recoveredFields = Object.fromEntries(
+                                    Object.entries(transparency).filter(([, value]) => value !== null),
+                                );
+                                if (index < 0) return [...previous, {
+                                    role: 'assistant', content, turnId, llm: selectedLlm, ...recoveredFields,
+                                }];
+                                return previous.map((message, itemIndex) => itemIndex === index
+                                    ? { ...message, content, turnId, ...recoveredFields }
+                                    : message);
+                            });
+                        }
+                        recovered = terminal && recoveredMessageSeen;
+                        if (!recovered) await new Promise(resolve => window.setTimeout(resolve, 1000));
+                    }
+                } catch (resumeError) {
+                    console.error('Could not resume agent stream', resumeError);
+                }
+            }
+            if (error.name !== 'AbortError' && !recovered && activeScopeRef.current === requestScope) {
                 const errorMessage = typeof error.message === 'string'
                     ? error.message.trim()
                     : '';
@@ -1693,6 +1801,7 @@ const AgentChat = ({
                 ));
             });
             requestAbortRef.current = null;
+            activeStreamRef.current = '';
             processingStartedAtRef.current = null;
             setIsLoading(false);
             setProcessingPhase('routing');
@@ -2005,11 +2114,15 @@ const AgentChat = ({
                                                                         rel={source.href.startsWith('http') ? 'noreferrer' : undefined}
                                                                         style={{ color: 'var(--gnosi-blue, #2563eb)', textDecoration: 'underline' }}
                                                                     >
-                                                                        {source.title}
+                                                                        {source.title}{source.version_status === 'exact'
+                                                                            ? ` · ${t('chat.citation_versioned', 'version verified')}`
+                                                                            : ''}
                                                                     </a>
                                                                 ) : (
                                                                     <span key={source.citation_id} title={t('chat.citation_link_unavailable', 'This evidence has no direct link.')}>
-                                                                        {source.title}
+                                                                        {source.title}{source.version_status === 'exact'
+                                                                            ? ` · ${t('chat.citation_versioned', 'version verified')}`
+                                                                            : ''}
                                                                     </span>
                                                                 ))}
                                                             </div>
@@ -2076,14 +2189,14 @@ const AgentChat = ({
                                 </div>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '2px', padding: '0 2px', alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
                                     <button type="button" onClick={() => copyMessage(msg.content)} aria-label={t('chat.copy_message', 'Copy message')} title={t('chat.copy_message', 'Copy message')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Copy size={13} /></button>
-                                    <button type="button" onClick={() => quoteMessage(msg)} aria-label={t('chat.reply_to_message', 'Reply to message')} title={t('chat.reply_to_message', 'Reply to message')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Reply size={13} /></button>
-                                    {msg.role === 'user' && (
+                                    {!readOnly && <button type="button" onClick={() => quoteMessage(msg)} aria-label={t('chat.reply_to_message', 'Reply to message')} title={t('chat.reply_to_message', 'Reply to message')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Reply size={13} /></button>}
+                                    {!readOnly && msg.role === 'user' && (
                                         <button type="button" onClick={() => focusComposerWith(msg.content || '')} aria-label={t('chat.edit_message', 'Edit and resend')} title={t('chat.edit_message', 'Edit and resend')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Pencil size={13} /></button>
                                     )}
-                                    {msg.role === 'assistant' && previousUserPrompt(idx) && (
+                                    {!readOnly && msg.role === 'assistant' && previousUserPrompt(idx) && (
                                         <button type="button" onClick={() => focusComposerWith(previousUserPrompt(idx))} aria-label={t('chat.regenerate_message', 'Regenerate response')} title={t('chat.regenerate_message', 'Regenerate response')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><RotateCcw size={13} /></button>
                                     )}
-                                    {msg.role === 'assistant' && msg.retryable && previousUserPrompt(idx) && (
+                                    {!readOnly && msg.role === 'assistant' && msg.retryable && previousUserPrompt(idx) && (
                                         <button type="button" onClick={() => retryMessage(idx)} aria-label={t('chat.retry_response', 'Retry response')} title={t('chat.retry_response', 'Retry response')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: isLoading ? 'default' : 'pointer', padding: '3px', opacity: isLoading ? 0.45 : 1 }} disabled={isLoading}><RotateCcw size={13} /></button>
                                     )}
                                     {msg.role === 'assistant' && (
@@ -2093,7 +2206,7 @@ const AgentChat = ({
                                             <button type="button" onClick={() => markMessage(idx, 'saved', !msg.saved)} aria-label={t('chat.save_message', 'Save message')} title={t('chat.save_message', 'Save message')} aria-pressed={Boolean(msg.saved)} style={{ background: 'none', border: 'none', color: msg.saved ? 'var(--gnosi-blue, #2563eb)' : 'var(--text-secondary)', cursor: 'pointer', padding: '3px' }}><Bookmark size={13} fill={msg.saved ? 'currentColor' : 'none'} /></button>
                                         </>
                                     )}
-                                    {conversationMode !== 'shared' && (msg.role === 'assistant' || msg.role === 'user') && (
+                                    {!readOnly && conversationMode !== 'shared' && (msg.role === 'assistant' || msg.role === 'user') && (
                                         msg.undo?.available
                                         || Boolean(getTurnId(msg))
                                     ) && (() => {
@@ -2122,6 +2235,9 @@ const AgentChat = ({
                                 {detailsMessageIndex === idx && (
                                     <div style={{ alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', margin: '0 4px', padding: '6px 8px', borderRadius: '8px', background: 'var(--settings-sidebar-bg, #f3f4f6)', color: 'var(--text-secondary)', fontSize: '0.68rem' }}>
                                         {msg.llm?.model && <div>{t('chat.agent_model', 'Model: {{model}}', { model: msg.llm.model })}</div>}
+                                        {msg.llm?.strategy?.mode && <div>{t('chat.agent_model_strategy', 'Strategy: {{strategy}}', {
+                                            strategy: t(`settings.ai.model_strategy.${msg.llm.strategy.mode}`, msg.llm.strategy.mode),
+                                        })}</div>}
                                         {msg.timings && (
                                             <>
                                                 <div>{t('chat.timing_total', 'Server total: {{count}} ms', { count: msg.timings.total_ms ?? 0 })}</div>
@@ -2185,7 +2301,19 @@ const AgentChat = ({
                                                     candidates: msg.plan.capability_broker.candidate_tools?.length ?? 0,
                                                     guarded: msg.plan.capability_broker.guarded_tools?.length ?? 0,
                                                 })}</div>
+                                                {msg.plan.capability_broker.discovery?.domains?.map(item => (
+                                                    <div key={item.domain}>{t('chat.capability_discovery_domain', '{{domain}}: {{status}}', {
+                                                        domain: item.domain,
+                                                        status: t(`chat.capability_discovery_status.${item.status}`, item.status),
+                                                    })}</div>
+                                                ))}
                                             </div>
+                                        )}
+                                        {msg.plan?.deadline && (
+                                            <div style={{ marginTop: '5px' }}>{t('chat.deadline_summary', 'Response window: synthesize after {{soft}} s · hard limit {{hard}} s', {
+                                                soft: msg.plan.deadline.soft_seconds,
+                                                hard: msg.plan.deadline.hard_seconds,
+                                            })}</div>
                                         )}
                                         {msg.plan?.memory?.checkpointed && (
                                             <div style={{ marginTop: '5px' }}>{t('chat.memory_summary', 'Memory: session checkpoint (historical tool payloads excluded)')}</div>
@@ -2232,6 +2360,41 @@ const AgentChat = ({
                                                         limitations: msg.verification.limitations.map(value => t(`chat.verification_limitation.${value}`, value)).join(', '),
                                                     })}</div>
                                                 )}
+                                            </div>
+                                        )}
+                                        {msg.quality && (
+                                            <div style={{ marginTop: '5px' }}>
+                                                <strong>{t('chat.quality_title', 'Response quality')}</strong>
+                                                <div>{t('chat.quality_summary', '{{score}}/100 · {{status}}', {
+                                                    score: msg.quality.score ?? 0,
+                                                    status: t(`chat.quality_status.${msg.quality.status}`, msg.quality.status),
+                                                })}</div>
+                                                {msg.quality.failed_checks?.length > 0 && (
+                                                    <div>{t('chat.quality_failed_checks', 'Needs attention: {{checks}}', {
+                                                        checks: msg.quality.failed_checks.map(value => t(`chat.quality_check.${value}`, value)).join(', '),
+                                                    })}</div>
+                                                )}
+                                            </div>
+                                        )}
+                                        {msg.evidenceSecurity?.status === 'tainted' && (
+                                            <div style={{ marginTop: '5px' }}>
+                                                <strong>{t('chat.evidence_security_title', 'Untrusted evidence detected')}</strong>
+                                                <div>{t('chat.evidence_security_summary', '{{count}} suspicious pattern categories were isolated; authorization was not changed.', {
+                                                    count: msg.evidenceSecurity.categories?.length ?? 0,
+                                                })}</div>
+                                            </div>
+                                        )}
+                                        {msg.conflicts?.count > 0 && (
+                                            <div style={{ marginTop: '5px' }}>
+                                                <strong>{t('chat.conflicts_title', 'Conflicting evidence')}</strong>
+                                                <div>{t('chat.conflicts_summary', '{{count}} conflicting field(s); values remain private in diagnostics.', { count: msg.conflicts.count })}</div>
+                                                {msg.conflicts.conflicts.map(item => (
+                                                    <div key={item.conflict_id}>{t('chat.conflict_item', '{{entity}} · {{field}} · {{sources}}', {
+                                                        entity: item.entity_id,
+                                                        field: item.field,
+                                                        sources: item.source_names.join(', '),
+                                                    })}</div>
+                                                ))}
                                             </div>
                                         )}
                                         {msg.freshness && (
@@ -2311,7 +2474,20 @@ const AgentChat = ({
                                 })}
                                 <button
                                     type="button"
-                                    onClick={() => requestAbortRef.current?.abort()}
+                                    onClick={() => {
+                                        const streamId = activeStreamRef.current;
+                                        if (streamId) {
+                                            const params = new URLSearchParams({
+                                                agent_id: selectedAgentId,
+                                                session_id: sessionId,
+                                            });
+                                            void fetch(
+                                                `/api/chat/streams/${encodeURIComponent(streamId)}/cancel?${params}`,
+                                                { method: 'POST' },
+                                            ).catch(error => console.error('Could not cancel agent stream:', error));
+                                        }
+                                        requestAbortRef.current?.abort();
+                                    }}
                                     style={{ border: 'none', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', textDecoration: 'underline', fontSize: '0.76rem' }}
                                 >
                                     {t('chat.cancel_response', 'Cancel')}
@@ -2322,7 +2498,11 @@ const AgentChat = ({
                     </div>
 
                     {/* Input Area */}
-                    <div style={{ padding: '10px 10px 8px 10px', borderTop: '1px solid var(--settings-border, #e5e7eb)', background: 'var(--bg-primary)' }}>
+                    {readOnly ? (
+                        <div role="status" style={{ padding: '12px 16px', borderTop: '1px solid var(--settings-border, #e5e7eb)', background: 'var(--settings-sidebar-bg, #f3f4f6)', color: 'var(--text-secondary)', fontSize: '0.78rem', textAlign: 'center' }}>
+                            {t('notebooks.chat_read_only', 'You can read this conversation. An editor role is required to send messages.')}
+                        </div>
+                    ) : <div style={{ padding: '10px 10px 8px 10px', borderTop: '1px solid var(--settings-border, #e5e7eb)', background: 'var(--bg-primary)' }}>
                         <div style={{ position: 'relative' }}>
                             <form onSubmit={handleSubmit} style={{
                                 display: 'flex', gap: '8px', alignItems: 'flex-end',
@@ -2484,7 +2664,7 @@ const AgentChat = ({
                                 </button>
                             </div>
                         </div>}
-                    </div>
+                    </div>}
                 </>
             )}
             <ConfirmModal

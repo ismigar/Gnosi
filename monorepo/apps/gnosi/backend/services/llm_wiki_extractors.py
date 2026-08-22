@@ -16,6 +16,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Optional
 from urllib.parse import unquote, urljoin, urlparse
@@ -542,11 +543,176 @@ def _extract_video(path: Path) -> list[dict[str, Any]]:
     )
 
 
+def _http_source_metadata(
+    response: requests.Response,
+    *,
+    requested_url: str,
+    final_url: str,
+) -> dict[str, str]:
+    return {
+        "requested_url": requested_url,
+        "final_url": final_url,
+        "etag": str(response.headers.get("etag") or "")[:1_000],
+        "last_modified": str(response.headers.get("last-modified") or "")[:1_000],
+        "content_hash": hashlib.sha256(response.content).hexdigest(),
+        "checked_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def _attach_http_source(
+    origins: list[dict[str, Any]],
+    metadata: dict[str, str],
+) -> list[dict[str, Any]]:
+    for origin in origins:
+        if origin.get("requested_url") and origin.get("requested_url") != metadata["requested_url"]:
+            origin.setdefault("http_sources", []).append({
+                "requested_url": origin.get("requested_url"),
+                "final_url": origin.get("http_final_url"),
+                "etag": origin.get("http_etag"),
+                "last_modified": origin.get("http_last_modified"),
+                "content_hash": origin.get("http_content_hash"),
+                "checked_at": origin.get("http_checked_at"),
+            })
+        origin["requested_url"] = metadata["requested_url"]
+        origin["http_final_url"] = metadata["final_url"]
+        origin["http_etag"] = metadata["etag"]
+        origin["http_last_modified"] = metadata["last_modified"]
+        origin["http_content_hash"] = metadata["content_hash"]
+        origin["http_checked_at"] = metadata["checked_at"]
+    return origins
+
+
+def is_streaming_url(url: str) -> bool:
+    """Return whether URL extraction uses the streaming media adapter."""
+    return _looks_like_streaming_page(url)
+
+
+def _streaming_metadata_fingerprint(info: dict[str, Any]) -> str:
+    """Build a stable fingerprint without downloading streaming media bytes."""
+    payload = {
+        key: info.get(key)
+        for key in (
+            "extractor_key",
+            "id",
+            "webpage_url",
+            "title",
+            "duration",
+            "upload_date",
+            "timestamp",
+            "release_timestamp",
+            "modified_timestamp",
+            "live_status",
+            "filesize",
+            "filesize_approx",
+        )
+        if info.get(key) not in (None, "")
+    }
+    encoded = json.dumps(
+        payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def probe_streaming_url(url: str, *, fingerprint: str = "") -> dict[str, Any]:
+    """Probe streaming metadata without downloading or transcribing the media."""
+    from backend.agent.web_context import is_public_http_url
+
+    ok, reason = is_public_http_url(str(url))
+    if not ok:
+        raise ExtractionError(f"Unsafe URL blocked: {reason}")
+    try:
+        import yt_dlp
+    except Exception as exc:
+        raise ExtractionError("yt-dlp is not installed") from exc
+    options = {
+        "quiet": True,
+        "no_warnings": True,
+        "noplaylist": True,
+        "skip_download": True,
+        "socket_timeout": max(_HTTP_TIMEOUT),
+    }
+    with yt_dlp.YoutubeDL(options) as ydl:
+        info = ydl.extract_info(str(url), download=False)
+    if not isinstance(info, dict):
+        raise ExtractionError("The streaming source metadata is unavailable")
+    current_fingerprint = _streaming_metadata_fingerprint(info)
+    return {
+        "changed": not bool(fingerprint) or current_fingerprint != str(fingerprint),
+        "requested_url": str(url),
+        "final_url": str(info.get("webpage_url") or url),
+        "stream_fingerprint": current_fingerprint,
+        "checked_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def probe_public_url(
+    url: str,
+    *,
+    etag: str = "",
+    last_modified: str = "",
+    content_hash: str = "",
+) -> dict[str, Any]:
+    """Conditionally revalidate a public URL through the secure downloader."""
+    request_headers = {}
+    if str(etag).strip():
+        request_headers["If-None-Match"] = str(etag).strip()[:1_000]
+    if str(last_modified).strip():
+        request_headers["If-Modified-Since"] = str(last_modified).strip()[:1_000]
+    response, final_url = _download_public_url(
+        url,
+        request_headers=request_headers,
+        allow_not_modified=True,
+    )
+    checked_at = datetime.now(timezone.utc).isoformat()
+    if response.status_code == 304:
+        return {
+            "changed": False,
+            "requested_url": str(url),
+            "final_url": final_url,
+            "etag": str(response.headers.get("etag") or etag)[:1_000],
+            "last_modified": str(
+                response.headers.get("last-modified") or last_modified
+            )[:1_000],
+            "content_hash": str(content_hash),
+            "checked_at": checked_at,
+        }
+    current_hash = hashlib.sha256(response.content).hexdigest()
+    return {
+        "changed": not bool(content_hash) or current_hash != str(content_hash),
+        "requested_url": str(url),
+        "final_url": final_url,
+        "etag": str(response.headers.get("etag") or "")[:1_000],
+        "last_modified": str(response.headers.get("last-modified") or "")[:1_000],
+        "content_hash": current_hash,
+        "checked_at": checked_at,
+    }
+
+
 def _extract_url(url: str, input_order: int) -> list[dict[str, Any]]:
     if _looks_like_streaming_page(url):
-        return _extract_streaming_url(url, input_order)
+        origins = _extract_streaming_url(url, input_order)
+        checked_at = datetime.now(timezone.utc).isoformat()
+        for origin in origins:
+            origin["requested_url"] = url
+            origin["http_final_url"] = str(origin.get("source_url") or url)
+            origin["http_etag"] = ""
+            origin["http_last_modified"] = ""
+            origin["http_content_hash"] = str(origin.get("content_hash") or "")
+            origin["http_stream_fingerprint"] = str(
+                origin.get("stream_fingerprint") or ""
+            )
+            origin["http_checked_at"] = checked_at
+        return origins
 
     response, final_url = _download_public_url(url)
+    http_metadata = _http_source_metadata(
+        response,
+        requested_url=url,
+        final_url=final_url,
+    )
     content_type = str(response.headers.get("content-type") or "").split(";", 1)[0].lower()
     suffix = _suffix_for_response(final_url, content_type)
     if content_type in {
@@ -566,13 +732,16 @@ def _extract_url(url: str, input_order: int) -> list[dict[str, Any]]:
                 "source_url": final_url,
                 "input_order": input_order,
             })
-        return origins
+        return _attach_http_source(origins, http_metadata)
     if content_type in {"text/html", "application/xhtml+xml"} or suffix in HTML_EXTENSIONS:
         raw_html = response.content.decode(response.encoding or "utf-8", errors="replace")
         segments = _extract_html(raw_html)
         if not segments:
             try:
-                return _extract_streaming_url(final_url, input_order)
+                return _attach_http_source(
+                    _extract_streaming_url(final_url, input_order),
+                    http_metadata,
+                )
             except Exception as exc:
                 raise ExtractionError(
                     "The web page did not contain extractable article text or public media"
@@ -590,7 +759,7 @@ def _extract_url(url: str, input_order: int) -> list[dict[str, Any]]:
                 origins.extend(_extract_url(media_url, input_order))
             except Exception as exc:  # noqa: BLE001
                 logger.warning("llm_wiki embedded public media extraction failed: %s", exc)
-        return origins
+        return _attach_http_source(origins, http_metadata)
 
     with tempfile.NamedTemporaryFile(
         suffix=suffix or ".bin",
@@ -604,12 +773,17 @@ def _extract_url(url: str, input_order: int) -> list[dict[str, Any]]:
         for origin in origins:
             origin["source_url"] = final_url
             origin["origin_id"] = _origin_id(origin)
-        return origins
+        return _attach_http_source(origins, http_metadata)
     finally:
         tmp_path.unlink(missing_ok=True)
 
 
-def _download_public_url(url: str) -> tuple[requests.Response, str]:
+def _download_public_url(
+    url: str,
+    *,
+    request_headers: Optional[dict[str, str]] = None,
+    allow_not_modified: bool = False,
+) -> tuple[requests.Response, str]:
     from backend.agent.web_context import is_public_http_url
 
     current = str(url).strip()
@@ -620,13 +794,19 @@ def _download_public_url(url: str) -> tuple[requests.Response, str]:
         response = requests.get(
             current,
             timeout=_HTTP_TIMEOUT,
-            headers={"User-Agent": _USER_AGENT, "Accept-Language": "ca,es,en,fr"},
+            headers={
+                "User-Agent": _USER_AGENT,
+                "Accept-Language": "ca,es,en,fr",
+                **(request_headers or {}),
+            },
             allow_redirects=False,
             stream=True,
         )
         if response.is_redirect and response.headers.get("location"):
             current = urljoin(current, response.headers["location"])
             continue
+        if allow_not_modified and response.status_code == 304:
+            return response, current
         response.raise_for_status()
         declared = int(response.headers.get("content-length") or 0)
         if declared and declared > _MAX_DOWNLOAD_BYTES:
@@ -654,6 +834,11 @@ def _looks_like_streaming_page(url: str) -> bool:
 
 
 def _extract_streaming_url(url: str, input_order: int) -> list[dict[str, Any]]:
+    from backend.agent.web_context import is_public_http_url
+
+    ok, reason = is_public_http_url(str(url))
+    if not ok:
+        raise ExtractionError(f"Unsafe URL blocked: {reason}")
     try:
         import yt_dlp
     except Exception as exc:
@@ -687,6 +872,7 @@ def _extract_streaming_url(url: str, input_order: int) -> list[dict[str, Any]]:
             "kind": "stream",
             "label": str(info.get("title") or url),
             "source_url": str(info.get("webpage_url") or url),
+            "stream_fingerprint": _streaming_metadata_fingerprint(info),
             "input_order": input_order,
             "segments": segments,
         })]
@@ -801,6 +987,15 @@ def _deduplicate_origins(origins: Iterable[dict[str, Any]]) -> list[dict[str, An
                 "source_url": origin.get("source_url"),
                 "input_order": origin.get("input_order"),
             })
+            if origin.get("requested_url"):
+                existing.setdefault("http_sources", []).append({
+                    "requested_url": origin.get("requested_url"),
+                    "final_url": origin.get("http_final_url"),
+                    "etag": origin.get("http_etag"),
+                    "last_modified": origin.get("http_last_modified"),
+                    "content_hash": origin.get("http_content_hash"),
+                    "checked_at": origin.get("http_checked_at"),
+                })
             continue
         by_hash[content_hash] = origin
         unique.append(origin)

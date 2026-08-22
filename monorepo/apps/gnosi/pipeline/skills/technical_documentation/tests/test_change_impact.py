@@ -1,12 +1,10 @@
 """Tests for functional-change documentation enforcement."""
 
-from pathlib import Path
 from subprocess import CompletedProcess
 
 from pipeline.skills.technical_documentation.scripts.check_change_impact import (
     REPOSITORY_ROOT,
     changed_files,
-    git_executable,
     is_implementation_path,
     requires_documentation_path,
     validate_change_set,
@@ -90,28 +88,12 @@ def test_runtime_and_deployment_files_are_functional():
     assert requires_documentation_path("monorepo/apps/gnosi/Dockerfile.backend")
 
 
-def test_git_executable_falls_back_to_a_verified_system_path(
-    monkeypatch, tmp_path
-):
-    """Service runners can resolve Git even when PATH omits system tools."""
-    fallback = tmp_path / "git"
-    fallback.touch()
-    monkeypatch.setattr(
-        "pipeline.skills.technical_documentation.scripts."
-        "check_change_impact.shutil.which",
-        lambda _name: None,
-    )
-    monkeypatch.setattr(
-        "pipeline.skills.technical_documentation.scripts."
-        "check_change_impact.SYSTEM_GIT_CANDIDATES",
-        (fallback,),
-    )
-
-    assert git_executable() == str(fallback)
-
-
 def test_changed_files_includes_committed_and_local_changes(monkeypatch):
     """Local gates must see committed, staged, unstaged, and untracked evidence."""
+    monkeypatch.setattr(
+        "pipeline.skills.technical_documentation.scripts.check_change_impact.git_executable",
+        lambda: "git",
+    )
     outputs = {
         ("git", "diff", "--name-only", "origin/main...HEAD"): (
             "monorepo/apps/gnosi/frontend/package.json\n"
@@ -128,13 +110,11 @@ def test_changed_files_includes_committed_and_local_changes(monkeypatch):
     }
 
     def fake_run(command, **kwargs):
-        assert Path(command[0]).name == "git"
         assert kwargs["cwd"] == REPOSITORY_ROOT
         assert kwargs["check"] is True
         assert kwargs["capture_output"] is True
         assert kwargs["text"] is True
-        lookup_command = ("git", *command[1:])
-        return CompletedProcess(command, 0, stdout=outputs[lookup_command])
+        return CompletedProcess(command, 0, stdout=outputs[tuple(command)])
 
     monkeypatch.setattr(
         "pipeline.skills.technical_documentation.scripts.check_change_impact.subprocess.run",

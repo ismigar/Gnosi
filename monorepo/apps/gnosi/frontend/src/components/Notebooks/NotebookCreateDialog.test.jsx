@@ -36,6 +36,63 @@ afterEach(async () => {
 });
 
 describe('NotebookCreateDialog', () => {
+    it('explains why Resources without attachment or URL sources are omitted', async () => {
+        globalThis.fetch = vi.fn().mockResolvedValue({
+            ok: true,
+            json: vi.fn().mockResolvedValue({
+                items: [{ id: 'resource-1', title: 'Paper', source_count: 1 }],
+                total: 1,
+                page: 1,
+                page_size: 50,
+                hidden_without_sources: 3,
+            }),
+        });
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const root = createRoot(container);
+        mountedRoots.push({ root, container });
+
+        await act(async () => {
+            root.render(<NotebookCreateDialog isOpen onClose={vi.fn()} onCreated={vi.fn()} />);
+        });
+        await act(async () => {
+            await new Promise((resolve) => window.setTimeout(resolve, 220));
+        });
+
+        expect(container.textContent).toContain(
+            '3 Resources are not shown because they have no attachments or URLs.',
+        );
+        expect(container.textContent).toContain('Paper');
+    });
+
+    it('exposes dialog semantics, closes with Escape, and does not close from the backdrop', async () => {
+        globalThis.fetch = vi.fn().mockResolvedValue({
+            ok: true,
+            json: vi.fn().mockResolvedValue({ items: [], total: 0, page: 1, page_size: 50 }),
+        });
+        const onClose = vi.fn();
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const root = createRoot(container);
+        mountedRoots.push({ root, container });
+
+        await act(async () => {
+            root.render(<NotebookCreateDialog isOpen onClose={onClose} onCreated={vi.fn()} />);
+        });
+        const dialog = container.querySelector('[role="dialog"]');
+        expect(dialog).toBeTruthy();
+        expect(dialog.getAttribute('aria-modal')).toBe('true');
+        expect(dialog.getAttribute('aria-labelledby')).toBe('notebook-create-title');
+        expect(document.activeElement).toBe(container.querySelector('input[data-autofocus]'));
+
+        await act(async () => container.querySelector('.notebook-modal-backdrop')
+            .dispatchEvent(new MouseEvent('click', { bubbles: true })));
+        expect(onClose).not.toHaveBeenCalled();
+
+        await act(async () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+        expect(onClose).toHaveBeenCalledOnce();
+    });
+
     it('creates a notebook from the exact selected Resource ids', async () => {
         const notebook = { id: 'notebook-1', title: 'Research' };
         globalThis.fetch = vi.fn()
@@ -184,5 +241,56 @@ describe('NotebookCreateDialog', () => {
 
         const request = globalThis.fetch.mock.calls.find(([, options]) => options?.method === 'POST');
         expect(JSON.parse(request[1].body).resource_ids.sort()).toEqual(['resource-1', 'resource-51']);
+    });
+
+    it('requests the selected type, author, and tag filters from the shared catalog', async () => {
+        globalThis.fetch = vi.fn().mockResolvedValue({
+            ok: true,
+            json: vi.fn().mockResolvedValue({
+                items: [],
+                total: 0,
+                page: 1,
+                page_size: 50,
+                facets: {
+                    types: [{ value: 'Course', count: 2 }],
+                    authors: [{ value: 'Ada Lovelace', count: 1 }],
+                    tags: [{ value: 'Education', count: 1 }],
+                },
+            }),
+        });
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const root = createRoot(container);
+        mountedRoots.push({ root, container });
+
+        await act(async () => {
+            root.render(<NotebookCreateDialog isOpen onClose={vi.fn()} onCreated={vi.fn()} />);
+        });
+        await act(async () => {
+            await new Promise((resolve) => window.setTimeout(resolve, 220));
+        });
+
+        const setFilter = async (label, value) => {
+            const select = [...container.querySelectorAll('label')]
+                .find((candidate) => candidate.textContent.includes(label))
+                ?.querySelector('select');
+            expect(select).toBeTruthy();
+            await act(async () => {
+                select.value = value;
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+                await new Promise((resolve) => window.setTimeout(resolve, 220));
+            });
+        };
+
+        await setFilter('Type', 'Course');
+        await setFilter('Author', 'Ada Lovelace');
+        await setFilter('Tag', 'Education');
+
+        const urls = globalThis.fetch.mock.calls.map(([url]) => new URL(url, 'https://gnosi.local'));
+        const filtered = urls.at(-1).searchParams;
+        expect(filtered.get('type')).toBe('Course');
+        expect(filtered.get('author')).toBe('Ada Lovelace');
+        expect(filtered.get('tag')).toBe('Education');
+        expect(filtered.get('page')).toBe('1');
     });
 });

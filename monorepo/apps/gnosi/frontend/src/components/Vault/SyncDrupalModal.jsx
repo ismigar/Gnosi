@@ -63,6 +63,7 @@ export function SyncDrupalModal({ isOpen, onClose, noteId, recordMetadata = {}, 
         onConfirm: handleSubmit,
         confirmDisabled: submitting,
         containerRef,
+        trapFocus: true,
     });
 
     if (!isOpen) return null;
@@ -70,12 +71,13 @@ export function SyncDrupalModal({ isOpen, onClose, noteId, recordMetadata = {}, 
     return (
         <div
             className="fixed inset-0 bg-black/60 flex items-center justify-center z-[110] p-4 font-sans backdrop-blur-sm"
-            onMouseDown={(e) => { if (e.target === e.currentTarget && !submitting) onClose(); }}
         >
             <div
                 ref={containerRef}
-                onMouseDown={(e) => e.stopPropagation()}
                 className="bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col border border-[var(--border-primary)]"
+                role="dialog"
+                aria-modal="true"
+                aria-label={t('drupal.sync_title', 'Sync with Drupal')}
             >
                 <div className="px-5 py-3 border-b border-[var(--border-primary)] flex justify-between items-center bg-[var(--bg-secondary)] shrink-0">
                     <h2 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">

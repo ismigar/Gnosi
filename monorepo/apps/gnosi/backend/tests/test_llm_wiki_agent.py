@@ -221,6 +221,7 @@ def test_lifecycle_requires_confirmation_and_persists_final_plugin_state(monkeyp
     scheduler_updates = []
     monkeypatch.setattr(vr, "_load_plugins_state", lambda: dict(state))
     monkeypatch.setattr(vr, "_save_plugins_state", lambda next_state: state.update(next_state) or dict(state))
+    monkeypatch.setattr(vr, "_reconcile_plugin_ai_contributions", lambda: {})
     monkeypatch.setattr(
         "backend.services.llm_wiki_agent.transition_agent",
         lambda enabled: transitions.append(enabled) or {"agent_id": LLM_WIKI_AGENT_ID, "agent_changed": True},
@@ -256,7 +257,8 @@ def test_lifecycle_requires_confirmation_and_persists_final_plugin_state(monkeyp
         assert result["enabled"] is False
 
     asyncio.run(scenario())
-    assert state["disabled"] == ["llm-wiki"]
+    assert "llm-wiki" in state["disabled"]
+    assert state["enabled_builtin"] == []
     assert transitions == [False]
     assert scheduler_updates == [(
         "llm_wiki_maintenance",

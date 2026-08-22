@@ -1,6 +1,7 @@
 """Provider, cancellation, evidence-boundary, and capability health contracts."""
 
 import asyncio
+import json
 import threading
 import time
 from types import SimpleNamespace
@@ -22,7 +23,12 @@ from backend.services.agent_cancellation import (
     is_cancelled,
     release,
 )
-from backend.services.agent_capability_health import assess_tool_capability
+from backend.services.agent_capability_health import (
+    assess_tool_capability,
+    record_capability_failure,
+    reset_health_for_tests,
+)
+from backend.services.agent_stream_protocol import encode_event, protocolize_stream
 from backend.services.provider_health import reset as reset_provider_health
 from backend.agent.evals.runner import evaluate_case, load_cases
 
@@ -154,6 +160,51 @@ def test_capability_health_reports_missing_handlers():
     descriptor = SimpleNamespace(id="tool.read", name="read")
     assert assess_tool_capability(descriptor, lambda: None)["status"] == "healthy"
     assert assess_tool_capability(descriptor, None)["reason"] == "missing_handler"
+
+
+def test_repeated_tool_failures_are_quarantined_and_resettable():
+    reset_health_for_tests()
+    descriptor = SimpleNamespace(id="tool.flaky", name="flaky")
+    def handler():
+        return None
+    record_capability_failure(descriptor, handler, error_code="timeout")
+    record_capability_failure(descriptor, handler, error_code="timeout")
+    assert assess_tool_capability(descriptor, handler)["status"] == "quarantined"
+    reset_health_for_tests()
+    assert assess_tool_capability(descriptor, handler)["status"] == "healthy"
+
+
+def test_stream_protocol_adds_ordering_and_turn_correlation():
+    encoded = encode_event(
+        {"type": "message", "content": "ok"},
+        stream_id="stream-1",
+        trace_id="trace-1",
+        turn_id="turn-1",
+        sequence=3,
+    )
+    payload = json.loads(encoded)
+    assert payload["protocol_version"] == 1
+    assert payload["event_id"] == "stream-1:3"
+    assert payload["turn_id"] == "turn-1"
+
+
+def test_stream_protocol_wraps_legacy_events():
+    async def source():
+        yield '{"type":"message","content":"ok"}\n'
+        yield '{"type":"done","has_response":true}\n'
+
+    async def collect():
+        return [item async for item in protocolize_stream(
+            source(),
+            stream_id="stream-2",
+            trace_id="trace-2",
+            turn_id="turn-2",
+            heartbeat_seconds=1,
+        )]
+
+    events = [json.loads(item) for item in asyncio.run(collect())]
+    assert [event["type"] for event in events] == ["stream_open", "message", "done"]
+    assert [event["sequence"] for event in events] == [1, 2, 3]
 
 
 def test_factory_fallback_candidates_preserve_provider_locality(monkeypatch):

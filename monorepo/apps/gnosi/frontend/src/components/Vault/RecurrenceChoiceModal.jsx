@@ -35,9 +35,9 @@ export const RecurrenceChoiceModal = ({
     const seriesText = isDelete ? 'text-red-500' : 'text-[var(--gnosi-primary)]';
 
     return (
-        <div className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onMouseDown={onClose} />
-            <div ref={modalRef} onMouseDown={(e) => e.stopPropagation()} className="relative bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md" />
+            <div ref={modalRef} className="relative bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200" role="dialog" aria-modal="true" aria-label={title}>
                 <div className="flex items-center gap-4 mb-6">
                     <div className={`p-3 ${bgColor} rounded-2xl ${accentColor}`}><Icon size={24} /></div>
                     <h3 className="text-xl font-black tracking-tight">{title}</h3>

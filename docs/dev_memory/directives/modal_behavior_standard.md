@@ -19,7 +19,13 @@ efficiency and accessibility.
 ### Escape
 
 - `Escape` must close an open dialog.
-- Register and clean up a `keydown` listener from a React effect.
+- Use the canonical `useModalKeyboard` hook. It listens during the capture
+  phase so embedded editors cannot swallow the key.
+- In nested dialogs, one press closes only the topmost dialog.
+- If closure is temporarily unsafe during a non-interruptible operation, bind
+  `closeOnEscape` to the same state that disables the visible Cancel and close
+  actions. Changing that state must not re-register the modal layer or move
+  focus.
 
 ### Enter
 
@@ -28,27 +34,26 @@ efficiency and accessibility.
   behavior, especially a `textarea`.
 - Search and list dialogs may use Enter to select the highlighted item.
 
-## React reference
+## Accessibility contract
 
-```javascript
-useEffect(() => {
-  if (!isOpen) return;
+- The modal panel uses `role="dialog"` and `aria-modal="true"`.
+- Every dialog has an accessible name through `aria-labelledby` or a
+  localized `aria-label`.
+- Enable `trapFocus` for blocking dialogs, mark the preferred initial control
+  with `data-autofocus`, and restore focus to the opener after closure.
+- Icon-only controls have localized accessible names. Toggle-style selection
+  buttons expose `aria-pressed`.
+- Backdrops are presentation only: do not attach close handlers to them.
+- Keep background content inert from keyboard navigation while a blocking
+  dialog is open.
 
-  const handleKeyDown = (event) => {
-    if (event.key === "Escape") {
-      onClose();
-    } else if (event.key === "Enter") {
-      if (document.activeElement?.tagName === "TEXTAREA") return;
-      onConfirm();
-    }
-  };
+## Verification
 
-  window.addEventListener("keydown", handleKeyDown);
-  return () => window.removeEventListener("keydown", handleKeyDown);
-}, [isOpen, onClose, onConfirm]);
-```
-
-Register global modal listeners on `window` or `document`, not on an
-unfocused modal element that cannot receive keyboard events.
+- Test Escape from text inputs, selectors, and embedded editors.
+- Test nested dialogs with two consecutive Escape presses.
+- Test forward and reverse Tab cycling and focus restoration.
+- Verify that backdrop clicks do not close the dialog.
+- Query the rendered dialog by its accessible role and name in component tests.
 
 Created on 2026-04-17.
+Last audited on 2026-08-21.

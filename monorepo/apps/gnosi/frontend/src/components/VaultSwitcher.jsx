@@ -4,12 +4,13 @@ import axios from 'axios';
 import { Vault, Plus, Check, Loader, Trash2, Store, PackagePlus } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 import VaultTemplateMarketplace from './VaultTemplateMarketplace';
+import { setActiveVaultCookie } from '../lib/fileResource';
 
 /**
  * Vault selector (personal multi-vault mode). Lists the vaults, allows creating new ones, and
  * switching the active one (saved to localStorage as `gnosi_active_vault` and propagated via X-Vault-Id on
  * every request — see pageEtagInterceptor). Useful for cloning Notion into a separate vault,
- * validating it in isolation, and adopting or discarding it. Switching vaults reloads the app.
+ * validating it in isolation, and adopting or discarding it.
  */
 export default function VaultSwitcher() {
     const { t } = useTranslation();
@@ -42,7 +43,8 @@ export default function VaultSwitcher() {
             const target = vaults.find(v => v.id === id);
             if (target?.name) localStorage.setItem('gnosi_active_vault_name', target.name);
         } catch { /* */ }
-        window.location.reload();   // reloads everything from the chosen vault
+        setActiveVaultCookie(id);
+        window.dispatchEvent(new CustomEvent('gnosi:vault-changed', { detail: { id } }));
     };
 
     const create = async () => {

@@ -9,6 +9,7 @@ from threading import Lock, Timer
 from typing import Any
 import json
 
+from backend.services import builtin_plugins
 from backend.services.planning_engine import ScheduleIndex, build_schedule, normalize_period
 from backend.services.project_planning import DEFAULT_CALENDAR_ID, PlanningStore
 
@@ -101,7 +102,8 @@ def _write_automatic_boundaries(sources: dict[str, dict[str, Any]], schedule: di
 def recalculate_vault(vault_path: Path) -> None:
     """Rebuilds configured task schedules and applies safe automatic boundaries."""
     state = _plugins_state(vault_path)
-    if "project-planning" in (state.get("disabled") or []):
+    state, _ = builtin_plugins.normalize_state(state)
+    if not builtin_plugins.is_enabled(state, "project-planning"):
         return
     settings = (state.get("settings") or {}).get("project-planning") or {}
     task_table_id = str(settings.get("task_table_id") or "")

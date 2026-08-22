@@ -7,11 +7,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import sqlite3
 import threading
+import unicodedata
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable, Optional
 from urllib.parse import urlencode
@@ -20,7 +22,12 @@ from fastapi import HTTPException
 
 from backend.config.app_config import load_params
 from backend.config.logger_config import get_logger
-from backend.services import durable_job_queue, llm_wiki_config, llm_wiki_extractors
+from backend.services import (
+    durable_job_queue,
+    llm_wiki_config,
+    llm_wiki_extractors,
+    option_catalogs,
+)
 from backend.services.llm_wiki_indices import search_vector, vector_similarity
 from backend.services.workspace_service import ROLE_WEIGHTS, WorkspaceContext
 
@@ -31,11 +38,38 @@ CONVERSATION_MODES = {"shared", "private_member"}
 RUNNING_REVISION_STATES = {"queued", "indexing"}
 MAX_RESOURCE_IDS = 1_000
 MAX_SEARCH_RESULTS = 50
+_RESOURCE_TYPE_FIELD_NAMES = {
+    "documenttype",
+    "itemtype",
+    "resourcetype",
+    "tipo",
+    "tipoderecurso",
+    "tipus",
+    "tipusderecurs",
+    "type",
+}
+_RESOURCE_AUTHOR_FIELD_NAMES = {
+    "author",
+    "authors",
+    "auteur",
+    "auteurs",
+    "autor",
+    "autores",
+    "autoria",
+    "autoría",
+    "autors",
+    "creator",
+    "creators",
+}
 _SCHEMA_LOCK = threading.RLock()
 _WRITE_LOCK = threading.RLock()
 _THREAD_LOCK = threading.RLock()
 _THREADS: dict[str, threading.Thread] = {}
 _ANALYSIS_THREADS: dict[str, threading.Thread] = {}
+
+
+class NotebookIngestionCancelled(RuntimeError):
+    """Raised when a durable notebook ingestion is cancelled cooperatively."""
 
 
 def _now() -> str:
@@ -100,6 +134,9 @@ def _ensure_schema(connection: sqlite3.Connection) -> None:
                 resource_id TEXT NOT NULL,
                 ordinal INTEGER NOT NULL,
                 fingerprint TEXT,
+                url_validators_json TEXT NOT NULL DEFAULT '{}',
+                url_checked_at TEXT,
+                last_checked_at TEXT,
                 state TEXT NOT NULL DEFAULT 'pending',
                 error TEXT,
                 updated_at TEXT NOT NULL,
@@ -120,6 +157,10 @@ def _ensure_schema(connection: sqlite3.Connection) -> None:
                 created_at TEXT NOT NULL,
                 completed_at TEXT,
                 error TEXT,
+                current_resource_id TEXT,
+                current_resource_title TEXT,
+                cancel_requested_at TEXT,
+                retention_eligible INTEGER NOT NULL DEFAULT 0,
                 PRIMARY KEY(notebook_id, revision)
             );
 
@@ -195,8 +236,52 @@ def _ensure_schema(connection: sqlite3.Connection) -> None:
                 created_at TEXT NOT NULL,
                 PRIMARY KEY(notebook_id, principal_id, session_id)
             );
+
+            CREATE TABLE IF NOT EXISTS notebook_revision_pins (
+                notebook_id TEXT NOT NULL,
+                revision INTEGER NOT NULL,
+                pin_type TEXT NOT NULL,
+                pin_id TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY(notebook_id, revision, pin_type, pin_id),
+                FOREIGN KEY(notebook_id, revision)
+                    REFERENCES notebook_revisions(notebook_id, revision)
+                    ON DELETE CASCADE
+            );
             """
         )
+        resource_columns = {
+            str(row[1])
+            for row in connection.execute("PRAGMA table_info(notebook_resources)")
+        }
+        if "url_validators_json" not in resource_columns:
+            connection.execute(
+                "ALTER TABLE notebook_resources ADD COLUMN "
+                "url_validators_json TEXT NOT NULL DEFAULT '{}'"
+            )
+        if "url_checked_at" not in resource_columns:
+            connection.execute(
+                "ALTER TABLE notebook_resources ADD COLUMN url_checked_at TEXT"
+            )
+        if "last_checked_at" not in resource_columns:
+            connection.execute(
+                "ALTER TABLE notebook_resources ADD COLUMN last_checked_at TEXT"
+            )
+        revision_columns = {
+            str(row[1])
+            for row in connection.execute("PRAGMA table_info(notebook_revisions)")
+        }
+        for column, declaration in (
+            ("current_resource_id", "TEXT"),
+            ("current_resource_title", "TEXT"),
+            ("cancel_requested_at", "TEXT"),
+            ("retention_eligible", "INTEGER NOT NULL DEFAULT 0"),
+        ):
+            if column not in revision_columns:
+                connection.execute(
+                    f"ALTER TABLE notebook_revisions ADD COLUMN {column} {declaration}"
+                )
+        connection.commit()
 
 
 def _row_dict(row: Optional[sqlite3.Row]) -> Optional[dict[str, Any]]:
@@ -335,7 +420,7 @@ def _summary(connection: sqlite3.Connection, notebook: dict[str, Any]) -> dict[s
             source_counts["total"] += count
             if status in {"available", "stale"}:
                 source_counts["available"] += count
-            if status in source_counts:
+            if status in {"stale", "error"}:
                 source_counts[status] += count
     latest_revision = connection.execute(
         """SELECT * FROM notebook_revisions WHERE notebook_id=?
@@ -354,6 +439,10 @@ def _summary(connection: sqlite3.Connection, notebook: dict[str, Any]) -> dict[s
             "percent": round((processed / total) * 100) if total else 0,
             "job_id": latest_revision["job_id"],
             "error": latest_revision["error"],
+            "current_resource_id": latest_revision["current_resource_id"],
+            "current_resource_title": latest_revision["current_resource_title"],
+            "cancel_requested_at": latest_revision["cancel_requested_at"],
+            "cancellable": latest_revision["state"] in RUNNING_REVISION_STATES,
         }
     return {
         **notebook,
@@ -428,6 +517,160 @@ def _reference_table() -> tuple[str, dict[str, Any], list[Any]]:
     return table_id, table, _get_pages_for_table(table_id)
 
 
+def _selectable_reference_pages(pages: Iterable[Any]) -> list[Any]:
+    """Return table records while excluding internal template pages."""
+    return [
+        page
+        for page in pages
+        if not (getattr(page, "metadata", None) or {}).get("is_template")
+    ]
+
+
+def _alphabetical_key(value: Any) -> str:
+    normalized = unicodedata.normalize("NFKD", str(value or ""))
+    return "".join(char for char in normalized if not unicodedata.combining(char)).casefold()
+
+
+def _field_name_key(value: Any) -> str:
+    return "".join(char for char in _alphabetical_key(value) if char.isalnum())
+
+
+def _resource_filter_properties(table: dict[str, Any]) -> dict[str, Optional[dict[str, Any]]]:
+    properties = [
+        prop
+        for prop in table.get("properties") or []
+        if isinstance(prop, dict)
+    ]
+
+    def explicit_role(prop: dict[str, Any]) -> str:
+        config = prop.get("config")
+        return str(config.get("role") or "").strip().casefold() if isinstance(config, dict) else ""
+
+    resource_type = next(
+        (prop for prop in properties if explicit_role(prop) in {"type", "item_type", "resource_type"}),
+        None,
+    )
+    if resource_type is None:
+        resource_type = next(
+            (prop for prop in properties if _field_name_key(prop.get("name")) in _RESOURCE_TYPE_FIELD_NAMES),
+            None,
+        )
+
+    author = next((prop for prop in properties if prop.get("type") == "autoria"), None)
+    if author is None:
+        author = next(
+            (prop for prop in properties if explicit_role(prop) in {"author", "authors", "authorship"}),
+            None,
+        )
+    if author is None:
+        author = next(
+            (prop for prop in properties if _field_name_key(prop.get("name")) in _RESOURCE_AUTHOR_FIELD_NAMES),
+            None,
+        )
+
+    return {
+        "type": resource_type,
+        "author": author,
+        "tag": option_catalogs.find_role_prop(table, option_catalogs.ROLE_TAGS),
+    }
+
+
+def _raw_property_value(metadata: dict[str, Any], prop: Optional[dict[str, Any]]) -> Any:
+    if not prop:
+        return None
+    for key in (str(prop.get("name") or ""), str(prop.get("id") or "")):
+        if key and key in metadata and metadata[key] not in (None, "", [], {}):
+            return metadata[key]
+    return None
+
+
+def _resource_filter_values(
+    metadata: dict[str, Any],
+    prop: Optional[dict[str, Any]],
+    *,
+    author: bool = False,
+) -> list[str]:
+    if not prop:
+        return []
+    if author:
+        raw = _raw_property_value(metadata, prop)
+        values = raw if isinstance(raw, list) else ([] if raw in (None, "") else [raw])
+        labels: list[str] = []
+        for value in values:
+            if isinstance(value, dict):
+                label = " ".join(
+                    str(value.get(part) or "").strip()
+                    for part in ("nom", "cognom1", "cognom2")
+                    if str(value.get(part) or "").strip()
+                )
+                label = label or str(value.get("name") or value.get("title") or "").strip()
+            else:
+                label = str(value or "").strip()
+            labels.extend(part.strip() for part in label.split(";") if part.strip())
+    else:
+        labels = llm_wiki_extractors._values_for_property(metadata, prop)  # noqa: SLF001
+
+    unique: dict[str, str] = {}
+    for label in labels:
+        cleaned = " ".join(str(label or "").split()).strip()
+        if cleaned:
+            unique.setdefault(cleaned.casefold(), cleaned)
+    return list(unique.values())
+
+
+def _resource_facets(rows: list[tuple[Any, dict[str, list[str]]]]) -> dict[str, list[dict[str, Any]]]:
+    result: dict[str, list[dict[str, Any]]] = {}
+    for response_key, value_key in (("types", "type"), ("authors", "author"), ("tags", "tag")):
+        counts: dict[str, dict[str, Any]] = {}
+        for _resource, values in rows:
+            for value in values[value_key]:
+                key = value.casefold()
+                counts.setdefault(key, {"value": value, "count": 0})["count"] += 1
+        result[response_key] = sorted(
+            counts.values(),
+            key=lambda item: (_alphabetical_key(item["value"]), item["value"]),
+        )
+    return result
+
+
+def _source_property_ids(source_config: dict[str, Any]) -> list[str]:
+    """Return the configured attachment and URL property identifiers."""
+    return [
+        *(str(value) for value in source_config.get("attachment_property_ids") or []),
+        *(str(value) for value in source_config.get("url_property_ids") or []),
+    ]
+
+
+def _resource_source_count(
+    metadata: dict[str, Any],
+    table: dict[str, Any],
+    source_config: dict[str, Any],
+) -> int:
+    """Count usable attachment and public HTTP URL cell values for a Resource."""
+    props_by_id = {
+        str(prop.get("id") or ""): prop
+        for prop in table.get("properties") or []
+        if isinstance(prop, dict)
+    }
+    count = 0
+    attachment_ids = {
+        str(value) for value in source_config.get("attachment_property_ids") or []
+    }
+    for prop_id in _source_property_ids(source_config):
+        values = llm_wiki_extractors._values_for_property(  # noqa: SLF001
+            metadata,
+            props_by_id.get(prop_id),
+        )
+        if prop_id in attachment_ids:
+            count += len(values)
+        else:
+            count += sum(
+                value.lower().startswith(("http://", "https://"))
+                for value in values
+            )
+    return count
+
+
 def list_reference_resources(
     context: WorkspaceContext,
     *,
@@ -435,8 +678,12 @@ def list_reference_resources(
     page: int = 1,
     page_size: int = 50,
     exclude_notebook_id: Optional[str] = None,
+    resource_type: str = "",
+    author: str = "",
+    tag: str = "",
 ) -> dict[str, Any]:
     table_id, table, resources = _reference_table()
+    resources = _selectable_reference_pages(resources)
     if exclude_notebook_id:
         notebook = authorize(exclude_notebook_id, context, action="manage")
         if notebook["source_table_id"] != table_id:
@@ -455,33 +702,70 @@ def list_reference_resources(
         resources = [item for item in resources if str(item.id) not in associated]
     source_config = llm_wiki_config.auto_detect_source(table)
     source_config["include_body"] = False
+    source_counts = {
+        str(resource.id): _resource_source_count(
+            resource.metadata or {}, table, source_config
+        )
+        for resource in resources
+    }
+    hidden_without_sources = sum(count == 0 for count in source_counts.values())
+    resources = [
+        resource for resource in resources if source_counts[str(resource.id)] > 0
+    ]
     normalized_query = _bounded_text(query, 200).casefold()
     if normalized_query:
         resources = [item for item in resources if normalized_query in str(item.title or "").casefold()]
+    filter_properties = _resource_filter_properties(table)
+    rows = [
+        (
+            resource,
+            {
+                "type": _resource_filter_values(resource.metadata, filter_properties["type"]),
+                "author": _resource_filter_values(
+                    resource.metadata,
+                    filter_properties["author"],
+                    author=True,
+                ),
+                "tag": _resource_filter_values(resource.metadata, filter_properties["tag"]),
+            },
+        )
+        for resource in resources
+    ]
+    facets = _resource_facets(rows)
+    selected_filters = {
+        "type": _bounded_text(resource_type, 160).casefold(),
+        "author": _bounded_text(author, 160).casefold(),
+        "tag": _bounded_text(tag, 160).casefold(),
+    }
+    rows = [
+        row
+        for row in rows
+        if all(
+            not selected or selected in {value.casefold() for value in row[1][key]}
+            for key, selected in selected_filters.items()
+        )
+    ]
+    rows.sort(
+        key=lambda row: (
+            _alphabetical_key(row[0].title or row[0].id),
+            str(row[0].title or row[0].id).casefold(),
+            str(row[0].id),
+        )
+    )
     page = max(1, int(page))
     page_size = max(1, min(int(page_size), 200))
-    total = len(resources)
-    selected = resources[(page - 1) * page_size:page * page_size]
+    total = len(rows)
+    selected = rows[(page - 1) * page_size:page * page_size]
     items = []
-    props_by_id = {
-        str(prop.get("id") or ""): prop
-        for prop in table.get("properties") or []
-        if isinstance(prop, dict)
-    }
-    source_property_ids = [
-        *(source_config.get("attachment_property_ids") or []),
-        *(source_config.get("url_property_ids") or []),
-    ]
-    for resource in selected:
-        source_count = sum(
-            len(llm_wiki_extractors._values_for_property(resource.metadata, props_by_id.get(str(prop_id))))  # noqa: SLF001
-            for prop_id in source_property_ids
-        )
+    for resource, filter_values in selected:
         items.append({
             "id": str(resource.id),
             "title": str(resource.title or resource.id),
             "last_modified": resource.last_modified,
-            "source_count": source_count,
+            "source_count": source_counts[str(resource.id)],
+            "resource_type": filter_values["type"][0] if filter_values["type"] else None,
+            "authors": filter_values["author"],
+            "tags": filter_values["tag"],
         })
     return {
         "items": items,
@@ -489,19 +773,30 @@ def list_reference_resources(
         "page_size": page_size,
         "total": total,
         "table_id": table_id,
-        "source_fields": len(source_property_ids),
+        "source_fields": len(_source_property_ids(source_config)),
+        "hidden_without_sources": hidden_without_sources,
+        "facets": facets,
     }
 
 
 def _validate_current_resources(resource_ids: Iterable[Any]) -> tuple[str, list[str]]:
     normalized = _normalize_resource_ids(resource_ids)
-    table_id, _table, pages = _reference_table()
-    available = {str(page.id) for page in pages}
+    table_id, table, pages = _reference_table()
+    source_config = llm_wiki_config.auto_detect_source(table)
+    source_config["include_body"] = False
+    available = {
+        str(page.id)
+        for page in _selectable_reference_pages(pages)
+        if _resource_source_count(page.metadata or {}, table, source_config) > 0
+    }
     missing = [resource_id for resource_id in normalized if resource_id not in available]
     if missing:
         raise HTTPException(
             status_code=400,
-            detail=f"{len(missing)} selected Resources do not belong to the configured References table.",
+            detail=(
+                f"{len(missing)} selected Resources do not belong to the configured "
+                "References table or have no attachment or URL sources."
+            ),
         )
     return table_id, normalized
 
@@ -726,6 +1021,8 @@ def list_notebook_sources(
                     "state": resource["state"],
                     "error": resource["error"],
                     "updated_at": resource["updated_at"],
+                    "last_checked_at": resource["last_checked_at"],
+                    "url_checked_at": resource["url_checked_at"],
                     "sources": sources,
                 }
             )
@@ -796,6 +1093,149 @@ def resource_fingerprint(
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest(), has_url
 
 
+def _url_refresh_ttl() -> timedelta:
+    raw = str(os.environ.get("GNOSI_NOTEBOOK_URL_REFRESH_TTL_SECONDS", "21600"))
+    try:
+        seconds = int(raw)
+    except ValueError:
+        seconds = 21_600
+    return timedelta(seconds=max(60, min(seconds, 604_800)))
+
+
+def _url_refresh_due(resource: sqlite3.Row | dict[str, Any], has_url: bool) -> bool:
+    if not has_url:
+        return False
+    try:
+        checked_at = str(resource["url_checked_at"] or "")
+    except (KeyError, IndexError):
+        checked_at = ""
+    if not checked_at:
+        return True
+    try:
+        checked = datetime.fromisoformat(checked_at.replace("Z", "+00:00"))
+        if checked.tzinfo is None:
+            checked = checked.replace(tzinfo=timezone.utc)
+    except ValueError:
+        return True
+    return datetime.now(timezone.utc) - checked.astimezone(timezone.utc) >= _url_refresh_ttl()
+
+
+def _url_values(
+    metadata: dict[str, Any],
+    table: dict[str, Any],
+    source_config: dict[str, Any],
+) -> list[str]:
+    return [
+        value
+        for kind, value in _property_values(metadata, table, source_config)
+        if kind == "url"
+    ]
+
+
+def _load_url_validators(resource: sqlite3.Row | dict[str, Any]) -> dict[str, dict[str, str]]:
+    try:
+        raw = resource["url_validators_json"]
+    except (KeyError, IndexError):
+        raw = "{}"
+    try:
+        parsed = json.loads(str(raw or "{}"))
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(parsed, dict):
+        return {}
+    return {
+        str(url): {
+            str(key): str(value or "")[:1_000]
+            for key, value in metadata.items()
+            if key in {
+                "final_url", "etag", "last_modified", "content_hash",
+                "stream_fingerprint", "checked_at"
+            }
+        }
+        for url, metadata in parsed.items()
+        if isinstance(metadata, dict)
+    }
+
+
+def _probe_resource_urls(
+    urls: list[str],
+    previous: dict[str, dict[str, str]],
+) -> tuple[bool, dict[str, dict[str, str]]]:
+    changed = False
+    current: dict[str, dict[str, str]] = {}
+    for url in urls:
+        cached = previous.get(url, {})
+        if llm_wiki_extractors.is_streaming_url(url):
+            result = llm_wiki_extractors.probe_streaming_url(
+                url,
+                fingerprint=cached.get("stream_fingerprint", ""),
+            )
+            changed = changed or bool(result.get("changed"))
+            current[url] = {
+                "final_url": str(result.get("final_url") or url)[:4_000],
+                "etag": "",
+                "last_modified": "",
+                "content_hash": str(cached.get("content_hash") or "")[:128],
+                "stream_fingerprint": str(
+                    result.get("stream_fingerprint") or ""
+                )[:128],
+                "checked_at": str(result.get("checked_at") or _now()),
+            }
+            continue
+        result = llm_wiki_extractors.probe_public_url(
+            url,
+            etag=cached.get("etag", ""),
+            last_modified=cached.get("last_modified", ""),
+            content_hash=cached.get("content_hash", ""),
+        )
+        changed = changed or bool(result.get("changed"))
+        current[url] = {
+            "final_url": str(result.get("final_url") or url)[:4_000],
+            "etag": str(result.get("etag") or "")[:1_000],
+            "last_modified": str(result.get("last_modified") or "")[:1_000],
+            "content_hash": str(result.get("content_hash") or "")[:128],
+            "stream_fingerprint": "",
+            "checked_at": str(result.get("checked_at") or _now()),
+        }
+    return changed, current
+
+
+def _url_validators_from_origins(
+    urls: list[str],
+    origins: list[dict[str, Any]],
+    previous: dict[str, dict[str, str]],
+) -> dict[str, dict[str, str]]:
+    discovered: dict[str, dict[str, str]] = {}
+    for origin in origins:
+        candidates = [{
+            "requested_url": origin.get("requested_url"),
+            "final_url": origin.get("http_final_url"),
+            "etag": origin.get("http_etag"),
+            "last_modified": origin.get("http_last_modified"),
+            "content_hash": origin.get("http_content_hash"),
+            "stream_fingerprint": origin.get("http_stream_fingerprint"),
+            "checked_at": origin.get("http_checked_at"),
+        }, *(origin.get("http_sources") or [])]
+        for item in candidates:
+            requested_url = str(item.get("requested_url") or "")
+            if not requested_url:
+                continue
+            discovered[requested_url] = {
+                "final_url": str(item.get("final_url") or requested_url)[:4_000],
+                "etag": str(item.get("etag") or "")[:1_000],
+                "last_modified": str(item.get("last_modified") or "")[:1_000],
+                "content_hash": str(item.get("content_hash") or "")[:128],
+                "stream_fingerprint": str(
+                    item.get("stream_fingerprint") or ""
+                )[:128],
+                "checked_at": str(item.get("checked_at") or _now()),
+            }
+    return {
+        url: discovered.get(url, previous.get(url, {}))
+        for url in urls
+    }
+
+
 def _current_resource_snapshot(notebook: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any], list[Any]]:
     from backend.api.vault_routes import _get_pages_for_table, _table_by_id
 
@@ -805,7 +1245,7 @@ def _current_resource_snapshot(notebook: dict[str, Any]) -> tuple[dict[str, Any]
         raise RuntimeError("The notebook source table is unavailable.")
     source_config = llm_wiki_config.auto_detect_source(table)
     source_config["include_body"] = False
-    return table, source_config, _get_pages_for_table(table_id)
+    return table, source_config, _selectable_reference_pages(_get_pages_for_table(table_id))
 
 
 def _needs_refresh(notebook: dict[str, Any]) -> bool:
@@ -813,7 +1253,8 @@ def _needs_refresh(notebook: dict[str, Any]) -> bool:
     pages_by_id = {str(page.id): page for page in pages}
     with _connect() as connection:
         resources = connection.execute(
-            "SELECT resource_id,fingerprint FROM notebook_resources WHERE notebook_id=?",
+            """SELECT resource_id,fingerprint,url_checked_at
+            FROM notebook_resources WHERE notebook_id=?""",
             (notebook["id"],),
         ).fetchall()
     if notebook.get("active_revision") is None:
@@ -826,9 +1267,122 @@ def _needs_refresh(notebook: dict[str, Any]) -> bool:
             page.metadata or {}, table, source_config, Path(notebook["vault_path"])
             if notebook.get("vault_path") else Path(".")
         )
-        if has_url or fingerprint != str(resource["fingerprint"] or ""):
+        if fingerprint != str(resource["fingerprint"] or ""):
+            return True
+        if _url_refresh_due(resource, has_url):
             return True
     return False
+
+
+def _retention_limit(name: str, default: int, maximum: int) -> int:
+    try:
+        value = int(str(os.environ.get(name, default)))
+    except ValueError:
+        value = default
+    return max(1, min(value, maximum))
+
+
+def _pin_active_notebook_revision(
+    notebook_id: str,
+    *,
+    pin_type: str,
+    pin_id: str,
+) -> int:
+    """Atomically pin and return the currently active evidence revision."""
+    with _WRITE_LOCK, _connect() as connection:
+        row = connection.execute(
+            "SELECT active_revision FROM notebooks WHERE id=?",
+            (str(notebook_id),),
+        ).fetchone()
+        revision = int(row["active_revision"] or 0) if row else 0
+        if revision <= 0:
+            raise HTTPException(
+                status_code=409,
+                detail="The notebook has no active evidence revision.",
+            )
+        connection.execute(
+            """INSERT OR IGNORE INTO notebook_revision_pins
+            (notebook_id,revision,pin_type,pin_id,created_at) VALUES(?,?,?,?,?)""",
+            (
+                str(notebook_id),
+                int(revision),
+                _bounded_text(pin_type, 40, "reference"),
+                _bounded_text(pin_id, 300, "reference"),
+                _now(),
+            ),
+        )
+        connection.commit()
+    return revision
+
+
+def _prune_notebook_revisions(
+    connection: sqlite3.Connection,
+    notebook_id: str,
+) -> list[int]:
+    """Delete eligible obsolete revisions while preserving stable references."""
+    notebook = connection.execute(
+        "SELECT active_revision FROM notebooks WHERE id=?", (str(notebook_id),)
+    ).fetchone()
+    protected: set[int] = set()
+    if notebook and notebook["active_revision"] is not None:
+        protected.add(int(notebook["active_revision"]))
+    protected.update(
+        int(row[0])
+        for row in connection.execute(
+            "SELECT DISTINCT revision FROM notebook_revision_pins WHERE notebook_id=?",
+            (str(notebook_id),),
+        ).fetchall()
+    )
+    protected.update(
+        int(row[0])
+        for row in connection.execute(
+            "SELECT DISTINCT revision FROM notebook_analyses WHERE notebook_id=?",
+            (str(notebook_id),),
+        ).fetchall()
+    )
+    completed_limit = _retention_limit(
+        "GNOSI_NOTEBOOK_COMPLETED_REVISION_RETENTION", 3, 50
+    )
+    audit_limit = _retention_limit(
+        "GNOSI_NOTEBOOK_AUDIT_REVISION_RETENTION", 20, 200
+    )
+    protected.update(
+        int(row[0])
+        for row in connection.execute(
+            """SELECT revision FROM notebook_revisions WHERE notebook_id=?
+            AND state='completed' ORDER BY revision DESC LIMIT ?""",
+            (str(notebook_id), completed_limit),
+        ).fetchall()
+    )
+    protected.update(
+        int(row[0])
+        for row in connection.execute(
+            """SELECT revision FROM notebook_revisions WHERE notebook_id=?
+            AND state IN ('unchanged','failed','cancelled')
+            ORDER BY revision DESC LIMIT ?""",
+            (str(notebook_id), audit_limit),
+        ).fetchall()
+    )
+    candidates = [
+        int(row[0])
+        for row in connection.execute(
+            """SELECT revision FROM notebook_revisions WHERE notebook_id=?
+            AND retention_eligible=1
+            AND state IN ('completed','unchanged','failed','cancelled')""",
+            (str(notebook_id),),
+        ).fetchall()
+        if int(row[0]) not in protected
+    ]
+    for revision in candidates:
+        connection.execute(
+            "DELETE FROM notebook_chunks_fts WHERE notebook_id=? AND revision=?",
+            (str(notebook_id), revision),
+        )
+        connection.execute(
+            "DELETE FROM notebook_revisions WHERE notebook_id=? AND revision=?",
+            (str(notebook_id), revision),
+        )
+    return candidates
 
 
 def request_refresh(
@@ -837,10 +1391,33 @@ def request_refresh(
     *,
     reason: str,
     force: bool = False,
+    resource_ids: Optional[Iterable[Any]] = None,
 ) -> dict[str, Any]:
-    notebook = authorize(notebook_id, context, action="read")
+    target_resource_ids = (
+        _normalize_resource_ids(resource_ids) if resource_ids is not None else []
+    )
+    notebook = authorize(
+        notebook_id,
+        context,
+        action="manage" if target_resource_ids else "read",
+    )
     notebook = {**notebook, "vault_path": str(context.vault_path)}
     with _WRITE_LOCK, _connect() as connection:
+        if target_resource_ids:
+            placeholders = ",".join("?" for _ in target_resource_ids)
+            present = {
+                str(row[0])
+                for row in connection.execute(
+                    f"""SELECT resource_id FROM notebook_resources
+                    WHERE notebook_id=? AND resource_id IN ({placeholders})""",
+                    [notebook_id, *target_resource_ids],
+                ).fetchall()
+            }
+            if present != set(target_resource_ids):
+                raise HTTPException(
+                    status_code=404,
+                    detail="One or more Resources are not in this notebook.",
+                )
         running = connection.execute(
             """SELECT * FROM notebook_revisions WHERE notebook_id=?
             AND state IN ('queued','indexing') ORDER BY revision DESC LIMIT 1""",
@@ -867,8 +1444,9 @@ def request_refresh(
         timestamp = _now()
         connection.execute(
             """INSERT INTO notebook_revisions
-            (notebook_id,revision,job_id,state,total_resources,created_at)
-            VALUES(?,?,?,?,?,?)""",
+            (notebook_id,revision,job_id,state,total_resources,created_at,
+             retention_eligible)
+            VALUES(?,?,?,?,?,?,1)""",
             (notebook_id, next_revision, job_id, "queued", resource_count, timestamp),
         )
         connection.execute(
@@ -884,6 +1462,8 @@ def request_refresh(
         "workspace_id": context.workspace_id,
         "requested_by": context.user_id,
         "reason": _bounded_text(reason, 80, "refresh"),
+        "force": bool(force),
+        "target_resource_ids": target_resource_ids,
     }
     durable_job_queue.enqueue(
         "notebook_ingest",
@@ -894,6 +1474,51 @@ def request_refresh(
     )
     launch_ingest(Path(context.vault_path), job_id)
     return {"job_id": job_id, "revision": next_revision, "state": "queued"}
+
+
+def cancel_refresh(
+    notebook_id: str,
+    context: WorkspaceContext,
+) -> dict[str, Any]:
+    """Cancel the active ingestion while retaining the last complete revision."""
+    authorize(notebook_id, context, action="manage")
+    with _connect() as connection:
+        revision = connection.execute(
+            """SELECT * FROM notebook_revisions WHERE notebook_id=?
+            AND state IN ('queued','indexing') ORDER BY revision DESC LIMIT 1""",
+            (str(notebook_id),),
+        ).fetchone()
+        if revision is None:
+            raise HTTPException(status_code=409, detail="No indexing job is active.")
+        job_id = str(revision["job_id"] or "")
+        revision_number = int(revision["revision"])
+    message = "Indexing was cancelled by the notebook creator."
+    if not job_id or not durable_job_queue.cancel(job_id, reason=message):
+        raise HTTPException(
+            status_code=409,
+            detail="The indexing job has already finished.",
+        )
+    with _WRITE_LOCK, _connect() as connection:
+        timestamp = _now()
+        connection.execute(
+            """UPDATE notebook_revisions SET state='cancelled',completed_at=?,
+            cancel_requested_at=?,error=? WHERE notebook_id=? AND revision=?""",
+            (
+                timestamp,
+                timestamp,
+                message,
+                str(notebook_id),
+                revision_number,
+            ),
+        )
+        connection.execute(
+            """UPDATE notebooks SET status=CASE WHEN active_revision IS NULL
+            THEN 'error' ELSE 'available' END,last_error=?,updated_at=? WHERE id=?""",
+            (message, timestamp, str(notebook_id)),
+        )
+        _prune_notebook_revisions(connection, str(notebook_id))
+        connection.commit()
+    return get_notebook(notebook_id, context)
 
 
 def _insert_source(
@@ -940,7 +1565,7 @@ def _insert_source(
     for ordinal, chunk in enumerate(chunks):
         segments = chunk.get("segments") or []
         text = "\n\n".join(
-            str(segment.get("text") or "").strip()
+            str(segment.get("text") or "")
             for segment in segments
             if str(segment.get("text") or "").strip()
         )
@@ -1097,6 +1722,44 @@ def _copy_resource_revision(
     return copied
 
 
+def _copy_resource_errors(
+    connection: sqlite3.Connection,
+    *,
+    notebook_id: str,
+    from_revision: int,
+    to_revision: int,
+    resource_id: str,
+) -> int:
+    """Copy excluded error markers when a targeted retry defers a Resource."""
+    sources = connection.execute(
+        """SELECT * FROM notebook_sources WHERE notebook_id=? AND revision=?
+        AND resource_id=? AND status='error'""",
+        (notebook_id, from_revision, resource_id),
+    ).fetchall()
+    for source in sources:
+        connection.execute(
+            """INSERT OR REPLACE INTO notebook_sources
+            (notebook_id,revision,source_id,resource_id,kind,label,source_url,
+             fingerprint,snapshot_id,status,error,origin_json)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (
+                notebook_id,
+                to_revision,
+                source["source_id"],
+                resource_id,
+                source["kind"],
+                source["label"],
+                source["source_url"],
+                source["fingerprint"],
+                source["snapshot_id"],
+                "error",
+                source["error"],
+                source["origin_json"],
+            ),
+        )
+    return len(sources)
+
+
 def _run_ingest(vault_path: Path, job_id: str, worker_id: str) -> dict[str, Any]:
     item = durable_job_queue.get(job_id)
     payload = item.get("payload") if isinstance(item, dict) else None
@@ -1104,11 +1767,19 @@ def _run_ingest(vault_path: Path, job_id: str, worker_id: str) -> dict[str, Any]
         raise RuntimeError("Notebook ingestion payload is unavailable.")
     notebook_id = str(payload.get("notebook_id") or "")
     revision = int(payload.get("revision") or 0)
+    force_url_check = bool(payload.get("force"))
+    target_resource_ids = {
+        str(value)
+        for value in payload.get("target_resource_ids") or []
+        if str(value).strip()
+    }
     notebook = _notebook_row(notebook_id)
     from backend.services.context_vars import active_vault_path
 
     token = active_vault_path.set(Path(vault_path).resolve())
     try:
+        if durable_job_queue.is_cancelled(job_id):
+            raise NotebookIngestionCancelled("Notebook ingestion was cancelled.")
         table, source_config, pages = _current_resource_snapshot(notebook)
         pages_by_id = {str(page.id): page for page in pages}
         with _WRITE_LOCK, _connect() as connection:
@@ -1134,14 +1805,70 @@ def _run_ingest(vault_path: Path, job_id: str, worker_id: str) -> dict[str, Any]
         active_revision = notebook.get("active_revision")
         available_sources = 0
         error_sources = 0
+        changed_any = (
+            bool(target_resource_ids)
+            or active_revision is None
+            or str(payload.get("reason") or "")
+            in {"source_removed", "sources_added"}
+        )
         for index, resource in enumerate(resources, start=1):
+            if durable_job_queue.is_cancelled(job_id):
+                raise NotebookIngestionCancelled("Notebook ingestion was cancelled.")
             resource_id = str(resource["resource_id"])
             page = pages_by_id.get(resource_id)
+            resource_title = _bounded_text(
+                getattr(page, "title", "") if page is not None else resource_id,
+                500,
+                resource_id,
+            )
+            with _WRITE_LOCK, _connect() as connection:
+                connection.execute(
+                    """UPDATE notebook_revisions SET current_resource_id=?,
+                    current_resource_title=? WHERE notebook_id=? AND revision=?""",
+                    (resource_id, resource_title, notebook_id, revision),
+                )
+                connection.commit()
             state = "available"
             error: Optional[str] = None
             fingerprint = ""
+            url_validators = _load_url_validators(resource)
+            url_checked_at = str(resource["url_checked_at"] or "") or None
             with _WRITE_LOCK, _connect() as connection:
+                if (
+                    target_resource_ids
+                    and resource_id not in target_resource_ids
+                    and active_revision is not None
+                ):
+                    available_sources += _copy_resource_revision(
+                        connection,
+                        notebook_id=notebook_id,
+                        from_revision=int(active_revision),
+                        to_revision=revision,
+                        resource_id=resource_id,
+                    )
+                    error_sources += _copy_resource_errors(
+                        connection,
+                        notebook_id=notebook_id,
+                        from_revision=int(active_revision),
+                        to_revision=revision,
+                        resource_id=resource_id,
+                    )
+                    connection.execute(
+                        """UPDATE notebook_revisions SET processed_resources=?,
+                        available_sources=?,error_sources=?
+                        WHERE notebook_id=? AND revision=?""",
+                        (
+                            index,
+                            available_sources,
+                            error_sources,
+                            notebook_id,
+                            revision,
+                        ),
+                    )
+                    connection.commit()
+                    continue
                 if page is None:
+                    changed_any = True
                     error = "The Resource no longer exists in the notebook source table."
                     copied = 0
                     if active_revision is not None:
@@ -1171,11 +1898,33 @@ def _run_ingest(vault_path: Path, job_id: str, worker_id: str) -> dict[str, Any]
                     fingerprint, has_url = resource_fingerprint(
                         page.metadata or {}, table, source_config, Path(vault_path)
                     )
+                    urls = _url_values(page.metadata or {}, table, source_config)
+                    fingerprint_changed = fingerprint != str(resource["fingerprint"] or "")
                     can_reuse = (
                         active_revision is not None
-                        and not has_url
-                        and fingerprint == str(resource["fingerprint"] or "")
+                        and not fingerprint_changed
+                        and resource_id not in target_resource_ids
                     )
+                    if can_reuse and has_url and (
+                        force_url_check or _url_refresh_due(resource, has_url)
+                    ):
+                        try:
+                            url_changed, url_validators = _probe_resource_urls(
+                                urls,
+                                url_validators,
+                            )
+                            url_checked_at = _now()
+                            can_reuse = not url_changed
+                            changed_any = changed_any or url_changed
+                        except Exception as exc:  # noqa: BLE001
+                            log.warning(
+                                "Notebook URL revalidation failed for Resource %s: %s",
+                                resource_id,
+                                exc,
+                            )
+                            can_reuse = False
+                    if fingerprint_changed:
+                        changed_any = True
                     copied = 0
                     if can_reuse:
                         copied = _copy_resource_revision(
@@ -1188,6 +1937,7 @@ def _run_ingest(vault_path: Path, job_id: str, worker_id: str) -> dict[str, Any]
                     if copied:
                         available_sources += copied
                     else:
+                        changed_any = True
                         origins, warnings = llm_wiki_extractors.extract_resource_sources(
                             page.metadata or {},
                             "",
@@ -1195,6 +1945,12 @@ def _run_ingest(vault_path: Path, job_id: str, worker_id: str) -> dict[str, Any]
                             table,
                             source_config,
                         )
+                        url_validators = _url_validators_from_origins(
+                            urls,
+                            origins,
+                            url_validators,
+                        )
+                        url_checked_at = _now() if has_url else None
                         for origin in origins:
                             _insert_source(
                                 connection,
@@ -1246,10 +2002,23 @@ def _run_ingest(vault_path: Path, job_id: str, worker_id: str) -> dict[str, Any]
                                 state = "error"
                         elif warnings:
                             state = "stale"
+                if durable_job_queue.is_cancelled(job_id):
+                    raise NotebookIngestionCancelled("Notebook ingestion was cancelled.")
                 connection.execute(
-                    """UPDATE notebook_resources SET fingerprint=?,state=?,error=?,updated_at=?
+                    """UPDATE notebook_resources SET fingerprint=?,url_validators_json=?,
+                    url_checked_at=?,last_checked_at=?,state=?,error=?,updated_at=?
                     WHERE notebook_id=? AND resource_id=?""",
-                    (fingerprint, state, error, _now(), notebook_id, resource_id),
+                    (
+                        fingerprint,
+                        json.dumps(url_validators, ensure_ascii=False, separators=(",", ":")),
+                        url_checked_at,
+                        _now(),
+                        state,
+                        error,
+                        _now(),
+                        notebook_id,
+                        resource_id,
+                    ),
                 )
                 connection.execute(
                     """UPDATE notebook_revisions SET processed_resources=?,
@@ -1260,11 +2029,40 @@ def _run_ingest(vault_path: Path, job_id: str, worker_id: str) -> dict[str, Any]
             if index % 10 == 0:
                 durable_job_queue.heartbeat(job_id, worker_id)
         with _WRITE_LOCK, _connect() as connection:
+            if durable_job_queue.is_cancelled(job_id):
+                raise NotebookIngestionCancelled("Notebook ingestion was cancelled.")
             completed_at = _now()
-            if available_sources > 0:
+            if (
+                available_sources > 0
+                and active_revision is not None
+                and not changed_any
+                and error_sources == 0
+            ):
+                connection.execute(
+                    "DELETE FROM notebook_chunks_fts WHERE notebook_id=? AND revision=?",
+                    (notebook_id, revision),
+                )
+                connection.execute(
+                    "DELETE FROM notebook_sources WHERE notebook_id=? AND revision=?",
+                    (notebook_id, revision),
+                )
+                connection.execute(
+                    """UPDATE notebook_revisions SET state='unchanged',completed_at=?,
+                    available_sources=0,error_sources=0,current_resource_id=NULL,
+                    current_resource_title=NULL WHERE notebook_id=? AND revision=?""",
+                    (completed_at, notebook_id, revision),
+                )
+                connection.execute(
+                    """UPDATE notebooks SET status='available',last_error=NULL,
+                    updated_at=? WHERE id=?""",
+                    (completed_at, notebook_id),
+                )
+                revision = int(active_revision)
+            elif available_sources > 0:
                 connection.execute(
                     """UPDATE notebook_revisions SET state='completed',completed_at=?,
-                    available_sources=?,error_sources=? WHERE notebook_id=? AND revision=?""",
+                    available_sources=?,error_sources=?,current_resource_id=NULL,
+                    current_resource_title=NULL WHERE notebook_id=? AND revision=?""",
                     (completed_at, available_sources, error_sources, notebook_id, revision),
                 )
                 connection.execute(
@@ -1281,6 +2079,7 @@ def _run_ingest(vault_path: Path, job_id: str, worker_id: str) -> dict[str, Any]
                 message = "No notebook source could be indexed."
                 connection.execute(
                     """UPDATE notebook_revisions SET state='failed',completed_at=?,error=?
+                    ,current_resource_id=NULL,current_resource_title=NULL
                     WHERE notebook_id=? AND revision=?""",
                     (completed_at, message, notebook_id, revision),
                 )
@@ -1293,12 +2092,14 @@ def _run_ingest(vault_path: Path, job_id: str, worker_id: str) -> dict[str, Any]
                         notebook_id,
                     ),
                 )
+            _prune_notebook_revisions(connection, notebook_id)
             connection.commit()
         return {
             "notebook_id": notebook_id,
             "revision": revision,
             "available_sources": available_sources,
             "error_sources": error_sources,
+            "unchanged": bool(active_revision is not None and not changed_any and error_sources == 0),
         }
     finally:
         active_vault_path.reset(token)
@@ -1311,7 +2112,43 @@ def _ingest_thread(vault_path: Path, job_id: str) -> None:
             return
         result = _run_ingest(vault_path, job_id, worker_id)
         durable_job_queue.complete(job_id, worker_id, result)
+    except NotebookIngestionCancelled:
+        durable_job_queue.cancel(job_id, reason="Notebook ingestion was cancelled.")
+        item = durable_job_queue.get(job_id)
+        payload = item.get("payload") if isinstance(item, dict) else {}
+        notebook_id = str((payload or {}).get("notebook_id") or "")
+        revision = int((payload or {}).get("revision") or 0)
+        if notebook_id and revision:
+            timestamp = _now()
+            with _WRITE_LOCK, _connect() as connection:
+                connection.execute(
+                    """UPDATE notebook_revisions SET state='cancelled',error=?,
+                    completed_at=COALESCE(completed_at,?),
+                    cancel_requested_at=COALESCE(cancel_requested_at,?)
+                    WHERE notebook_id=? AND revision=?""",
+                    (
+                        "Indexing was cancelled by the notebook creator.",
+                        timestamp,
+                        timestamp,
+                        notebook_id,
+                        revision,
+                    ),
+                )
+                connection.execute(
+                    """UPDATE notebooks SET status=CASE WHEN active_revision IS NULL
+                    THEN 'error' ELSE 'available' END,last_error=?,updated_at=?
+                    WHERE id=?""",
+                    (
+                        "Indexing was cancelled by the notebook creator.",
+                        timestamp,
+                        notebook_id,
+                    ),
+                )
+                _prune_notebook_revisions(connection, notebook_id)
+                connection.commit()
     except Exception as exc:  # noqa: BLE001
+        if durable_job_queue.is_cancelled(job_id):
+            return
         log.exception("Notebook ingestion failed for durable job %s", job_id)
         durable_job_queue.fail(job_id, worker_id, exc)
         item = durable_job_queue.get(job_id)
@@ -1330,6 +2167,7 @@ def _ingest_thread(vault_path: Path, job_id: str) -> None:
                     THEN 'error' ELSE 'available' END,last_error=?,updated_at=? WHERE id=?""",
                     (_bounded_text(exc, 2_000), _now(), notebook_id),
                 )
+                _prune_notebook_revisions(connection, notebook_id)
                 connection.commit()
     finally:
         with _THREAD_LOCK:
@@ -1371,9 +2209,14 @@ def resolve_chat_context(
             detail="The notebook is still preparing its first available source.",
         )
     scope = register_conversation_principal(notebook, context.user_id)
+    pinned_revision = _pin_active_notebook_revision(
+        notebook_id,
+        pin_type="conversation",
+        pin_id=f"{scope['principal_id']}:{scope['session_id']}",
+    )
     return {
         "notebook_id": notebook_id,
-        "revision": int(notebook["active_revision"]),
+        "revision": pinned_revision,
         "principal": scope["principal_id"],
         "session_id": scope["session_id"],
         "conversation_mode": notebook["conversation_mode"],

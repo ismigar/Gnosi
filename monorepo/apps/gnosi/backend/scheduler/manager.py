@@ -113,6 +113,21 @@ class SchedulerManager:
         },
     }
 
+    TASK_PLUGIN_REQUIREMENTS = {
+        "fetch_feeds": ("feeds-reader",),
+        "fetch_newsletters": ("feeds-reader",),
+        "generate_podcast": ("feeds-reader", "ai-platform"),
+        "llm_wiki_maintenance": ("llm-wiki", "ai-platform"),
+        "suggest_connections": ("ai-platform",),
+        "fetch_calendar": ("calendar",),
+        "fetch_mail": ("mail",),
+        "fetch_contacts": ("contacts",),
+        "update_memories": ("ai-platform",),
+        "publish_scheduled_social": ("social-publishing",),
+        "meeting_reminders": ("calendar", "ai-platform"),
+        "run_capability_automations": ("automations", "ai-platform"),
+    }
+
     def __init__(self):
         cfg = load_params(strict_env=False)
         self.config_path = cfg.paths.get("SCHEDULER")
@@ -593,6 +608,31 @@ class SchedulerManager:
 
     def _execute_task(self, name: str) -> Dict[str, Any]:
         """Execute a specific task."""
+        required_plugins = self.TASK_PLUGIN_REQUIREMENTS.get(name, ())
+        if required_plugins:
+            from backend.api.vault_routes import _load_plugins_state
+            from backend.services import builtin_plugins
+
+            try:
+                state = _load_plugins_state()
+            except Exception as exc:  # noqa: BLE001
+                return {
+                    "success": True,
+                    "skipped": True,
+                    "message": f"Task paused because plugin state is unavailable: {exc}",
+                }
+            missing = [
+                plugin_id
+                for plugin_id in required_plugins
+                if not builtin_plugins.is_enabled(state, plugin_id)
+            ]
+            if missing:
+                return {
+                    "success": True,
+                    "skipped": True,
+                    "message": "Task paused while plugins are disabled: "
+                    + ", ".join(missing),
+                }
         if name == "fetch_feeds":
             return self._task_fetch_feeds()
         elif name == "fetch_newsletters":

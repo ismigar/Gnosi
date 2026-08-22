@@ -36,8 +36,9 @@ def test_gate_builds_every_supported_documentation_locale():
     """The local gate must cover the same strict locale portals as CI."""
     labels = command_labels(check_only=False)
 
-    assert labels[-3:] == [
+    assert labels[-4:] == [
         "Build English portal",
         "Build Catalan portal",
         "Build Spanish portal",
+        "Build French portal",
     ]

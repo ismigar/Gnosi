@@ -1,64 +1,46 @@
 /**
- * registry.js — Gnosi's internal registry of "plugins" (optional features).
+ * Declarative fallback for Gnosi's optional built-in capabilities.
  *
- * v1: declarative registry of built-in features that can be enabled/disabled
- * per vault. Does NOT run third-party code (a non-goal of v1 for security). Each
- * entry describes a feature and where it applies; consumers (sidebar, page
- * menu, slash) check its state with `isPluginEnabled(id)`.
- *
- * The state (which ones are disabled) is persisted in `.gnosi/plugins.json` via
- * `GET/PUT /api/vault/plugins`.
+ * The backend returns the authoritative registry with the per-vault state.
+ * This copy provides labels and shell metadata before that request completes;
+ * parity is covered by backend and frontend registry tests.
  */
 
 export const BUILTIN_PLUGINS = [
-    {
-        id: 'daily-notes',
-        name: 'Daily notes',
-        description: 'Quick access to the daily note and date navigation, in the style of Obsidian.',
-        icon: 'CalendarDays',
-    },
-    {
-        id: 'tags-page',
-        name: 'Tags page',
-        description: 'Index of every vault tag with counts and navigation.',
-        icon: 'Hash',
-    },
-    {
-        id: 'page-comments',
-        name: 'Comments',
-        description: 'Per-page comment thread, in the style of Notion.',
-        icon: 'MessageSquare',
-    },
-    {
-        id: 'share-links',
-        name: 'External sharing',
-        description: 'Public read-only links for pages.',
-        icon: 'Share2',
-    },
-    {
-        id: 'canvas-cards',
-        name: 'Canvas cards',
-        description: 'Embed pages as live cards on the drawing canvas.',
-        icon: 'LayoutDashboard',
-    },
-    {
-        id: 'web-clipper',
-        name: 'Web Clipper',
-        description: 'Save web pages from the browser to a table of your choice and populate its fields.',
-        icon: 'Scissors',
-    },
-    {
-        id: 'llm-wiki',
-        name: 'Brain (LLM Wiki)',
-        description: 'Process resources with AI to maintain a linked knowledge wiki, in the style of Karpathy.',
-        icon: 'BrainCircuit',
-    },
-    {
-        id: 'project-planning',
-        name: 'Project planning',
-        description: 'Add working durations, predecessors, and work calendars to period fields.',
-        icon: 'CalendarRange',
-    },
+    { id: 'daily-notes', name: 'Daily notes', description: 'Quick access to daily notes and date navigation.', icon: 'CalendarDays', group: 'knowledge', settingsTab: 'daily-notes', requires: [], routes: [] },
+    { id: 'tags-page', name: 'Tags page', description: 'Index of every vault tag with counts and navigation.', icon: 'Hash', group: 'vault', requires: [], routes: [] },
+    { id: 'page-comments', name: 'Comments', description: 'Per-page comment threads.', icon: 'MessageSquare', group: 'vault', requires: [], routes: [] },
+    { id: 'share-links', name: 'External sharing', description: 'Public read-only links for pages.', icon: 'Share2', group: 'vault', requires: [], routes: [] },
+    { id: 'canvas-cards', name: 'Canvas cards', description: 'Embed pages as live cards on the drawing canvas.', icon: 'LayoutDashboard', group: 'vault', requires: [], routes: [] },
+    { id: 'web-clipper', name: 'Web Clipper', description: 'Save web pages from the browser into the Vault.', icon: 'Scissors', group: 'connections', settingsTab: 'web-clipper', requires: [], routes: [] },
+    { id: 'project-planning', name: 'Project planning', description: 'Durations, predecessors, work calendars and resource planning.', icon: 'CalendarRange', group: 'knowledge', settingsTab: 'project-planning', requires: [], routes: ['/planning'] },
+    { id: 'feeds-reader', name: 'Feeds and newsletters', description: 'RSS subscriptions, newsletters and optional daily podcasts.', icon: 'BookOpen', group: 'connections', settingsTab: 'reader', requires: [], routes: ['/reader'] },
+    { id: 'translation', name: 'Translation', description: 'Translation providers and publishing-language actions.', icon: 'Languages', group: 'knowledge', settingsTab: 'translate', requires: [], routes: [] },
+    { id: 'contacts', name: 'Contacts', description: 'External address books and the Contacts application.', icon: 'Users', group: 'connections', settingsTab: 'contacts', requires: [], routes: ['/contacts'] },
+    { id: 'mail', name: 'Mail', description: 'Mail accounts, synchronization and the Mail application.', icon: 'Inbox', group: 'connections', settingsTab: 'mail', requires: [], routes: ['/mail'] },
+    { id: 'calendar', name: 'Calendar', description: 'External calendars, reminders and meeting surfaces.', icon: 'Calendar', group: 'connections', settingsTab: 'calendar', requires: [], routes: ['/calendar'] },
+    { id: 'social-publishing', name: 'Social publishing and media', description: 'Social dashboard, composer and media center.', icon: 'Share2', group: 'connections', settingsTab: 'social', requires: [], routes: ['/social-dashboard', '/composer', '/media'] },
+    { id: 'notion-import', name: 'Notion import', description: 'Import Notion workspaces into portable Vault data.', icon: 'Database', group: 'connections', settingsTab: 'notion', requires: [], routes: [] },
+    { id: 'ai-platform', name: 'AI and agents', description: 'Providers, models, agents, skills and governed tools.', icon: 'Cpu', group: 'knowledge', settingsTab: 'ai', requires: [], routes: [] },
+    { id: 'llm-wiki', name: 'Brain (LLM Wiki)', description: 'Maintain a linked knowledge wiki with AI.', icon: 'BrainCircuit', group: 'knowledge', settingsTab: 'llm-wiki', requires: ['ai-platform'], routes: [] },
+    { id: 'grounded-notebooks', name: 'Grounded notebooks', description: 'Ask grounded questions over selected reference sources.', icon: 'NotebookTabs', group: 'knowledge', requires: ['ai-platform'], routes: ['/notebooks'] },
+    { id: 'automations', name: 'Automations', description: 'User automations, schedules and execution history.', icon: 'Clock3', group: 'advanced', settingsTab: 'automations', requires: [], routes: ['/scheduler'] },
 ];
 
-export const PLUGIN_IDS = BUILTIN_PLUGINS.map((p) => p.id);
+export const PLUGIN_IDS = BUILTIN_PLUGINS.map((plugin) => plugin.id);
+export const BUILTIN_PLUGIN_BY_ID = Object.fromEntries(
+    BUILTIN_PLUGINS.map((plugin) => [plugin.id, plugin]),
+);
+
+export const ROUTE_PLUGIN_IDS = Object.fromEntries(
+    BUILTIN_PLUGINS.flatMap((plugin) => (
+        plugin.routes || []
+    ).map((route) => [route, plugin.id])),
+);
+
+export function pluginForPath(pathname) {
+    const exact = ROUTE_PLUGIN_IDS[pathname];
+    if (exact) return exact;
+    if (pathname.startsWith('/notebooks/')) return 'grounded-notebooks';
+    return null;
+}

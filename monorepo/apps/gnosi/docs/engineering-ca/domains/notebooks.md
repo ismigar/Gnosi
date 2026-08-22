@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-20
+last_verified: 2026-08-21
 source_paths:
   - backend/services/notebook_service.py
   - backend/api/notebook_routes.py
@@ -15,107 +15,208 @@ tests:
   - backend/tests/test_notebook_service.py
   - backend/tests/test_notebook_agent_context.py
   - frontend/src/components/Notebooks/NotebookCreateDialog.test.jsx
+  - frontend/src/pages/NotebooksPage.test.jsx
   - frontend/src/lib/notebookTableActions.test.js
+  - e2e/tests/e2e/notebooks.spec.ts
 ---
 
-# Llibretes roïnes
+# Quaderns fonamentats en fonts
 
-## Reversió
+## Responsabilitat
 
-Llibretes Stateed proporcionen una dedicat `/notebooks` Espai de treball per a preguntar sobre els adjunts i URL que s' han usat per registres seleccionats a la taula de referències configurades. Combinant una biblioteca de llibres cercables, un plafó font paginat, arranjament i el mateix transport de xat usat per l' assistent flotant.
+Els quaderns fonamentats ofereixen un espai `/notebooks` dedicat a preguntar
+sobre els adjunts i els URL dels registres seleccionats a la taula Referències
+configurada. Combinen una biblioteca cercable, un panell de fonts paginat, la
+configuració i el mateix transport de conversa en streaming que l'assistent
+flotant.
 
-El cos discogràfic, el títol, etiquetes i altres metadades no són proves. El Gnosi llegeix les metadades de registre només per a localitzar valors en camps de l' esquema de taula és un adjunt/ fitxer o tipus URL. Un llibre mai edita o esborra el seu registre de codi font, adjunt o URL original.
+El cos, el títol, les etiquetes i la resta de metadades del registre no són
+evidència. Gnosi només llegeix les metadades per localitzar camps definits com
+a adjunt/fitxer o URL. Un quadern mai no modifica ni elimina el registre font,
+l'adjunt o l'URL original.
 
-La primera versió no proporciona resums d' àudio, Studio, notes generades o edició del codi font.
+La primera versió no inclou resums d'àudio, Studio, notes generades ni edició
+de les fonts.
 
 ## Actors i accés
 
-| Actor | Llibreta privada | Llibreta d' espai de treball |
+| Actor | Quadern privat | Quadern de workspace |
 | --- | --- | --- |
-| Creador | Descobriment, lectura, conversacions, gestió de fonts i arranjaments | Descobriment, lectura, conversacions, gestió de fonts i arranjaments |
-| Editor de treball | No és descobreixble | Discover, read, conversa |
-| Visualitzador d'espais | No és descobreixble | Descobreix i llegeix la transcripció i les fonts |
+| Creador | Descobrir, llegir, conversar i gestionar fonts i configuració | Descobrir, llegir, conversar i gestionar fonts i configuració |
+| Editor del workspace | No visible | Descobrir, llegir i conversar |
+| Lector del workspace | No visible | Descobrir i llegir la conversa i les fonts |
 
-Cada petició també s' ha pogut trobar a la ronda activa i a l' espai de treball. L' accés privat no s' extensegui implícitament als administradors d' un usuari diferent. Només el creador pot canviar l' afiliació, els arranjaments, o esborrar la llibreta.
+Cada petició queda limitada al Vault i al workspace actius. L'accés privat no
+s'estén implícitament als administradors amb un altre principal d'usuari. Només
+el creador pot modificar els membres, la configuració o eliminar el quadern.
 
-## Font i revisió del flux
+## Flux de fonts i revisions
 
 ```mermaid
 flowchart LR
-    Selection["Taula de referències configurats\ no identificades"] --> Fields["Adjunt i URL\ nfields"]
-    Fields --> Fingerprint["Enregistra i codi font\ imprimeix"]
-    Fingerprint --> Queue["S' ha perdut la llibreta d' adreces\ningd' autoritzable"]
-    Queue --> Extract["Exterctors existents"]
-    Extract --> Draft["SQLite inactiu\ nrevision"]
-    Draft --> Index["FTS5 i determinant\ n vectors locals"]
-    Index --> Switch["Atòmic actiu-revision\ nswitch"]
-    Switch --> Tools["Llibretes de només lectura\ no eines"]
-    Tools --> Chat["Resposta màxima\ namb citacions"]
+    Selection["Taula Referències configurada\nidentificadors seleccionats"] --> Fields["Camps d'adjunt i URL\nexclusivament"]
+    Fields --> Fingerprint["Empremtes del registre\ni de les fonts"]
+    Fingerprint --> Queue["Treball durable\nd'ingestió"]
+    Queue --> Extract["Extractors segurs\nexistents"]
+    Extract --> Draft["Revisió SQLite\ninactiva"]
+    Draft --> Index["FTS5 i vectors locals\ndeterministes"]
+    Index --> Switch["Activació atòmica\nde la revisió"]
+    Switch --> Tools["Eines del quadern\nde només lectura"]
+    Tools --> Chat["Resposta fonamentada\namb citacions"]
 ```
 
-La creació de llibres de notes desa la identitat de la taula de referències que estava activa en aquell moment. Més tard crea i addició de codi usen la taula actualment configurada, mentre que una llibreta d' adreces existent s' adjunta a la seva taula original.
+En crear un quadern es desa la identitat de la taula Referències activa. Les
+creacions i addicions posteriors utilitzen la taula configurada actualment,
+mentre que un quadern existent continua vinculat a la seva taula original.
 
-Obrir una llibreta, fent una pregunta de notes o sol· licitar un refresc manual compara els valors de codi amb la revisió activa. Els disparadors repetits són carbóitzats per la cua de treball durable. Les fonts sense canvis reutilitzacions són re- exagerades. Una revisió incompleta mai no es fa visible. Després de la primera revisió correcta, el xat continua contra la darrera revisió completa mentre s' executa.
+Obrir el quadern, formular-hi una pregunta o demanar un refresc manual compara
+les fonts actuals amb la revisió activa. La cua durable fusiona els disparadors
+repetits. Les fonts sense canvis reutilitzen els fragments; només es tornen a
+extreure les modificades. Una revisió incompleta mai no es fa visible. Després
+de la primera revisió correcta, la conversa continua utilitzant l'última revisió
+completa mentre s'executa el refresc.
 
-Eliminant immediatament una llibreta de notes de recurs. Recepció i anàlisi de llibres sencers s' uneixen contra l' afiliació actual, així que les proves eliminades són exclosos abans que una revisió de substitució estigui preparada.
+Les fonts URL només es revaliden després de
+`GNOSI_NOTEBOOK_URL_REFRESH_TTL_SECONDS` (sis hores per defecte). Gnosi envia
+els validadors ETag i Last-Modified desats mitjançant el mateix descarregador
+protegit contra SSRF i amb redireccions validades. Si el servidor no ofereix
+validadors, compara un hash acotat del contingut. Una comprovació sense canvis
+queda registrada, però no activa una revisió nova d'evidència.
+
+YouTube, Vimeo i els altres adaptadors de streaming compatibles fan una
+comprovació de metadades sense descarregar el contingut. Gnosi compara una
+empremta determinista de la identitat, durada, marques temporals, estat en
+directe i mida; només torna a descarregar i transcriure si canvia. Un reintent
+per Recurs força només el Recurs seleccionat i copia la resta de la revisió
+activa.
+
+Retirar un Recurs n'elimina immediatament la pertinença. La recuperació i
+l'anàlisi global comproven els membres actuals, de manera que l'evidència
+retirada queda exclosa abans que una revisió nova estigui preparada.
 
 ## Persistència i recuperació
 
-L' estat del llibre de notes és local de la instància de sota `LOCAL_DATA/system/notebooks.sqlite3`El repositori conté definicions de notes, entrades ACL, accions de recursos, revisions, trossos, files FTS5, anàlisis i els principals de les converses creats per cada mode. Les files estan afinades per un resum de la ruta Vault i l' identificador de l' espai de treball.
+L'estat és local a la instància a `LOCAL_DATA/system/notebooks.sqlite3`. El
+repositori conté definicions, ACL, pertinença de Recursos, revisions, fonts,
+fragments, files FTS5, anàlisis durables i els principals de conversa de cada
+mode. Les files s'aïllen amb un hash del camí del Vault i l'identificador del
+workspace.
 
-Els registres d'assistents durables `notebook_ingest` i `notebook_analysis` Gestors. En cua o treballs de lloguer caducats represa després de reiniciar el procés. L' activació de la revisió és la transacció. Si un origen indexat prèviament falla en refrescar, la seva última representació vàlida segueix disponible `stale` estat; s' informa una nova font i exclosionada.
+El worker durable registra `notebook_ingest` i `notebook_analysis`. Els
+treballs pendents o amb el lloguer caducat es reprenen després de reiniciar el
+procés. L'activació d'una revisió és transaccional. Si falla el refresc d'una
+font ja indexada, l'última versió vàlida continua disponible amb l'estat
+`stale`; una font nova fallida mostra l'error i queda exclosa.
 
-Adjunts usen la materialització existent, OneDritiu, contenidor de camins, límits de mida, extracció del document, ROC i límits d' extracció dels mitjans. La recuperació web manté protecció SSRF, valida totes les redireccionats i tracta contingut de pàgina com a dades no fiables en comptes de les instruccions del model.
+La neteja conserva la revisió activa, les tres revisions completes i els vint
+resultats d'auditoria més recents per defecte, totes les revisions fixades per
+converses i les que utilitzen anàlisis durables. Les revisions anteriors a
+aquesta política es protegeixen conservadorament. Els límits es poden ajustar
+amb `GNOSI_NOTEBOOK_COMPLETED_REVISION_RETENTION` i
+`GNOSI_NOTEBOOK_AUDIT_REVISION_RETENTION`.
 
-## Recepció, anàlisi i citacions
+Els adjunts reutilitzen la materialització, el preescalfament de OneDrive, la
+contenció de camins, els límits de mida i els extractors de documents, OCR i
+multimèdia. La recuperació web manté la protecció SSRF, valida cada redirecció i
+tracta el contingut com a dades no fiables, mai com a instruccions per al model.
 
-Cada torn de xat està arraconat a una revisió positiva i completada en el servidor. El flux de treball de notes expos només aquestes operacions contextuals:
+## Recuperació, anàlisi i citacions
 
-- inspeccioneu metadades font lligades;
-- Cerca trossos de llibre amb FTS5 i el vector local determinant existent;
-- Llegeix les proves exactes per l' identificador de tros estable;
-- start, inspeccioneu i llegiu una anàlisi jeràrquica molt difícil sobre el punt màxim
-Revisió.
+Cada torn queda fixat al servidor a una revisió positiva i completa. El
+workflow només permet inspeccionar fonts, cercar fragments amb FTS5 i el vector
+local determinista, llegir evidència exacta i executar una anàlisi jeràrquica
+durable sobre la revisió fixada.
 
-Les preguntes font-dependents han de realitzar una cerca de llibre abans que el model pugui sintetitzar una resposta. El flux de treball no rep mutació Vulta, MCP, mutacions o eines externes d' anàlisi. Els mapes d' anàlisi jeràrquica sobre lots d' prova lligades i redueixen els seus resums en comptes de col· locar centenars de fonts en una sola pregunta.
+Les preguntes dependents de fonts han de fer una cerca real abans que el model
+respongui. No s'exposen eines de mutació del Vault, MCP, canvis d'habilitats ni
+accions externes. L'anàlisi jeràrquica processa lots acotats en lloc de posar
+centenars de fonts en un sol prompt.
 
-Les Citacions porten el recurs de notes, revisió, font, tros i localitzador. Les proves PDF usen el `gnosi-cite` El contracte de navegació per tal que el lector pugui obrir la pàgina citada o fragment. L' evidència web enllaça a l' URL validat original.
+Les citacions inclouen el Recurs, la revisió, la font, el fragment i el
+localitzador. Els PDF utilitzen `gnosi-cite` per obrir la pàgina o el fragment;
+les fonts web enllacen amb l'URL original validat.
 
-## Espais de noms de la conversa
+## Espais de noms de conversa
 
-El mode privat- per a recordar deriva un punt de control principal per a l' usuari. El mode compartit deriva d' un dels principals llibres autoritzats i en sèrieitza el bloqueig actual amb el bloqueig de fils. Els missatges compartits inclouen el seu autor i la història afegeix només de només lectura; només el creador pot netejar. El canvi de modes no fusionarà les històries: tornar a una restauració anterior de mode que revers el espai de noms.
+El mode privat per membre deriva un principal de checkpoint per usuari. El mode
+compartit deriva un principal comú autoritzat i serialitza torns concurrents.
+Els missatges compartits inclouen l'autor i l'historial és append-only; només el
+creador el pot buidar. Canviar de mode no fusiona historials: tornar a un mode
+anterior en restaura l'espai de noms.
 
-Eliminació del llibre de notes enumera tots els principals derivats i esborra els seus fils de control abans de que els indexis de notes en cascada, revisions i anàlisis. Les dades originals són fora d' aquest límit d' eliminació.
+Eliminar un quadern esborra els threads de checkpoint derivats abans d'eliminar
+en cascada índexs, revisions i anàlisis. Les dades originals del Vault queden
+fora d'aquest límit.
 
-## contractes HTTP
+## Contractes HTTP
 
-| Punt final | Purposa |
+| Endpoint | Finalitat |
 | --- | --- |
-| `GET/POST /api/notebooks` | S' han programat la biblioteca i la creació de les ID del recurs |
-| `GET/PATCH/DELETE /api/notebooks/{id}` | Detalls, arranjaments i esborrat de dades derivats |
-| `GET /api/notebooks/resources` | Selector de referència a la taula de referència configurada |
-| `GET/POST /api/notebooks/{id}/sources` | Inspecciona o afegeixi una membre de recurs |
-| `DELETE /api/notebooks/{id}/sources/{resource_id}` | Exclou un recurs immediatament |
-| `POST /api/notebooks/{id}/refresh` | Refresca o torna a provar explícita de Coescenes |
-| `GET /api/notebooks/{id}/conversation` | Ccripció activa del mode Canonical |
-| `POST /api/chat` | S' està connectant amb un context autoritzat a la llibreta d' adreces |
+| `GET/POST /api/notebooks` | Biblioteca paginada i creació des d'identificadors de Recursos |
+| `GET/PATCH/DELETE /api/notebooks/{id}` | Detall, configuració i eliminació de dades derivades |
+| `GET /api/notebooks/resources` | Selector paginat alfabètic amb facetes de tipus, autor i etiquetes de la taula Referències |
+| `GET/POST /api/notebooks/{id}/sources` | Inspeccionar o afegir Recursos |
+| `DELETE /api/notebooks/{id}/sources/{resource_id}` | Excloure immediatament un Recurs |
+| `POST /api/notebooks/{id}/sources/{resource_id}/refresh` | Reintentar només un Recurs |
+| `POST /api/notebooks/{id}/refresh` | Refresc explícit fusionat del quadern |
+| `POST /api/notebooks/{id}/refresh/cancel` | Cancel·lar cooperativament la ingestió activa |
+| `GET /api/notebooks/{id}/conversation` | Conversa canònica del mode actiu |
+| `POST /api/chat` | Conversa en streaming amb context de quadern autoritzat |
 
-El xat de notes ignora els intents del client per a triar la revisió, el director de comprovació o l' espai de noms de sessió. El servidor derivirà tots tres després de l' autorització i rebutja els contexts mixtos de notes, adjunts, esmenta i les habilitats anul· lades.
+El servidor deriva la revisió, el principal de checkpoint i l'espai de noms
+després de l'autorització. Rebutja contextos mixtos, adjunts, mencions i
+substitucions d'habilitats.
 
-## Comportament de la interfície d' usuari
+## Comportament de la interfície d'usuari
 
-L' acció multi- selecció només apareix quan la identitat de taula oberta és igual a la identitat de la taula de referències configurades. Mai està habilitada per un nom fix o identificador. El diàleg de creació accepta un títol, visibilitat, mode de conversa, i fins a un miler d' ID de recursos seleccionats.
+L'acció múltiple només apareix quan la identitat de la taula oberta coincideix
+amb la de Referències; mai per un nom o ID fix. El diàleg accepta títol,
+visibilitat, mode de conversa i fins a mil identificadors de Recursos. Els
+selectors de creació i d'addició ordenen alfabèticament tot el catàleg abans de
+paginar i ofereixen filtres de tipus, autor i etiquetes derivats de l'esquema.
+Aquestes metadades només serveixen per seleccionar i mai entren a l'evidència.
+Les pàgines marcades com a plantilles de taula s'exclouen del selector, de la
+validació de peticions i de les instantànies d'ingestió.
+També s'exclouen els registres sense adjunts ni URL HTTP públiques; el selector
+indica quants se n'han omès en lloc d'oferir una opció inutilitzable.
 
-La disposició de l' escriptori mostra fonts, xat encastat i arranjament juntes. La disposició mòbil presenta els mateixos plafons que pestanyes. Les enquestes de l' IU només són visibles la llibreta d' adreces: en la gestió de progrés usa un interval curt mentre una tasca està activa, i la transcripció usa un interval lligat per a actualitzacions de col· laboratives. Les notes inactives no s' organitzen.
+A l'escriptori, fonts, conversa incrustada i configuració es mostren juntes. Al
+mòbil es converteixen en pestanyes. Només se sondeja el quadern actiu i visible:
+un interval curt segueix la ingestió i un interval acotat actualitza la conversa
+col·laborativa.
 
-## Comportament i operacions erroni
+El progrés mostra el Recurs actual i permet al creador cancel·lar la indexació.
+Cada Recurs mostra la darrera comprovació i el motiu acotat de l'error; les
+fonts fallides també mostren el seu propi motiu. El reintent individual queda
+desactivat mentre hi ha una altra revisió en curs.
 
-La primera conversa es manté bloquejada fins que almenys existeix una font en una revisió activa completa. Per-Reesource i els estats per font s' exposen `pending`, `indexing`, `available`, `stale`, i `error`La refresc manual proveeix reintentar- ho. Els errors no substitueixen una revisió activa completa.
+Els lectors del workspace veuen la conversa canònica en un xat clarament de
+només lectura, sense compositor ni accions de reintent, edició o rebobinat.
+Només els editors poden enviar torns i només el creador veu el refresc manual i
+la resta de controls de gestió.
 
-Els operadors poden inspeccionar el repositori SQLite de notes i cua de treball durable a sota `LOCAL_DATA`, però no s' ha de moure a una ronda compartida. El codi del dorsal torna a carregar en el desenvolupament natiu; les dependències encara requereixen un comandament de dorsal que reinicii l' agent d' execució. Les mateixes rutes de configuració s' usen en els països natius i els desplegaments de Docker.
+## Errors, operacions i verificació
 
-## Límits de verificació
+La primera conversa queda bloquejada fins que una revisió activa completa conté
+una font. Els estats són `pending`, `indexing`, `available`, `stale` i
+`error`; el refresc manual permet reintentar. Un error mai no substitueix una
+revisió completa.
 
-La cobertura d' unitats prova l' exclusió del camp font, reutilització incremental, eliminació immediata de l' afiliació, identitat de citació, aïllament ACL, noms de control, validació positiva, eines de notes de només lectura i anàlisi adversa. La cobertura de la Frontal prova la reajustació de la massa en gran velocitat i el contracte de creació exacta d' ID seleccionat. La verificació de llançament també requereix un dorsal d' inici net, construcció i navegador mòbil a més d' escriptori.
+La cancel·lació és cooperativa i durable: el worker comprova l'estat abans de
+cada Recurs i abans de l'activació atòmica. La transacció en curs es desfà i
+l'última revisió completa continua disponible; si es cancel·la la primera
+ingestió, la conversa resta bloquejada fins que un refresc acabi correctament.
 
-Els límits de càrrega actuals són mil recursos per a crear/ afegir, dues centes files de selector per pàgina, cinquanta resultats de recuperació i els resultats relacionats amb les instal· lacions. La configuració dels llibres de notes i els índexs derivats són locals a una instància del Gnosi i no es sincronitzaran a través de les instal· lacions.
+El repositori SQLite i la cua durable romanen sota `LOCAL_DATA`, mai dins d'un
+Vault compartit. Els mateixos camins funcionen en desplegaments natius i Docker.
+
+Les proves cobreixen exclusió de camps no font, reutilització incremental,
+retirada immediata, citacions, ACL, checkpoints, eines de només lectura,
+filtres del selector i anàlisi durable. També cobreixen PDF, URL, OCR, fragments
+grans, recuperació de lloguers caducats, validació web condicional i una
+ingestió real de 300 Recursos. Vitest i Playwright verifiquen els permisos de
+només lectura, l'exclusió de Recursos buits, la conversa fonamentada, una cita
+navegable i el refresc automàtic. Els límits actuals són mil Recursos per petició, dues-centes
+files de selector per pàgina, cinquanta resultats de recuperació i lots
+d'anàlisi acotats. La configuració i els índexs són locals a una instància i no
+se sincronitzen entre instal·lacions.

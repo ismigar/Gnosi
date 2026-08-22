@@ -59,6 +59,11 @@ export const useAIResources = (enabled) => {
     const [jobs, setJobs] = useState([]);
     const [auditEvents, setAuditEvents] = useState([]);
     const [approvals, setApprovals] = useState([]);
+    const [qualityDashboard, setQualityDashboard] = useState(null);
+    const [semanticAssociations, setSemanticAssociations] = useState([]);
+    const [capabilityConformance, setCapabilityConformance] = useState(null);
+    const [modelEvaluations, setModelEvaluations] = useState([]);
+    const [agentMemories, setAgentMemories] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -67,13 +72,17 @@ export const useAIResources = (enabled) => {
         setLoading(true);
         setError('');
         try {
-            const [skillsPayload, toolsPayload, automationsPayload, jobsPayload, auditPayload, approvalsPayload] = await Promise.all([
+            const [skillsPayload, toolsPayload, automationsPayload, jobsPayload, auditPayload, approvalsPayload, qualityPayload, associationsPayload, conformancePayload, evaluationsPayload] = await Promise.all([
                 request('/api/ai/skills'),
                 request('/api/ai/tools'),
                 request('/api/ai/automations').catch(() => ({ automations: [] })),
                 request('/api/ai/jobs').catch(() => ({ jobs: [] })),
                 request('/api/ai/capability-audit').catch(() => ({ events: [] })),
                 request('/api/ai/approvals').catch(() => ({ approvals: [] })),
+                request('/api/ai/quality/dashboard').catch(() => null),
+                request('/api/ai/semantic-associations').catch(() => ({ associations: [] })),
+                request('/api/ai/quality/conformance').catch(() => null),
+                request('/api/ai/evals/models').catch(() => ({ evaluations: [] })),
             ]);
             setSkills(catalogRows(skillsPayload, 'skills').map(normalizeSkill));
             setTools(catalogRows(toolsPayload, 'tools').map(normalizeTool));
@@ -82,6 +91,10 @@ export const useAIResources = (enabled) => {
             setJobs(Array.isArray(jobsPayload?.jobs) ? jobsPayload.jobs : []);
             setAuditEvents(Array.isArray(auditPayload?.events) ? auditPayload.events : []);
             setApprovals(Array.isArray(approvalsPayload?.approvals) ? approvalsPayload.approvals : []);
+            setQualityDashboard(qualityPayload);
+            setSemanticAssociations(Array.isArray(associationsPayload?.associations) ? associationsPayload.associations : []);
+            setCapabilityConformance(conformancePayload);
+            setModelEvaluations(Array.isArray(evaluationsPayload?.evaluations) ? evaluationsPayload.evaluations : []);
         } catch (requestError) {
             console.error('Error loading AI skill and tool catalogs:', requestError);
             setError(requestError.message);
@@ -102,7 +115,11 @@ export const useAIResources = (enabled) => {
             request('/api/ai/jobs').catch(() => ({ jobs: [] })),
             request('/api/ai/capability-audit').catch(() => ({ events: [] })),
             request('/api/ai/approvals').catch(() => ({ approvals: [] })),
-        ]).then(([skillsPayload, toolsPayload, automationsPayload, jobsPayload, auditPayload, approvalsPayload]) => {
+            request('/api/ai/quality/dashboard').catch(() => null),
+            request('/api/ai/semantic-associations').catch(() => ({ associations: [] })),
+            request('/api/ai/quality/conformance').catch(() => null),
+            request('/api/ai/evals/models').catch(() => ({ evaluations: [] })),
+        ]).then(([skillsPayload, toolsPayload, automationsPayload, jobsPayload, auditPayload, approvalsPayload, qualityPayload, associationsPayload, conformancePayload, evaluationsPayload]) => {
             if (cancelled) return;
             setSkills(catalogRows(skillsPayload, 'skills').map(normalizeSkill));
             setTools(catalogRows(toolsPayload, 'tools').map(normalizeTool));
@@ -111,6 +128,10 @@ export const useAIResources = (enabled) => {
             setJobs(Array.isArray(jobsPayload?.jobs) ? jobsPayload.jobs : []);
             setAuditEvents(Array.isArray(auditPayload?.events) ? auditPayload.events : []);
             setApprovals(Array.isArray(approvalsPayload?.approvals) ? approvalsPayload.approvals : []);
+            setQualityDashboard(qualityPayload);
+            setSemanticAssociations(Array.isArray(associationsPayload?.associations) ? associationsPayload.associations : []);
+            setCapabilityConformance(conformancePayload);
+            setModelEvaluations(Array.isArray(evaluationsPayload?.evaluations) ? evaluationsPayload.evaluations : []);
         }).catch(requestError => {
             if (cancelled) return;
             console.error('Error loading AI skill and tool catalogs:', requestError);
@@ -257,6 +278,66 @@ export const useAIResources = (enabled) => {
         ));
     }, []);
 
+    const addSemanticAssociation = useCallback(async (trigger, relatedTerms) => {
+        await request('/api/ai/semantic-associations', {
+            method: 'POST',
+            body: JSON.stringify({ trigger, related_terms: relatedTerms }),
+        });
+        const payload = await request('/api/ai/semantic-associations');
+        setSemanticAssociations(Array.isArray(payload?.associations) ? payload.associations : []);
+    }, []);
+
+    const removeSemanticAssociation = useCallback(async associationId => {
+        await request(`/api/ai/semantic-associations/${encodeURIComponent(associationId)}`, {
+            method: 'DELETE',
+        });
+        setSemanticAssociations(current => current.filter(item => item.id !== associationId));
+    }, []);
+
+    const loadAgentMemories = useCallback(async agentId => {
+        if (!agentId) {
+            setAgentMemories([]);
+            return [];
+        }
+        const payload = await request(`/api/ai/agents/${encodeURIComponent(agentId)}/memories`);
+        const rows = Array.isArray(payload?.memories) ? payload.memories : [];
+        setAgentMemories(rows);
+        return rows;
+    }, []);
+
+    const saveAgentMemory = useCallback(async (agentId, memory) => {
+        const editing = Boolean(memory.memory_id);
+        await request(
+            editing
+                ? `/api/ai/agents/${encodeURIComponent(agentId)}/memories/${encodeURIComponent(memory.memory_id)}`
+                : `/api/ai/agents/${encodeURIComponent(agentId)}/memories`,
+            {
+                method: editing ? 'PUT' : 'POST',
+                body: JSON.stringify({
+                    text: memory.text,
+                    category: memory.category || 'preference',
+                    provenance: memory.provenance || 'user',
+                    expires_at: memory.expires_at || null,
+                    enabled: memory.enabled !== false,
+                    ...(editing ? { expected_revision: memory.revision } : {}),
+                }),
+            },
+        );
+        return loadAgentMemories(agentId);
+    }, [loadAgentMemories]);
+
+    const removeAgentMemory = useCallback(async (agentId, memoryId) => {
+        await request(`/api/ai/agents/${encodeURIComponent(agentId)}/memories/${encodeURIComponent(memoryId)}`, { method: 'DELETE' });
+        return loadAgentMemories(agentId);
+    }, [loadAgentMemories]);
+
+    const runModelEvaluation = useCallback(async agentId => {
+        const result = await request(`/api/ai/evals/models/${encodeURIComponent(agentId)}/run`, { method: 'POST' });
+        const payload = await request('/api/ai/evals/models');
+        setModelEvaluations(Array.isArray(payload?.evaluations) ? payload.evaluations : []);
+        return result;
+    }, []);
+
     return useMemo(() => ({
         skills,
         tools,
@@ -265,6 +346,11 @@ export const useAIResources = (enabled) => {
         jobs,
         auditEvents,
         approvals,
+        qualityDashboard,
+        semanticAssociations,
+        capabilityConformance,
+        modelEvaluations,
+        agentMemories,
         loading,
         error,
         reload,
@@ -278,10 +364,21 @@ export const useAIResources = (enabled) => {
         deleteAutomation,
         runAutomation,
         resolveApproval,
+        addSemanticAssociation,
+        removeSemanticAssociation,
+        loadAgentMemories,
+        saveAgentMemory,
+        removeAgentMemory,
+        runModelEvaluation,
     }), [
         assignAgentSkills,
         auditEvents,
         approvals,
+        qualityDashboard,
+        semanticAssociations,
+        capabilityConformance,
+        modelEvaluations,
+        agentMemories,
         automations,
         cloneSkill,
         createSkill,
@@ -297,6 +394,12 @@ export const useAIResources = (enabled) => {
         deleteAutomation,
         runAutomation,
         resolveApproval,
+        addSemanticAssociation,
+        removeSemanticAssociation,
+        loadAgentMemories,
+        saveAgentMemory,
+        removeAgentMemory,
+        runModelEvaluation,
         updateSkill,
         validateSkill,
     ]);

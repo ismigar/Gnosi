@@ -236,6 +236,8 @@ export default function VaultDashboard() {
 
     // Plugins (optional features): per-vault activation (internal registry).
     const { isEnabled: isPluginEnabled } = usePlugins();
+    const isPluginEnabledRef = useRef(isPluginEnabled);
+    isPluginEnabledRef.current = isPluginEnabled;
     const [llmWikiConfig, setLlmWikiConfig] = useState(null);
     const [llmWikiJobs, setLlmWikiJobs] = useState({});
     const [resourceToProcess, setResourceToProcess] = useState(null);
@@ -1759,7 +1761,9 @@ export default function VaultDashboard() {
         const handleOpenSearch = () => setIsGlobalSearchOpen(true);
         window.addEventListener('gnosi:open-search', handleOpenSearch);
         // … or the hierarchical tags view.
-        const handleOpenTags = () => setIsTagsOpen(true);
+        const handleOpenTags = () => {
+            if (isPluginEnabledRef.current('tags-page')) setIsTagsOpen(true);
+        };
         window.addEventListener('gnosi:open-tags', handleOpenTags);
         // … or the presentation mode of the current note.
         const handlePresent = () => setIsPresentOpen(true);
@@ -3252,7 +3256,7 @@ export default function VaultDashboard() {
         && !currentActiveTab.isPdf;
     const isCodeViewActive = canToggleCodeView ? Boolean(codeViewByTabId[currentActiveTab.id]) : false;
     // Translate page: only for editable markdown pages (not tables or PDFs).
-    const canTranslatePage = viewMode === 'editor' && Boolean(currentOpenPage && currentActiveTab && !currentActiveTab.isTable && !currentActiveTab.isPdf);
+    const canTranslatePage = isPluginEnabled('translation') && viewMode === 'editor' && Boolean(currentOpenPage && currentActiveTab && !currentActiveTab.isTable && !currentActiveTab.isPdf);
     // GAP 2: if the open page is a record of a translatable table (and is not
     // itself a translation), the menu must translate the FIELDS into a submenu item
     // ('row' mode), not the body into a subpage. For normal pages, 'page' mode.
@@ -3761,7 +3765,9 @@ export default function VaultDashboard() {
 
         // Daily notes: day navigation bar (← previous day · Today · next day →),
         // Obsidian style. Only shown if the active page is a daily note.
-        const dailyDate = tab.metadata?.note_type === 'daily' ? (tab.metadata?.date || tab.title) : null;
+        const dailyDate = isPluginEnabled('daily-notes') && tab.metadata?.note_type === 'daily'
+            ? (tab.metadata?.date || tab.title)
+            : null;
         const shiftDay = (iso, delta) => {
             const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
             if (!m) return null;
@@ -4323,7 +4329,7 @@ export default function VaultDashboard() {
             />
 
             <TagsModal
-                isOpen={isTagsOpen}
+                isOpen={isPluginEnabled('tags-page') && isTagsOpen}
                 onClose={() => setIsTagsOpen(false)}
                 allNotes={pages}
                 onNoteSelect={loadPage}
@@ -4608,13 +4614,13 @@ export default function VaultDashboard() {
             <PageComments
                 pageId={currentOpenPage?.id}
                 pageTitle={currentOpenPage?.title}
-                open={commentsOpen && Boolean(currentOpenPage)}
+                open={isPluginEnabled('page-comments') && commentsOpen && Boolean(currentOpenPage)}
                 onClose={() => setCommentsOpen(false)}
             />
             <ShareModal
                 pageId={currentOpenPage?.id}
                 pageTitle={currentOpenPage?.title}
-                open={shareOpen && Boolean(currentOpenPage)}
+                open={isPluginEnabled('share-links') && shareOpen && Boolean(currentOpenPage)}
                 onClose={() => setShareOpen(false)}
             />
         </VaultShell >

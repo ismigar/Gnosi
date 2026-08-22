@@ -1,8 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Network, BookOpen, Gauge, Share2, FileText, Calendar, Inbox, Settings, Users, Image as ImageIcon } from 'lucide-react';
+import { Network, BookOpen, Gauge, Share2, FileText, Calendar, Inbox, Settings, Users, Image as ImageIcon, CalendarRange, NotebookTabs } from 'lucide-react';
 import { useActiveVaultName } from '../hooks/useActiveVaultName';
+import { usePlugins } from '../plugins/usePlugins';
 
 const MODULES = [
     {
@@ -28,6 +29,7 @@ const MODULES = [
         title: 'Contacts',
         descKey: 'home.module_contacts_desc',
         description: 'Manage your contacts and profiles.',
+        pluginId: 'contacts',
     },
     {
         to: '/mail',
@@ -36,6 +38,7 @@ const MODULES = [
         title: 'Mail (Inbox)',
         descKey: 'home.module_mail_desc',
         description: 'Process your incoming mail.',
+        pluginId: 'mail',
     },
     {
         to: '/calendar',
@@ -44,6 +47,7 @@ const MODULES = [
         title: 'Calendar',
         descKey: 'home.module_calendar_desc',
         description: 'View and manage your events.',
+        pluginId: 'calendar',
     },
     {
         to: '/reader',
@@ -52,6 +56,7 @@ const MODULES = [
         title: 'Feed Reader',
         descKey: 'home.module_reader_desc',
         description: 'Read and listen to the latest news with AI podcasts.',
+        pluginId: 'feeds-reader',
     },
     {
         to: '/social-dashboard',
@@ -60,6 +65,7 @@ const MODULES = [
         title: 'Social Media',
         descKey: 'home.module_social_desc',
         description: 'Manage your social networks from one place.',
+        pluginId: 'social-publishing',
     },
     {
         to: '/media',
@@ -68,6 +74,25 @@ const MODULES = [
         title: 'Photos and Media',
         descKey: 'home.module_media_desc',
         description: 'Explore your media library.',
+        pluginId: 'social-publishing',
+    },
+    {
+        to: '/planning',
+        icon: CalendarRange,
+        titleKey: 'sidebar.nav_planning',
+        title: 'Planning',
+        descKey: 'home.module_planning_desc',
+        description: 'Plan projects, dependencies, resources, and work calendars.',
+        pluginId: 'project-planning',
+    },
+    {
+        to: '/notebooks',
+        icon: NotebookTabs,
+        titleKey: 'sidebar.nav_notebooks',
+        title: 'Notebooks',
+        descKey: 'home.module_notebooks_desc',
+        description: 'Ask grounded questions over selected reference sources.',
+        pluginId: 'grounded-notebooks',
     },
     {
         to: '/dashboard',
@@ -89,6 +114,7 @@ const MODULES = [
 
 function HomePage() {
     const { t } = useTranslation();
+    const { isEnabled } = usePlugins();
     const activeVaultName = useActiveVaultName();
     const handleSettingsClick = (e) => {
         if (e) e.preventDefault();
@@ -116,7 +142,7 @@ function HomePage() {
 
             {/* Cards Grid */}
             <div className="home-page__grid">
-                {MODULES.map(({ to, id, icon: Icon, titleKey, title, descKey, description }) => {
+                {MODULES.filter(({ pluginId }) => !pluginId || isEnabled(pluginId)).map(({ to, id, icon: Icon, titleKey, title, descKey, description }) => {
                     if (id === 'settings') {
                         return (
                             <button key={id} onClick={handleSettingsClick} className="home-card">

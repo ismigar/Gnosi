@@ -28,11 +28,12 @@ const ComposerPage = lazy(() => import('./pages/ComposerPage'));
 const SharedPage = lazy(() => import('./pages/SharedPage'));
 const ProjectPlanningPage = lazy(() => import('./pages/ProjectPlanningPage'));
 const NotebooksPage = lazy(() => import('./pages/NotebooksPage'));
+const AgentChat = lazy(() => import('./components/AgentChat'));
+const MeetingReminderWatcher = lazy(() => import('./components/MeetingReminderWatcher'));
+const MeetingRecorder = lazy(() => import('./components/MeetingRecorder'));
+const NotebookCreateDialog = lazy(() => import('./components/Notebooks/NotebookCreateDialog'));
 import { Toaster } from './lib/toast';
 
-import AgentChat from './components/AgentChat';
-import MeetingReminderWatcher from './components/MeetingReminderWatcher';
-import MeetingRecorder from './components/MeetingRecorder';
 import PageOutline from './components/PageOutline';
 import CommandPalette from './components/CommandPalette';
 import { useTheme } from './hooks/useTheme';
@@ -42,7 +43,8 @@ import { LoginPage } from './components/Auth/LoginPage';
 import { GraphLoadingState } from './components/GraphLoadingState';
 import { DesktopUpdateNotice } from './components/DesktopUpdateNotice';
 import { vaultAgentContextRefs } from './lib/vaultAgentContext';
-import NotebookCreateDialog from './components/Notebooks/NotebookCreateDialog';
+import { PluginRoute, PluginSurface } from './components/PluginGate';
+import { usePlugins } from './plugins/usePlugins';
 
 // Fallback while the chunk for a lazy route is downloading. Discreet and centered,
 // reusing the auth bootstrap's style so there's no visual jump.
@@ -75,11 +77,23 @@ function App() {
   const navigate = useNavigate();
   const { effectiveTheme } = useTheme();
   const { user, gnosiMode, requireAuth, loading } = useAuth();
+  const { loaded: pluginStateLoaded } = usePlugins();
   const [moduleContextOverride, setModuleContextOverride] = useState(null);
   const [bulkNotebookResources, setBulkNotebookResources] = useState(null);
+  const [vaultRevision, setVaultRevision] = useState(0);
   // Captures clicks on file:// everywhere and redirects them to the system shell
   // via the backend, instead of letting Chrome open blank tabs.
   useFileLinkInterceptor();
+
+  useEffect(() => {
+    const handleVaultChanged = () => {
+      setModuleContextOverride(null);
+      setBulkNotebookResources(null);
+      setVaultRevision((revision) => revision + 1);
+    };
+    window.addEventListener('gnosi:vault-changed', handleVaultChanged);
+    return () => window.removeEventListener('gnosi:vault-changed', handleVaultChanged);
+  }, []);
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -168,13 +182,24 @@ function App() {
     return <LoginPage />;
   }
 
+  // Optional surfaces are part of the shell contract. Wait for the active
+  // Vault's explicit state so an old Vault can never flash a feature that is
+  // disabled in the new one.
+  if (!pluginStateLoaded) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-[var(--bg-secondary)] text-[var(--text-secondary)]">
+        <div className="animate-pulse text-sm">{t('common.loading', "Loading...")}</div>
+      </div>
+    );
+  }
+
   return (
     <div className="gnosi-app-shell">
       {/* Global sidebar always present */}
       <AppSidebar />
 
       {/* Contingut principal */}
-      <div id="page-content-scroll" className="gnosi-app-content">
+      <div key={vaultRevision} id="page-content-scroll" className="gnosi-app-content">
         <Suspense fallback={<RouteFallback />}>
         <Routes>
           <Route path="/" element={<HomePage />} />
@@ -182,17 +207,17 @@ function App() {
           <Route path="/graph" element={<GraphPage />} />
           <Route path="/vault/pdf" element={<ZoteroReaderPage />} />
           <Route path="/vault/*" element={<VaultDashboard />} />
-          <Route path="/calendar" element={<CalendarPage />} />
-          <Route path="/reader" element={<ReaderDashboard />} />
-          <Route path="/mail" element={<MailPage />} />
-          <Route path="/scheduler" element={<SchedulerPage />} />
-          <Route path="/composer" element={<ComposerPage />} />
-          <Route path="/social-dashboard" element={<SocialDashboard />} />
-          <Route path="/media" element={<MediaCenter />} />
-          <Route path="/contacts" element={<ContactsPage />} />
-          <Route path="/planning" element={<ProjectPlanningPage />} />
-          <Route path="/notebooks" element={<NotebooksPage />} />
-          <Route path="/notebooks/:notebookId" element={<NotebooksPage />} />
+          <Route path="/calendar" element={<PluginRoute pluginId="calendar"><CalendarPage /></PluginRoute>} />
+          <Route path="/reader" element={<PluginRoute pluginId="feeds-reader"><ReaderDashboard /></PluginRoute>} />
+          <Route path="/mail" element={<PluginRoute pluginId="mail"><MailPage /></PluginRoute>} />
+          <Route path="/scheduler" element={<PluginRoute pluginId="automations"><SchedulerPage /></PluginRoute>} />
+          <Route path="/composer" element={<PluginRoute pluginId="social-publishing"><ComposerPage /></PluginRoute>} />
+          <Route path="/social-dashboard" element={<PluginRoute pluginId="social-publishing"><SocialDashboard /></PluginRoute>} />
+          <Route path="/media" element={<PluginRoute pluginId="social-publishing"><MediaCenter /></PluginRoute>} />
+          <Route path="/contacts" element={<PluginRoute pluginId="contacts"><ContactsPage /></PluginRoute>} />
+          <Route path="/planning" element={<PluginRoute pluginId="project-planning"><ProjectPlanningPage /></PluginRoute>} />
+          <Route path="/notebooks" element={<PluginRoute pluginId="grounded-notebooks"><NotebooksPage /></PluginRoute>} />
+          <Route path="/notebooks/:notebookId" element={<PluginRoute pluginId="grounded-notebooks"><NotebooksPage /></PluginRoute>} />
           {/* Catch-all: a non-existent URL (typo, stale link, route wrongly
               written by code) used to render ONLY the layout with a blank body.
               We redirect to the home page (replace so as not to leave the bad URL in
@@ -205,18 +230,31 @@ function App() {
       <Toaster position="bottom-right" containerStyle={{ zIndex: 'var(--z-toast)' }} />
       <DesktopUpdateNotice />
       <CommandPalette />
-      <PageOutline />
-      {!location.pathname.startsWith('/notebooks') && (
-        <AgentChat storageIdentity={user?.id || 'personal'} contextRefs={moduleContextRefs} />
-      )}
-      <NotebookCreateDialog
-        isOpen={Array.isArray(bulkNotebookResources)}
-        initialResourceIds={bulkNotebookResources || []}
-        onClose={() => setBulkNotebookResources(null)}
-        onCreated={(notebook) => navigate(`/notebooks/${notebook.id}`)}
-      />
-      <MeetingReminderWatcher />
-      <MeetingRecorder />
+      <PageOutline key={`outline-${vaultRevision}`} />
+      <PluginSurface pluginIds="ai-platform">
+        <Suspense fallback={null}>
+          {!location.pathname.startsWith('/notebooks') && (
+            <AgentChat key={`chat-${vaultRevision}`} storageIdentity={user?.id || 'personal'} contextRefs={moduleContextRefs} />
+          )}
+        </Suspense>
+      </PluginSurface>
+      <PluginSurface pluginIds="grounded-notebooks">
+        <Suspense fallback={null}>
+          <NotebookCreateDialog
+            key={`notebook-dialog-${vaultRevision}`}
+            isOpen={Array.isArray(bulkNotebookResources)}
+            initialResourceIds={bulkNotebookResources || []}
+            onClose={() => setBulkNotebookResources(null)}
+            onCreated={(notebook) => navigate(`/notebooks/${notebook.id}`)}
+          />
+        </Suspense>
+      </PluginSurface>
+      <PluginSurface pluginIds={['calendar', 'ai-platform']}>
+        <Suspense fallback={null}>
+          <MeetingReminderWatcher key={`meeting-reminders-${vaultRevision}`} />
+          <MeetingRecorder key={`meeting-recorder-${vaultRevision}`} />
+        </Suspense>
+      </PluginSurface>
     </div>
   );
 }

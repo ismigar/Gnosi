@@ -66,6 +66,9 @@ def list_reference_resources(
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),
     notebook_id: Optional[str] = Query(default=None, max_length=64),
+    resource_type: str = Query(default="", alias="type", max_length=160),
+    author: str = Query(default="", max_length=160),
+    tag: str = Query(default="", max_length=160),
     context: WorkspaceContext = Depends(require_role("viewer")),
 ):
     return notebook_service.list_reference_resources(
@@ -74,6 +77,9 @@ def list_reference_resources(
         page=page,
         page_size=page_size,
         exclude_notebook_id=notebook_id,
+        resource_type=resource_type,
+        author=author,
+        tag=tag,
     )
 
 
@@ -173,6 +179,22 @@ def remove_source(
     return notebook_service.remove_resource(notebook_id, context, resource_id)
 
 
+@router.post("/{notebook_id}/sources/{resource_id}/refresh", status_code=202)
+def refresh_resource(
+    notebook_id: str,
+    resource_id: str,
+    payload: NotebookRefreshRequest,
+    context: WorkspaceContext = Depends(require_role("viewer")),
+):
+    return notebook_service.request_refresh(
+        notebook_id,
+        context,
+        reason=payload.reason or "resource_retry",
+        force=True,
+        resource_ids=[resource_id],
+    )
+
+
 @router.post("/{notebook_id}/refresh", status_code=202)
 def refresh_notebook(
     notebook_id: str,
@@ -186,6 +208,14 @@ def refresh_notebook(
         reason=payload.reason,
         force=payload.force,
     )
+
+
+@router.post("/{notebook_id}/refresh/cancel")
+def cancel_notebook_refresh(
+    notebook_id: str,
+    context: WorkspaceContext = Depends(require_role("viewer")),
+):
+    return notebook_service.cancel_refresh(notebook_id, context)
 
 
 @router.get("/{notebook_id}/search")

@@ -528,12 +528,28 @@ const boundedIntent = value => {
 
 const boundedCapabilityBroker = value => {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    const discoveryDomains = Array.isArray(value.discovery?.domains)
+        ? value.discovery.domains.slice(0, 8).map(item => ({
+            domain: boundedString(item?.domain, 32),
+            status: boundedString(item?.status, 48),
+            candidate_tools: boundedStrings(item?.candidate_tools, 8, 128),
+            recommended_action: boundedString(item?.recommended_action, 64),
+        })).filter(item => item.domain)
+        : [];
     return {
         broker_version: boundedString(value.broker_version, 64),
         operation: boundedString(value.operation, 32),
         candidate_tools: boundedStrings(value.candidate_tools, 24, 128),
         guarded_tools: boundedStrings(value.guarded_tools, 24, 128),
         selection_policy: boundedString(value.selection_policy, 128),
+        discovery: value.discovery && typeof value.discovery === 'object'
+            ? {
+                status: boundedString(value.discovery.status, 48),
+                domains: discoveryDomains,
+                automatic_install: Boolean(value.discovery.automatic_install),
+                automatic_permission_grant: Boolean(value.discovery.automatic_permission_grant),
+            }
+            : null,
     };
 };
 
@@ -551,6 +567,14 @@ export const boundedTurnPlan = value => {
         required_tool: boundedString(value.required_tool, 128),
         allowed_tool_count: boundedCount(value.allowed_tool_count),
         budgets: boundedBudget(value.budgets),
+        deadline: value.deadline && typeof value.deadline === 'object' && !Array.isArray(value.deadline)
+            ? {
+                hard_seconds: Math.min(3600, boundedCount(value.deadline.hard_seconds)),
+                soft_seconds: Math.min(3600, boundedCount(value.deadline.soft_seconds)),
+                synthesis_reserve_seconds: Math.min(600, boundedCount(value.deadline.synthesis_reserve_seconds)),
+                policy: boundedString(value.deadline.policy, 96),
+            }
+            : null,
         interpretation: boundedIntent(value.interpretation),
         capability_broker: boundedCapabilityBroker(value.capability_broker),
         memory: value.memory && typeof value.memory === 'object' && !Array.isArray(value.memory)
@@ -614,6 +638,8 @@ export const boundedCitations = value => {
             title: boundedString(source?.title, 240),
             source_type: boundedString(source?.source_type, 64),
             href: boundedSourceHref(source?.href),
+            source_version: boundedString(source?.source_version, 128),
+            version_status: boundedString(source?.version_status, 32),
         })).filter(source => source.citation_id && source.title)
         : [];
     const knownIds = new Set(sources.map(source => source.citation_id));
@@ -699,6 +725,60 @@ export const boundedExplanation = value => {
         tools_used: boundedStrings(value.tools_used, 16, 128),
         evidence_count: boundedCount(value.evidence_count),
         citation_count: boundedCount(value.citation_count),
+        quality_score: Math.min(100, boundedCount(value.quality_score)),
+    };
+};
+
+export const boundedQuality = value => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    const checks = value.checks && typeof value.checks === 'object' && !Array.isArray(value.checks)
+        ? Object.fromEntries(Object.entries(value.checks).slice(0, 12).map(([key, passed]) => [
+            boundedString(key, 64), Boolean(passed),
+        ]).filter(([key]) => key))
+        : {};
+    return {
+        schema_version: boundedCount(value.schema_version),
+        score: Math.min(100, boundedCount(value.score)),
+        status: boundedString(value.status, 32),
+        checks,
+        failed_checks: boundedStrings(value.failed_checks, 12, 64),
+    };
+};
+
+export const boundedConflicts = value => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    const conflicts = Array.isArray(value.conflicts)
+        ? value.conflicts.slice(0, 12).map(item => ({
+            conflict_id: boundedString(item?.conflict_id, 64),
+            entity_id: boundedString(item?.entity_id, 192),
+            field: boundedString(item?.field, 96),
+            source_names: boundedStrings(item?.source_names, 8, 128),
+            value_count: boundedCount(item?.value_count),
+        })).filter(item => item.conflict_id)
+        : [];
+    return {
+        schema_version: boundedCount(value.schema_version),
+        status: boundedString(value.status, 32),
+        count: conflicts.length,
+        conflicts,
+        values_redacted: Boolean(value.values_redacted),
+    };
+};
+
+export const boundedEvidenceSecurity = value => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    return {
+        schema_version: boundedCount(value.schema_version),
+        status: boundedString(value.status, 32),
+        severity: boundedString(value.severity, 32),
+        categories: Array.isArray(value.categories)
+            ? value.categories.slice(0, 8).map(item => ({
+                category: boundedString(item?.category, 64),
+                count: boundedCount(item?.count),
+            })).filter(item => item.category)
+            : [],
+        scanned_char_bucket: boundedCount(value.scanned_char_bucket),
+        authorization_changed: Boolean(value.authorization_changed),
     };
 };
 
@@ -710,6 +790,9 @@ export const boundedTransparencyMetadata = value => ({
     freshness: boundedFreshness(value?.freshness),
     job: boundedJob(value?.job),
     explanation: boundedExplanation(value?.explanation),
+    quality: boundedQuality(value?.quality),
+    conflicts: boundedConflicts(value?.conflicts),
+    evidenceSecurity: boundedEvidenceSecurity(value?.evidence_security || value?.evidenceSecurity),
 });
 
 export const isRetryableErrorCode = (value) => new Set([

@@ -10,25 +10,25 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Surface | Count |
 | --- | ---: |
-| Backend Python files | 438 |
-| Backend Python test files | 183 |
-| Frontend JS/TS source files | 353 |
-| Frontend unit test files | 71 |
+| Backend Python files | 454 |
+| Backend Python test files | 186 |
+| Frontend JS/TS source files | 365 |
+| Frontend unit test files | 78 |
 | Registered FastAPI routers | 35 |
 | Runtime skill contracts | 23 |
-| Development-memory directives | 192 |
+| Development-memory directives | 193 |
 
 ## Owned application surfaces
 
 | Surface | Files | Purpose boundary |
 | --- | ---: | --- |
-| `backend/` | 449 | FastAPI, services, models, agents, scheduling, and storage adapters |
-| `frontend/src/` | 375 | React application, UI behavior, state, and browser integrations |
+| `backend/` | 466 | FastAPI, services, models, agents, scheduling, and storage adapters |
+| `frontend/src/` | 387 | React application, UI behavior, state, and browser integrations |
 | `pipeline/` | 102 | Reusable application skills and deterministic processing tools |
 | `electron/` | 28 | Desktop lifecycle, backend packaging, IPC, and updates |
 | `integrations/` | 12 | Office and external-system adapters |
 | `web-clipper/` | 11 | Browser extension capture surface |
-| `e2e/` | 26 | Host-level Playwright acceptance tests |
+| `e2e/` | 27 | Host-level Playwright acceptance tests |
 | `sh/` | 22 | Native and self-host operational scripts |
 
 ## Exclusion boundary
