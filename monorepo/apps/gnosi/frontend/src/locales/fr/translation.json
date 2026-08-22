@@ -2544,7 +2544,18 @@
     "logout_tooltip_label": "Se déconnecter ({{user}})",
     "vault_menu_active": "VAULT ACTIF",
     "vault_menu_new": "Nouveau vault",
-    "nav_literature": "Recherche bibliographique"
+    "nav_literature": "Recherche bibliographique",
+    "open_app_launcher": "Plus d’applications",
+    "app_launcher": "Applications",
+    "app_launcher_hint": "Recherchez, épinglez et réorganisez vos applications.",
+    "close_app_launcher": "Fermer les applications",
+    "search_applications": "Rechercher des applications",
+    "pinned_applications": "Applications épinglées",
+    "pin_application": "Épingler {{application}}",
+    "unpin_application": "Désépingler {{application}}",
+    "move_application_up": "Monter {{application}}",
+    "move_application_down": "Descendre {{application}}",
+    "no_matching_applications": "Aucune application correspondante."
   },
   "shell": {
     "translate_record": "Traduire l'enregistrement",

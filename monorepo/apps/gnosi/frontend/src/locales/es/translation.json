@@ -481,7 +481,18 @@
     "logout_tooltip_label": "Cerrar sesión ({{user}})",
     "vault_menu_active": "VAULT ACTIVO",
     "vault_menu_new": "Nuevo vault",
-    "nav_literature": "Búsqueda bibliográfica"
+    "nav_literature": "Búsqueda bibliográfica",
+    "open_app_launcher": "Más aplicaciones",
+    "app_launcher": "Aplicaciones",
+    "app_launcher_hint": "Busca, fija y ordena tus aplicaciones.",
+    "close_app_launcher": "Cerrar aplicaciones",
+    "search_applications": "Buscar aplicaciones",
+    "pinned_applications": "Aplicaciones fijadas",
+    "pin_application": "Fijar {{application}}",
+    "unpin_application": "Desfijar {{application}}",
+    "move_application_up": "Subir {{application}}",
+    "move_application_down": "Bajar {{application}}",
+    "no_matching_applications": "No hay aplicaciones coincidentes."
   },
   "shell": {
     "go_back": "Atrás",
