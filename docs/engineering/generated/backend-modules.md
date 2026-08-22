@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | `agent` | 46 | 18240 |
 | `api` | 38 | 38504 |
-| `application root` | 6 | 653 |
+| `application root` | 6 | 655 |
 | `config` | 8 | 861 |
 | `data` | 2 | 295 |
 | `mcp` | 3 | 394 |
@@ -20,12 +20,12 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `scheduler` | 2 | 1019 |
 | `scripts` | 3 | 130 |
 | `security` | 5 | 785 |
-| `services` | 144 | 48628 |
+| `services` | 144 | 48641 |
 | `sh` | 1 | 69 |
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **275 modules** and **111240 source lines**.
+Total: **275 modules** and **111255 source lines**.
 
 ## agent
 
@@ -130,7 +130,7 @@ Total: **275 modules** and **111240 source lines**.
 | [`backend/migrate_memberships_final.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/migrate_memberships_final.py) | 30 | 0 | 0 | 0 | 0 | Syntax could not be parsed |
 | [`backend/patch_sources.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/patch_sources.py) | 36 | 0 | 1 | 0 | 0 | No module docstring |
 | [`backend/scratch_sync.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/scratch_sync.py) | 30 | 0 | 1 | 0 | 0 | No module docstring |
-| [`backend/server.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py) | 527 | 0 | 5 | 4 | 3 | No module docstring |
+| [`backend/server.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/server.py) | 529 | 0 | 5 | 4 | 3 | No module docstring |
 
 ## config
 
@@ -232,7 +232,7 @@ Total: **275 modules** and **111240 source lines**.
 | [`backend/services/audio_summarizer.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/audio_summarizer.py) | 456 | 1 | 13 | 0 | 14 | No module docstring |
 | [`backend/services/auth_public_surface.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/auth_public_surface.py) | 164 | 1 | 4 | 1 | 4 | The set of endpoints that must stay reachable without a session. |
 | [`backend/services/auth_service.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/auth_service.py) | 636 | 0 | 25 | 0 | 24 | Authentication service — JWT cookies + bcrypt password hashing. |
-| [`backend/services/builtin_plugins.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/builtin_plugins.py) | 240 | 0 | 7 | 0 | 6 | Registry and state rules for Gnosi's optional built-in capabilities. |
+| [`backend/services/builtin_plugins.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/builtin_plugins.py) | 253 | 0 | 7 | 0 | 6 | Registry and state rules for Gnosi's optional built-in capabilities. |
 | [`backend/services/capability_audit.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/capability_audit.py) | 274 | 0 | 8 | 0 | 3 | Bounded metadata-only audit log for governed capability execution. |
 | [`backend/services/capability_automations.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/capability_automations.py) | 474 | 1 | 16 | 2 | 4 | Durable, budgeted automation definitions for governed agent skills. |
 | [`backend/services/capability_jobs.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/services/capability_jobs.py) | 236 | 1 | 16 | 0 | 5 | Provider-neutral facade for durable Gnosi capability jobs. |

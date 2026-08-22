@@ -25,9 +25,10 @@ def test_legacy_state_migrates_to_core_only_without_losing_configuration():
 
     assert changed is True
     assert state["schema_version"] == builtin_plugins.PLUGIN_STATE_VERSION
-    assert state["enabled_builtin"] == []
+    assert state["enabled_builtin"] == ["resources"]
     assert state["enabled_third_party"] == []
-    assert set(state["disabled"]) >= builtin_plugins.BUILTIN_PLUGIN_IDS
+    assert set(state["disabled"]) >= builtin_plugins.BUILTIN_PLUGIN_IDS - {"resources"}
+    assert "resources" not in state["disabled"]
     assert state["settings"] == raw["settings"]
     assert state["granted"] == raw["granted"]
     assert state["profiles"] == raw["profiles"]
@@ -41,6 +42,18 @@ def test_normalized_state_is_idempotent_and_future_builtins_stay_off():
     assert second == first
     assert changed is False
     assert not builtin_plugins.is_enabled(second, "mail")
+    assert builtin_plugins.is_enabled(second, "resources")
+
+
+def test_default_plugin_can_be_explicitly_disabled():
+    state, _ = builtin_plugins.normalize_state({})
+
+    state = builtin_plugins.set_enabled(state, "resources", False)
+    normalized, changed = builtin_plugins.normalize_state(state)
+
+    assert changed is False
+    assert not builtin_plugins.is_enabled(normalized, "resources")
+    assert "resources" in normalized["disabled"]
 
 
 def test_explicit_enablement_keeps_legacy_disabled_field_in_sync():
@@ -296,7 +309,7 @@ def test_http_lifecycle_migrates_and_keeps_vault_states_isolated(
         assert migrated.status_code == 200
         migrated_state = migrated.json()
         assert migrated_state["schema_version"] == 2
-        assert migrated_state["enabled_builtin"] == []
+        assert migrated_state["enabled_builtin"] == ["resources"]
         assert migrated_state["settings"]["mail"]["account"] == "preserved@example.test"
         assert migrated_state["profiles"]["community-plugin"]["profile"] == "preserved"
 
@@ -319,4 +332,4 @@ def test_http_lifecycle_migrates_and_keeps_vault_states_isolated(
         isolated = client.get(
             "/api/vault/plugins", headers={"X-Vault-Id": "vault-b"}
         ).json()
-        assert isolated["enabled_builtin"] == ["calendar"]
+        assert isolated["enabled_builtin"] == ["calendar", "resources"]

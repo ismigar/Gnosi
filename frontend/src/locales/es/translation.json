@@ -488,6 +488,7 @@
     "close_app_launcher": "Cerrar aplicaciones",
     "search_applications": "Buscar aplicaciones",
     "pinned_applications": "Aplicaciones fijadas",
+    "quick_access": "Acceso rápido",
     "pin_application": "Fijar {{application}}",
     "unpin_application": "Desfijar {{application}}",
     "move_application_up": "Subir {{application}}",
@@ -1677,6 +1678,7 @@
       "plugins": "Plugins",
       "language": "Idioma y Región",
       "appearance": "Apariencia",
+      "menu": "Menú",
       "calendar": "Calendarios",
       "graph": "Configuración del Grafo",
       "reader": "Lector",
@@ -1689,6 +1691,12 @@
       "translate": "Traducción",
       "profile": "Perfil",
       "account": "Cuenta"
+    },
+    "menu": {
+      "title": "Menú de aplicaciones",
+      "description": "Elige qué aplicaciones quedan fijadas y ordénalas. Las aplicaciones que desfijes seguirán disponibles desde el acceso rápido.",
+      "pinned": "Fijada",
+      "quick_access_only": "Acceso rápido"
     },
     "navigation": {
       "basic": "Básico",

@@ -6,6 +6,7 @@ from collections.abc import Iterable, Mapping
 from typing import Any
 
 PLUGIN_STATE_VERSION = 2
+DEFAULT_ENABLED_BUILTIN_IDS = frozenset({"resources"})
 
 
 BUILTIN_PLUGINS: tuple[dict[str, Any], ...] = (
@@ -36,6 +37,14 @@ BUILTIN_PLUGINS: tuple[dict[str, Any], ...] = (
         "settingsTab": "project-planning",
         "requires": [],
         "routes": ["/planning"],
+    },
+    {
+        "id": "resources",
+        "icon": "BookOpen",
+        "group": "knowledge",
+        "settingsTab": "resources",
+        "requires": [],
+        "routes": ["/literature"],
     },
     {
         "id": "feeds-reader",
@@ -148,6 +157,10 @@ def normalize_state(raw: Any) -> tuple[dict[str, Any], bool]:
     legacy_disabled = {
         str(value) for value in (data.get("disabled") or []) if str(value).strip()
     }
+    enabled_builtin = sorted(
+        set(enabled_builtin)
+        | (DEFAULT_ENABLED_BUILTIN_IDS - legacy_disabled)
+    )
     disabled = (
         legacy_disabled
         | (BUILTIN_PLUGIN_IDS - set(enabled_builtin))
@@ -159,7 +172,7 @@ def normalize_state(raw: Any) -> tuple[dict[str, Any], bool]:
     normalized: dict[str, Any] = {
         **data,
         "schema_version": PLUGIN_STATE_VERSION,
-        "enabled_builtin": sorted(enabled_builtin),
+        "enabled_builtin": enabled_builtin,
         "enabled_third_party": sorted(enabled_third_party),
         "disabled": sorted(disabled),
         "settings": dict(settings),

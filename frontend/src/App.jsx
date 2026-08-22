@@ -27,6 +27,7 @@ const SchedulerPage = lazy(() => import('./pages/SchedulerPage'));
 const ComposerPage = lazy(() => import('./pages/ComposerPage'));
 const SharedPage = lazy(() => import('./pages/SharedPage'));
 const ProjectPlanningPage = lazy(() => import('./pages/ProjectPlanningPage'));
+const LiteraturePage = lazy(() => import('./pages/LiteraturePage'));
 const NotebooksPage = lazy(() => import('./pages/NotebooksPage'));
 const AgentChat = lazy(() => import('./components/AgentChat'));
 const MeetingReminderWatcher = lazy(() => import('./components/MeetingReminderWatcher'));
@@ -58,6 +59,7 @@ const ROUTE_ANNOUNCEMENT_LABELS = [
   { match: (path) => path === '/social-dashboard', key: 'sidebar.nav_social', fallback: 'Social' },
   { match: (path) => path === '/media', key: 'sidebar.nav_media', fallback: 'Photos' },
   { match: (path) => path === '/planning', key: 'sidebar.nav_planning', fallback: 'Planning' },
+  { match: (path) => path === '/literature', key: 'sidebar.nav_literature', fallback: 'Literature Search' },
   { match: (path) => path === '/dashboard', key: 'sidebar.nav_dashboard', fallback: 'Dashboard' },
   { match: (path) => path === '/scheduler', key: 'scheduler.title', fallback: 'Scheduler' },
   { match: (path) => path === '/composer', key: 'social.composer', fallback: 'Composer' },
@@ -268,6 +270,7 @@ function App() {
           <Route path="/media" element={<PluginRoute pluginId="social-publishing"><MediaCenter /></PluginRoute>} />
           <Route path="/contacts" element={<PluginRoute pluginId="contacts"><ContactsPage /></PluginRoute>} />
           <Route path="/planning" element={<PluginRoute pluginId="project-planning"><ProjectPlanningPage /></PluginRoute>} />
+          <Route path="/literature" element={<PluginRoute pluginId="resources"><LiteraturePage /></PluginRoute>} />
           <Route path="/notebooks" element={<PluginRoute pluginId="grounded-notebooks"><NotebooksPage /></PluginRoute>} />
           <Route path="/notebooks/:notebookId" element={<PluginRoute pluginId="grounded-notebooks"><NotebooksPage /></PluginRoute>} />
           {/* Catch-all: a non-existent URL (typo, stale link, route wrongly

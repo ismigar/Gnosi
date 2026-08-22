@@ -1,5 +1,31 @@
 /* GlobalSettingsModal.css */
 
+.app-menu-settings { display: flex; flex-direction: column; gap: 20px; }
+.app-menu-settings__header { display: flex; align-items: flex-start; gap: 14px; }
+.app-menu-settings__header h2 { margin: 0; color: var(--text-primary); font-size: 1.2rem; }
+.app-menu-settings__header p { max-width: 42rem; margin: 5px 0 0; color: var(--text-secondary); font-size: 0.86rem; line-height: 1.55; }
+.app-menu-settings__search { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 14px; border: 1px solid var(--settings-border); border-radius: 12px; background: var(--bg-primary); color: var(--text-secondary); }
+.app-menu-settings__search:focus-within { border-color: var(--gnosi-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--gnosi-primary) 16%, transparent); }
+.app-menu-settings__search input { width: 100%; border: 0; outline: 0; background: transparent; color: var(--text-primary); font: inherit; }
+.app-menu-settings__list { overflow: hidden; border: 1px solid var(--settings-border); border-radius: 14px; background: var(--bg-primary); }
+.app-menu-settings__row { min-height: 58px; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 14px; padding: 8px 12px; border-bottom: 1px solid var(--settings-border); }
+.app-menu-settings__row:last-child { border-bottom: 0; }
+.app-menu-settings__row:hover { background: var(--sidebar-item-hover); }
+.app-menu-settings__identity { min-width: 0; display: flex; align-items: center; gap: 12px; color: var(--text-primary); font-weight: 650; }
+.app-menu-settings__icon { width: 34px; height: 34px; flex: 0 0 34px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--sidebar-item-active); color: var(--sidebar-item-active-text); }
+.app-menu-settings__status { padding: 4px 9px; border-radius: 999px; background: var(--settings-sidebar-bg); color: var(--text-secondary); font-size: 0.72rem; font-weight: 700; }
+.app-menu-settings__actions { display: flex; align-items: center; gap: 3px; }
+.app-menu-settings__actions button { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 9px; background: transparent; color: var(--text-secondary); cursor: pointer; }
+.app-menu-settings__actions button:hover:not(:disabled) { background: var(--sidebar-item-active); color: var(--text-primary); }
+.app-menu-settings__actions button[aria-pressed="true"] { color: var(--gnosi-primary); }
+.app-menu-settings__actions button:disabled { opacity: 0.3; cursor: default; }
+.app-menu-settings__empty { margin: 0; padding: 28px; color: var(--text-secondary); text-align: center; }
+
+@media (max-width: 700px) {
+    .app-menu-settings__row { grid-template-columns: minmax(0, 1fr) auto; }
+    .app-menu-settings__status { display: none; }
+}
+
 .settings-overlay {
     position: fixed;
     top: 0;
