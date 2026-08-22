@@ -123,7 +123,17 @@ treats page content as untrusted data rather than model instructions.
 
 ## Retrieval, analysis, and citations
 
-Each chat turn is pinned to one positive, completed revision on the server. The
+The conversation toolbar lets a user select exact attachment or URL sources
+from the current notebook and attach other accessible notebooks. Selecting
+another notebook contributes all of its available sources. The current notebook
+continues to own the shared or private checkpoint namespace; attached notebooks
+are read-only evidence and never merge their conversation histories.
+
+Each chat turn pins every selected notebook to a positive, completed revision
+on the server. Client source IDs are validated against that immutable revision,
+current Resource membership, source status, Vault, workspace, and notebook ACL.
+The same source boundary is applied to inspection, hybrid search, exact evidence
+reads, and durable analysis. The
 notebook workflow exposes only these contextual operations:
 
 - inspect bounded source metadata;
@@ -167,6 +177,7 @@ analysis rows. Original Vault data is outside this deletion boundary.
 | `GET/PATCH/DELETE /api/notebooks/{id}` | Detail, settings, and derived-data deletion |
 | `GET /api/notebooks/resources` | Alphabetical paginated selector with type, author, and tag facets from the configured References table |
 | `GET/POST /api/notebooks/{id}/sources` | Inspect or add Resource membership |
+| `GET /api/notebooks/{id}/chat-sources` | Authorized source and notebook choices for the conversation context |
 | `DELETE /api/notebooks/{id}/sources/{resource_id}` | Exclude one Resource immediately |
 | `POST /api/notebooks/{id}/sources/{resource_id}/refresh` | Retry only one Resource while reusing non-target evidence |
 | `POST /api/notebooks/{id}/refresh` | Coalesced explicit notebook refresh |
@@ -177,8 +188,9 @@ analysis rows. Original Vault data is outside this deletion boundary.
 
 Notebook-backed chat ignores client attempts to choose the revision,
 checkpoint principal, or session namespace. The server derives all three after
-authorization and rejects mixed notebook contexts, attachments, mentions, and
-skill overrides.
+authorization. It accepts up to sixteen authorized notebook contexts, keeps the
+page notebook as the conversation owner, and rejects non-notebook context,
+attachments, mentions, and skill overrides.
 
 ## User interface behavior
 

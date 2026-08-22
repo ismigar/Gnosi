@@ -210,6 +210,70 @@ def test_notebook_ingests_pdf_and_web_sources_with_navigable_citations(
     assert "revision=1" in pdf_hit["citation"]["href"]
     assert f"chunk={pdf_hit['chunk_id']}" in pdf_hit["citation"]["href"]
     assert web_hit["citation"]["href"] == "https://sources.example/article"
+    inventory = notebook_service.inspect_notebook(notebook["id"])
+    source_ids = {item["kind"]: item["source_id"] for item in inventory["sources"]}
+    filtered = notebook_service.search_notebook(
+        notebook["id"],
+        "grounded evidence",
+        source_ids=[source_ids["url"]],
+    )
+    assert filtered["results"]
+    assert {item["source_id"] for item in filtered["results"]} == {source_ids["url"]}
+    with pytest.raises(KeyError):
+        notebook_service.read_notebook_evidence(
+            notebook["id"],
+            pdf_hit["chunk_id"],
+            source_ids=[source_ids["url"]],
+        )
+    analysis = notebook_service.start_notebook_analysis(
+        notebook["id"],
+        "Summarize the selected web source",
+        revision=1,
+        source_ids=[source_ids["url"]],
+    )
+    analysis_job = durable_job_queue.get(analysis["job_id"])
+    assert analysis["source_selection"] == "selected"
+    assert analysis_job["payload"]["source_ids"] == [source_ids["url"]]
+
+
+def test_chat_context_can_pin_selected_sources_and_another_notebook(notebook_env):
+    context = notebook_env["context"]
+    primary = notebook_service.create_notebook(
+        context,
+        title="Primary",
+        visibility="private",
+        conversation_mode="private_member",
+        resource_ids=["resource-1"],
+    )
+    _run_queued_ingest(notebook_env["vault"])
+    secondary = notebook_service.create_notebook(
+        context,
+        title="Secondary",
+        visibility="private",
+        conversation_mode="private_member",
+        resource_ids=["resource-1"],
+    )
+    _run_queued_ingest(notebook_env["vault"])
+    result = notebook_service.resolve_chat_contexts(
+        primary["id"],
+        [
+            {"ref": primary["id"], "scope": {"selection": "sources", "source_ids": []}},
+            {"ref": secondary["id"], "scope": {"selection": "all"}},
+        ],
+        context,
+        schedule_refresh=False,
+    )
+
+    assert result["notebook_id"] == primary["id"]
+    assert [item["ref"] for item in result["contexts"]] == [primary["id"], secondary["id"]]
+    assert result["contexts"][0]["scope"]["source_ids"] == []
+    assert result["contexts"][1]["scope"]["selection"] == "all"
+    assert all(item["scope"]["revision"] == 1 for item in result["contexts"])
+    options = notebook_service.list_chat_source_options(primary["id"], context)
+    assert len(options["sources"]) == 1
+    assert [(item["id"], item["source_count"]) for item in options["notebooks"]] == [
+        (secondary["id"], 1),
+    ]
 
 
 def test_attachment_change_triggers_automatic_incremental_refresh(notebook_env):

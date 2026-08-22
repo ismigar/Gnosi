@@ -131,8 +131,17 @@ fiables, jamais comme des instructions pour le modèle.
 
 ## Récupération, analyse et citations
 
-Chaque tour de conversation est épinglé côté serveur à une révision positive et
-complète. Le workflow du carnet n'expose que les opérations contextuelles suivantes :
+La barre de contexte permet de choisir des pièces jointes ou URL précises dans
+le carnet actuel et d'ajouter d'autres carnets accessibles. Un carnet ajouté
+apporte toutes ses sources disponibles, tandis que le carnet actuel reste
+propriétaire de l'historique partagé ou privé.
+
+Chaque tour épingle côté serveur une révision positive et complète de chaque
+carnet sélectionné. Les identifiants de source sont validés par rapport à la
+révision immuable, l'appartenance actuelle, l'état, le Vault, l'espace de travail
+et l'ACL. Cette limite s'applique à l'inspection, la recherche, la lecture des
+preuves et l'analyse durable. Le workflow du carnet n'expose que les opérations
+contextuelles suivantes :
 
 - inspecter des métadonnées de source bornées;
 - rechercher des fragments avec FTS5 et le vecteur local déterministe existant;
@@ -177,6 +186,7 @@ analyses. Les données originales du Vault restent hors de cette limite.
 | `GET/PATCH/DELETE /api/notebooks/{id}` | Détail, paramètres et suppression des données dérivées |
 | `GET /api/notebooks/resources` | Sélecteur paginé alphabétique avec facettes de type, auteur et étiquettes de la table Références configurée |
 | `GET/POST /api/notebooks/{id}/sources` | Inspecter ou ajouter des Ressources |
+| `GET /api/notebooks/{id}/chat-sources` | Choix autorisés de sources et de carnets pour le contexte de conversation |
 | `DELETE /api/notebooks/{id}/sources/{resource_id}` | Exclure immédiatement une ressource |
 | `POST /api/notebooks/{id}/sources/{resource_id}/refresh` | Réessayer uniquement une Ressource |
 | `POST /api/notebooks/{id}/refresh` | Rafraîchissement explicite fusionné du carnet |
@@ -187,8 +197,10 @@ analyses. Les données originales du Vault restent hors de cette limite.
 
 La conversation fondée sur un carnet ignore toute tentative du client de choisir
 la révision, le principal de checkpoint ou l'espace de noms de session. Le
-serveur dérive les trois après autorisation et rejette les contextes de carnets
-mixtes, les pièces jointes, les mentions et les surcharges de compétences.
+serveur dérive les trois après autorisation. Il accepte jusqu'à seize carnets
+autorisés, conserve le carnet de la page comme propriétaire de la conversation
+et rejette les contextes autres que des carnets, les pièces jointes, les
+mentions et les surcharges de compétences.
 
 ## Comportement de l'interface utilisateur
 

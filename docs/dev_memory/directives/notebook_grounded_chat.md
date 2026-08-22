@@ -40,6 +40,8 @@
   reads, and durable whole-notebook analyses.
 - A searchable `/notebooks` workspace with responsive source and conversation
   panels.
+- A per-turn context selector that can restrict the current notebook to exact
+  source IDs and attach other authorized notebooks as complete source sets.
 
 ## 3. Logical Flow
 
@@ -64,7 +66,8 @@
    revision and re-extracts only the selected target.
 8. Resolve notebook authorization before building a model workflow. Derive the
    active revision and shared or per-member conversation principal on the
-   server.
+   server. Pin every selected notebook independently and validate exact source
+   IDs against its revision and current membership.
 9. Expose only notebook read tools to the model. Source-dependent turns must
    perform a notebook retrieval before answering.
 10. Remove resource membership immediately from future retrieval. Delete only
@@ -143,6 +146,12 @@ evidence.
   resolve attachment links through the authorized pinned revision. Upgrade
   legacy stored links when reading them so existing notebooks do not require a
   forced reindex.
+- Do not treat a source checkbox as presentation-only state. Carry the exact
+  source IDs into inspection, search, evidence reads, and durable analysis, and
+  reject IDs outside the authorized pinned revision.
+- Do not derive the conversation namespace from an attached secondary
+  notebook. The notebook page that owns the conversation remains the primary
+  checkpoint namespace while secondary notebooks contribute read-only evidence.
 
 ## 6. Error Protocol and Learning
 
@@ -166,6 +175,8 @@ evidence.
 | 2026-08-21 | Completed evidence revisions could grow without bound | Revision history had atomic activation but no reference-aware cleanup policy | Mark only new revisions retention-eligible, pin conversation revisions, protect analyses and the active/recent set, and prune evidence plus FTS atomically. |
 | 2026-08-21 | An indexing job exposed progress but could not be stopped or diagnosed precisely | Revision state tracked counts only and the queue had no cooperative cancellation state | Persist the current Resource, expose last-checked/error diagnostics, and cancel through a durable terminal state checked around every extraction transaction. |
 | 2026-08-22 | Notebook chat evidence was reduced to an unlinked generic tool result | Notebook tools wrap JSON as untrusted data, the response verifier did not recover that governed payload, and the client sanitizer rejected `gnosi-cite` | Parse only known notebook evidence envelopes, map claims to exact chunk IDs, preserve validated notebook citation links, and resolve them through the authorized pinned-revision evidence endpoint. |
+| 2026-08-22 | A notebook turn could only search every source in one notebook | The context contract discarded source selection and rejected additional notebook refs | Preserve a bounded client selection until server authorization, pin each attached notebook, and close every read tool over its validated source subset. |
+| 2026-08-22 | The live selector initialized with zero sources under React strict updates | A mutable initialization ref was changed inside a state updater that React may evaluate more than once | Keep state updaters pure and change one-time initialization guards before invoking the updater. |
 
 When a failure reveals a new constraint, fix the implementation first, add the
 general rule to this section, and rerun the smallest reproducible test plus the

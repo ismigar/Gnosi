@@ -115,6 +115,20 @@ test('creates, ingests and refreshes a grounded PDF and web notebook', async ({ 
       await route.fulfill({ json: { messages: [], session_id: 'notebook-e2e-private' } });
       return;
     }
+    if (url.pathname === '/api/notebooks/notebook-e2e/chat-sources') {
+      await route.fulfill({
+        json: {
+          notebook_id: 'notebook-e2e',
+          active_revision: sourceVersion,
+          sources: [
+            { source_id: 'pdf-1', resource_id: 'resource-pdf', kind: 'pdf', label: `evidence-v${sourceVersion}.pdf`, status: 'available' },
+            { source_id: 'web-1', resource_id: 'resource-web', kind: 'url', label: 'https://sources.example/article', status: 'stale' },
+          ],
+          notebooks: [{ id: 'notebook-related', title: 'Related notebook', visibility: 'workspace', active_revision: 3, source_count: 4 }],
+        },
+      });
+      return;
+    }
     if (url.pathname === '/api/notebooks/notebook-e2e/refresh/cancel' && method === 'POST') {
       cancelRequests += 1;
       detailReads = Math.max(detailReads, 1);
@@ -257,12 +271,27 @@ test('creates, ingests and refreshes a grounded PDF and web notebook', async ({ 
   await expect.poll(() => retriedResourceIds).toEqual(['resource-web']);
   const textarea = page.getByPlaceholder(chatPlaceholderPattern);
   await expect(textarea).toBeVisible({ timeout: 10_000 });
+  const chooseSources = page.getByRole('button', { name: /Choose sources|Tria les fonts|Elegir fuentes|Choisir les sources/i });
+  await chooseSources.click();
+  await expect(page.getByRole('dialog', { name: /conversation sources|fonts de la conversa|fuentes de la conversación|sources de la conversation/i })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: /conversation sources|fonts de la conversa|fuentes de la conversación|sources de la conversation/i })).toHaveCount(0);
+  await chooseSources.click();
+  const contextDialog = page.getByRole('dialog', { name: /conversation sources|fonts de la conversa|fuentes de la conversación|sources de la conversation/i });
+  await contextDialog.getByLabel(`evidence-v${sourceVersion}.pdf`).uncheck();
+  await contextDialog.getByLabel('Related notebook').check();
+  await contextDialog.getByRole('button', { name: /Apply|Aplica|Aplicar|Appliquer/i }).click();
+  await expect(page.getByText(/5 sources · 2 notebooks|5 fonts · 2 quaderns|5 fuentes · 2 cuadernos|5 sources · 2 carnets/i)).toBeVisible();
   await textarea.fill('What do both sources support?');
   await textarea.press('Enter');
 
   await expect(page.getByText('The notebook evidence supports this grounded answer.')).toBeVisible();
   expect(chatRequest).toMatchObject({
-    context_refs: [{ type: 'notebook', ref: 'notebook-e2e' }],
+    notebook_id: 'notebook-e2e',
+    context_refs: [
+      { type: 'notebook', ref: 'notebook-e2e', scope: { selection: 'sources', source_ids: ['web-1'] } },
+      { type: 'notebook', ref: 'notebook-related', scope: { selection: 'all', source_ids: [] } },
+    ],
   });
   await expect(page.getByRole('link', { name: 'Web evidence' })).toBeVisible();
   const sourcePopup = page.waitForEvent('popup');

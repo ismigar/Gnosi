@@ -159,6 +159,14 @@ def list_sources(
     )
 
 
+@router.get("/{notebook_id}/chat-sources")
+def list_chat_sources(
+    notebook_id: str,
+    context: WorkspaceContext = Depends(require_role("viewer")),
+):
+    return notebook_service.list_chat_source_options(notebook_id, context)
+
+
 @router.post("/{notebook_id}/sources")
 def add_sources(
     notebook_id: str,

@@ -164,7 +164,17 @@ def normalize_refs(raw: Any) -> List[Dict[str, Any]]:
                 continue
             if revision <= 0:
                 continue
-            normalized["scope"] = {"revision": revision}
+            selection = str(scope.get("selection") or "all").strip().lower()
+            source_ids = list(dict.fromkeys(
+                str(value).strip()[:128]
+                for value in (scope.get("source_ids") or [])
+                if str(value or "").strip()
+            ))[:1_000]
+            normalized["scope"] = {
+                "revision": revision,
+                "selection": "sources" if selection == "sources" else "all",
+                "source_ids": source_ids if selection == "sources" else [],
+            }
         out.append(normalized)
     return out
 
@@ -230,13 +240,19 @@ def describe_context_refs(refs: List[Dict[str, Any]]) -> str:
             )
         elif r["type"] == "notebook":
             line += f" — pinned revision: {(r.get('scope') or {}).get('revision')}"
+            if (r.get("scope") or {}).get("selection") == "sources":
+                line += (
+                    " — selected sources: "
+                    f"{len((r.get('scope') or {}).get('source_ids') or [])}"
+                )
         lines.append(line)
     lines.append(
         "\nYou do NOT have these sources' content in the conversation, only the inventory. "
         "Use list_context_sources, read_context_source, and search_context to read them. "
         "Use inventory_context for exact counts or record lists across attached Vault data. "
         "Use search_context_source when the question targets one attached source. "
-        "For a grounded notebook, MUST use search_notebook_context before answering any "
+        "For grounded notebooks, MUST use search_notebook_context for every relevant attached "
+        "notebook before answering any "
         "source-dependent question and use read_notebook_context_evidence for exact support. "
         "Cite each supported claim with the exact chunk_id returned by notebook search; "
         "the server turns that identifier into a navigable document citation. "
@@ -960,7 +976,13 @@ def build_context_tools(raw_refs: Any) -> List[Any]:
 
         ref = _notebook_ref(source_id)
         payload = inspect_notebook(
-            ref["ref"], revision=int(ref["scope"]["revision"])
+            ref["ref"],
+            revision=int(ref["scope"]["revision"]),
+            source_ids=(
+                ref["scope"].get("source_ids")
+                if ref["scope"].get("selection") == "sources"
+                else None
+            ),
         )
         return json.dumps(payload, ensure_ascii=False, default=str)
 
@@ -982,6 +1004,11 @@ def build_context_tools(raw_refs: Any) -> List[Any]:
             ref["ref"],
             query,
             revision=int(ref["scope"]["revision"]),
+            source_ids=(
+                ref["scope"].get("source_ids")
+                if ref["scope"].get("selection") == "sources"
+                else None
+            ),
             limit=max(1, min(int(limit), 50)),
         )
         return wrap_untrusted(
@@ -1001,6 +1028,11 @@ def build_context_tools(raw_refs: Any) -> List[Any]:
             ref["ref"],
             chunk_id,
             revision=int(ref["scope"]["revision"]),
+            source_ids=(
+                ref["scope"].get("source_ids")
+                if ref["scope"].get("selection") == "sources"
+                else None
+            ),
         )
         return wrap_untrusted(
             f"Grounded notebook {ref['label']} exact evidence",
@@ -1021,7 +1053,14 @@ def build_context_tools(raw_refs: Any) -> List[Any]:
 
         ref = _notebook_ref(source_id)
         payload = start_notebook_analysis(
-            ref["ref"], request, revision=int(ref["scope"]["revision"])
+            ref["ref"],
+            request,
+            revision=int(ref["scope"]["revision"]),
+            source_ids=(
+                ref["scope"].get("source_ids")
+                if ref["scope"].get("selection") == "sources"
+                else None
+            ),
         )
         return json.dumps(payload, ensure_ascii=False, default=str)
 

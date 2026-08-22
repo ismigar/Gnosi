@@ -122,7 +122,15 @@ tracta el contingut com a dades no fiables, mai com a instruccions per al model.
 
 ## Recuperació, anàlisi i citacions
 
-Cada torn queda fixat al servidor a una revisió positiva i completa. El
+La barra de context permet triar fonts concretes d'adjunts o URL del quadern
+actual i afegir altres quaderns accessibles. Un quadern afegit aporta totes les
+seves fonts disponibles, però el quadern actual continua sent el propietari de
+l'historial compartit o privat.
+
+Cada torn fixa al servidor una revisió positiva i completa de cada quadern
+seleccionat. Els identificadors de font es validen contra la revisió immutable,
+la pertinença actual, l'estat, el Vault, el workspace i l'ACL. Aquest límit
+s'aplica a la inspecció, la cerca, la lectura d'evidència i l'anàlisi durable. El
 workflow només permet inspeccionar fonts, cercar fragments amb FTS5 i el vector
 local determinista, llegir evidència exacta i executar una anàlisi jeràrquica
 durable sobre la revisió fixada.
@@ -161,6 +169,7 @@ fora d'aquest límit.
 | `GET/PATCH/DELETE /api/notebooks/{id}` | Detall, configuració i eliminació de dades derivades |
 | `GET /api/notebooks/resources` | Selector paginat alfabètic amb facetes de tipus, autor i etiquetes de la taula Referències |
 | `GET/POST /api/notebooks/{id}/sources` | Inspeccionar o afegir Recursos |
+| `GET /api/notebooks/{id}/chat-sources` | Opcions autoritzades de fonts i quaderns per al context de conversa |
 | `DELETE /api/notebooks/{id}/sources/{resource_id}` | Excloure immediatament un Recurs |
 | `POST /api/notebooks/{id}/sources/{resource_id}/refresh` | Reintentar només un Recurs |
 | `POST /api/notebooks/{id}/refresh` | Refresc explícit fusionat del quadern |
@@ -169,9 +178,10 @@ fora d'aquest límit.
 | `GET /api/notebooks/{id}/conversation` | Conversa canònica del mode actiu |
 | `POST /api/chat` | Conversa en streaming amb context de quadern autoritzat |
 
-El servidor deriva la revisió, el principal de checkpoint i l'espai de noms
-després de l'autorització. Rebutja contextos mixtos, adjunts, mencions i
-substitucions d'habilitats.
+El servidor deriva les revisions, el principal de checkpoint i l'espai de noms
+després de l'autorització. Accepta fins a setze quaderns autoritzats, manté el
+quadern de la pàgina com a propietari de la conversa i rebutja contextos que no
+siguin de quadern, adjunts, mencions i substitucions d'habilitats.
 
 ## Comportament de la interfície d'usuari
 

@@ -124,7 +124,16 @@ para el modelo.
 
 ## Recuperación, análisis y citas
 
-Cada turno queda fijado en el servidor a una revisión positiva y completa. El
+La barra de contexto permite elegir fuentes concretas de adjuntos o URL del
+cuaderno actual y añadir otros cuadernos accesibles. Un cuaderno añadido aporta
+todas sus fuentes disponibles, pero el cuaderno actual sigue siendo el
+propietario del historial compartido o privado.
+
+Cada turno fija en el servidor una revisión positiva y completa de cada
+cuaderno seleccionado. Los identificadores de fuente se validan contra la
+revisión inmutable, la pertenencia actual, el estado, el Vault, el workspace y
+la ACL. Este límite se aplica a la inspección, búsqueda, lectura de evidencia y
+análisis durable. El
 workflow solo permite inspeccionar fuentes, buscar fragmentos con FTS5 y el
 vector local determinista, leer evidencia exacta y ejecutar un análisis
 jerárquico durable sobre la revisión fijada.
@@ -163,6 +172,7 @@ Vault quedan fuera de este límite.
 | `GET/PATCH/DELETE /api/notebooks/{id}` | Detalle, configuración y eliminación de datos derivados |
 | `GET /api/notebooks/resources` | Selector paginado alfabético con facetas de tipo, autor y etiquetas de la tabla Referencias |
 | `GET/POST /api/notebooks/{id}/sources` | Inspeccionar o añadir Recursos |
+| `GET /api/notebooks/{id}/chat-sources` | Opciones autorizadas de fuentes y cuadernos para el contexto de conversación |
 | `DELETE /api/notebooks/{id}/sources/{resource_id}` | Excluir inmediatamente un Recurso |
 | `POST /api/notebooks/{id}/sources/{resource_id}/refresh` | Reintentar solo un Recurso |
 | `POST /api/notebooks/{id}/refresh` | Actualización explícita fusionada del cuaderno |
@@ -171,9 +181,11 @@ Vault quedan fuera de este límite.
 | `GET /api/notebooks/{id}/conversation` | Conversación canónica del modo activo |
 | `POST /api/chat` | Conversación en streaming con contexto de cuaderno autorizado |
 
-El servidor deriva la revisión, el principal de checkpoint y el espacio de
-nombres tras la autorización. Rechaza contextos mixtos, adjuntos, menciones y
-sustituciones de habilidades.
+El servidor deriva las revisiones, el principal de checkpoint y el espacio de
+nombres tras la autorización. Acepta hasta dieciséis cuadernos autorizados,
+mantiene el cuaderno de la página como propietario de la conversación y rechaza
+contextos que no sean de cuaderno, adjuntos, menciones y sustituciones de
+habilidades.
 
 ## Comportamiento de la interfaz de usuario
 
