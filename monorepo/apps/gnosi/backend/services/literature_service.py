@@ -165,7 +165,7 @@ CREDENTIAL_ENV = {
 
 
 def default_config() -> dict[str, Any]:
-    return {"version": 1, "contact_email": "", "source_defaults": {}, "hidden_sources": [], "custom_repositories": [], "updated_at": _now()}
+    return {"version": 1, "contact_email": "", "ai_agent_id": "", "source_defaults": {}, "hidden_sources": [], "custom_repositories": [], "updated_at": _now()}
 
 
 def load_config(vault_path: Path | str | None = None) -> dict[str, Any]:
@@ -187,13 +187,14 @@ def load_config(vault_path: Path | str | None = None) -> dict[str, Any]:
 
 def save_config(vault_path: Path | str, patch: dict[str, Any]) -> dict[str, Any]:
     """Persist only validated public settings, never credential values."""
-    allowed = {"contact_email", "source_defaults", "hidden_sources"}
+    allowed = {"contact_email", "ai_agent_id", "source_defaults", "hidden_sources"}
     with _CONFIG_LOCK:
         config = load_config(vault_path)
         for key in allowed:
             if key in patch:
                 config[key] = deepcopy(patch[key])
         config["contact_email"] = str(config.get("contact_email") or "").strip()[:320]
+        config["ai_agent_id"] = str(config.get("ai_agent_id") or "").strip()[:160]
         config["source_defaults"] = {str(key)[:100]: bool(value) for key, value in (config.get("source_defaults") or {}).items()}
         known = {item["id"] for item in SOURCE_CATALOG}
         config["hidden_sources"] = [str(item) for item in config.get("hidden_sources") or [] if str(item) in known]
@@ -347,7 +348,14 @@ def _search_plugin_adapter(vault_path: Path | str, source: dict[str, Any], query
 
 def public_configuration(vault_path: Path | str) -> dict[str, Any]:
     config = load_config(vault_path)
-    return {"contact_email": config.get("contact_email") or "", "source_defaults": config.get("source_defaults") or {}, "hidden_sources": config.get("hidden_sources") or [], "sources": catalog(vault_path)}
+    ai_config = load_params(strict_env=False).get("ai", {}) or {}
+    agents = [
+        {"id": str(agent.get("id") or ""), "name": str(agent.get("name") or agent.get("id") or ""), "provider": str(agent.get("provider") or ""), "model": str(agent.get("model") or "")}
+        for agent in (ai_config.get("agents") or [])
+        if isinstance(agent, dict) and agent.get("id") and agent.get("enabled", True)
+    ]
+    selected_agent_id = str(config.get("ai_agent_id") or ai_config.get("active_agent_id") or "")
+    return {"contact_email": config.get("contact_email") or "", "ai_agent_id": selected_agent_id, "ai_agents": agents, "source_defaults": config.get("source_defaults") or {}, "hidden_sources": config.get("hidden_sources") or [], "sources": catalog(vault_path)}
 
 
 def _validate_repository(payload: dict[str, Any], repository_id: str = "") -> dict[str, Any]:

@@ -5815,6 +5815,10 @@
     "ai": {
       "enter_question": "Write a question or query before asking AI for help.",
       "assist": "AI assist",
+      "generating": "Preparing…",
+      "agent": "AI agent for search",
+      "default_agent": "Default AI agent",
+      "agent_save_error": "The search AI agent could not be saved.",
       "build_query": "Build an editable strategy",
       "proposal": "Strategy proposal",
       "translation_proposal": "Proposed query translation",
@@ -5825,6 +5829,7 @@
       "translate_source": "Adapt with AI",
       "use_source_query": "Use for {{source}}",
       "use_query": "Use this query",
+      "search_with_query": "Search with this proposal",
       "human_control": "AI only suggests; the final decision is always human.",
       "rerank": "Rerank locally",
       "reranked_by": "Ranking: {{model}}",

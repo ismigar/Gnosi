@@ -46,7 +46,7 @@ const work = {
 
 async function renderPage() {
     axios.get.mockImplementation((url) => {
-        if (url === '/api/vault/literature/configuration') return Promise.resolve({ data: { sources: [{ id: 'crossref', name: 'Crossref', automated: true, enabled: true, available: true, hidden: false, kind: 'api' }] } });
+        if (url === '/api/vault/literature/configuration') return Promise.resolve({ data: { ai_agent_id: 'research-agent', ai_agents: [{ id: 'research-agent', name: 'Research agent', model: 'test-model' }], sources: [{ id: 'crossref', name: 'Crossref', automated: true, enabled: true, available: true, hidden: false, kind: 'api' }] } });
         if (url === '/api/vault/literature/searches') return Promise.resolve({ data: { searches: [] } });
         if (url === '/api/vault/literature/reviews') return Promise.resolve({ data: { reviews: [] } });
         if (url.startsWith('/api/vault/literature/searches/')) return Promise.resolve({ data: { id: 'search-1', state: 'completed', result_count: 1, source_status: { crossref: { state: 'completed', count: 1 } }, results: [work], errors: [] } });
@@ -156,6 +156,10 @@ describe('LiteraturePage', () => {
         expect(proposal.querySelector('textarea')).not.toBeNull();
         expect(proposal.textContent).toContain('historical periodization');
         expect(proposal.querySelector('details').hasAttribute('open')).toBe(false);
+        expect(axios.post).toHaveBeenCalledWith('/api/vault/literature/ai', expect.objectContaining({ agent_id: 'research-agent', payload: expect.objectContaining({ framework: 'AUTO' }) }));
+        const searchProposal = [...proposal.querySelectorAll('button')].find((button) => button.textContent.includes('literature.ai.search_with_query'));
+        await act(async () => searchProposal.click());
+        expect(axios.post).toHaveBeenCalledWith('/api/vault/literature/searches', expect.objectContaining({ query: '"historical periodization" OR "historical stages"' }));
     });
 
     it('uses server-sent events, supports cancellation, and falls back to the same paginated contract', async () => {

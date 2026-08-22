@@ -247,6 +247,9 @@ Mutating endpoints use existing CSRF and authorization conventions. Public API r
 - AI search assistance presents structured concepts, a compact editable Boolean
   query, and cautions rather than raw JSON. Technical payloads stay collapsed
   behind an explicit disclosure for diagnostics only.
+- AI controls expose the selected enabled agent and a visible running state.
+  Applying a proposal and starting the federated search are distinct explicit
+  actions, with a combined action for the common workflow.
 
 ## Restrictions and edge cases
 
