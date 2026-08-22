@@ -135,8 +135,13 @@ cambios de habilidades ni acciones externas. El análisis jerárquico procesa
 lotes acotados en vez de colocar cientos de fuentes en un único prompt.
 
 Las citas incluyen el Recurso, la revisión, la fuente, el fragmento y el
-localizador. Los PDF utilizan `gnosi-cite` para abrir la página o el fragmento;
-las fuentes web enlazan con la URL original validada.
+localizador. Cada afirmación fundamentada del chat se vincula desde su
+`chunk_id`, validado por el servidor, a un enlace visible. Los adjuntos utilizan
+`gnosi-cite` y el endpoint autorizado de la revisión fijada para abrir el
+adjunto, la página o el fragmento exactos incluso después de una actualización;
+los enlaces de adjuntos antiguos se actualizan al leerlos para que los cuadernos
+existentes no tengan que reindexarse. Las fuentes web enlazan con la URL original
+validada.
 
 ## Espacios de nombres de conversación
 
@@ -162,6 +167,7 @@ Vault quedan fuera de este límite.
 | `POST /api/notebooks/{id}/sources/{resource_id}/refresh` | Reintentar solo un Recurso |
 | `POST /api/notebooks/{id}/refresh` | Actualización explícita fusionada del cuaderno |
 | `POST /api/notebooks/{id}/refresh/cancel` | Cancelar cooperativamente la ingesta activa |
+| `GET /api/notebooks/{id}/evidence/{chunk_id}?revision={revision}` | Resolver una cita autorizada dentro de su revisión inmutable |
 | `GET /api/notebooks/{id}/conversation` | Conversación canónica del modo activo |
 | `POST /api/chat` | Conversación en streaming con contexto de cuaderno autorizado |
 

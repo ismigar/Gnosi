@@ -133,8 +133,13 @@ accions externes. L'anàlisi jeràrquica processa lots acotats en lloc de posar
 centenars de fonts en un sol prompt.
 
 Les citacions inclouen el Recurs, la revisió, la font, el fragment i el
-localitzador. Els PDF utilitzen `gnosi-cite` per obrir la pàgina o el fragment;
-les fonts web enllacen amb l'URL original validat.
+localitzador. Cada afirmació fonamentada del xat es vincula des del seu
+`chunk_id`, validat pel servidor, a un enllaç visible. Els adjunts utilitzen
+`gnosi-cite` i l'endpoint autoritzat de la revisió fixada per obrir l'adjunt, la
+pàgina o el fragment exactes fins i tot després d'una actualització posterior;
+els enllaços d'adjunts antics s'actualitzen en llegir-los perquè els quaderns
+existents no s'hagin de reindexar. Les fonts web enllacen amb l'URL original
+validat.
 
 ## Espais de noms de conversa
 
@@ -160,6 +165,7 @@ fora d'aquest límit.
 | `POST /api/notebooks/{id}/sources/{resource_id}/refresh` | Reintentar només un Recurs |
 | `POST /api/notebooks/{id}/refresh` | Refresc explícit fusionat del quadern |
 | `POST /api/notebooks/{id}/refresh/cancel` | Cancel·lar cooperativament la ingestió activa |
+| `GET /api/notebooks/{id}/evidence/{chunk_id}?revision={revision}` | Resoldre una citació autoritzada dins la seva revisió immutable |
 | `GET /api/notebooks/{id}/conversation` | Conversa canònica del mode actiu |
 | `POST /api/chat` | Conversa en streaming amb context de quadern autoritzat |
 

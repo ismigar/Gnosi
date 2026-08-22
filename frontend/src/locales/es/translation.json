@@ -5489,6 +5489,7 @@
     "index_cancel_error": "No se ha podido cancelar la indexación.",
     "sources_tab": "Fuentes",
     "chat_tab": "Conversación",
+    "open_citation": "Abrir la evidencia citada en su fuente: {{source}}",
     "settings_tab": "Configuración",
     "settings_help": "Acceso y comportamiento de la conversación",
     "settings_error": "No se ha podido guardar la configuración del cuaderno.",

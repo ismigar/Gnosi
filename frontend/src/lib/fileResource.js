@@ -622,7 +622,21 @@ export async function openCitation(resourceId, page, {
     t = (k, o) => (o?.defaultValue ?? k),
 } = {}) {
     let evidence = null;
-    if (citation.snapshot && citation.segment) {
+    if (citation.notebook && citation.chunk) {
+        try {
+            const revision = String(citation.revision || '').trim();
+            const revisionQuery = /^\d+$/.test(revision)
+                ? `?revision=${encodeURIComponent(revision)}`
+                : '';
+            const evidenceResponse = await fetch(
+                `/api/notebooks/${encodeURIComponent(citation.notebook)}/evidence/${encodeURIComponent(citation.chunk)}${revisionQuery}`,
+                { credentials: 'include' },
+            );
+            if (evidenceResponse.ok) evidence = await evidenceResponse.json();
+        } catch {
+            evidence = null;
+        }
+    } else if (citation.snapshot && citation.segment) {
         try {
             const evidenceResponse = await fetch(
                 `/api/vault/llm-wiki/evidence/${encodeURIComponent(resourceId)}/${encodeURIComponent(citation.snapshot)}/${encodeURIComponent(citation.segment)}`,
@@ -638,13 +652,14 @@ export async function openCitation(resourceId, page, {
         if (res.ok) {
             const data = await res.json();
             const meta = data?.metadata || data || {};
-            const kind = evidence?.kind || citation.kind || '';
+            const kind = evidence?.kind || evidence?.source_kind || citation.kind || '';
             let src = evidence?.source_url || findCitationAttachment(meta, kind);
             if (src) {
-                const evidencePage = evidence?.segment?.locator?.page;
+                const evidenceLocator = evidence?.segment?.locator || evidence?.locator || {};
+                const evidencePage = evidenceLocator.page;
                 const pageNumber = evidencePage || page;
                 const highlightText = String(
-                    citation.highlightText || evidence?.segment?.text || '',
+                    citation.highlightText || evidence?.segment?.text || evidence?.text || '',
                 ).trim();
                 const location = pageNumber || highlightText
                     ? {
@@ -652,7 +667,7 @@ export async function openCitation(resourceId, page, {
                         ...(highlightText ? { highlightText } : {}),
                     }
                     : null;
-                src = withMediaTimestamp(src, citation.start ?? evidence?.segment?.locator?.start);
+                src = withMediaTimestamp(src, citation.start ?? evidenceLocator.start);
                 openFileResource(src, { location, navigate, t });
                 return evidence;
             }

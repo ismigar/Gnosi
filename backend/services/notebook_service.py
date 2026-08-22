@@ -16,7 +16,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable, Optional
-from urllib.parse import urlencode
+from urllib.parse import parse_qsl, urlencode, urlparse
 
 from fastapi import HTTPException
 
@@ -1573,12 +1573,18 @@ def _insert_source(
             continue
         locator = (segments[0].get("locator") or {}) if segments else {}
         segment_id = str((segments[0] if segments else {}).get("id") or "")
+        chunk_id = hashlib.sha256(
+            f"{source_id}:{ordinal}:{segment_id}:{hashlib.sha256(text.encode('utf-8')).hexdigest()}".encode("utf-8")
+        ).hexdigest()[:28]
         source_url = str(origin.get("source_url") or "")
         if source_url.lower().startswith(("http://", "https://")):
             citation_href = source_url
         else:
             params: dict[str, Any] = {
                 "res": resource_id,
+                "notebook": notebook_id,
+                "revision": revision,
+                "chunk": chunk_id,
                 "snapshot": str(origin.get("snapshot_id") or fingerprint[:24]),
                 "segment": segment_id,
                 "origin": origin_id,
@@ -1590,9 +1596,6 @@ def _insert_source(
                 if locator.get(key) not in (None, ""):
                     params[key] = locator[key]
             citation_href = f"gnosi-cite:?{urlencode(params)}"
-        chunk_id = hashlib.sha256(
-            f"{source_id}:{ordinal}:{segment_id}:{hashlib.sha256(text.encode('utf-8')).hexdigest()}".encode("utf-8")
-        ).hexdigest()[:28]
         connection.execute(
             """INSERT OR REPLACE INTO notebook_chunks
             (notebook_id,revision,chunk_id,source_id,resource_id,ordinal,text,
@@ -2356,7 +2359,14 @@ def search_notebook(
                 "text": row["text"],
                 "locator": locator,
                 "citation": {
-                    "href": row["citation_href"],
+                    "href": _notebook_citation_href(
+                        row["citation_href"],
+                        notebook_id=notebook_id,
+                        revision=resolved_revision,
+                        chunk_id=str(row["chunk_id"]),
+                        resource_id=str(row["resource_id"]),
+                        locator=locator,
+                    ),
                     "label": _locator_label(locator, str(row["label"])),
                     "resource_id": row["resource_id"],
                     "revision": resolved_revision,
@@ -2383,6 +2393,36 @@ def _locator_label(locator: dict[str, Any], fallback: str) -> str:
         end = locator.get("line_end")
         return f"lines {locator['line_start']}-{end}" if end else f"line {locator['line_start']}"
     return _bounded_text(fallback, 120, "Source")
+
+
+def _notebook_citation_href(
+    href: Any,
+    *,
+    notebook_id: str,
+    revision: int,
+    chunk_id: str,
+    resource_id: str,
+    locator: dict[str, Any],
+) -> str:
+    """Upgrade attachment citations from older revisions without reindexing."""
+    candidate = str(href or "").strip()
+    if candidate.lower().startswith(("http://", "https://")):
+        return candidate
+    parsed = urlparse(candidate)
+    params = dict(parse_qsl(parsed.query, keep_blank_values=False))
+    params.update({
+        "res": str(resource_id),
+        "notebook": str(notebook_id),
+        "revision": int(revision),
+        "chunk": str(chunk_id),
+    })
+    for key in (
+        "page", "chapter", "paragraph", "line_start", "line_end",
+        "start", "end", "part",
+    ):
+        if key not in params and locator.get(key) not in (None, ""):
+            params[key] = locator[key]
+    return f"gnosi-cite:?{urlencode(params)}"
 
 
 def read_notebook_evidence(
@@ -2423,7 +2463,14 @@ def read_notebook_evidence(
         "text": row["text"],
         "locator": locator,
         "citation": {
-            "href": row["citation_href"],
+            "href": _notebook_citation_href(
+                row["citation_href"],
+                notebook_id=notebook_id,
+                revision=resolved_revision,
+                chunk_id=str(row["chunk_id"]),
+                resource_id=str(row["resource_id"]),
+                locator=locator,
+            ),
             "label": _locator_label(locator, str(row["label"])),
             "resource_id": row["resource_id"],
             "revision": resolved_revision,

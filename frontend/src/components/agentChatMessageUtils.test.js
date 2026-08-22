@@ -159,6 +159,7 @@ describe('assistant message presentation metadata', () => {
                 sources: [
                     { citation_id: 'src-1', source_id: 'note-1', title: 'Note one', source_type: 'vault_record', href: '/vault/page/note-1', source_version: 'abc123', version_status: 'exact', raw_excerpt: 'private' },
                     { citation_id: 'src-2', source_id: 'bad', title: 'Bad link', source_type: 'source', href: 'javascript:alert(1)' },
+                    { citation_id: 'src-3', source_id: 'chunk-1', title: 'Paper · p. 7', source_type: 'notebook_evidence', href: 'gnosi-cite:?res=resource-1&notebook=notebook-1&revision=3&chunk=chunk-1&page=7' },
                 ],
                 claims: [
                     { claim_id: 'claim-1', line_index: 0, text: 'Grounded claim', citation_ids: ['src-1', 'unknown'] },
@@ -222,6 +223,7 @@ describe('assistant message presentation metadata', () => {
             version_status: 'exact',
         });
         expect(metadata.citations.sources[1].href).toBe('');
+        expect(metadata.citations.sources[2].href).toContain('gnosi-cite:?');
         expect(metadata.citations).not.toHaveProperty('raw_payload');
         expect(metadata.job).toMatchObject({
             status: 'failed',

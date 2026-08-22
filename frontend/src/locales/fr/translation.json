@@ -5489,6 +5489,7 @@
     "index_cancel_error": "L'indexation n'a pas pu être annulée.",
     "sources_tab": "Sources",
     "chat_tab": "Conversation",
+    "open_citation": "Ouvrir la preuve citée dans sa source : {{source}}",
     "settings_tab": "Paramètres",
     "settings_help": "Accès et comportement de la conversation",
     "settings_error": "Les paramètres du carnet n'ont pas pu être enregistrés.",
