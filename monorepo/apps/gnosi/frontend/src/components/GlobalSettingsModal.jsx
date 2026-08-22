@@ -4668,7 +4668,12 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
                             {/* PLUGINS */}
                             {activeTab === 'plugins' && (
-                                <PluginsSettings />
+                                <PluginsSettings
+                                    onOpenSettingsTab={(tab) => {
+                                        setActiveTab(tab);
+                                        setAddAccountType(null);
+                                    }}
+                                />
                             )}
 
                             {/* TRANSLATION */}

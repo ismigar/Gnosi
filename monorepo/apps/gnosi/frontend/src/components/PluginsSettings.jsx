@@ -2027,6 +2027,22 @@ export function PluginsSettings({ onOpenSettingsTab }) {
     const [section, setSection] = useState('installed');
     const [installedFilter, setInstalledFilter] = useState('all');
     const [pendingLifecycle, setPendingLifecycle] = useState(null);
+    const [configuredPluginId, setConfiguredPluginId] = useState(null);
+
+    const inlineConfigComponents = {
+        'daily-notes': DailyNotesConfig,
+        'web-clipper': WebClipperConfig,
+        'project-planning': ProjectPlanningConfig,
+        'llm-wiki': LlmWikiConfig,
+    };
+
+    const openPluginConfiguration = (plugin) => {
+        if (inlineConfigComponents[plugin.id]) {
+            setConfiguredPluginId((current) => current === plugin.id ? null : plugin.id);
+            return;
+        }
+        onOpenSettingsTab?.(plugin.settingsTab, plugin.id);
+    };
 
     const togglePlugin = async (pluginId, enabled) => {
         try {
@@ -2094,6 +2110,8 @@ export function PluginsSettings({ onOpenSettingsTab }) {
                     const Icon = ICONS[plugin.icon] || Puzzle;
                     const enabled = isEnabled(plugin.id);
                     const hasSettings = Boolean(plugin.settingsTab);
+                    const InlineConfig = inlineConfigComponents[plugin.id];
+                    const isConfigOpen = configuredPluginId === plugin.id;
                     return (
                         <div
                             key={plugin.id}
@@ -2118,8 +2136,9 @@ export function PluginsSettings({ onOpenSettingsTab }) {
                             {hasSettings && enabled && (
                                 <button
                                     type="button"
-                                    onClick={() => onOpenSettingsTab?.(plugin.settingsTab, plugin.id)}
+                                    onClick={() => openPluginConfiguration(plugin)}
                                     aria-label={tp('configure')}
+                                    aria-expanded={InlineConfig ? isConfigOpen : undefined}
                                     title={tp('configure')}
                                     style={{
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -2154,6 +2173,7 @@ export function PluginsSettings({ onOpenSettingsTab }) {
                                 />
                             </button>
                           </div>
+                          {InlineConfig && isConfigOpen && <InlineConfig />}
                         </div>
                     );
                 })}

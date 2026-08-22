@@ -79,6 +79,9 @@ Account for prefixed helpers (for example, a helper that expands
 
 - A Catalan inline default once masked missing keys in every locale. Catalog
   presence is mandatory even when the fallback text appears correct.
+- Dynamically assembled catalogue keys are not covered by static `t()` key
+  extraction. Registries that render translated metadata must have a parity
+  test that checks every declared item against every locale catalogue.
 - A naive JavaScript scanner confused regex literals and JSX apostrophes, then
   modified user-visible code. Use Espree or another real parser.
 - Portal-based modals render under `document.body`; browser QA must inspect the

@@ -1504,6 +1504,46 @@
           "name": "Planificació de projectes",
           "description": "Afegeix durades laborables, predecessores i calendaris de treball als camps de període."
         },
+        "feeds-reader": {
+          "name": "Canals i butlletins",
+          "description": "Subscripcions RSS, butlletins i podcasts diaris opcionals."
+        },
+        "translation": {
+          "name": "Traducció",
+          "description": "Proveïdors de traducció i accions per a l'idioma de publicació."
+        },
+        "contacts": {
+          "name": "Contactes",
+          "description": "Llibretes d'adreces externes i l'aplicació Contactes."
+        },
+        "mail": {
+          "name": "Correu",
+          "description": "Comptes de correu, sincronització i l'aplicació Correu."
+        },
+        "calendar": {
+          "name": "Calendari",
+          "description": "Calendaris externs, recordatoris i eines per a reunions."
+        },
+        "social-publishing": {
+          "name": "Publicació social i contingut multimèdia",
+          "description": "Tauler social, compositor i centre de contingut multimèdia."
+        },
+        "notion-import": {
+          "name": "Importació de Notion",
+          "description": "Importa espais de treball de Notion a dades portables del Vault."
+        },
+        "ai-platform": {
+          "name": "IA i agents",
+          "description": "Proveïdors, models, agents, habilitats i eines governades."
+        },
+        "grounded-notebooks": {
+          "name": "Quaderns fonamentats",
+          "description": "Fes preguntes fonamentades en les fonts de referència seleccionades."
+        },
+        "automations": {
+          "name": "Automatitzacions",
+          "description": "Automatitzacions d'usuari, planificacions i historial d'execució."
+        },
         "resources": {
           "name": "Recursos",
           "description": "Cerca acadèmica federada, importació, repositoris i revisions de literatura."

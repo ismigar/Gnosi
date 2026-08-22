@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
+import ca from '../locales/ca/translation.json';
+import en from '../locales/en/translation.json';
+import es from '../locales/es/translation.json';
+import fr from '../locales/fr/translation.json';
+
 import {
     BUILTIN_PLUGIN_BY_ID,
     BUILTIN_PLUGINS,
@@ -19,5 +24,15 @@ describe('built-in capability registry', () => {
         expect(pluginForPath('/media')).toBe('social-publishing');
         expect(pluginForPath('/notebooks/example')).toBe('grounded-notebooks');
         expect(pluginForPath('/vault')).toBeNull();
+    });
+
+    it('provides a localized catalogue entry for every built-in capability', () => {
+        for (const catalogue of [ca, en, es, fr]) {
+            for (const plugin of BUILTIN_PLUGINS) {
+                const entry = catalogue.settings?.plugins?.catalog?.[plugin.id];
+                expect(entry?.name, `${plugin.id} name`).toBeTruthy();
+                expect(entry?.description, `${plugin.id} description`).toBeTruthy();
+            }
+        }
     });
 });

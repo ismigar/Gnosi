@@ -1450,6 +1450,46 @@
           "name": "Planificación de proyectos",
           "description": "Añade duraciones laborables, predecesoras y calendarios de trabajo a los campos de período."
         },
+        "feeds-reader": {
+          "name": "Fuentes y boletines",
+          "description": "Suscripciones RSS, boletines y podcasts diarios opcionales."
+        },
+        "translation": {
+          "name": "Traducción",
+          "description": "Proveedores de traducción y acciones para el idioma de publicación."
+        },
+        "contacts": {
+          "name": "Contactos",
+          "description": "Libretas de direcciones externas y la aplicación Contactos."
+        },
+        "mail": {
+          "name": "Correo",
+          "description": "Cuentas de correo, sincronización y la aplicación Correo."
+        },
+        "calendar": {
+          "name": "Calendario",
+          "description": "Calendarios externos, recordatorios y herramientas para reuniones."
+        },
+        "social-publishing": {
+          "name": "Publicación social y contenido multimedia",
+          "description": "Panel social, compositor y centro de contenido multimedia."
+        },
+        "notion-import": {
+          "name": "Importación de Notion",
+          "description": "Importa espacios de trabajo de Notion a datos portables del Vault."
+        },
+        "ai-platform": {
+          "name": "IA y agentes",
+          "description": "Proveedores, modelos, agentes, habilidades y herramientas gobernadas."
+        },
+        "grounded-notebooks": {
+          "name": "Cuadernos fundamentados",
+          "description": "Haz preguntas fundamentadas en las fuentes de referencia seleccionadas."
+        },
+        "automations": {
+          "name": "Automatizaciones",
+          "description": "Automatizaciones de usuario, programaciones e historial de ejecución."
+        },
         "resources": {
           "name": "Recursos",
           "description": "Búsqueda académica federada, importación, repositorios y revisiones de literatura."
