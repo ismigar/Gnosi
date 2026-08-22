@@ -16,7 +16,7 @@ from urllib.parse import parse_qsl, quote, urlencode, urljoin, urlparse, urlunpa
 import httpx
 from defusedxml import ElementTree as DefusedElementTree
 
-from backend.services.literature_models import canonical_work, clean_text, normalize_doi, normalize_language
+from backend.services.literature_models import canonical_work, clean_text, normalize_doi, normalize_language, normalize_title
 
 
 USER_AGENT = "Gnosi-Literature/1.0 (+https://github.com/ismigar/Gnosi)"
@@ -251,6 +251,24 @@ def _truthy_provider_value(value: Any) -> bool | None:
     return None
 
 
+def _inferred_language(work: dict[str, Any]) -> str:
+    """Infer a language conservatively when a provider omits the field."""
+    tokens = set(normalize_title(f"{work.get('title') or ''} {work.get('abstract') or ''}").split())
+    markers = {
+        "ca": {"aquest", "amb", "catalana", "dels", "historia", "historica", "les", "perioditzacio"},
+        "de": {"der", "die", "geschichte", "historische", "mit", "periodisierung", "und", "von"},
+        "en": {"and", "for", "historical", "history", "of", "periodization", "the", "with"},
+        "es": {"del", "el", "historia", "historica", "las", "los", "para", "periodizacion"},
+        "fr": {"des", "et", "historique", "histoire", "les", "periodisation", "pour", "une"},
+        "it": {"della", "delle", "periodizzazione", "storia", "storica", "una"},
+        "pt": {"das", "dos", "historia", "historica", "periodizacao", "uma"},
+    }
+    scores = {language: len(tokens & values) for language, values in markers.items()}
+    best = max(scores, key=scores.get)
+    ordered = sorted(scores.values(), reverse=True)
+    return best if scores[best] >= 2 and (len(ordered) < 2 or ordered[0] > ordered[1]) else ""
+
+
 def filter_works(works: list[dict[str, Any]], filters: dict[str, Any]) -> list[dict[str, Any]]:
     """Apply canonical filters consistently after provider-side filtering."""
     selected = _filters(filters)
@@ -259,11 +277,10 @@ def filter_works(works: list[dict[str, Any]], filters: dict[str, Any]) -> list[d
         year_to = int(str(selected.get("date_to") or "")[:4]) if selected.get("date_to") else None
     except ValueError:
         year_from = year_to = None
-    languages = {
-        normalize_language(value)
-        for value in re.split(r"[,;\s]+", str(selected.get("language") or ""))
-        if value.strip()
-    }
+    raw_languages = selected.get("languages")
+    if not isinstance(raw_languages, list):
+        raw_languages = re.split(r"[,;\s]+", str(selected.get("language") or ""))
+    languages = {normalize_language(value) for value in raw_languages if str(value).strip()}
     wanted_type = clean_text(selected.get("type"), 100).lower()
     aliases = {"article": "journal-article", "journalarticle": "journal-article"}
     wanted_type = aliases.get(wanted_type, wanted_type)
@@ -274,7 +291,8 @@ def filter_works(works: list[dict[str, Any]], filters: dict[str, Any]) -> list[d
             continue
         if year_to and (not isinstance(year, int) or year > year_to):
             continue
-        if languages and normalize_language(work.get("language")) not in languages:
+        work_language = normalize_language(work.get("language")) or _inferred_language(work)
+        if languages and work_language not in languages:
             continue
         work_type = aliases.get(clean_text(work.get("type"), 100).lower(), clean_text(work.get("type"), 100).lower())
         if wanted_type and work_type != wanted_type:
@@ -294,6 +312,30 @@ def filter_works(works: list[dict[str, Any]], filters: dict[str, Any]) -> list[d
             continue
         result.append(work)
     return result
+
+
+def _matches_mandatory_concept(work: dict[str, Any], query: str) -> bool:
+    """Reject provider relaxations that lose the first mandatory Boolean group."""
+    match = re.match(r"^\s*\((.+?)\)\s+AND\b", str(query or ""), flags=re.IGNORECASE)
+    expression = match.group(1) if match else str(query or "")
+    if not match and not (re.search(r"\s+OR\s+", expression, flags=re.IGNORECASE) and '"' in expression):
+        return True
+    alternatives = re.split(r"\s+OR\s+", expression.strip(" ()"), flags=re.IGNORECASE)
+    haystack = set(normalize_title(f"{work.get('title') or ''} {work.get('abstract') or ''}").split())
+
+    def root(token: str) -> str:
+        if token.startswith("periodiz"):
+            return "periodiz"
+        if token.startswith("histor"):
+            return "histor"
+        return token
+
+    haystack_roots = {root(token) for token in haystack}
+    for alternative in alternatives:
+        tokens = [root(token) for token in normalize_title(alternative.strip(' "')).split() if len(token) > 2]
+        if tokens and set(tokens).issubset(haystack_roots):
+            return True
+    return False
 
 
 def _crossref_work(item: dict[str, Any], provider: str = "crossref") -> dict[str, Any]:
@@ -486,7 +528,9 @@ async def search_eric(query: str, filters: dict[str, Any], limit: int, _: str = 
 
 
 async def search_openaire(query: str, filters: dict[str, Any], limit: int, _: str = "") -> list[dict[str, Any]]:
-    params: dict[str, Any] = {"search": query, "type": "publication", "page": 1, "pageSize": limit, "sortBy": "relevance DESC"}
+    plain_query = " ".join(re.findall(r"[\wÀ-ÿ-]+", query)[:24])
+    plain_query = re.sub(r"\b(?:AND|OR|NOT)\b", " ", plain_query, flags=re.IGNORECASE)
+    params: dict[str, Any] = {"search": " ".join(plain_query.split()), "type": "publication", "page": 1, "pageSize": limit, "sortBy": "relevance DESC"}
     if filters.get("date_from"):
         params["fromPublicationDate"] = f"{str(filters['date_from'])[:4]}-01-01"
     if filters.get("date_to"):
@@ -604,6 +648,12 @@ async def search_pubmed(query: str, filters: dict[str, Any], limit: int, contact
     expression = query
     if filters.get("date_from") or filters.get("date_to"):
         expression += f" AND ({filters.get('date_from') or '1500/01/01'}:{filters.get('date_to') or '2100/12/31'}[dp])"
+    language_names = {"ca": "catalan", "de": "german", "en": "english", "es": "spanish", "fr": "french", "it": "italian", "pt": "portuguese"}
+    raw_languages = filters.get("languages") if isinstance(filters.get("languages"), list) else re.split(r"[,;\s]+", str(filters.get("language") or ""))
+    pubmed_languages = [language_names.get(normalize_language(value)) for value in raw_languages]
+    pubmed_languages = [value for value in pubmed_languages if value]
+    if pubmed_languages:
+        expression += " AND (" + " OR ".join(f"{value}[lang]" for value in pubmed_languages) + ")"
     common = {"tool": "gnosi", "email": contact_email} if contact_email else {"tool": "gnosi"}
     search_data, _, _ = await safe_get_json("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi", params={**common, "db": "pubmed", "term": expression, "retmode": "json", "retmax": limit})
     ids = (search_data.get("esearchresult") or {}).get("idlist") or []
@@ -870,13 +920,18 @@ SEARCHERS = {
 
 async def search_source(source_id: str, query: str, filters: dict[str, Any], limit: int, credential: str = "", definition: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     """Dispatch a built-in or custom REST connector."""
+    requested_limit = max(1, min(int(limit), 100))
+    has_language_filter = bool(filters.get("languages") or filters.get("language"))
+    fetch_limit = min(100, requested_limit * 4) if has_language_filter else requested_limit
     if definition and definition.get("kind") == "rest":
-        return filter_works(await search_generic_json(definition, query, filters, limit), filters)
+        works = await search_generic_json(definition, query, filters, fetch_limit)
+        return filter_works([work for work in works if _matches_mandatory_concept(work, query)], filters)[:requested_limit]
     searcher = SEARCHERS.get(source_id)
     if searcher is None:
         raise ConnectorError("This source requires a local index or a configured provider adapter.")
-    works = await searcher(query, filters, max(1, min(int(limit), 100)), credential)
-    return filter_works(works, filters)
+    works = await searcher(query, filters, fetch_limit, credential)
+    works = [work for work in works if _matches_mandatory_concept(work, query)]
+    return filter_works(works, filters)[:requested_limit]
 
 
 def parse_oai_page(body: bytes, source: dict[str, Any]) -> dict[str, Any]:

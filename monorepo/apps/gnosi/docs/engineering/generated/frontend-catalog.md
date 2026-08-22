@@ -40,7 +40,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `hooks` | 16 | 1239 | 7 |
 | `lib` | 22 | 2110 | 6 |
 | `locales` | 3 | 565 | 0 |
-| `pages` | 18 | 13548 | 58 |
+| `pages` | 18 | 13570 | 58 |
 | `plugins` | 4 | 519 | 5 |
 | `utils` | 14 | 1792 | 0 |
 
@@ -334,7 +334,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/pages/Dashboard.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/Dashboard.jsx) | 1501 | `Dashboard` | `/api/analytics/`, `/api/analytics/directives`, `/api/analytics/directives/content`, `/api/config`, `/api/schedulers`, `/api/schedulers/history`, `/api/system/notifications`, `/api/tools/pending`, `/api/workspaces` |
 | [`frontend/src/pages/GraphPage.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/GraphPage.jsx) | 937 | `GraphPage` | `/api/config`, `/api/graph`, `/api/vault/global-index`, `/api/vault/tables` |
 | [`frontend/src/pages/HomePage.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/HomePage.jsx) | 148 | `HomePage` | — |
-| [`frontend/src/pages/LiteraturePage.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/LiteraturePage.jsx) | 775 | `LiteraturePage`, `function` | `/api/vault/literature/ai`, `/api/vault/literature/configuration`, `/api/vault/literature/imports`, `/api/vault/literature/manual-capture`, `/api/vault/literature/reviews`, `/api/vault/literature/searches` |
+| [`frontend/src/pages/LiteraturePage.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/LiteraturePage.jsx) | 797 | `LiteraturePage`, `function` | `/api/vault/literature/ai`, `/api/vault/literature/configuration`, `/api/vault/literature/imports`, `/api/vault/literature/manual-capture`, `/api/vault/literature/reviews`, `/api/vault/literature/searches` |
 | [`frontend/src/pages/MailPage.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/MailPage.jsx) | 401 | `MailPage`, `function` | `/api/integrations` |
 | [`frontend/src/pages/MediaCenter.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/MediaCenter.jsx) | 1622 | `MediaCenter`, `function` | `/api/vault/assets/upload`, `/api/vault/media`, `/api/vault/media/metadata`, `/api/vault/media/roots`, `/api/vault/media/tree`, `/api/vault/media/views` |
 | [`frontend/src/pages/NotebooksPage.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/NotebooksPage.jsx) | 431 | `NotebooksPage`, `function` | — |

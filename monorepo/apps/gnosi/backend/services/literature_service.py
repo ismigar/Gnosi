@@ -465,7 +465,9 @@ def search_oai_index(vault_path: Path | str, source_id: str, query: str, filters
     if filters.get("date_to"):
         where += " AND r.year<=?"
         params.append(int(str(filters["date_to"])[:4]))
-    params.append(max(1, min(int(limit), 100)))
+    requested_limit = max(1, min(int(limit), 100))
+    has_language_filter = bool(filters.get("languages") or filters.get("language"))
+    params.append(min(100, requested_limit * 4) if has_language_filter else requested_limit)
     with _connect_index(vault_path) as connection:
         rows = connection.execute(
             f"""SELECT r.work_json FROM oai_records r
@@ -473,7 +475,7 @@ def search_oai_index(vault_path: Path | str, source_id: str, query: str, filters
             WHERE {where} ORDER BY bm25(oai_records_fts) LIMIT ?""",
             params,
         ).fetchall()
-    return academic_connectors.filter_works([json.loads(row["work_json"]) for row in rows], filters)
+    return academic_connectors.filter_works([json.loads(row["work_json"]) for row in rows], filters)[:requested_limit]
 
 
 def _oai_fts_expression(query: str) -> str:

@@ -11,8 +11,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
 | Playwright | 13 | 37 |
-| Vitest | 79 | 306 |
-| pytest | 201 | 1673 |
+| Vitest | 79 | 307 |
+| pytest | 201 | 1676 |
 
 ## Files
 
@@ -89,7 +89,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/lib/vaultAgentContext.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/vaultAgentContext.test.js) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/locales/blocknote/registry.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/locales/blocknote/registry.test.js) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/locales/registry.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/locales/registry.test.js) | 5 | call-pattern estimate |
-| Vitest | [`frontend/src/pages/LiteraturePage.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/LiteraturePage.test.jsx) | 7 | call-pattern estimate |
+| Vitest | [`frontend/src/pages/LiteraturePage.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/LiteraturePage.test.jsx) | 8 | call-pattern estimate |
 | Vitest | [`frontend/src/utils/calendarUtils.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/calendarUtils.test.js) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/utils/fieldOrdering.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/fieldOrdering.test.js) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/utils/graphConnections.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/utils/graphConnections.test.js) | 2 | call-pattern estimate |
@@ -198,7 +198,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_literature_live_smoke.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_literature_live_smoke.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_literature_models.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_literature_models.py) | 6 | Python AST |
 | pytest | [`backend/tests/test_literature_review_service.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_literature_review_service.py) | 6 | Python AST |
-| pytest | [`backend/tests/test_literature_service.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_literature_service.py) | 11 | Python AST |
+| pytest | [`backend/tests/test_literature_service.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_literature_service.py) | 14 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_agent.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_llm_wiki_agent.py) | 11 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_pdf_annotations.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_llm_wiki_pdf_annotations.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_llm_wiki_v2.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_llm_wiki_v2.py) | 34 | Python AST |
