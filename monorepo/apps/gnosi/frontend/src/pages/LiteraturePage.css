@@ -116,6 +116,16 @@
     background: color-mix(in srgb, var(--gnosi-blue) 8%, transparent);
 }
 
+.literature-ai-agent {
+    max-width: 190px;
+    padding: 7px 8px;
+    border: 1px solid var(--border-primary);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    font-size: 11px;
+}
+
 .literature-search-toolbar,
 .literature-source-picker__header,
 .literature-preview footer,
@@ -486,6 +496,13 @@
     margin-top: 6px;
     resize: vertical;
     font: 12px/1.45 ui-monospace, monospace;
+}
+
+.literature-ai-proposal__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
 }
 
 .literature-ai-proposal__cautions {
@@ -1299,6 +1316,11 @@
 
     .literature-source-queries label {
         grid-template-columns: 1fr;
+    }
+
+    .literature-ai-agent {
+        max-width: none;
+        flex: 1 1 100%;
     }
 }
 

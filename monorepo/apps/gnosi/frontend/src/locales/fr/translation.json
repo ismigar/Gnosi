@@ -5866,6 +5866,10 @@
     "ai": {
       "enter_question": "Écrivez une question ou une requête avant de demander l'aide de l'IA.",
       "assist": "Aide IA",
+      "generating": "Préparation…",
+      "agent": "Agent IA pour la recherche",
+      "default_agent": "Agent IA par défaut",
+      "agent_save_error": "L’agent IA de recherche n’a pas pu être enregistré.",
       "build_query": "Créer une stratégie modifiable",
       "proposal": "Proposition de stratégie",
       "translation_proposal": "Traduction de requête proposée",
@@ -5876,6 +5880,7 @@
       "translate_source": "Adapter avec l'IA",
       "use_source_query": "Utiliser pour {{source}}",
       "use_query": "Utiliser cette requête",
+      "search_with_query": "Rechercher avec cette proposition",
       "human_control": "L'IA ne fait que proposer ; la décision finale reste toujours humaine.",
       "rerank": "Reclasser localement",
       "reranked_by": "Classement : {{model}}",

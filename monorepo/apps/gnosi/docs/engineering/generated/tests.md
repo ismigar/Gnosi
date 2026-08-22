@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 13 | 37 |
 | Vitest | 79 | 306 |
-| pytest | 201 | 1672 |
+| pytest | 201 | 1673 |
 
 ## Files
 
@@ -193,7 +193,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_internal_sources.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_internal_sources.py) | 21 | Python AST |
 | pytest | [`backend/tests/test_item_type_normalization.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_item_type_normalization.py) | 23 | Python AST |
 | pytest | [`backend/tests/test_linkable_pages_exclude_trash.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_linkable_pages_exclude_trash.py) | 2 | Python AST |
-| pytest | [`backend/tests/test_literature_ai_service.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_literature_ai_service.py) | 2 | Python AST |
+| pytest | [`backend/tests/test_literature_ai_service.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_literature_ai_service.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_literature_import_service.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_literature_import_service.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_literature_live_smoke.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_literature_live_smoke.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_literature_models.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_literature_models.py) | 6 | Python AST |

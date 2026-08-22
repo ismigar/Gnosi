@@ -73,7 +73,7 @@ function aiText(value, language) {
     return '';
 }
 
-function AiProposal({ proposal, language, onClose, onUseQuery, onUseSourceQuery, t }) {
+function AiProposal({ proposal, language, onClose, onUseQuery, onSearch, onUseSourceQuery, t }) {
     const result = proposal?.result || {};
     const [editableQuery, setEditableQuery] = useState(() => result.boolean_query || result.translated_query || '');
     const concepts = Object.entries(result.concepts || {}).filter(([, value]) => aiText(value, language));
@@ -88,7 +88,7 @@ function AiProposal({ proposal, language, onClose, onUseQuery, onUseSourceQuery,
             {synonyms.length > 0 && <div className="literature-ai-proposal__synonyms"><strong>{t('literature.ai.synonyms')}</strong>{synonyms.map(([label, value]) => <p key={label}><span>{label}</span>{aiText(value, language)}</p>)}</div>}
             {editableQuery && <label className="literature-ai-proposal__query"><span>{isTranslation ? t('literature.ai.translated_query') : t('literature.ai.boolean_query')}</span><textarea rows={3} value={editableQuery} onChange={(event) => setEditableQuery(event.target.value)} /></label>}
             {cautions.length > 0 && <ul className="literature-ai-proposal__cautions">{cautions.map((caution, index) => <li key={index}>{aiText(caution, language)}</li>)}</ul>}
-            {editableQuery && (isTranslation ? <button type="button" className="btn-gnosi-secondary" onClick={() => onUseSourceQuery(editableQuery)}>{t('literature.ai.use_source_query', { source: result.source_id })}</button> : <button type="button" className="btn-gnosi-secondary" onClick={() => onUseQuery(editableQuery)}>{t('literature.ai.use_query')}</button>)}
+            {editableQuery && (isTranslation ? <button type="button" className="btn-gnosi-secondary" onClick={() => onUseSourceQuery(editableQuery)}>{t('literature.ai.use_source_query', { source: result.source_id })}</button> : <div className="literature-ai-proposal__actions"><button type="button" className="btn-gnosi-secondary" onClick={() => onUseQuery(editableQuery)}>{t('literature.ai.use_query')}</button><button type="button" className="btn-gnosi btn-gnosi-primary" onClick={() => onSearch(editableQuery)}><Search size={14} /> {t('literature.ai.search_with_query')}</button></div>)}
             <details className="literature-ai-proposal__technical"><summary>{t('literature.ai.technical_details')}</summary><pre>{JSON.stringify(result, null, 2)}</pre></details>
             <small>{t('literature.ai.human_control')}</small>
         </section>
@@ -450,6 +450,7 @@ export default function LiteraturePage() {
     const { isEnabled } = usePlugins();
     const [tab, setTab] = useState('search');
     const [configuration, setConfiguration] = useState({ sources: [] });
+    const [aiAgentId, setAiAgentId] = useState('');
     const [query, setQuery] = useState('');
     const [sourceQueries, setSourceQueries] = useState({});
     const [filters, setFilters] = useState(EMPTY_FILTERS);
@@ -481,6 +482,7 @@ export default function LiteraturePage() {
             const response = await axios.get('/api/vault/literature/configuration');
             const next = response.data || { sources: [] };
             setConfiguration(next);
+            setAiAgentId((current) => current || next.ai_agent_id || next.ai_agents?.[0]?.id || '');
             setSelectedSources((current) => current.size ? current : new Set((next.sources || []).filter((source) => source.enabled && source.available && source.automated && !source.hidden).map((source) => source.id)));
         } catch (requestError) {
             console.error('Could not load literature search configuration:', requestError);
@@ -573,16 +575,16 @@ export default function LiteraturePage() {
         }
     }, [followSearch, refreshSearch, stopProgress]);
 
-    const startSearch = async (event) => {
-        event.preventDefault();
-        if (!query.trim() || !selectedSources.size) return;
+    const executeSearch = async (searchQuery) => {
+        const normalizedQuery = String(searchQuery || '').trim();
+        if (!normalizedQuery || !selectedSources.size) return;
         setBusy('search'); setError(''); setSelectedIds(new Set()); setSelectedWorkMap(new Map()); setAiProposal(null); setRerankAudit(null);
         stopProgress();
         resultOffsetRef.current = 0;
         setResultOffset(0);
         eventCursorRef.current = 0;
         try {
-            const response = await axios.post('/api/vault/literature/searches', { query, filters, source_ids: Array.from(selectedSources), source_queries: sourceQueries, ai_audits: aiAudits, limit_per_source: 25 });
+            const response = await axios.post('/api/vault/literature/searches', { query: normalizedQuery, filters, source_ids: Array.from(selectedSources), source_queries: sourceQueries, ai_audits: aiAudits, limit_per_source: 25 });
             setSearchResult(response.data);
             const refreshed = await refreshSearch(response.data.id, 0);
             if (!TERMINAL_SEARCH_STATES.has(refreshed?.state)) followSearch(response.data.id);
@@ -590,6 +592,11 @@ export default function LiteraturePage() {
             console.error('Could not start the literature search:', requestError);
             setError(requestError?.response?.data?.detail || t('literature.search.start_error'));
         } finally { setBusy(''); }
+    };
+
+    const startSearch = async (event) => {
+        event.preventDefault();
+        await executeSearch(query);
     };
 
     const cancelSearch = async () => {
@@ -620,7 +627,7 @@ export default function LiteraturePage() {
         }
         setBusy('ai');
         try {
-            const response = await axios.post('/api/vault/literature/ai', { operation: 'query_strategy', payload: { question: query, framework: 'PICO', languages: ['ca', 'es', 'en', 'fr'] } });
+            const response = await axios.post('/api/vault/literature/ai', { operation: 'query_strategy', agent_id: aiAgentId, payload: { question: query, framework: 'AUTO', languages: ['ca', 'es', 'en', 'fr'] } });
             setAiProposal(response.data);
             setAiAudits((current) => [...current, { operation: response.data?.operation, ...(response.data?.audit || {}) }].slice(-50));
         } catch (requestError) {
@@ -633,13 +640,24 @@ export default function LiteraturePage() {
         if (!query.trim()) return;
         setBusy(`translate:${sourceId}`);
         try {
-            const response = await axios.post('/api/vault/literature/ai', { operation: 'translate_query', payload: { query, source_id: sourceId } });
+            const response = await axios.post('/api/vault/literature/ai', { operation: 'translate_query', agent_id: aiAgentId, payload: { query, source_id: sourceId } });
             setAiProposal(response.data);
             setAiAudits((current) => [...current, { operation: response.data?.operation, ...(response.data?.audit || {}) }].slice(-50));
         } catch (requestError) {
             console.error('Literature source query translation failed:', requestError);
             setError(requestError?.response?.data?.detail || t('literature.ai.error'));
         } finally { setBusy(''); }
+    };
+
+    const changeAiAgent = async (agentId) => {
+        setAiAgentId(agentId);
+        try {
+            await axios.put('/api/vault/literature/configuration', { ai_agent_id: agentId });
+            setConfiguration((current) => ({ ...current, ai_agent_id: agentId }));
+        } catch (requestError) {
+            console.error('Could not save the literature AI agent:', requestError);
+            toast.error(t('literature.ai.agent_save_error'));
+        }
     };
 
     const rerankResults = async () => {
@@ -734,14 +752,14 @@ export default function LiteraturePage() {
             {tab === 'reviews' ? <ReviewWorkspace selectedWorks={selectedWorks} currentSearch={searchResult} t={t} /> : <>
                 <section className="literature-search-panel">
                     <form onSubmit={startSearch}>
-                        <div className="literature-search-box"><Search size={19} /><input ref={queryInputRef} value={query} onChange={(event) => { setQuery(event.target.value); setSourceQueries({}); setAiProposal(null); setAiAudits([]); }} placeholder={t('literature.search.placeholder')} aria-label={t('literature.search.query')} /><button type="button" className="literature-ai-button" disabled={busy === 'ai'} onClick={() => void runAiQuery()} title={t('literature.ai.build_query')}><Sparkles size={16} /> {t('literature.ai.assist')}</button><button type="submit" className="btn-gnosi btn-gnosi-primary" disabled={!query.trim() || !selectedSources.size || busy === 'search'}>{busy === 'search' ? <LoaderCircle size={16} className="spin" /> : <Search size={16} />} {t('literature.search.submit')}</button></div>
+                        <div className="literature-search-box"><Search size={19} /><input ref={queryInputRef} value={query} onChange={(event) => { setQuery(event.target.value); setSourceQueries({}); setAiProposal(null); setAiAudits([]); }} placeholder={t('literature.search.placeholder')} aria-label={t('literature.search.query')} />{configuration.ai_agents?.length > 0 && <select className="literature-ai-agent" value={aiAgentId} onChange={(event) => void changeAiAgent(event.target.value)} aria-label={t('literature.ai.agent')} title={t('literature.ai.agent')}><option value="">{t('literature.ai.default_agent')}</option>{configuration.ai_agents.map((agent) => <option key={agent.id} value={agent.id}>{agent.name}{agent.model ? ` · ${agent.model}` : ''}</option>)}</select>}<button type="button" className="literature-ai-button" aria-busy={busy === 'ai'} disabled={busy === 'ai'} onClick={() => void runAiQuery()} title={t('literature.ai.build_query')}>{busy === 'ai' ? <LoaderCircle size={16} className="spin" /> : <Sparkles size={16} />} {busy === 'ai' ? t('literature.ai.generating') : t('literature.ai.assist')}</button><button type="submit" className="btn-gnosi btn-gnosi-primary" disabled={!query.trim() || !selectedSources.size || busy === 'search'}>{busy === 'search' ? <LoaderCircle size={16} className="spin" /> : <Search size={16} />} {t('literature.search.submit')}</button></div>
                         <div className="literature-search-toolbar"><button type="button" className="literature-link-button" onClick={() => setShowFilters((value) => !value)}><Filter size={14} /> {t('literature.search.filters')} {showFilters ? <ChevronDown size={13} /> : <ChevronRight size={13} />}</button><button type="button" className="literature-link-button" onClick={() => setShowHistory((value) => !value)}><Clock3 size={14} /> {t('literature.search.history')}</button>{results.length > 1 && <button type="button" className="literature-link-button" disabled={busy === 'rerank'} onClick={() => void rerankResults()}><Sparkles size={14} /> {t('literature.ai.rerank')}</button>}{rerankAudit && <span className="literature-search-state">{t('literature.ai.reranked_by', { model: rerankAudit.model })}</span>}{searchResult && <span className={`literature-search-state is-${searchResult.state}`}>{t(`literature.search.state.${searchResult.state}`)} · {t('literature.search.result_count', { count: searchResult.result_count || 0 })}</span>}{searchResult && !TERMINAL_SEARCH_STATES.has(searchResult.state) && <button type="button" className="literature-link-button is-danger" disabled={busy === 'cancel'} onClick={() => void cancelSearch()}><X size={14} /> {t('literature.search.cancel')}</button>}</div>
                         {showFilters && <div className="literature-filters"><label><span>{t('literature.search.date_from')}</span><input type="date" value={filters.date_from} onChange={(event) => setFilters((current) => ({ ...current, date_from: event.target.value }))} /></label><label><span>{t('literature.search.date_to')}</span><input type="date" value={filters.date_to} onChange={(event) => setFilters((current) => ({ ...current, date_to: event.target.value }))} /></label><label><span>{t('literature.search.language')}</span><select value={filters.language} onChange={(event) => setFilters((current) => ({ ...current, language: event.target.value }))}><option value="">{t('literature.search.any')}</option><option value="ca">Català</option><option value="es">Español</option><option value="en">English</option><option value="fr">Français</option><option value="pt">Português</option><option value="de">Deutsch</option><option value="it">Italiano</option></select></label><label><span>{t('literature.search.document_type')}</span><select value={filters.type} onChange={(event) => setFilters((current) => ({ ...current, type: event.target.value }))}><option value="">{t('literature.search.any')}</option><option value="journal-article">{t('literature.search.article')}</option><option value="book">{t('literature.search.book')}</option><option value="thesis">{t('literature.search.thesis')}</option><option value="preprint">{t('literature.search.preprint')}</option></select></label><label className="is-check"><input type="checkbox" checked={filters.open_access === true} onChange={(event) => setFilters((current) => ({ ...current, open_access: event.target.checked ? true : null }))} /> {t('literature.search.open_access_only')}</label><label className="is-check"><input type="checkbox" checked={filters.full_text === true} onChange={(event) => setFilters((current) => ({ ...current, full_text: event.target.checked ? true : null }))} /> {t('literature.search.full_text_only')}</label><label className="is-check"><input type="checkbox" checked={filters.peer_reviewed === true} onChange={(event) => setFilters((current) => ({ ...current, peer_reviewed: event.target.checked ? true : null }))} /> {t('literature.search.peer_reviewed_only')}</label></div>}
                         <SourcePicker sources={configuration.sources || []} selected={selectedSources} statuses={searchResult?.source_status} onConfigure={openResourcesSettings} onChange={(sourceId, checked) => setSelectedSources((current) => { const next = new Set(current); if (checked) next.add(sourceId); else next.delete(sourceId); return next; })} t={t} />
                         <details className="literature-source-queries"><summary>{t('literature.search.source_queries')}</summary><p>{t('literature.search.source_queries_help')}</p>{(configuration.sources || []).filter((source) => selectedSources.has(source.id)).map((source) => <label key={source.id}><span>{source.name}</span><textarea rows={2} value={sourceQueries[source.id] || ''} onChange={(event) => setSourceQueries((current) => ({ ...current, [source.id]: event.target.value }))} placeholder={query || t('literature.search.query')} /><button type="button" className="btn-gnosi-secondary" disabled={!query.trim() || busy === `translate:${source.id}`} onClick={() => void runAiTranslation(source.id)}><Sparkles size={14} /> {t('literature.ai.translate_source')}</button></label>)}</details>
                     </form>
                     {showHistory && <div className="literature-search-history"><header><strong>{t('literature.search.history')}</strong><button type="button" className="literature-icon-button" onClick={() => void loadSearchHistory()} aria-label={t('literature.search.refresh_history')}><RefreshCw size={14} /></button></header>{searchHistory.length === 0 ? <p>{t('literature.search.no_history')}</p> : searchHistory.map((item) => <button type="button" key={item.id} className={searchResult?.id === item.id ? 'is-active' : ''} onClick={() => void openSearch(item.id)}><span>{item.query}</span><small>{t(`literature.search.state.${item.state}`)} · {t('literature.search.result_count', { count: item.result_count || 0 })}</small></button>)}</div>}
-                    {aiProposal && <AiProposal proposal={aiProposal} language={i18n.language} onClose={() => setAiProposal(null)} onUseQuery={(nextQuery) => { setQuery(nextQuery); setSourceQueries({}); }} onUseSourceQuery={(nextQuery) => setSourceQueries((current) => ({ ...current, [aiProposal.result?.source_id]: nextQuery }))} t={t} />}
+                    {aiProposal && <AiProposal proposal={aiProposal} language={i18n.language} onClose={() => setAiProposal(null)} onUseQuery={(nextQuery) => { setQuery(nextQuery); setSourceQueries({}); setAiProposal(null); queryInputRef.current?.focus(); }} onSearch={(nextQuery) => { setQuery(nextQuery); setSourceQueries({}); void executeSearch(nextQuery); }} onUseSourceQuery={(nextQuery) => setSourceQueries((current) => ({ ...current, [aiProposal.result?.source_id]: nextQuery }))} t={t} />}
                     <details className="literature-manual-capture"><summary>{t('literature.manual.title')}</summary><p>{t('literature.manual.help')}</p><form onSubmit={captureManualWork}><select value={manualKind} onChange={(event) => setManualKind(event.target.value)} aria-label={t('literature.manual.kind')}>{['auto', 'doi', 'pmid', 'arxiv', 'isbn', 'url'].map((kind) => <option key={kind} value={kind}>{t(`literature.manual.kind_${kind}`)}</option>)}</select><input value={manualValue} onChange={(event) => setManualValue(event.target.value)} placeholder={t('literature.manual.placeholder')} aria-label={t('literature.manual.value')} /><button type="submit" className="btn-gnosi-secondary" disabled={!manualValue.trim() || busy === 'manual'}>{busy === 'manual' ? <LoaderCircle size={14} className="spin" /> : <Plus size={14} />} {t('literature.manual.preview')}</button></form>{manualWork && <article><div><strong>{manualWork.title}</strong><small>{authorLine(manualWork)} {manualWork.year ? `· ${manualWork.year}` : ''}</small></div><div><button type="button" className="btn-gnosi-secondary" onClick={() => setPreview(manualWork)}><Eye size={14} /> {t('literature.result.view')}</button><button type="button" className="btn-gnosi btn-gnosi-primary" disabled={manualWork.in_resources} onClick={() => void importWorks([manualWork])}><FilePlus2 size={14} /> {manualWork.in_resources ? t('literature.result.already_added') : t('literature.result.add')}</button></div></article>}</details>
                 </section>
                 {error && <div className="literature-alert" role="alert"><CircleAlert size={16} /> {error}</div>}
