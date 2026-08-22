@@ -16,6 +16,7 @@ export const ConfirmModal = ({
     autofocusConfirm = true,
     requireAcknowledgement = false,
     acknowledgementLabel,
+    children,
 }) => {
     const { t } = useTranslation();
     // Localized fallbacks: callers may omit these props; default to i18n instead
@@ -109,6 +110,8 @@ export const ConfirmModal = ({
                         {resolvedMessage}
                     </div>
                 </div>
+
+                {children}
 
                 {requireAcknowledgement && (
                     <label className="flex items-start gap-2 mb-4 text-sm text-[var(--text-secondary)] cursor-pointer">

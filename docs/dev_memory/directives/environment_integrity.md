@@ -82,6 +82,13 @@ Docker recipes live in `docker-compose.yml` and `Dockerfile.*`. CI validates
 image builds, `docker compose config`, and an `/api/health` smoke test with
 `GNOSI_FILES_PROVIDER=local` on relevant pull requests and weekly.
 
+The Docker build workflow runs on the local self-hosted Linux ARM64 virtual
+machine. Use its rootless `nerdctl` runtime for image builds, Compose
+validation, and the backend health-check container. This keeps Docker-mode CI
+independent from the GitHub-hosted Actions budget and does not grant the host a
+privileged Docker daemon. The workflow derives `XDG_RUNTIME_DIR` from the
+runner user ID so `nerdctl` reaches that user's rootless containerd socket.
+
 ## Docker-only operational notes
 
 These rules apply only when Docker is deliberately selected for a self-host
@@ -257,3 +264,8 @@ adding a new workflow or job, do not default to `ubuntu-latest`; use
 `[self-hosted, Linux, ARM64]` unless the job genuinely requires a hosted
 platform (for example, the macOS Intel, macOS arm64, or Windows release matrix).
 Verify the runner labels and required tools before merging the workflow.
+
+The Docker deployment guard also runs on that self-hosted runner. It must use
+the preconfigured rootless `nerdctl` service and fail clearly when that runtime
+is unavailable. Do not install a privileged Docker daemon, alter AppArmor, or
+depend on interactive `sudo` from the workflow.

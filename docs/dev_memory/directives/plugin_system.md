@@ -94,6 +94,14 @@ editable under their existing role rules.
 - Command Palette merges plugin commands in a Plugins section.
 - Plugin Settings manages built-ins, third-party activation, grants, gallery,
   remote registry, trust keys, installation, and removal.
+- Built-in configuration panels compose every text action from the shared
+  `btn-gnosi` base and its semantic variant, and use the shared icon-button and
+  toggle foundations for compact controls. Inline icon-label actions stay as one
+  non-wrapping group; full-width actions center that group instead of separating
+  the icon from the label.
+- A restore action must restore persisted state and report the result. A control
+  that only reveals hidden entries must say so explicitly and must not be
+  labelled as restoration.
 
 ### Examples
 
@@ -257,3 +265,22 @@ the existing vault plugin APIs and refresh the shared installed/catalog state
 after mutations.
 
 See `plugins-examples/README.md` for author and distribution instructions.
+
+## Academic repository contribution
+
+Plugin API v2 optionally accepts `contributes.academicRepositories`, a list of
+safe relative JSON descriptor paths. A plugin using this contribution must
+declare a sandbox backend, subscribe to `literature.search`, request the
+`network` permission, and receive an explicit per-vault grant.
+
+The descriptor supplies a stable local identifier, name, description,
+documentation URL, and coverage note. Search execution receives the repository
+identifier, query, filters, and result limit. It returns canonical academic
+work objects; the host normalizes them again before federation and
+deduplication.
+
+Direct networking remains blocked even after a network grant. Repository
+adapters use the sandbox `api.fetch` RPC, which preserves the same SSRF,
+redirect, method, response-size, and timeout controls as other data plugins.
+No credential value is sent to the sandbox environment or stored in the
+descriptor.

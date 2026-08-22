@@ -7368,7 +7368,9 @@ _REFERENCE_SCHEMA: list = [
     ("Editorial", "text"), ("Lloc", "text"), ("Volum", "text"),
     ("Número", "text"), ("Pàgines", "text"), ("Edició", "text"),
     ("DOI", "text"), ("ISBN", "text"), ("ISSN", "text"),
-    ("URL", "url"), ("Idioma", "text"),
+    ("PMID", "text"), ("PMCID", "text"), ("arXiv", "text"),
+    ("URL", "url"), ("Idioma", "text"), ("Open Access", "checkbox"),
+    ("Literature Sources", "text"), ("Literature Work Key", "text"),
 ]
 
 

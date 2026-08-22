@@ -71,6 +71,10 @@ configuration autosave.
 
 - Use the shared `SettingsSectionTabs` component when a sidebar destination owns
   multiple substantial configuration surfaces.
+- Treat a new `initialTab` value as a live navigation request while the Settings
+  modal is already open. Update the visible destination immediately and expand
+  the Advanced group for API or Plugins; mounting-time state alone makes
+  cross-section actions appear inert.
 - General separates System Configuration from File Structure; Profile separates
   Assistant Configuration from Contact Details and Forms; Mail separates Mail
   Accounts from Text Snippets; Graph Configuration separates the Visual Graph
@@ -174,6 +178,10 @@ configuration autosave.
 
 ## Edge cases
 
+- Do not style a variant class such as `btn-gnosi-secondary` without its shared
+  `btn-gnosi` base. The missing flex layout separates icons from labels and can
+  wrap short Settings actions unexpectedly. Keep icon and text together and use
+  the shared icon-button and toggle foundations for compact controls.
 - Do not reintroduce Settings section state while merging an older UI branch;
   overlapping branches may already declare the same React state in a different
   part of the component, which causes a duplicate-symbol production build
@@ -189,6 +197,9 @@ configuration autosave.
   twice during development.
 - Missing translation keys fall back to English, but catalog parity must still
   be treated as required QA.
+- Plural additions must satisfy every locale category enforced by
+  `scripts/check-i18n.mjs`. Catalan, Spanish, and French entries require the
+  repository's `many` companion even when it intentionally repeats `other`.
 - Formatting may follow an explicit decimal/date setting independently of the
   interface language.
 - Backend configuration may be unavailable before organization-mode login.

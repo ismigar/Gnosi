@@ -161,6 +161,13 @@ def _load_keychain():
             "IMAP_PASS": "imap_password",
             "TEMENOS_MASTODON_BEARER": "mastodon_bearer",
             "TEMENOS_BLUESKY_APP_PASSWORD": "bluesky_app_password",
+            "CORE_API_KEY": "core_api_key",
+            "OPENALEX_API_KEY": "openalex_api_key",
+            "SEMANTIC_SCHOLAR_API_KEY": "semantic_scholar_api_key",
+            "SPRINGER_NATURE_API_KEY": "springer_nature_api_key",
+            "SCOPUS_API_KEY": "scopus_api_key",
+            "WEB_OF_SCIENCE_API_KEY": "web_of_science_api_key",
+            "DIMENSIONS_API_KEY": "dimensions_api_key",
         }
 
         # Notion references removed for Standalone Sovereignty

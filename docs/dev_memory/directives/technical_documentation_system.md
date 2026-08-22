@@ -228,6 +228,15 @@ this avoids machine-translating code-derived identifiers and route evidence.
   entry point so local validation and CI cannot silently diverge.
 - A missing doc-tool dependency is a failed documentation build, not permission
   to skip verification.
+- Do not assert a fixed checkout-directory name in documentation-tool tests.
+  Local workspaces and CI runners use different directory names; compare the
+  resolved path with the tool's repository-root constant instead.
+- Do not assume that a self-hosted runner service exposes Git through `PATH`.
+  Resolve Git from `PATH` first, then from verified standard system locations;
+  workflow path updates can be discarded by the runner's tool setup.
+- Do not hard-code the Git executable string in documentation-tool test doubles.
+  Production resolves a verified absolute path when necessary, so tests must
+  normalize the executable by basename before matching command fixtures.
 
 ## Verification
 
