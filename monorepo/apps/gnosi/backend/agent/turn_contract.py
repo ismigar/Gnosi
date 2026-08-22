@@ -13,7 +13,7 @@ import json
 import re
 import unicodedata
 from typing import Any, Iterable, Mapping, Sequence
-from urllib.parse import quote, urlparse
+from urllib.parse import parse_qs, quote, urlparse
 
 from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 
@@ -79,6 +79,11 @@ CITATION_MARKER_RE = re.compile(
 )
 MAX_CITATION_SOURCES = 96
 MAX_CITATION_CLAIMS = 128
+NOTEBOOK_EVIDENCE_TOOL_NAMES = frozenset({
+    "search_notebook_context",
+    "read_notebook_context_evidence",
+    "read_notebook_context_analysis",
+})
 
 # These are request-scoped safety budgets. They are deliberately kept in the
 # provider-independent contract so every model, connector, and UI surface sees
@@ -443,7 +448,19 @@ def _tool_payload(message: ToolMessage) -> dict[str, Any]:
     try:
         payload = json.loads(content)
     except (TypeError, ValueError, json.JSONDecodeError):
-        return {}
+        tool_name = str(getattr(message, "name", "") or "")
+        if tool_name not in NOTEBOOK_EVIDENCE_TOOL_NAMES:
+            return {}
+        start_marker = "<<<START EXTERNAL CONTENT>>>\n"
+        end_marker = "\n<<<END EXTERNAL CONTENT>>>"
+        start = content.find(start_marker)
+        end = content.rfind(end_marker)
+        if start < 0 or end <= start:
+            return {}
+        try:
+            payload = json.loads(content[start + len(start_marker):end])
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return {}
     return payload if isinstance(payload, dict) else {}
 
 
@@ -500,6 +517,17 @@ def _safe_source_href(*, source_id: str, source_kind: str, url: Any = "") -> str
         parsed = urlparse(candidate)
         if parsed.scheme in {"http", "https"} and parsed.netloc:
             return candidate[:2_000]
+        if source_kind == "notebook_evidence" and parsed.scheme == "gnosi-cite":
+            query = parse_qs(parsed.query, keep_blank_values=False)
+            required = {"res", "notebook", "revision", "chunk"}
+            if (
+                not parsed.netloc
+                and not parsed.path
+                and required.issubset(query)
+                and all(len(query[key]) == 1 for key in required)
+                and str(query["revision"][0]).isdigit()
+            ):
+                return candidate[:2_000]
     if not source_id:
         return ""
     encoded = quote(source_id, safe="")
@@ -572,6 +600,45 @@ def _citation_evidence(
                 source_key_to_citation.setdefault(key, citation_id)
         return citation_id
 
+    def add_notebook_evidence(raw_row: Mapping[str, Any]) -> str:
+        citation = raw_row.get("citation")
+        if not isinstance(citation, Mapping):
+            return ""
+        chunk_id = _bounded_label(
+            citation.get("chunk_id") or raw_row.get("chunk_id"),
+            "",
+            192,
+        )
+        if not chunk_id:
+            return ""
+        source_label = _bounded_label(
+            raw_row.get("source_label") or raw_row.get("label"),
+            str(citation.get("source_id") or chunk_id),
+        )
+        locator_label = _bounded_label(citation.get("label"), "", 120)
+        title = (
+            f"{source_label} · {locator_label}"
+            if locator_label and locator_label != source_label
+            else source_label
+        )
+        return add_source(
+            source_id=chunk_id,
+            title=title,
+            source_kind="notebook_evidence",
+            url=citation.get("href"),
+            marker_keys=(
+                raw_row.get("chunk_id"),
+                raw_row.get("source_id"),
+                citation.get("chunk_id"),
+                citation.get("source_id"),
+            ),
+            version_data={
+                "revision": citation.get("revision") or raw_row.get("revision"),
+                "source_id": citation.get("source_id") or raw_row.get("source_id"),
+                "chunk_id": chunk_id,
+            },
+        )
+
     for index, (tool, tool_name, payload) in enumerate(
         zip(tools, tool_names, payloads)
     ):
@@ -587,6 +654,20 @@ def _citation_evidence(
         )
         if manifest_citation:
             manifest_citations.append(manifest_citation)
+
+        if tool_name in NOTEBOOK_EVIDENCE_TOOL_NAMES:
+            notebook_rows: list[Mapping[str, Any]] = []
+            if payload.get("chunk_id") and isinstance(payload.get("citation"), Mapping):
+                notebook_rows.append(payload)
+            results = payload.get("results")
+            if isinstance(results, list):
+                notebook_rows.extend(
+                    row for row in results if isinstance(row, Mapping)
+                )
+            for raw_row in notebook_rows:
+                add_notebook_evidence(raw_row)
+            if notebook_rows:
+                continue
 
         collections = (
             ("records", "vault_record"),

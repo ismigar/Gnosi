@@ -148,9 +148,13 @@ puis réduit leurs résumés au lieu de placer des centaines de sources dans un
 seul prompt.
 
 Les citations incluent la Ressource, la révision, la source, le fragment et le
-localisateur. Les preuves PDF utilisent le contrat de navigation `gnosi-cite`
-pour ouvrir la page ou le fragment cité. Les preuves web renvoient vers l'URL
-d'origine validée.
+localisateur. Chaque affirmation étayée du chat relie son `chunk_id`, validé par
+le serveur, à un lien visible. Les pièces jointes utilisent `gnosi-cite` et
+l'endpoint autorisé de la révision épinglée afin d'ouvrir la pièce jointe, la
+page ou le fragment exacts même après une actualisation ultérieure. Les anciens
+liens de pièces jointes sont mis à niveau lors de leur lecture afin
+que les carnets existants ne nécessitent pas de réindexation. Les preuves web
+renvoient vers l'URL d'origine validée.
 
 ## Espaces de noms de conversation
 
@@ -177,6 +181,7 @@ analyses. Les données originales du Vault restent hors de cette limite.
 | `POST /api/notebooks/{id}/sources/{resource_id}/refresh` | Réessayer uniquement une Ressource |
 | `POST /api/notebooks/{id}/refresh` | Rafraîchissement explicite fusionné du carnet |
 | `POST /api/notebooks/{id}/refresh/cancel` | Annuler coopérativement l'ingestion active |
+| `GET /api/notebooks/{id}/evidence/{chunk_id}?revision={revision}` | Résoudre une citation autorisée dans sa révision immuable |
 | `GET /api/notebooks/{id}/conversation` | Conversation canonique du mode actif |
 | `POST /api/chat` | Conversation en streaming avec un contexte de carnet autorisé |
 

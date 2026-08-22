@@ -137,6 +137,12 @@ evidence.
 - Do not cancel ingestion by terminating a worker thread. Mark the durable job
   cancelled and check that state before each Resource and before atomic
   activation so the current extraction rolls back cooperatively.
+- Do not turn notebook evidence into a generic tool-result citation or cite a
+  whole source when an exact chunk is available. Validate model markers against
+  current-turn chunk IDs, preserve only governed `gnosi-cite` targets, and
+  resolve attachment links through the authorized pinned revision. Upgrade
+  legacy stored links when reading them so existing notebooks do not require a
+  forced reindex.
 
 ## 6. Error Protocol and Learning
 
@@ -159,6 +165,7 @@ evidence.
 | 2026-08-21 | Streaming URLs were re-downloaded and transcribed after every validation TTL | Streaming validation unconditionally reported a change because ordinary HTTP validators do not describe provider media | Store a deterministic provider-metadata fingerprint and probe it with yt-dlp metadata-only mode before downloading media. |
 | 2026-08-21 | Completed evidence revisions could grow without bound | Revision history had atomic activation but no reference-aware cleanup policy | Mark only new revisions retention-eligible, pin conversation revisions, protect analyses and the active/recent set, and prune evidence plus FTS atomically. |
 | 2026-08-21 | An indexing job exposed progress but could not be stopped or diagnosed precisely | Revision state tracked counts only and the queue had no cooperative cancellation state | Persist the current Resource, expose last-checked/error diagnostics, and cancel through a durable terminal state checked around every extraction transaction. |
+| 2026-08-22 | Notebook chat evidence was reduced to an unlinked generic tool result | Notebook tools wrap JSON as untrusted data, the response verifier did not recover that governed payload, and the client sanitizer rejected `gnosi-cite` | Parse only known notebook evidence envelopes, map claims to exact chunk IDs, preserve validated notebook citation links, and resolve them through the authorized pinned-revision evidence endpoint. |
 
 When a failure reveals a new constraint, fix the implementation first, add the
 general rule to this section, and rerun the smallest reproducible test plus the
@@ -184,6 +191,8 @@ complete affected verification gate.
 - Ingestion work is lost after restarting the durable worker.
 - A source URL can redirect to a private or loopback address.
 - The UI action appears for a table other than the configured References table.
+- A notebook answer displays a generic tool-result citation, strips a
+  `gnosi-cite` link, or cannot reopen the exact pinned chunk in its document.
 
 ## 9. Verification Gates
 

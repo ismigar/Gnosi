@@ -264,7 +264,7 @@ test('creates, ingests and refreshes a grounded PDF and web notebook', async ({ 
   expect(chatRequest).toMatchObject({
     context_refs: [{ type: 'notebook', ref: 'notebook-e2e' }],
   });
-  await page.locator('.notebook-chat-panel details > summary').click();
+  await expect(page.getByRole('link', { name: 'Web evidence' })).toBeVisible();
   const sourcePopup = page.waitForEvent('popup');
   await page.getByRole('link', { name: 'Web evidence' }).click();
   const openedSource = await sourcePopup;

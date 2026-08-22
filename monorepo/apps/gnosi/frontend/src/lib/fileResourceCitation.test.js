@@ -13,6 +13,47 @@ afterEach(() => {
 });
 
 describe('openCitation', () => {
+    it('opens notebook evidence from its pinned revision and exact attachment', async () => {
+        const fetchMock = vi.fn()
+            .mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({
+                    source_kind: 'pdf',
+                    source_url: 'file:///tmp/notebook-source.pdf',
+                    text: 'Exact notebook evidence.',
+                    locator: { page: 9, paragraph: 3 },
+                }),
+            })
+            .mockResolvedValueOnce({ ok: true, json: async () => ({ metadata: {} }) });
+        vi.stubGlobal('fetch', fetchMock);
+        let opened;
+        const listener = (event) => {
+            opened = event.detail;
+            event.preventDefault();
+        };
+        window.addEventListener('gnosi:open-pdf', listener, { once: true });
+
+        await openCitation('resource-1', '3', {
+            citation: {
+                notebook: 'notebook-1',
+                revision: '4',
+                chunk: 'chunk-1',
+            },
+        });
+
+        expect(fetchMock.mock.calls[0][0]).toBe(
+            '/api/notebooks/notebook-1/evidence/chunk-1?revision=4',
+        );
+        expect(opened).toMatchObject({
+            src: 'file:///tmp/notebook-source.pdf',
+            kind: 'pdf',
+            location: {
+                pageNumber: '9',
+                highlightText: 'Exact notebook evidence.',
+            },
+        });
+    });
+
     it('opens persisted PDF evidence at its page with transient highlight text', async () => {
         const fetchMock = vi.fn()
             .mockResolvedValueOnce({

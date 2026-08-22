@@ -2090,7 +2090,7 @@ const AgentChat = ({
                                 }}>
                                     {msg.content}
                                     {msg.role === 'assistant' && msg.citations?.claims?.length > 0 && (
-                                        <details style={{ marginTop: '10px', whiteSpace: 'normal' }}>
+                                        <details open={notebookId ? true : undefined} style={{ marginTop: '10px', whiteSpace: 'normal' }}>
                                             <summary style={{ cursor: 'pointer', color: 'var(--gnosi-blue, #2563eb)', fontSize: '0.74rem', fontWeight: 600 }}>
                                                 {t('chat.citations_summary', '{{claims}} grounded claim(s) · {{sources}} source(s)', {
                                                     claims: msg.citations.claim_count,
@@ -2112,6 +2112,12 @@ const AgentChat = ({
                                                                         href={source.href}
                                                                         target={source.href.startsWith('http') ? '_blank' : undefined}
                                                                         rel={source.href.startsWith('http') ? 'noreferrer' : undefined}
+                                                                        aria-label={notebookId
+                                                                            ? t('notebooks.open_citation', 'Open the cited evidence in its source: {{source}}', { source: source.title })
+                                                                            : undefined}
+                                                                        title={notebookId
+                                                                            ? t('notebooks.open_citation', 'Open the cited evidence in its source: {{source}}', { source: source.title })
+                                                                            : undefined}
                                                                         style={{ color: 'var(--gnosi-blue, #2563eb)', textDecoration: 'underline' }}
                                                                     >
                                                                         {source.title}{source.version_status === 'exact'

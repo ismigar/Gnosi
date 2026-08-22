@@ -1,3 +1,5 @@
+import { isCitationHref } from '../lib/citationDeepLink';
+
 const MAX_PROCESSING_MS = 24 * 60 * 60 * 1000;
 const TURN_TIMING_MS_FIELDS = [
     'setup_ms', 'routing_ms', 'model_ms', 'tools_ms', 'other_ms', 'total_ms',
@@ -624,6 +626,7 @@ const boundedSourceHref = value => {
     if (
         href.startsWith('/vault/page/')
         || href.startsWith('/reader?article=')
+        || isCitationHref(href)
         || /^https?:\/\//i.test(href)
     ) return href;
     return '';

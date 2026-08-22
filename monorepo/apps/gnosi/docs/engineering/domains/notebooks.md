@@ -139,8 +139,13 @@ bounded evidence batches and reduces their summaries instead of placing
 hundreds of sources in one prompt.
 
 Citations carry the notebook Resource, revision, source, chunk, and locator.
-PDF evidence uses the `gnosi-cite` navigation contract so the reader can open
-the cited page or fragment. Web evidence links to the original validated URL.
+Every grounded claim in notebook chat is mapped from its server-validated
+`chunk_id` to a visible source link. Attachment evidence uses the `gnosi-cite`
+navigation contract and the authorized pinned-revision evidence endpoint so the
+reader opens the exact attachment, page or fragment even after a later refresh.
+Legacy attachment links are upgraded when read, so existing notebooks gain the
+same navigation without forced reindexing. Web evidence links to the original
+validated URL.
 
 ## Conversation namespaces
 
@@ -166,6 +171,7 @@ analysis rows. Original Vault data is outside this deletion boundary.
 | `POST /api/notebooks/{id}/sources/{resource_id}/refresh` | Retry only one Resource while reusing non-target evidence |
 | `POST /api/notebooks/{id}/refresh` | Coalesced explicit notebook refresh |
 | `POST /api/notebooks/{id}/refresh/cancel` | Cooperatively cancel the active ingestion job |
+| `GET /api/notebooks/{id}/evidence/{chunk_id}?revision={revision}` | Resolve one authorized citation against its immutable notebook revision |
 | `GET /api/notebooks/{id}/conversation` | Canonical active-mode transcript |
 | `POST /api/chat` | Streaming conversation with an authorized notebook context |
 

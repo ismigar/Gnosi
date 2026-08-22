@@ -5489,6 +5489,7 @@
     "index_cancel_error": "No s'ha pogut cancel·lar la indexació.",
     "sources_tab": "Fonts",
     "chat_tab": "Conversa",
+    "open_citation": "Obre l'evidència citada a la font: {{source}}",
     "settings_tab": "Configuració",
     "settings_help": "Accés i comportament de la conversa",
     "settings_error": "No s'ha pogut desar la configuració del quadern.",

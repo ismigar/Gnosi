@@ -131,6 +131,32 @@ def test_notebook_indexes_only_attachment_and_url_fields(notebook_env):
     assert hits["results"][0]["citation"]["href"].startswith("gnosi-cite:?")
 
 
+def test_legacy_attachment_citations_are_upgraded_without_reindexing(notebook_env):
+    context = notebook_env["context"]
+    notebook = notebook_service.create_notebook(
+        context,
+        title="Legacy citations",
+        visibility="private",
+        conversation_mode="private_member",
+        resource_ids=["resource-1"],
+    )
+    _run_queued_ingest(notebook_env["vault"])
+    with notebook_service._connect() as connection:  # noqa: SLF001
+        connection.execute(
+            "UPDATE notebook_chunks SET citation_href=? WHERE notebook_id=?",
+            ("gnosi-cite:?res=resource-1&page=1", notebook["id"]),
+        )
+        connection.commit()
+
+    hit = notebook_service.search_notebook(
+        notebook["id"], "deterministic retrieval"
+    )["results"][0]
+
+    assert f"notebook={notebook['id']}" in hit["citation"]["href"]
+    assert "revision=1" in hit["citation"]["href"]
+    assert f"chunk={hit['chunk_id']}" in hit["citation"]["href"]
+
+
 def test_notebook_ingests_pdf_and_web_sources_with_navigable_citations(
     notebook_env,
     monkeypatch,
@@ -180,6 +206,9 @@ def test_notebook_ingests_pdf_and_web_sources_with_navigable_citations(
     web_hit = notebook_service.search_notebook(notebook["id"], "Web grounded")["results"][0]
     assert "page=1" in pdf_hit["citation"]["href"]
     assert pdf_hit["citation"]["href"].startswith("gnosi-cite:?")
+    assert f"notebook={notebook['id']}" in pdf_hit["citation"]["href"]
+    assert "revision=1" in pdf_hit["citation"]["href"]
+    assert f"chunk={pdf_hit['chunk_id']}" in pdf_hit["citation"]["href"]
     assert web_hit["citation"]["href"] == "https://sources.example/article"
 
 

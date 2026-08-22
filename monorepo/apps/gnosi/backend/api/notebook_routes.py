@@ -236,10 +236,15 @@ def read_evidence(
     notebook_id: str,
     chunk_id: str,
     context: WorkspaceContext = Depends(require_role("viewer")),
+    revision: Optional[int] = Query(default=None, ge=1),
 ):
     notebook_service.authorize(notebook_id, context)
     try:
-        return notebook_service.read_notebook_evidence(notebook_id, chunk_id)
+        return notebook_service.read_notebook_evidence(
+            notebook_id,
+            chunk_id,
+            revision=revision if isinstance(revision, int) else None,
+        )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
