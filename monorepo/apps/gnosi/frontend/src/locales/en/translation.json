@@ -529,7 +529,18 @@
     "logout_tooltip_label": "Sign out ({{user}})",
     "vault_menu_active": "ACTIVE VAULT",
     "vault_menu_new": "New vault",
-    "nav_literature": "Literature search"
+    "nav_literature": "Literature search",
+    "open_app_launcher": "More applications",
+    "app_launcher": "Applications",
+    "app_launcher_hint": "Search, pin, and reorder your applications.",
+    "close_app_launcher": "Close applications",
+    "search_applications": "Search applications",
+    "pinned_applications": "Pinned applications",
+    "pin_application": "Pin {{application}}",
+    "unpin_application": "Unpin {{application}}",
+    "move_application_up": "Move {{application}} up",
+    "move_application_down": "Move {{application}} down",
+    "no_matching_applications": "No matching applications."
   },
   "shell": {
     "go_back": "Go back",

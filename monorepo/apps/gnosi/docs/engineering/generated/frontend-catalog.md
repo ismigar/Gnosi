@@ -35,10 +35,10 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `application root` | 3 | 308 | 0 |
-| `components` | 204 | 81225 | 205 |
+| `components` | 204 | 81344 | 205 |
 | `context` | 1 | 177 | 6 |
 | `hooks` | 16 | 1239 | 7 |
-| `lib` | 21 | 2096 | 6 |
+| `lib` | 22 | 2110 | 6 |
 | `locales` | 3 | 565 | 0 |
 | `pages` | 18 | 13471 | 58 |
 | `plugins` | 4 | 519 | 5 |
@@ -67,7 +67,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/AgentContextSources.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AgentContextSources.jsx) | 566 | `AgentContextSources`, `function` | `/api/agent/context-sources`, `/api/agent/internal-sources`, `/api/vault/assets/upload`, `/api/vault/pages`, `/api/vault/tables` |
 | [`frontend/src/components/ApiTokensSettings.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/ApiTokensSettings.jsx) | 134 | `ApiTokensSettings`, `function` | `/api/tokens` |
 | [`frontend/src/components/AppHeader.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AppHeader.jsx) | 32 | `AppHeader` | — |
-| [`frontend/src/components/AppSidebar.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AppSidebar.jsx) | 262 | `AppSidebar`, `ENGINEERING_DOCUMENTATION_URL` | `/api/health` |
+| [`frontend/src/components/AppSidebar.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AppSidebar.jsx) | 381 | `AppSidebar`, `ENGINEERING_DOCUMENTATION_URL` | `/api/health` |
 | [`frontend/src/components/Auth/AccountSettings.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Auth/AccountSettings.jsx) | 194 | `AccountSettings`, `function` | — |
 | [`frontend/src/components/Auth/LoginPage.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Auth/LoginPage.jsx) | 210 | `LoginPage` | — |
 | [`frontend/src/components/CollapsibleSection.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/CollapsibleSection.jsx) | 56 | `CollapsibleSection` | — |
@@ -292,6 +292,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 
 | Source | Lines | Export signals | Literal API paths |
 | --- | ---: | --- | --- |
+| [`frontend/src/lib/appSidebarNavigation.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/appSidebarNavigation.js) | 14 | `normalizeSidebarPreferences`, `orderSidebarItems` | — |
 | [`frontend/src/lib/cachedJson.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/cachedJson.js) | 49 | `cachedJson`, `invalidateCachedJson` | — |
 | [`frontend/src/lib/citationDeepLink.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/citationDeepLink.js) | 30 | `CITATION_PROTOCOL`, `CITATION_PROTOCOL_SENTINEL`, `citationParamsFromHref`, `citationSentinelToHref`, `isCitationHref`, `protectCitationMarkdownLinks` | — |
 | [`frontend/src/lib/collabProvider.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/collabProvider.js) | 131 | `GnosiCollabProvider` | — |

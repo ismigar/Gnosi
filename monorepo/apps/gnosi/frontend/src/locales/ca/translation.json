@@ -481,7 +481,18 @@
     "logout_tooltip_label": "Tancar sessió ({{user}})",
     "vault_menu_active": "VAULT ACTIU",
     "vault_menu_new": "Nou vault",
-    "nav_literature": "Cerca bibliogràfica"
+    "nav_literature": "Cerca bibliogràfica",
+    "open_app_launcher": "Més aplicacions",
+    "app_launcher": "Aplicacions",
+    "app_launcher_hint": "Cerca, fixa i ordena les teves aplicacions.",
+    "close_app_launcher": "Tancar aplicacions",
+    "search_applications": "Cerca aplicacions",
+    "pinned_applications": "Aplicacions fixades",
+    "pin_application": "Fixar {{application}}",
+    "unpin_application": "Desfixar {{application}}",
+    "move_application_up": "Pujar {{application}}",
+    "move_application_down": "Baixar {{application}}",
+    "no_matching_applications": "No hi ha aplicacions coincidents."
   },
   "shell": {
     "go_back": "Enrere",

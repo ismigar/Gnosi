@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { Home, Network, BookOpen, Gauge, Share2, Settings, Menu, X, FileText, Calendar, Inbox, LayoutGrid, Clock, PenTool, Image as ImageIcon, Users, User, LogOut, CalendarRange, CircleHelp, NotebookTabs, LibraryBig } from 'lucide-react';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { Network, BookOpen, Gauge, Share2, Settings, Menu, X, FileText, Calendar, Inbox, Image as ImageIcon, Users, LogOut, CalendarRange, CircleHelp, NotebookTabs, LibraryBig, PanelTopOpen, Pin, PinOff, ChevronUp, ChevronDown, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 // The Settings modal drags in the BlockEditor (blocknote/tiptap) and other
 // heavy views. By lazy-loading it we avoid these libraries
@@ -13,6 +13,7 @@ import VaultMenu from './VaultMenu';
 import { useAuth } from '../context/AuthContext';
 import { toast } from '../lib/toast';
 import { usePlugins } from '../plugins/usePlugins';
+import { normalizeSidebarPreferences, orderSidebarItems } from '../lib/appSidebarNavigation';
 
 export const ENGINEERING_DOCUMENTATION_URL = 'https://gnosi.temenosismael.org/engineering/';
 
@@ -47,6 +48,8 @@ const navItems = [
     { to: '/planning',          icon: CalendarRange, labelKey: 'sidebar.nav_planning', shortcut: '' },
 ];
 
+const SIDEBAR_SETTINGS_ID = 'app-sidebar';
+
 function getInitialSettingsRequest() {
     const params = new URLSearchParams(window.location.search);
     return {
@@ -61,14 +64,34 @@ export function AppSidebar() {
     const [settingsOpen, setSettingsOpen] = useState(initialSettingsRequest.open);
     const [settingsTab, setSettingsTab] = useState(initialSettingsRequest.tab);
     const [gnosiMode, setGnosiMode] = useState('personal');
+    const [launcherOpen, setLauncherOpen] = useState(false);
+    const [launcherQuery, setLauncherQuery] = useState('');
     const { t } = useTranslation();
     const navigate = useNavigate();
+    const location = useLocation();
     const { user, logout } = useAuth();
-    const { isEnabled: isPluginEnabled } = usePlugins();
+    const { isEnabled: isPluginEnabled, getPluginSettings, setPluginSettings } = usePlugins();
     const visibleNavItems = useMemo(
         () => navItems.filter((item) => !item.plugin || isPluginEnabled(item.plugin)),
         [isPluginEnabled],
     );
+    const sidebarPreferences = useMemo(
+        () => normalizeSidebarPreferences(visibleNavItems, getPluginSettings(SIDEBAR_SETTINGS_ID)),
+        [getPluginSettings, visibleNavItems],
+    );
+    const pinnedNavItems = useMemo(
+        () => orderSidebarItems(visibleNavItems, sidebarPreferences.pinnedRoutes),
+        [sidebarPreferences.pinnedRoutes, visibleNavItems],
+    );
+    const activeNavItem = visibleNavItems.find((item) => location.pathname === item.to);
+    const railNavItems = activeNavItem && !pinnedNavItems.some((item) => item.to === activeNavItem.to)
+        ? [...pinnedNavItems, activeNavItem]
+        : pinnedNavItems;
+    const normalizedLauncherQuery = launcherQuery.trim().toLocaleLowerCase();
+    const launcherItems = visibleNavItems.filter((item) => {
+        const label = t(item.labelKey).toLocaleLowerCase();
+        return !normalizedLauncherQuery || label.includes(normalizedLauncherQuery);
+    });
 
     // The command palette (and other places) can request opening settings.
     useEffect(() => {
@@ -80,6 +103,32 @@ export function AppSidebar() {
     const handleLogout = async () => {
         await logout();
         toast.success(t('sidebar.logged_out', "Signed out."));
+    };
+
+    const savePinnedRoutes = (pinnedRoutes) => {
+        setPluginSettings(SIDEBAR_SETTINGS_ID, { pinnedRoutes });
+    };
+
+    const togglePinnedRoute = (route) => {
+        const pinnedRoutes = sidebarPreferences.pinnedRoutes.includes(route)
+            ? sidebarPreferences.pinnedRoutes.filter((candidate) => candidate !== route)
+            : [...sidebarPreferences.pinnedRoutes, route];
+        savePinnedRoutes(pinnedRoutes);
+    };
+
+    const movePinnedRoute = (route, offset) => {
+        const currentIndex = sidebarPreferences.pinnedRoutes.indexOf(route);
+        const nextIndex = currentIndex + offset;
+        if (currentIndex < 0 || nextIndex < 0 || nextIndex >= sidebarPreferences.pinnedRoutes.length) return;
+        const pinnedRoutes = [...sidebarPreferences.pinnedRoutes];
+        [pinnedRoutes[currentIndex], pinnedRoutes[nextIndex]] = [pinnedRoutes[nextIndex], pinnedRoutes[currentIndex]];
+        savePinnedRoutes(pinnedRoutes);
+    };
+
+    const openDestination = (route) => {
+        navigate(route);
+        setLauncherOpen(false);
+        setMobileOpen(false);
     };
 
     useEffect(() => {
@@ -167,8 +216,21 @@ export function AppSidebar() {
                 </div>
 
                 {/* Nav Items */}
-                <div className="app-sidebar__nav">
-                    {visibleNavItems.map(({ to, icon: Icon, labelKey, shortcut }) => {
+                <button
+                    type="button"
+                    className="app-sidebar__item app-sidebar__launcher-trigger"
+                    title={t('sidebar.open_app_launcher', 'More applications')}
+                    aria-label={t('sidebar.open_app_launcher', 'More applications')}
+                    aria-haspopup="dialog"
+                    aria-expanded={launcherOpen}
+                    onClick={() => { setLauncherOpen(true); setLauncherQuery(''); }}
+                >
+                    <PanelTopOpen size={16} strokeWidth={1.5} />
+                    <span className="app-sidebar__tooltip"><span>{t('sidebar.open_app_launcher', 'More applications')}</span></span>
+                </button>
+
+                <div className="app-sidebar__nav" aria-label={t('sidebar.pinned_applications', 'Pinned applications')}>
+                    {railNavItems.map(({ to, icon: Icon, labelKey, shortcut }) => {
                         const label = t(labelKey);
                         return (
                             <NavLink
@@ -246,6 +308,63 @@ export function AppSidebar() {
 
                 </div>
             </nav>
+
+            {launcherOpen && (
+                <div className="app-launcher-backdrop" role="presentation" onMouseDown={() => setLauncherOpen(false)}>
+                    <section
+                        className="app-launcher"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label={t('sidebar.app_launcher', 'Applications')}
+                        onMouseDown={(event) => event.stopPropagation()}
+                    >
+                        <div className="app-launcher__header">
+                            <div>
+                                <h2>{t('sidebar.app_launcher', 'Applications')}</h2>
+                                <p>{t('sidebar.app_launcher_hint', 'Search, pin, and reorder your applications.')}</p>
+                            </div>
+                            <button type="button" className="app-launcher__close" onClick={() => setLauncherOpen(false)} aria-label={t('sidebar.close_app_launcher', 'Close applications')}>
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <label className="app-launcher__search">
+                            <Search size={16} aria-hidden="true" />
+                            <span className="sr-only">{t('sidebar.search_applications', 'Search applications')}</span>
+                            <input
+                                autoFocus
+                                value={launcherQuery}
+                                onChange={(event) => setLauncherQuery(event.target.value)}
+                                placeholder={t('sidebar.search_applications', 'Search applications')}
+                            />
+                        </label>
+                        <div className="app-launcher__list">
+                            {launcherItems.map(({ to, icon: Icon, labelKey }) => {
+                                const label = t(labelKey);
+                                const pinnedIndex = sidebarPreferences.pinnedRoutes.indexOf(to);
+                                const pinned = pinnedIndex >= 0;
+                                return (
+                                    <div className="app-launcher__row" key={to}>
+                                        <button type="button" className="app-launcher__destination" onClick={() => openDestination(to)}>
+                                            <Icon size={18} strokeWidth={1.6} aria-hidden="true" />
+                                            <span>{label}</span>
+                                        </button>
+                                        <div className="app-launcher__actions">
+                                            {pinned && <>
+                                                <button type="button" onClick={() => movePinnedRoute(to, -1)} disabled={pinnedIndex === 0} aria-label={t('sidebar.move_application_up', 'Move {{application}} up', { application: label })}><ChevronUp size={16} /></button>
+                                                <button type="button" onClick={() => movePinnedRoute(to, 1)} disabled={pinnedIndex === sidebarPreferences.pinnedRoutes.length - 1} aria-label={t('sidebar.move_application_down', 'Move {{application}} down', { application: label })}><ChevronDown size={16} /></button>
+                                            </>}
+                                            <button type="button" onClick={() => togglePinnedRoute(to)} aria-pressed={pinned} aria-label={pinned ? t('sidebar.unpin_application', 'Unpin {{application}}', { application: label }) : t('sidebar.pin_application', 'Pin {{application}}', { application: label })}>
+                                                {pinned ? <PinOff size={16} /> : <Pin size={16} />}
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                            {launcherItems.length === 0 && <p className="app-launcher__empty">{t('sidebar.no_matching_applications', 'No matching applications.')}</p>}
+                        </div>
+                    </section>
+                </div>
+            )}
 
             {/* Global Settings Modal */}
             {settingsOpen && (

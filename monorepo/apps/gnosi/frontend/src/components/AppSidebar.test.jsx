@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AppSidebar, ENGINEERING_DOCUMENTATION_URL } from './AppSidebar';
+import { normalizeSidebarPreferences, orderSidebarItems } from '../lib/appSidebarNavigation';
 
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
@@ -25,6 +26,14 @@ vi.mock('./Navigation/WorkspaceSwitcher', () => ({
 
 vi.mock('./VaultMenu', () => ({
     default: () => null,
+}));
+
+vi.mock('../plugins/usePlugins', () => ({
+    usePlugins: () => ({
+        isEnabled: () => true,
+        getPluginSettings: () => ({}),
+        setPluginSettings: vi.fn(),
+    }),
 }));
 
 const mountedRoots = [];
@@ -68,5 +77,40 @@ describe('AppSidebar documentation access', () => {
         expect(link.getAttribute('target')).toBe('_blank');
         expect(link.getAttribute('rel')).toContain('noopener');
         expect(link.getAttribute('aria-label')).toBe('Engineering documentation');
+    });
+});
+
+describe('AppSidebar adaptive navigation', () => {
+    const items = [{ to: '/one' }, { to: '/two' }, { to: '/three' }];
+
+    it('uses the current destination order when no preference exists', () => {
+        expect(normalizeSidebarPreferences(items, {})).toEqual({
+            pinnedRoutes: ['/one', '/two', '/three'],
+        });
+    });
+
+    it('drops unknown and duplicate persisted destinations before ordering', () => {
+        const preferences = normalizeSidebarPreferences(items, {
+            pinnedRoutes: ['/three', '/missing', '/one', '/three'],
+        });
+        expect(preferences).toEqual({ pinnedRoutes: ['/three', '/one'] });
+        expect(orderSidebarItems(items, preferences.pinnedRoutes).map((item) => item.to)).toEqual(['/three', '/one']);
+    });
+
+    it('opens the application launcher with search and pin controls', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const root = createRoot(container);
+        mountedRoots.push({ root, container });
+
+        await act(async () => {
+            root.render(<MemoryRouter><AppSidebar /></MemoryRouter>);
+        });
+        const trigger = container.querySelector('[aria-label="More applications"]');
+        await act(async () => trigger.click());
+
+        expect(container.querySelector('[role="dialog"]')).not.toBeNull();
+        expect(container.querySelector('input[placeholder="Search applications"]')).not.toBeNull();
+        expect(container.querySelector('[aria-pressed="true"]')).not.toBeNull();
     });
 });
