@@ -63,6 +63,38 @@ function SourcePicker({ sources, selected, onChange, statuses, onConfigure, t })
     );
 }
 
+function aiText(value, language) {
+    if (typeof value === 'string') return value;
+    if (Array.isArray(value)) return value.map((item) => aiText(item, language)).filter(Boolean).join(' · ');
+    if (value && typeof value === 'object') {
+        const locale = language?.split('-')[0];
+        return aiText(value[locale] || value.en || Object.values(value).find((item) => typeof item === 'string') || '', language);
+    }
+    return '';
+}
+
+function AiProposal({ proposal, language, onClose, onUseQuery, onUseSourceQuery, t }) {
+    const result = proposal?.result || {};
+    const [editableQuery, setEditableQuery] = useState(() => result.boolean_query || result.translated_query || '');
+    const concepts = Object.entries(result.concepts || {}).filter(([, value]) => aiText(value, language));
+    const synonyms = Object.entries(result.synonyms || {}).filter(([, value]) => aiText(value, language));
+    const cautions = Array.isArray(result.cautions) ? result.cautions : (result.cautions ? [result.cautions] : result.warnings || []);
+    const isTranslation = proposal.operation === 'translate_query';
+
+    return (
+        <section className="literature-ai-proposal" aria-label={isTranslation ? t('literature.ai.translation_proposal') : t('literature.ai.proposal')}>
+            <header><Bot size={16} /><strong>{isTranslation ? t('literature.ai.translation_proposal') : t('literature.ai.proposal')}</strong><span>{proposal.audit?.model}</span><button type="button" onClick={onClose} aria-label={t('common.close')}><X size={14} /></button></header>
+            {concepts.length > 0 && <dl className="literature-ai-proposal__concepts">{concepts.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{aiText(value, language)}</dd></div>)}</dl>}
+            {synonyms.length > 0 && <div className="literature-ai-proposal__synonyms"><strong>{t('literature.ai.synonyms')}</strong>{synonyms.map(([label, value]) => <p key={label}><span>{label}</span>{aiText(value, language)}</p>)}</div>}
+            {editableQuery && <label className="literature-ai-proposal__query"><span>{isTranslation ? t('literature.ai.translated_query') : t('literature.ai.boolean_query')}</span><textarea rows={3} value={editableQuery} onChange={(event) => setEditableQuery(event.target.value)} /></label>}
+            {cautions.length > 0 && <ul className="literature-ai-proposal__cautions">{cautions.map((caution, index) => <li key={index}>{aiText(caution, language)}</li>)}</ul>}
+            {editableQuery && (isTranslation ? <button type="button" className="btn-gnosi-secondary" onClick={() => onUseSourceQuery(editableQuery)}>{t('literature.ai.use_source_query', { source: result.source_id })}</button> : <button type="button" className="btn-gnosi-secondary" onClick={() => onUseQuery(editableQuery)}>{t('literature.ai.use_query')}</button>)}
+            <details className="literature-ai-proposal__technical"><summary>{t('literature.ai.technical_details')}</summary><pre>{JSON.stringify(result, null, 2)}</pre></details>
+            <small>{t('literature.ai.human_control')}</small>
+        </section>
+    );
+}
+
 function WorkPreview({ work, onClose, onImport, t }) {
     if (!work) return null;
     const conflicts = Object.entries(work.conflicts || {});
@@ -414,7 +446,7 @@ function ReviewWorkspace({ selectedWorks, currentSearch, t }) {
 }
 
 export default function LiteraturePage() {
-    const { t } = useTranslation();
+    const { t, i18n = { language: 'en' } } = useTranslation();
     const { isEnabled } = usePlugins();
     const [tab, setTab] = useState('search');
     const [configuration, setConfiguration] = useState({ sources: [] });
@@ -709,7 +741,7 @@ export default function LiteraturePage() {
                         <details className="literature-source-queries"><summary>{t('literature.search.source_queries')}</summary><p>{t('literature.search.source_queries_help')}</p>{(configuration.sources || []).filter((source) => selectedSources.has(source.id)).map((source) => <label key={source.id}><span>{source.name}</span><textarea rows={2} value={sourceQueries[source.id] || ''} onChange={(event) => setSourceQueries((current) => ({ ...current, [source.id]: event.target.value }))} placeholder={query || t('literature.search.query')} /><button type="button" className="btn-gnosi-secondary" disabled={!query.trim() || busy === `translate:${source.id}`} onClick={() => void runAiTranslation(source.id)}><Sparkles size={14} /> {t('literature.ai.translate_source')}</button></label>)}</details>
                     </form>
                     {showHistory && <div className="literature-search-history"><header><strong>{t('literature.search.history')}</strong><button type="button" className="literature-icon-button" onClick={() => void loadSearchHistory()} aria-label={t('literature.search.refresh_history')}><RefreshCw size={14} /></button></header>{searchHistory.length === 0 ? <p>{t('literature.search.no_history')}</p> : searchHistory.map((item) => <button type="button" key={item.id} className={searchResult?.id === item.id ? 'is-active' : ''} onClick={() => void openSearch(item.id)}><span>{item.query}</span><small>{t(`literature.search.state.${item.state}`)} · {t('literature.search.result_count', { count: item.result_count || 0 })}</small></button>)}</div>}
-                    {aiProposal && <div className="literature-ai-proposal"><header><Bot size={16} /><strong>{aiProposal.operation === 'translate_query' ? t('literature.ai.translation_proposal') : t('literature.ai.proposal')}</strong><span>{aiProposal.audit?.model}</span><button type="button" onClick={() => setAiProposal(null)} aria-label={t('common.close')}><X size={14} /></button></header><pre>{JSON.stringify(aiProposal.result, null, 2)}</pre>{aiProposal.result?.boolean_query && <button type="button" className="btn-gnosi-secondary" onClick={() => { setQuery(aiProposal.result.boolean_query); setSourceQueries({}); }}>{t('literature.ai.use_query')}</button>}{aiProposal.result?.translated_query && aiProposal.result?.source_id && <button type="button" className="btn-gnosi-secondary" onClick={() => setSourceQueries((current) => ({ ...current, [aiProposal.result.source_id]: aiProposal.result.translated_query }))}>{t('literature.ai.use_source_query', { source: aiProposal.result.source_id })}</button>}<small>{t('literature.ai.human_control')}</small></div>}
+                    {aiProposal && <AiProposal proposal={aiProposal} language={i18n.language} onClose={() => setAiProposal(null)} onUseQuery={(nextQuery) => { setQuery(nextQuery); setSourceQueries({}); }} onUseSourceQuery={(nextQuery) => setSourceQueries((current) => ({ ...current, [aiProposal.result?.source_id]: nextQuery }))} t={t} />}
                     <details className="literature-manual-capture"><summary>{t('literature.manual.title')}</summary><p>{t('literature.manual.help')}</p><form onSubmit={captureManualWork}><select value={manualKind} onChange={(event) => setManualKind(event.target.value)} aria-label={t('literature.manual.kind')}>{['auto', 'doi', 'pmid', 'arxiv', 'isbn', 'url'].map((kind) => <option key={kind} value={kind}>{t(`literature.manual.kind_${kind}`)}</option>)}</select><input value={manualValue} onChange={(event) => setManualValue(event.target.value)} placeholder={t('literature.manual.placeholder')} aria-label={t('literature.manual.value')} /><button type="submit" className="btn-gnosi-secondary" disabled={!manualValue.trim() || busy === 'manual'}>{busy === 'manual' ? <LoaderCircle size={14} className="spin" /> : <Plus size={14} />} {t('literature.manual.preview')}</button></form>{manualWork && <article><div><strong>{manualWork.title}</strong><small>{authorLine(manualWork)} {manualWork.year ? `· ${manualWork.year}` : ''}</small></div><div><button type="button" className="btn-gnosi-secondary" onClick={() => setPreview(manualWork)}><Eye size={14} /> {t('literature.result.view')}</button><button type="button" className="btn-gnosi btn-gnosi-primary" disabled={manualWork.in_resources} onClick={() => void importWorks([manualWork])}><FilePlus2 size={14} /> {manualWork.in_resources ? t('literature.result.already_added') : t('literature.result.add')}</button></div></article>}</details>
                 </section>
                 {error && <div className="literature-alert" role="alert"><CircleAlert size={16} /> {error}</div>}

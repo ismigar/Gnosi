@@ -244,6 +244,9 @@ Mutating endpoints use existing CSRF and authorization conventions. Public API r
 - OAI source settings expose live received/indexed/deleted counts, incremental
   synchronization, full reindexing, cancellation, and resumption.
 - Every user-facing string exists in Catalan, English, Spanish, and French locale catalogs.
+- AI search assistance presents structured concepts, a compact editable Boolean
+  query, and cautions rather than raw JSON. Technical payloads stay collapsed
+  behind an explicit disclosure for diagnostics only.
 
 ## Restrictions and edge cases
 

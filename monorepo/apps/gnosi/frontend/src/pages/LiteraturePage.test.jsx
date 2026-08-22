@@ -136,6 +136,28 @@ describe('LiteraturePage', () => {
         expect(document.activeElement).toBe(container.querySelector('input[aria-label="literature.search.query"]'));
     });
 
+    it('renders AI strategy help as editable research controls rather than raw JSON', async () => {
+        await renderPage();
+        const input = container.querySelector('input[aria-label="literature.search.query"]');
+        await typeInto(input, 'historical periodization');
+        axios.post.mockResolvedValueOnce({ data: {
+            operation: 'query_strategy',
+            audit: { model: 'test-model' },
+            result: {
+                framework: 'PICO', concepts: { P: { en: 'historical periodization' } },
+                synonyms: { P: ['historical periods', 'historical stages'] },
+                boolean_query: '"historical periodization" OR "historical stages"', cautions: ['Narrow the scope if necessary'],
+            },
+        } });
+
+        const ai = [...container.querySelectorAll('button')].find((button) => button.textContent.includes('literature.ai.assist'));
+        await act(async () => ai.click());
+        const proposal = container.querySelector('.literature-ai-proposal');
+        expect(proposal.querySelector('textarea')).not.toBeNull();
+        expect(proposal.textContent).toContain('historical periodization');
+        expect(proposal.querySelector('details').hasAttribute('open')).toBe(false);
+    });
+
     it('uses server-sent events, supports cancellation, and falls back to the same paginated contract', async () => {
         const streams = [];
         class FakeEventSource {
