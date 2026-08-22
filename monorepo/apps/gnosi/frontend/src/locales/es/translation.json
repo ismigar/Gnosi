@@ -5771,6 +5771,11 @@
       "filters": "Filtros",
       "sources": "Fuentes",
       "sources_selected": "{{count}} seleccionadas",
+      "source_requires_contact": "Requiere un correo de contacto en la configuración de Recursos.",
+      "source_requires_credentials": "Requiere credenciales o una suscripción en la configuración de Recursos.",
+      "source_requires_index": "Requiere una primera sincronización del índice local.",
+      "source_unavailable": "Esta fuente no está disponible en este momento.",
+      "configure_sources": "Configurar fuentes",
       "show_less_sources": "Mostrar menos",
       "show_all_sources": "Mostrar todas las fuentes",
       "source_queries": "Consultas específicas por fuente",
@@ -5786,6 +5791,7 @@
       "thesis": "Tesis",
       "preprint": "Preprint",
       "open_access_only": "Solo acceso abierto",
+      "full_text_only": "Solo textos completos verificados",
       "peer_reviewed_only": "Solo revisados por pares",
       "history": "Historial de búsquedas",
       "refresh_history": "Actualizar historial",
@@ -5858,6 +5864,7 @@
       "error": "No se han podido importar los recursos."
     },
     "ai": {
+      "enter_question": "Escribe una pregunta o consulta antes de pedir ayuda a la IA.",
       "assist": "Ayuda IA",
       "build_query": "Crear una estrategia editable",
       "proposal": "Propuesta de estrategia",

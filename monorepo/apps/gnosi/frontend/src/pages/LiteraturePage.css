@@ -5,16 +5,11 @@
     color: var(--text-primary);
 }
 
-.literature-page__header {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 24px;
+.literature-page > .app-header {
     max-width: 1260px;
     margin: 0 auto 22px;
 }
 
-.literature-page__header > div > span,
 .literature-review-detail header > div > span,
 .literature-preview header > div > span {
     color: var(--gnosi-blue);
@@ -24,13 +19,6 @@
     text-transform: uppercase;
 }
 
-.literature-page__header h1 {
-    margin: 5px 0 6px;
-    font-size: clamp(25px, 4vw, 36px);
-    line-height: 1.1;
-}
-
-.literature-page__header p,
 .literature-review-detail header p {
     max-width: 680px;
     margin: 0;
@@ -38,7 +26,7 @@
     font-size: 14px;
 }
 
-.literature-page__header nav {
+.literature-page__tabs {
     display: flex;
     padding: 4px;
     border: 1px solid var(--border-primary);
@@ -46,7 +34,7 @@
     background: var(--bg-primary);
 }
 
-.literature-page__header nav button {
+.literature-page__tabs button {
     display: inline-flex;
     align-items: center;
     gap: 7px;
@@ -58,7 +46,7 @@
     cursor: pointer;
 }
 
-.literature-page__header nav button.is-active {
+.literature-page__tabs button.is-active {
     background: var(--sidebar-item-active, #eef2ff);
     color: var(--gnosi-blue);
     font-weight: 700;

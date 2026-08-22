@@ -101,6 +101,21 @@ def test_canonical_filters_require_provider_evidence():
     assert [work["id"] for work in filtered] == [confirmed["id"]]
 
 
+def test_full_text_filter_requires_a_verified_provider_location():
+    verified = canonical_work(
+        "doaj-articles", "verified", title="Available evidence", year=2024,
+        locations=[{"url": "https://example.org/record", "pdf_url": "https://example.org/full.pdf", "is_oa": True}],
+    )
+    abstract_only = canonical_work(
+        "crossref", "metadata", title="Metadata only", year=2024,
+        locations=[{"url": "https://example.org/record", "is_oa": False}],
+    )
+
+    filtered = academic_connectors.filter_works([verified, abstract_only], {"full_text": True})
+
+    assert [work["id"] for work in filtered] == [verified["id"]]
+
+
 def test_generic_rest_requires_a_list_at_the_mapped_path(monkeypatch):
     async def fake_get(*_args, **_kwargs):
         return {"items": {"not": "a list"}}, "https://repo.example/search", {}

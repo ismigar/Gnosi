@@ -8,6 +8,7 @@ import LiteraturePage from './LiteraturePage';
 vi.mock('axios', () => ({ default: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() } }));
 vi.mock('../plugins/usePlugins', () => ({ usePlugins: () => ({ isEnabled: () => true }) }));
 vi.mock('../lib/toast', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+import { toast } from '../lib/toast';
 const translate = vi.hoisted(() => (key, values = {}) => Object.entries(values).reduce(
     (text, [name, value]) => text.replace(`{{${name}}}`, String(value)), key,
 ));
@@ -117,6 +118,22 @@ describe('LiteraturePage', () => {
         expect(axios.post).toHaveBeenCalledWith('/api/vault/literature/searches', expect.objectContaining({
             query: 'climate adaptation', source_queries: { crossref: 'TITLE(climate) AND adaptation' },
         }));
+    });
+
+    it('uses the shared app header, exposes controlled filters, and explains a blank AI request', async () => {
+        await renderPage();
+        expect(container.querySelector('.app-header')).not.toBeNull();
+        expect(container.querySelector('.literature-page__header')).toBeNull();
+
+        const filters = [...container.querySelectorAll('button')].find((button) => button.textContent.includes('literature.search.filters'));
+        await act(async () => filters.click());
+        expect(container.querySelector('select')).not.toBeNull();
+        expect(container.textContent).toContain('literature.search.full_text_only');
+
+        const ai = [...container.querySelectorAll('button')].find((button) => button.textContent.includes('literature.ai.assist'));
+        await act(async () => ai.click());
+        expect(toast.error).toHaveBeenCalledWith('literature.ai.enter_question');
+        expect(document.activeElement).toBe(container.querySelector('input[aria-label="literature.search.query"]'));
     });
 
     it('uses server-sent events, supports cancellation, and falls back to the same paginated contract', async () => {

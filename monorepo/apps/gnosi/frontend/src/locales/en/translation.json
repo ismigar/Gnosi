@@ -5720,6 +5720,11 @@
       "filters": "Filters",
       "sources": "Sources",
       "sources_selected": "{{count}} selected",
+      "source_requires_contact": "Requires a contact email in Resources settings.",
+      "source_requires_credentials": "Requires credentials or a subscription in Resources settings.",
+      "source_requires_index": "Requires an initial local-index synchronization.",
+      "source_unavailable": "This source is not currently available.",
+      "configure_sources": "Configure sources",
       "show_less_sources": "Show fewer",
       "show_all_sources": "Show all sources",
       "source_queries": "Source-specific queries",
@@ -5735,6 +5740,7 @@
       "thesis": "Thesis",
       "preprint": "Preprint",
       "open_access_only": "Open access only",
+      "full_text_only": "Verified full text only",
       "peer_reviewed_only": "Peer reviewed only",
       "history": "Search history",
       "refresh_history": "Refresh history",
@@ -5807,6 +5813,7 @@
       "error": "Could not import the resources."
     },
     "ai": {
+      "enter_question": "Write a question or query before asking AI for help.",
       "assist": "AI assist",
       "build_query": "Build an editable strategy",
       "proposal": "Strategy proposal",
