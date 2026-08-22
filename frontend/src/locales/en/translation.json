@@ -1489,6 +1489,46 @@
           "name": "Project planning",
           "description": "Add working durations, predecessors, and work calendars to period fields."
         },
+        "feeds-reader": {
+          "name": "Feeds and newsletters",
+          "description": "RSS subscriptions, newsletters, and optional daily podcasts."
+        },
+        "translation": {
+          "name": "Translation",
+          "description": "Translation providers and publishing-language actions."
+        },
+        "contacts": {
+          "name": "Contacts",
+          "description": "External address books and the Contacts application."
+        },
+        "mail": {
+          "name": "Mail",
+          "description": "Mail accounts, synchronization, and the Mail application."
+        },
+        "calendar": {
+          "name": "Calendar",
+          "description": "External calendars, reminders, and meeting surfaces."
+        },
+        "social-publishing": {
+          "name": "Social publishing and media",
+          "description": "Social dashboard, composer, and media center."
+        },
+        "notion-import": {
+          "name": "Notion import",
+          "description": "Import Notion workspaces into portable Vault data."
+        },
+        "ai-platform": {
+          "name": "AI and agents",
+          "description": "Providers, models, agents, skills, and governed tools."
+        },
+        "grounded-notebooks": {
+          "name": "Grounded notebooks",
+          "description": "Ask grounded questions over selected reference sources."
+        },
+        "automations": {
+          "name": "Automations",
+          "description": "User automations, schedules, and execution history."
+        },
         "resources": {
           "name": "Resources",
           "description": "Federated academic search, imports, repositories, and literature reviews."

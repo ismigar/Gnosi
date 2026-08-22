@@ -1115,6 +1115,46 @@
           "name": "Planification de projets",
           "description": "Ajoute les durées ouvrées, les prédécesseurs et les calendriers de travail aux champs de période."
         },
+        "feeds-reader": {
+          "name": "Flux et newsletters",
+          "description": "Abonnements RSS, newsletters et podcasts quotidiens facultatifs."
+        },
+        "translation": {
+          "name": "Traduction",
+          "description": "Fournisseurs de traduction et actions liées à la langue de publication."
+        },
+        "contacts": {
+          "name": "Contacts",
+          "description": "Carnets d'adresses externes et application Contacts."
+        },
+        "mail": {
+          "name": "Courrier",
+          "description": "Comptes de courrier, synchronisation et application Courrier."
+        },
+        "calendar": {
+          "name": "Calendrier",
+          "description": "Calendriers externes, rappels et outils pour les réunions."
+        },
+        "social-publishing": {
+          "name": "Publication sociale et médias",
+          "description": "Tableau de bord social, éditeur et centre multimédia."
+        },
+        "notion-import": {
+          "name": "Importation Notion",
+          "description": "Importez des espaces de travail Notion dans des données Vault portables."
+        },
+        "ai-platform": {
+          "name": "IA et agents",
+          "description": "Fournisseurs, modèles, agents, compétences et outils gouvernés."
+        },
+        "grounded-notebooks": {
+          "name": "Carnets documentés",
+          "description": "Posez des questions fondées sur les sources de référence sélectionnées."
+        },
+        "automations": {
+          "name": "Automatisations",
+          "description": "Automatisations utilisateur, planifications et historique d'exécution."
+        },
         "resources": {
           "name": "Ressources",
           "description": "Recherche académique fédérée, importation, dépôts et revues de littérature."
