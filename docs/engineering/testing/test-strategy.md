@@ -1,13 +1,14 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-21
 source_paths:
   - backend/tests
   - frontend/src
   - e2e
   - requirements.txt
   - frontend/package.json
-tests: []
+tests:
+  - e2e/tests/accessibility/accessibility.spec.ts
 ---
 
 # Test strategy
@@ -64,6 +65,23 @@ change, inspect the actual rendered page, click the changed control, watch the
 console, and take a screenshot. Confirm that modals, overlays, toasts, and
 menus use the registered z-index system and do not trap interaction.
 
+## Accessibility gate
+
+The Playwright `accessibility` project is a blocking WCAG 2.2 AA gate. It runs
+axe against a representative route from every top-level product domain in
+light and dark themes, including color contrast, labels, landmarks, and ARIA
+relationships. The suite keeps application-owned markup in scope and does not
+maintain a permanent violation allowlist. Its deterministic fixture enables
+the optional modules represented by the route matrix, and every route also
+fails on unhandled browser page errors so a crashed surface cannot pass axe.
+
+Interaction assertions complement axe for behavior that static analysis cannot
+prove: skip navigation, visible focus, logical focus order, complete keyboard
+operation, mobile tab roving focus, cancelable-dialog Escape handling, focus
+trap and restoration, accessible names, and live route announcements. Shared
+focus, modal, navigation, or color-token changes must pass this project before
+release.
+
 ## Deployment tests
 
 Docker CI builds backend and frontend images, validates Compose, and exercises
@@ -78,6 +96,7 @@ packaging; a macOS local build cannot validate Windows and Linux artifacts.
 | Generated catalog logic | Generator unit tests, two-run determinism, validator, strict docs build. |
 | Backend behavior | Narrow pytest regression plus affected integration suite. |
 | Frontend behavior | Vitest where feasible, i18n check, production build, browser action and screenshot. |
+| Accessibility or shared UI token | Vitest for the shared primitive, four-locale parity, axe route matrix in light and dark, keyboard interaction suite, and browser screenshot. |
 | Auth/security/path behavior | Negative tests and cross-scope attempts, not only the golden path. |
 | Deployment/dependency | Native verification plus Docker or package CI as applicable. |
 

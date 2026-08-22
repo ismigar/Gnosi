@@ -17,6 +17,7 @@ import path from 'path';
 const STORAGE_STATE = path.resolve(__dirname, '../.auth/state.json');
 
 setup('seed workspace localStorage', async ({ page }) => {
+  setup.setTimeout(60_000);
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   const testVaultId = process.env.GNOSI_TEST_VAULT_ID;
 
@@ -29,7 +30,6 @@ setup('seed workspace localStorage', async ({ page }) => {
   }, testVaultId);
 
   await page.goto('/', { waitUntil: 'domcontentloaded' });
-  await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {});
   await expect(page.locator('#root')).not.toBeEmpty({ timeout: 15_000 });
 
   const releaseNotesClose = page.getByRole('button', { name: /close release notes|tanca|cerrar|fermer/i });

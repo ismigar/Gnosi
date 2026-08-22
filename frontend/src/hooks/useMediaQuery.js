@@ -17,6 +17,9 @@ export function useMediaQuery(query) {
     const [matches, setMatches] = useState(() => getMatches(query));
 
     useEffect(() => {
+        if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+            return undefined;
+        }
         const mediaQuery = window.matchMedia(query);
         const update = () => setMatches(mediaQuery.matches);
 

@@ -629,10 +629,10 @@ function Dashboard() {
                                     >
                                         <div className="flex-1">
                                             <h3 className="text-sm font-bold uppercase tracking-wide">{task.name.replace(/_/g, ' ')}</h3>
-                                            <p className="text-sm text-gray-400 mt-1">{task.description}</p>
-                                            <p className="text-xs text-gray-500 mt-2">{formatFrequency(task)}</p>
+                                            <p className="text-sm text-[var(--text-secondary)] mt-1">{task.description}</p>
+                                            <p className="text-xs text-[var(--text-secondary)] mt-2">{formatFrequency(task)}</p>
                                             {task.last_run && (
-                                                <p className="text-xs text-gray-500 mt-1">
+                                                <p className="text-xs text-[var(--text-secondary)] mt-1">
                                                     {t('dashboard.last_run')}: {new Date(task.last_run).toLocaleString()}
                                                 </p>
                                             )}
@@ -646,19 +646,21 @@ function Dashboard() {
                                                         className="sr-only peer"
                                                         checked={task.enabled}
                                                         onChange={(e) => updateScheduler(task, { enabled: e.target.checked })}
+                                                        aria-label={t('dashboard.toggle_task', 'Toggle {{task}}', { task: task.name.replace(/_/g, ' ') })}
                                                     />
                                                     <div className="w-10 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-5 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
                                                 </label>
-                                                <span className={`text-[10px] font-bold uppercase tracking-widest ${task.enabled ? 'text-green-400' : 'text-gray-500'}`}>
+                                                <span className={`text-[10px] font-bold uppercase tracking-widest ${task.enabled ? 'text-green-700 dark:text-green-300' : 'text-[var(--text-secondary)]'}`}>
                                                     {task.enabled ? t('dashboard.active') : t('dashboard.inactive')}
                                                 </span>
                                             </div>
 
                                             {typeof task.interval_minutes === 'number' && (
                                                 <select
-                                                    className="text-xs bg-black/30 border border-white/10 rounded-lg px-2 py-1"
+                                                    className="text-xs bg-[var(--bg-secondary)] border border-[var(--border-primary)] text-[var(--text-primary)] rounded-lg px-2 py-1"
                                                     value={task.interval_minutes}
                                                     onChange={(e) => updateScheduler(task, { interval_minutes: Number(e.target.value) })}
+                                                    aria-label={t('dashboard.task_interval_label', 'Interval for {{task}}', { task: task.name.replace(/_/g, ' ') })}
                                                 >
                                                     <option value={15}>{t('dashboard.time_15_min')}</option>
                                                     <option value={30}>{t('dashboard.time_30_min')}</option>

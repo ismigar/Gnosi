@@ -106,7 +106,7 @@ const SocialDashboard = () => {
                                 onClick={() => setActiveTab(id)}
                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
                                     activeTab === id
-                                        ? 'bg-[var(--sidebar-item-active)] text-[var(--gnosi-blue)]'
+                                        ? 'bg-[var(--sidebar-item-active)] text-[var(--sidebar-item-active-text)]'
                                         : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)]'
                                 }`}
                             >
@@ -138,7 +138,7 @@ const SocialDashboard = () => {
             </AppHeader>
 
             {/* Contingut */}
-            <main className="flex-1 overflow-hidden relative z-0">
+            <div className="flex-1 overflow-hidden relative z-0">
                 {activeTab === 'dashboard' && (
                     <div className="h-full flex flex-col p-6 max-md:p-4 overflow-hidden">
                         <AddStreamModal
@@ -192,7 +192,7 @@ const SocialDashboard = () => {
 
                 {activeTab === 'calendar' && <ContentCalendar />}
                 {activeTab === 'history'  && <PostHistory />}
-            </main>
+            </div>
 
             <PublishSocialModal
                 isOpen={showAIComposer}

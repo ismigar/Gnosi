@@ -13,7 +13,7 @@ const ComposerPage = () => {
                 title={t('composer.title', 'Composer')}
                 subtitle={t('composer.subtitle', "Create and schedule content for your social networks.")}
             />
-            <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
                 <div className="mx-auto max-w-3xl">
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <Composer />
@@ -29,7 +29,7 @@ const ComposerPage = () => {
                     </a>
                 </div>
                 </div>
-            </main>
+            </div>
         </div>
     );
 };

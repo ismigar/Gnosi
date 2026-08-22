@@ -12,7 +12,6 @@
 .fc-theme-standard th,
 .fc-theme-standard .fc-scrollgrid {
     border-color: var(--border-primary) !important;
-    opacity: 0.8;
 }
 
 .fc-daygrid-day-top {
@@ -28,8 +27,12 @@
     border-radius: 4px;
 }
 
+.fc .fc-day-other .fc-daygrid-day-top {
+    opacity: 1;
+}
+
 .fc-day-today .fc-daygrid-day-number {
-    background-color: var(--gnosi-primary);
+    background-color: var(--gnosi-action-bg);
     color: white !important;
 }
 

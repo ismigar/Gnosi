@@ -19,7 +19,7 @@ Discovered **23 documented runtime skills**.
 | `maintenance` | SKILL: Maintenance & Hygiene | 51 | 0 | [`pipeline/skills/maintenance/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/maintenance/SKILL.md) |
 | `notification_service` | Notification Service Skill | 23 | 1 | [`pipeline/skills/notification_service/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/notification_service/SKILL.md) |
 | `notion_clone` | Skill: Notion Clone | 81 | 3 | [`pipeline/skills/notion_clone/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/notion_clone/SKILL.md) |
-| `playwright_e2e` | SKILL: Playwright E2E | 177 | 2 | [`pipeline/skills/playwright_e2e/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/playwright_e2e/SKILL.md) |
+| `playwright_e2e` | SKILL: Playwright E2E | 194 | 2 | [`pipeline/skills/playwright_e2e/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/playwright_e2e/SKILL.md) |
 | `proves_dataset` | SKILL: Representative Proves Dataset | 29 | 1 | [`pipeline/skills/proves_dataset/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/proves_dataset/SKILL.md) |
 | `publisher` | SKILL: Publisher | 55 | 0 | [`pipeline/skills/publisher/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/publisher/SKILL.md) |
 | `rss_to_audio` | SKILL: RSS to Audio Podcast | 86 | 1 | [`pipeline/skills/rss_to_audio/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/rss_to_audio/SKILL.md) |

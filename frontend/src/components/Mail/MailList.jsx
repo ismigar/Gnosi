@@ -1076,6 +1076,9 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
                                                     checked={selectedIds.has(msg.id)}
                                                     onChange={e => toggleSelect(e, msg.id)}
                                                     onClick={e => e.stopPropagation()}
+                                                    aria-label={t('mail.select_message', 'Select message {{subject}}', {
+                                                        subject: msg.subject || t('common.untitled'),
+                                                    })}
                                                     className={`w-4 h-4 rounded border-[var(--border-primary)] text-[var(--gnosi-blue)] focus:ring-[var(--gnosi-blue)] transition-opacity shrink-0 ${selectedIds.has(msg.id) || isFocused ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                                                 />
                                                 {(msg.thread_unread > 0) && !selectedIds.has(msg.id) && <div className="w-1.5 h-1.5 rounded-full bg-[var(--gnosi-blue)] shrink-0 group-hover:hidden" />}

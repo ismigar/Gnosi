@@ -98,6 +98,25 @@ export function useModalKeyboard({
         // ref may already be nulled (unmount), and a detached node can't
         // contain the active element anyway.
         const panelEl = containerRef?.current || null;
+        let addedContainerTabIndex = false;
+
+        const getFocusable = () => {
+            const root = containerRef?.current;
+            if (!root) return [];
+            const layoutAvailable = document.body?.getClientRects().length > 0;
+            return Array.from(
+                root.querySelectorAll(
+                    'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+                ),
+            ).filter((element) => (
+                !element.closest('[inert], [aria-hidden="true"]')
+                && (
+                    !layoutAvailable
+                    || element.getClientRects().length > 0
+                    || element === document.activeElement
+                )
+            ));
+        };
 
         // Initial focus inside the modal: the element marked with [data-autofocus], or
         // the first focusable element, or the panel itself. Synchronous inside the effect (NOT in
@@ -106,24 +125,19 @@ export function useModalKeyboard({
         if (trapFocus && containerRef?.current) {
             const root = containerRef.current;
             if (!root.contains(document.activeElement)) {
-                const target = root.querySelector('[data-autofocus]')
-                    || root.querySelector(
-                        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-                    )
-                    || root;
+                const focusable = getFocusable();
+                let target = focusable.find((element) => element.hasAttribute('data-autofocus'))
+                    || focusable[0];
+                if (!target) {
+                    if (!root.hasAttribute('tabindex')) {
+                        root.setAttribute('tabindex', '-1');
+                        addedContainerTabIndex = true;
+                    }
+                    target = root;
+                }
                 try { target?.focus?.(); } catch { /* The element may not be focusable. */ }
             }
         }
-
-        const getFocusable = () => {
-            const root = containerRef?.current;
-            if (!root) return [];
-            return Array.from(
-                root.querySelectorAll(
-                    'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-                ),
-            ).filter((el) => el.offsetParent !== null || el === document.activeElement);
-        };
 
         const handleKeyDown = (e) => {
             if (closeOnEscapeRef.current && e.key === 'Escape') {
@@ -138,8 +152,12 @@ export function useModalKeyboard({
             // Focus trap: Tab cycles within the modal (optional).
             if (trapFocus && e.key === 'Tab') {
                 const items = getFocusable();
-                if (items.length === 0) return;
                 const root = containerRef?.current;
+                if (items.length === 0) {
+                    e.preventDefault();
+                    root?.focus();
+                    return;
+                }
                 const first = items[0];
                 const last = items[items.length - 1];
                 const active = document.activeElement;
@@ -184,6 +202,9 @@ export function useModalKeyboard({
         return () => {
             window.removeEventListener('keydown', handleKeyDown, true);
             layer.release();
+            if (addedContainerTabIndex && panelEl?.getAttribute('tabindex') === '-1') {
+                panelEl.removeAttribute('tabindex');
+            }
             // Restores focus to whoever had it before opening (only with trapFocus).
             // Guarded: if the close action already placed focus somewhere else
             // (e.g. the editor body after inserting content), don't fight it.

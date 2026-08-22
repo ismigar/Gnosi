@@ -452,6 +452,10 @@
     "calendar_color_update_error": "Could not update the calendar color",
     "error_deleting_event": "Could not delete the event"
   },
+  "accessibility": {
+    "skip_to_content": "Skip to main content",
+    "route_loaded": "{{page}} loaded"
+  },
   "sidebar": {
     "main_navigation": "Main navigation",
     "my_vault": "My Knowledge",
@@ -651,6 +655,8 @@
     "active": "Active",
     "inactive": "Inactive",
     "run_now": "Run Now",
+    "toggle_task": "Toggle {{task}}",
+    "task_interval_label": "Interval for {{task}}",
     "frequency_days_one": "Every {{count}} day",
     "frequency_days_other": "Every {{count}} days",
     "frequency_hours_one": "Every {{count}} hour",
@@ -2775,6 +2781,7 @@
     "type_business": "Business",
     "search_placeholder": "Search contacts...",
     "filter_all": "All",
+    "filter_type": "Filter contacts by type",
     "filter_personal": "Personal",
     "filter_business": "Business",
     "no_contacts": "You don't have any contacts yet.",
@@ -3162,6 +3169,7 @@
     "ai_draft_ok": "Draft generated with AI",
     "ai_draft_error": "Error generating draft",
     "select_mail": "Select an email",
+    "select_message": "Select message {{subject}}",
     "select_mail_hint": "Choose a message from the list to get started.",
     "loading": "Loading content...",
     "original_message": "Original message",
@@ -3830,7 +3838,9 @@
     "date_30d": "30 days",
     "date_year": "This year",
     "date_custom": "Custom",
+    "date_filter_label": "Date filter",
     "size_all": "All",
+    "size_filter_label": "Size filter",
     "sort_mtime": "Modified",
     "sort_filename": "Name",
     "sort_size": "Size",
@@ -3838,6 +3848,8 @@
     "sort_field_title": "Sort field",
     "sort_desc": "Descending",
     "sort_asc": "Ascending",
+    "grid_view": "Grid view",
+    "list_view": "List view",
     "tag_placeholder": "Tag + Enter",
     "update_view": "Update view",
     "update_view_title": "Overwrites the active view with the current filters",
@@ -4604,7 +4616,7 @@
     "no_files": "No files found"
   },
   "planning_page": {
-    "title": "Project planning", "subtitle": "Schedule, critical path, resources and diagnostics.", "project_id": "Project ID", "project": "Project", "default_project": "Default project", "refresh": "Refresh", "load_error": "Could not load the project schedule.", "critical_tasks": "Critical tasks", "estimated_cost": "Estimated cost", "warnings": "Warnings", "schedule": "Schedule", "task": "Task", "start": "Start", "finish": "Finish", "slack": "Slack", "diagnostics": "Diagnostics", "baselines": "Baselines", "baseline_name": "Baseline name", "create": "Create", "worklogs": "Work logs", "add_worklog": "Add work log", "entries": "entries", "resource_heatmap": "Resource load", "leveling": "Resource leveling", "generate_proposal": "Generate proposal", "proposed_changes": "proposed changes", "apply_proposal": "Apply proposal"
+    "title": "Project planning", "subtitle": "Schedule, critical path, resources and diagnostics.", "project_id": "Project ID", "project": "Project", "default_project": "Default project", "refresh": "Refresh", "load_error": "Could not load the project schedule.", "critical_tasks": "Critical tasks", "estimated_cost": "Estimated cost", "warnings": "Warnings", "schedule": "Schedule", "task": "Task", "start": "Start", "finish": "Finish", "slack": "Slack", "diagnostics": "Diagnostics", "baselines": "Baselines", "baseline_name": "Baseline name", "create": "Create", "worklogs": "Work logs", "worklog_task": "Work log task", "worklog_date": "Work log date", "worklog_hours": "Work log hours", "add_worklog": "Add work log", "entries": "entries", "resource_heatmap": "Resource load", "leveling": "Resource leveling", "generate_proposal": "Generate proposal", "proposed_changes": "proposed changes", "apply_proposal": "Apply proposal"
   },
   "vault_date": {
     "days_placeholder": "days",
@@ -5373,6 +5385,7 @@
     "title": "Notebooks",
     "eyebrow": "Grounded knowledge",
     "subtitle": "Converse with the attachments and URLs in your Resources.",
+    "mobile_tabs_label": "Notebook sections",
     "create_action": "Create notebook",
     "create_from_selection": "Create notebook from selection",
     "create_title": "Create a notebook",

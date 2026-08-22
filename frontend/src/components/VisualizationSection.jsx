@@ -24,14 +24,14 @@ export function VisualizationSection({
 
     const labelStyle = {
         fontSize: '0.85rem',
-        color: '#666',
+        color: 'var(--text-secondary)',
         display: 'block',
         marginBottom: '4px'
     };
 
     const valueStyle = {
         fontSize: '0.75rem',
-        color: '#888',
+        color: 'var(--text-tertiary)',
         marginLeft: '8px'
     };
 
@@ -73,22 +73,26 @@ export function VisualizationSection({
             {/* Arrows toggle */}
             <div style={toggleContainerStyle}>
                 <span style={{ fontSize: '0.9rem' }}>{t('graph.visualization.arrows', "Arrows")}</span>
-                <div
+                <button
+                    type="button"
                     style={toggleStyle}
                     onClick={() => onShowArrowsChange(!showArrows)}
+                    aria-label={t('graph.visualization.arrows', 'Arrows')}
+                    aria-pressed={showArrows}
                 >
                     <div style={toggleKnobStyle} />
-                </div>
+                </button>
             </div>
 
             {/* Label threshold slider */}
             <div style={sliderContainerStyle}>
-                <label style={labelStyle}>
+                <label htmlFor="graph-label-threshold" style={labelStyle}>
                     {t('graph.visualization.label_threshold', "Text fade threshold")}
                     <span style={valueStyle}>{labelThreshold}</span>
                 </label>
                 <input
                     type="range"
+                    id="graph-label-threshold"
                     min="1"
                     max="50"
                     value={labelThreshold}
@@ -99,12 +103,13 @@ export function VisualizationSection({
 
             {/* Node size slider */}
             <div style={sliderContainerStyle}>
-                <label style={labelStyle}>
+                <label htmlFor="graph-node-size" style={labelStyle}>
                     {t('graph.visualization.node_size', "Node size")}
                     <span style={valueStyle}>{nodeSize.toFixed(1)}x</span>
                 </label>
                 <input
                     type="range"
+                    id="graph-node-size"
                     min="0.1"
                     max="3"
                     step="0.05"
@@ -116,12 +121,13 @@ export function VisualizationSection({
 
             {/* Edge thickness slider */}
             <div style={sliderContainerStyle}>
-                <label style={labelStyle}>
+                <label htmlFor="graph-edge-thickness" style={labelStyle}>
                     {t('graph.visualization.edge_thickness', "Edge thickness")}
                     <span style={valueStyle}>{edgeThickness.toFixed(1)}x</span>
                 </label>
                 <input
                     type="range"
+                    id="graph-edge-thickness"
                     min="0.1"
                     max="3"
                     step="0.05"

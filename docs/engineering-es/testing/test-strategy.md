@@ -1,13 +1,14 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-21
 source_paths:
   - backend/tests
   - frontend/src
   - e2e
   - requirements.txt
   - frontend/package.json
-tests: []
+tests:
+  - e2e/tests/accessibility/accessibility.spec.ts
 ---
 
 # Estrategia de ensayo
@@ -50,6 +51,22 @@ Playwright se ejecuta como un proyecto a nivel de host contra la aplicación nat
 
 Las instantáneas visuales cubren páginas de escritorio y móviles representativas. Para un cambio de interfaz de usuario, inspeccione la página real renderizada, haga clic en el control cambiado, vea la consola y tome una captura de pantalla. Confirme que los modos, superposiciones, tostadas y menús utilizan el sistema registrado de índice z y no atrapan la interacción.
 
+## Puerta de accesibilidad
+
+El proyecto `accessibility` de Playwright es una puerta bloqueante de WCAG 2.2
+AA. Ejecuta axe sobre una ruta representativa de cada dominio principal en los
+temas claro y oscuro, incluidos el contraste de color, las etiquetas, las
+regiones y las relaciones ARIA. El marcado propio de la aplicación siempre
+permanece dentro de la auditoría. Los datos de prueba deterministas activan los
+módulos opcionales de la matriz de rutas, y cada ruta también falla si el
+navegador genera un error de página no controlado; una superficie rota no
+puede superar axe.
+
+Las pruebas de interacción complementan axe con navegación de salto, foco
+visible y ordenado, teclado completo, foco roving de las pestañas móviles,
+Escape en diálogos cancelables, focus trap y retorno del foco, nombres
+accesibles y anuncios de cambio de ruta.
+
 ## Ensayos de despliegue
 
 Docker CI construye imágenes de backend y frontend, valida Composi, y ejerce el punto final de salud con almacenamiento local. Elecron release CI posee un paquete multiplataforma; una compilación local de macOS no puede validar artefactos de Windows y Linux.
@@ -62,6 +79,7 @@ Docker CI construye imágenes de backend y frontend, valida Composi, y ejerce el
 | Lógica de catálogo generada | Pruebas de unidades generadoras, determinismo de dos carreras, validador, construcción de documentos estrictos. |
 | Comportamiento del motor | Regresión de pisteles estrecha más suite de integración afectada. |
 | Comportamiento de la interfaz | Vitest cuando sea posible, comprobación i18n, producción, acción del navegador y captura de pantalla. |
+| Accesibilidad o token compartido de interfaz | Vitest de la primitiva, paridad de los cuatro idiomas, matriz axe en claro y oscuro, pruebas de teclado y captura del navegador. |
 | Auth/seguridad/comportamiento de la ruta | Pruebas negativas e intentos de alcance cruzado, no sólo el camino dorado. |
 | Despliegue/dependencia | Verificación nativa más Docker o paquete CI según proceda. |
 

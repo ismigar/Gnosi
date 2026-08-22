@@ -1,15 +1,18 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-21
 source_paths:
   - backend/server.py
   - backend/services/context_vars.py
   - backend/services/auth_service.py
   - backend/security/keychain_manager.py
   - frontend/src/context/AuthContext.jsx
+  - frontend/src/hooks/useModalKeyboard.js
+  - frontend/src/index.css
 tests:
   - backend/tests/test_auth_central_gate.py
   - backend/tests/test_workspace_bootstrap_race.py
+  - e2e/tests/accessibility/accessibility.spec.ts
 ---
 
 # Desigxs de creu
@@ -62,6 +65,19 @@ Els registres són provisions i escrits en anglès. No han de contenir credencia
 ## Internacionalització
 
 Cadenes visibles per l' usuari passar- hi `react-i18next` i existeix en tots quatre catàlegs locals: català, anglès, espanyol i francès. Els comentaris de codi, les cadenes de documentació dels desenvolupadors, la documentació tècnica i els identificadors són anglesos a menys que un identificador o un valor de compatibilitat ja està persisteix.
+
+## Accessibilitat
+
+La carcassa de l’aplicació és responsable de l’única regió principal, la
+navegació de salt, els tokens de focus visible i els anuncis discrets de canvi
+de ruta. Els dominis hereten aquestes primitives i mantenen els noms
+accessibles als mateixos quatre catàlegs d’idioma que les etiquetes visuals.
+
+Els diàlegs cancel·lables utilitzen la capa compartida de teclat: només el
+diàleg superior gestiona Escape, Tab queda atrapat dins seu i el focus torna a
+l’obridor. Les pestanyes responsives exposen relacions completes amb els seus
+panells i focus roving. Playwright combina axe WCAG 2.2 AA amb proves explícites
+de teclat.
 
 ## Política d' efectes externs
 

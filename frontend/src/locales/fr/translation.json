@@ -2089,6 +2089,7 @@
     "ai_draft_ok": "Brouillon généré avec l'IA",
     "ai_draft_error": "Erreur lors de la génération du brouillon",
     "select_mail": "Sélectionnez un email",
+    "select_message": "Sélectionner le message {{subject}}",
     "select_mail_hint": "Choisissez un message dans la liste pour commencer.",
     "loading": "Chargement du contenu...",
     "original_message": "Message original",
@@ -2469,6 +2470,10 @@
     "open": "Ouvrir",
     "upload_choose_folder": "Téléverser et choisir le dossier de destination",
     "upload_to": "Téléverser dans {{folder}}"
+  },
+  "accessibility": {
+    "skip_to_content": "Aller au contenu principal",
+    "route_loaded": "{{page}} est chargé"
   },
   "sidebar": {
     "main_navigation": "Navigation principale",
@@ -3587,6 +3592,7 @@
     "join_date": "Date d'adhésion",
     "last_7_days": "Semaine dernière",
     "last_run": "Dernière exécution",
+    "task_interval_label": "Intervalle de {{task}}",
     "latest_scheduled_runs": "Dernières exécutions planifiées",
     "loading_members": "Chargement de la liste des membres...",
     "loading_tasks": "Chargement des tâches...",
@@ -3616,6 +3622,7 @@
     "role_viewer_desc": "Lecture seule",
     "role_viewer_full": "Lecteur (lecture seule)",
     "run_now": "Exécuter maintenant",
+    "toggle_task": "Activer ou désactiver {{task}}",
     "send_invitation": "Envoyer l'invitation",
     "status_title": "État du système",
     "tab_admin": "Administration",
@@ -3755,7 +3762,9 @@
     "date_30d": "30 jours",
     "date_year": "Cette année",
     "date_custom": "Personnalisé",
+    "date_filter_label": "Filtre de date",
     "size_all": "Tout",
+    "size_filter_label": "Filtre de taille",
     "sort_mtime": "Modification",
     "sort_filename": "Nom",
     "sort_size": "Taille",
@@ -3763,6 +3772,8 @@
     "sort_field_title": "Champ de tri",
     "sort_desc": "Décroissant",
     "sort_asc": "Croissant",
+    "grid_view": "Vue en grille",
+    "list_view": "Vue en liste",
     "tag_placeholder": "Tag + Entrée",
     "update_view": "Mettre à jour la vue",
     "update_view_title": "Écrase la vue active avec les filtres actuels",
@@ -4066,6 +4077,7 @@
     "type_business": "Professionnel",
     "search_placeholder": "Rechercher des contacts...",
     "filter_all": "Tous",
+    "filter_type": "Filtrer les contacts par type",
     "filter_personal": "Personnel",
     "filter_business": "Professionnel",
     "no_contacts": "Vous n'avez pas encore de contacts.",
@@ -4746,7 +4758,7 @@
     "no_files": "Aucun fichier trouvé"
   },
   "planning_page": {
-    "title": "Planification de projets", "subtitle": "Planning, chemin critique, ressources et diagnostics.", "project_id": "ID du projet", "project": "Projet", "default_project": "Projet par défaut", "refresh": "Actualiser", "load_error": "Impossible de charger le planning du projet.", "critical_tasks": "Tâches critiques", "estimated_cost": "Coût estimé", "warnings": "Avertissements", "schedule": "Planning", "task": "Tâche", "start": "Début", "finish": "Fin", "slack": "Marge", "diagnostics": "Diagnostics", "baselines": "Références", "baseline_name": "Nom de la référence", "create": "Créer", "worklogs": "Journaux de travail", "add_worklog": "Ajouter un journal", "entries": "entrées", "resource_heatmap": "Charge des ressources", "leveling": "Nivellement des ressources", "generate_proposal": "Générer une proposition", "proposed_changes": "modifications proposées", "apply_proposal": "Appliquer la proposition"
+    "title": "Planification de projets", "subtitle": "Planning, chemin critique, ressources et diagnostics.", "project_id": "ID du projet", "project": "Projet", "default_project": "Projet par défaut", "refresh": "Actualiser", "load_error": "Impossible de charger le planning du projet.", "critical_tasks": "Tâches critiques", "estimated_cost": "Coût estimé", "warnings": "Avertissements", "schedule": "Planning", "task": "Tâche", "start": "Début", "finish": "Fin", "slack": "Marge", "diagnostics": "Diagnostics", "baselines": "Références", "baseline_name": "Nom de la référence", "create": "Créer", "worklogs": "Journaux de travail", "worklog_task": "Tâche du journal de travail", "worklog_date": "Date du journal de travail", "worklog_hours": "Heures du journal de travail", "add_worklog": "Ajouter un journal", "entries": "entrées", "resource_heatmap": "Charge des ressources", "leveling": "Nivellement des ressources", "generate_proposal": "Générer une proposition", "proposed_changes": "modifications proposées", "apply_proposal": "Appliquer la proposition"
   },
   "vault_date": {
     "days_placeholder": "jours",
@@ -5424,6 +5436,7 @@
     "title": "Carnets",
     "eyebrow": "Connaissances fondées",
     "subtitle": "Conversez avec les pièces jointes et les URL de vos Ressources.",
+    "mobile_tabs_label": "Sections du carnet",
     "create_action": "Créer un carnet",
     "create_from_selection": "Créer un carnet avec la sélection",
     "create_title": "Créer un carnet",

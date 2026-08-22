@@ -480,7 +480,7 @@ const ReaderDashboard = () => {
                     <div className="px-5 py-5 flex items-center justify-between gap-2">
                         <div className="min-w-0">
                             <h2 className="gnosi-sidebar-section-title">{t('reader_channels')}</h2>
-                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                            <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
                                 {sources.length === 0 ? t('reader_no_sources') : formatSourcesCount(sources.length)}
                             </p>
                         </div>
@@ -505,7 +505,7 @@ const ReaderDashboard = () => {
                                 <Inbox size={14} className="flex-shrink-0 text-slate-400" />
                                 <span className="truncate">{t('reader_all')}</span>
                             </span>
-                            <span className="text-[11px] text-slate-400 tabular-nums flex-shrink-0">{unreadInventory.count || 0}</span>
+                            <span className="text-[11px] text-[var(--text-tertiary)] tabular-nums flex-shrink-0">{unreadInventory.count || 0}</span>
                         </button>
 
                         {sourcesByCategory.map((group) => {
@@ -525,7 +525,7 @@ const ReaderDashboard = () => {
                                             </span>
                                         </span>
                                         {group.unread > 0 && (
-                                            <span className="text-[10px] text-slate-400 tabular-nums">{group.unread}</span>
+                                            <span className="text-[10px] text-[var(--text-tertiary)] tabular-nums">{group.unread}</span>
                                         )}
                                     </button>
                                     {!collapsed && group.items.map((source) => {
@@ -557,7 +557,7 @@ const ReaderDashboard = () => {
                                                     <span className="truncate">{source.name}</span>
                                                 </span>
                                                 {count > 0 && (
-                                                    <span className={`text-[11px] tabular-nums flex-shrink-0 ml-2 ${isActive ? 'text-[var(--gnosi-blue)]' : 'text-slate-400'}`}>{count}</span>
+                                                    <span className={`text-[11px] tabular-nums flex-shrink-0 ml-2 ${isActive ? 'text-[var(--gnosi-blue)]' : 'text-[var(--text-tertiary)]'}`}>{count}</span>
                                                 )}
                                             </button>
                                         );
@@ -618,7 +618,7 @@ const ReaderDashboard = () => {
                                 <h2 className="text-base font-semibold text-[var(--text-primary)] truncate">
                                     {selectedSource ? selectedSource.name : t('reader_all_articles')}
                                 </h2>
-                                <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                                <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
                                     {articlesLoading && displayArticles.length === 0
                                         ? t('reader_loading')
                                         : showUnreadOnly
@@ -646,7 +646,7 @@ const ReaderDashboard = () => {
 
                     <div className="overflow-y-auto flex-1">
                         {displayArticles.length === 0 && !articlesLoading ? (
-                            <div className="px-6 py-12 text-sm text-slate-400 dark:text-slate-500">
+                            <div className="px-6 py-12 text-sm text-[var(--text-tertiary)]">
                                 {selectedSource
                                     ? t('reader_no_articles_source', { source: selectedSource.name })
                                     : t('reader_up_to_date')}
@@ -654,7 +654,7 @@ const ReaderDashboard = () => {
                         ) : (
                             groupedArticles.map((group) => (
                                 <section key={group.key}>
-                                    <h3 className="px-6 pt-6 pb-2 text-[10px] uppercase tracking-[0.1em] font-semibold text-slate-400 dark:text-slate-500">
+                                    <h3 className="px-6 pt-6 pb-2 text-[10px] uppercase tracking-[0.1em] font-semibold text-[var(--text-tertiary)]">
                                         {group.label}
                                     </h3>
                                     {group.items.map((article) => {
@@ -787,7 +787,7 @@ const ReaderDashboard = () => {
                         </article>
                     ) : (
                         <div className="h-full flex items-center justify-center">
-                            <p className="text-sm text-slate-400 dark:text-slate-500">{t('reader_select_article')}</p>
+                            <p className="text-sm text-[var(--text-tertiary)]">{t('reader_select_article')}</p>
                         </div>
                     )}
                 </div>

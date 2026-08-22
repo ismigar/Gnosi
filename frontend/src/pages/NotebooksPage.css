@@ -139,12 +139,14 @@
 .notebook-mobile-tabs { display: none; }
 
 @media (max-width: 1120px) {
-    .notebook-workspace { grid-template-columns: minmax(240px, 300px) minmax(360px, 1fr); }
+    .notebook-workspace { display: block; }
     .notebook-settings-panel { display: none; }
     .notebook-mobile-tabs { display: flex; padding: .55rem .75rem 0; gap: .3rem; }
     .notebook-mobile-tabs button { display: inline-flex; align-items: center; gap: .35rem; padding: .45rem .65rem; border: 0; border-radius: .55rem; background: transparent; color: var(--text-secondary); font-size: .72rem; }
     .notebook-mobile-tabs button.is-active { background: var(--bg-primary); color: var(--text-primary); }
     .notebook-settings-panel.is-mobile-active { display: flex; position: absolute; inset: 132px .75rem .75rem; z-index: 3; }
+    .notebook-mobile-tabpanel[hidden] { display: none !important; }
+    .notebook-mobile-tabpanel.is-mobile-active { display: flex; height: 100%; }
 }
 
 @media (max-width: 760px) {

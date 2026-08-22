@@ -58,6 +58,7 @@ export default function ContactList({ contacts, selectedId, onSelect, filter, on
                     <select
                         value={filter.type}
                         onChange={(e) => onFilterChange({ ...filter, type: e.target.value })}
+                        aria-label={t('contacts.filter_type', 'Filter contacts by type')}
                         style={{
                             width: '100%',
                             padding: '6px 10px 6px 32px',
@@ -94,12 +95,13 @@ export default function ContactList({ contacts, selectedId, onSelect, filter, on
                         <p style={{ fontSize: '12px' }}>{t('common.status.loading')}</p>
                     </div>
                 ) : contacts.length === 0 ? (
-                    <div style={{ padding: '48px 16px', textAlign: 'center', opacity: 0.4 }}>
+                    <div style={{ padding: '48px 16px', textAlign: 'center' }}>
                         <p style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>{t('contacts.no_contacts', "You don't have any contacts yet.")}</p>
                     </div>
                 ) : (
                     contacts.map((contact) => (
-                        <div
+                        <button
+                            type="button"
                             key={contact.id}
                             onClick={() => onSelect(contact)}
                             style={{
@@ -113,7 +115,10 @@ export default function ContactList({ contacts, selectedId, onSelect, filter, on
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '10px',
-                                position: 'relative'
+                                position: 'relative',
+                                width: '100%',
+                                textAlign: 'left',
+                                color: 'inherit'
                             }}
                             onMouseEnter={(e) => {
                                 if (selectedId !== contact.id) {
@@ -184,7 +189,6 @@ export default function ContactList({ contacts, selectedId, onSelect, filter, on
                                     whiteSpace: 'nowrap', 
                                     overflow: 'hidden', 
                                     textOverflow: 'ellipsis',
-                                    opacity: 0.7
                                 }}>
                                     {contact.company || contact.email}
                                 </p>
@@ -200,7 +204,7 @@ export default function ContactList({ contacts, selectedId, onSelect, filter, on
                                     left: '0px' 
                                 }} />
                             )}
-                        </div>
+                        </button>
                     ))
                 )}
             </div>

@@ -1,13 +1,14 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-21
 source_paths:
   - backend/tests
   - frontend/src
   - e2e
   - requirements.txt
   - frontend/package.json
-tests: []
+tests:
+  - e2e/tests/accessibility/accessibility.spec.ts
 ---
 
 # Eina de proves
@@ -50,6 +51,21 @@ Playwright s' executa com a un projecte de nivell remot contra l' aplicació nat
 
 Les instantànies de cobertura visual cobreix el representant d' escriptori i pàgines mòbils. Per a un canvi de IU, inspeccioneu la pàgina de renderitzat real, cliqueu el control canviat, mireu la consola i feu una instantània. Confirmau aquesta instantània, retorzes, torrades i menús usen el sistema de fitxers i no auto interacció.
 
+## Porta d’accessibilitat
+
+El projecte `accessibility` de Playwright és una porta bloquejant de WCAG 2.2
+AA. Executa axe sobre una ruta representativa de cada domini principal en els
+temes clar i fosc, incloent-hi contrast de color, etiquetes, regions i relacions
+ARIA. El marcatge propi de l’aplicació sempre queda dins l’auditoria. La dada
+de prova determinista activa els mòduls opcionals de la matriu de rutes, i cada
+ruta també falla si el navegador genera un error de pàgina no gestionat; una
+superfície trencada no pot superar axe.
+
+Les proves d’interacció complementen axe amb navegació de salt, focus visible i
+ordenat, teclat complet, focus roving de les pestanyes mòbils, Escape als
+diàlegs cancel·lables, focus trap i retorn del focus, noms accessibles i anuncis
+de canvi de ruta.
+
 ## Comprovacions de desplegament
 
 En Docker CI construeix el dorsal i les imatges de la interfície, validen el Compup, i exercicis de salut amb l' emmagatzematge local. El llançament electrònica CI és propietari de la plataforma creuada. Una construcció local de macOS no pot validar defectes Windows i Linux.
@@ -62,6 +78,7 @@ En Docker CI construeix el dorsal i les imatges de la interfície, validen el Co
 | lògica de catàleg generat | Proves de generadors, dos vegades determinant, validador, Docs estrictes construeixen. |
 | Comportament del dorsal | Una regressió inversa de pytest més afectat del paquet d'integració. |
 | Comportament del Frontal | Vitest on factible, i18n, construeix, acció del navegador i captura de pantalla. |
+| Accessibilitat o token compartit d’interfície | Vitest de la primitiva, paritat dels quatre idiomes, matriu axe en clar i fosc, proves de teclat i captura del navegador. |
 | Comportament d' autorització/ seguretat/path | Proves i intents de creu negatiu, no només pel camí daurat. |
 | Difuminat/dependència | Verificació nativa més amarrada o paquet CI com a aplicable. |
 

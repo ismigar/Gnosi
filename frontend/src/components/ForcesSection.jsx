@@ -51,23 +51,25 @@ export function ForcesSection({
             <div style={{ ...sliderContainerStyle, display: 'flex', alignItems: 'center' }}>
                 <input
                     type="checkbox"
+                    id="graph-force-linlog"
                     checked={linLogMode}
                     onChange={(e) => onLinLogModeChange(e.target.checked)}
                     style={{ marginRight: '8px', cursor: 'pointer' }}
                 />
-                <label style={{ ...labelStyle, marginBottom: 0, cursor: 'pointer' }} onClick={() => onLinLogModeChange(!linLogMode)}>
+                <label htmlFor="graph-force-linlog" style={{ ...labelStyle, marginBottom: 0, cursor: 'pointer' }}>
                     {t('graph.forces.cloud_mode', "Cloud Mode (LinLog)")} - <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>{t('graph.forces.cloud_mode_hint', "Better for clusters")}</span>
                 </label>
             </div>
 
             {/* Gravity (Centering Force) */}
             <div style={sliderContainerStyle}>
-                <label style={labelStyle}>
+                <label htmlFor="graph-force-gravity" style={labelStyle}>
                     {t('graph.forces.gravity', "Centering force (Gravity)")}
                     <span style={valueStyle}>{gravity}</span>
                 </label>
                 <input
                     type="range"
+                    id="graph-force-gravity"
                     min="0"
                     max="2"
                     step="0.01"
@@ -79,12 +81,13 @@ export function ForcesSection({
 
             {/* Repulsion (Scaling Ratio) */}
             <div style={sliderContainerStyle}>
-                <label style={labelStyle}>
+                <label htmlFor="graph-force-repulsion" style={labelStyle}>
                     {t('graph.forces.repulsion', "Repulsion (Scaling)")}
                     <span style={valueStyle}>{repulsion}</span>
                 </label>
                 <input
                     type="range"
+                    id="graph-force-repulsion"
                     min="10"
                     max="50000"
                     step="10"
@@ -97,12 +100,13 @@ export function ForcesSection({
             {/* Friction (Slow Down) */}
             {/* Note: Higher friction (slowDown) means smoother but slower movement. Lower is more jittery. */}
             <div style={sliderContainerStyle}>
-                <label style={labelStyle}>
+                <label htmlFor="graph-force-friction" style={labelStyle}>
                     {t('graph.forces.friction', "Friction (Smoothing)")}
                     <span style={valueStyle}>{friction}</span>
                 </label>
                 <input
                     type="range"
+                    id="graph-force-friction"
                     min="1"
                     max="10"
                     step="0.5"
@@ -116,12 +120,13 @@ export function ForcesSection({
             {/* 0 = Treat all edges as weight 1 (Good for structure only) */}
             {/* 1 = Use full edge weight (Good for semantic clustering) */}
             <div style={sliderContainerStyle}>
-                <label style={labelStyle}>
+                <label htmlFor="graph-force-edge-influence" style={labelStyle}>
                     {t('graph.forces.edge_influence', "Edge force (Influence)")}
                     <span style={valueStyle}>{edgeInfluence}</span>
                 </label>
                 <input
                     type="range"
+                    id="graph-force-edge-influence"
                     min="0"
                     max="2"
                     step="0.1"
@@ -135,11 +140,12 @@ export function ForcesSection({
             <div style={{ ...sliderContainerStyle, display: 'flex', alignItems: 'center' }}>
                 <input
                     type="checkbox"
+                    id="graph-force-strong-gravity"
                     checked={strongGravityMode}
                     onChange={(e) => onStrongGravityModeChange(e.target.checked)}
                     style={{ marginRight: '8px', cursor: 'pointer' }}
                 />
-                <label style={{ ...labelStyle, marginBottom: 0, cursor: 'pointer' }} onClick={() => onStrongGravityModeChange(!strongGravityMode)}>
+                <label htmlFor="graph-force-strong-gravity" style={{ ...labelStyle, marginBottom: 0, cursor: 'pointer' }}>
                     {t('graph.forces.strong_gravity', "Strong gravity")} - <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>{t('graph.forces.strong_gravity_hint', "Prevents orphans from escaping")}</span>
                 </label>
             </div>
@@ -148,11 +154,12 @@ export function ForcesSection({
             <div style={{ ...sliderContainerStyle, display: 'flex', alignItems: 'center' }}>
                 <input
                     type="checkbox"
+                    id="graph-force-outbound"
                     checked={outboundAttractionDistribution}
                     onChange={(e) => onOutboundAttractionDistributionChange(e.target.checked)}
                     style={{ marginRight: '8px', cursor: 'pointer' }}
                 />
-                <label style={{ ...labelStyle, marginBottom: 0, cursor: 'pointer' }} onClick={() => onOutboundAttractionDistributionChange(!outboundAttractionDistribution)}>
+                <label htmlFor="graph-force-outbound" style={{ ...labelStyle, marginBottom: 0, cursor: 'pointer' }}>
                     {t('graph.forces.outbound', "Distribute attraction by degree")} - <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>{t('graph.forces.outbound_hint', "Compresses hubs (off = Obsidian-style radial)")}</span>
                 </label>
             </div>

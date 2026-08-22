@@ -35,6 +35,8 @@
   --text-tertiary: #6b7280;
   --border-primary: #e5e7eb;
   --gnosi-blue: #3b82f6;
+  --gnosi-action-bg: #1d4ed8;
+  --gnosi-action-rgb: 29, 78, 216;
   --accent-primary: var(--gnosi-blue);
   --border-color: var(--border-primary);
   --surface-elevated: #ffffff;
@@ -60,7 +62,8 @@
   --radius-xl: 18px;
   --shadow-soft: 0 8px 24px rgba(15, 23, 42, 0.08);
   --shadow-raised: 0 16px 40px rgba(15, 23, 42, 0.12);
-  --focus-ring: 0 0 0 3px rgba(var(--gnosi-primary-rgb), 0.22);
+  --focus-outline-color: #1d4ed8;
+  --focus-ring: 0 0 0 3px var(--focus-outline-color);
   --floating-action-size: 44px;
   --floating-action-gap: 8px;
   
@@ -69,7 +72,7 @@
   --sidebar-border: #e2e8f0;
   --sidebar-item-hover: rgba(0, 0, 0, 0.05);
   --sidebar-item-active: rgba(59, 130, 246, 0.1);
-  --sidebar-item-active-text: #3b82f6;
+  --sidebar-item-active-text: #1d4ed8;
   --sidebar-text: #64748b;
   
   /* Settings Light */
@@ -134,7 +137,7 @@
   --bg-tertiary: #27272a;
   --text-primary: #f4f4f5;
   --text-secondary: #a1a1aa;
-  --text-tertiary: #71717a;
+  --text-tertiary: #a1a1aa;
   --border-primary: #27272a;
   --border-color: var(--border-primary);
   --surface-elevated: #111113;
@@ -153,7 +156,7 @@
   --sidebar-border: #1c1c1f;
   --sidebar-item-hover: rgba(255, 255, 255, 0.05);
   --sidebar-item-active: rgba(0, 102, 255, 0.15);
-  --sidebar-item-active-text: #3b82f6;
+  --sidebar-item-active-text: #93c5fd;
   --sidebar-text: #939393;
 
   /* Settings Dark */
@@ -186,6 +189,7 @@
   /* Brand Colors Dark Overrides (if any) */
   --gnosi-primary: #3b82f6;
   --gnosi-primary-rgb: 59, 130, 246;
+  --focus-outline-color: #93c5fd;
 
   /* AI Provider Specifics */
   --provider-card-bg: rgba(255, 255, 255, 0.03);
@@ -235,6 +239,43 @@ textarea,
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+.gnosi-skip-link {
+  position: fixed;
+  inset-block-start: 10px;
+  inset-inline-start: 10px;
+  z-index: calc(var(--z-toast) + 1);
+  padding: 10px 14px;
+  border: 2px solid var(--focus-outline-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-weight: 700;
+  text-decoration: none;
+  transform: translateY(calc(-100% - 16px));
+  transition: transform 0.12s ease;
+}
+
+.gnosi-skip-link:focus-visible {
+  transform: translateY(0);
+}
+
+/* Every first-party interactive surface keeps a visible keyboard indicator.
+   Component-specific rings may add emphasis, but must not remove this outline. */
+html body :is(
+  button,
+  a[href],
+  input,
+  select,
+  textarea,
+  [role="button"],
+  [role="tab"],
+  [role="switch"],
+  [tabindex]:not([tabindex="-1"])
+):focus-visible {
+  outline: 3px solid var(--focus-outline-color) !important;
+  outline-offset: 2px !important;
 }
 
 /* Canonical navigation-group heading shared by every application sidebar. */
@@ -1584,8 +1625,8 @@ body[data-gnosi-floating-panel] .gnosi-floating-dock-toggle {
 }
 
 .gnosi-button--primary {
-  border-color: var(--gnosi-primary);
-  background: var(--gnosi-primary);
+  border-color: var(--gnosi-action-bg);
+  background: var(--gnosi-action-bg);
   color: #fff;
 }
 
@@ -2818,9 +2859,9 @@ button:hover > .row-action-tooltip {
 }
 
 .btn-gnosi-primary {
-  background-color: var(--gnosi-primary);
+  background-color: var(--gnosi-action-bg);
   color: white !important;
-  box-shadow: 0 4px 12px rgba(var(--gnosi-primary-rgb), 0.25);
+  box-shadow: 0 4px 12px rgba(var(--gnosi-action-rgb), 0.25);
 }
 
 .btn-primary:hover,
@@ -2866,9 +2907,9 @@ button:hover > .row-action-tooltip {
 }
 
 .btn-gnosi-primary7 {
-  background-color: var(--gnosi-primary);
+  background-color: var(--gnosi-action-bg);
   color: white !important;
-  box-shadow: 0 4px 12px rgba(var(--gnosi-primary-rgb), 0.25);
+  box-shadow: 0 4px 12px rgba(var(--gnosi-action-rgb), 0.25);
 }
 
 /* AI Settings Premium Styles */

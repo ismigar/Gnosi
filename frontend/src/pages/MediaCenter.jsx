@@ -47,7 +47,7 @@ import {
 } from 'lucide-react';
 import { toast } from '../lib/toast';
 import { useTranslation } from 'react-i18next';
-import {  AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 
 const PERSPECTIVES = [ // We keep it for reference or inbox, but we prioritize albums
   { id: 'General', label: 'General', icon: FolderOpen, color: 'text-blue-500' },
@@ -483,7 +483,7 @@ function MediaToolbar({
               onClick={() => toggleKind(key)}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all ${
                 active
-                  ? 'bg-[var(--gnosi-primary)] text-white border-[var(--gnosi-primary)]'
+                  ? 'bg-[var(--gnosi-action-bg)] text-white border-[var(--gnosi-action-bg)]'
                   : 'bg-[var(--bg-secondary)] text-[var(--text-secondary)] border-[var(--border-primary)] hover:bg-[var(--bg-tertiary)]'
               }`}
               title={label}
@@ -503,6 +503,7 @@ function MediaToolbar({
         <select
           value={filters.datePreset}
           onChange={(e) => setDatePreset(e.target.value)}
+          aria-label={t('media.date_filter_label', 'Date filter')}
           className="bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-md px-2 py-1 text-xs"
         >
           {DATE_PRESETS.map(p => <option key={p.key} value={p.key}>{t(p.labelKey)}</option>)}
@@ -557,6 +558,7 @@ function MediaToolbar({
         <select
           value={filters.sizePreset}
           onChange={(e) => setSizePreset(e.target.value)}
+          aria-label={t('media.size_filter_label', 'Size filter')}
           className="bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-md px-2 py-1 text-xs"
         >
           {SIZE_PRESETS.map(p => <option key={p.key} value={p.key}>{p.labelKey ? t(p.labelKey) : p.label}</option>)}
@@ -572,6 +574,7 @@ function MediaToolbar({
           onChange={(e) => onSortChange({ ...sort, field: e.target.value })}
           className="bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-md px-2 py-1 text-xs"
           title={t('media.sort_field_title')}
+          aria-label={t('media.sort_field_title')}
         >
           {SORT_OPTIONS.map(o => <option key={o.key} value={o.key}>{t(o.labelKey)}</option>)}
         </select>
@@ -1125,21 +1128,27 @@ export default function MediaCenter() {
 
           <div className="flex bg-[var(--bg-secondary)] p-1 rounded-lg border border-[var(--border-primary)]">
             <button 
+              type="button"
               onClick={() => setViewMode('grid')}
               className={`p-1.5 rounded ${viewMode === 'grid' ? 'bg-[var(--bg-primary)] shadow-sm text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]'}`}
+              aria-label={t('media.grid_view', 'Grid view')}
+              aria-pressed={viewMode === 'grid'}
             >
               <Grid size={18} />
             </button>
             <button 
+              type="button"
               onClick={() => setViewMode('list')}
               className={`p-1.5 rounded ${viewMode === 'list' ? 'bg-[var(--bg-primary)] shadow-sm text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]'}`}
+              aria-label={t('media.list_view', 'List view')}
+              aria-pressed={viewMode === 'list'}
             >
               <ListIcon size={18} />
             </button>
           </div>
 
           {(activeRoot === 'images' || activeRoot === 'assets') && (
-            <label className={`flex items-center gap-2 px-4 py-2 bg-[var(--gnosi-primary)] text-white rounded-lg transition-all shadow-lg ${isUploading ? 'opacity-70 cursor-wait pointer-events-none' : 'hover:bg-[var(--gnosi-primary)]/90 cursor-pointer active:scale-95'}`}>
+            <label className={`flex items-center gap-2 px-4 py-2 bg-[var(--gnosi-action-bg)] text-white rounded-lg transition-all shadow-lg ${isUploading ? 'opacity-70 cursor-wait pointer-events-none' : 'cursor-pointer active:scale-95'}`}>
               {isUploading ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
               <span className="text-sm font-medium">{isUploading ? t('media.uploading_short') : t('media.upload_button')}</span>
               <input type="file" className="hidden" onChange={handleUpload} disabled={isUploading} />
@@ -1252,7 +1261,7 @@ export default function MediaCenter() {
 
           <button
             onClick={() => setActiveAlbum('')}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${activeAlbum === '' ? 'bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] shadow-sm' : 'hover:bg-[var(--bg-secondary)] text-[var(--text-primary)]'}`}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${activeAlbum === '' ? 'bg-[var(--gnosi-primary)]/10 text-blue-700 dark:text-blue-300 shadow-sm' : 'hover:bg-[var(--bg-secondary)] text-[var(--text-primary)]'}`}
             title={t('media.all_root_title')}
           >
             <ImageIcon size={18} />
@@ -1290,7 +1299,7 @@ export default function MediaCenter() {
                 <ImageIcon size={48} className="opacity-20" />
               </motion.div>
               <p className="text-sm font-medium">{t('media.indexing')}</p>
-              <p className="text-xs opacity-60 mt-1 max-w-xs text-center">
+              <p className="text-xs text-[var(--text-secondary)] mt-1 max-w-xs text-center">
                 {activeAlbum
                   ? t('media.reading_album', { album: activeAlbum })
                   : t('media.first_index_hint')}
