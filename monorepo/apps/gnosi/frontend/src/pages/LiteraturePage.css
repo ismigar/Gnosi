@@ -5,16 +5,11 @@
     color: var(--text-primary);
 }
 
-.literature-page__header {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 24px;
+.literature-page > .app-header {
     max-width: 1260px;
     margin: 0 auto 22px;
 }
 
-.literature-page__header > div > span,
 .literature-review-detail header > div > span,
 .literature-preview header > div > span {
     color: var(--gnosi-blue);
@@ -24,13 +19,6 @@
     text-transform: uppercase;
 }
 
-.literature-page__header h1 {
-    margin: 5px 0 6px;
-    font-size: clamp(25px, 4vw, 36px);
-    line-height: 1.1;
-}
-
-.literature-page__header p,
 .literature-review-detail header p {
     max-width: 680px;
     margin: 0;
@@ -38,7 +26,7 @@
     font-size: 14px;
 }
 
-.literature-page__header nav {
+.literature-page__tabs {
     display: flex;
     padding: 4px;
     border: 1px solid var(--border-primary);
@@ -46,7 +34,7 @@
     background: var(--bg-primary);
 }
 
-.literature-page__header nav button {
+.literature-page__tabs button {
     display: inline-flex;
     align-items: center;
     gap: 7px;
@@ -58,7 +46,7 @@
     cursor: pointer;
 }
 
-.literature-page__header nav button.is-active {
+.literature-page__tabs button.is-active {
     background: var(--sidebar-item-active, #eef2ff);
     color: var(--gnosi-blue);
     font-weight: 700;
@@ -442,6 +430,75 @@
     display: block;
     margin-top: 8px;
     color: var(--text-tertiary);
+}
+
+.literature-ai-proposal__concepts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 8px;
+    margin: 12px 0;
+}
+
+.literature-ai-proposal__concepts div,
+.literature-ai-proposal__synonyms,
+.literature-ai-proposal__query,
+.literature-ai-proposal__cautions {
+    padding: 9px 10px;
+    border: 1px solid var(--border-primary);
+    border-radius: 8px;
+    background: var(--bg-primary);
+}
+
+.literature-ai-proposal__concepts dt,
+.literature-ai-proposal__synonyms strong,
+.literature-ai-proposal__query > span {
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.literature-ai-proposal__concepts dd,
+.literature-ai-proposal__synonyms p {
+    margin: 4px 0 0;
+    color: var(--text-primary);
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.literature-ai-proposal__synonyms {
+    margin: 10px 0;
+}
+
+.literature-ai-proposal__synonyms p span {
+    margin-right: 6px;
+    color: var(--text-tertiary);
+    font-weight: 700;
+}
+
+.literature-ai-proposal__query {
+    display: block;
+    margin: 10px 0;
+}
+
+.literature-ai-proposal__query textarea {
+    width: 100%;
+    min-height: 68px;
+    margin-top: 6px;
+    resize: vertical;
+    font: 12px/1.45 ui-monospace, monospace;
+}
+
+.literature-ai-proposal__cautions {
+    margin: 10px 0;
+    padding-left: 28px;
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.literature-ai-proposal__technical {
+    margin-top: 10px;
+    color: var(--text-tertiary);
+    font-size: 11px;
 }
 
 .literature-alert,

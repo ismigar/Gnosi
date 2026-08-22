@@ -8,6 +8,7 @@ import LiteraturePage from './LiteraturePage';
 vi.mock('axios', () => ({ default: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() } }));
 vi.mock('../plugins/usePlugins', () => ({ usePlugins: () => ({ isEnabled: () => true }) }));
 vi.mock('../lib/toast', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+import { toast } from '../lib/toast';
 const translate = vi.hoisted(() => (key, values = {}) => Object.entries(values).reduce(
     (text, [name, value]) => text.replace(`{{${name}}}`, String(value)), key,
 ));
@@ -117,6 +118,44 @@ describe('LiteraturePage', () => {
         expect(axios.post).toHaveBeenCalledWith('/api/vault/literature/searches', expect.objectContaining({
             query: 'climate adaptation', source_queries: { crossref: 'TITLE(climate) AND adaptation' },
         }));
+    });
+
+    it('uses the shared app header, exposes controlled filters, and explains a blank AI request', async () => {
+        await renderPage();
+        expect(container.querySelector('.app-header')).not.toBeNull();
+        expect(container.querySelector('.literature-page__header')).toBeNull();
+
+        const filters = [...container.querySelectorAll('button')].find((button) => button.textContent.includes('literature.search.filters'));
+        await act(async () => filters.click());
+        expect(container.querySelector('select')).not.toBeNull();
+        expect(container.textContent).toContain('literature.search.full_text_only');
+
+        const ai = [...container.querySelectorAll('button')].find((button) => button.textContent.includes('literature.ai.assist'));
+        await act(async () => ai.click());
+        expect(toast.error).toHaveBeenCalledWith('literature.ai.enter_question');
+        expect(document.activeElement).toBe(container.querySelector('input[aria-label="literature.search.query"]'));
+    });
+
+    it('renders AI strategy help as editable research controls rather than raw JSON', async () => {
+        await renderPage();
+        const input = container.querySelector('input[aria-label="literature.search.query"]');
+        await typeInto(input, 'historical periodization');
+        axios.post.mockResolvedValueOnce({ data: {
+            operation: 'query_strategy',
+            audit: { model: 'test-model' },
+            result: {
+                framework: 'PICO', concepts: { P: { en: 'historical periodization' } },
+                synonyms: { P: ['historical periods', 'historical stages'] },
+                boolean_query: '"historical periodization" OR "historical stages"', cautions: ['Narrow the scope if necessary'],
+            },
+        } });
+
+        const ai = [...container.querySelectorAll('button')].find((button) => button.textContent.includes('literature.ai.assist'));
+        await act(async () => ai.click());
+        const proposal = container.querySelector('.literature-ai-proposal');
+        expect(proposal.querySelector('textarea')).not.toBeNull();
+        expect(proposal.textContent).toContain('historical periodization');
+        expect(proposal.querySelector('details').hasAttribute('open')).toBe(false);
     });
 
     it('uses server-sent events, supports cancellation, and falls back to the same paginated contract', async () => {
