@@ -11,8 +11,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
 | Playwright | 15 | 43 |
-| Vitest | 86 | 330 |
-| pytest | 204 | 1717 |
+| Vitest | 87 | 332 |
+| pytest | 204 | 1718 |
 
 ## Files
 
@@ -40,7 +40,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/components/AI/useAIResources.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AI/useAIResources.test.jsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/components/AgentConfirmations.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AgentConfirmations.test.js) | 7 | call-pattern estimate |
 | Vitest | [`frontend/src/components/AgentContextSources.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AgentContextSources.test.jsx) | 4 | call-pattern estimate |
-| Vitest | [`frontend/src/components/AppSidebar.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AppSidebar.test.jsx) | 5 | call-pattern estimate |
+| Vitest | [`frontend/src/components/AppSidebar.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AppSidebar.test.jsx) | 6 | call-pattern estimate |
+| Vitest | [`frontend/src/components/AppSidebarSettings.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AppSidebarSettings.test.jsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/components/DesktopUpdateNotice.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/DesktopUpdateNotice.test.jsx) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/components/GlobalTooltip.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/GlobalTooltip.test.jsx) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/components/GraphLoadingState.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/GraphLoadingState.test.jsx) | 2 | call-pattern estimate |
@@ -160,7 +161,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_auto_provisioned_migration.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_auto_provisioned_migration.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_bibtex_export_escape.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_bibtex_export_escape.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_bibtex_latex_accents.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_bibtex_latex_accents.py) | 4 | Python AST |
-| pytest | [`backend/tests/test_builtin_plugins.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_builtin_plugins.py) | 11 | Python AST |
+| pytest | [`backend/tests/test_builtin_plugins.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_builtin_plugins.py) | 12 | Python AST |
 | pytest | [`backend/tests/test_bulk_update_index_refresh.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_bulk_update_index_refresh.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_bulk_update_metadata.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_bulk_update_metadata.py) | 10 | Python AST |
 | pytest | [`backend/tests/test_cache.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_cache.py) | 8 | Python AST |

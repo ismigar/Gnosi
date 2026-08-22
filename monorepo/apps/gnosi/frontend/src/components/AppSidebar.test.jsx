@@ -6,7 +6,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { AppSidebar, ENGINEERING_DOCUMENTATION_URL } from './AppSidebar';
 import { normalizeSidebarPreferences, orderSidebarItems } from '../lib/appSidebarNavigation';
 
-const pluginState = vi.hoisted(() => ({ enabled: new Set() }));
+const pluginState = vi.hoisted(() => ({ enabled: new Set(), settings: {} }));
 
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
@@ -25,7 +25,7 @@ vi.mock('../lib/toast', () => ({
 vi.mock('../plugins/usePlugins', () => ({
     usePlugins: () => ({
         isEnabled: (pluginId) => pluginState.enabled.has(pluginId),
-        getPluginSettings: () => ({}),
+        getPluginSettings: () => pluginState.settings,
         setPluginSettings: vi.fn(),
     }),
 }));
@@ -46,6 +46,7 @@ beforeAll(() => {
 
 beforeEach(() => {
     pluginState.enabled.clear();
+    pluginState.settings = {};
     globalThis.fetch = vi.fn().mockResolvedValue({
         json: vi.fn().mockResolvedValue({ gnosi_mode: 'personal' }),
     });
@@ -120,7 +121,8 @@ describe('AppSidebar adaptive navigation', () => {
         expect(orderSidebarItems(items, preferences.pinnedRoutes).map((item) => item.to)).toEqual(['/three', '/one']);
     });
 
-    it('opens the application launcher with search and pin controls', async () => {
+    it('opens a compact application access menu without configuration controls', async () => {
+        pluginState.settings = { pinnedRoutes: ['/vault'] };
         const container = document.createElement('div');
         document.body.appendChild(container);
         const root = createRoot(container);
@@ -134,8 +136,25 @@ describe('AppSidebar adaptive navigation', () => {
         expect(navigation.lastElementChild).toBe(trigger);
         await act(async () => trigger.click());
 
-        expect(container.querySelector('[role="dialog"]')).not.toBeNull();
-        expect(container.querySelector('input[placeholder="Search applications"]')).not.toBeNull();
-        expect(container.querySelector('[aria-pressed="true"]')).not.toBeNull();
+        const quickAccess = container.querySelector('[role="menu"]');
+        expect(quickAccess).not.toBeNull();
+        expect(quickAccess.querySelectorAll('[role="menuitem"]')).toHaveLength(1);
+        expect(quickAccess.querySelector('[href="/graph"]')).not.toBeNull();
+        expect(quickAccess.querySelector('[href="/vault"]')).toBeNull();
+        expect(quickAccess.querySelector('input')).toBeNull();
+        expect(quickAccess.querySelector('[aria-pressed]')).toBeNull();
+    });
+
+    it('hides the quick-access trigger when every visible application is pinned', async () => {
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        const root = createRoot(container);
+        mountedRoots.push({ root, container });
+
+        await act(async () => {
+            root.render(<MemoryRouter><AppSidebar /></MemoryRouter>);
+        });
+
+        expect(container.querySelector('[aria-label="More applications"]')).toBeNull();
     });
 });

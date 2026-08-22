@@ -247,6 +247,13 @@ Mutating endpoints use existing CSRF and authorization conventions. Public API r
 
 ## Restrictions and edge cases
 
+- Do not add a plugin-owned launcher destination without registering the plugin
+  in both capability registries and wiring its frontend and backend routes. The
+  launcher filters unregistered or disabled destinations, which makes a present
+  sidebar entry disappear silently.
+- Do not assert that the built-in enabled-plugin list becomes empty when an
+  unrelated plugin changes lifecycle state. The default-enabled `resources`
+  capability must remain present; assert the complete normalized state instead.
 - Do not automate Google Scholar or Academia.edu; this would violate the machine-access policy. Use an external search link instead.
 - Do not store indexes in the vault; large reconstructed data would harm synchronization and portability. Use `LOCAL_DATA` and preserve only audit snapshots in the vault.
 - Do not persist secrets in repository definitions; vault exports could expose them. Store credential handles only.

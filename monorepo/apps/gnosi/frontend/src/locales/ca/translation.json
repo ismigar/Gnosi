@@ -488,6 +488,7 @@
     "close_app_launcher": "Tancar aplicacions",
     "search_applications": "Cerca aplicacions",
     "pinned_applications": "Aplicacions fixades",
+    "quick_access": "Accés ràpid",
     "pin_application": "Fixar {{application}}",
     "unpin_application": "Desfixar {{application}}",
     "move_application_up": "Pujar {{application}}",
@@ -1731,6 +1732,7 @@
       "plugins": "Plugins",
       "language": "Idioma i Regió",
       "appearance": "Aparença",
+      "menu": "Menú",
       "calendar": "Calendaris",
       "graph": "Configuració del Graf",
       "reader": "Lector",
@@ -1743,6 +1745,12 @@
       "translate": "Traducció",
       "profile": "Perfil",
       "account": "Compte"
+    },
+    "menu": {
+      "title": "Menú d’aplicacions",
+      "description": "Tria quines aplicacions queden fixades i ordena-les. Les aplicacions que desfixis continuaran disponibles des de l’accés ràpid.",
+      "pinned": "Fixada",
+      "quick_access_only": "Accés ràpid"
     },
     "navigation": {
       "basic": "Bàsic",

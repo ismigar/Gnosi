@@ -1343,6 +1343,7 @@
       "plugins": "Extensions",
       "language": "Langue et Région",
       "appearance": "Apparence",
+      "menu": "Menu",
       "calendar": "Calendrier Local",
       "graph": "Graphique",
       "reader": "Lecteur",
@@ -1353,6 +1354,12 @@
       "notion": "Importer Notion",
       "translate": "Traduction",
       "account": "Compte"
+    },
+    "menu": {
+      "title": "Menu des applications",
+      "description": "Choisissez les applications épinglées et organisez leur ordre. Les applications désépinglées restent disponibles dans l’accès rapide.",
+      "pinned": "Épinglée",
+      "quick_access_only": "Accès rapide"
     },
     "navigation": {
       "basic": "Essentiel",
@@ -2591,6 +2598,7 @@
     "close_app_launcher": "Fermer les applications",
     "search_applications": "Rechercher des applications",
     "pinned_applications": "Applications épinglées",
+    "quick_access": "Accès rapide",
     "pin_application": "Épingler {{application}}",
     "unpin_application": "Désépingler {{application}}",
     "move_application_up": "Monter {{application}}",

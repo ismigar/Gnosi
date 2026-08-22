@@ -14,6 +14,7 @@ export const BUILTIN_PLUGINS = [
     { id: 'canvas-cards', name: 'Canvas cards', description: 'Embed pages as live cards on the drawing canvas.', icon: 'LayoutDashboard', group: 'vault', requires: [], routes: [] },
     { id: 'web-clipper', name: 'Web Clipper', description: 'Save web pages from the browser into the Vault.', icon: 'Scissors', group: 'connections', settingsTab: 'web-clipper', requires: [], routes: [] },
     { id: 'project-planning', name: 'Project planning', description: 'Durations, predecessors, work calendars and resource planning.', icon: 'CalendarRange', group: 'knowledge', settingsTab: 'project-planning', requires: [], routes: ['/planning'] },
+    { id: 'resources', name: 'References', description: 'Academic sources, federated literature search, imports and reviews.', icon: 'BookOpen', group: 'knowledge', settingsTab: 'resources', requires: [], routes: ['/literature'] },
     { id: 'feeds-reader', name: 'Feeds and newsletters', description: 'RSS subscriptions, newsletters and optional daily podcasts.', icon: 'BookOpen', group: 'connections', settingsTab: 'reader', requires: [], routes: ['/reader'] },
     { id: 'translation', name: 'Translation', description: 'Translation providers and publishing-language actions.', icon: 'Languages', group: 'knowledge', settingsTab: 'translate', requires: [], routes: [] },
     { id: 'contacts', name: 'Contacts', description: 'External address books and the Contacts application.', icon: 'Users', group: 'connections', settingsTab: 'contacts', requires: [], routes: ['/contacts'] },

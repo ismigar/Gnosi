@@ -26,6 +26,7 @@ import AccountSettings from './Auth/AccountSettings';
 import { WorkspaceMembersPanel } from './Workspace/WorkspaceMembersPanel';
 import ApiTokensSettings from './ApiTokensSettings';
 import { PluginsSettings } from './PluginsSettings';
+import { AppSidebarSettings } from './AppSidebarSettings';
 import AIModelComparisonModal from './AIModelComparisonModal';
 import AIUsageHistoryModal from './AIUsageHistoryModal';
 import { registryEntryMatchesModel } from '../lib/modelComparisonRegistry';
@@ -546,7 +547,7 @@ const SettingsNavGroup = ({ label, children }) => (
     </section>
 );
 
-export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' }) {
+export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', sidebarNavigation = null }) {
     const { t, i18n } = useTranslation();
     const { role } = useApi();
     const tn = useCallback((k, opts) => t('settings.' + k, opts), [t]);
@@ -2285,6 +2286,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             <SettingsNavGroup label={t('settings.navigation.basic')}>
                                 <SidebarItem id="general" icon={SettingsIcon} label={t('settings.tabs.general') || 'General'} active={activeTab === 'general'} onClick={() => { setActiveTab('general'); setAddAccountType(null); }} />
                                 <SidebarItem id="appearance" icon={Palette} label={t('settings.tabs.appearance') || 'Aparença'} active={activeTab === 'appearance'} onClick={() => { setActiveTab('appearance'); setAddAccountType(null); }} />
+                                {sidebarNavigation && <SidebarItem id="menu" icon={LucideIcons.PanelLeft} label={t('settings.tabs.menu', 'Menú')} active={activeTab === 'menu'} onClick={() => { setActiveTab('menu'); setAddAccountType(null); }} />}
                                 <SidebarItem id="language" icon={Globe} label={t('settings.tabs.language') || 'Idioma i Regió'} active={activeTab === 'language'} onClick={() => { setActiveTab('language'); setAddAccountType(null); }} />
                                 <SidebarItem id="profile" icon={User} label={t('settings.tabs.profile') || 'Perfil'} active={activeTab === 'profile'} onClick={() => { setActiveTab('profile'); setAddAccountType(null); }} />
                                 <SidebarItem id="account" icon={LucideIcons.UserCog} label={t('settings.tabs.account', 'Compte')} active={activeTab === 'account'} onClick={() => { setActiveTab('account'); setAddAccountType(null); }} />
@@ -2353,6 +2355,12 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
                              {/* ACCOUNT (credentials) */}
                              {activeTab === 'account' && <AccountSettings />}
+
+                             {activeTab === 'menu' && sidebarNavigation && (
+                                <div className="animate-in">
+                                    <AppSidebarSettings {...sidebarNavigation} />
+                                </div>
+                             )}
 
                             {/* GENERAL */}
                             {activeTab === 'general' && (

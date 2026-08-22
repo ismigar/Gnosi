@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { Network, BookOpen, Gauge, Share2, Settings, Menu, X, FileText, Calendar, Inbox, Image as ImageIcon, Users, LogOut, CalendarRange, CircleHelp, NotebookTabs, LibraryBig, PanelTopOpen, Pin, PinOff, ChevronUp, ChevronDown, Search } from 'lucide-react';
+import { Network, BookOpen, Gauge, Share2, Settings, Menu, X, FileText, Calendar, Inbox, Image as ImageIcon, Users, LogOut, CalendarRange, CircleHelp, NotebookTabs, LibraryBig, PanelTopOpen } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 // The Settings modal drags in the BlockEditor (blocknote/tiptap) and other
 // heavy views. By lazy-loading it we avoid these libraries
@@ -66,10 +66,11 @@ export function AppSidebar() {
     const [settingsOpen, setSettingsOpen] = useState(initialSettingsRequest.open);
     const [settingsTab, setSettingsTab] = useState(initialSettingsRequest.tab);
     const [gnosiMode, setGnosiMode] = useState('personal');
-    const [launcherOpen, setLauncherOpen] = useState(false);
-    const [launcherQuery, setLauncherQuery] = useState('');
+    const [quickAccessOpen, setQuickAccessOpen] = useState(false);
     const mobileToggleRef = React.useRef(null);
     const navigationRef = React.useRef(null);
+    const quickAccessRef = React.useRef(null);
+    const quickAccessTriggerRef = React.useRef(null);
     const isCompact = useMediaQuery('(max-width: 767px)');
     const { t } = useTranslation();
     const navigate = useNavigate();
@@ -92,11 +93,8 @@ export function AppSidebar() {
     const railNavItems = activeNavItem && !pinnedNavItems.some((item) => item.to === activeNavItem.to)
         ? [...pinnedNavItems, activeNavItem]
         : pinnedNavItems;
-    const normalizedLauncherQuery = launcherQuery.trim().toLocaleLowerCase();
-    const launcherItems = visibleNavItems.filter((item) => {
-        const label = t(item.labelKey).toLocaleLowerCase();
-        return !normalizedLauncherQuery || label.includes(normalizedLauncherQuery);
-    });
+    const railRoutes = new Set(railNavItems.map((item) => item.to));
+    const quickAccessItems = visibleNavItems.filter((item) => !railRoutes.has(item.to));
 
     useModalKeyboard({
         isOpen: isCompact && mobileOpen,
@@ -111,6 +109,27 @@ export function AppSidebar() {
         window.addEventListener('gnosi:open-settings', open);
         return () => window.removeEventListener('gnosi:open-settings', open);
     }, []);
+
+    useEffect(() => {
+        if (!quickAccessOpen) return undefined;
+        const closeOnPointerDown = (event) => {
+            if (quickAccessRef.current?.contains(event.target)) return;
+            if (quickAccessTriggerRef.current?.contains(event.target)) return;
+            setQuickAccessOpen(false);
+        };
+        const closeOnEscape = (event) => {
+            if (event.key === 'Escape') {
+                setQuickAccessOpen(false);
+                quickAccessTriggerRef.current?.focus();
+            }
+        };
+        document.addEventListener('pointerdown', closeOnPointerDown);
+        window.addEventListener('keydown', closeOnEscape);
+        return () => {
+            document.removeEventListener('pointerdown', closeOnPointerDown);
+            window.removeEventListener('keydown', closeOnEscape);
+        };
+    }, [quickAccessOpen]);
 
     const handleLogout = async () => {
         await logout();
@@ -135,12 +154,6 @@ export function AppSidebar() {
         const pinnedRoutes = [...sidebarPreferences.pinnedRoutes];
         [pinnedRoutes[currentIndex], pinnedRoutes[nextIndex]] = [pinnedRoutes[nextIndex], pinnedRoutes[currentIndex]];
         savePinnedRoutes(pinnedRoutes);
-    };
-
-    const openDestination = (route) => {
-        navigate(route);
-        setLauncherOpen(false);
-        setMobileOpen(false);
     };
 
     useEffect(() => {
@@ -249,7 +262,7 @@ export function AppSidebar() {
                                 end={to === '/'}
                                 title={label}
                                 aria-label={label}
-                                onClick={() => setMobileOpen(false)}
+                                onClick={() => { setMobileOpen(false); setQuickAccessOpen(false); }}
                                 className={({ isActive }) =>
                                     `app-sidebar__item ${isActive ? 'app-sidebar__item--active' : ''}`
                                 }
@@ -262,18 +275,19 @@ export function AppSidebar() {
                             </NavLink>
                         );
                     })}
-                    <button
+                    {quickAccessItems.length > 0 && <button
+                        ref={quickAccessTriggerRef}
                         type="button"
                         className="app-sidebar__item"
                         title={t('sidebar.open_app_launcher', 'More applications')}
                         aria-label={t('sidebar.open_app_launcher', 'More applications')}
-                        aria-haspopup="dialog"
-                        aria-expanded={launcherOpen}
-                        onClick={() => { setLauncherOpen(true); setLauncherQuery(''); }}
+                        aria-haspopup="menu"
+                        aria-expanded={quickAccessOpen}
+                        onClick={() => setQuickAccessOpen((open) => !open)}
                     >
                         <PanelTopOpen size={16} strokeWidth={1.5} />
                         <span className="app-sidebar__tooltip"><span>{t('sidebar.open_app_launcher', 'More applications')}</span></span>
-                    </button>
+                    </button>}
                 </div>
 
                 <div className="app-sidebar__footer">
@@ -335,61 +349,31 @@ export function AppSidebar() {
                 </div>
             </nav>
 
-            {launcherOpen && (
-                <div className="app-launcher-backdrop" role="presentation" onMouseDown={() => setLauncherOpen(false)}>
-                    <section
-                        className="app-launcher"
-                        role="dialog"
-                        aria-modal="true"
-                        aria-label={t('sidebar.app_launcher', 'Applications')}
-                        onMouseDown={(event) => event.stopPropagation()}
-                    >
-                        <div className="app-launcher__header">
-                            <div>
-                                <h2>{t('sidebar.app_launcher', 'Applications')}</h2>
-                                <p>{t('sidebar.app_launcher_hint', 'Search, pin, and reorder your applications.')}</p>
-                            </div>
-                            <button type="button" className="app-launcher__close" onClick={() => setLauncherOpen(false)} aria-label={t('sidebar.close_app_launcher', 'Close applications')}>
-                                <X size={18} />
-                            </button>
-                        </div>
-                        <label className="app-launcher__search">
-                            <Search size={16} aria-hidden="true" />
-                            <span className="sr-only">{t('sidebar.search_applications', 'Search applications')}</span>
-                            <input
-                                autoFocus
-                                value={launcherQuery}
-                                onChange={(event) => setLauncherQuery(event.target.value)}
-                                placeholder={t('sidebar.search_applications', 'Search applications')}
-                            />
-                        </label>
-                        <div className="app-launcher__list">
-                            {launcherItems.map(({ to, icon: Icon, labelKey }) => {
-                                const label = t(labelKey);
-                                const pinnedIndex = sidebarPreferences.pinnedRoutes.indexOf(to);
-                                const pinned = pinnedIndex >= 0;
-                                return (
-                                    <div className="app-launcher__row" key={to}>
-                                        <button type="button" className="app-launcher__destination" onClick={() => openDestination(to)}>
-                                            <Icon size={18} strokeWidth={1.6} aria-hidden="true" />
-                                            <span>{label}</span>
-                                        </button>
-                                        <div className="app-launcher__actions">
-                                            {pinned && <>
-                                                <button type="button" onClick={() => movePinnedRoute(to, -1)} disabled={pinnedIndex === 0} aria-label={t('sidebar.move_application_up', 'Move {{application}} up', { application: label })}><ChevronUp size={16} /></button>
-                                                <button type="button" onClick={() => movePinnedRoute(to, 1)} disabled={pinnedIndex === sidebarPreferences.pinnedRoutes.length - 1} aria-label={t('sidebar.move_application_down', 'Move {{application}} down', { application: label })}><ChevronDown size={16} /></button>
-                                            </>}
-                                            <button type="button" onClick={() => togglePinnedRoute(to)} aria-pressed={pinned} aria-label={pinned ? t('sidebar.unpin_application', 'Unpin {{application}}', { application: label }) : t('sidebar.pin_application', 'Pin {{application}}', { application: label })}>
-                                                {pinned ? <PinOff size={16} /> : <Pin size={16} />}
-                                            </button>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                            {launcherItems.length === 0 && <p className="app-launcher__empty">{t('sidebar.no_matching_applications', 'No matching applications.')}</p>}
-                        </div>
-                    </section>
-                </div>
+            {quickAccessOpen && (
+                <nav
+                    ref={quickAccessRef}
+                    className="app-quick-access"
+                    role="menu"
+                    aria-label={t('sidebar.quick_access', 'Quick access')}
+                >
+                    {quickAccessItems.map(({ to, icon: Icon, labelKey }) => {
+                        const label = t(labelKey);
+                        return (
+                            <NavLink
+                                key={to}
+                                to={to}
+                                role="menuitem"
+                                title={label}
+                                aria-label={label}
+                                onClick={() => { setQuickAccessOpen(false); setMobileOpen(false); }}
+                                className={({ isActive }) => `app-sidebar__item ${isActive ? 'app-sidebar__item--active' : ''}`}
+                            >
+                                <Icon size={16} strokeWidth={1.5} />
+                                <span className="app-sidebar__tooltip"><span>{label}</span></span>
+                            </NavLink>
+                        );
+                    })}
+                </nav>
             )}
 
             {/* Global Settings Modal */}
@@ -399,6 +383,12 @@ export function AppSidebar() {
                         isOpen={settingsOpen}
                         onClose={() => setSettingsOpen(false)}
                         initialTab={settingsTab}
+                        sidebarNavigation={{
+                            items: visibleNavItems,
+                            pinnedRoutes: sidebarPreferences.pinnedRoutes,
+                            onTogglePinned: togglePinnedRoute,
+                            onMovePinned: movePinnedRoute,
+                        }}
                     />
                 </Suspense>
             )}

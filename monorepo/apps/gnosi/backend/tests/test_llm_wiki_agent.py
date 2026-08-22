@@ -258,7 +258,7 @@ def test_lifecycle_requires_confirmation_and_persists_final_plugin_state(monkeyp
 
     asyncio.run(scenario())
     assert "llm-wiki" in state["disabled"]
-    assert state["enabled_builtin"] == []
+    assert state["enabled_builtin"] == ["resources"]
     assert transitions == [False]
     assert scheduler_updates == [(
         "llm_wiki_maintenance",

@@ -13,12 +13,13 @@ without clipping controls below the viewport.
 - The central rail is the only vertically scrollable area. It must use a
   constrained flex height (`min-height: 0`) and contain overscroll so page
   scrolling does not leak through it.
-- A persistent application launcher opens a searchable, labelled list of all
-  enabled destinations. This is the discovery path for apps that are not
-  currently pinned to the compact rail.
-- Users can pin or unpin destinations and reorder pinned destinations from the
-  launcher. The active destination must remain visible in the rail for the
-  current session even if it is unpinned.
+- A persistent access button opens a compact secondary rail to the right of the
+  main rail. It contains the same icon buttons and exposes only enabled
+  destinations that are not already visible in the main rail, avoiding
+  duplicate navigation controls.
+- Users pin, unpin, search, and reorder destinations in Settings → Menu. The
+  active destination must remain visible in the main rail for the current
+  session even if it is unpinned.
 - New destinations are available from the launcher by default. The built-in
   destinations retain their existing default order so existing users do not
   lose familiar navigation.
@@ -28,8 +29,9 @@ without clipping controls below the viewport.
 
 ## Accessibility and responsive behaviour
 
-- The launcher is a labelled dialog with a real search field, explicit close
-  action, semantic links, and accessible pin/reorder controls.
+- The quick-access rail is a labelled menu with semantic links, Escape and
+  outside-click dismissal, and supplementary tooltips. Settings → Menu owns the
+  labelled search field and accessible pin/reorder controls.
 - Keyboard shortcuts continue to navigate the complete visible destination
   list; they are not reassigned by pinning.
 - On compact layouts, the rail remains scrollable and the launcher exposes
@@ -44,10 +46,20 @@ without clipping controls below the viewport.
 - Run focused frontend tests, lint, the production build, and locale parity
   checks.
 - Inspect the native browser at a short viewport height: the rail scrolls,
-  footer controls remain visible, the launcher lists all routes, and a
-  selected unpinned item opens correctly.
+  footer controls remain visible, quick access lists all routes, an unpinned
+  item opens correctly, and Settings → Menu persists pinning and order.
 
 ## Restrictions and edge cases
+
+- Do not reserve a scrollbar gutter on only one side of the application rail.
+  It shifts the scrollable application menu away from the fixed footer menu;
+  use a stable gutter on both edges so both icon groups share one vertical axis.
+- Do not combine application access and menu configuration in a large modal.
+  It turns a frequent navigation action into a management workflow; use the
+  compact secondary rail for access and Settings → Menu for configuration.
+- Do not repeat pinned or temporarily active destinations in quick access. It
+  adds visual noise without increasing reachability; hide the access trigger
+  entirely when the main rail already contains every enabled destination.
 
 - Do not hide a destination merely because it cannot fit in the rail; it must
   remain reachable from the launcher.

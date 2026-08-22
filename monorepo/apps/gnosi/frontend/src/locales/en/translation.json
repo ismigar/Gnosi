@@ -536,6 +536,7 @@
     "close_app_launcher": "Close applications",
     "search_applications": "Search applications",
     "pinned_applications": "Pinned applications",
+    "quick_access": "Quick access",
     "pin_application": "Pin {{application}}",
     "unpin_application": "Unpin {{application}}",
     "move_application_up": "Move {{application}} up",
@@ -1716,6 +1717,7 @@
       "plugins": "Plugins",
       "language": "Language & Region",
       "appearance": "Appearance",
+      "menu": "Menu",
       "calendar": "Calendars",
       "graph": "Graph Config",
       "reader": "Reader",
@@ -1728,6 +1730,12 @@
       "translate": "Translation",
       "profile": "Profile",
       "account": "Account"
+    },
+    "menu": {
+      "title": "Application menu",
+      "description": "Choose which applications stay pinned and arrange their order. Applications you unpin remain available from Quick access.",
+      "pinned": "Pinned",
+      "quick_access_only": "Quick access"
     },
     "navigation": {
       "basic": "Basics",
