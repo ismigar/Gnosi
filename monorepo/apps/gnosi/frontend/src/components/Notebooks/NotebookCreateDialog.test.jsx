@@ -95,17 +95,29 @@ describe('NotebookCreateDialog', () => {
 
     it('creates a notebook from the exact selected Resource ids', async () => {
         const notebook = { id: 'notebook-1', title: 'Research' };
-        globalThis.fetch = vi.fn()
-            .mockResolvedValueOnce({
+        globalThis.fetch = vi.fn().mockImplementation((url, options) => {
+            if (options?.method === 'POST') {
+                return Promise.resolve({
+                    ok: true,
+                    json: vi.fn().mockResolvedValue(notebook),
+                });
+            }
+            if (String(url).includes('/api/notebooks?')) {
+                return Promise.resolve({
+                    ok: true,
+                    json: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+                });
+            }
+            return Promise.resolve({
                 ok: true,
                 json: vi.fn().mockResolvedValue({
                     items: [{ id: 'resource-1', title: 'Paper', source_count: 2 }],
+                    total: 1,
+                    page: 1,
+                    page_size: 50,
                 }),
-            })
-            .mockResolvedValueOnce({
-                ok: true,
-                json: vi.fn().mockResolvedValue(notebook),
             });
+        });
         const onCreated = vi.fn();
         const container = document.createElement('div');
         document.body.appendChild(container);
@@ -146,17 +158,29 @@ describe('NotebookCreateDialog', () => {
     });
 
     it('keeps a manually selected Resource when no initial selection is provided', async () => {
-        globalThis.fetch = vi.fn()
-            .mockResolvedValueOnce({
+        globalThis.fetch = vi.fn().mockImplementation((url, options) => {
+            if (options?.method === 'POST') {
+                return Promise.resolve({
+                    ok: true,
+                    json: vi.fn().mockResolvedValue({ id: 'notebook-2' }),
+                });
+            }
+            if (String(url).includes('/api/notebooks?')) {
+                return Promise.resolve({
+                    ok: true,
+                    json: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+                });
+            }
+            return Promise.resolve({
                 ok: true,
                 json: vi.fn().mockResolvedValue({
                     items: [{ id: 'resource-2', title: 'Manual selection', source_count: 1 }],
+                    total: 1,
+                    page: 1,
+                    page_size: 50,
                 }),
-            })
-            .mockResolvedValueOnce({
-                ok: true,
-                json: vi.fn().mockResolvedValue({ id: 'notebook-2' }),
             });
+        });
         const container = document.createElement('div');
         document.body.appendChild(container);
         const root = createRoot(container);

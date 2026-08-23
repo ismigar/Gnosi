@@ -1,7 +1,7 @@
 """HTTP contracts for the grounded notebook workspace."""
 from __future__ import annotations
 
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
@@ -23,6 +23,7 @@ class NotebookPatchRequest(BaseModel):
     title: Optional[str] = Field(default=None, max_length=160)
     visibility: Optional[Literal["private", "workspace"]] = None
     conversation_mode: Optional[Literal["shared", "private_member"]] = None
+    groups: Optional[list[dict[str, Any]]] = None
 
 
 class NotebookSourcesRequest(BaseModel):
@@ -106,6 +107,7 @@ def update_notebook(
         title=payload.title,
         visibility=payload.visibility,
         conversation_mode=payload.conversation_mode,
+        groups=payload.groups,
     )
 
 

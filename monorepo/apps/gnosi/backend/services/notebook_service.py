@@ -111,6 +111,7 @@ def _ensure_schema(connection: sqlite3.Connection) -> None:
                 title TEXT NOT NULL,
                 visibility TEXT NOT NULL,
                 conversation_mode TEXT NOT NULL,
+                groups_json TEXT NOT NULL DEFAULT '[]',
                 active_revision INTEGER,
                 status TEXT NOT NULL DEFAULT 'pending',
                 last_error TEXT,
@@ -281,6 +282,14 @@ def _ensure_schema(connection: sqlite3.Connection) -> None:
             str(row[1])
             for row in connection.execute("PRAGMA table_info(notebook_revisions)")
         }
+        notebook_columns = {
+            str(row[1])
+            for row in connection.execute("PRAGMA table_info(notebooks)")
+        }
+        if "groups_json" not in notebook_columns:
+            connection.execute(
+                "ALTER TABLE notebooks ADD COLUMN groups_json TEXT NOT NULL DEFAULT '[]'"
+            )
         for column, declaration in (
             ("current_resource_id", "TEXT"),
             ("current_resource_title", "TEXT"),
@@ -454,8 +463,18 @@ def _summary(connection: sqlite3.Connection, notebook: dict[str, Any]) -> dict[s
             "cancel_requested_at": latest_revision["cancel_requested_at"],
             "cancellable": latest_revision["state"] in RUNNING_REVISION_STATES,
         }
+    groups = []
+    raw_groups = notebook.get("groups_json")
+    if raw_groups:
+        try:
+            parsed = json.loads(raw_groups)
+            if isinstance(parsed, list):
+                groups = parsed
+        except Exception:
+            groups = []
     return {
         **notebook,
+        "groups": groups,
         "resource_count": resource_count,
         "source_counts": source_counts,
         "progress": progress,
@@ -878,6 +897,7 @@ def update_notebook(
     title: Optional[str] = None,
     visibility: Optional[str] = None,
     conversation_mode: Optional[str] = None,
+    groups: Optional[list[dict[str, Any]]] = None,
 ) -> dict[str, Any]:
     notebook = authorize(notebook_id, context, action="manage")
     fields: list[str] = []
@@ -897,6 +917,21 @@ def update_notebook(
             raise HTTPException(status_code=400, detail="Invalid conversation mode.")
         fields.append("conversation_mode=?")
         params.append(normalized_mode)
+    if groups is not None:
+        normalized_groups = []
+        if isinstance(groups, list):
+            for item in groups:
+                if isinstance(item, dict):
+                    grp_id = str(item.get("id") or "").strip() or f"grp_{uuid.uuid4().hex[:8]}"
+                    grp_name = str(item.get("name") or "").strip() or "Unnamed group"
+                    res_ids = [str(r).strip() for r in item.get("resource_ids") or [] if str(r).strip()]
+                    normalized_groups.append({
+                        "id": grp_id,
+                        "name": grp_name,
+                        "resource_ids": res_ids,
+                    })
+        fields.append("groups_json=?")
+        params.append(json.dumps(normalized_groups))
     if not fields:
         return get_notebook(notebook_id, context)
     fields.append("updated_at=?")
@@ -2371,6 +2406,7 @@ def resolve_chat_contexts(
         raise HTTPException(status_code=400, detail="Select at least one notebook source.")
     return {
         "notebook_id": primary_notebook_id,
+        "revision": contexts[0]["scope"]["revision"] if contexts else None,
         "principal": scope["principal_id"],
         "session_id": scope["session_id"],
         "conversation_mode": primary["conversation_mode"],

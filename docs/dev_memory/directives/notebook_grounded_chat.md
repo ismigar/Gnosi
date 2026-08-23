@@ -152,6 +152,14 @@ evidence.
 - Do not derive the conversation namespace from an attached secondary
   notebook. The notebook page that owns the conversation remains the primary
   checkpoint namespace while secondary notebooks contribute read-only evidence.
+- Do not invoke a reusable async model client through a fresh `asyncio.run`
+  loop per graph node. Its HTTP pool remains bound to the first loop and fails
+  on a later turn after that loop closes; submit provider coroutines to the
+  process-wide persistent provider loop instead.
+- Do not let the global active agent replace an embedded chat's forced agent
+  when that forced profile is absent from the selectable profile catalog. The
+  fallback profile may provide display configuration, but the forced agent ID
+  remains the transport and checkpoint identity for the full turn.
 
 ## 6. Error Protocol and Learning
 
@@ -177,6 +185,8 @@ evidence.
 | 2026-08-22 | Notebook chat evidence was reduced to an unlinked generic tool result | Notebook tools wrap JSON as untrusted data, the response verifier did not recover that governed payload, and the client sanitizer rejected `gnosi-cite` | Parse only known notebook evidence envelopes, map claims to exact chunk IDs, preserve validated notebook citation links, and resolve them through the authorized pinned-revision evidence endpoint. |
 | 2026-08-22 | A notebook turn could only search every source in one notebook | The context contract discarded source selection and rejected additional notebook refs | Preserve a bounded client selection until server authorization, pin each attached notebook, and close every read tool over its validated source subset. |
 | 2026-08-22 | The live selector initialized with zero sources under React strict updates | A mutable initialization ref was changed inside a state updater that React may evaluate more than once | Keep state updaters pure and change one-time initialization guards before invoking the updater. |
+| 2026-08-24 | Notebook messages remained visible without an assistant response | The reusable OpenAI-compatible async client was invoked through a new `asyncio.run` loop per turn, leaving its HTTP pool attached to a closed loop | Run reusable provider coroutines on one persistent process loop and retain cooperative cancellation while the sync graph worker waits. |
+| 2026-08-24 | A successful notebook response was generated but disappeared from the embedded chat | The forced `gnosy` identity was replaced by the globally active `llm-wiki` profile when `gnosy` was absent from the enabled profile list, causing repeated scope changes and request aborts | Keep a forced embedded agent ID stable even when its visual configuration falls back to another enabled profile. |
 
 When a failure reveals a new constraint, fix the implementation first, add the
 general rule to this section, and rerun the smallest reproducible test plus the

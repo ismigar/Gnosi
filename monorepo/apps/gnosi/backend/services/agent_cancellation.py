@@ -8,6 +8,7 @@ producer running so it can be resumed without repeating work.
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import contextlib
 import hashlib
 import threading
@@ -20,6 +21,9 @@ _LOCK = threading.RLock()
 _TOKENS: dict[str, tuple[threading.Event, float]] = {}
 _STREAMS: dict[str, tuple[str, str]] = {}
 _TTL_SECONDS = 180.0
+_ASYNC_LOOP_LOCK = threading.Lock()
+_ASYNC_LOOP: asyncio.AbstractEventLoop | None = None
+_ASYNC_LOOP_THREAD: threading.Thread | None = None
 
 
 class AgentTurnCancelled(RuntimeError):
@@ -124,6 +128,47 @@ async def await_with_cancellation(
         raise
 
 
+def _persistent_async_loop() -> asyncio.AbstractEventLoop:
+    """Return the process-wide loop used by reusable async provider clients.
+
+    OpenAI-compatible clients retain an async HTTP connection pool after their
+    first request. Running the same model through a fresh ``asyncio.run`` loop
+    on every graph node leaves that pool bound to a closed loop on the next
+    turn. A daemon loop gives reusable clients one stable async owner while the
+    synchronous LangGraph node waits cooperatively in its worker thread.
+    """
+    global _ASYNC_LOOP, _ASYNC_LOOP_THREAD
+    with _ASYNC_LOOP_LOCK:
+        if (
+            _ASYNC_LOOP is not None
+            and _ASYNC_LOOP.is_running()
+            and _ASYNC_LOOP_THREAD is not None
+            and _ASYNC_LOOP_THREAD.is_alive()
+        ):
+            return _ASYNC_LOOP
+
+        ready = threading.Event()
+        loop = asyncio.new_event_loop()
+
+        def run_loop() -> None:
+            asyncio.set_event_loop(loop)
+            ready.set()
+            loop.run_forever()
+
+        thread = threading.Thread(
+            target=run_loop,
+            name="gnosi-agent-provider-loop",
+            daemon=True,
+        )
+        _ASYNC_LOOP = loop
+        _ASYNC_LOOP_THREAD = thread
+        thread.start()
+        ready.wait(timeout=2.0)
+        if not loop.is_running():
+            raise RuntimeError("The agent provider event loop did not start.")
+        return loop
+
+
 def invoke_cancellable(model: Any, prompt: Any, token: str, **kwargs: Any) -> Any:
     """Run a sync graph node with an abortable provider task.
 
@@ -135,18 +180,16 @@ def invoke_cancellable(model: Any, prompt: Any, token: str, **kwargs: Any) -> An
     if not token:
         return model.invoke(prompt, **kwargs)
 
-    async def _run() -> Any:
-        if callable(getattr(model, "ainvoke", None)):
-            operation = model.ainvoke(prompt, **kwargs)
-        else:
-            operation = asyncio.to_thread(model.invoke, prompt, **kwargs)
-        return await await_with_cancellation(operation, token)
-
-    try:
-        return asyncio.run(_run())
-    except RuntimeError as error:
-        if "cannot be called from a running event loop" not in str(error):
-            raise
-        # A defensive fallback for custom LangGraph executors that invoke a
-        # sync node on an event-loop thread. The normal path is a worker thread.
+    if not callable(getattr(model, "ainvoke", None)):
         return model.invoke(prompt, **kwargs)
+
+    operation = model.ainvoke(prompt, **kwargs)
+    future = asyncio.run_coroutine_threadsafe(operation, _persistent_async_loop())
+    while True:
+        if is_cancelled(token):
+            future.cancel()
+            raise AgentTurnCancelled("agent_turn_cancelled")
+        try:
+            return future.result(timeout=0.05)
+        except concurrent.futures.TimeoutError:
+            continue
