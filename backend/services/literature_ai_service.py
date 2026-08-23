@@ -106,10 +106,19 @@ def _prompt(operation: str, payload: dict[str, Any]) -> tuple[str, str, list[dic
     if operation == "query_strategy":
         question = str(payload.get("question") or "")[:4_000]
         framework = str(payload.get("framework") or "PICO").upper()
+        framework_instruction = (
+            "Choose transparent concept blocks; use PICO or SPIDER only when they fit the research question"
+            if framework == "AUTO"
+            else f"Use {framework} when appropriate"
+        )
         return (
-            "You assist a human literature reviewer. Convert the question into editable concepts, "
-            f"using {framework} when appropriate. Include multilingual synonyms in the requested languages, "
-            "spelling variants, controlled terms, and one transparent Boolean query. Do not invent evidence. "
+            "You assist a human literature reviewer. Convert the question into editable concepts. "
+            f"{framework_instruction}. Include multilingual synonyms in the requested languages, but keep the "
+            "Boolean query concise, high-recall, and provider-neutral, using the question language and English "
+            "rather than combining every translated synonym. The Boolean query must require only the central "
+            "subject concept; treat requested dates, characteristics, comparisons, or criteria as screening and "
+            "analysis dimensions unless they are indispensable to identify the subject. Include spelling "
+            "variants, controlled terms, and one transparent Boolean query. Do not invent evidence. "
             "Return only JSON with keys framework, concepts, synonyms, boolean_query, cautions.",
             question,
             works,
@@ -151,7 +160,7 @@ def _prompt(operation: str, payload: dict[str, Any]) -> tuple[str, str, list[dic
     raise HTTPException(status_code=400, detail="Unsupported literature AI operation.")
 
 
-def run_operation(operation: str, payload: dict[str, Any]) -> dict[str, Any]:
+def run_operation(operation: str, payload: dict[str, Any], agent_id: str = "") -> dict[str, Any]:
     """Run an explicit AI aid or a zero-cost local reranking operation."""
     if operation not in OPERATIONS:
         raise HTTPException(status_code=400, detail="Unsupported literature AI operation.")
@@ -163,7 +172,7 @@ def run_operation(operation: str, payload: dict[str, Any]) -> dict[str, Any]:
     try:
         from backend.agent.factory import generate_text
 
-        raw, model = generate_text(f"{system_prompt}\n\nINPUT:\n{user_message}", user_message=user_message[:500], timeout=120)
+        raw, model = generate_text(f"{system_prompt}\n\nINPUT:\n{user_message}", user_message=user_message[:500], timeout=120, agent_id=agent_id)
         result = _clean_json(raw)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail="No AI provider is configured. Deterministic literature search remains available.") from exc
@@ -174,4 +183,4 @@ def run_operation(operation: str, payload: dict[str, Any]) -> dict[str, Any]:
         "output_tokens_estimate": max(1, len(str(raw or "")) // 4),
         "reported_by_provider": False,
     }
-    return {"operation": operation, "result": result, "audit": {"model": model, "provider": "configured", "usage": usage, "cost": None, "cost_status": "Provider cost was not reported; usage is estimated.", "performed_at": _now(), "evidence_levels": sorted({_evidence_level(work) for work in works}), "resource_ids": [work.get("id") for work in works if work.get("id")], "operation_version": 1, "human_decision_required": True}}
+    return {"operation": operation, "result": result, "audit": {"agent_id": agent_id or None, "model": model, "provider": "configured", "usage": usage, "cost": None, "cost_status": "Provider cost was not reported; usage is estimated.", "performed_at": _now(), "evidence_levels": sorted({_evidence_level(work) for work in works}), "resource_ids": [work.get("id") for work in works if work.get("id")], "operation_version": 1, "human_decision_required": True}}

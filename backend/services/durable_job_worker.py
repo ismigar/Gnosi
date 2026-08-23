@@ -94,6 +94,33 @@ def _reader_dispatcher(item: dict[str, Any], payload: dict[str, Any]) -> bool:
     return True
 
 
+def _literature_sync_dispatcher(item: dict[str, Any], payload: dict[str, Any]) -> bool:
+    vault_path = str(payload.get("vault_path") or "").strip()
+    source_id = str(payload.get("source_id") or "").strip()
+    job_id = str(payload.get("job_id") or item.get("job_id") or "").strip()
+    full = bool(payload.get("full", False))
+    if not vault_path or not source_id or not job_id:
+        raise ValueError("Durable literature sync payload is missing vault_path, source_id, or job_id.")
+    from backend.services import literature_service
+
+    literature_service.launch_sync(Path(vault_path), source_id, job_id, full=full)
+    return True
+
+
+def _literature_review_dispatcher(item: dict[str, Any], payload: dict[str, Any]) -> bool:
+    vault_path = str(payload.get("vault_path") or "").strip()
+    review_id = str(payload.get("review_id") or "").strip()
+    job_id = str(payload.get("job_id") or item.get("job_id") or "").strip()
+    strategy = payload.get("strategy") if isinstance(payload.get("strategy"), dict) else {}
+    interval_days = int(payload.get("interval_days") or 7)
+    if not vault_path or not review_id or not job_id:
+        raise ValueError("Durable literature review update payload is missing vault_path, review_id, or job_id.")
+    from backend.services import literature_service
+
+    literature_service.launch_review_update(Path(vault_path), review_id, job_id, strategy, interval_days=interval_days)
+    return True
+
+
 def _ensure_dispatchers() -> None:
     with _DISPATCHER_LOCK:
         _DISPATCHERS.setdefault("notebook_ingest", DurableJobDispatcherContract(
@@ -107,6 +134,14 @@ def _ensure_dispatchers() -> None:
         _DISPATCHERS.setdefault("reader_analysis", DurableJobDispatcherContract(
             job_type="reader_analysis", provider="reader", dispatch=_reader_dispatcher,
             model_call_budget=16,
+        ))
+        _DISPATCHERS.setdefault("academic_repository_sync", DurableJobDispatcherContract(
+            job_type="academic_repository_sync", provider="literature", dispatch=_literature_sync_dispatcher,
+            lease_seconds=3600, max_attempts=5, model_call_budget=0,
+        ))
+        _DISPATCHERS.setdefault("academic_review_update", DurableJobDispatcherContract(
+            job_type="academic_review_update", provider="literature", dispatch=_literature_review_dispatcher,
+            lease_seconds=3600, max_attempts=3, model_call_budget=0,
         ))
 
 

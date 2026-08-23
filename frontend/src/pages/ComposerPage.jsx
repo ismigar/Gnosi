@@ -7,7 +7,7 @@ import { AppHeader } from '../components/AppHeader';
 const ComposerPage = () => {
     const { t } = useTranslation();
     return (
-        <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--bg-secondary)] text-[var(--text-primary)]">
+        <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)]">
             <AppHeader
                 icon={PenTool}
                 title={t('composer.title', 'Composer')}

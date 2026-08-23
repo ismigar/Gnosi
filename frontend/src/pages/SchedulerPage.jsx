@@ -108,7 +108,7 @@ const SchedulerPage = () => {
     };
 
     return (
-        <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--bg-secondary)] text-[var(--text-primary)]">
+        <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)]">
             <AppHeader
                 icon={Clock}
                 title={t('scheduler.title', 'Task scheduler')}

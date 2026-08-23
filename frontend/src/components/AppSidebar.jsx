@@ -65,6 +65,7 @@ export function AppSidebar() {
     const [mobileOpen, setMobileOpen] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(initialSettingsRequest.open);
     const [settingsTab, setSettingsTab] = useState(initialSettingsRequest.tab);
+    const [settingsPluginId, setSettingsPluginId] = useState(null);
     const [gnosiMode, setGnosiMode] = useState('personal');
     const [quickAccessOpen, setQuickAccessOpen] = useState(false);
     const mobileToggleRef = React.useRef(null);
@@ -175,7 +176,15 @@ export function AppSidebar() {
 
         const handleOpenSettings = (e) => {
             if (e.detail) {
-                setSettingsTab(typeof e.detail === 'string' ? e.detail : (e.detail.tab || 'general'));
+                if (typeof e.detail === 'string') {
+                    setSettingsTab(e.detail);
+                    setSettingsPluginId(null);
+                } else {
+                    setSettingsTab(e.detail.tab || 'general');
+                    setSettingsPluginId(e.detail.pluginId || null);
+                }
+            } else {
+                setSettingsPluginId(null);
             }
             setSettingsOpen(true);
         };
@@ -381,8 +390,12 @@ export function AppSidebar() {
                 <Suspense fallback={null}>
                     <GlobalSettingsModal
                         isOpen={settingsOpen}
-                        onClose={() => setSettingsOpen(false)}
+                        onClose={() => {
+                            setSettingsOpen(false);
+                            setSettingsPluginId(null);
+                        }}
                         initialTab={settingsTab}
+                        initialPluginId={settingsPluginId}
                         sidebarNavigation={{
                             items: visibleNavItems,
                             pinnedRoutes: sidebarPreferences.pinnedRoutes,

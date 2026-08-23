@@ -24,6 +24,7 @@ router = APIRouter(prefix="/api/vault/literature", tags=["Literature"])
 
 class ConfigurationPatch(BaseModel):
     contact_email: Optional[str] = Field(default=None, max_length=320)
+    ai_agent_id: Optional[str] = Field(default=None, max_length=160)
     source_defaults: Optional[dict[str, bool]] = None
     hidden_sources: Optional[list[str]] = None
 
@@ -138,6 +139,7 @@ class AiOperationRequest(BaseModel):
     payload: dict[str, Any] = Field(default_factory=dict)
     review_id: str = Field(default="", max_length=64)
     search_id: str = Field(default="", max_length=64)
+    agent_id: str = Field(default="", max_length=160)
 
 
 @router.get("/configuration")
@@ -361,7 +363,7 @@ async def manual_capture(payload: ManualCaptureRequest, context: WorkspaceContex
 
 @router.post("/ai")
 async def run_ai_operation(payload: AiOperationRequest, background_tasks: BackgroundTasks, context: WorkspaceContext = Depends(require_role("editor"))):
-    result = await asyncio.to_thread(literature_ai_service.run_operation, payload.operation, payload.payload)
+    result = await asyncio.to_thread(literature_ai_service.run_operation, payload.operation, payload.payload, payload.agent_id)
     if payload.review_id:
         await literature_review_service.append_activity(payload.review_id, f"ai:{payload.operation}", {"ai_audit": result["audit"], "notes": json.dumps(result["result"], ensure_ascii=False)}, background_tasks, context)
     if payload.search_id:

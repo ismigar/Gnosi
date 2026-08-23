@@ -1098,7 +1098,7 @@ export default function MediaCenter() {
   }, [slideshowActive, selectedPhoto, hasNext, goNext]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--bg-secondary)]">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--bg-primary)]">
       <AppHeader
         icon={ImageIcon}
         title={t('media.title')}

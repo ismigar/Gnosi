@@ -2714,7 +2714,7 @@ def get_default_llm(user_message: str = "", timeout: Optional[float] = None):
 
 
 def get_default_llm_with_meta(
-    user_message: str = "", timeout: Optional[float] = None,
+    user_message: str = "", timeout: Optional[float] = None, agent_id: str = "",
 ) -> tuple:
     """Like `get_default_llm` but returns (llm, provider, model) so callers can
     attribute token usage to the model that actually answered."""
@@ -2722,7 +2722,7 @@ def get_default_llm_with_meta(
     providers = ai_cfg.get("providers", {}) or {}
     agents = ai_cfg.get("agents", []) or []
 
-    target_id = ai_cfg.get("active_agent_id")
+    target_id = agent_id or ai_cfg.get("active_agent_id")
     agent_data = next((a for a in agents if a.get("id") == target_id), None)
     if not agent_data and agents:
         agent_data = next((a for a in agents if a.get("enabled", True)), agents[0])
@@ -2761,7 +2761,7 @@ def get_default_llm_with_meta(
     return llm, provider_name, str(actual_model) if actual_model else None
 
 
-def generate_text(prompt: str, user_message: str = "", timeout: int = 60) -> tuple[str, str]:
+def generate_text(prompt: str, user_message: str = "", timeout: int = 60, agent_id: str = "") -> tuple[str, str]:
     """One-shot call to the default LLM. Returns (text, model_label).
 
     Raises RuntimeError if no AI provider is available, so that the
@@ -2770,8 +2770,10 @@ def generate_text(prompt: str, user_message: str = "", timeout: int = 60) -> tup
     """
     from langchain_core.messages import HumanMessage
 
-    llm, provider_name, model_name = get_default_llm_with_meta(
-        user_message=user_message or prompt[:200], timeout=timeout)
+    selector_kwargs = {"user_message": user_message or prompt[:200], "timeout": timeout}
+    if agent_id:
+        selector_kwargs["agent_id"] = agent_id
+    llm, provider_name, model_name = get_default_llm_with_meta(**selector_kwargs)
     if not llm:
         raise RuntimeError("No AI provider available")
     # The timeout already lives in the client (get_default_llm→get_llm). Do NOT pass

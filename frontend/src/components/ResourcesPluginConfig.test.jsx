@@ -95,18 +95,16 @@ describe('ResourcesPluginConfig', () => {
         expect(addButton.querySelector('svg')).not.toBeNull();
     });
 
-    it('requests the API settings destination when managing credentials', async () => {
+    it('toggles the inline academic credentials section when managing credentials', async () => {
         await renderConfig();
-        const listener = vi.fn();
-        window.addEventListener('open-settings', listener, { once: true });
         const credentialsButton = Array.from(container.querySelectorAll('button')).find(
             (button) => button.textContent.includes('literature.settings.manage_credentials'),
         );
 
         await act(async () => credentialsButton.click());
 
-        expect(listener).toHaveBeenCalledOnce();
-        expect(listener.mock.calls[0][0].detail).toBe('api');
+        expect(container.querySelector('.resources-plugin-config__credentials-box')).not.toBeNull();
+        expect(container.textContent).toContain('literature.settings.credentials_modal_title');
     });
 
     it('restores all hidden sources and reports how many changed', async () => {

@@ -76,7 +76,7 @@ export default function ProjectPlanningPage() {
     const createProposal = async () => { const response = await axios.post(`/api/planning/projects/${encodeURIComponent(projectId)}/leveling/proposals`); setProposal(response.data); };
     const applyProposal = async () => { if (!proposal) return; await axios.post(`/api/planning/leveling/proposals/${proposal.id}/apply`, { schedule_revision: proposal.scheduleRevision, etags: proposal.sourceEtags || {} }); setProposal(null); void load(); };
     return (
-        <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--bg-secondary)] text-[var(--text-primary)]">
+        <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)]">
             <AppHeader
                 icon={CalendarRange}
                 title={t('planning_page.title', 'Project planning')}

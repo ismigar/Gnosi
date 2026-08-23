@@ -34,6 +34,7 @@ import {
 } from '../components/Notebooks/notebookResourceCatalog';
 import { useModalKeyboard } from '../hooks/useModalKeyboard';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import { useKeyboardScroll } from '../hooks/useKeyboardScroll';
 import { toast } from '../lib/toast';
 import './NotebooksPage.css';
 
@@ -63,6 +64,9 @@ function NotebookLibrary({ onCreate }) {
     const [query, setQuery] = useState('');
     const [data, setData] = useState({ items: [], total: 0, page: 1, page_size: 24 });
     const [loading, setLoading] = useState(true);
+    const scrollContainerRef = useRef(null);
+
+    useKeyboardScroll(scrollContainerRef);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -91,7 +95,6 @@ function NotebookLibrary({ onCreate }) {
             <AppHeader
                 icon={BookOpen}
                 title={t('notebooks.title', 'Notebooks')}
-                subtitle={t('notebooks.subtitle', 'Converse with the attachments and URLs in your Resources.')}
             >
                 <button type="button" className="gnosi-button gnosi-button--primary notebooks-primary-action" onClick={onCreate}>
                     <Plus size={16} />
@@ -99,58 +102,60 @@ function NotebookLibrary({ onCreate }) {
                 </button>
             </AppHeader>
 
-            <div className="notebook-library">
-                <div className="notebook-library__toolbar">
-                    <label className="notebook-search notebook-search--library">
-                        <Search size={17} />
-                        <input
-                            value={query}
-                            onChange={(event) => {
-                                setQuery(event.target.value);
-                                setData((previous) => ({ ...previous, page: 1 }));
-                            }}
-                            placeholder={t('notebooks.search_notebooks', 'Search notebooks...')}
-                        />
-                    </label>
-                    <span>{t('notebooks.notebook_count', '{{count}} notebook(s)', { count: data.total || 0 })}</span>
-                </div>
-
-                {loading && <div className="notebook-library__loading"><LoaderCircle className="animate-spin" /> {t('common.loading', 'Loading...')}</div>}
-                {!loading && !data.items?.length && (
-                    <div className="notebook-library__empty">
-                        <span className="notebook-library__empty-icon"><BookOpen size={30} /></span>
-                        <h2>{t('notebooks.empty_title', 'Create your first grounded notebook')}</h2>
-                        <p>{t('notebooks.empty_description', 'Choose one or more Resources. Gnosi will index only their attachment and URL fields.')}</p>
-                        <button className="btn-gnosi btn-gnosi-primary" onClick={onCreate}>{t('notebooks.create_action', 'Create notebook')}</button>
+            <div className="notebook-library-scroll" ref={scrollContainerRef}>
+                <div className="notebook-library">
+                    <div className="notebook-library__toolbar">
+                        <label className="notebook-search notebook-search--library">
+                            <Search size={17} />
+                            <input
+                                value={query}
+                                onChange={(event) => {
+                                    setQuery(event.target.value);
+                                    setData((previous) => ({ ...previous, page: 1 }));
+                                }}
+                                placeholder={t('notebooks.search_notebooks', 'Search notebooks...')}
+                            />
+                        </label>
+                        <span>{t('notebooks.notebook_count', '{{count}} notebook(s)', { count: data.total || 0 })}</span>
                     </div>
-                )}
-                <div className="notebook-grid">
-                    {(data.items || []).map((notebook) => (
-                        <button key={notebook.id} className="notebook-card" onClick={() => navigate(`/notebooks/${notebook.id}`)}>
-                            <div className="notebook-card__top">
-                                <span className="notebook-card__icon"><BookOpen size={19} /></span>
-                                <StatusBadge status={notebook.status} />
-                            </div>
-                            <h2>{notebook.title}</h2>
-                            <p>{t('notebooks.card_counts', '{{resources}} Resources · {{sources}} available sources', {
-                                resources: notebook.resource_count || 0,
-                                sources: notebook.source_counts?.available || 0,
-                            })}</p>
-                            <div className="notebook-card__meta">
-                                <span>{notebook.visibility === 'private' ? <Lock size={13} /> : <Globe2 size={13} />}{t(`notebooks.visibility_${notebook.visibility}`, notebook.visibility)}</span>
-                                <span>{notebook.conversation_mode === 'shared' ? <Users size={13} /> : <MessageSquare size={13} />}{t(`notebooks.conversation_${notebook.conversation_mode === 'shared' ? 'shared' : 'private'}`, notebook.conversation_mode)}</span>
-                            </div>
-                        </button>
-                    ))}
-                </div>
 
-                {pageCount > 1 && (
-                    <nav className="notebook-pagination" aria-label={t('notebooks.pagination', 'Notebook pages')}>
-                        <button disabled={data.page <= 1} onClick={() => setData((previous) => ({ ...previous, page: previous.page - 1 }))}><ChevronLeft size={16} /></button>
-                        <span>{t('notebooks.page_of', 'Page {{page}} of {{pages}}', { page: data.page, pages: pageCount })}</span>
-                        <button disabled={data.page >= pageCount} onClick={() => setData((previous) => ({ ...previous, page: previous.page + 1 }))}><ChevronRight size={16} /></button>
-                    </nav>
-                )}
+                    {loading && <div className="notebook-library__loading"><LoaderCircle className="animate-spin" /> {t('common.loading', 'Loading...')}</div>}
+                    {!loading && !data.items?.length && (
+                        <div className="notebook-library__empty">
+                            <span className="notebook-library__empty-icon"><BookOpen size={30} /></span>
+                            <h2>{t('notebooks.empty_title', 'Create your first grounded notebook')}</h2>
+                            <p>{t('notebooks.empty_description', 'Choose one or more Resources. Gnosi will index only their attachment and URL fields.')}</p>
+                            <button className="btn-gnosi btn-gnosi-primary" onClick={onCreate}>{t('notebooks.create_action', 'Create notebook')}</button>
+                        </div>
+                    )}
+                    <div className="notebook-grid">
+                        {(data.items || []).map((notebook) => (
+                            <button key={notebook.id} className="notebook-card" onClick={() => navigate(`/notebooks/${notebook.id}`)}>
+                                <div className="notebook-card__top">
+                                    <span className="notebook-card__icon"><BookOpen size={19} /></span>
+                                    <StatusBadge status={notebook.status} />
+                                </div>
+                                <h2>{notebook.title}</h2>
+                                <p>{t('notebooks.card_counts', '{{resources}} Resources · {{sources}} available sources', {
+                                    resources: notebook.resource_count || 0,
+                                    sources: notebook.source_counts?.available || 0,
+                                    })}</p>
+                                <div className="notebook-card__meta">
+                                    <span>{notebook.visibility === 'private' ? <Lock size={13} /> : <Globe2 size={13} />}{t(`notebooks.visibility_${notebook.visibility}`, notebook.visibility)}</span>
+                                    <span>{notebook.conversation_mode === 'shared' ? <Users size={13} /> : <MessageSquare size={13} />}{t(`notebooks.conversation_${notebook.conversation_mode === 'shared' ? 'shared' : 'private'}`, notebook.conversation_mode)}</span>
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+
+                    {pageCount > 1 && (
+                        <nav className="notebook-pagination" aria-label={t('notebooks.pagination', 'Notebook pages')}>
+                            <button disabled={data.page <= 1} onClick={() => setData((previous) => ({ ...previous, page: previous.page - 1 }))}><ChevronLeft size={16} /></button>
+                            <span>{t('notebooks.page_of', 'Page {{page}} of {{pages}}', { page: data.page, pages: pageCount })}</span>
+                            <button disabled={data.page >= pageCount} onClick={() => setData((previous) => ({ ...previous, page: previous.page + 1 }))}><ChevronRight size={16} /></button>
+                        </nav>
+                    )}
+                </div>
             </div>
         </div>
     );
