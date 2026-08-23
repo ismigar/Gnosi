@@ -42,3 +42,23 @@ def test_token_overlap_fallback_still_preserves_original_order_metadata(monkeypa
     assert response["audit"]["model"] == "local-token-overlap"
     assert response["audit"]["fallback_reason"]
     assert response["result"]["ranking"][0]["original_rank"] == 1
+
+
+def test_query_strategy_uses_selected_agent_and_auto_framework(monkeypatch):
+    captured = {}
+
+    def fake_generate_text(prompt, **kwargs):
+        captured["prompt"] = prompt
+        captured.update(kwargs)
+        return '{"framework":"concepts","concepts":{},"synonyms":{},"boolean_query":"history","cautions":[]}', "test-model"
+
+    monkeypatch.setattr("backend.agent.factory.generate_text", fake_generate_text)
+    response = literature_ai_service.run_operation(
+        "query_strategy",
+        {"question": "Historical periodization", "framework": "AUTO", "languages": ["es", "en"]},
+        agent_id="research-agent",
+    )
+
+    assert captured["agent_id"] == "research-agent"
+    assert "use PICO or SPIDER only when they fit" in captured["prompt"]
+    assert response["audit"]["agent_id"] == "research-agent"

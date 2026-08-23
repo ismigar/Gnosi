@@ -684,6 +684,80 @@
     "time_12_hours": "12 hours",
     "time_1_day": "1 day",
     "time_1_week": "1 week",
+    "tasks": {
+      "fetch_feeds": {
+        "title": "Feed synchronization",
+        "desc": "Fetch new articles and videos from RSS and YouTube feeds."
+      },
+      "fetch_newsletters": {
+        "title": "Email newsletters",
+        "desc": "Process newsletters and subscriptions from POP3 mailboxes."
+      },
+      "generate_podcast": {
+        "title": "Daily podcast",
+        "desc": "Generate a daily audio summary from unread articles."
+      },
+      "system_maintenance": {
+        "title": "System maintenance",
+        "desc": "Cleanup of logs, mailboxes, sandbox environments, and caches."
+      },
+      "llm_wiki_maintenance": {
+        "title": "LLM Wiki maintenance",
+        "desc": "Rebuild semantic Wiki indexes and run deterministic checks."
+      },
+      "academic_repository_sync": {
+        "title": "Academic repositories",
+        "desc": "Periodic incremental synchronization of OAI indexes (Dialnet, DOAB, etc.)."
+      },
+      "academic_review_updates": {
+        "title": "Literature review updates",
+        "desc": "Periodically execute saved systematic review searches and alerts."
+      },
+      "update_analytics": {
+        "title": "Analytics and statistics",
+        "desc": "Update usage metrics and activity logs across the vault."
+      },
+      "suggest_connections": {
+        "title": "Note connections",
+        "desc": "Analyze semantic affinities and suggest links between notes in the vault."
+      },
+      "fetch_calendar": {
+        "title": "Calendar synchronization",
+        "desc": "Verify and keep calendar connection tokens active."
+      },
+      "fetch_mail": {
+        "title": "Mail synchronization",
+        "desc": "Fetch and index messages from Gmail and IMAP accounts."
+      },
+      "fetch_contacts": {
+        "title": "Contact synchronization",
+        "desc": "Synchronize address books from Google and CardDAV."
+      },
+      "update_memories": {
+        "title": "Memories and graph",
+        "desc": "Update long-term memory and knowledge graph relationships."
+      },
+      "purge_trash": {
+        "title": "Purge trash",
+        "desc": "Permanently delete items in trash older than 90 days."
+      },
+      "publish_scheduled_social": {
+        "title": "Social publishing",
+        "desc": "Automatically publish scheduled social media posts."
+      },
+      "materialize_view_snapshots": {
+        "title": "View snapshots",
+        "desc": "Generate view data snapshots in portable Markdown files."
+      },
+      "meeting_reminders": {
+        "title": "Meeting reminders",
+        "desc": "Send alerts with AI-generated agendas ahead of upcoming meetings."
+      },
+      "run_capability_automations": {
+        "title": "Capability automations",
+        "desc": "Execute active background rules and automations in the workspace."
+      }
+    },
     "activity_summary": "Activity Summary",
     "errors_prevented_sops": "Errors prevented (SOPs)",
     "active_processes": "Active processes",
@@ -1433,6 +1507,9 @@
     "plugins": {
       "title": "Plugins",
       "desc": "Enable or disable the Vault's optional features. Changes are saved per vault.",
+      "activation_required_title": "{{name}} is disabled",
+      "activation_required_description": "Activate this plugin to use the feature. Its previous data and settings are preserved.",
+      "open_plugins_settings": "Open plugin settings",
       "sections_label": "Plugin sections",
       "installed_tab": "Installed",
       "catalog_tab": "Catalog",
@@ -5880,12 +5957,21 @@
     "ai": {
       "enter_question": "Write a question or query before asking AI for help.",
       "assist": "AI assist",
+      "generating": "Preparing…",
+      "agent": "AI agent for search",
+      "default_agent": "Default AI agent",
+      "agent_save_error": "The search AI agent could not be saved.",
       "build_query": "Build an editable strategy",
       "proposal": "Strategy proposal",
       "translation_proposal": "Proposed query translation",
+      "synonyms": "Synonyms and related terms",
+      "boolean_query": "Editable Boolean query",
+      "translated_query": "Editable adapted query",
+      "technical_details": "Technical details",
       "translate_source": "Adapt with AI",
       "use_source_query": "Use for {{source}}",
       "use_query": "Use this query",
+      "search_with_query": "Search with this proposal",
       "human_control": "AI only suggests; the final decision is always human.",
       "rerank": "Rerank locally",
       "reranked_by": "Ranking: {{model}}",
@@ -6012,7 +6098,18 @@
       "contact_title": "Contact and credentials",
       "contact_help": "PubMed and Unpaywall require a contact email; other sources may require keys.",
       "contact_placeholder": "research@example.org",
+      "contact_saved": "Contact email saved successfully.",
       "manage_credentials": "Manage credentials",
+      "credentials_modal_title": "Academic Credentials & API Keys",
+      "credentials_modal_desc": "Configure API keys for academic services. They are securely stored in Gnosi's local Keychain.",
+      "credential_configured": "Configured",
+      "credential_not_configured": "Not configured",
+      "get_api_key": "Get API key",
+      "save_credential": "Save",
+      "delete_credential": "Delete",
+      "credential_saved": "{{name}} API key saved successfully.",
+      "credential_deleted": "{{name}} API key deleted.",
+      "configure_credentials": "Configure credential",
       "sources_title": "Academic repositories",
       "sources_help": "Set defaults, hide sources, or synchronize local OAI indexes.",
       "restore_hidden_sources_one": "Restore {{count}} hidden source",

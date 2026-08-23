@@ -143,10 +143,10 @@ SOURCE_CATALOG: tuple[dict[str, Any], ...] = (
     {"id": "scielo-books", "name": "SciELO Books", "kind": "oai", "group": "local-index", "default_enabled": True, "automated": True, "implemented": True, "base_url": "https://oai.books.scielo.org/oai-pmh", "metadata_prefix": "oai_dc", "docs_url": "https://books.scielo.org/en/availability-and-interoperability/"},
     {"id": "openalex", "name": "OpenAlex", "kind": "api", "group": "credential", "default_enabled": False, "automated": True, "implemented": True, "credential_key": "openalex_api_key", "docs_url": "https://developers.openalex.org/api-reference/authentication"},
     {"id": "semantic-scholar", "name": "Semantic Scholar", "kind": "api", "group": "credential", "default_enabled": False, "automated": True, "implemented": True, "credential_key": "semantic_scholar_api_key", "docs_url": "https://api.semanticscholar.org/api-docs/"},
-    {"id": "springer-nature", "name": "Springer Nature", "kind": "api", "group": "credential", "default_enabled": False, "automated": True, "implemented": False, "credential_key": "springer_nature_api_key", "docs_url": "https://dev.springernature.com/"},
-    {"id": "scopus", "name": "Scopus", "kind": "api", "group": "subscription", "default_enabled": False, "automated": True, "implemented": False, "credential_key": "scopus_api_key", "docs_url": "https://dev.elsevier.com/sc_apis.html"},
-    {"id": "web-of-science", "name": "Web of Science", "kind": "api", "group": "subscription", "default_enabled": False, "automated": True, "implemented": False, "credential_key": "web_of_science_api_key", "docs_url": "https://developer.clarivate.com/apis/wos"},
-    {"id": "dimensions", "name": "Dimensions", "kind": "api", "group": "subscription", "default_enabled": False, "automated": True, "implemented": False, "credential_key": "dimensions_api_key", "docs_url": "https://docs.dimensions.ai/dsl/api.html"},
+    {"id": "springer-nature", "name": "Springer Nature", "kind": "api", "group": "credential", "default_enabled": False, "automated": True, "implemented": True, "credential_key": "springer_nature_api_key", "docs_url": "https://dev.springernature.com/"},
+    {"id": "scopus", "name": "Scopus", "kind": "api", "group": "subscription", "default_enabled": False, "automated": True, "implemented": True, "credential_key": "scopus_api_key", "docs_url": "https://dev.elsevier.com/sc_apis.html"},
+    {"id": "web-of-science", "name": "Web of Science", "kind": "api", "group": "subscription", "default_enabled": False, "automated": True, "implemented": True, "credential_key": "web_of_science_api_key", "docs_url": "https://developer.clarivate.com/apis/wos"},
+    {"id": "dimensions", "name": "Dimensions", "kind": "api", "group": "subscription", "default_enabled": False, "automated": True, "implemented": True, "credential_key": "dimensions_api_key", "docs_url": "https://docs.dimensions.ai/dsl/"},
     {"id": "google-scholar", "name": "Google Scholar", "kind": "external", "group": "external", "default_enabled": False, "automated": False, "implemented": False, "search_url": "https://scholar.google.com/scholar?q={query}", "docs_url": "https://scholar.google.com/intl/en/scholar/help.html"},
     {"id": "academia", "name": "Academia.edu", "kind": "external", "group": "external", "default_enabled": False, "automated": False, "implemented": False, "search_url": "https://www.academia.edu/search?q={query}", "docs_url": "https://www.academia.edu/"},
     {"id": "sjr", "name": "SJR", "kind": "metric", "group": "metrics", "default_enabled": False, "automated": False, "implemented": False, "docs_url": "https://www.scimagojr.com/"},
@@ -165,7 +165,7 @@ CREDENTIAL_ENV = {
 
 
 def default_config() -> dict[str, Any]:
-    return {"version": 1, "contact_email": "", "source_defaults": {}, "hidden_sources": [], "custom_repositories": [], "updated_at": _now()}
+    return {"version": 1, "contact_email": "", "ai_agent_id": "", "source_defaults": {}, "hidden_sources": [], "custom_repositories": [], "updated_at": _now()}
 
 
 def load_config(vault_path: Path | str | None = None) -> dict[str, Any]:
@@ -187,13 +187,14 @@ def load_config(vault_path: Path | str | None = None) -> dict[str, Any]:
 
 def save_config(vault_path: Path | str, patch: dict[str, Any]) -> dict[str, Any]:
     """Persist only validated public settings, never credential values."""
-    allowed = {"contact_email", "source_defaults", "hidden_sources"}
+    allowed = {"contact_email", "ai_agent_id", "source_defaults", "hidden_sources"}
     with _CONFIG_LOCK:
         config = load_config(vault_path)
         for key in allowed:
             if key in patch:
                 config[key] = deepcopy(patch[key])
         config["contact_email"] = str(config.get("contact_email") or "").strip()[:320]
+        config["ai_agent_id"] = str(config.get("ai_agent_id") or "").strip()[:160]
         config["source_defaults"] = {str(key)[:100]: bool(value) for key, value in (config.get("source_defaults") or {}).items()}
         known = {item["id"] for item in SOURCE_CATALOG}
         config["hidden_sources"] = [str(item) for item in config.get("hidden_sources") or [] if str(item) in known]
@@ -347,7 +348,14 @@ def _search_plugin_adapter(vault_path: Path | str, source: dict[str, Any], query
 
 def public_configuration(vault_path: Path | str) -> dict[str, Any]:
     config = load_config(vault_path)
-    return {"contact_email": config.get("contact_email") or "", "source_defaults": config.get("source_defaults") or {}, "hidden_sources": config.get("hidden_sources") or [], "sources": catalog(vault_path)}
+    ai_config = load_params(strict_env=False).get("ai", {}) or {}
+    agents = [
+        {"id": str(agent.get("id") or ""), "name": str(agent.get("name") or agent.get("id") or ""), "provider": str(agent.get("provider") or ""), "model": str(agent.get("model") or "")}
+        for agent in (ai_config.get("agents") or [])
+        if isinstance(agent, dict) and agent.get("id") and agent.get("enabled", True)
+    ]
+    selected_agent_id = str(config.get("ai_agent_id") or ai_config.get("active_agent_id") or "")
+    return {"contact_email": config.get("contact_email") or "", "ai_agent_id": selected_agent_id, "ai_agents": agents, "source_defaults": config.get("source_defaults") or {}, "hidden_sources": config.get("hidden_sources") or [], "sources": catalog(vault_path)}
 
 
 def _validate_repository(payload: dict[str, Any], repository_id: str = "") -> dict[str, Any]:
@@ -457,7 +465,9 @@ def search_oai_index(vault_path: Path | str, source_id: str, query: str, filters
     if filters.get("date_to"):
         where += " AND r.year<=?"
         params.append(int(str(filters["date_to"])[:4]))
-    params.append(max(1, min(int(limit), 100)))
+    requested_limit = max(1, min(int(limit), 100))
+    has_language_filter = bool(filters.get("languages") or filters.get("language"))
+    params.append(min(100, requested_limit * 4) if has_language_filter else requested_limit)
     with _connect_index(vault_path) as connection:
         rows = connection.execute(
             f"""SELECT r.work_json FROM oai_records r
@@ -465,7 +475,7 @@ def search_oai_index(vault_path: Path | str, source_id: str, query: str, filters
             WHERE {where} ORDER BY bm25(oai_records_fts) LIMIT ?""",
             params,
         ).fetchall()
-    return academic_connectors.filter_works([json.loads(row["work_json"]) for row in rows], filters)
+    return academic_connectors.filter_works([json.loads(row["work_json"]) for row in rows], filters)[:requested_limit]
 
 
 def _oai_fts_expression(query: str) -> str:
@@ -795,6 +805,7 @@ def enqueue_sync(vault_path: Path | str, source_id: str, *, full: bool = False) 
         )
         connection.commit()
     durable_job_queue.enqueue("academic_repository_sync", {"vault_path": str(_primary_vault(vault_path)), "source_id": source_id, "job_id": job_id, "full": bool(full)}, idempotency_key=f"literature-sync:{_scope(vault_path)}:{source_id}:{job_id}", job_id=job_id, max_attempts=5)
+    launch_sync(_primary_vault(vault_path), source_id, job_id, full=bool(full))
     return sync_status(vault_path, source_id)
 
 
@@ -805,7 +816,10 @@ def sync_status(vault_path: Path | str, source_id: str) -> dict[str, Any]:
 def cancel_sync(vault_path: Path | str, source_id: str) -> dict[str, Any]:
     _source_definition(vault_path, source_id)
     with _INDEX_LOCK, _connect_index(vault_path) as connection:
-        connection.execute("UPDATE oai_sync_state SET cancel_requested=1,updated_at=? WHERE source_id=? AND state IN ('queued','running')", (_now(), source_id))
+        connection.execute(
+            "UPDATE oai_sync_state SET state='cancelled',cancel_requested=1,completed_at=?,updated_at=? WHERE source_id=? AND state IN ('queued','running')",
+            (_now(), _now(), source_id),
+        )
         connection.commit()
     return sync_status(vault_path, source_id)
 
@@ -842,6 +856,12 @@ def _run_sync(vault_path: Path, source_id: str, job_id: str, full: bool) -> dict
     source = _source_definition(vault_path, source_id)
     worker_id = f"literature:{os.getpid()}:{threading.get_ident()}"
     if not durable_job_queue.claim(job_id, worker_id=worker_id, lease_seconds=3_600):
+        with _INDEX_LOCK, _connect_index(vault_path) as connection:
+            connection.execute(
+                "UPDATE oai_sync_state SET state='failed',error='Job claim failed or superseded',completed_at=?,updated_at=? WHERE source_id=? AND job_id=?",
+                (_now(), _now(), source_id, job_id),
+            )
+            connection.commit()
         return sync_status(vault_path, source_id)
     try:
         with _INDEX_LOCK, _connect_index(vault_path) as connection:

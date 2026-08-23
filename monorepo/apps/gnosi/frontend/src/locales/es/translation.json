@@ -640,6 +640,80 @@
     "time_12_hours": "12 horas",
     "time_1_day": "1 día",
     "time_1_week": "1 semana",
+    "tasks": {
+      "fetch_feeds": {
+        "title": "Sincronización de canales",
+        "desc": "Recupera nuevos artículos y vídeos de canales RSS y YouTube."
+      },
+      "fetch_newsletters": {
+        "title": "Boletines de correo",
+        "desc": "Procesa boletines y suscripciones desde buzones POP3."
+      },
+      "generate_podcast": {
+        "title": "Podcast diario",
+        "desc": "Genera el resumen en audio diario a partir de los artículos no leídos."
+      },
+      "system_maintenance": {
+        "title": "Mantenimiento del sistema",
+        "desc": "Limpieza de registros, buzones de correo, entornos de prueba y caché."
+      },
+      "llm_wiki_maintenance": {
+        "title": "Mantenimiento de la Wiki LLM",
+        "desc": "Reconstruye los índices semánticos de la Wiki y ejecuta comprobaciones deterministas."
+      },
+      "academic_repository_sync": {
+        "title": "Repositorios académicos",
+        "desc": "Sincronización incremental periódica de los índices OAI (Dialnet, DOAB, etc.)."
+      },
+      "academic_review_updates": {
+        "title": "Revisiones bibliográficas",
+        "desc": "Ejecuta periódicamente las alertas y búsquedas de revisiones sistemáticas guardadas."
+      },
+      "update_analytics": {
+        "title": "Estadísticas y analítica",
+        "desc": "Actualiza métricas de uso y registros de actividad de la bóveda."
+      },
+      "suggest_connections": {
+        "title": "Conexiones entre notas",
+        "desc": "Analiza afinidades semánticas y propone enlaces entre notas de la bóveda."
+      },
+      "fetch_calendar": {
+        "title": "Sincronización de calendarios",
+        "desc": "Comprueba y mantiene activos los tokens de conexión de los calendarios."
+      },
+      "fetch_mail": {
+        "title": "Sincronización de correo",
+        "desc": "Descarga e indexación de mensajes de cuentas Gmail e IMAP."
+      },
+      "fetch_contacts": {
+        "title": "Sincronización de contactos",
+        "desc": "Sincroniza libretas de direcciones desde Google y CardDAV."
+      },
+      "update_memories": {
+        "title": "Memorias y grafo",
+        "desc": "Actualización de la memoria a largo plazo y relaciones del grafo."
+      },
+      "purge_trash": {
+        "title": "Vaciado de la papelera",
+        "desc": "Elimina de forma permanente los elementos de la papelera de más de 90 días."
+      },
+      "publish_scheduled_social": {
+        "title": "Publicación en redes",
+        "desc": "Publica automáticamente las publicaciones en redes sociales programadas."
+      },
+      "materialize_view_snapshots": {
+        "title": "Instantáneas de vistas",
+        "desc": "Genera capturas de datos de vistas en archivos Markdown portables."
+      },
+      "meeting_reminders": {
+        "title": "Recordatorios de reuniones",
+        "desc": "Envía alertas con orden del día generada por IA antes de cada reunión."
+      },
+      "run_capability_automations": {
+        "title": "Automatizaciones de capacidades",
+        "desc": "Ejecuta reglas y automatizaciones en segundo plano activas en el espacio de trabajo."
+      }
+    },
     "activity_summary": "Resumen de Actividad",
     "errors_prevented_sops": "Errores evitados (SOPs)",
     "active_processes": "Procesos activos",
@@ -1394,6 +1468,9 @@
     "plugins": {
       "title": "Plugins",
       "desc": "Activa o desactiva las funcionalidades opcionales del Vault. Los cambios se guardan por vault.",
+      "activation_required_title": "{{name}} está desactivado",
+      "activation_required_description": "Activa este complemento para usar la funcionalidad. Los datos y configuraciones anteriores se conservan.",
+      "open_plugins_settings": "Abrir configuración de complementos",
       "sections_label": "Secciones de plugins",
       "installed_tab": "Instalados",
       "catalog_tab": "Catálogo",
@@ -5931,12 +6008,21 @@
     "ai": {
       "enter_question": "Escribe una pregunta o consulta antes de pedir ayuda a la IA.",
       "assist": "Ayuda IA",
+      "generating": "Preparando…",
+      "agent": "Agente IA para la búsqueda",
+      "default_agent": "Agente IA predeterminado",
+      "agent_save_error": "No se ha podido guardar el agente IA de la búsqueda.",
       "build_query": "Crear una estrategia editable",
       "proposal": "Propuesta de estrategia",
       "translation_proposal": "Traducción de consulta propuesta",
+      "synonyms": "Sinónimos y términos relacionados",
+      "boolean_query": "Consulta booleana editable",
+      "translated_query": "Consulta adaptada editable",
+      "technical_details": "Detalles técnicos",
       "translate_source": "Adaptar con IA",
       "use_source_query": "Usar para {{source}}",
       "use_query": "Usar esta consulta",
+      "search_with_query": "Buscar con esta propuesta",
       "human_control": "La IA solo propone; la decisión final siempre es humana.",
       "rerank": "Reordenar localmente",
       "reranked_by": "Orden: {{model}}",
@@ -6063,7 +6149,18 @@
       "contact_title": "Contacto y credenciales",
       "contact_help": "PubMed y Unpaywall requieren un correo de contacto; otras fuentes pueden requerir claves.",
       "contact_placeholder": "investigacion@ejemplo.org",
+      "contact_saved": "Correo de contacto guardado correctamente.",
       "manage_credentials": "Gestionar credenciales",
+      "credentials_modal_title": "Credenciales y claves de API académicas",
+      "credentials_modal_desc": "Configura las claves de API para acceder a servicios académicos. Se guardan de forma segura en el Keychain local de Gnosi.",
+      "credential_configured": "Configurada",
+      "credential_not_configured": "Sin configurar",
+      "get_api_key": "Obtener clave",
+      "save_credential": "Guardar",
+      "delete_credential": "Eliminar",
+      "credential_saved": "Clave de {{name}} guardada correctamente.",
+      "credential_deleted": "Clave de {{name}} eliminada.",
+      "configure_credentials": "Configurar credencial",
       "sources_title": "Repositorios académicos",
       "sources_help": "Define los valores predeterminados, oculta fuentes o sincroniza índices OAI locales.",
       "restore_hidden_sources_one": "Restaurar {{count}} fuente oculta",

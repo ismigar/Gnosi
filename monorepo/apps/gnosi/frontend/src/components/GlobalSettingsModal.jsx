@@ -547,7 +547,7 @@ const SettingsNavGroup = ({ label, children }) => (
     </section>
 );
 
-export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', sidebarNavigation = null }) {
+export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', initialPluginId = null, sidebarNavigation = null }) {
     const { t, i18n } = useTranslation();
     const { role } = useApi();
     const tn = useCallback((k, opts) => t('settings.' + k, opts), [t]);
@@ -586,7 +586,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', s
     const [graphSection, setGraphSection] = useState('engine');
     const [socialSection, setSocialSection] = useState('networks');
     const [isAdvancedOpen, setIsAdvancedOpen] = useState(
-        () => ['api', 'plugins'].includes(initialTab)
+        () => ['api', 'plugins'].includes(initialTab) || Boolean(initialPluginId)
     );
 
     useEffect(() => {
@@ -594,8 +594,10 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', s
         const requestedTab = initialTab === 'newsletters' ? 'reader' : initialTab;
         setActiveTab(requestedTab);
         if (initialTab === 'newsletters') setReaderSection('subscriptions');
-        if (['api', 'plugins'].includes(requestedTab)) setIsAdvancedOpen(true);
-    }, [initialTab, isOpen]);
+        if (['api', 'plugins'].includes(requestedTab) || initialPluginId) {
+            setIsAdvancedOpen(true);
+        }
+    }, [initialPluginId, initialTab, isOpen]);
 
     const aiResources = useAIResources(isOpen && activeTab === 'ai');
     const [integrations, setIntegrations] = useState({ calendars: [], contacts: [], mail_accounts: [] });
@@ -4677,6 +4679,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', s
                             {/* PLUGINS */}
                             {activeTab === 'plugins' && (
                                 <PluginsSettings
+                                    initialPluginId={initialPluginId}
                                     onOpenSettingsTab={(tab) => {
                                         setActiveTab(tab);
                                         setAddAccountType(null);

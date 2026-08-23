@@ -261,8 +261,6 @@ textarea,
   transform: translateY(0);
 }
 
-/* Every first-party interactive surface keeps a visible keyboard indicator.
-   Component-specific rings may add emphasis, but must not remove this outline. */
 html body :is(
   button,
   a[href],
@@ -271,11 +269,37 @@ html body :is(
   textarea,
   [role="button"],
   [role="tab"],
-  [role="switch"],
-  [tabindex]:not([tabindex="-1"])
+  [role="switch"]
 ):focus-visible {
-  outline: 3px solid var(--focus-outline-color) !important;
-  outline-offset: 2px !important;
+  outline: 2px solid var(--focus-outline-color);
+  outline-offset: 2px;
+}
+
+summary,
+details > summary,
+div[tabindex],
+main,
+section,
+article,
+.literature-page__scroll,
+.notebook-library-scroll {
+  outline: none !important;
+}
+
+summary:focus,
+summary:focus-visible,
+details > summary:focus,
+details > summary:focus-visible,
+div[tabindex]:focus,
+div[tabindex]:focus-visible,
+main:focus,
+main:focus-visible,
+.literature-page__scroll:focus,
+.literature-page__scroll:focus-visible,
+.notebook-library-scroll:focus,
+.notebook-library-scroll:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 /* Canonical navigation-group heading shared by every application sidebar. */
@@ -362,7 +386,7 @@ html body :is(
   flex: 1;
   overflow-x: hidden;
   overflow-y: auto;
-  background: var(--bg-secondary);
+  background: var(--bg-primary);
   transition: background-color 0.2s ease;
 }
 

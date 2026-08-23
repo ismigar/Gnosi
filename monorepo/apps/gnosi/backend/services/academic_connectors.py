@@ -16,7 +16,7 @@ from urllib.parse import parse_qsl, quote, urlencode, urljoin, urlparse, urlunpa
 import httpx
 from defusedxml import ElementTree as DefusedElementTree
 
-from backend.services.literature_models import canonical_work, clean_text, normalize_doi, normalize_language
+from backend.services.literature_models import canonical_work, clean_text, normalize_doi, normalize_language, normalize_title
 
 
 USER_AGENT = "Gnosi-Literature/1.0 (+https://github.com/ismigar/Gnosi)"
@@ -251,6 +251,24 @@ def _truthy_provider_value(value: Any) -> bool | None:
     return None
 
 
+def _inferred_language(work: dict[str, Any]) -> str:
+    """Infer a language conservatively when a provider omits the field."""
+    tokens = set(normalize_title(f"{work.get('title') or ''} {work.get('abstract') or ''}").split())
+    markers = {
+        "ca": {"aquest", "amb", "catalana", "dels", "historia", "historica", "les", "perioditzacio"},
+        "de": {"der", "die", "geschichte", "historische", "mit", "periodisierung", "und", "von"},
+        "en": {"and", "for", "historical", "history", "of", "periodization", "the", "with"},
+        "es": {"del", "el", "historia", "historica", "las", "los", "para", "periodizacion"},
+        "fr": {"des", "et", "historique", "histoire", "les", "periodisation", "pour", "une"},
+        "it": {"della", "delle", "periodizzazione", "storia", "storica", "una"},
+        "pt": {"das", "dos", "historia", "historica", "periodizacao", "uma"},
+    }
+    scores = {language: len(tokens & values) for language, values in markers.items()}
+    best = max(scores, key=scores.get)
+    ordered = sorted(scores.values(), reverse=True)
+    return best if scores[best] >= 2 and (len(ordered) < 2 or ordered[0] > ordered[1]) else ""
+
+
 def filter_works(works: list[dict[str, Any]], filters: dict[str, Any]) -> list[dict[str, Any]]:
     """Apply canonical filters consistently after provider-side filtering."""
     selected = _filters(filters)
@@ -259,11 +277,10 @@ def filter_works(works: list[dict[str, Any]], filters: dict[str, Any]) -> list[d
         year_to = int(str(selected.get("date_to") or "")[:4]) if selected.get("date_to") else None
     except ValueError:
         year_from = year_to = None
-    languages = {
-        normalize_language(value)
-        for value in re.split(r"[,;\s]+", str(selected.get("language") or ""))
-        if value.strip()
-    }
+    raw_languages = selected.get("languages")
+    if not isinstance(raw_languages, list):
+        raw_languages = re.split(r"[,;\s]+", str(selected.get("language") or ""))
+    languages = {normalize_language(value) for value in raw_languages if str(value).strip()}
     wanted_type = clean_text(selected.get("type"), 100).lower()
     aliases = {"article": "journal-article", "journalarticle": "journal-article"}
     wanted_type = aliases.get(wanted_type, wanted_type)
@@ -274,7 +291,8 @@ def filter_works(works: list[dict[str, Any]], filters: dict[str, Any]) -> list[d
             continue
         if year_to and (not isinstance(year, int) or year > year_to):
             continue
-        if languages and normalize_language(work.get("language")) not in languages:
+        work_language = normalize_language(work.get("language")) or _inferred_language(work)
+        if languages and work_language not in languages:
             continue
         work_type = aliases.get(clean_text(work.get("type"), 100).lower(), clean_text(work.get("type"), 100).lower())
         if wanted_type and work_type != wanted_type:
@@ -294,6 +312,30 @@ def filter_works(works: list[dict[str, Any]], filters: dict[str, Any]) -> list[d
             continue
         result.append(work)
     return result
+
+
+def _matches_mandatory_concept(work: dict[str, Any], query: str) -> bool:
+    """Reject provider relaxations that lose the first mandatory Boolean group."""
+    match = re.match(r"^\s*\((.+?)\)\s+AND\b", str(query or ""), flags=re.IGNORECASE)
+    expression = match.group(1) if match else str(query or "")
+    if not match and not (re.search(r"\s+OR\s+", expression, flags=re.IGNORECASE) and '"' in expression):
+        return True
+    alternatives = re.split(r"\s+OR\s+", expression.strip(" ()"), flags=re.IGNORECASE)
+    haystack = set(normalize_title(f"{work.get('title') or ''} {work.get('abstract') or ''}").split())
+
+    def root(token: str) -> str:
+        if token.startswith("periodiz"):
+            return "periodiz"
+        if token.startswith("histor"):
+            return "histor"
+        return token
+
+    haystack_roots = {root(token) for token in haystack}
+    for alternative in alternatives:
+        tokens = [root(token) for token in normalize_title(alternative.strip(' "')).split() if len(token) > 2]
+        if tokens and set(tokens).issubset(haystack_roots):
+            return True
+    return False
 
 
 def _crossref_work(item: dict[str, Any], provider: str = "crossref") -> dict[str, Any]:
@@ -486,7 +528,9 @@ async def search_eric(query: str, filters: dict[str, Any], limit: int, _: str = 
 
 
 async def search_openaire(query: str, filters: dict[str, Any], limit: int, _: str = "") -> list[dict[str, Any]]:
-    params: dict[str, Any] = {"search": query, "type": "publication", "page": 1, "pageSize": limit, "sortBy": "relevance DESC"}
+    plain_query = " ".join(re.findall(r"[\wÀ-ÿ-]+", query)[:24])
+    plain_query = re.sub(r"\b(?:AND|OR|NOT)\b", " ", plain_query, flags=re.IGNORECASE)
+    params: dict[str, Any] = {"search": " ".join(plain_query.split()), "type": "publication", "page": 1, "pageSize": limit, "sortBy": "relevance DESC"}
     if filters.get("date_from"):
         params["fromPublicationDate"] = f"{str(filters['date_from'])[:4]}-01-01"
     if filters.get("date_to"):
@@ -604,6 +648,12 @@ async def search_pubmed(query: str, filters: dict[str, Any], limit: int, contact
     expression = query
     if filters.get("date_from") or filters.get("date_to"):
         expression += f" AND ({filters.get('date_from') or '1500/01/01'}:{filters.get('date_to') or '2100/12/31'}[dp])"
+    language_names = {"ca": "catalan", "de": "german", "en": "english", "es": "spanish", "fr": "french", "it": "italian", "pt": "portuguese"}
+    raw_languages = filters.get("languages") if isinstance(filters.get("languages"), list) else re.split(r"[,;\s]+", str(filters.get("language") or ""))
+    pubmed_languages = [language_names.get(normalize_language(value)) for value in raw_languages]
+    pubmed_languages = [value for value in pubmed_languages if value]
+    if pubmed_languages:
+        expression += " AND (" + " OR ".join(f"{value}[lang]" for value in pubmed_languages) + ")"
     common = {"tool": "gnosi", "email": contact_email} if contact_email else {"tool": "gnosi"}
     search_data, _, _ = await safe_get_json("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi", params={**common, "db": "pubmed", "term": expression, "retmode": "json", "retmax": limit})
     ids = (search_data.get("esearchresult") or {}).get("idlist") or []
@@ -850,6 +900,176 @@ async def search_generic_json(definition: dict[str, Any], query: str, filters: d
     return works
 
 
+async def search_springer_nature(query: str, filters: dict[str, Any], limit: int, api_key: str = "") -> list[dict[str, Any]]:
+    if not api_key:
+        raise ConnectorError("Springer Nature requires an API key.")
+    expression = query
+    if filters.get("date_from") or filters.get("date_to"):
+        date_from = filters.get("date_from") or "1800"
+        date_to = filters.get("date_to") or datetime.now(timezone.utc).strftime("%Y")
+        expression += f" date:{date_from}-{date_to}"
+    params = {"q": expression, "api_key": api_key, "p": min(limit, 50)}
+    data, _, _ = await safe_get_json("https://api.springernature.com/meta/v2/json", params=params)
+    works = []
+    for item in data.get("records") or []:
+        identifier = item.get("identifier") or item.get("doi") or ""
+        doi = normalize_doi(item.get("doi") or identifier)
+        title = item.get("title")
+        creators = item.get("creators") or []
+        authors = [{"literal": c.get("creator")} for c in creators if isinstance(c, dict) and c.get("creator")]
+        abstract = item.get("abstract")
+        publication_name = item.get("publicationName") or ""
+        publisher = item.get("publisher") or "Springer Nature"
+        pub_date = item.get("publicationDate") or item.get("onlineDate") or item.get("printDate") or ""
+        year = int(pub_date[:4]) if pub_date and len(pub_date) >= 4 and pub_date[:4].isdigit() else None
+        urls = item.get("url") or []
+        display_url = ""
+        pdf_url = ""
+        if isinstance(urls, list):
+            for u in urls:
+                if isinstance(u, dict):
+                    format_type = u.get("format", "").lower()
+                    u_val = u.get("value", "")
+                    if format_type == "pdf":
+                        pdf_url = u_val
+                    elif format_type == "html" or not display_url:
+                        display_url = u_val
+                elif isinstance(u, str) and not display_url:
+                    display_url = u
+        if not display_url and doi:
+            display_url = f"https://doi.org/{doi}"
+        is_oa = item.get("openaccess") == "true" or item.get("genre") == "Open Access"
+        genre = item.get("contentType") or item.get("genre") or "article"
+        works.append(canonical_work(
+            "springer-nature", identifier or doi or display_url, title=title, authors=authors,
+            dates={"issued": pub_date, "online": item.get("onlineDate", ""), "print": item.get("printDate", "")},
+            year=year, abstract=abstract, type=genre,
+            publication={"container_title": publication_name, "publisher": publisher, "volume": item.get("volume", ""), "issue": item.get("number", ""), "pages": item.get("startingPage", "")},
+            identifiers={"doi": doi, "isbn13": [], "provider": {"springer_id": identifier}},
+            open_access={"is_oa": is_oa, "license": "", "best_location": _location(display_url, pdf_url=pdf_url, is_oa=is_oa)[0]},
+            locations=_location(display_url, pdf_url=pdf_url, is_oa=is_oa),
+            sources=_occurrence("springer-nature", identifier or doi, display_url),
+        ))
+    return works
+
+
+async def search_scopus(query: str, filters: dict[str, Any], limit: int, api_key: str = "") -> list[dict[str, Any]]:
+    if not api_key:
+        raise ConnectorError("Scopus requires an API key.")
+    headers = {"X-ELS-APIKey": api_key, "Accept": "application/json"}
+    params: dict[str, Any] = {"query": f"TITLE-ABS-KEY({query})", "count": min(limit, 25)}
+    if filters.get("date_from") or filters.get("date_to"):
+        d_from = str(filters.get("date_from") or "1800")
+        d_to = str(filters.get("date_to") or datetime.now(timezone.utc).strftime("%Y"))
+        params["date"] = f"{d_from}-{d_to}"
+    data, _, _ = await safe_get_json("https://api.elsevier.com/content/search/scopus", params=params, headers=headers)
+    results = (data.get("search-results") or {}).get("entry") or []
+    works = []
+    for item in results:
+        identifier = item.get("dc:identifier", "") or item.get("eid", "")
+        title = item.get("dc:title")
+        creator = item.get("dc:creator")
+        authors = [{"literal": creator}] if creator else []
+        pub_name = item.get("prism:publicationName") or ""
+        cover_date = item.get("prism:coverDate") or ""
+        year = int(cover_date[:4]) if cover_date and len(cover_date) >= 4 and cover_date[:4].isdigit() else None
+        doi = normalize_doi(item.get("prism:doi") or "")
+        citations = item.get("citedby-count")
+        cit_count = int(citations) if citations is not None and str(citations).isdigit() else None
+        link_list = item.get("link") or []
+        display_url = next((l.get("@href") for l in link_list if isinstance(l, dict) and l.get("@ref") == "scopus"), "") or (f"https://doi.org/{doi}" if doi else "")
+        is_oa = item.get("openaccessFlag") is True or item.get("openaccess") == "1"
+        works.append(canonical_work(
+            "scopus", identifier or doi or display_url, title=title, authors=authors,
+            dates={"issued": cover_date, "online": "", "print": ""},
+            year=year, abstract=None, type=item.get("subtypeDescription") or "article",
+            publication={"container_title": pub_name, "publisher": "Elsevier", "volume": item.get("prism:volume", ""), "issue": item.get("prism:issueIdentifier", ""), "pages": item.get("prism:pageRange", "")},
+            identifiers={"doi": doi, "isbn13": [], "provider": {"scopus_id": identifier}},
+            open_access={"is_oa": is_oa, "license": "", "best_location": _location(display_url, is_oa=is_oa)[0]},
+            locations=_location(display_url, is_oa=is_oa),
+            sources=_occurrence("scopus", identifier or doi, display_url, citations=cit_count),
+            metrics={"citations": {"scopus": cit_count} if cit_count is not None else {}},
+        ))
+    return works
+
+
+async def search_web_of_science(query: str, filters: dict[str, Any], limit: int, api_key: str = "") -> list[dict[str, Any]]:
+    if not api_key:
+        raise ConnectorError("Web of Science requires an API key.")
+    headers = {"X-ApiKey": api_key, "Accept": "application/json"}
+    params = {"q": query, "limit": min(limit, 50), "page": 1}
+    data, _, _ = await safe_get_json("https://api.clarivate.com/apis/wos-starter/v1/documents", params=params, headers=headers)
+    hits = data.get("hits") or []
+    works = []
+    for item in hits:
+        uid = item.get("uid") or ""
+        title = item.get("title")
+        names = item.get("names") or {}
+        author_list = names.get("authors") or []
+        authors = [{"literal": a.get("displayName") or a.get("wosStandard")} for a in author_list if isinstance(a, dict)]
+        source_meta = item.get("source") or {}
+        pub_name = source_meta.get("sourceTitle") or ""
+        pub_year = source_meta.get("publishYear")
+        pub_date = str(pub_year or "")
+        year = int(pub_year) if pub_year and str(pub_year).isdigit() else None
+        doi = normalize_doi((item.get("identifiers") or {}).get("doi") or "")
+        citations = item.get("citations")
+        cit_count = None
+        if isinstance(citations, list) and citations:
+            cit_count = citations[0].get("count")
+        elif isinstance(citations, dict):
+            cit_count = citations.get("count")
+        link_list = item.get("links") or []
+        display_url = next((l.get("url") for l in link_list if isinstance(l, dict) and l.get("type") == "record"), "") or (f"https://doi.org/{doi}" if doi else "")
+        works.append(canonical_work(
+            "web-of-science", uid or doi or display_url, title=title, authors=authors,
+            dates={"issued": pub_date, "online": "", "print": ""},
+            year=year, abstract=item.get("abstract"), type=item.get("docType") or "article",
+            publication={"container_title": pub_name, "publisher": "Clarivate", "volume": source_meta.get("volume", ""), "issue": source_meta.get("issue", ""), "pages": source_meta.get("pages", "")},
+            identifiers={"doi": doi, "isbn13": [], "provider": {"wos_uid": uid}},
+            open_access={"is_oa": bool(item.get("openAccess")), "license": "", "best_location": _location(display_url, is_oa=bool(item.get("openAccess")))[0]},
+            locations=_location(display_url, is_oa=bool(item.get("openAccess"))),
+            sources=_occurrence("web-of-science", uid or doi, display_url, citations=cit_count),
+            metrics={"citations": {"wos": cit_count} if cit_count is not None else {}},
+        ))
+    return works
+
+
+async def search_dimensions(query: str, filters: dict[str, Any], limit: int, api_key: str = "") -> list[dict[str, Any]]:
+    if not api_key:
+        raise ConnectorError("Dimensions requires an API token.")
+    headers = {"Authorization": f"JWT {api_key}" if not api_key.startswith("JWT ") else api_key}
+    clean_q = query.replace('"', '\\"')
+    dsl = f'search publications for "{clean_q}" return publications[id+title+authors+year+date+abstract+type+journal+doi+times_cited+open_access] limit {min(limit, 50)}'
+    data, _, _ = await safe_get_json("https://app.dimensions.ai/api/dsl/v2", params={"dsl": dsl}, headers=headers)
+    pubs = data.get("publications") or []
+    works = []
+    for item in pubs:
+        identifier = item.get("id") or ""
+        title = item.get("title")
+        authors_raw = item.get("authors") or []
+        authors = [{"literal": f"{a.get('first_name', '')} {a.get('last_name', '')}".strip()} for a in authors_raw if isinstance(a, dict)]
+        journal = item.get("journal") or {}
+        pub_name = journal.get("title") if isinstance(journal, dict) else str(journal or "")
+        pub_date = item.get("date") or ""
+        year = item.get("year")
+        doi = normalize_doi(item.get("doi") or "")
+        citations = item.get("times_cited")
+        display_url = f"https://app.dimensions.ai/details/publication/{identifier}" if identifier else (f"https://doi.org/{doi}" if doi else "")
+        works.append(canonical_work(
+            "dimensions", identifier or doi or display_url, title=title, authors=authors,
+            dates={"issued": pub_date, "online": "", "print": ""},
+            year=year, abstract=item.get("abstract"), type=item.get("type") or "article",
+            publication={"container_title": pub_name, "publisher": "Digital Science", "volume": "", "issue": "", "pages": ""},
+            identifiers={"doi": doi, "isbn13": [], "provider": {"dimensions_id": identifier}},
+            open_access={"is_oa": bool(item.get("open_access")), "license": "", "best_location": _location(display_url, is_oa=bool(item.get("open_access")))[0]},
+            locations=_location(display_url, is_oa=bool(item.get("open_access"))),
+            sources=_occurrence("dimensions", identifier or doi, display_url, citations=citations),
+            metrics={"citations": {"dimensions": citations} if citations is not None else {}},
+        ))
+    return works
+
+
 SEARCHERS = {
     "crossref": search_crossref,
     "datacite": search_datacite,
@@ -865,18 +1085,27 @@ SEARCHERS = {
     "pubmed": search_pubmed,
     "openalex": search_openalex,
     "semantic-scholar": search_semantic_scholar,
+    "springer-nature": search_springer_nature,
+    "scopus": search_scopus,
+    "web-of-science": search_web_of_science,
+    "dimensions": search_dimensions,
 }
 
 
 async def search_source(source_id: str, query: str, filters: dict[str, Any], limit: int, credential: str = "", definition: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     """Dispatch a built-in or custom REST connector."""
+    requested_limit = max(1, min(int(limit), 100))
+    has_language_filter = bool(filters.get("languages") or filters.get("language"))
+    fetch_limit = min(100, requested_limit * 4) if has_language_filter else requested_limit
     if definition and definition.get("kind") == "rest":
-        return filter_works(await search_generic_json(definition, query, filters, limit), filters)
+        works = await search_generic_json(definition, query, filters, fetch_limit)
+        return filter_works([work for work in works if _matches_mandatory_concept(work, query)], filters)[:requested_limit]
     searcher = SEARCHERS.get(source_id)
     if searcher is None:
         raise ConnectorError("This source requires a local index or a configured provider adapter.")
-    works = await searcher(query, filters, max(1, min(int(limit), 100)), credential)
-    return filter_works(works, filters)
+    works = await searcher(query, filters, fetch_limit, credential)
+    works = [work for work in works if _matches_mandatory_concept(work, query)]
+    return filter_works(works, filters)[:requested_limit]
 
 
 def parse_oai_page(body: bytes, source: dict[str, Any]) -> dict[str, Any]:

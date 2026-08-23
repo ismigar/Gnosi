@@ -640,6 +640,80 @@
     "time_12_hours": "12 hores",
     "time_1_day": "1 dia",
     "time_1_week": "1 setmana",
+    "tasks": {
+      "fetch_feeds": {
+        "title": "Sincronització de canals",
+        "desc": "Recupera nous articles i vídeos de canals RSS i YouTube."
+      },
+      "fetch_newsletters": {
+        "title": "Butlletins de correu",
+        "desc": "Processa butlletins i subscripcions des de bústies POP3."
+      },
+      "generate_podcast": {
+        "title": "Podcast diari",
+        "desc": "Genera el resum en àudio diari a partir dels articles no llegits."
+      },
+      "system_maintenance": {
+        "title": "Manteniment del sistema",
+        "desc": "Neteja de registres, bústies de correu, entorns de prova i memòria cau."
+      },
+      "llm_wiki_maintenance": {
+        "title": "Manteniment de la Wiki LLM",
+        "desc": "Reconstrueix els índexs semàntics de la Wiki i executa comprovacions deterministes."
+      },
+      "academic_repository_sync": {
+        "title": "Repositoris acadèmics",
+        "desc": "Sincronització incremental periòdica dels índexs OAI (Dialnet, DOAB, etc.)."
+      },
+      "academic_review_updates": {
+        "title": "Revisions bibliogràfiques",
+        "desc": "Executa de forma periòdica les alertes i cerques de revisions sistemàtiques guardades."
+      },
+      "update_analytics": {
+        "title": "Estadístiques i analítica",
+        "desc": "Actualitza mètriques d'ús i registres d'activitat de la volta."
+      },
+      "suggest_connections": {
+        "title": "Connexions entre notes",
+        "desc": "Analitza afinitats semàntiques i proposa enllaços entre notes de la volta."
+      },
+      "fetch_calendar": {
+        "title": "Sincronització de calendaris",
+        "desc": "Comprova i manté actius els testimonis de connexió dels calendaris."
+      },
+      "fetch_mail": {
+        "title": "Sincronització de correu",
+        "desc": "Descàrrega i indexació de missatges de comptes Gmail i IMAP."
+      },
+      "fetch_contacts": {
+        "title": "Sincronització de contactes",
+        "desc": "Sincronitza llibretes d'adreces des de Google i CardDAV."
+      },
+      "update_memories": {
+        "title": "Memòries i graf",
+        "desc": "Actualització de la memòria a llarg termini i relacions del graf."
+      },
+      "purge_trash": {
+        "title": "Buidatge de la paperera",
+        "desc": "Elimina de forma permanent els elements de la paperera de més de 90 dies."
+      },
+      "publish_scheduled_social": {
+        "title": "Publicació a xarxes",
+        "desc": "Publica automàticament les entrades de xarxes socials programades."
+      },
+      "materialize_view_snapshots": {
+        "title": "Instantànies de vistes",
+        "desc": "Genera captures de dades de vistes en fitxers Markdown portables."
+      },
+      "meeting_reminders": {
+        "title": "Recordatoris de reunions",
+        "desc": "Envia alertes amb ordre del dia generada per IA abans de cada reunió."
+      },
+      "run_capability_automations": {
+        "title": "Automatitzacions de capacitats",
+        "desc": "Executa regles i automatitzacions de fons actives a l'espai de treball."
+      }
+    },
     "activity_summary": "Resum d'Activitat",
     "errors_prevented_sops": "Errors evitats (SOPs)",
     "active_processes": "Processos actius",
@@ -1448,6 +1522,9 @@
     "plugins": {
       "title": "Plugins",
       "desc": "Activa o desactiva les funcionalitats opcionals del Vault. Els canvis es desen per vault.",
+      "activation_required_title": "{{name}} està desactivat",
+      "activation_required_description": "Activa aquest complement per utilitzar la funcionalitat. Les dades i configuracions anteriors es conserven.",
+      "open_plugins_settings": "Obre la configuració de complements",
       "sections_label": "Seccions de plugins",
       "installed_tab": "Instal·lats",
       "catalog_tab": "Catàleg",
@@ -5931,12 +6008,21 @@
     "ai": {
       "enter_question": "Escriu una pregunta o consulta abans de demanar ajuda a la IA.",
       "assist": "Ajuda IA",
+      "generating": "Preparant…",
+      "agent": "Agent IA per a la cerca",
+      "default_agent": "Agent IA predeterminat",
+      "agent_save_error": "No s'ha pogut desar l'agent IA de la cerca.",
       "build_query": "Genera una estratègia editable",
       "proposal": "Proposta d'estratègia",
       "translation_proposal": "Traducció de consulta proposada",
+      "synonyms": "Sinònims i termes relacionats",
+      "boolean_query": "Consulta booleana editable",
+      "translated_query": "Consulta adaptada editable",
+      "technical_details": "Detalls tècnics",
       "translate_source": "Adapta amb IA",
       "use_source_query": "Utilitza-la per a {{source}}",
       "use_query": "Utilitza aquesta consulta",
+      "search_with_query": "Cerca amb aquesta proposta",
       "human_control": "La IA només proposa; la decisió final sempre és humana.",
       "rerank": "Reordena localment",
       "reranked_by": "Ordre: {{model}}",
@@ -6063,7 +6149,18 @@
       "contact_title": "Contacte i credencials",
       "contact_help": "PubMed i Unpaywall requereixen un correu de contacte; altres fonts poden requerir claus.",
       "contact_placeholder": "recerca@exemple.org",
+      "contact_saved": "Correu de contacte desat correctament.",
       "manage_credentials": "Gestiona credencials",
+      "credentials_modal_title": "Credencials i claus d'API acadèmiques",
+      "credentials_modal_desc": "Configura les claus d'API per accedir a serveis acadèmics. Es desen de manera xifrada al Keychain local de Gnosi.",
+      "credential_configured": "Configurada",
+      "credential_not_configured": "Sense configurar",
+      "get_api_key": "Obtenir clau",
+      "save_credential": "Desa",
+      "delete_credential": "Elimina",
+      "credential_saved": "Clau de {{name}} desada correctament.",
+      "credential_deleted": "Clau de {{name}} eliminada.",
+      "configure_credentials": "Configura credencial",
       "sources_title": "Repositoris acadèmics",
       "sources_help": "Defineix els valors predeterminats, amaga fonts o sincronitza índexs OAI locals.",
       "restore_hidden_sources_one": "Restaura {{count}} font amagada",

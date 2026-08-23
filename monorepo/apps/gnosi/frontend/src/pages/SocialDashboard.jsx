@@ -93,10 +93,6 @@ const SocialDashboard = () => {
 
     return (
         <div className="h-full flex flex-col bg-[var(--bg-primary)] relative overflow-hidden">
-            {/* Ambience effects */}
-            <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-[var(--gnosi-blue)]/10 rounded-full blur-[120px] pointer-events-none" />
-            <div className="absolute bottom-[-20%] right-[-10%] w-[40%] h-[40%] bg-[var(--gnosi-primary)]/10 rounded-full blur-[100px] pointer-events-none" />
-
             <AppHeader icon={Share2} title={t('home.module_social_title', 'Social media')}>
                 <div className="social-header-actions">
                     <nav className="social-header-tabs" aria-label={t('social.section_navigation', 'Social sections')}>

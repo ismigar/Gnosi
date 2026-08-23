@@ -6,6 +6,7 @@ import { BUILTIN_PLUGINS } from '../plugins/registry';
 import { usePlugins } from '../plugins/usePlugins';
 import { reloadPlugins } from '../plugins/usePluginHost';
 import ConfirmModal from './ConfirmModal';
+import ResourcesPluginConfig from './ResourcesPluginConfig';
 import { sortFieldItems } from '../utils/fieldOrdering';
 import { SettingsSectionTabs } from './SettingsSectionTabs';
 
@@ -2019,7 +2020,7 @@ function ThirdPartyPlugins({ section, installedFilter }) {
  * Plugin configuration panel: enables/disables the optional features
  * (internal registry). State is persisted per vault in `.gnosi/plugins.json`.
  */
-export function PluginsSettings({ onOpenSettingsTab }) {
+export function PluginsSettings({ onOpenSettingsTab, initialPluginId = null }) {
     const { t } = useTranslation();
     const tp = (k, opts) => t('settings.plugins.' + k, opts);
     const { builtins, isEnabled, setPluginEnabled } = usePlugins();
@@ -2034,7 +2035,34 @@ export function PluginsSettings({ onOpenSettingsTab }) {
         'web-clipper': WebClipperConfig,
         'project-planning': ProjectPlanningConfig,
         'llm-wiki': LlmWikiConfig,
+        'resources': ResourcesPluginConfig,
     };
+
+    useEffect(() => {
+        let targetPluginId = initialPluginId;
+        if (!targetPluginId) {
+            try {
+                targetPluginId = window.sessionStorage.getItem('gnosi:configure-plugin');
+                if (targetPluginId) {
+                    window.sessionStorage.removeItem('gnosi:configure-plugin');
+                }
+            } catch {
+                // Ignore storage errors.
+            }
+        }
+        if (targetPluginId) {
+            setSection('installed');
+            setInstalledFilter('all');
+            setConfiguredPluginId(targetPluginId);
+            const timer = window.setTimeout(() => {
+                const el = document.getElementById(`settings-plugin-${targetPluginId}`);
+                if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 120);
+            return () => window.clearTimeout(timer);
+        }
+    }, [initialPluginId]);
 
     const openPluginConfiguration = (plugin) => {
         if (inlineConfigComponents[plugin.id]) {
@@ -2115,6 +2143,7 @@ export function PluginsSettings({ onOpenSettingsTab }) {
                     return (
                         <div
                             key={plugin.id}
+                            id={`settings-plugin-${plugin.id}`}
                             className="settings-plugin-item"
                             style={{
                                 display: 'flex', flexDirection: 'column', gap: 0,

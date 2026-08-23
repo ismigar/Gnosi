@@ -1058,6 +1058,9 @@
     "plugins": {
       "title": "Extensions",
       "desc": "Activez ou désactivez les fonctionnalités optionnelles du coffre. Les modifications sont enregistrées par coffre.",
+      "activation_required_title": "{{name}} est désactivé",
+      "activation_required_description": "Activez cette extension pour utiliser la fonctionnalité. Les données et configurations précédentes sont conservées.",
+      "open_plugins_settings": "Ouvrir les paramètres des extensions",
       "sections_label": "Sections des extensions",
       "installed_tab": "Installées",
       "catalog_tab": "Catalogue",
@@ -3697,6 +3700,80 @@
     "time_5_hours": "5 heures",
     "time_45_min": "45 min",
     "time_6_hours": "6 heures",
+    "tasks": {
+      "fetch_feeds": {
+        "title": "Synchronisation des flux",
+        "desc": "Récupérer de nouveaux articles et vidéos depuis les flux RSS et YouTube."
+      },
+      "fetch_newsletters": {
+        "title": "Infolettres de courriel",
+        "desc": "Traiter les infolettres et abonnements depuis les boîtes POP3."
+      },
+      "generate_podcast": {
+        "title": "Podcast quotidien",
+        "desc": "Générer un résumé audio quotidien à partir des articles non lus."
+      },
+      "system_maintenance": {
+        "title": "Maintenance du système",
+        "desc": "Nettoyage des journaux, boîtes aux lettres, bacs à sable et caches."
+      },
+      "llm_wiki_maintenance": {
+        "title": "Maintenance du Wiki LLM",
+        "desc": "Reconstruire les index sémantiques du Wiki et exécuter des vérifications déterministes."
+      },
+      "academic_repository_sync": {
+        "title": "Dépôts académiques",
+        "desc": "Synchronisation incrémentielle périodique des index OAI (Dialnet, DOAB, etc.)."
+      },
+      "academic_review_updates": {
+        "title": "Mises à jour des revues",
+        "desc": "Exécuter périodiquement les alertes et recherches de revues systématiques enregistrées."
+      },
+      "update_analytics": {
+        "title": "Statistiques et analytique",
+        "desc": "Mettre à jour les métriques d'utilisation et journaux d'activité du coffre."
+      },
+      "suggest_connections": {
+        "title": "Connexions entre notes",
+        "desc": "Analyser les affinités sémantiques et suggérer des liens entre notes du coffre."
+      },
+      "fetch_calendar": {
+        "title": "Synchronisation des calendriers",
+        "desc": "Vérifier et maintenir actifs les jetons de connexion des calendriers."
+      },
+      "fetch_mail": {
+        "title": "Synchronisation des courriels",
+        "desc": "Télécharger et indexer les messages des comptes Gmail et IMAP."
+      },
+      "fetch_contacts": {
+        "title": "Synchronisation des contacts",
+        "desc": "Synchroniser les carnets d'adresses depuis Google et CardDAV."
+      },
+      "update_memories": {
+        "title": "Mémoires et graphe",
+        "desc": "Mettre à jour la mémoire à long terme et les relations du graphe."
+      },
+      "purge_trash": {
+        "title": "Vidage de la corbeille",
+        "desc": "Supprimer définitivement les éléments de la corbeille de plus de 90 jours."
+      },
+      "publish_scheduled_social": {
+        "title": "Publication sur les réseaux",
+        "desc": "Publier automatiquement les messages programmés sur les réseaux sociaux."
+      },
+      "materialize_view_snapshots": {
+        "title": "Instantanés de vues",
+        "desc": "Générer des instantanés de données de vues en fichiers Markdown portables."
+      },
+      "meeting_reminders": {
+        "title": "Rappels de réunions",
+        "desc": "Envoyer des alertes avec ordre du jour généré par l'IA avant chaque réunion."
+      },
+      "run_capability_automations": {
+        "title": "Automatisations de capacités",
+        "desc": "Exécuter les règles et automatisations d'arrière-plan actives dans l'espace de travail."
+      }
+    },
     "tools_title": "Intelligence (Skills)",
     "unnamed_user": "Utilisateur sans nom",
     "user": "Utilisateur",
@@ -5931,12 +6008,21 @@
     "ai": {
       "enter_question": "Écrivez une question ou une requête avant de demander l'aide de l'IA.",
       "assist": "Aide IA",
+      "generating": "Préparation…",
+      "agent": "Agent IA pour la recherche",
+      "default_agent": "Agent IA par défaut",
+      "agent_save_error": "L’agent IA de recherche n’a pas pu être enregistré.",
       "build_query": "Créer une stratégie modifiable",
       "proposal": "Proposition de stratégie",
       "translation_proposal": "Traduction de requête proposée",
+      "synonyms": "Synonymes et termes associés",
+      "boolean_query": "Requête booléenne modifiable",
+      "translated_query": "Requête adaptée modifiable",
+      "technical_details": "Détails techniques",
       "translate_source": "Adapter avec l'IA",
       "use_source_query": "Utiliser pour {{source}}",
       "use_query": "Utiliser cette requête",
+      "search_with_query": "Rechercher avec cette proposition",
       "human_control": "L'IA ne fait que proposer ; la décision finale reste toujours humaine.",
       "rerank": "Reclasser localement",
       "reranked_by": "Classement : {{model}}",
@@ -6063,7 +6149,18 @@
       "contact_title": "Contact et identifiants",
       "contact_help": "PubMed et Unpaywall exigent une adresse de contact ; d'autres sources peuvent nécessiter des clés.",
       "contact_placeholder": "recherche@exemple.org",
+      "contact_saved": "Adresse de contact enregistrée avec succès.",
       "manage_credentials": "Gérer les identifiants",
+      "credentials_modal_title": "Identifiants et clés d'API académiques",
+      "credentials_modal_desc": "Configurez les clés d'API pour accéder aux services académiques. Elles sont enregistrées de façon sécurisée dans le trousseau local de Gnosi.",
+      "credential_configured": "Configurée",
+      "credential_not_configured": "Non configurée",
+      "get_api_key": "Obtenir une clé",
+      "save_credential": "Enregistrer",
+      "delete_credential": "Supprimer",
+      "credential_saved": "Clé d'API {{name}} enregistrée avec succès.",
+      "credential_deleted": "Clé d'API {{name}} supprimée.",
+      "configure_credentials": "Configurer l'identifiant",
       "sources_title": "Dépôts scientifiques",
       "sources_help": "Définissez les valeurs par défaut, masquez des sources ou synchronisez les index OAI locaux.",
       "restore_hidden_sources_one": "Restaurer {{count}} source masquée",

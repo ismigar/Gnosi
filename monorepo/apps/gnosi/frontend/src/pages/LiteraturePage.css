@@ -1,13 +1,25 @@
 .literature-page {
-    min-height: 100%;
-    padding: 28px clamp(18px, 3vw, 46px) 72px;
-    background: var(--bg-secondary);
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg-primary);
     color: var(--text-primary);
 }
 
-.literature-page > .app-header {
+.literature-page__scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    width: 100%;
+}
+
+.literature-page__content {
     max-width: 1260px;
-    margin: 0 auto 22px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 28px clamp(18px, 3vw, 46px) 72px;
 }
 
 .literature-review-detail header > div > span,
@@ -116,6 +128,16 @@
     background: color-mix(in srgb, var(--gnosi-blue) 8%, transparent);
 }
 
+.literature-ai-agent {
+    max-width: 190px;
+    padding: 7px 8px;
+    border: 1px solid var(--border-primary);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    font-size: 11px;
+}
+
 .literature-search-toolbar,
 .literature-source-picker__header,
 .literature-preview footer,
@@ -199,11 +221,22 @@
     border-top: 1px solid var(--border-primary);
 }
 
+.literature-page summary {
+    outline: none !important;
+}
+
+.literature-page summary:focus,
+.literature-page summary:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
 .literature-manual-capture summary {
     color: var(--gnosi-blue);
     font-size: 12px;
     font-weight: 700;
     cursor: pointer;
+    outline: none !important;
 }
 
 .literature-manual-capture > p {
@@ -232,6 +265,16 @@
     border-radius: 8px;
     background: var(--bg-secondary);
     color: var(--text-primary);
+}
+
+.literature-manual-capture form button,
+.literature-manual-capture article button {
+    white-space: nowrap;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
 }
 
 .literature-manual-capture article {
@@ -283,6 +326,58 @@
     font-size: 11px;
 }
 
+.literature-language-filter {
+    position: relative;
+    color: var(--text-secondary);
+    font-size: 11px;
+}
+
+.literature-language-filter > span {
+    display: block;
+    margin-bottom: 4px;
+}
+
+.literature-language-filter details {
+    position: relative;
+}
+
+.literature-language-filter summary {
+    overflow: hidden;
+    padding: 8px;
+    border: 1px solid var(--border-primary);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.literature-language-filter details > div {
+    position: absolute;
+    z-index: 20;
+    top: calc(100% + 4px);
+    left: 0;
+    display: grid;
+    min-width: 100%;
+    padding: 8px;
+    border: 1px solid var(--border-primary);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    box-shadow: var(--shadow-lg);
+}
+
+.literature-language-filter details label {
+    flex-direction: row;
+    align-items: center;
+    padding: 5px;
+    white-space: nowrap;
+}
+
+.literature-language-filter details input {
+    width: auto;
+}
+
 .literature-filters input,
 .literature-filters select,
 .literature-review-list input,
@@ -331,9 +426,9 @@
 
 .literature-source-queries label {
     display: grid;
-    grid-template-columns: 130px minmax(0, 1fr) auto;
+    grid-template-columns: 140px minmax(0, 1fr) auto;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     margin-top: 7px;
 }
 
@@ -345,6 +440,16 @@
     border-radius: 8px;
     background: var(--bg-secondary);
     color: var(--text-primary);
+}
+
+.literature-source-queries button {
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex-shrink: 0;
+    padding: 8px 14px;
 }
 
 .literature-source-picker__header strong {
@@ -392,6 +497,22 @@
     pointer-events: none;
 }
 
+.literature-source-picker__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-top: 10px;
+}
+
+.literature-source-picker__configure-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    font-size: 12px;
+}
+
 .literature-ai-proposal {
     margin-top: 12px;
     padding: 12px;
@@ -430,6 +551,82 @@
     display: block;
     margin-top: 8px;
     color: var(--text-tertiary);
+}
+
+.literature-ai-proposal__concepts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 8px;
+    margin: 12px 0;
+}
+
+.literature-ai-proposal__concepts div,
+.literature-ai-proposal__synonyms,
+.literature-ai-proposal__query,
+.literature-ai-proposal__cautions {
+    padding: 9px 10px;
+    border: 1px solid var(--border-primary);
+    border-radius: 8px;
+    background: var(--bg-primary);
+}
+
+.literature-ai-proposal__concepts dt,
+.literature-ai-proposal__synonyms strong,
+.literature-ai-proposal__query > span {
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.literature-ai-proposal__concepts dd,
+.literature-ai-proposal__synonyms p {
+    margin: 4px 0 0;
+    color: var(--text-primary);
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.literature-ai-proposal__synonyms {
+    margin: 10px 0;
+}
+
+.literature-ai-proposal__synonyms p span {
+    margin-right: 6px;
+    color: var(--text-tertiary);
+    font-weight: 700;
+}
+
+.literature-ai-proposal__query {
+    display: block;
+    margin: 10px 0;
+}
+
+.literature-ai-proposal__query textarea {
+    width: 100%;
+    min-height: 68px;
+    margin-top: 6px;
+    resize: vertical;
+    font: 12px/1.45 ui-monospace, monospace;
+}
+
+.literature-ai-proposal__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.literature-ai-proposal__cautions {
+    margin: 10px 0;
+    padding-left: 28px;
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.literature-ai-proposal__technical {
+    margin-top: 10px;
+    color: var(--text-tertiary);
+    font-size: 11px;
 }
 
 .literature-alert,
@@ -1230,6 +1427,11 @@
 
     .literature-source-queries label {
         grid-template-columns: 1fr;
+    }
+
+    .literature-ai-agent {
+        max-width: none;
+        flex: 1 1 100%;
     }
 }
 

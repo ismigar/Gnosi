@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Clock3, History, Play, RefreshCw, Users, Shield, Save, Gauge, X, Bug, FileText, AlertTriangle, Activity, Cpu, Layers, Database, ShieldCheck, Clock, Book, ShieldAlert, Check, Loader2, Eye, Edit2, Trash2, Sparkles } from 'lucide-react';
 import toast from '../lib/toast';
 import { AppHeader } from '../components/AppHeader';
@@ -30,6 +30,7 @@ function Dashboard() {
     const [userRole, setUserRole] = useState(initialRole);
     const isAdmin = userRole === 'admin' || userRole === 'owner';
 
+    const scrollContainerRef = useRef(null);
     const [approvedTools, setApprovedTools] = useState([]);
     const [pendingTools, setPendingTools] = useState([]);
 
@@ -513,6 +514,43 @@ function Dashboard() {
     };
 
 
+    // Keyboard scrolling support
+    useEffect(() => {
+        const handleScrollKeyDown = (e) => {
+            const anyModalOpen = isAddMemberModalOpen || isPermissionsModalOpen || isTrapsModalOpen || isDirectivesModalOpen || isToolsModalOpen || isReleaseNotesOpen || editingDirective;
+            if (anyModalOpen) return;
+
+            const active = document.activeElement;
+            const isInput = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT' || active.isContentEditable);
+            if (isInput) return;
+
+            if (!scrollContainerRef.current) return;
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                scrollContainerRef.current.scrollBy({ top: 80, behavior: 'smooth' });
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                scrollContainerRef.current.scrollBy({ top: -80, behavior: 'smooth' });
+            } else if (e.key === 'PageDown' || (e.key === ' ' && !e.shiftKey)) {
+                e.preventDefault();
+                scrollContainerRef.current.scrollBy({ top: scrollContainerRef.current.clientHeight * 0.8, behavior: 'smooth' });
+            } else if (e.key === 'PageUp' || (e.key === ' ' && e.shiftKey)) {
+                e.preventDefault();
+                scrollContainerRef.current.scrollBy({ top: -scrollContainerRef.current.clientHeight * 0.8, behavior: 'smooth' });
+            } else if (e.key === 'Home') {
+                e.preventDefault();
+                scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+            } else if (e.key === 'End') {
+                e.preventDefault();
+                scrollContainerRef.current.scrollTo({ top: scrollContainerRef.current.scrollHeight, behavior: 'smooth' });
+            }
+        };
+
+        window.addEventListener('keydown', handleScrollKeyDown);
+        return () => window.removeEventListener('keydown', handleScrollKeyDown);
+    }, [isAddMemberModalOpen, isPermissionsModalOpen, isTrapsModalOpen, isDirectivesModalOpen, isToolsModalOpen, isReleaseNotesOpen, editingDirective]);
+
     // Unified keyboard handler for all Dashboard modals
     useEffect(() => {
         const anyModalOpen = isAddMemberModalOpen || isPermissionsModalOpen || isTrapsModalOpen || isDirectivesModalOpen || isToolsModalOpen || editingDirective;
@@ -561,6 +599,20 @@ function Dashboard() {
         return t('dashboard.frequency_none');
     };
 
+    const getTaskTitle = useCallback((task) => {
+        const key = `dashboard.tasks.${task.name}.title`;
+        const translated = t(key);
+        if (translated && translated !== key) return translated;
+        return task.name.replace(/_/g, ' ');
+    }, [t]);
+
+    const getTaskDescription = useCallback((task) => {
+        const key = `dashboard.tasks.${task.name}.desc`;
+        const translated = t(key);
+        if (translated && translated !== key) return translated;
+        return task.description;
+    }, [t]);
+
     return (
         <div className="h-full bg-[var(--bg-primary)] overflow-hidden flex flex-col">
             <AppHeader icon={Gauge} title={t('dashboard.control_center', 'Control Center')}>
@@ -583,12 +635,12 @@ function Dashboard() {
                 initialVersion={APP_VERSION}
             />
 
-            <div className="flex-1 overflow-y-auto">
-                <div className="home-page animate-in fade-in duration-700 !text-left !items-start" style={{ minHeight: 'unset', paddingTop: '2rem' }}>
-                    {/* Glow Backgrounds - More subtle in light mode */}
-                    <div className={`home-page__glow home-page__glow--1 ${isDark ? 'opacity-20' : 'opacity-10 opacity-60 grayscale'}`}></div>
-                    <div className={`home-page__glow home-page__glow--2 ${isDark ? 'opacity-20' : 'opacity-10 opacity-60 grayscale'}`}></div>
-
+            <div
+                ref={scrollContainerRef}
+                tabIndex={0}
+                className="flex-1 overflow-y-auto overflow-x-hidden outline-none focus:outline-none bg-[var(--bg-primary)]"
+            >
+                <div className="w-full max-w-7xl mx-auto p-6 md:p-8 animate-in fade-in duration-300">
                     <div className="w-full">
             {/* Control Center Tabs */}
             {(automationsEnabled || (isAdmin && gnosiMode === 'org')) && <div>
@@ -608,81 +660,84 @@ function Dashboard() {
                 />
 
                 {automationsEnabled && selectedControlTab === 'schedulers' && (
-                    <div className="glass-panel p-6 rounded-2xl border border-[var(--border-primary)]">
-                        <div className="flex items-center mb-6">
-                            <h2 className="text-xl font-bold flex items-center gap-2">
-                                <span className="w-1 h-6 bg-blue-500 rounded-full"></span>
-                                {t('dashboard.tab_schedulers')}
-                            </h2>
-                        </div>
-
+                    <div className="w-full">
                         {schedulerLoading ? (
-                            <p className="text-gray-400">{t('dashboard.loading_tasks')}</p>
+                            <p className="text-[var(--text-secondary)] py-4 text-center">{t('dashboard.loading_tasks')}</p>
                         ) : schedulers.length === 0 ? (
-                            <p className="text-gray-500">{t('dashboard.no_tasks')}</p>
+                            <p className="text-[var(--text-secondary)] py-4 text-center">{t('dashboard.no_tasks')}</p>
                         ) : (
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 w-full">
                                 {schedulers.map(task => (
                                     <div
                                         key={task.name}
-                                        className={`p-5 rounded-xl border transition-all h-full flex flex-col ${task.enabled ? 'border-green-500/40 bg-green-500/5' : 'border-white/10 bg-white/5'}`}
+                                        className={`p-5 rounded-xl border transition-all h-full flex flex-col ${
+                                            task.enabled
+                                                ? 'border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-sm'
+                                                : 'border-[var(--border-primary)] bg-[var(--bg-primary)] opacity-75'
+                                        }`}
                                     >
                                         <div className="flex-1">
-                                            <h3 className="text-sm font-bold uppercase tracking-wide">{task.name.replace(/_/g, ' ')}</h3>
-                                            <p className="text-sm text-[var(--text-secondary)] mt-1">{task.description}</p>
-                                            <p className="text-xs text-[var(--text-secondary)] mt-2">{formatFrequency(task)}</p>
+                                            <h3 className="text-sm font-semibold text-[var(--text-primary)] tracking-wide">
+                                                {getTaskTitle(task)}
+                                            </h3>
+                                            <p className="text-xs text-[var(--text-secondary)] mt-1.5 leading-relaxed">
+                                                {getTaskDescription(task)}
+                                            </p>
+                                            <p className="text-xs text-[var(--text-secondary)] mt-2.5 flex items-center gap-1.5">
+                                                <Clock size={12} className="text-[var(--text-tertiary)]" aria-hidden="true" />
+                                                {formatFrequency(task)}
+                                            </p>
                                             {task.last_run && (
-                                                <p className="text-xs text-[var(--text-secondary)] mt-1">
+                                                <p className="text-[11px] text-[var(--text-tertiary)] mt-1">
                                                     {t('dashboard.last_run')}: {new Date(task.last_run).toLocaleString()}
                                                 </p>
                                             )}
                                         </div>
 
-                                        <div className="mt-4 flex flex-wrap items-center gap-3">
-                                            <div className="flex items-center gap-3">
+                                        <div className="mt-4 pt-3 border-t border-[var(--border-primary)] flex flex-wrap items-center justify-between gap-3">
+                                            <div className="flex items-center gap-2.5">
                                                 <label className="relative inline-flex items-center cursor-pointer">
                                                     <input 
                                                         type="checkbox" 
                                                         className="sr-only peer"
                                                         checked={task.enabled}
                                                         onChange={(e) => updateScheduler(task, { enabled: e.target.checked })}
-                                                        aria-label={t('dashboard.toggle_task', 'Toggle {{task}}', { task: task.name.replace(/_/g, ' ') })}
+                                                        aria-label={t('dashboard.toggle_task', 'Toggle {{task}}', { task: getTaskTitle(task) })}
                                                     />
-                                                    <div className="w-10 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-5 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                                                    <div className="w-9 h-5 bg-[var(--bg-secondary)] border border-[var(--border-primary)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-4 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--gnosi-blue)] peer-checked:border-[var(--gnosi-blue)]"></div>
                                                 </label>
-                                                <span className={`text-[10px] font-bold uppercase tracking-widest ${task.enabled ? 'text-green-700 dark:text-green-300' : 'text-[var(--text-secondary)]'}`}>
+                                                <span className="text-xs text-[var(--text-secondary)] font-medium">
                                                     {task.enabled ? t('dashboard.active') : t('dashboard.inactive')}
                                                 </span>
+
+                                                {typeof task.interval_minutes === 'number' && (
+                                                    <select
+                                                        className="text-xs bg-[var(--bg-secondary)] border border-[var(--border-primary)] text-[var(--text-primary)] rounded-lg px-2.5 py-1.5 focus:border-[var(--gnosi-blue)] outline-none"
+                                                        value={task.interval_minutes}
+                                                        onChange={(e) => updateScheduler(task, { interval_minutes: Number(e.target.value) })}
+                                                        aria-label={t('dashboard.task_interval_label', 'Interval for {{task}}', { task: getTaskTitle(task) })}
+                                                    >
+                                                        <option value={15}>{t('dashboard.time_15_min')}</option>
+                                                        <option value={30}>{t('dashboard.time_30_min')}</option>
+                                                        <option value={45}>{t('dashboard.time_45_min')}</option>
+                                                        <option value={60}>{t('dashboard.time_1_hour')}</option>
+                                                        <option value={90}>{t('dashboard.time_1_5_hours')}</option>
+                                                        <option value={120}>{t('dashboard.time_2_hours')}</option>
+                                                        <option value={180}>{t('dashboard.time_3_hours')}</option>
+                                                        <option value={300}>{t('dashboard.time_5_hours')}</option>
+                                                        <option value={360}>{t('dashboard.time_6_hours')}</option>
+                                                        <option value={720}>{t('dashboard.time_12_hours')}</option>
+                                                        <option value={1440}>{t('dashboard.time_1_day')}</option>
+                                                        <option value={10080}>{t('dashboard.time_1_week')}</option>
+                                                    </select>
+                                                )}
                                             </div>
 
-                                            {typeof task.interval_minutes === 'number' && (
-                                                <select
-                                                    className="text-xs bg-[var(--bg-secondary)] border border-[var(--border-primary)] text-[var(--text-primary)] rounded-lg px-2 py-1"
-                                                    value={task.interval_minutes}
-                                                    onChange={(e) => updateScheduler(task, { interval_minutes: Number(e.target.value) })}
-                                                    aria-label={t('dashboard.task_interval_label', 'Interval for {{task}}', { task: task.name.replace(/_/g, ' ') })}
-                                                >
-                                                    <option value={15}>{t('dashboard.time_15_min')}</option>
-                                                    <option value={30}>{t('dashboard.time_30_min')}</option>
-                                                    <option value={45}>{t('dashboard.time_45_min')}</option>
-                                                    <option value={60}>{t('dashboard.time_1_hour')}</option>
-                                                    <option value={90}>{t('dashboard.time_1_5_hours')}</option>
-                                                    <option value={120}>{t('dashboard.time_2_hours')}</option>
-                                                    <option value={180}>{t('dashboard.time_3_hours')}</option>
-                                                    <option value={300}>{t('dashboard.time_5_hours')}</option>
-                                                    <option value={360}>{t('dashboard.time_6_hours')}</option>
-                                                    <option value={720}>{t('dashboard.time_12_hours')}</option>
-                                                    <option value={1440}>{t('dashboard.time_1_day')}</option>
-                                                    <option value={10080}>{t('dashboard.time_1_week')}</option>
-                                                </select>
-                                            )}
-
                                             <button
+                                                type="button"
                                                 onClick={() => runSchedulerNow(task.name)}
                                                 disabled={executingTasks.has(task.name)}
-                                                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold transition-all ${
-                                                    executingTasks.has(task.name) ? 'opacity-50 cursor-not-allowed' : ''
-                                                }`}
+                                                className="btn-gnosi btn-gnosi-secondary text-xs px-3 py-1.5 inline-flex items-center gap-1.5 ml-auto"
                                             >
                                                 {executingTasks.has(task.name) ? (
                                                     <Loader2 size={12} className="animate-spin" />

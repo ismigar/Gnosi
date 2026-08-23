@@ -33,8 +33,8 @@ export function PluginRoute({ pluginId, children }) {
             className="flex min-h-[60vh] items-center justify-center px-6 py-12"
             aria-labelledby="disabled-plugin-title"
         >
-            <div className="max-w-lg rounded-3xl border border-[var(--border-primary)] bg-[var(--bg-primary)] p-8 text-center shadow-sm">
-                <Puzzle aria-hidden="true" className="mx-auto mb-4 text-indigo-500" size={38} />
+            <div className="max-w-lg rounded-2xl border border-[var(--border-primary)] bg-[var(--bg-secondary)] p-8 text-center shadow-sm">
+                <Puzzle aria-hidden="true" className="mx-auto mb-4 text-[var(--gnosi-primary)]" size={38} />
                 <h1 id="disabled-plugin-title" className="mb-3 text-xl font-semibold text-[var(--text-primary)]">
                     {t('settings.plugins.activation_required_title', '{{name}} is disabled', { name })}
                 </h1>
@@ -43,7 +43,7 @@ export function PluginRoute({ pluginId, children }) {
                 </p>
                 <button
                     type="button"
-                    className="btn-gnosi-primary"
+                    className="btn-gnosi btn-gnosi-primary inline-flex items-center gap-2"
                     onClick={() => openPluginSettings(pluginId)}
                 >
                     <Settings size={16} aria-hidden="true" />

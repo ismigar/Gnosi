@@ -46,7 +46,7 @@ const work = {
 
 async function renderPage() {
     axios.get.mockImplementation((url) => {
-        if (url === '/api/vault/literature/configuration') return Promise.resolve({ data: { sources: [{ id: 'crossref', name: 'Crossref', automated: true, enabled: true, available: true, hidden: false, kind: 'api' }] } });
+        if (url === '/api/vault/literature/configuration') return Promise.resolve({ data: { ai_agent_id: 'research-agent', ai_agents: [{ id: 'research-agent', name: 'Research agent', model: 'test-model' }], sources: [{ id: 'crossref', name: 'Crossref', automated: true, enabled: true, available: true, hidden: false, kind: 'api' }] } });
         if (url === '/api/vault/literature/searches') return Promise.resolve({ data: { searches: [] } });
         if (url === '/api/vault/literature/reviews') return Promise.resolve({ data: { reviews: [] } });
         if (url.startsWith('/api/vault/literature/searches/')) return Promise.resolve({ data: { id: 'search-1', state: 'completed', result_count: 1, source_status: { crossref: { state: 'completed', count: 1 } }, results: [work], errors: [] } });
@@ -136,6 +136,48 @@ describe('LiteraturePage', () => {
         expect(document.activeElement).toBe(container.querySelector('input[aria-label="literature.search.query"]'));
     });
 
+    it('allows combining several language filters in one search', async () => {
+        await renderPage();
+        const filters = [...container.querySelectorAll('button')].find((button) => button.textContent.includes('literature.search.filters'));
+        await act(async () => filters.click());
+        await act(async () => container.querySelector('.literature-language-filter summary').click());
+        const languageLabels = [...container.querySelectorAll('.literature-language-filter label')];
+        await act(async () => languageLabels.find((label) => label.textContent.includes('Español')).querySelector('input').click());
+        await act(async () => languageLabels.find((label) => label.textContent.includes('English')).querySelector('input').click());
+        const input = container.querySelector('input[aria-label="literature.search.query"]');
+        await typeInto(input, 'historical periodization');
+        await act(async () => container.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+        expect(axios.post).toHaveBeenCalledWith('/api/vault/literature/searches', expect.objectContaining({
+            filters: expect.objectContaining({ languages: ['es', 'en'] }),
+        }));
+    });
+
+    it('renders AI strategy help as editable research controls rather than raw JSON', async () => {
+        await renderPage();
+        const input = container.querySelector('input[aria-label="literature.search.query"]');
+        await typeInto(input, 'historical periodization');
+        axios.post.mockResolvedValueOnce({ data: {
+            operation: 'query_strategy',
+            audit: { model: 'test-model' },
+            result: {
+                framework: 'PICO', concepts: { P: { en: 'historical periodization' } },
+                synonyms: { P: ['historical periods', 'historical stages'] },
+                boolean_query: '"historical periodization" OR "historical stages"', cautions: ['Narrow the scope if necessary'],
+            },
+        } });
+
+        const ai = [...container.querySelectorAll('button')].find((button) => button.textContent.includes('literature.ai.assist'));
+        await act(async () => ai.click());
+        const proposal = container.querySelector('.literature-ai-proposal');
+        expect(proposal.querySelector('textarea')).not.toBeNull();
+        expect(proposal.textContent).toContain('historical periodization');
+        expect(proposal.querySelector('details').hasAttribute('open')).toBe(false);
+        expect(axios.post).toHaveBeenCalledWith('/api/vault/literature/ai', expect.objectContaining({ agent_id: 'research-agent', payload: expect.objectContaining({ framework: 'AUTO' }) }));
+        const searchProposal = [...proposal.querySelectorAll('button')].find((button) => button.textContent.includes('literature.ai.search_with_query'));
+        await act(async () => searchProposal.click());
+        expect(axios.post).toHaveBeenCalledWith('/api/vault/literature/searches', expect.objectContaining({ query: '"historical periodization" OR "historical stages"' }));
+    });
+
     it('uses server-sent events, supports cancellation, and falls back to the same paginated contract', async () => {
         const streams = [];
         class FakeEventSource {
@@ -182,5 +224,32 @@ describe('LiteraturePage', () => {
             protocol: 'Search all configured academic repositories.',
             criteria: { include: ['Adults', 'Peer reviewed'], exclude: ['Wrong population'] },
         }));
+    });
+
+    it('opens the resources plugin configuration when clicking configure sources', async () => {
+        const listener = vi.fn();
+        window.addEventListener('open-settings', listener);
+        axios.get.mockImplementation((url) => {
+            if (url === '/api/vault/literature/configuration') return Promise.resolve({ data: { ai_agent_id: '', ai_agents: [], sources: [
+                { id: 'crossref', name: 'Crossref', automated: true, enabled: true, available: true, hidden: false, kind: 'api' },
+                { id: 'dialnet-articles', name: 'Dialnet Articles', automated: true, enabled: true, available: false, hidden: false, kind: 'oai' },
+            ] } });
+            if (url === '/api/vault/literature/searches') return Promise.resolve({ data: { searches: [] } });
+            if (url === '/api/vault/literature/reviews') return Promise.resolve({ data: { reviews: [] } });
+            return Promise.resolve({ data: {} });
+        });
+        container = document.createElement('div');
+        document.body.appendChild(container);
+        root = createRoot(container);
+        await act(async () => root.render(<LiteraturePage />));
+        await act(async () => {});
+
+        const configure = [...container.querySelectorAll('button')].find((button) => button.textContent.includes('literature.search.configure_sources'));
+        expect(configure).not.toBeNull();
+        await act(async () => configure.click());
+        expect(listener).toHaveBeenCalledWith(expect.objectContaining({
+            detail: { tab: 'plugins', pluginId: 'resources' },
+        }));
+        window.removeEventListener('open-settings', listener);
     });
 });
