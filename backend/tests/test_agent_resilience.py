@@ -116,6 +116,32 @@ def test_in_flight_model_operation_is_cancelled():
     assert outcome.get("cancelled") is True
 
 
+def test_reused_async_model_keeps_one_live_event_loop():
+    class LoopBoundModel(_Model):
+        def __init__(self):
+            super().__init__()
+            self.loops = []
+
+        async def ainvoke(self, _input, **_kwargs):
+            self.loops.append(asyncio.get_running_loop())
+            await asyncio.sleep(0)
+            return self.response
+
+    model = LoopBoundModel()
+    first_token = create_cancel_token()
+    second_token = create_cancel_token()
+    try:
+        assert invoke_cancellable(model, ["first"], first_token).content == "ok"
+        assert invoke_cancellable(model, ["second"], second_token).content == "ok"
+    finally:
+        release(first_token)
+        release(second_token)
+
+    assert len(model.loops) == 2
+    assert model.loops[0] is model.loops[1]
+    assert not model.loops[0].is_closed()
+
+
 def test_cancellation_registry_is_request_scoped():
     token = create_cancel_token()
     assert not is_cancelled(token)

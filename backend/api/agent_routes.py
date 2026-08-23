@@ -2101,8 +2101,8 @@ async def chat_endpoint(
                         else {}
                     ),
                     **(
-                        {"gnosi_notebook_revision": notebook_turn["revision"]}
-                        if notebook_turn
+                        {"gnosi_notebook_revision": notebook_turn.get("revision")}
+                        if notebook_turn and notebook_turn.get("revision") is not None
                         else {}
                     ),
                     **(

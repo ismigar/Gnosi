@@ -13,6 +13,7 @@ import {
     startConfirmationRefresh,
 } from './agentConfirmationUtils';
 import { chatScrollDeltaForComposerKey } from './agentChatKeyboardUtils';
+import { resolveAgentRuntimeSelection } from './agentChatAgentUtils';
 import {
     boundedProcessingMs,
     boundedJob,
@@ -513,11 +514,18 @@ const AgentChat = ({
                 // an unrelated provider before the user configures it.
                 const agents = (ai.agents || []).filter((agent) => agent.enabled !== false);
                 setAgentList(agents);
-                const currentId = forcedAgentId || selectedAgentId || activeId;
-                const agent = agents.find((a) => a.id === currentId) || agents.find((a) => a.id === activeId) || agents[0];
+                const selection = resolveAgentRuntimeSelection(
+                    agents,
+                    forcedAgentId,
+                    selectedAgentId,
+                    activeId,
+                );
+                const agent = selection.agent;
                 if (agent) {
                     setAgentConfig(agent);
-                    setSelectedAgentId(agent.id);
+                }
+                if (selection.selectedAgentId) {
+                    setSelectedAgentId(selection.selectedAgentId);
                 }
             }
         } catch (e) {
@@ -530,14 +538,20 @@ const AgentChat = ({
 
     useEffect(() => {
         if (!agentList.length) return;
-        const next = agentList.find((a) => a.id === selectedAgentId) || agentList[0];
+        const selection = resolveAgentRuntimeSelection(
+            agentList,
+            forcedAgentId,
+            selectedAgentId,
+            '',
+        );
+        const next = selection.agent;
         if (next) {
             setAgentConfig(next);
-            if (next.id !== selectedAgentId) {
-                setSelectedAgentId(next.id);
+            if (selection.selectedAgentId !== selectedAgentId) {
+                setSelectedAgentId(selection.selectedAgentId);
             }
         }
-    }, [selectedAgentId, agentList]);
+    }, [forcedAgentId, selectedAgentId, agentList]);
 
     const loadMentionCatalog = useCallback(async () => {
         try {

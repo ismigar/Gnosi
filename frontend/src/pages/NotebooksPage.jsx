@@ -4,14 +4,19 @@ import {
     AlertCircle,
     ArrowLeft,
     BookOpen,
+    CheckCheck,
     CheckCircle2,
+    ChevronDown,
     ChevronLeft,
     ChevronRight,
     CircleStop,
+    Folder,
+    FolderPlus,
     Globe2,
     LoaderCircle,
     Lock,
     MessageSquare,
+    Pencil,
     Plus,
     RefreshCw,
     Search,
@@ -169,6 +174,7 @@ function AddResourcesDialog({ notebookId, currentIds, onClose, onAdded }) {
     const [selected, setSelected] = useState(new Set());
     const [saving, setSaving] = useState(false);
     const dialogRef = useRef(null);
+
     useModalKeyboard({
         isOpen: true,
         onClose,
@@ -176,6 +182,7 @@ function AddResourcesDialog({ notebookId, currentIds, onClose, onAdded }) {
         containerRef: dialogRef,
         trapFocus: true,
     });
+
     useEffect(() => {
         const controller = new AbortController();
         fetch(notebookResourceCatalogUrl({
@@ -196,11 +203,14 @@ function AddResourcesDialog({ notebookId, currentIds, onClose, onAdded }) {
             .catch((error) => { if (error.name !== 'AbortError') console.error('Could not load Resources', error); });
         return () => controller.abort();
     }, [currentIds, data.page, filters, notebookId, query]);
+
     const pageCount = Math.max(1, Math.ceil(data.total / data.page_size));
+
     const updateFilter = (key, value) => {
         setFilters((previous) => key ? { ...previous, [key]: value } : { ...EMPTY_RESOURCE_FILTERS });
         setData((previous) => ({ ...previous, page: 1 }));
     };
+
     const add = async () => {
         if (!selected.size) return;
         setSaving(true);
@@ -221,6 +231,7 @@ function AddResourcesDialog({ notebookId, currentIds, onClose, onAdded }) {
             setSaving(false);
         }
     };
+
     return (
         <div className="notebook-modal-backdrop">
             <section
@@ -278,95 +289,75 @@ function AddResourcesDialog({ notebookId, currentIds, onClose, onAdded }) {
     );
 }
 
-function ChatContextDialog({ options, selectedSourceIds, selectedNotebookIds, onApply, onClose }) {
+function NotebookGroupDialog({ isOpen, initialName = '', onClose, onSave }) {
     const { t } = useTranslation();
-    const [sourceIds, setSourceIds] = useState(() => new Set(selectedSourceIds));
-    const [notebookIds, setNotebookIds] = useState(() => new Set(selectedNotebookIds));
+    const [name, setName] = useState(initialName);
     const dialogRef = useRef(null);
-    const totalSelected = sourceIds.size + (options.notebooks || [])
-        .filter((notebook) => notebookIds.has(String(notebook.id)))
-        .reduce((total, notebook) => total + Number(notebook.source_count || 0), 0);
+
+    useEffect(() => {
+        setName(initialName || '');
+    }, [initialName, isOpen]);
+
     useModalKeyboard({
-        isOpen: true,
+        isOpen,
         onClose,
-        onConfirm: () => onApply(sourceIds, notebookIds),
-        confirmDisabled: totalSelected === 0,
         containerRef: dialogRef,
         trapFocus: true,
     });
-    const toggle = (setter, id) => setter((previous) => {
-        const next = new Set(previous);
-        if (next.has(id)) next.delete(id); else next.add(id);
-        return next;
-    });
-    const allSourcesSelected = options.sources.length > 0
-        && options.sources.every((source) => sourceIds.has(String(source.source_id)));
+
+    if (!isOpen) return null;
+
+    const handleSubmit = (event) => {
+        event.preventDefault();
+        const trimmed = name.trim();
+        if (!trimmed) return;
+        onSave(trimmed);
+        onClose();
+    };
+
     return (
         <div className="notebook-modal-backdrop">
-            <section
+            <div
                 ref={dialogRef}
-                className="notebook-modal notebook-modal--compact notebook-context-modal"
+                className="notebook-modal notebook-modal--compact"
                 role="dialog"
                 aria-modal="true"
-                aria-labelledby="notebook-chat-context-title"
+                aria-labelledby="notebook-group-dialog-title"
             >
                 <header className="notebook-modal__header">
                     <div>
-                        <h2 id="notebook-chat-context-title">{t('notebooks.chat_context_title', 'Choose conversation sources')}</h2>
-                        <p>{t('notebooks.chat_context_help', 'Your next questions will use only these sources. Other notebooks contribute all their available sources.')}</p>
+                        <h2 id="notebook-group-dialog-title">
+                            {initialName ? t('notebooks.edit_group', 'Edit group') : t('notebooks.create_group', 'Create group')}
+                        </h2>
                     </div>
-                    <button type="button" className="notebook-icon-button" onClick={onClose} aria-label={t('common.close', 'Close')}><X size={18} /></button>
+                    <button type="button" className="notebook-icon-button" onClick={onClose} aria-label={t('common.close', 'Close')}>
+                        <X size={18} />
+                    </button>
                 </header>
-                <div className="notebook-modal__body">
-                    <fieldset className="notebook-context-group">
-                        <legend>{t('notebooks.this_notebook_sources', 'Sources in this notebook')}</legend>
-                        <button
-                            type="button"
-                            className="notebook-context-select-all"
-                            aria-pressed={allSourcesSelected}
-                            onClick={() => setSourceIds(allSourcesSelected
-                                ? new Set()
-                                : new Set(options.sources.map((source) => String(source.source_id))))}
-                        >
-                            {allSourcesSelected ? t('notebooks.clear_source_selection', 'Clear selection') : t('notebooks.select_all_sources', 'Select all sources')}
+                <form onSubmit={handleSubmit}>
+                    <div className="notebook-modal__body">
+                        <label className="notebook-form-label">
+                            <span>{t('notebooks.group_name_label', 'Group name')}</span>
+                            <input
+                                className="notebook-form-input"
+                                value={name}
+                                onChange={(event) => setName(event.target.value)}
+                                placeholder={t('notebooks.group_name_placeholder', 'e.g. Primary sources')}
+                                autoFocus
+                                required
+                            />
+                        </label>
+                    </div>
+                    <footer className="notebook-modal__footer">
+                        <button type="button" className="btn-gnosi" onClick={onClose}>
+                            {t('common.cancel', 'Cancel')}
                         </button>
-                        <div className="notebook-context-list">
-                            {options.sources.map((source) => {
-                                const id = String(source.source_id);
-                                const checked = sourceIds.has(id);
-                                return (
-                                    <label key={id} className="notebook-context-option">
-                                        <input type="checkbox" checked={checked} onChange={() => toggle(setSourceIds, id)} />
-                                        <span>{source.kind === 'url' ? <Globe2 size={14} /> : <BookOpen size={14} />}</span>
-                                        <span><strong>{source.label}</strong><small>{source.status === 'stale' ? t('notebooks.status.stale', 'Outdated') : t('notebooks.status.available', 'Available')}</small></span>
-                                    </label>
-                                );
-                            })}
-                        </div>
-                    </fieldset>
-                    <fieldset className="notebook-context-group">
-                        <legend>{t('notebooks.other_notebooks', 'Other notebooks')}</legend>
-                        <p>{t('notebooks.other_notebooks_help', 'Selecting a notebook includes all its available sources.')}</p>
-                        <div className="notebook-context-list">
-                            {options.notebooks.length ? options.notebooks.map((item) => {
-                                const id = String(item.id);
-                                return (
-                                    <label key={id} className="notebook-context-option">
-                                        <input type="checkbox" checked={notebookIds.has(id)} onChange={() => toggle(setNotebookIds, id)} />
-                                        <BookOpen size={14} />
-                                        <span><strong>{item.title}</strong><small>{t('notebooks.source_count', '{{count}} source(s)', { count: item.source_count })}</small></span>
-                                    </label>
-                                );
-                            }) : <p className="notebook-empty">{t('notebooks.no_other_notebooks', 'No other available notebooks.')}</p>}
-                        </div>
-                    </fieldset>
-                </div>
-                <footer className="notebook-modal__footer">
-                    <span className="notebook-context-count" role="status">{t('notebooks.chat_context_count', '{{count}} source(s) selected', { count: totalSelected })}</span>
-                    <button type="button" className="btn-gnosi" onClick={onClose}>{t('common.cancel', 'Cancel')}</button>
-                    <button type="button" className="btn-gnosi btn-gnosi-primary" disabled={totalSelected === 0} onClick={() => onApply(sourceIds, notebookIds)}>{t('notebooks.apply_chat_context', 'Apply')}</button>
-                </footer>
-            </section>
+                        <button type="submit" className="btn-gnosi btn-gnosi-primary" disabled={!name.trim()}>
+                            {t('common.save', 'Save')}
+                        </button>
+                    </footer>
+                </form>
+            </div>
         </div>
     );
 }
@@ -381,11 +372,12 @@ export function NotebookDetail({ notebookId }) {
     const [showAdd, setShowAdd] = useState(false);
     const [showDelete, setShowDelete] = useState(false);
     const [showClear, setShowClear] = useState(false);
-    const [showChatContext, setShowChatContext] = useState(false);
-    const [chatOptions, setChatOptions] = useState({ sources: [], notebooks: [] });
+    const [showGroupModal, setShowGroupModal] = useState(false);
+    const [editingGroup, setEditingGroup] = useState(null);
+    const [chatOptions, setChatOptions] = useState({ sources: [] });
     const [chatOptionsLoaded, setChatOptionsLoaded] = useState(false);
     const [selectedSourceIds, setSelectedSourceIds] = useState(new Set());
-    const [selectedNotebookIds, setSelectedNotebookIds] = useState(new Set());
+    const [collapsedGroupIds, setCollapsedGroupIds] = useState(new Set());
     const chatSelectionInitializedRef = useRef(false);
     const [chatEpoch, setChatEpoch] = useState(0);
     const [removingId, setRemovingId] = useState('');
@@ -393,6 +385,78 @@ export function NotebookDetail({ notebookId }) {
     const [cancelling, setCancelling] = useState(false);
     const mobileTabRefs = useRef({});
     const useResponsiveTabs = useMediaQuery('(max-width: 1120px)');
+
+    const toggleCollapse = (groupId) => {
+        const id = String(groupId);
+        setCollapsedGroupIds((previous) => {
+            const next = new Set(previous);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
+
+    const allSourcesSelected = chatOptions.sources.length > 0
+        && chatOptions.sources.every((source) => selectedSourceIds.has(String(source.source_id)));
+
+    const toggleAllSources = () => {
+        if (allSourcesSelected) {
+            setSelectedSourceIds(new Set());
+        } else {
+            setSelectedSourceIds(new Set(chatOptions.sources.map((s) => String(s.source_id))));
+        }
+    };
+
+    const toggleSingleSource = (sourceId) => {
+        const sId = String(sourceId);
+        setSelectedSourceIds((previous) => {
+            const next = new Set(previous);
+            if (next.has(sId)) next.delete(sId);
+            else next.add(sId);
+            return next;
+        });
+    };
+
+    const toggleResourceSources = (resource) => {
+        const ids = (resource.sources || []).map((s) => String(s.source_id));
+        if (ids.length === 0) return;
+        const allSelected = ids.every((id) => selectedSourceIds.has(id));
+        setSelectedSourceIds((previous) => {
+            const next = new Set(previous);
+            if (allSelected) {
+                ids.forEach((id) => next.delete(id));
+            } else {
+                ids.forEach((id) => next.add(id));
+            }
+            return next;
+        });
+    };
+
+    const getGroupSourceIds = (group) => {
+        const resIds = new Set((group.resource_ids || []).map(String));
+        const ids = [];
+        (sources.items || []).forEach((resource) => {
+            if (resIds.has(String(resource.resource_id))) {
+                (resource.sources || []).forEach((s) => ids.push(String(s.source_id)));
+            }
+        });
+        return ids;
+    };
+
+    const toggleGroupSources = (group) => {
+        const grpSourceIds = getGroupSourceIds(group);
+        if (!grpSourceIds.length) return;
+        const isAllSelected = grpSourceIds.every((id) => selectedSourceIds.has(id));
+        setSelectedSourceIds((previous) => {
+            const next = new Set(previous);
+            if (isAllSelected) {
+                grpSourceIds.forEach((id) => next.delete(id));
+            } else {
+                grpSourceIds.forEach((id) => next.add(id));
+            }
+            return next;
+        });
+    };
 
     const selectMobileTabFromKeyboard = (event, currentTab) => {
         const currentIndex = MOBILE_TAB_IDS.indexOf(currentTab);
@@ -446,17 +510,13 @@ export function NotebookDetail({ notebookId }) {
         fetch(`/api/notebooks/${encodeURIComponent(notebookId)}/chat-sources`, { signal: controller.signal })
             .then((response) => response.ok ? response.json() : Promise.reject(new Error(`Chat source list failed (${response.status})`)))
             .then((data) => {
-                if (!Array.isArray(data.sources) || !Array.isArray(data.notebooks)) {
+                if (!Array.isArray(data.sources)) {
                     throw new Error('Chat source list returned an invalid payload');
                 }
-                const nextOptions = {
-                    sources: data.sources,
-                    notebooks: data.notebooks,
-                };
-                setChatOptions(nextOptions);
+                setChatOptions({ sources: data.sources });
                 setChatOptionsLoaded(true);
                 const availableSourceIds = new Set(
-                    nextOptions.sources.map((source) => String(source.source_id)),
+                    data.sources.map((source) => String(source.source_id)),
                 );
                 if (!chatSelectionInitializedRef.current) {
                     chatSelectionInitializedRef.current = true;
@@ -466,10 +526,6 @@ export function NotebookDetail({ notebookId }) {
                         [...previous].filter((id) => availableSourceIds.has(id)),
                     ));
                 }
-                setSelectedNotebookIds((previous) => {
-                    const available = new Set(nextOptions.notebooks.map((item) => String(item.id)));
-                    return new Set([...previous].filter((id) => available.has(id)));
-                });
             })
             .catch((error) => {
                 if (error.name !== 'AbortError') {
@@ -497,6 +553,45 @@ export function NotebookDetail({ notebookId }) {
         }
         setNotebook(await response.json());
     };
+
+    const handleSaveGroup = async (name) => {
+        const trimmed = name.trim();
+        if (!trimmed) return;
+        const currentGroups = notebook.groups || [];
+        let nextGroups;
+        if (editingGroup) {
+            nextGroups = currentGroups.map((g) => (g.id === editingGroup.id ? { ...g, name: trimmed } : g));
+        } else {
+            const newGroup = {
+                id: `grp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+                name: trimmed,
+                resource_ids: [],
+            };
+            nextGroups = [...currentGroups, newGroup];
+        }
+        await patchNotebook({ groups: nextGroups });
+        setEditingGroup(null);
+    };
+
+    const handleDeleteGroup = async (groupId) => {
+        const currentGroups = notebook.groups || [];
+        const nextGroups = currentGroups.filter((g) => g.id !== groupId);
+        await patchNotebook({ groups: nextGroups });
+    };
+
+    const handleMoveResource = async (resourceId, targetGroupId) => {
+        const rId = String(resourceId);
+        const currentGroups = notebook.groups || [];
+        const nextGroups = currentGroups.map((g) => {
+            const withoutResource = (g.resource_ids || []).map(String).filter((id) => id !== rId);
+            if (g.id === targetGroupId) {
+                return { ...g, resource_ids: [...withoutResource, rId] };
+            }
+            return { ...g, resource_ids: withoutResource };
+        });
+        await patchNotebook({ groups: nextGroups });
+    };
+
     const refresh = async () => {
         try {
             const response = await fetch(`/api/notebooks/${encodeURIComponent(notebookId)}/refresh`, {
@@ -582,12 +677,9 @@ export function NotebookDetail({ notebookId }) {
 
     if (loading || !notebook) return <div className="notebooks-page notebook-detail-loading"><LoaderCircle className="animate-spin" /> {t('common.loading', 'Loading...')}</div>;
     const sourcePageCount = Math.max(1, Math.ceil((sources.total || 0) / (sources.page_size || 50)));
-    const selectedNotebookOptions = (chatOptions.notebooks || [])
-        .filter((item) => selectedNotebookIds.has(String(item.id)));
-    const selectedSourceCount = (chatOptionsLoaded
+    const selectedSourceCount = chatOptionsLoaded
         ? selectedSourceIds.size
-        : Number(notebook.source_counts?.available || 0)) + selectedNotebookOptions
-        .reduce((total, item) => total + Number(item.source_count || 0), 0);
+        : Number(notebook.source_counts?.available || 0);
     const chatContext = [
         {
             id: `notebook:${notebook.id}`,
@@ -598,14 +690,125 @@ export function NotebookDetail({ notebookId }) {
                 ? { selection: 'sources', source_ids: [...selectedSourceIds] }
                 : { selection: 'all', source_ids: [] },
         },
-        ...selectedNotebookOptions.map((item) => ({
-            id: `notebook:${item.id}`,
-            type: 'notebook',
-            ref: item.id,
-            label: item.title,
-            scope: { selection: 'all', source_ids: [] },
-        })),
     ];
+
+    const customGroups = notebook.groups || [];
+    const groupedResourceIds = new Set(customGroups.flatMap((g) => (g.resource_ids || []).map(String)));
+    const ungroupedResources = (sources.items || []).filter(
+        (r) => !groupedResourceIds.has(String(r.resource_id)),
+    );
+
+    const renderResourceCard = (resource, currentGroupId) => {
+        const resourceSourceIds = (resource.sources || []).map((s) => String(s.source_id));
+        const isSelected = resourceSourceIds.length > 0
+            && resourceSourceIds.every((id) => selectedSourceIds.has(id));
+
+        return (
+            <article
+                key={resource.resource_id}
+                className={`notebook-source-card ${isSelected ? 'is-selected' : ''}`}
+            >
+                <div className="notebook-source-card__header">
+                    <div className="notebook-source-card__title-row">
+                        <input
+                            type="checkbox"
+                            className="notebook-source-checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleResourceSources(resource)}
+                            aria-label={resource.title || resource.resource_id}
+                        />
+                        <span className="notebook-source-card__icon" aria-hidden="true">
+                            {resource.sources?.[0]?.kind === 'url' ? <Globe2 size={13} /> : <BookOpen size={13} />}
+                        </span>
+                        <strong className="notebook-source-card__title" title={resource.title || resource.resource_id}>
+                            {resource.title || resource.resource_id}
+                        </strong>
+                        {resource.state && resource.state !== 'available' && (
+                            <StatusBadge status={resource.state} />
+                        )}
+                    </div>
+                    {notebook.can_manage && (
+                        <div className="notebook-source-card__actions">
+                            {customGroups.length > 0 && (
+                                <select
+                                    className="notebook-group-select"
+                                    value={currentGroupId || ''}
+                                    onChange={(event) => handleMoveResource(resource.resource_id, event.target.value)}
+                                    title={t('notebooks.move_to_group', 'Move to group...')}
+                                    aria-label={t('notebooks.move_to_group', 'Move to group...')}
+                                >
+                                    <option value="">{t('notebooks.ungrouped', 'Ungrouped')}</option>
+                                    {customGroups.map((g) => (
+                                        <option key={g.id} value={g.id}>{g.name}</option>
+                                    ))}
+                                </select>
+                            )}
+                            {['error', 'stale'].includes(resource.state) && (
+                                <button
+                                    type="button"
+                                    className="notebook-icon-button notebook-icon-button--small"
+                                    disabled={retryingId === resource.resource_id || ACTIVE_STATES.has(notebook.progress?.state)}
+                                    onClick={() => retryResource(resource.resource_id)}
+                                    aria-label={t('notebooks.retry_resource', 'Retry Resource')}
+                                >
+                                    <RefreshCw size={13} className={retryingId === resource.resource_id ? 'animate-spin' : ''} />
+                                </button>
+                            )}
+                            <button
+                                type="button"
+                                className="notebook-icon-button notebook-icon-button--small"
+                                disabled={removingId === resource.resource_id}
+                                onClick={() => remove(resource.resource_id)}
+                                aria-label={t('notebooks.remove_resource', 'Remove Resource')}
+                            >
+                                <X size={14} />
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                {resource.error && <p className="notebook-source-error">{resource.error}</p>}
+                {resource.last_checked_at && (
+                    <p className="notebook-source-checked">
+                        {t('notebooks.last_checked', 'Last checked: {{time}}', { time: new Date(resource.last_checked_at).toLocaleString() })}
+                    </p>
+                )}
+
+                {resource.sources && resource.sources.length > 1 && (
+                    <ul className="notebook-group-sources-list">
+                        {resource.sources.map((source) => {
+                            const sId = String(source.source_id);
+                            const isChecked = selectedSourceIds.has(sId);
+                            return (
+                                <li key={source.source_id} className={`notebook-group-source-item ${isChecked ? 'is-selected' : ''}`}>
+                                    <div className="notebook-group-source-item__main">
+                                        <input
+                                            type="checkbox"
+                                            className="notebook-source-checkbox"
+                                            checked={isChecked}
+                                            onChange={() => toggleSingleSource(source.source_id)}
+                                            aria-label={source.label}
+                                        />
+                                        <span className="notebook-group-source-icon">
+                                            {source.kind === 'url' ? <Globe2 size={13} /> : <BookOpen size={13} />}
+                                        </span>
+                                        <span className="notebook-group-source-label" title={source.label}>
+                                            {source.label}
+                                        </span>
+                                    </div>
+                                    <div className="notebook-group-source-item__status">
+                                        {source.error && <small className="notebook-source-error-inline">{source.error}</small>}
+                                        {source.status && source.status !== 'available' && <StatusBadge status={source.status} />}
+                                    </div>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                )}
+            </article>
+        );
+    };
+
     return (
         <div className="notebook-detail">
             <header className="notebook-detail__header">
@@ -675,24 +878,142 @@ export function NotebookDetail({ notebookId }) {
                     aria-labelledby={useResponsiveTabs ? 'notebook-sources-tab' : undefined}
                     hidden={useResponsiveTabs && mobileTab !== 'sources'}
                 >
-                    <div className="notebook-panel-heading"><div><h2>{t('notebooks.sources_tab', 'Sources')}</h2><span>{t('notebooks.resources_sources_summary', '{{resources}} Resources · {{sources}} sources', { resources: notebook.resource_count, sources: notebook.source_counts?.total || 0 })}</span></div>{notebook.can_manage && <button className="notebook-icon-button" onClick={() => setShowAdd(true)} aria-label={t('notebooks.add_resources', 'Add Resources')}><Plus size={17} /></button>}</div>
+                    <div className="notebook-panel-heading">
+                        <div>
+                            <h2>{t('notebooks.sources_tab', 'Sources')}</h2>
+                            <span>{t('notebooks.resources_sources_summary', '{{resources}} Resources · {{sources}} sources', { resources: notebook.resource_count, sources: notebook.source_counts?.total || 0 })}</span>
+                        </div>
+                        <div className="notebook-panel-heading__actions">
+                            {chatOptions.sources.length > 0 && (
+                                <button
+                                    type="button"
+                                    className="notebook-icon-button"
+                                    onClick={toggleAllSources}
+                                    title={allSourcesSelected ? t('notebooks.clear_source_selection', 'Clear selection') : t('notebooks.select_all_sources', 'Select all sources')}
+                                    aria-label={allSourcesSelected ? t('notebooks.clear_source_selection', 'Clear selection') : t('notebooks.select_all_sources', 'Select all sources')}
+                                >
+                                    <CheckCheck size={17} />
+                                </button>
+                            )}
+                            {notebook.can_manage && (
+                                <>
+                                    <button
+                                        type="button"
+                                        className="notebook-icon-button"
+                                        onClick={() => { setEditingGroup(null); setShowGroupModal(true); }}
+                                        title={t('notebooks.new_group', 'New group')}
+                                        aria-label={t('notebooks.new_group', 'New group')}
+                                    >
+                                        <FolderPlus size={17} />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="notebook-icon-button"
+                                        onClick={() => setShowAdd(true)}
+                                        title={t('notebooks.add_resources', 'Add Resources')}
+                                        aria-label={t('notebooks.add_resources', 'Add Resources')}
+                                    >
+                                        <Plus size={17} />
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    </div>
                     <div className="notebook-source-list">
-                        {(sources.items || []).map((resource) => (
-                            <article key={resource.resource_id} className="notebook-source-card">
-                                <div className="notebook-source-card__header">
-                                    <div><strong>{resource.title || resource.resource_id}</strong><StatusBadge status={resource.state} /></div>
-                                    {notebook.can_manage && (
-                                        <div className="notebook-source-card__actions">
-                                            {['error', 'stale'].includes(resource.state) && <button className="notebook-icon-button notebook-icon-button--small" disabled={retryingId === resource.resource_id || ACTIVE_STATES.has(notebook.progress?.state)} onClick={() => retryResource(resource.resource_id)} aria-label={t('notebooks.retry_resource', 'Retry Resource')}><RefreshCw size={13} className={retryingId === resource.resource_id ? 'animate-spin' : ''} /></button>}
-                                            <button className="notebook-icon-button notebook-icon-button--small" disabled={removingId === resource.resource_id} onClick={() => remove(resource.resource_id)} aria-label={t('notebooks.remove_resource', 'Remove Resource')}><X size={14} /></button>
+                        {customGroups.map((group) => {
+                            const grpSourceIds = getGroupSourceIds(group);
+                            const selectedCount = grpSourceIds.filter((id) => selectedSourceIds.has(id)).length;
+                            const isAllSelected = grpSourceIds.length > 0 && selectedCount === grpSourceIds.length;
+                            const isIndeterminate = selectedCount > 0 && selectedCount < grpSourceIds.length;
+                            const isCollapsed = collapsedGroupIds.has(String(group.id));
+                            const groupResources = (sources.items || []).filter((r) =>
+                                (group.resource_ids || []).map(String).includes(String(r.resource_id)),
+                            );
+
+                            return (
+                                <section key={group.id} className="notebook-custom-group">
+                                    <header className="notebook-custom-group__header">
+                                        <div className="notebook-custom-group__title-row">
+                                            <button
+                                                type="button"
+                                                className="notebook-group-toggle-btn"
+                                                onClick={() => toggleCollapse(group.id)}
+                                                aria-label={isCollapsed ? t('common.expand', 'Expand') : t('common.collapse', 'Collapse')}
+                                            >
+                                                {isCollapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
+                                            </button>
+                                            <input
+                                                type="checkbox"
+                                                className="notebook-source-checkbox"
+                                                checked={isAllSelected}
+                                                ref={(element) => {
+                                                    if (element) {
+                                                        element.indeterminate = isIndeterminate;
+                                                    }
+                                                }}
+                                                onChange={() => toggleGroupSources(group)}
+                                                aria-label={group.name}
+                                            />
+                                            <Folder size={13} className="notebook-group-folder-icon" aria-hidden="true" />
+                                            <span
+                                                className="notebook-group-title"
+                                                onClick={() => toggleCollapse(group.id)}
+                                                role="button"
+                                                tabIndex={0}
+                                                onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') toggleCollapse(group.id); }}
+                                            >
+                                                <strong>{group.name}</strong>
+                                            </span>
+                                            <small className="notebook-group-count-badge">
+                                                {t('notebooks.source_count', '{{count}} source(s)', { count: grpSourceIds.length })}
+                                            </small>
+                                        </div>
+                                        {notebook.can_manage && (
+                                            <div className="notebook-custom-group__actions">
+                                                <button
+                                                    type="button"
+                                                    className="notebook-icon-button notebook-icon-button--small"
+                                                    onClick={() => { setEditingGroup(group); setShowGroupModal(true); }}
+                                                    aria-label={t('notebooks.edit_group', 'Edit group')}
+                                                >
+                                                    <Pencil size={12} />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="notebook-icon-button notebook-icon-button--small"
+                                                    onClick={() => handleDeleteGroup(group.id)}
+                                                    aria-label={t('notebooks.delete_group', 'Delete group')}
+                                                >
+                                                    <Trash2 size={12} />
+                                                </button>
+                                            </div>
+                                        )}
+                                    </header>
+                                    {!isCollapsed && (
+                                        <div className="notebook-custom-group__body">
+                                            {groupResources.length > 0 ? (
+                                                groupResources.map((res) => renderResourceCard(res, group.id))
+                                            ) : (
+                                                <p className="notebook-group-empty-notice">
+                                                    {t('notebooks.group_empty', 'No sources in this group.')}
+                                                </p>
+                                            )}
                                         </div>
                                     )}
-                                </div>
-                                {resource.error && <p className="notebook-source-error">{resource.error}</p>}
-                                {resource.last_checked_at && <p className="notebook-source-checked">{t('notebooks.last_checked', 'Last checked: {{time}}', { time: new Date(resource.last_checked_at).toLocaleString() })}</p>}
-                                <ul>{(resource.sources || []).map((source) => <li key={source.source_id}><div className="notebook-source-card__source"><span>{source.kind === 'url' ? <Globe2 size={13} /> : <BookOpen size={13} />}{source.label}</span>{source.error && <small>{source.error}</small>}</div><StatusBadge status={source.status} /></li>)}</ul>
-                            </article>
-                        ))}
+                                </section>
+                            );
+                        })}
+
+                        {ungroupedResources.length > 0 && (
+                            <div className="notebook-ungrouped-section">
+                                {customGroups.length > 0 && (
+                                    <div className="notebook-ungrouped-section__header">
+                                        <span>{t('notebooks.ungrouped', 'Ungrouped')}</span>
+                                    </div>
+                                )}
+                                {ungroupedResources.map((res) => renderResourceCard(res, null))}
+                            </div>
+                        )}
                     </div>
                     {sourcePageCount > 1 && (
                         <nav className="notebook-pagination notebook-pagination--panel" aria-label={t('notebooks.source_pagination', 'Source pages')}>
@@ -715,9 +1036,10 @@ export function NotebookDetail({ notebookId }) {
                             <div className="notebook-chat-context-bar">
                                 <div>
                                     <BookOpen size={15} aria-hidden="true" />
-                                    <span>{t('notebooks.chat_context_summary', '{{sources}} sources · {{notebooks}} notebooks', { sources: selectedSourceCount, notebooks: 1 + selectedNotebookOptions.length })}</span>
+                                    <span>
+                                        {t('notebooks.chat_context_summary', '{{sources}} sources', { sources: selectedSourceCount })}
+                                    </span>
                                 </div>
-                                <button type="button" disabled={!chatOptionsLoaded} onClick={() => setShowChatContext(true)}>{t('notebooks.choose_chat_sources', 'Choose sources')}</button>
                             </div>
                             {selectedSourceCount > 0 ? (
                                 <AgentChat
@@ -757,17 +1079,14 @@ export function NotebookDetail({ notebookId }) {
                 </aside>
             </div>
             {showAdd && <AddResourcesDialog notebookId={notebook.id} currentIds={currentIds} onClose={() => setShowAdd(false)} onAdded={() => load({ refresh: false })} />}
-            {showChatContext && <ChatContextDialog
-                options={chatOptions}
-                selectedSourceIds={selectedSourceIds}
-                selectedNotebookIds={selectedNotebookIds}
-                onClose={() => setShowChatContext(false)}
-                onApply={(nextSourceIds, nextNotebookIds) => {
-                    setSelectedSourceIds(new Set(nextSourceIds));
-                    setSelectedNotebookIds(new Set(nextNotebookIds));
-                    setShowChatContext(false);
-                }}
-            />}
+            {showGroupModal && (
+                <NotebookGroupDialog
+                    isOpen={showGroupModal}
+                    initialName={editingGroup?.name || ''}
+                    onClose={() => { setShowGroupModal(false); setEditingGroup(null); }}
+                    onSave={handleSaveGroup}
+                />
+            )}
             <ConfirmModal isOpen={showDelete} onClose={() => setShowDelete(false)} onConfirm={deleteNotebook} title={t('notebooks.delete_title', 'Delete notebook?')} message={t('notebooks.delete_message', 'Indexes and notebook conversations will be deleted. Original Resources, attachments, and URLs will not be changed.')} confirmText={t('notebooks.delete', 'Delete notebook')} cancelText={t('common.cancel', 'Cancel')} isDestructive />
             <ConfirmModal isOpen={showClear} onClose={() => setShowClear(false)} onConfirm={clearConversation} title={t('notebooks.clear_conversation_title', 'Clear this conversation?')} message={t('notebooks.clear_conversation_message', 'This removes the active conversation history. It does not change sources or other conversation modes.')} confirmText={t('notebooks.clear_conversation', 'Clear conversation')} cancelText={t('common.cancel', 'Cancel')} isDestructive />
         </div>

@@ -1140,3 +1140,64 @@ def test_whole_notebook_analysis_is_durable_and_revision_pinned(notebook_env, mo
     assert completed["state"] == "completed"
     assert completed["result"]["revision"] == 1
     assert completed["result"]["chunk_ids"]
+
+
+def test_notebook_custom_groups_persistence_and_update(notebook_env):
+    context = notebook_env["context"]
+    notebook = notebook_service.create_notebook(
+        context,
+        title="Grouped notebook",
+        visibility="private",
+        conversation_mode="private_member",
+        resource_ids=["resource-1"],
+    )
+    assert notebook.get("groups") == []
+
+    updated = notebook_service.update_notebook(
+        notebook["id"],
+        context,
+        groups=[
+            {"id": "grp-1", "name": "Primary sources", "resource_ids": ["resource-1"]},
+            {"id": "grp-2", "name": "Background", "resource_ids": []},
+        ],
+    )
+    assert len(updated.get("groups", [])) == 2
+    assert updated["groups"][0]["name"] == "Primary sources"
+    assert updated["groups"][0]["resource_ids"] == ["resource-1"]
+    assert updated["groups"][1]["name"] == "Background"
+
+    fetched = notebook_service.get_notebook(notebook["id"], context)
+    assert len(fetched.get("groups", [])) == 2
+    assert fetched["groups"][0]["name"] == "Primary sources"
+
+
+def test_notebook_patch_request_model_and_service_with_groups(notebook_env):
+    from backend.api.notebook_routes import NotebookPatchRequest
+
+    payload = NotebookPatchRequest.model_validate({
+        "groups": [
+            {"id": "grp-1", "name": "Created group", "resource_ids": ["resource-1"]}
+        ]
+    })
+    assert payload.groups == [{"id": "grp-1", "name": "Created group", "resource_ids": ["resource-1"]}]
+
+    context = notebook_env["context"]
+    notebook = notebook_service.create_notebook(
+        context,
+        title="Route patch notebook",
+        visibility="private",
+        conversation_mode="private_member",
+        resource_ids=["resource-1"],
+    )
+
+    updated = notebook_service.update_notebook(
+        notebook["id"],
+        context,
+        groups=payload.groups,
+    )
+    assert len(updated.get("groups", [])) == 1
+    assert updated["groups"][0]["name"] == "Created group"
+    assert updated["groups"][0]["resource_ids"] == ["resource-1"]
+
+
+
