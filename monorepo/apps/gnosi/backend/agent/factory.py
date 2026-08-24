@@ -2011,6 +2011,28 @@ def _deduplicate_tools(tools: Iterable[Any]) -> List[Any]:
     return result
 
 
+def _omitted_runtime_tool_ids(
+    runtime_tool_metadata: Iterable[dict[str, Any]],
+    bound_tool_names: set[str],
+    *,
+    notebook_context_only: bool,
+) -> list[str]:
+    """Return genuinely unavailable runtime tools for status reporting.
+
+    Grounded notebooks deliberately replace the agent's ordinary tool belt
+    with dynamic, read-only notebook tools. Ordinary profile tools omitted by
+    that policy are not runtime failures and must not trigger a configuration
+    warning in the embedded chat.
+    """
+    return [
+        str(item.get("id") or "")
+        for item in runtime_tool_metadata
+        if item.get("name") not in bound_tool_names
+        and item.get("id")
+        and (not notebook_context_only or item.get("dynamic_context"))
+    ]
+
+
 def _latest_tool_batch_requires_confirmation(messages: Iterable[Any]) -> bool:
     """Stops the model loop once a consequential action preview is ready."""
     for message in reversed(list(messages)):
@@ -3319,11 +3341,11 @@ async def create_agent_workflow(
         str(getattr(item, "name", "") or getattr(item, "__name__", ""))
         for item in brain_tools
     }
-    omitted_runtime_tool_ids = [
-        str(item.get("id") or "")
-        for item in runtime_tool_metadata
-        if item.get("name") not in bound_tool_names and item.get("id")
-    ]
+    omitted_runtime_tool_ids = _omitted_runtime_tool_ids(
+        runtime_tool_metadata,
+        bound_tool_names,
+        notebook_context_only=notebook_context_only,
+    )
     schema_chars = _tool_schema_chars(brain_tools)
     reserved_output_chars = max(2_000, int(context_window_tokens * 0.15 * 3))
     message_budget_chars = max(
@@ -3984,14 +4006,26 @@ async def create_agent_workflow(
         },
         "provider_health": provider_health_snapshot(),
         "connector_health": list(connector_health)[:32],
-        "assigned_skill_ids": list(assigned_runtime_skill_ids),
-        "active_skill_ids": list(active_runtime_skill_ids),
-        "missing_skill_ids": list(
-            getattr(resolved_runtime, "missing_skill_ids", ()) or ()
+        "assigned_skill_ids": (
+            [] if notebook_context_only else list(assigned_runtime_skill_ids)
+        ),
+        "active_skill_ids": (
+            [] if notebook_context_only else list(active_runtime_skill_ids)
+        ),
+        "missing_skill_ids": (
+            []
+            if notebook_context_only
+            else list(getattr(resolved_runtime, "missing_skill_ids", ()) or ())
         ),
         "unavailable_tool_ids": sorted(
             set(
-                list(getattr(resolved_runtime, "unavailable_tool_ids", ()) or ())
+                (
+                    []
+                    if notebook_context_only
+                    else list(
+                        getattr(resolved_runtime, "unavailable_tool_ids", ()) or ()
+                    )
+                )
                 + omitted_runtime_tool_ids
             )
         ),

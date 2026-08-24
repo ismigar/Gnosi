@@ -56,6 +56,8 @@ def _runtime(
     tools=(),
     descriptors=(),
     skills=(),
+    missing=(),
+    unavailable=(),
     revision="runtime-revision",
 ):
     return SimpleNamespace(
@@ -65,8 +67,8 @@ def _runtime(
         tools=tuple(tools),
         tool_descriptors=tuple(descriptors),
         skills=tuple(skills),
-        missing_skill_ids=(),
-        unavailable_tool_ids=(),
+        missing_skill_ids=tuple(missing),
+        unavailable_tool_ids=tuple(unavailable),
         catalog_revision=revision,
     )
 
@@ -118,6 +120,91 @@ def test_tool_policy_reads_authorization_from_each_current_state():
     assert isinstance(denied, ToolMessage)
     assert denied.status == "error"
     assert calls == ["write_tool"]
+
+
+def test_notebook_policy_omissions_are_not_reported_as_unavailable_tools():
+    metadata = [
+        {"id": "core.global.search", "name": "search_vault"},
+        {
+            "id": "context.notebook.search",
+            "name": "search_notebook_context",
+            "dynamic_context": True,
+        },
+    ]
+
+    assert factory._omitted_runtime_tool_ids(
+        metadata,
+        {"search_notebook_context"},
+        notebook_context_only=True,
+    ) == []
+    assert factory._omitted_runtime_tool_ids(
+        metadata,
+        set(),
+        notebook_context_only=True,
+    ) == ["context.notebook.search"]
+    assert factory._omitted_runtime_tool_ids(
+        metadata,
+        set(),
+        notebook_context_only=False,
+    ) == ["core.global.search", "context.notebook.search"]
+
+
+def test_notebook_runtime_status_reports_only_context_tools(monkeypatch):
+    @tool
+    def search_vault(query: str) -> str:
+        """Search the ordinary Vault."""
+        return query
+
+    @tool
+    def search_notebook_context(query: str) -> str:
+        """Search the attached notebook."""
+        return query
+
+    descriptor = SimpleNamespace(
+        id="core.global.search",
+        effects=["read"],
+        confirmation="none",
+    )
+    skill_descriptor = SimpleNamespace(
+        id="core.gnosi-vault",
+        tool_ids=[descriptor.id],
+    )
+    runtime = _runtime(
+        assigned=("core.gnosi-vault", "plugin.missing"),
+        active=("core.gnosi-vault",),
+        tools=(search_vault,),
+        descriptors=(descriptor,),
+        skills=(SimpleNamespace(descriptor=skill_descriptor),),
+        missing=("plugin.missing",),
+        unavailable=("core.global.search",),
+    )
+    monkeypatch.setattr(
+        factory,
+        "build_context_tools",
+        lambda _refs: [search_notebook_context],
+    )
+
+    _workflow_graph, selection = _workflow(
+        monkeypatch,
+        _agent(
+            skill_ids=["core.gnosi-vault", "plugin.missing"],
+            context_refs=[{
+                "id": "notebook:notebook-1",
+                "type": "notebook",
+                "ref": "notebook-1",
+                "label": "Research",
+                "scope": {"revision": 2, "selection": "all"},
+            }],
+        ),
+        runtime,
+        RecordingLlm(),
+    )
+
+    assert selection["assigned_skill_ids"] == []
+    assert selection["active_skill_ids"] == []
+    assert selection["missing_skill_ids"] == []
+    assert selection["unavailable_tool_ids"] == []
+    assert selection["tool_count"] == 1
 
 
 def test_table_title_replacement_request_routes_to_brain():
