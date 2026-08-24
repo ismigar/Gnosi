@@ -136,6 +136,22 @@ describe('LiteraturePage', () => {
         expect(document.activeElement).toBe(container.querySelector('input[aria-label="literature.search.query"]'));
     });
 
+    it('allows combining several language filters in one search', async () => {
+        await renderPage();
+        const filters = [...container.querySelectorAll('button')].find((button) => button.textContent.includes('literature.search.filters'));
+        await act(async () => filters.click());
+        await act(async () => container.querySelector('.literature-language-filter summary').click());
+        const languageLabels = [...container.querySelectorAll('.literature-language-filter label')];
+        await act(async () => languageLabels.find((label) => label.textContent.includes('Español')).querySelector('input').click());
+        await act(async () => languageLabels.find((label) => label.textContent.includes('English')).querySelector('input').click());
+        const input = container.querySelector('input[aria-label="literature.search.query"]');
+        await typeInto(input, 'historical periodization');
+        await act(async () => container.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+        expect(axios.post).toHaveBeenCalledWith('/api/vault/literature/searches', expect.objectContaining({
+            filters: expect.objectContaining({ languages: ['es', 'en'] }),
+        }));
+    });
+
     it('renders AI strategy help as editable research controls rather than raw JSON', async () => {
         await renderPage();
         const input = container.querySelector('input[aria-label="literature.search.query"]');

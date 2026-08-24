@@ -114,9 +114,11 @@ def _prompt(operation: str, payload: dict[str, Any]) -> tuple[str, str, list[dic
         return (
             "You assist a human literature reviewer. Convert the question into editable concepts. "
             f"{framework_instruction}. Include multilingual synonyms in the requested languages, but keep the "
-            "Boolean query concise and provider-neutral, using the question language and English rather than "
-            "combining every translated synonym. Include "
-            "spelling variants, controlled terms, and one transparent Boolean query. Do not invent evidence. "
+            "Boolean query concise, high-recall, and provider-neutral, using the question language and English "
+            "rather than combining every translated synonym. The Boolean query must require only the central "
+            "subject concept; treat requested dates, characteristics, comparisons, or criteria as screening and "
+            "analysis dimensions unless they are indispensable to identify the subject. Include spelling "
+            "variants, controlled terms, and one transparent Boolean query. Do not invent evidence. "
             "Return only JSON with keys framework, concepts, synonyms, boolean_query, cautions.",
             question,
             works,

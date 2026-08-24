@@ -64,6 +64,18 @@ and normalized title plus year plus first-author surname. A fuzzy title match is
 only a warning. Merged works retain every source occurrence, open location,
 provider-specific citation count, field provenance, and conflicting variant.
 
+Language filtering accepts multiple ISO language codes. Connectors fetch a
+bounded surplus before applying the canonical filter so a provider's first page
+cannot remove every requested language; when metadata omits language, a
+conservative title-and-abstract inference may retain an otherwise valid work.
+Boolean searches also verify their first mandatory subject concept after
+normalization, which prevents provider-side term relaxation from admitting
+unrelated records. Provider adapters may translate language filters or reduce
+unsupported Boolean syntax while the audit log keeps the exact submitted query.
+AI query assistance favors a high-recall subject query and treats dates,
+characteristics, and comparison criteria as screening dimensions unless they
+are genuinely indispensable search concepts.
+
 Preview is read-only. Full-text attachment is a separate manual action and is
 offered only for a verified open location. Import maps the merged work through
 the shared Zotero-compatible Resources mapper and repeats identity matching

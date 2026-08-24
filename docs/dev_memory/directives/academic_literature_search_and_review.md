@@ -250,6 +250,12 @@ Mutating endpoints use existing CSRF and authorization conventions. Public API r
 - AI controls expose the selected enabled agent and a visible running state.
   Applying a proposal and starting the federated search are distinct explicit
   actions, with a combined action for the common workflow.
+- Language filtering accepts multiple ISO languages. Connectors over-fetch a
+  bounded candidate window before canonical language filtering so the filter
+  does not discard the provider's entire first page prematurely.
+- Boolean searches preserve recall by keeping descriptive or comparative
+  dimensions out of the mandatory core query. Results from providers that
+  relax Boolean syntax must still match the first mandatory concept group.
 
 ## Restrictions and edge cases
 

@@ -35,6 +35,57 @@ def test_configuration_is_vault_native_and_credentials_are_not_persisted(literat
     assert literature_service.index_path(literature_env).is_relative_to(literature_env.parent / "local-data")
 
 
+def test_multilingual_filter_overfetches_and_keeps_the_mandatory_concept(monkeypatch):
+    captured = {}
+
+    async def fake_search(_query, _filters, limit, _credential):
+        captured["limit"] = limit
+        return [
+            canonical_work("crossref", "noise", title="Historical review of personality", language="es"),
+            canonical_work("crossref", "es", title="Periodización de la historia contemporánea"),
+            canonical_work("crossref", "en", title="Historical periodization in world history"),
+            canonical_work("crossref", "fr", title="Périodisation historique", language="fr"),
+        ]
+
+    monkeypatch.setitem(academic_connectors.SEARCHERS, "crossref", fake_search)
+    works = asyncio.run(academic_connectors.search_source(
+        "crossref",
+        '("historical periodization" OR "periodización histórica") AND (criteria OR dates)',
+        {"languages": ["es", "en"]},
+        25,
+    ))
+
+    assert captured["limit"] == 100
+    assert [work["title"] for work in works] == [
+        "Periodización de la historia contemporánea", "Historical periodization in world history",
+    ]
+
+
+def test_quoted_or_query_rejects_provider_relaxation():
+    relevant = canonical_work("pubmed", "relevant", title="Historical periodization in medicine", language="en")
+    noise = canonical_work("pubmed", "noise", title="Historical review of personality", language="en")
+
+    assert academic_connectors._matches_mandatory_concept(relevant, '"historical periodization" OR "periodización histórica"')
+    assert not academic_connectors._matches_mandatory_concept(noise, '"historical periodization" OR "periodización histórica"')
+
+
+def test_pubmed_translates_multiple_languages_to_provider_syntax(monkeypatch):
+    captured = {}
+
+    async def fake_get(_url, params=None, **_kwargs):
+        captured["term"] = params["term"]
+        return {"esearchresult": {"idlist": []}}, 200, {}
+
+    monkeypatch.setattr(academic_connectors, "safe_get_json", fake_get)
+    works = asyncio.run(academic_connectors.search_pubmed(
+        '"historical periodization"', {"languages": ["es", "en"]}, 25, "research@example.org",
+    ))
+
+    assert works == []
+    assert "spanish[lang]" in captured["term"]
+    assert "english[lang]" in captured["term"]
+
+
 def test_catalog_loads_plugin_repositories_from_the_requested_vault(literature_env, monkeypatch):
     captured = []
     monkeypatch.setattr(literature_service, "_plugin_repositories", lambda vault_path: captured.append(vault_path) or [])

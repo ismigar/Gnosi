@@ -61,4 +61,5 @@ def test_query_strategy_uses_selected_agent_and_auto_framework(monkeypatch):
 
     assert captured["agent_id"] == "research-agent"
     assert "use PICO or SPIDER only when they fit" in captured["prompt"]
+    assert "require only the central subject concept" in captured["prompt"]
     assert response["audit"]["agent_id"] == "research-agent"
