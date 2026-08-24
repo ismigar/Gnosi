@@ -30,7 +30,7 @@ agent = DrupalRemoteAgent()
 agent.run_command("drush cr")
 ```
 
-### Credenciales Requeridas (.env.shared)
+### Credenciales Requeridas (.env_shared)
 ```bash
 SSH_HOST=midominio.com
 SSH_USER=miusuario
@@ -112,7 +112,7 @@ eliminar sus directorios del servidor.
 - **ModSecurity/WAF**: La API estándar de Drupal bloquea `PATCH`. Usar endpoints custom POST (ver `n8n_interaction.md`).
 - **Archivos PHP fuera de Drupal**: No publicar redirects como scripts PHP bajo `web/` → el `.htaccess` de Drupal bloquea los PHP adicionales con `403` → usar un `index.html` estático con `meta refresh` y `window.location.replace()`.
 - **Subidas con `suweb`**: `upload_file()` puede copiar correctamente el archivo y fallar al borrar el temporal de `/tmp` porque pertenece al usuario SSH inicial → verificar siempre el destino, ajustar el grupo a `ismigar-web` y eliminar el temporal en una sesión sin `suweb`.
-- **Nombre del entorno**: El agente busca `.env.shared`, pero el entorno actual usa `.env_shared` → ejecutarlo con `python3 -m dotenv -f .env_shared run -- ...`.
+- **Nombre del entorno**: El agente busca `.env_shared` en los directorios padre, por lo que puede ejecutarse directamente desde cualquier subdirectorio del repositorio.
 - **Detección del prompt SSH**: No buscar caracteres sueltos como `$`, `%` o `>` → aparecen en comandos y salidas normales y hacen que el agente cierre la sesión antes de tiempo → usar un patrón de prompt anclado a una línea completa `usuario@host:ruta$`.
 - **Fallos remotos**: No imprimir la salida solo cuando el código es cero → oculta el diagnóstico de Composer y Drush → mostrar la salida redactada tanto en éxito como en error y propagar el código de salida.
 - **Salida sensible de Drush**: No ejecutar ni registrar `drush status --format=json` sin filtrado → incluye `db-password` en algunas versiones → pedir solo campos concretos y mantener la redacción defensiva de credenciales en `remote_agent.py`.

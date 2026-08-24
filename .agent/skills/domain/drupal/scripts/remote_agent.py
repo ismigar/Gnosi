@@ -20,12 +20,12 @@ from dotenv import load_dotenv
 
 
 def load_envs():
-    """Load variables from the nearest parent ``.env.shared`` file."""
+    """Load variables from the nearest parent ``.env_shared`` file."""
     current = Path(__file__).resolve()
-    # Search parent directories for the legacy environment filename.
+    # Search parent directories for the shared environment filename.
     for _ in range(8):
         current = current.parent
-        env_file = current / ".env.shared"
+        env_file = current / ".env_shared"
         if env_file.exists():
             load_dotenv(env_file)
             return True
