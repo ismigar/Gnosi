@@ -5784,6 +5784,18 @@
     "section_improvements": "Mejoras",
     "section_fixes": "Correcciones",
     "entries": {
+      "v2_0_0": {
+        "highlights": {
+          "grounded_notebooks": "Los Cuadernos fundamentados permiten crear una conversación a partir de los campos de adjuntos y URL de los Recursos seleccionados, con respuestas respaldadas por citas navegables de la evidencia."
+        },
+        "improvements": {
+          "source_selection": "Elige las fuentes exactas o cuadernos vinculados completos para cada conversación y organiza las fuentes de los Recursos en grupos.",
+          "accessibility": "Los diálogos ahora responden a Esc y la interfaz compartida incorpora cobertura automatizada de accesibilidad."
+        },
+        "fixes": {
+          "notebook_chat_runtime": "Las conversaciones de Cuadernos mantienen aisladas las herramientas de solo lectura de las fuentes e informan correctamente de las herramientas disponibles."
+        }
+      },
       "v1_0_7": {
         "highlights": {},
         "improvements": {

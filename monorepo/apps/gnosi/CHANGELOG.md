@@ -1,5 +1,22 @@
 # Gnosi changelog
 
+## Gnosi 2.0.0
+
+_2026-08-24 · Stable_
+
+### Highlights
+
+- Grounded Notebooks let you build a conversation from the attachment and URL fields of selected Resources, with answers supported by navigable evidence citations.
+
+### Improvements
+
+- Choose the exact sources or complete linked notebooks to include in each conversation, and organize Resource sources into groups.
+- Dialogs now respond to Escape and the shared interface adds automated accessibility coverage.
+
+### Fixes
+
+- Notebook conversations now keep their read-only source tools isolated and report their available tools accurately.
+
 ## Gnosi 1.0.7
 
 _2026-08-19 · Stable_
