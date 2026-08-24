@@ -13,7 +13,7 @@ numpy>=1.26.4
 gunicorn>=26.0.0
 cloudinary>=1.45.0
 fastapi>=0.136.3
-uvicorn[standard]>=0.51.0
+uvicorn[standard]>=0.52.4
 # AI stack migrated to LangChain/LangGraph 1.x (2026-06-24). Floors match the
 # versions actually validated with the agent; see agent_langchain_v1_migration.md.
 # Do not downgrade to 0.x: LangGraph 0.x lacks prebuilt.ToolNode/START, and
