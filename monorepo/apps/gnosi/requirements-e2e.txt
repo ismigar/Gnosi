@@ -48,7 +48,7 @@ alembic>=1.18.5
 gTTS>=2.5.0
 httplib2>=0.31.2
 python-jose[cryptography]>=3.5.0
-bcrypt>=4.1
+bcrypt>=5.0.0
 # cryptography 49+ no longer publishes macOS x86_64 wheels. Keep Intel desktop
 # packaging on the final universal2 release so OpenSSL remains statically linked.
 cryptography>=48.0.1,<49.0.0; sys_platform == "darwin" and platform_machine == "x86_64"
