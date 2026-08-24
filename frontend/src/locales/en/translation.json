@@ -5733,6 +5733,18 @@
     "section_improvements": "Improvements",
     "section_fixes": "Fixes",
     "entries": {
+      "v2_0_0": {
+        "highlights": {
+          "grounded_notebooks": "Grounded Notebooks let you build a conversation from the attachment and URL fields of selected Resources, with answers supported by navigable evidence citations."
+        },
+        "improvements": {
+          "source_selection": "Choose the exact sources or complete linked notebooks to include in each conversation, and organize Resource sources into groups.",
+          "accessibility": "Dialogs now respond to Escape and the shared interface adds automated accessibility coverage."
+        },
+        "fixes": {
+          "notebook_chat_runtime": "Notebook conversations now keep their read-only source tools isolated and report their available tools accurately."
+        }
+      },
       "v1_0_7": {
         "highlights": {},
         "improvements": {

@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-15
+last_verified: 2026-08-24
 source_paths:
   - backend/config/env_config.py
   - backend/server.py
@@ -125,6 +125,12 @@ notes i l'esborrany del repositori públic. El workflow d'escriptori sincronitza
 al repositori públic només s'executa manualment, de manera que pot validar
 l'empaquetatge sense competir amb un build oficial. Els artefactes de macOS,
 Windows i Linux es revisen abans de publicar-los.
+
+La preparació de la v2.0.0 segueix aquest límit: les notes localitzades
+incloses i el changelog generat es publiquen amb els manifests sincronitzats,
+mentre que l'etiqueta immutable i l'enllaç de descàrrega de cada plataforma
+només s'afegeixen després que el commit revisat de main superi el workflow
+oficial de release.
 
 ## clipper web
 

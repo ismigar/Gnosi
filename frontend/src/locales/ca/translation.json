@@ -5784,6 +5784,18 @@
     "section_improvements": "Millores",
     "section_fixes": "Correccions",
     "entries": {
+      "v2_0_0": {
+        "highlights": {
+          "grounded_notebooks": "Els Quaderns fonamentats permeten crear una conversa a partir dels camps d'adjunt i URL dels Recursos seleccionats, amb respostes recolzades per cites navegables de l'evidència."
+        },
+        "improvements": {
+          "source_selection": "Tria les fonts exactes o quaderns vinculats complets per a cada conversa i organitza les fonts dels Recursos en grups.",
+          "accessibility": "Els diàlegs responen ara a la tecla Esc i la interfície compartida incorpora cobertura automatitzada d'accessibilitat."
+        },
+        "fixes": {
+          "notebook_chat_runtime": "Les converses de Quaderns mantenen ara aïllades les eines de només lectura de les fonts i informen correctament de les eines disponibles."
+        }
+      },
       "v1_0_7": {
         "highlights": {},
         "improvements": {

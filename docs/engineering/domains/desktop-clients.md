@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-19
+last_verified: 2026-08-24
 source_paths:
   - backend/config/env_config.py
   - backend/server.py
@@ -161,6 +161,11 @@ the draft in the public repository. The synchronized public desktop workflow is
 manual-only so it can validate packaging without racing or duplicating an
 official tag build. The resulting macOS, Windows, and Linux artifacts are
 inspected before publication.
+
+The v2.0.0 preparation follows this boundary: its localized bundled notes and
+generated changelog ship with the synchronized manifests, while the immutable
+tag and platform download link are added only after the reviewed main commit
+has passed the official release workflow.
 
 ## Web clipper
 

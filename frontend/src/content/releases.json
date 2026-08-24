@@ -1,5 +1,22 @@
 [
   {
+    "version": "2.0.0",
+    "date": "2026-08-24",
+    "channel": "stable",
+    "sections": {
+      "highlights": [
+        "release_notes.entries.v2_0_0.highlights.grounded_notebooks"
+      ],
+      "improvements": [
+        "release_notes.entries.v2_0_0.improvements.source_selection",
+        "release_notes.entries.v2_0_0.improvements.accessibility"
+      ],
+      "fixes": [
+        "release_notes.entries.v2_0_0.fixes.notebook_chat_runtime"
+      ]
+    }
+  },
+  {
     "version": "1.0.7",
     "date": "2026-08-19",
     "channel": "stable",

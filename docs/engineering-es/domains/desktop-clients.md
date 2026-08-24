@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-15
+last_verified: 2026-08-24
 source_paths:
   - backend/config/env_config.py
   - backend/server.py
@@ -127,6 +127,12 @@ firmados, las notas y el borrador del repositorio público. El workflow de
 escritorio sincronizado al repositorio público solo se ejecuta manualmente, por
 lo que puede validar el empaquetado sin competir con un build oficial. Los
 artefactos de macOS, Windows y Linux se revisan antes de publicarlos.
+
+La preparación de la v2.0.0 sigue este límite: las notas localizadas incluidas
+y el changelog generado se publican con los manifiestos sincronizados, mientras
+que la etiqueta inmutable y el enlace de descarga de cada plataforma solo se
+añaden después de que el commit revisado de main supere el workflow oficial de
+release.
 
 ## Cortapapeles web
 
