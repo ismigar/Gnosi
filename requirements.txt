@@ -11,7 +11,7 @@ networkx>=3.6.1
 python-igraph>=1.0.0
 numpy>=1.26.4
 gunicorn>=26.0.0
-cloudinary>=1.45.0
+cloudinary>=1.46.0
 fastapi>=0.136.3
 uvicorn[standard]>=0.51.0
 # AI stack migrated to LangChain/LangGraph 1.x (2026-06-24). Floors match the
