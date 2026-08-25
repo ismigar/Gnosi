@@ -86,7 +86,7 @@
   },
   "optionalDependencies": {
     "@y/y": "^14.0.0-rc.23",
-    "@y/prosemirror": "^2.0.0-6",
+    "@y/prosemirror": "^2.0.0-8",
     "@y/protocols": "^1.0.6-rc.1"
   },
   "devDependencies": {
