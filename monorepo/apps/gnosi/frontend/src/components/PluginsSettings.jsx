@@ -9,6 +9,7 @@ import ConfirmModal from './ConfirmModal';
 import ResourcesPluginConfig from './ResourcesPluginConfig';
 import { sortFieldItems } from '../utils/fieldOrdering';
 import { SettingsSectionTabs } from './SettingsSectionTabs';
+import { notifyError } from '../lib/notifyError';
 
 const ICONS = {
     CalendarDays, CalendarRange, Hash, MessageSquare, Share2, LayoutDashboard,
@@ -1494,6 +1495,7 @@ function ThirdPartyPlugins({ section, installedFilter }) {
     const [gallery, setGallery] = useState([]);
     const [loading, setLoading] = useState(true);
     const [busy, setBusy] = useState('');
+    const [lifecycleBusyId, setLifecycleBusyId] = useState(null);
     const [error, setError] = useState('');
     const [notice, setNotice] = useState('');
     const [trustKeys, setTrustKeys] = useState([]);
@@ -1564,9 +1566,19 @@ function ThirdPartyPlugins({ section, installedFilter }) {
     };
 
     const toggleThirdParty = async (pluginId, enabled) => {
-        await setPluginEnabled(pluginId, enabled);
-        await refresh();
-        await reloadPlugins();
+        setError('');
+        setLifecycleBusyId(pluginId);
+        try {
+            await setPluginEnabled(pluginId, enabled);
+            await refresh();
+            await reloadPlugins();
+        } catch (err) {
+            const message = tp('lifecycle_error');
+            setError(message);
+            notifyError('plugin-lifecycle', err, message);
+        } finally {
+            setLifecycleBusyId(null);
+        }
     };
 
     const onInstallZip = async (e) => {
@@ -1729,10 +1741,12 @@ function ThirdPartyPlugins({ section, installedFilter }) {
                                 <button
                                     type="button" role="switch" aria-checked={enabled}
                                     onClick={() => toggleThirdParty(m.id, !enabled)}
+                                    disabled={lifecycleBusyId === m.id}
                                     style={{
                                         position: 'relative', width: 42, height: 24, borderRadius: 999,
                                         border: 'none', cursor: 'pointer', flexShrink: 0,
                                         background: enabled ? '#6366f1' : 'var(--border-primary, #cbd5e1)',
+                                        opacity: lifecycleBusyId === m.id ? 0.65 : 1,
                                     }}
                                     title={enabled ? tp('disable') : tp('enable')}
                                 >
@@ -2028,6 +2042,7 @@ export function PluginsSettings({ onOpenSettingsTab, initialPluginId = null }) {
     const [section, setSection] = useState('installed');
     const [installedFilter, setInstalledFilter] = useState('all');
     const [pendingLifecycle, setPendingLifecycle] = useState(null);
+    const [busyPluginIds, setBusyPluginIds] = useState(() => new Set());
     const [configuredPluginId, setConfiguredPluginId] = useState(null);
 
     const inlineConfigComponents = {
@@ -2073,6 +2088,8 @@ export function PluginsSettings({ onOpenSettingsTab, initialPluginId = null }) {
     };
 
     const togglePlugin = async (pluginId, enabled) => {
+        if (busyPluginIds.has(pluginId)) return;
+        setBusyPluginIds((current) => new Set(current).add(pluginId));
         try {
             await setPluginEnabled(pluginId, enabled);
         } catch (error) {
@@ -2081,17 +2098,35 @@ export function PluginsSettings({ onOpenSettingsTab, initialPluginId = null }) {
                 setPendingLifecycle({ pluginId, enabled, ...conflict });
                 return;
             }
-            throw error;
+            notifyError('plugin-lifecycle', error, tp('lifecycle_error'));
+        } finally {
+            setBusyPluginIds((current) => {
+                const next = new Set(current);
+                next.delete(pluginId);
+                return next;
+            });
         }
     };
 
     const confirmLifecycle = async () => {
         if (!pendingLifecycle) return;
-        await setPluginEnabled(pendingLifecycle.pluginId, pendingLifecycle.enabled, {
-            confirmDependencies: pendingLifecycle.enabled,
-            confirmDisable: !pendingLifecycle.enabled,
-        });
-        setPendingLifecycle(null);
+        const pluginId = pendingLifecycle.pluginId;
+        setBusyPluginIds((current) => new Set(current).add(pluginId));
+        try {
+            await setPluginEnabled(pluginId, pendingLifecycle.enabled, {
+                confirmDependencies: pendingLifecycle.enabled,
+                confirmDisable: !pendingLifecycle.enabled,
+            });
+            setPendingLifecycle(null);
+        } catch (error) {
+            notifyError('plugin-lifecycle', error, tp('lifecycle_error'));
+        } finally {
+            setBusyPluginIds((current) => {
+                const next = new Set(current);
+                next.delete(pluginId);
+                return next;
+            });
+        }
     };
 
     return (
@@ -2185,11 +2220,13 @@ export function PluginsSettings({ onOpenSettingsTab, initialPluginId = null }) {
                                 role="switch"
                                 aria-checked={enabled}
                                 onClick={() => togglePlugin(plugin.id, !enabled)}
+                                disabled={busyPluginIds.has(plugin.id)}
                                 style={{
                                     position: 'relative', width: 42, height: 24, borderRadius: 999,
                                     border: 'none', cursor: 'pointer', flexShrink: 0,
                                     background: enabled ? '#6366f1' : 'var(--border-primary, #cbd5e1)',
                                     transition: 'background 0.15s',
+                                    opacity: busyPluginIds.has(plugin.id) ? 0.65 : 1,
                                 }}
                                 title={enabled ? tp('disable') : tp('enable')}
                             >

@@ -250,6 +250,10 @@ for example, stay inside the notebook. Settings navigation and data loading must
 react immediately to activation changes and active-Vault changes, without a
 page reload or a flash of disabled content.
 
+Do not leave lifecycle switches apparently inert while the backend is starting
+or unavailable. Disable only the switch whose mutation is in flight, preserve
+its prior state on failure, and surface a translated actionable error.
+
 The Plugin Settings screen uses three top-level sections:
 
 - Installed contains built-in and third-party plugins already present in the

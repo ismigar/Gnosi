@@ -33,6 +33,12 @@ Backend source changes reload automatically because uvicorn runs with
 launchctl kickstart -k gui/$UID/com.gnosi.backend-native
 ```
 
+The native watchdog must distinguish a hung backend from a slow cold start or
+uvicorn reload. A young `--multiprocessing-fork` worker is startup-in-progress
+and must not be killed before the configurable startup grace expires. Keep the
+restart cooldown at least as long as that grace; shorter windows create a loop
+where the worker is terminated before `/api/health` can become available.
+
 Frontend dependency changes require `npm install` in `frontend/`; Vite handles
 source changes through hot reload.
 

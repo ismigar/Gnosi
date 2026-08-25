@@ -1260,6 +1260,7 @@
       "error_save_url": "Impossible d'enregistrer l'URL",
       "error_invalid_key": "Clé invalide",
       "error_install_plugin": "Impossible d'installer l'extension",
+      "lifecycle_error": "Impossible de modifier l'état de l'extension. Vérifiez que le service Gnosi est disponible, puis réessayez.",
       "error_install": "Installation impossible",
       "error_uninstall": "Désinstallation impossible",
       "export_package": "Exporter le paquet de l’extension",

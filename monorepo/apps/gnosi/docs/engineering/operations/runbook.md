@@ -31,6 +31,15 @@ Backend source changes reload automatically. Dependency changes require a
 backend LaunchAgent restart. Vite hot reloads source; startup-injected values
 such as the application version require a frontend restart.
 
+The native watchdog allows up to ten minutes for a new uvicorn worker to finish
+cold startup or source reload before it may restart the backend. This grace
+protects scheduler, Vault-index, agent-graph, and ML initialization from a
+restart loop. Override `GNOSI_NATIVE_STARTUP_GRACE` only after measuring the
+real startup time, and keep `GNOSI_NATIVE_WATCHDOG_COOLDOWN` at least as long.
+If the frontend loads but API-backed controls remain unavailable, inspect
+`~/.gnosi_native_watchdog.log` for repeated restart entries before changing UI
+or Vault state.
+
 ## First diagnostic sequence
 
 1. Confirm there is exactly one listener on each application port.
