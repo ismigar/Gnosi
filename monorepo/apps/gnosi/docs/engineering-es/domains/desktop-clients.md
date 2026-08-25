@@ -139,6 +139,11 @@ congelado y envía las etiquetas oficiales a la matriz de runners locales
 configurada. Así el workflow valida los mismos entornos que generan los
 artefactos.
 
+La preparación de la v2.0.5 añade una comprobación obligatoria de metadatos
+antes del empaquetado por plataforma. Rechaza una etiqueta si los manifiestos
+de Electron y del frontend, el lockfile del monorepo, los cuatro catálogos de
+release localizados y el changelog generado no describen la misma versión.
+
 ## Cortapapeles web
 
 La extensión del navegador extrae el título de la página actual, URL, contenido seleccionado o legible, y metadatos soportados, luego envía una solicitud limitada a la API de Gnosi. El motor realiza autenticación, desinfección, deduplicación y Vault escribe. La extensión no recibe acceso arbitrario al sistema de archivos Vault.

@@ -5785,6 +5785,15 @@
     "section_improvements": "Améliorations",
     "section_fixes": "Corrections",
     "entries": {
+      "v2_0_5": {
+        "highlights": {},
+        "improvements": {
+          "release_preflight": "Les tags de version sont désormais vérifiés par rapport à la version empaquetée, aux notes localisées et au journal des modifications avant toute compilation de plateforme."
+        },
+        "fixes": {
+          "dependency_refresh": "La mise à jour des dépendances du client de bureau et du backend améliore la compatibilité et la fiabilité des versions sur macOS, Windows et Linux."
+        }
+      },
       "v2_0_1": {
         "highlights": {},
         "improvements": {},

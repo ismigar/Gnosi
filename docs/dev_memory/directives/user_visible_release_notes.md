@@ -44,6 +44,11 @@ The release workflow renders the English entry for the tag and supplies it to
 the public GitHub draft. The committed public changelog is generated from the
 same catalog and must remain synchronized.
 
+Before any platform package is built, the official workflow verifies that the
+tag version matches the frontend manifest, Electron manifest, monorepo lockfile,
+localized catalog, and generated changelog. This keeps invalid metadata from
+consuming a complete cross-platform release run.
+
 ## Restrictions and edge cases
 
 - Do not generate public notes directly from commits because merge and refactor
@@ -71,6 +76,9 @@ same catalog and must remain synchronized.
   Git checkouts can materialize Markdown with CRLF on Windows even when its
   content matches the LF rendering. Normalize CRLF and legacy CR to LF for the
   comparison while preserving every other byte-level difference.
+- Do not defer rendering the tagged release entry until after packaging. A
+  missing catalog version must fail in the metadata preflight before any
+  installer build starts.
 
 ## Verification checklist
 

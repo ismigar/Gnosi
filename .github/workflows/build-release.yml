@@ -20,6 +20,41 @@ permissions:
   contents: write
 
 jobs:
+  release-preflight:
+    name: validate-release-metadata
+    runs-on: [self-hosted, Linux, ARM64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
+      - name: Validate tag, packaged version, notes and changelog
+        shell: bash
+        run: |
+          release_tag="${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
+          if [[ ! "$release_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "A semantic release tag is required; received: $release_tag" >&2
+            exit 1
+          fi
+
+          release_version="${release_tag#v}"
+          electron_version="$(node -p "require('./monorepo/apps/gnosi/electron/package.json').version")"
+          frontend_version="$(node -p "require('./monorepo/apps/gnosi/frontend/package.json').version")"
+          lock_version="$(node -p "require('./monorepo/package-lock.json').packages['apps/gnosi/frontend'].version")"
+
+          for packaged_version in "$electron_version" "$frontend_version" "$lock_version"; do
+            if [ "$packaged_version" != "$release_version" ]; then
+              echo "Release tag $release_tag does not match packaged version $packaged_version." >&2
+              exit 1
+            fi
+          done
+
+          node monorepo/apps/gnosi/frontend/scripts/release-notes.mjs --check
+          node monorepo/apps/gnosi/frontend/scripts/release-notes.mjs \
+            --version "$release_tag" \
+            --output "${RUNNER_TEMP}/release-notes.md"
+
   build-macos:
     name: build-macos-${{ matrix.arch }}
     needs: build-linux
@@ -111,6 +146,7 @@ jobs:
             monorepo/apps/gnosi/electron/dist/latest-mac.yml
 
   build-linux:
+    needs: release-preflight
     runs-on: [self-hosted, Linux, ARM64]
     steps:
       - name: Checkout

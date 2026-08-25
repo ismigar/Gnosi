@@ -27,8 +27,8 @@ prerelease suffix makes the GitHub release a prerelease automatically.
 ## Logical flow
 
 1. Start from an up-to-date, clean branch based on `main`.
-2. Run the preparation script with the target version.
-3. Add the matching user-visible release entry and regenerate the changelog.
+2. Add the matching user-visible release entry.
+3. Synchronize the target version and regenerate the changelog.
 4. Verify that both package manifests and the monorepo lockfile agree.
 5. Run lint, i18n and release-note validation, frontend unit tests, and the production build.
 6. Validate the native backend and frontend through the browser.
@@ -72,6 +72,10 @@ until a maintainer publishes them.
 
 - Do not create the release tag from a feature branch because the tag must
   identify reviewed code that exists on `main`.
+- Do not start platform packaging before the tag, both package manifests, the
+  monorepo lockfile, the localized release catalog, and the generated changelog
+  pass the release preflight. A metadata mismatch must fail before a runner
+  spends time or disk space building installers.
 - Add the matching release-note entry and run `npm run changelog:write` before
   running the preparation script. The script builds the frontend immediately
   after changing package versions, and its validator rejects either a missing
@@ -147,6 +151,10 @@ until a maintainer publishes them.
   `--only-binary` so an unsupported dependency fails before packaging.
 - Do not treat sandbox socket or Chromium launch restrictions as passing tests;
   rerun the affected gates in GitHub Actions before publishing.
+- Do not fail a rootless ARM64 Docker check solely because `nerdctl build`
+  reports `context deadline exceeded` after logging `Loaded image`. Confirm the
+  exact tagged image with `nerdctl image inspect`; continue only when it exists,
+  and retain the backend health smoke test as the authoritative runtime gate.
 - Do not omit explicit Electron desktop icons. Without generated ICNS, ICO, and
   PNG resources, electron-builder falls back to Electron branding. Generate all
   formats from the canonical Gnosi application artwork before packaging.
@@ -218,6 +226,9 @@ until a maintainer publishes them.
 | 2026-08-15 | The frozen backend exited successively with missing `langchain_core` and `email_validator` imports | The packaging script maintained a partial dependency list and installed LangChain with `--no-deps`, while PyInstaller did not reject missing runtime imports | Install the canonical E2E runtime requirements and run the frozen executable through the complete startup import window |
 | 2026-08-24 | The Linux frozen backend exited with `No module named 'defusedxml'` | The canonical minimal runtime requirements missed a direct import used by the academic literature connector | Keep `defusedxml` in `requirements-e2e.txt` and require the frozen-backend startup smoke test in every release build |
 | 2026-08-24 | A PR created as draft had no checks after being marked ready | Path-filtered pull-request workflows did not subscribe to `ready_for_review` | Include `ready_for_review` alongside opened, reopened, and synchronize in every PR workflow |
+| 2026-08-25 | Three release retries completed the Linux package build and then failed while rendering notes | Tags `v2.0.2` through `v2.0.4` pointed to packages still versioned `2.0.1` and had no matching localized catalog entry | Run a release preflight before every platform job and create a new tag only after the synchronized version, catalog, and changelog are reviewed on `main` |
+| 2026-08-25 | Repeated Docker PR checks left less than 3 GiB free and delayed the current run behind obsolete jobs | Successful image exports remained in rootless containerd, and the workflow did not cancel an earlier run for the same PR | Cancel superseded Docker runs and remove only the generated CI image plus BuildKit cache in each job's unconditional cleanup |
+| 2026-08-25 | The ARM64 backend image was fully built and logged as loaded, but the Docker check still exited before its smoke test | Rootless `nerdctl` exceeded its client-side context deadline while completing the local image import | When the build command fails, verify the exact local image tag for a short bounded interval; proceed only if it exists and then require the normal smoke test |
 | 2026-08-15 | The installed native backend exited while creating `/app/data/secrets`, then the first window waited two minutes | The desktop process supplied no native local-data path and polled a protected statistics endpoint for readiness | Set `GNOSI_LOCAL_DATA` under Electron's per-user data directory, isolate the frozen smoke test, and poll `/api/health` |
 | 2026-08-15 | The isolated frozen-backend smoke test failed in `pyparsing.testing` with `No module named 'unittest'` | The PyInstaller spec excluded a standard-library module used by an included Google API dependency | Keep `unittest` and the feature-required `PIL` package in the frozen runtime and lock the exclusion policy with a source test |
 | 2026-08-15 | The frozen backend imported successfully but exited with `Operation not permitted` while starting Uvicorn | The installed PyInstaller process enabled `reload=True` and attempted to watch its read-only application bundle | Detect `sys.frozen`, disable Uvicorn reload only in packaged runtimes, and keep it enabled for native source development |
