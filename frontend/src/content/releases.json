@@ -1,5 +1,19 @@
 [
   {
+    "version": "2.0.5",
+    "date": "2026-08-25",
+    "channel": "stable",
+    "sections": {
+      "highlights": [],
+      "improvements": [
+        "release_notes.entries.v2_0_5.improvements.release_preflight"
+      ],
+      "fixes": [
+        "release_notes.entries.v2_0_5.fixes.dependency_refresh"
+      ]
+    }
+  },
+  {
     "version": "2.0.1",
     "date": "2026-08-24",
     "channel": "stable",

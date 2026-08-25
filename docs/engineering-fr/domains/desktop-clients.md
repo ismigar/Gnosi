@@ -95,6 +95,12 @@ backend gelé et envoie les tags officiels vers la matrice de runners locaux
 configurée. Le workflow valide ainsi les environnements qui produisent les
 artefacts.
 
+La préparation de la v2.0.5 ajoute un contrôle obligatoire des métadonnées
+avant l'empaquetage par plateforme. Un tag est refusé si les manifestes
+Electron et frontend, le fichier de verrouillage du monorepo, les quatre
+catalogues de version localisés et le journal généré ne décrivent pas la même
+version.
+
 ## Récupérateur Web
 
 L'extension du navigateur extrait le titre de la page actuelle, l'URL, le contenu sélectionné ou lisible, et les métadonnées supportées, puis envoie une requête limitée à l'API de Gnosi. Le moteur d'accès effectue l'authentification, la désinfectation, la déduplication et les écrits de Vault. L'extension ne reçoit pas un accès arbitraire au système de fichiers de Vault.

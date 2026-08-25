@@ -172,6 +172,11 @@ complete and sends official tags through the configured self-hosted runner
 matrix. This makes the release workflow validate the same local environments
 that produce the platform artifacts.
 
+The v2.0.5 preparation adds a mandatory metadata preflight before platform
+packaging. It rejects a tag unless the Electron and frontend manifests, the
+monorepo lockfile, the four localized release catalogs, and the generated
+changelog all describe the same version.
+
 ## Web clipper
 
 The browser extension extracts the current page's title, URL, selected or

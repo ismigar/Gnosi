@@ -5785,6 +5785,15 @@
     "section_improvements": "Mejoras",
     "section_fixes": "Correcciones",
     "entries": {
+      "v2_0_5": {
+        "highlights": {},
+        "improvements": {
+          "release_preflight": "Las etiquetas de release se comprueban ahora con la versión empaquetada, las notas localizadas y el changelog antes de iniciar cualquier build de plataforma."
+        },
+        "fixes": {
+          "dependency_refresh": "Las dependencias actualizadas del escritorio y el backend mejoran la compatibilidad y la fiabilidad de las releases en macOS, Windows y Linux."
+        }
+      },
       "v2_0_1": {
         "highlights": {},
         "improvements": {},

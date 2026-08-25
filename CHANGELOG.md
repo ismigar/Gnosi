@@ -1,5 +1,17 @@
 # Gnosi changelog
 
+## Gnosi 2.0.5
+
+_2026-08-25 · Stable_
+
+### Improvements
+
+- Release tags are now checked against the packaged version, localized notes and changelog before any platform build starts.
+
+### Fixes
+
+- Updated desktop and backend dependencies improve compatibility and release reliability across macOS, Windows and Linux.
+
 ## Gnosi 2.0.1
 
 _2026-08-24 · Stable_

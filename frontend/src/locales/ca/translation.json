@@ -5785,6 +5785,15 @@
     "section_improvements": "Millores",
     "section_fixes": "Correccions",
     "entries": {
+      "v2_0_5": {
+        "highlights": {},
+        "improvements": {
+          "release_preflight": "Els tags de release es comproven ara amb la versió empaquetada, les notes localitzades i el changelog abans d'iniciar cap build de plataforma."
+        },
+        "fixes": {
+          "dependency_refresh": "Les dependències actualitzades de l'escriptori i el backend milloren la compatibilitat i la fiabilitat de les releases a macOS, Windows i Linux."
+        }
+      },
       "v2_0_1": {
         "highlights": {},
         "improvements": {},
