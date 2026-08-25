@@ -95,7 +95,7 @@ from the official PyTorch CPU index before the general requirements. Do not let
 pull the CUDA/NVIDIA dependency stack, which exhausts the runner disk and adds
 several gigabytes that the container cannot use.
 
-Self-hosted Docker jobs must start the user-scoped `containerd.service` and
+ Self-hosted Docker jobs must start the user-scoped `containerd.service` and
 `buildkit.service` explicitly: systemd user services may not be active when a
 GitHub runner service begins a job. Prune the BuildKit cache with a bounded
 timeout before enforcing the 8 GiB free-space guard.

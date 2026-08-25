@@ -29,7 +29,7 @@ jobs:
           - arch: x64
             hosted_runner: macos-15-intel
             local_runner: [self-hosted, macOS, X64]
-    runs-on: ${{ (github.event_name == 'push' || inputs.local_only) && matrix.local_runner || matrix.hosted_runner }}
+    runs-on: ${{ matrix.local_runner }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -104,7 +104,7 @@ jobs:
           retention-days: 5
 
   build-linux:
-    runs-on: ${{ (github.event_name == 'push' || inputs.local_only) && fromJson('["self-hosted", "Linux", "ARM64"]') || 'ubuntu-latest' }}
+    runs-on: [self-hosted, Linux, ARM64]
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -166,7 +166,7 @@ jobs:
           retention-days: 5
 
   build-windows:
-    runs-on: ${{ (github.event_name == 'push' || inputs.local_only) && fromJson('["self-hosted", "Windows", "X64"]') || 'windows-latest' }}
+    runs-on: [self-hosted, Windows, X64]
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -228,7 +228,7 @@ jobs:
 
   release:
     needs: [build-macos, build-linux, build-windows]
-    runs-on: ${{ (github.event_name == 'push' || inputs.local_only) && fromJson('["self-hosted", "Linux", "ARM64"]') || 'ubuntu-latest' }}
+    runs-on: [self-hosted, Linux, ARM64]
     if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && startsWith(inputs.tag, 'v'))
     permissions:
       contents: write
