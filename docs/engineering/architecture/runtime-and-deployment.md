@@ -64,6 +64,11 @@ proxies to the backend service. Translation-server remains internal on `1969`.
 Docker requires a non-default JWT signing secret because it is considered an
 exposed deployment.
 
+The backend container installs the pinned CPU-only PyTorch wheel before the
+general Python requirements. Docker inference is CPU-based, and this prevents
+Linux ARM64 builds from downloading unused CUDA libraries and exhausting the
+runner disk.
+
 Docker is a supported deployment target, not a fallback for this development
 machine. Code must select Docker-specific defaults through runtime detection
 and retain native behavior.

@@ -50,6 +50,8 @@ Docker Compose proporciona backend, frontend y el servidor de traducción Zotero
 
 La imagen de backend usa vivicorn en `5002`; la interfaz está expuesta en `5173` y los proxys al servicio de backend. Traducción-servidor sigue siendo interna en `1969`Docker requiere un secreto de firma JWT no predeterminado porque se considera un despliegue expuesto.
 
+El contenedor del backend instala la versión fijada de PyTorch solo para CPU antes de los requisitos generales de Python. La inferencia con Docker usa la CPU; así, las compilaciones Linux ARM64 no descargan bibliotecas CUDA innecesarias ni agotan el disco del runner.
+
 Docker es un objetivo de implementación compatible, no un retroceso para esta máquina de desarrollo. El código debe seleccionar por defecto Docker-específica a través de la detección de tiempo de ejecución y mantener el comportamiento nativo.
 
 ## Paquetes de electrones

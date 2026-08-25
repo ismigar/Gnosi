@@ -18,7 +18,14 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Docker deployments use CPU inference. Install the CPU-only wheel first so
+# sentence-transformers does not pull multi-gigabyte CUDA dependencies into the
+# image, especially on the ARM64 CI runner.
+ARG TORCH_VERSION=2.12.1
+RUN pip install --no-cache-dir \
+        --index-url https://download.pytorch.org/whl/cpu \
+        "torch==${TORCH_VERSION}+cpu" \
+    && pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application
 COPY . .

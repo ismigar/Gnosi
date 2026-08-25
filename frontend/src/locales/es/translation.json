@@ -5784,6 +5784,14 @@
     "section_improvements": "Mejoras",
     "section_fixes": "Correcciones",
     "entries": {
+      "v2_0_1": {
+        "highlights": {},
+        "improvements": {},
+        "fixes": {
+          "packaged_literature_dependency": "Los paquetes de escritorio incluyen ahora la dependencia de seguridad XML que necesita el conector de búsqueda bibliográfica.",
+          "local_release_runners": "Las etiquetas de release usan ahora los runners locales configurados y evitan los límites de presupuesto de Actions alojadas."
+        }
+      },
       "v2_0_0": {
         "highlights": {
           "grounded_notebooks": "Los Cuadernos fundamentados permiten crear una conversación a partir de los campos de adjuntos y URL de los Recursos seleccionados, con respuestas respaldadas por citas navegables de la evidencia."

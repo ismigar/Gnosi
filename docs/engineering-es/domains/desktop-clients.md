@@ -134,6 +134,11 @@ que la etiqueta inmutable y el enlace de descarga de cada plataforma solo se
 añaden después de que el commit revisado de main supere el workflow oficial de
 release.
 
+El parche v2.0.1 mantiene completas las dependencias canónicas del backend
+congelado y envía las etiquetas oficiales a la matriz de runners locales
+configurada. Así el workflow valida los mismos entornos que generan los
+artefactos.
+
 ## Cortapapeles web
 
 La extensión del navegador extrae el título de la página actual, URL, contenido seleccionado o legible, y metadatos soportados, luego envía una solicitud limitada a la API de Gnosi. El motor realiza autenticación, desinfección, deduplicación y Vault escribe. La extensión no recibe acceso arbitrario al sistema de archivos Vault.

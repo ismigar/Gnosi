@@ -1,5 +1,14 @@
 # Gnosi changelog
 
+## Gnosi 2.0.1
+
+_2026-08-24 · Stable_
+
+### Fixes
+
+- Desktop packages now include the XML safety dependency required by the academic literature connector.
+- Release tags now use the configured local runners, avoiding hosted Actions budget limits.
+
 ## Gnosi 2.0.0
 
 _2026-08-24 · Stable_
