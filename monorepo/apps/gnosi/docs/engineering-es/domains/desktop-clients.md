@@ -75,6 +75,9 @@ fusionadas después de preparar la versión sin mover una etiqueta inmutable. El
 job de Windows expone la instalación estándar `Program Files\\Git\\cmd` antes
 del checkout si el servicio del runner no la hereda mediante `PATH`, evitando
 el fallback al ZIP REST.
+Los scripts generados del job usan una excepción de política de ejecución de
+PowerShell limitada al job. Así, los valores restrictivos del servicio no
+rechazan los `.ps1` efímeros y no se debilita la política global de la VM.
 La release de Linux también queda cerrada por arquitectura: el runner local y
 el backend de PyInstaller son ARM64, y electron-builder recibe `--arm64`
 explícitamente. Este runner no puede generar ningún paquete etiquetado como x64,

@@ -219,9 +219,11 @@ jobs:
   build-windows:
     needs: build-linux
     runs-on: [self-hosted, Windows, X64]
+    defaults:
+      run:
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
     steps:
       - name: Ensure Git is available
-        shell: powershell
         run: |
           $git = Get-Command git -ErrorAction SilentlyContinue
           if (-not $git) {

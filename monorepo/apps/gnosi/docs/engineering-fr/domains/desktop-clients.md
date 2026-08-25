@@ -79,6 +79,10 @@ fusionnés après la préparation de la version sans déplacer une balise immuab
 Le job Windows expose l'installation standard `Program Files\\Git\\cmd` avant
 le checkout lorsque le service du runner ne l'hérite pas via `PATH`, ce qui
 évite le fallback vers l'archive ZIP REST.
+Les scripts générés du job utilisent une dérogation à la stratégie d'exécution
+PowerShell limitée au job. Les paramètres restrictifs du service ne peuvent
+donc pas refuser les fichiers `.ps1` éphémères, sans affaiblir la stratégie
+globale de la VM.
 
 La release Linux est également limitée à une seule architecture : le runner
 local et son backend PyInstaller sont ARM64, et electron-builder reçoit

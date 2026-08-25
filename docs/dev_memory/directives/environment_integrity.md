@@ -300,6 +300,12 @@ let checkout fall back to the REST ZIP extractor: PowerShell's archive cleanup
 can fail on repository dot-directories such as `.agent`, after downloading the
 entire archive.
 
+Windows release run steps must invoke their generated scripts with an explicit,
+job-scoped `-ExecutionPolicy Bypass`. Do not loosen the machine-wide PowerShell
+execution policy: the self-hosted service can inherit a restrictive policy even
+when the interactive administrator account does not, and a job-scoped override
+is sufficient for the ephemeral Actions scripts.
+
 Linux release packaging is architecture-closed too. The local Linux runner is
 ARM64, so PyInstaller produces a native ARM64 backend and electron-builder must
 receive `--arm64` explicitly. Do not publish an x64-labelled Electron package

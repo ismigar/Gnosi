@@ -197,6 +197,11 @@ test('manual releases package the workflow commit and provision Windows Git befo
     /ref: \$\{\{ github\.event_name == 'workflow_dispatch' && inputs\.tag \|\| github\.ref \}\}/,
   );
   assert.ok(windowsJob, 'the release workflow must define a Windows build job');
+  assert.match(
+    windowsJob,
+    /defaults:\n\s+run:\n\s+shell: powershell -NoProfile -ExecutionPolicy Bypass -File \{0\}/,
+  );
+  assert.doesNotMatch(windowsJob, /^\s+shell: powershell$/m);
   assert.match(windowsJob, /- name: Ensure Git is available[\s\S]*?- name: Checkout/);
   assert.match(windowsJob, /Git\\cmd/);
 });
