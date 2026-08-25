@@ -1709,6 +1709,7 @@
       "error_save_url": "Could not save the URL",
       "error_invalid_key": "Invalid key",
       "error_install_plugin": "Could not install the plugin",
+      "lifecycle_error": "The plugin state could not be changed. Check that the Gnosi service is available and try again.",
       "error_install": "Could not install",
       "error_uninstall": "Could not uninstall",
       "export_package": "Export plugin package",

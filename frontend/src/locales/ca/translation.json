@@ -1724,6 +1724,7 @@
       "error_save_url": "No s'ha pogut desar la URL",
       "error_invalid_key": "Clau invàlida",
       "error_install_plugin": "No s'ha pogut instal·lar el plugin",
+      "lifecycle_error": "No s'ha pogut canviar l'estat del plugin. Comprova que el servei de Gnosi estigui disponible i torna-ho a provar.",
       "error_install": "No s'ha pogut instal·lar",
       "error_uninstall": "No s'ha pogut desinstal·lar",
       "export_package": "Exportar el paquet del plugin",

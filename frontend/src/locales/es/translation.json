@@ -1670,6 +1670,7 @@
       "error_save_url": "No se ha podido guardar la URL",
       "error_invalid_key": "Clave inválida",
       "error_install_plugin": "No se ha podido instalar el plugin",
+      "lifecycle_error": "No se ha podido cambiar el estado del plugin. Comprueba que el servicio de Gnosi esté disponible e inténtalo de nuevo.",
       "error_install": "No se ha podido instalar",
       "error_uninstall": "No se ha podido desinstalar",
       "export_package": "Exportar el paquete del complemento",

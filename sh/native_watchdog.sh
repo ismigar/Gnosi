@@ -25,9 +25,10 @@ set -u
 
 LOG="$HOME/.gnosi_native_watchdog.log"
 STAMP="$HOME/.gnosi_native_watchdog.laststart"
-COOLDOWN="${GNOSI_NATIVE_WATCHDOG_COOLDOWN:-150}"   # s; arrencada + reindex amb marge
+COOLDOWN="${GNOSI_NATIVE_WATCHDOG_COOLDOWN:-600}"   # s; allow slow native startup and indexing
 GRACE="${GNOSI_NATIVE_WATCHDOG_GRACE:-15}"          # s d'espera abans de confirmar mort
 ORPHAN_MIN_AGE="${GNOSI_NATIVE_ORPHAN_MIN_AGE:-90}" # s; no toquis orfes més joves (recàrrega en curs)
+STARTUP_GRACE="${GNOSI_NATIVE_STARTUP_GRACE:-600}"  # s; never kill a worker that is still starting
 HEALTH_URL="${GNOSI_NATIVE_HEALTH_URL:-http://127.0.0.1:5002/api/health}"
 LABEL="${GNOSI_NATIVE_LABEL:-com.gnosi.backend-native}"
 PROBE_TIMEOUT="${GNOSI_NATIVE_PROBE_TIMEOUT:-6}"    # s màx per sondeig
@@ -96,6 +97,19 @@ if [ -f "$HEARTBEAT" ]; then
     exit 0
   fi
 fi
+
+# A cold start can legitimately spend several minutes loading the scheduler,
+# agent graph, Vault indexes, and ML dependencies before `/api/health` responds.
+# The worker PID also changes during an ordinary uvicorn reload. Treat a young
+# worker as startup-in-progress so the watchdog cannot create a restart loop.
+for worker_pid in $(pgrep -f "multiprocessing.*--multiprocessing-fork" 2>/dev/null); do
+  worker_age=$(etime_secs "$worker_pid")
+  case "$worker_age" in ''|*[!0-9]*) worker_age=0 ;; esac
+  if [ "$worker_age" -lt "$STARTUP_GRACE" ]; then
+    log "Backend worker $worker_pid is still starting (${worker_age}s < ${STARTUP_GRACE}s); restart deferred."
+    exit 0
+  fi
+done
 
 # 4) Segueix mort. Anti-flapping: hem reiniciat fa poc?
 now=$(date +%s)
