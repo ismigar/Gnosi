@@ -1,0 +1,55 @@
+"""duplicate_page must register the copy in the in-memory page index.
+
+Without the registration (`_add_page_to_index_cache`, the same helper the trash
+restore uses), the copy remained INVISIBLE to the API: the file
+existed on disk but `find_page_path` didn't find it in the cache and, with the
+index initialized, it skips the fallback rglob ("probably deleted") →
+GET/PATCH/DELETE on the copy returned 404 until a full index rebuild.
+Reproduced against the real backend before the fix.
+"""
+import asyncio
+from pathlib import Path
+
+import pytest
+
+import backend.api.vault_routes as vr
+
+
+class _BT:
+    def __init__(self):
+        self.tasks = []
+
+    def add_task(self, fn, *a, **k):
+        self.tasks.append((fn, a))
+
+
+@pytest.fixture()
+def harness(monkeypatch, tmp_path):
+    src = tmp_path / "orig.md"
+    src.write_text("---\nid: orig-id\ntitle: Original\n---\ncos original\n", encoding="utf-8")
+    registered = []
+    monkeypatch.setattr(vr, "find_page_path", lambda pid, **kw: src)
+    monkeypatch.setattr(vr, "_add_page_to_index_cache", lambda p: registered.append(Path(p)))
+    return {"src": src, "registered": registered, "dir": tmp_path}
+
+
+def test_duplicate_registers_copy_in_index(harness):
+    bt = _BT()
+    res = asyncio.run(vr.duplicate_page("orig-id", bt))
+    assert res["status"] == "created"
+
+    new_file = harness["dir"] / f"{res['id']}.md"
+    assert new_file.exists(), "la còpia no s'ha escrit a disc"
+    # The index registration is what makes the copy VISIBLE to the API.
+    assert harness["registered"] == [new_file], "la còpia no s'ha registrat a l'índex"
+    # And the link-index refreshes in the background, as before.
+    assert any(fn is vr.update_link_index_for_page for fn, _ in bt.tasks)
+
+
+def test_duplicate_copy_has_fresh_id_and_copy_title(harness):
+    res = asyncio.run(vr.duplicate_page("orig-id", _BT()))
+    assert res["id"] != "orig-id"
+    assert res["title"] == "Original (Copy)"
+    raw = (harness["dir"] / f"{res['id']}.md").read_text(encoding="utf-8")
+    assert f"id: {res['id']}" in raw
+    assert "cos original" in raw
