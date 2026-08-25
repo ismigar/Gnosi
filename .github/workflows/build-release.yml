@@ -6,11 +6,6 @@ on:
       - 'v*'
   workflow_dispatch:
     inputs:
-      local_only:
-        description: 'Run every build on the configured self-hosted runners (recommended)'
-        required: false
-        default: true
-        type: boolean
       tag:
         description: 'Tag to build (e.g., v1.0.0)'
         required: false
@@ -68,10 +63,8 @@ jobs:
       matrix:
         include:
           - arch: arm64
-            hosted_runner: macos-15
             local_runner: [self-hosted, macOS, ARM64]
           - arch: x64
-            hosted_runner: macos-15-intel
             local_runner: [self-hosted, macOS, X64]
     runs-on: ${{ matrix.local_runner }}
     steps:

@@ -61,8 +61,13 @@ El workflow privat de release empaqueta macOS Intel i Apple Silicon en jobs
 separats d'una matriu. Cada job s'executa sobre l'arquitectura corresponent de
 macOS 15 i construeix un únic backend natiu amb PyInstaller abans d'invocar
 electron-builder per al mateix objectiu. Això evita copiar un executable Python
-natiu del host dins l'aplicació de l'altra arquitectura. Els runners de release
-estan fixats en comptes d'usar `macos-latest`, perquè la seva migració a macOS 26
+natiu del host dins l'aplicació de l'altra arquitectura.
+La matriu de macOS està tancada per arquitectura: cada runner local passa una
+única arquitectura per CLI i els objectius compartits de macOS
+d'electron-builder no poden declarar cap llista d'arquitectures. Això evita
+empaquetar un backend Python congelat natiu del host dins una aplicació Electron
+de l'arquitectura contrària.
+Els runners de release estan fixats en comptes d'usar `macos-latest`, perquè la seva migració a macOS 26
 va canviar la creació del DMG a APFS i va trencar la fase de muntatge i
 personalització d'electron-builder.
 Cada job de release també passa explícitament al constructor del backend el

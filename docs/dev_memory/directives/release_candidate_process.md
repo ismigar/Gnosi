@@ -128,7 +128,8 @@ until a maintainer publishes them.
   frozen Python backend is native to the runner architecture, so a shared
   bundle can silently put an ARM64 backend inside the Intel application (or the
   inverse). Use separate matrix jobs, match the runner architecture to the
-  requested Electron architecture, and upload architecture-specific artifacts.
+  requested Electron architecture, leave target architecture lists out of the
+  shared builder configuration, and upload architecture-specific artifacts.
 - Do not use the moving `macos-latest` label for release installers. Its 2026
   migration to macOS 26 ARM64 made electron-builder fall back to APFS and the
   DMG customization phase failed with `hdiutil: no mountable file systems`.
@@ -230,6 +231,7 @@ until a maintainer publishes them.
 | 2026-08-25 | Repeated Docker PR checks left less than 3 GiB free and delayed the current run behind obsolete jobs | Successful image exports remained in rootless containerd, and the workflow did not cancel an earlier run for the same PR | Cancel superseded Docker runs and remove only the generated CI image plus BuildKit cache in each job's unconditional cleanup |
 | 2026-08-25 | The ARM64 backend image was fully built and logged as loaded, but the Docker check still exited before its smoke test | Rootless `nerdctl` exceeded its client-side context deadline while completing the local image import | When the build command fails, verify the exact local image tag for a short bounded interval; proceed only if it exists and then require the normal smoke test |
 | 2026-08-25 | The new release preflight stopped immediately with `node: command not found` | The self-hosted Linux runner does not expose a runner-global Node.js binary, while the preflight used Node before any platform setup step | Provision the pinned Node.js runtime inside the preflight just as every platform packaging job does |
+| 2026-08-25 | Both macOS matrix jobs started packaging both x64 and ARM64 applications | The shared electron-builder target declared both architectures, overriding the architecture selected by each matrix command and pairing one host-native Python bundle with two Electron architectures | Let the matrix CLI select exactly one architecture and forbid architecture lists in the shared macOS builder block with a packaging-contract test |
 | 2026-08-15 | The installed native backend exited while creating `/app/data/secrets`, then the first window waited two minutes | The desktop process supplied no native local-data path and polled a protected statistics endpoint for readiness | Set `GNOSI_LOCAL_DATA` under Electron's per-user data directory, isolate the frozen smoke test, and poll `/api/health` |
 | 2026-08-15 | The isolated frozen-backend smoke test failed in `pyparsing.testing` with `No module named 'unittest'` | The PyInstaller spec excluded a standard-library module used by an included Google API dependency | Keep `unittest` and the feature-required `PIL` package in the frozen runtime and lock the exclusion policy with a source test |
 | 2026-08-15 | The frozen backend imported successfully but exited with `Operation not permitted` while starting Uvicorn | The installed PyInstaller process enabled `reload=True` and attempted to watch its read-only application bundle | Detect `sys.frozen`, disable Uvicorn reload only in packaged runtimes, and keep it enabled for native source development |
