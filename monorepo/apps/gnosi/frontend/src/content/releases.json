@@ -1,5 +1,18 @@
 [
   {
+    "version": "2.0.1",
+    "date": "2026-08-24",
+    "channel": "stable",
+    "sections": {
+      "highlights": [],
+      "improvements": [],
+      "fixes": [
+        "release_notes.entries.v2_0_1.fixes.packaged_literature_dependency",
+        "release_notes.entries.v2_0_1.fixes.local_release_runners"
+      ]
+    }
+  },
+  {
     "version": "2.0.0",
     "date": "2026-08-24",
     "channel": "stable",

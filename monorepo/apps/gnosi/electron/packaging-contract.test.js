@@ -97,6 +97,7 @@ test('the resources directory follows each platform layout', () => {
 
 test('the frozen backend keeps required standard-library and media modules', () => {
   const buildScript = fs.readFileSync(path.join(__dirname, 'build-python.sh'), 'utf8');
+  const runtimeRequirements = fs.readFileSync(path.join(gnosiRoot, 'requirements-e2e.txt'), 'utf8');
 
   assert.match(buildScript, /requirements-e2e\.txt/);
   assert.match(buildScript, /GNOSI_PYTHON_CMD/);
@@ -104,6 +105,18 @@ test('the frozen backend keeps required standard-library and media modules', () 
   assert.match(buildScript, /--only-binary=cryptography/);
   assert.doesNotMatch(buildScript, /excludes=\[[^\]]*['"]unittest['"]/s);
   assert.doesNotMatch(buildScript, /excludes=\[[^\]]*['"]PIL['"]/s);
+  assert.match(runtimeRequirements, /^defusedxml>=0\.7\.1$/m);
+});
+
+test('the Docker backend installs CPU-only Torch before runtime requirements', () => {
+  const dockerfile = fs.readFileSync(path.join(gnosiRoot, 'Dockerfile.backend'), 'utf8');
+  const cpuTorchInstall = dockerfile.indexOf('https://download.pytorch.org/whl/cpu');
+  const runtimeInstall = dockerfile.indexOf('pip install --no-cache-dir -r requirements.txt');
+
+  assert.notEqual(cpuTorchInstall, -1);
+  assert.notEqual(runtimeInstall, -1);
+  assert.ok(cpuTorchInstall < runtimeInstall);
+  assert.match(dockerfile, /torch==\$\{TORCH_VERSION\}\+cpu/);
 });
 
 test('macOS Intel uses the final cryptography universal2 wheel release', () => {

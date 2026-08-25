@@ -167,6 +167,11 @@ generated changelog ship with the synchronized manifests, while the immutable
 tag and platform download link are added only after the reviewed main commit
 has passed the official release workflow.
 
+The v2.0.1 patch also keeps the frozen backend's canonical runtime requirements
+complete and sends official tags through the configured self-hosted runner
+matrix. This makes the release workflow validate the same local environments
+that produce the platform artifacts.
+
 ## Web clipper
 
 The browser extension extracts the current page's title, URL, selected or

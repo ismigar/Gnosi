@@ -5733,6 +5733,14 @@
     "section_improvements": "Improvements",
     "section_fixes": "Fixes",
     "entries": {
+      "v2_0_1": {
+        "highlights": {},
+        "improvements": {},
+        "fixes": {
+          "packaged_literature_dependency": "Desktop packages now include the XML safety dependency required by the academic literature connector.",
+          "local_release_runners": "Release tags now use the configured local runners, avoiding hosted Actions budget limits."
+        }
+      },
       "v2_0_0": {
         "highlights": {
           "grounded_notebooks": "Grounded Notebooks let you build a conversation from the attachment and URL fields of selected Resources, with answers supported by navigable evidence citations."

@@ -51,6 +51,8 @@ Docker Compose fournit le backend, le frontend et le serveur de traduction Zoter
 
 L'image de l'arrière-plan utilise l'uvicorn sur `5002`; la façade est exposée sur `5173` et des proxys au service backend. `1969`. Docker exige un secret de signature non par défaut JWT parce qu'il est considéré comme un déploiement exposé.
 
+Le conteneur backend installe la version épinglée de PyTorch pour CPU avant les dépendances Python générales. L'inférence Docker utilise le CPU ; les compilations Linux ARM64 ne téléchargent donc pas de bibliothèques CUDA inutiles et n'épuisent pas le disque du runner.
+
 Docker est une cible de déploiement supportée, pas un repli pour cette machine de développement. Code doit sélectionner les défauts spécifiques Docker par détection de temps d'exécution et conserver le comportement natif.
 
 ## Emballages électroniques

@@ -90,6 +90,11 @@ tandis que le tag immuable et le lien de téléchargement de chaque plateforme
 ne sont ajoutés qu’après la réussite du workflow officiel de release pour le
 commit révisé de main.
 
+Le correctif v2.0.1 conserve des dépendances canoniques complètes pour le
+backend gelé et envoie les tags officiels vers la matrice de runners locaux
+configurée. Le workflow valide ainsi les environnements qui produisent les
+artefacts.
+
 ## Récupérateur Web
 
 L'extension du navigateur extrait le titre de la page actuelle, l'URL, le contenu sélectionné ou lisible, et les métadonnées supportées, puis envoie une requête limitée à l'API de Gnosi. Le moteur d'accès effectue l'authentification, la désinfectation, la déduplication et les écrits de Vault. L'extension ne reçoit pas un accès arbitraire au système de fichiers de Vault.

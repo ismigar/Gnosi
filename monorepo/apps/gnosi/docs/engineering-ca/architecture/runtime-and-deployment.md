@@ -50,6 +50,8 @@ Complaador proveeix dorsal, frontal i servidor de traducció Zotero. El dorsal v
 
 La imatge del dorsal usa luv uvicon `5002`; el frontal està exposat `5173` i intermediaris al servei del dorsal. El servidor de traducció encara és intern `1969`. Docker requereix un secret de signatura no per omissió de JWT perquè es considera un desplegament exposat.
 
+El contenidor del backend instal·la la versió fixada de PyTorch només per a CPU abans dels requisits generals de Python. La inferència amb Docker usa la CPU; així, les compilacions Linux ARM64 no descarreguen biblioteques CUDA innecessàries ni exhaureixen el disc del runner.
+
 El Docker és un objectiu de desplegament, no una alternativa per a aquesta màquina de desenvolupament. El codi ha de seleccionar valors específics de Docker mitjançant la detecció d' execució i mantenir el comportament natiu.
 
 ## Paquets electrònica

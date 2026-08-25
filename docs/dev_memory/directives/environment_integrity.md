@@ -89,6 +89,17 @@ independent from the GitHub-hosted Actions budget and does not grant the host a
 privileged Docker daemon. The workflow derives `XDG_RUNTIME_DIR` from the
 runner user ID so `nerdctl` reaches that user's rootless containerd socket.
 
+The Docker backend is a CPU runtime. Install the pinned CPU-only PyTorch wheel
+from the official PyTorch CPU index before the general requirements. Do not let
+`sentence-transformers` resolve PyTorch from PyPI on Linux ARM64: current wheels
+pull the CUDA/NVIDIA dependency stack, which exhausts the runner disk and adds
+several gigabytes that the container cannot use.
+
+Self-hosted Docker jobs must start the user-scoped `containerd.service` and
+`buildkit.service` explicitly: systemd user services may not be active when a
+GitHub runner service begins a job. Prune the BuildKit cache with a bounded
+timeout before enforcing the 8 GiB free-space guard.
+
 ## Docker-only operational notes
 
 These rules apply only when Docker is deliberately selected for a self-host

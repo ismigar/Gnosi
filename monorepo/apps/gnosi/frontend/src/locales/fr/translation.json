@@ -5784,6 +5784,14 @@
     "section_improvements": "Améliorations",
     "section_fixes": "Corrections",
     "entries": {
+      "v2_0_1": {
+        "highlights": {},
+        "improvements": {},
+        "fixes": {
+          "packaged_literature_dependency": "Les paquets bureau incluent désormais la dépendance de sécurité XML requise par le connecteur de recherche bibliographique.",
+          "local_release_runners": "Les tags de release utilisent désormais les runners locaux configurés et évitent les limites de budget Actions hébergées."
+        }
+      },
       "v2_0_0": {
         "highlights": {
           "grounded_notebooks": "Les Carnets ancrés permettent de créer une conversation à partir des champs de pièces jointes et d’URL des Ressources sélectionnées, avec des réponses étayées par des citations d’évidence navigables."

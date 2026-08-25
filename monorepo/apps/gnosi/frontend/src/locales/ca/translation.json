@@ -5784,6 +5784,14 @@
     "section_improvements": "Millores",
     "section_fixes": "Correccions",
     "entries": {
+      "v2_0_1": {
+        "highlights": {},
+        "improvements": {},
+        "fixes": {
+          "packaged_literature_dependency": "Els paquets d'escriptori inclouen ara la dependència de seguretat XML que necessita el connector de cerca bibliogràfica.",
+          "local_release_runners": "Els tags de release utilitzen ara els runners locals configurats i eviten els límits de pressupost d'Actions allotjades."
+        }
+      },
       "v2_0_0": {
         "highlights": {
           "grounded_notebooks": "Els Quaderns fonamentats permeten crear una conversa a partir dels camps d'adjunt i URL dels Recursos seleccionats, amb respostes recolzades per cites navegables de l'evidència."

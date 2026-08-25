@@ -132,6 +132,10 @@ mentre que l'etiqueta immutable i l'enllaç de descàrrega de cada plataforma
 només s'afegeixen després que el commit revisat de main superi el workflow
 oficial de release.
 
+El patch v2.0.1 manté completes les dependències canòniques del backend
+congelat i envia els tags oficials a la matriu de runners locals configurada.
+Així el workflow valida els mateixos entorns que generen els artefactes.
+
 ## clipper web
 
 L' extensió del navegador extraieu el títol de la pàgina actual, URL, seleccionat o llegibles, i les metadades acceptades, després envia una sol· licitud limitada a l' API del Gnosi. El dorsal realitza autenticació, sanitització, desuplicació i Vault escriu. L' extensió no rep accés a sistema de fitxers arbitraris.
