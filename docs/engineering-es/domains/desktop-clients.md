@@ -62,7 +62,13 @@ separados de una matriz. Cada job se ejecuta sobre la arquitectura
 correspondiente de macOS 15 y construye un único backend nativo con PyInstaller
 antes de invocar electron-builder para el mismo objetivo. Así se evita copiar
 un ejecutable Python nativo del host dentro de la aplicación de la otra
-arquitectura. Los runners de release están fijados en lugar de usar
+arquitectura.
+La matriz de macOS está cerrada por arquitectura: cada runner local pasa una
+única arquitectura por CLI y los objetivos compartidos de macOS de
+electron-builder no pueden declarar una lista de arquitecturas. Esto evita
+empaquetar un backend Python congelado nativo del host dentro de una aplicación
+Electron para la arquitectura contraria.
+Los runners de release están fijados en lugar de usar
 `macos-latest`, cuya migración a macOS 26 cambió la creación del DMG a APFS y
 rompió la fase de montaje y personalización de electron-builder.
 Cada job de release también pasa explícitamente al constructor del backend el

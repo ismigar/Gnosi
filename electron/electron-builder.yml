@@ -60,14 +60,11 @@ mac:
   signIgnore:
     - Contents/Resources/python/_internal/Python.framework
   target:
+    # The release matrix passes --arm64 or --x64. Do not list both
+    # architectures here: each frozen Python backend is host-native and must
+    # be packaged only into its matching Electron application.
     - target: dmg
-      arch:
-        - x64
-        - arm64
     - target: zip
-      arch:
-        - x64
-        - arm64
   artifactName: ${productName}-${version}-${arch}.${ext}
 
 linux:

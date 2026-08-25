@@ -87,8 +87,13 @@ The private release workflow packages macOS Intel and Apple Silicon in separate
 matrix jobs. Each job runs on the matching macOS 15 architecture and builds one
 native PyInstaller backend before invoking electron-builder for that same
 target. This prevents a host-native Python executable from being copied into
-the other architecture's application. Release runners are pinned instead of
-using `macos-latest`, whose migration to macOS 26 changed DMG creation to APFS
+the other architecture's application.
+The macOS matrix is architecture-closed: each local runner passes exactly one
+CLI architecture, and the shared electron-builder macOS targets must not
+declare an architecture list. This prevents a host-native frozen Python backend
+from being packaged into an Electron application for the opposite architecture.
+Release runners are pinned instead of using `macos-latest`, whose migration to
+macOS 26 changed DMG creation to APFS
 and broke electron-builder's mount-and-customize phase.
 Every release job also passes the Python command provisioned by
 `actions/setup-python` explicitly to the backend builder. This keeps binary
