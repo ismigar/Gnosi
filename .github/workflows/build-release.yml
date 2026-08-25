@@ -16,9 +16,13 @@ on:
         required: false
         type: string
 
+permissions:
+  contents: write
+
 jobs:
   build-macos:
     name: build-macos-${{ matrix.arch }}
+    needs: build-linux
     strategy:
       fail-fast: false
       matrix:
@@ -92,16 +96,19 @@ jobs:
             rmdir "$mount_dir"
           done
 
-      - name: Upload macOS artifacts
-        uses: actions/upload-artifact@v7
+      - name: Publish macOS artifacts directly to Gnosi release
+        uses: softprops/action-gh-release@v3
         with:
-          name: macos-${{ matrix.arch }}
-          path: |
+          repository: ismigar/Gnosi
+          token: ${{ secrets.SYNC_PAT || secrets.GITHUB_TOKEN }}
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          name: Gnosi ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          draft: false
+          files: |
             monorepo/apps/gnosi/electron/dist/*.dmg
             monorepo/apps/gnosi/electron/dist/*.zip
             monorepo/apps/gnosi/electron/dist/*.blockmap
             monorepo/apps/gnosi/electron/dist/latest-mac.yml
-          retention-days: 5
 
   build-linux:
     runs-on: [self-hosted, Linux, ARM64]
@@ -154,18 +161,29 @@ jobs:
           cd monorepo/apps/gnosi/electron
           npm run build:linux
 
-      - name: Upload Linux artifacts
-        uses: actions/upload-artifact@v7
+      - name: Render public release notes
+        run: |
+          node monorepo/apps/gnosi/frontend/scripts/release-notes.mjs \
+            --version "${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}" \
+            --output release-notes.md
+
+      - name: Publish Linux artifacts directly to Gnosi release
+        uses: softprops/action-gh-release@v3
         with:
-          name: linux-x64
-          path: |
+          repository: ismigar/Gnosi
+          token: ${{ secrets.SYNC_PAT || secrets.GITHUB_TOKEN }}
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          name: Gnosi ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          body_path: release-notes.md
+          draft: false
+          files: |
             monorepo/apps/gnosi/electron/dist/*.AppImage
             monorepo/apps/gnosi/electron/dist/*.deb
             monorepo/apps/gnosi/electron/dist/*.blockmap
             monorepo/apps/gnosi/electron/dist/latest-linux.yml
-          retention-days: 5
 
   build-windows:
+    needs: build-linux
     runs-on: [self-hosted, Windows, X64]
     steps:
       - name: Checkout
@@ -216,15 +234,18 @@ jobs:
           cd monorepo/apps/gnosi/electron
           npm run build:win
 
-      - name: Upload Windows artifacts
-        uses: actions/upload-artifact@v7
+      - name: Publish Windows artifacts directly to Gnosi release
+        uses: softprops/action-gh-release@v3
         with:
-          name: windows-x64
-          path: |
+          repository: ismigar/Gnosi
+          token: ${{ secrets.SYNC_PAT || secrets.GITHUB_TOKEN }}
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          name: Gnosi ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          draft: false
+          files: |
             monorepo/apps/gnosi/electron/dist/*Setup*.exe
             monorepo/apps/gnosi/electron/dist/*.blockmap
             monorepo/apps/gnosi/electron/dist/latest.yml
-          retention-days: 5
 
   release:
     needs: [build-macos, build-linux, build-windows]
@@ -247,15 +268,8 @@ jobs:
             echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Download all artifacts
-        uses: actions/download-artifact@v8
-        with:
-          path: artifacts
-          pattern: '*'
-          merge-multiple: true
-
-      - name: List artifacts
-        run: ls -laR artifacts/
+      - name: Prepare release metadata
+        run: mkdir -p artifacts
 
       # Build and sign the official remote indexes. The private key arrives only
       # through GNOSI_PLUGIN_SIGNING_KEY and never belongs in the repository.
@@ -316,13 +330,12 @@ jobs:
           # sync orphan+force); posem instruccions d'instal·lació, més útils.
           body_path: artifacts/release-notes.md
           files: |
-            artifacts/*.dmg
-            artifacts/*.zip
-            artifacts/*.AppImage
-            artifacts/*.deb
-            artifacts/*Setup*.exe
-            artifacts/*.blockmap
-            artifacts/latest*.yml
+            artifacts/plugins/*.zip
+            artifacts/plugins/plugins-index.json
+            artifacts/plugins/plugins-index.sig
+            artifacts/vault-templates/*.zip
+            artifacts/vault-templates/vault-templates-index.json
+            artifacts/vault-templates/vault-templates-index.sig
             artifacts/plugins/*.zip
             artifacts/plugins/plugins-index.json
             artifacts/plugins/plugins-index.sig
