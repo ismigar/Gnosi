@@ -72,6 +72,19 @@ d'electron-builder ne doivent pas déclarer de liste d'architectures. Cela évit
 d'intégrer un backend Python gelé natif de l'hôte dans une application Electron
 destinée à l'architecture opposée.
 
+Les releases manuelles extraient le commit de l'exécution (`github.sha`) ; la
+balise demandée fournit uniquement la version sémantique et la destination de
+la release publique. Les binaires incluent ainsi les correctifs d'empaquetage
+fusionnés après la préparation de la version sans déplacer une balise immuable.
+Le job Windows expose l'installation standard `Program Files\\Git\\cmd` avant
+le checkout lorsque le service du runner ne l'hérite pas via `PATH`, ce qui
+évite le fallback vers l'archive ZIP REST.
+
+La release Linux est également limitée à une seule architecture : le runner
+local et son backend PyInstaller sont ARM64, et electron-builder reçoit
+explicitement `--arm64`. Ce runner ne doit jamais produire un paquet étiqueté
+x64, car il contiendrait un exécutable backend de l'architecture opposée.
+
 La liste des fichiers constructeurs d'Electron est une limite explicite de temps d'exécution. `afterPack` crochet inspecte la finale `app.asar` et rejette un paquet qui omet le processus principal, précharge, native-menu, backend-launch ou module update-policy. Cette vérification d'artefact installé complète les tests de source et empêche un arbre source valide de produire une application qui échoue avant l'ouverture de sa première fenêtre.
 
 Le chemin de l'arrière-paquet se résolve à l'exécutable PyInstaller lui-même sur macOS et Linux, et à son `.exe` Le processus principal est le résultat de la résolution directe du fichier; il ne traite jamais l'exécutable comme un autre niveau de répertoire. La construction propre installe les exigences canoniques d'exécution E2E, y compris les dépendances du fournisseur et de l'API, puis démarre l'exécutable congelé comme un test de fumée multiplateforme avant que le paquet de bureau puisse continuer.

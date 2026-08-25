@@ -107,7 +107,7 @@ function renderPublicRelease(release, translation) {
     '- **macOS (Apple Silicon / M1+)** → `*-arm64.dmg`',
     '- **macOS (Intel)** → `*-x64.dmg`',
     '- **Windows** → `*-Setup.exe`',
-    '- **Linux** → `*-x86_64.AppImage` or `*-amd64.deb`',
+    '- **Linux (ARM64)** → `*-arm64.AppImage` or `*-arm64.deb`',
     '',
     '> The binaries are unsigned. On macOS: right-click the app → **Open**. On Windows: **More info → Run anyway**.',
     '',

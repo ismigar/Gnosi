@@ -163,3 +163,40 @@ test('macOS release jobs match each frozen backend to its target architecture', 
     'the builder config must not override the release matrix target architecture',
   );
 });
+
+test('Linux release matches the frozen backend to the ARM64 runner', () => {
+  const workflow = fs.readFileSync(releaseWorkflowPath, 'utf8');
+  const builderConfig = fs.readFileSync(path.join(electronRoot, 'electron-builder.yml'), 'utf8');
+  const linuxConfig = builderConfig.match(/^linux:\n([\s\S]*?)^win:/m)?.[1];
+  const linuxJob = workflow.match(/  build-linux:\n([\s\S]*?)\n  build-windows:/)?.[1];
+
+  assert.ok(linuxJob, 'the release workflow must define a Linux build job');
+  assert.match(linuxJob, /runs-on: \[self-hosted, Linux, ARM64\]/);
+  assert.match(linuxJob, /npx electron-builder --linux --arm64 --publish never/);
+  assert.doesNotMatch(linuxJob, /npm run build:linux/);
+  assert.ok(linuxConfig, 'electron-builder.yml must define a Linux build block');
+  assert.doesNotMatch(
+    linuxConfig,
+    /^\s+arch:/m,
+    'the builder config must not force x64 around a host-native ARM64 Python backend',
+  );
+});
+
+test('manual releases package the workflow commit and provision Windows Git before checkout', () => {
+  const workflow = fs.readFileSync(releaseWorkflowPath, 'utf8');
+  const checkoutRefs = workflow.match(/ref: \$\{\{ github\.sha \}\}/g) ?? [];
+  const windowsJob = workflow.match(/  build-windows:\n([\s\S]*?)\n  release:/)?.[1];
+
+  assert.equal(
+    checkoutRefs.length,
+    5,
+    'every release checkout must package the workflow commit instead of an older input tag',
+  );
+  assert.doesNotMatch(
+    workflow,
+    /ref: \$\{\{ github\.event_name == 'workflow_dispatch' && inputs\.tag \|\| github\.ref \}\}/,
+  );
+  assert.ok(windowsJob, 'the release workflow must define a Windows build job');
+  assert.match(windowsJob, /- name: Ensure Git is available[\s\S]*?- name: Checkout/);
+  assert.match(windowsJob, /Git\\cmd/);
+});

@@ -68,7 +68,7 @@ For production releases, build on each target platform:
 |----------|---------|----------------|
 | macOS x64 | Intel Mac | Python 3.11+ |
 | macOS ARM64 | Apple Silicon | Python 3.11+ |
-| Linux x64 | Linux | Python 3.11+ |
+| Linux ARM64 | Linux ARM64 | Python 3.11+ |
 | Windows x64 | Windows | Python 3.11+ |
 
 Python 3.9 from Xcode Command Line Tools bundles incorrectly on Apple Silicon. Use Python 3.11+ from homebrew or python.org.

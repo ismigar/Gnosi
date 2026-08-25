@@ -68,6 +68,17 @@ La matriz de macOS está cerrada por arquitectura: cada runner local pasa una
 electron-builder no pueden declarar una lista de arquitecturas. Esto evita
 empaquetar un backend Python congelado nativo del host dentro de una aplicación
 Electron para la arquitectura contraria.
+Las releases manuales hacen checkout del commit de la ejecución (`github.sha`);
+la etiqueta solicitada solo aporta la versión semántica y el destino de la
+release pública. Así los binarios incorporan las correcciones de empaquetado
+fusionadas después de preparar la versión sin mover una etiqueta inmutable. El
+job de Windows expone la instalación estándar `Program Files\\Git\\cmd` antes
+del checkout si el servicio del runner no la hereda mediante `PATH`, evitando
+el fallback al ZIP REST.
+La release de Linux también queda cerrada por arquitectura: el runner local y
+el backend de PyInstaller son ARM64, y electron-builder recibe `--arm64`
+explícitamente. Este runner no puede generar ningún paquete etiquetado como x64,
+porque contendría un ejecutable de backend de la arquitectura contraria.
 Los runners de release están fijados en lugar de usar
 `macos-latest`, cuya migración a macOS 26 cambió la creación del DMG a APFS y
 rompió la fase de montaje y personalización de electron-builder.
