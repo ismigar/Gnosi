@@ -286,3 +286,21 @@ The Docker deployment guard also runs on that self-hosted runner. It must use
 the preconfigured rootless `nerdctl` service and fail clearly when that runtime
 is unavailable. Do not install a privileged Docker daemon, alter AppArmor, or
 depend on interactive `sudo` from the workflow.
+
+Release jobs must checkout the workflow run commit (`github.sha`). The tag
+entered for a manual release selects the semantic version and destination
+release, but it must not make the jobs checkout an older tag that predates
+packaging fixes already merged into the workflow commit. For a tag-triggered
+run, `github.sha` already resolves to the tagged commit.
+
+The Windows release runner must expose Git before `actions/checkout`. The
+workflow should first use Git from `PATH`, then fall back to the standard
+`Program Files\\Git\\cmd` installation and add it through `GITHUB_PATH`. Do not
+let checkout fall back to the REST ZIP extractor: PowerShell's archive cleanup
+can fail on repository dot-directories such as `.agent`, after downloading the
+entire archive.
+
+Linux release packaging is architecture-closed too. The local Linux runner is
+ARM64, so PyInstaller produces a native ARM64 backend and electron-builder must
+receive `--arm64` explicitly. Do not publish an x64-labelled Electron package
+from that runner: it embeds an ARM64 backend that cannot execute on x64 Linux.

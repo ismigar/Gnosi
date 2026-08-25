@@ -22,7 +22,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+          ref: ${{ github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -71,7 +71,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+          ref: ${{ github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -150,7 +150,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+          ref: ${{ github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -193,7 +193,7 @@ jobs:
       - name: Build Electron app (Linux)
         run: |
           cd monorepo/apps/gnosi/electron
-          npm run build:linux
+          npx electron-builder --linux --arm64 --publish never
 
       - name: Render public release notes
         run: |
@@ -220,10 +220,26 @@ jobs:
     needs: build-linux
     runs-on: [self-hosted, Windows, X64]
     steps:
+      - name: Ensure Git is available
+        shell: powershell
+        run: |
+          $git = Get-Command git -ErrorAction SilentlyContinue
+          if (-not $git) {
+            $gitDirectory = Join-Path $env:ProgramFiles 'Git\cmd'
+            $gitExecutable = Join-Path $gitDirectory 'git.exe'
+            if (-not (Test-Path $gitExecutable)) {
+              throw 'Git 2.18 or newer is required on the Windows release runner.'
+            }
+            $gitDirectory | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+            & $gitExecutable --version
+          } else {
+            git --version
+          }
+
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+          ref: ${{ github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -291,7 +307,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+          ref: ${{ github.sha }}
 
       - name: Define release tag
         id: release_tag

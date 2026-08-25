@@ -71,11 +71,7 @@ linux:
   icon: build/icon.png
   target:
     - target: AppImage
-      arch:
-        - x64
     - target: deb
-      arch:
-        - x64
   category: Office
   artifactName: ${productName}-${version}-${arch}.${ext}
 
