@@ -29,6 +29,11 @@ jobs:
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+
       - name: Validate tag, packaged version, notes and changelog
         shell: bash
         run: |
