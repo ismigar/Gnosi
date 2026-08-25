@@ -98,6 +98,9 @@ keeps packaging fixes merged after version preparation in the binaries without
 moving an immutable tag. The Windows job exposes the standard
 `Program Files\\Git\\cmd` installation before checkout when the runner service
 does not inherit it through `PATH`, preventing the REST ZIP fallback.
+Its generated run scripts use a job-scoped PowerShell execution-policy bypass,
+so restrictive service defaults cannot reject the ephemeral `.ps1` files
+without weakening the VM-wide policy.
 The Linux release is architecture-closed as well: the local runner and its
 PyInstaller backend are ARM64, and electron-builder receives `--arm64`
 explicitly. An x64-labelled package must never be emitted from this runner,
