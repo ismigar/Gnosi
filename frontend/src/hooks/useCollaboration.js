@@ -19,6 +19,7 @@
  */
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { ensureBackendOrigin } from '../lib/electron';
+import { canonicalizeVaultApiUrl } from '../lib/vaultRouting';
 
 async function buildWsUrl(pageId) {
     // In the Electron shell the `app://` scheme does not intercept WebSocket
@@ -32,7 +33,8 @@ async function buildWsUrl(pageId) {
         user_id: localStorage.getItem('gnosi_user_id') || 'anon',
         name: localStorage.getItem('gnosi_user_email') || 'Anònim',
     });
-    return `${proto}://${host}/api/vault/collab/${encodeURIComponent(pageId)}?${params.toString()}`;
+    const path = canonicalizeVaultApiUrl(`/api/vault/collab/${encodeURIComponent(pageId)}`);
+    return `${proto}://${host}${path}?${params.toString()}`;
 }
 
 export function useCollaboration(pageId) {

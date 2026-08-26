@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import { Bell, X, Calendar, MapPin, ChevronDown, ChevronRight, Sparkles } from 'lucide-react';
+import { vaultPath } from '../lib/vaultRouting';
 
 const POLL_MS = 60000;
 
@@ -106,7 +107,7 @@ export default function MeetingReminderWatcher() {
                         <div className="flex gap-2 border-t border-[var(--border-color)] px-3 py-2">
                             <button
                                 type="button"
-                                onClick={() => { navigate('/calendar'); dismiss(r.id); }}
+                                onClick={() => { navigate(vaultPath('calendar')); dismiss(r.id); }}
                                 className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-700"
                             >
                                 <Calendar size={14} /> {t('meeting_reminder.view_in_calendar', "View in calendar")}

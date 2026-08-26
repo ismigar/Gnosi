@@ -36,7 +36,7 @@ if (!axios.defaults.timeout) {
 // In-memory cache: pageId → last known etag string.
 const etagByPage = new Map();
 
-const PAGE_URL_RE = /\/api\/vault\/pages\/([^/?#]+)(?:[/?#]|$)/;
+const PAGE_URL_RE = /\/(?:api\/vault|api\/v1\/vaults\/[^/]+\/knowledge)\/pages\/([^/?#]+)(?:[/?#]|$)/;
 
 function extractPageId(url) {
     if (!url) return null;

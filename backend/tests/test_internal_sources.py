@@ -749,7 +749,7 @@ def test_reader_analysis_processes_snapshot_with_checkpoints(tmp_path, monkeypat
     assert all(topic["article_ids"] for topic in result["topics"])
     assert len(checkpoints) == status["total_batches"]
     assert recent[0]["job_id"] == job["job_id"]
-    assert "/reader?article=" in result["report_markdown"]
+    assert "/reader/article/" in result["report_markdown"]
     assert "# Reader analysis" in result["report_markdown"]
     assert all(
         "Compare read state and source coverage" in prompt

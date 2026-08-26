@@ -41,6 +41,7 @@ import { useModalKeyboard } from '../hooks/useModalKeyboard';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useKeyboardScroll } from '../hooks/useKeyboardScroll';
 import { toast } from '../lib/toast';
+import { vaultPath } from '../lib/vaultRouting';
 import './NotebooksPage.css';
 
 const ACTIVE_STATES = new Set(['queued', 'indexing']);
@@ -135,7 +136,7 @@ function NotebookLibrary({ onCreate }) {
                     )}
                     <div className="notebook-grid">
                         {(data.items || []).map((notebook) => (
-                            <button key={notebook.id} className="notebook-card" onClick={() => navigate(`/notebooks/${notebook.id}`)}>
+                            <button key={notebook.id} className="notebook-card" onClick={() => navigate(vaultPath('notebooks', notebook.id))}>
                                 <div className="notebook-card__top">
                                     <span className="notebook-card__icon"><BookOpen size={19} /></span>
                                     <StatusBadge status={notebook.status} />
@@ -480,7 +481,7 @@ export function NotebookDetail({ notebookId }) {
                 fetch(sourceUrl),
             ]);
             if (notebookResponse.status === 404) {
-                navigate('/notebooks', { replace: true });
+                navigate(vaultPath('notebooks'), { replace: true });
                 return;
             }
             if (!notebookResponse.ok || !sourceResponse.ok) throw new Error('Notebook detail failed');
@@ -657,7 +658,7 @@ export function NotebookDetail({ notebookId }) {
         const response = await fetch(`/api/notebooks/${encodeURIComponent(notebookId)}`, { method: 'DELETE' });
         if (response.ok) {
             toast.success(t('notebooks.deleted', 'Notebook deleted.'));
-            navigate('/notebooks');
+            navigate(vaultPath('notebooks'));
         }
     };
     const clearConversation = async () => {
@@ -812,7 +813,7 @@ export function NotebookDetail({ notebookId }) {
     return (
         <div className="notebook-detail">
             <header className="notebook-detail__header">
-                <button className="notebook-icon-button" onClick={() => navigate('/notebooks')} aria-label={t('notebooks.back_library', 'Back to library')}><ArrowLeft size={19} /></button>
+                <button className="notebook-icon-button" onClick={() => navigate(vaultPath('notebooks'))} aria-label={t('notebooks.back_library', 'Back to library')}><ArrowLeft size={19} /></button>
                 <div className="notebook-detail__identity">
                     <input value={notebook.title} onChange={(event) => setNotebook((previous) => ({ ...previous, title: event.target.value }))} onBlur={(event) => patchNotebook({ title: event.target.value })} aria-label={t('notebooks.title_label', 'Title')} />
                     <div><StatusBadge status={notebook.status} /><span>{t('notebooks.revision_label', 'Revision {{revision}}', { revision: notebook.active_revision || '—' })}</span></div>
@@ -1100,7 +1101,7 @@ export default function NotebooksPage() {
     return (
         <>
             {notebookId ? <NotebookDetail notebookId={notebookId} /> : <NotebookLibrary onCreate={() => setCreateOpen(true)} />}
-            <NotebookCreateDialog isOpen={createOpen} onClose={() => setCreateOpen(false)} onCreated={(notebook) => navigate(`/notebooks/${notebook.id}`)} />
+            <NotebookCreateDialog isOpen={createOpen} onClose={() => setCreateOpen(false)} onCreated={(notebook) => navigate(vaultPath('notebooks', notebook.id))} />
         </>
     );
 }

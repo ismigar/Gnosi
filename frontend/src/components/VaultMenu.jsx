@@ -3,7 +3,12 @@ import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { Vault as VaultIcon, Check, Plus, Loader } from 'lucide-react';
-import { setActiveVaultCookie } from '../lib/fileResource';
+import { useLocation, useNavigate } from 'react-router-dom';
+import {
+    activateVault,
+    canonicalVaultSwitchPath,
+    persistVaultCatalog,
+} from '../lib/vaultRouting';
 
 /**
  * GLOBAL vault selector for the sidebar (personal multi-vault mode). Icon + popover
@@ -13,6 +18,8 @@ import { setActiveVaultCookie } from '../lib/fileResource';
  */
 export default function VaultMenu() {
     const { t } = useTranslation();
+    const location = useLocation();
+    const navigate = useNavigate();
     const [open, setOpen] = useState(false);
     const [vaults, setVaults] = useState([]);
     const [pos, setPos] = useState(null);
@@ -25,6 +32,7 @@ export default function VaultMenu() {
         try {
             const { data } = await axios.get('/api/vaults');
             const list = data.vaults || [];
+            persistVaultCatalog(list);
             setVaults(list);
             const active = list.find(v => v.active);
             if (active?.name) {
@@ -44,14 +52,10 @@ export default function VaultMenu() {
     };
 
     const switchTo = (id) => {
-        try {
-            localStorage.setItem('gnosi_active_vault', id);
-            const target = vaults.find(v => v.id === id);
-            if (target?.name) localStorage.setItem('gnosi_active_vault_name', target.name);
-        } catch { /* */ }
-        setActiveVaultCookie(id);
+        const target = vaults.find(v => v.id === id);
+        if (!target || !activateVault(target)) return;
         setOpen(false);
-        window.dispatchEvent(new CustomEvent('gnosi:vault-changed', { detail: { id } }));
+        navigate(canonicalVaultSwitchPath(location.pathname, target.slug));
     };
 
     const create = async () => {

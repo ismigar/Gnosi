@@ -392,7 +392,7 @@ const normalizeLinkedPageRef = (rawRef) => {
     const withoutHash = decoded.split('#')[0].trim();
     if (!withoutHash) return '';
 
-    const vaultPageMatch = withoutHash.match(/(?:https?:\/\/[^/]+)?\/vault\/page\/([^/?#]+)/i);
+    const vaultPageMatch = withoutHash.match(/(?:https?:\/\/[^/]+)?\/(?:vault|@[^/]+\/knowledge)\/page\/([^/?#]+)/i);
     if (vaultPageMatch?.[1]) {
         try {
             return decodeURIComponent(vaultPageMatch[1]).trim();
@@ -401,7 +401,7 @@ const normalizeLinkedPageRef = (rawRef) => {
         }
     }
 
-    const apiPageMatch = withoutHash.match(/(?:https?:\/\/[^/]+)?\/api\/vault\/pages\/([^/?#]+)/i);
+    const apiPageMatch = withoutHash.match(/(?:https?:\/\/[^/]+)?\/(?:api\/vault|api\/v1\/vaults\/[^/]+\/knowledge)\/pages\/([^/?#]+)/i);
     if (apiPageMatch?.[1]) {
         try {
             return decodeURIComponent(apiPageMatch[1]).trim();
@@ -3446,20 +3446,24 @@ export function EditorInner({
                 .bn-editor .bn-inline-content a[href*="127.0.0.1:5173"],
                 .bn-editor .bn-inline-content a[href*="gnosi-cite.local"],
                 .bn-editor .bn-inline-content a[href*="/vault/page/"],
+                .bn-editor .bn-inline-content a[href*="/knowledge/page/"],
                 .bn-container .bn-inline-content a[href^="/"],
                 .bn-container .bn-inline-content a[href^="#"],
                 .bn-container .bn-inline-content a[href*="localhost:5173"],
                 .bn-container .bn-inline-content a[href*="127.0.0.1:5173"],
                 .bn-container .bn-inline-content a[href*="gnosi-cite.local"],
-                .bn-container .bn-inline-content a[href*="/vault/page/"] {
+                .bn-container .bn-inline-content a[href*="/vault/page/"],
+                .bn-container .bn-inline-content a[href*="/knowledge/page/"] {
                     color: var(--gnosi-primary) !important;
                     text-decoration-color: color-mix(in srgb, var(--gnosi-primary) 70%, transparent) !important;
                 }
 
                 .bn-editor .bn-inline-content a[href*="/vault/page/"],
+                .bn-editor .bn-inline-content a[href*="/knowledge/page/"],
                 .bn-editor .bn-inline-content a[href*="localhost:5173/vault/page/"],
                 .bn-editor .bn-inline-content a[href*="127.0.0.1:5173/vault/page/"],
                 .bn-container .bn-inline-content a[href*="/vault/page/"],
+                .bn-container .bn-inline-content a[href*="/knowledge/page/"],
                 .bn-container .bn-inline-content a[href*="localhost:5173/vault/page/"],
                 .bn-container .bn-inline-content a[href*="127.0.0.1:5173/vault/page/"] {
                     color: #38bdf8 !important;

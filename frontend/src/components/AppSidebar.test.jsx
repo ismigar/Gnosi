@@ -47,6 +47,7 @@ beforeAll(() => {
 beforeEach(() => {
     pluginState.enabled.clear();
     pluginState.settings = {};
+    localStorage.setItem('gnosi_active_vault_slug', 'principal');
     globalThis.fetch = vi.fn().mockResolvedValue({
         json: vi.fn().mockResolvedValue({ gnosi_mode: 'personal' }),
     });
@@ -92,15 +93,15 @@ describe('AppSidebar documentation access', () => {
         await act(async () => {
             root.render(<MemoryRouter><AppSidebar /></MemoryRouter>);
         });
-        expect(container.querySelector('a[href="/vault"]')).not.toBeNull();
-        expect(container.querySelector('a[href="/graph"]')).not.toBeNull();
-        expect(container.querySelector('a[href="/contacts"]')).toBeNull();
+        expect(container.querySelector('a[href="/@principal/knowledge"]')).not.toBeNull();
+        expect(container.querySelector('a[href="/@principal/graph"]')).not.toBeNull();
+        expect(container.querySelector('a[href="/@principal/contacts"]')).toBeNull();
 
         pluginState.enabled.add('contacts');
         await act(async () => {
             root.render(<MemoryRouter><AppSidebar /></MemoryRouter>);
         });
-        expect(container.querySelector('a[href="/contacts"]')).not.toBeNull();
+        expect(container.querySelector('a[href="/@principal/contacts"]')).not.toBeNull();
     });
 });
 
@@ -139,8 +140,8 @@ describe('AppSidebar adaptive navigation', () => {
         const quickAccess = container.querySelector('[role="menu"]');
         expect(quickAccess).not.toBeNull();
         expect(quickAccess.querySelectorAll('[role="menuitem"]')).toHaveLength(1);
-        expect(quickAccess.querySelector('[href="/graph"]')).not.toBeNull();
-        expect(quickAccess.querySelector('[href="/vault"]')).toBeNull();
+        expect(quickAccess.querySelector('[href="/@principal/graph"]')).not.toBeNull();
+        expect(quickAccess.querySelector('[href="/@principal/knowledge"]')).toBeNull();
         expect(quickAccess.querySelector('input')).toBeNull();
         expect(quickAccess.querySelector('[aria-pressed]')).toBeNull();
     });

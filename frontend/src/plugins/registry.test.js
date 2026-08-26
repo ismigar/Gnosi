@@ -24,6 +24,8 @@ describe('built-in capability registry', () => {
         expect(pluginForPath('/media')).toBe('social-publishing');
         expect(pluginForPath('/literature')).toBe('resources');
         expect(pluginForPath('/notebooks/example')).toBe('grounded-notebooks');
+        expect(pluginForPath('/@principal/mail')).toBe('mail');
+        expect(pluginForPath('/@principal/notebooks/example')).toBe('grounded-notebooks');
         expect(pluginForPath('/vault')).toBeNull();
     });
 

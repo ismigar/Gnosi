@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import Composer from '../components/social/Composer';
 import { PenTool, Share2 } from 'lucide-react';
 import { AppHeader } from '../components/AppHeader';
+import { vaultPath } from '../lib/vaultRouting';
 
 const ComposerPage = () => {
     const { t } = useTranslation();
@@ -20,7 +21,7 @@ const ComposerPage = () => {
                 </div>
                 
                 <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <a href="/social-dashboard" className="gnosi-panel group p-5 transition-all hover:border-[var(--gnosi-blue)]">
+                    <a href={vaultPath('social')} className="gnosi-panel group p-5 transition-all hover:border-[var(--gnosi-blue)]">
                         <div className="flex items-center gap-3 mb-2">
                             <Share2 className="text-[var(--text-secondary)] transition-colors group-hover:text-[var(--gnosi-blue)]" size={20} />
                             <h3 className="font-bold">{t('composer.social_dashboard_title', 'Social Dashboard')}</h3>

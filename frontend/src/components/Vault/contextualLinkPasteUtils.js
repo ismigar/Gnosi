@@ -16,7 +16,7 @@ export function extractInternalPageId(value, currentOrigin = '') {
         const parsed = new URL(String(value || ''));
         const expectedOrigin = String(currentOrigin || '').replace(/\/$/, '');
         if (expectedOrigin && parsed.origin !== expectedOrigin) return '';
-        const match = parsed.pathname.match(/^\/vault\/page\/([^/]+)\/?$/);
+        const match = parsed.pathname.match(/^(?:\/vault|\/@[^/]+\/knowledge)\/page\/([^/]+)\/?$/);
         return match ? decodeURIComponent(match[1]) : '';
     } catch {
         return '';

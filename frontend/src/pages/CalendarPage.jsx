@@ -15,6 +15,7 @@ import { RecurrenceChoiceModal } from '../components/Vault/RecurrenceChoiceModal
 import { buildOccurrenceKey, truncateRruleBefore } from '../utils/calendarUtils';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { usePlugins } from '../plugins/usePlugins';
+import { vaultPath } from '../lib/vaultRouting';
 
 // Keyboard handler removed in favor of RecurrenceChoiceModal component
 
@@ -1139,7 +1140,7 @@ export default function CalendarPage() {
                 onClose={() => setIsGlobalSearchOpen(false)}
                 allNotes={pages}
                 onNoteSelect={(id) => {
-                    navigate(`/vault?id=${id}`);
+                    navigate(vaultPath('knowledge', `page/${encodeURIComponent(id)}`));
                     setIsGlobalSearchOpen(false);
                 }}
             />

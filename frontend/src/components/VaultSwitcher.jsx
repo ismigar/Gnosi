@@ -4,7 +4,12 @@ import axios from 'axios';
 import { Vault, Plus, Check, Loader, Trash2, Store, PackagePlus } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 import VaultTemplateMarketplace from './VaultTemplateMarketplace';
-import { setActiveVaultCookie } from '../lib/fileResource';
+import { useLocation, useNavigate } from 'react-router-dom';
+import {
+    activateVault,
+    canonicalVaultSwitchPath,
+    persistVaultCatalog,
+} from '../lib/vaultRouting';
 
 /**
  * Vault selector (personal multi-vault mode). Lists the vaults, allows creating new ones, and
@@ -14,6 +19,8 @@ import { setActiveVaultCookie } from '../lib/fileResource';
  */
 export default function VaultSwitcher() {
     const { t } = useTranslation();
+    const location = useLocation();
+    const navigate = useNavigate();
     const [vaults, setVaults] = useState([]);
     const [busy, setBusy] = useState('');
     const [creating, setCreating] = useState(false);
@@ -26,6 +33,7 @@ export default function VaultSwitcher() {
         try {
             const { data } = await axios.get('/api/vaults');
             const list = data.vaults || [];
+            persistVaultCatalog(list);
             setVaults(list);
             const active = list.find(v => v.active);
             if (active?.name) {
@@ -38,13 +46,9 @@ export default function VaultSwitcher() {
     useEffect(() => { load(); }, []);
 
     const switchTo = (id) => {
-        try {
-            localStorage.setItem('gnosi_active_vault', id);
-            const target = vaults.find(v => v.id === id);
-            if (target?.name) localStorage.setItem('gnosi_active_vault_name', target.name);
-        } catch { /* */ }
-        setActiveVaultCookie(id);
-        window.dispatchEvent(new CustomEvent('gnosi:vault-changed', { detail: { id } }));
+        const target = vaults.find(v => v.id === id);
+        if (!target || !activateVault(target)) return;
+        navigate(canonicalVaultSwitchPath(location.pathname, target.slug));
     };
 
     const create = async () => {

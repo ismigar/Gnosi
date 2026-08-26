@@ -10,6 +10,7 @@ import { translateFolderName } from './mailFolderUtils';
 import { useMailTags } from '../../hooks/useMailTags';
 import MailTagPicker, { TagPill } from './MailTagPicker';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
+import { canonicalizeVaultApiUrl } from '../../lib/vaultRouting';
 
 const cleanName = (addr) =>
     (addr || '').split('<')[0].trim().replace(/^["']+|["']+$/g, '').trim() || addr || '';
@@ -261,7 +262,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
 
         let es;
         try {
-            es = new EventSource(url);
+            es = new EventSource(canonicalizeVaultApiUrl(url));
         } catch {
             return;
         }

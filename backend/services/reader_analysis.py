@@ -16,9 +16,10 @@ from sqlalchemy.orm import joinedload
 from backend.agent.internal_sources import normalize_internal_scope
 from backend.config.app_config import load_params
 from backend.config.logger_config import get_logger
-from backend.utils.safe_io import safe_write_json, safe_write_text
-from backend.services import durable_job_queue
 from backend.security.secret_redaction import redact_secrets
+from backend.services import durable_job_queue
+from backend.services.vault_routing import canonical_vault_browser_path
+from backend.utils.safe_io import safe_write_json, safe_write_text
 
 
 log = get_logger(__name__)
@@ -595,7 +596,7 @@ def _render_report(result: Dict[str, Any]) -> str:
         ids = list(topic.get("article_ids") or [])[:20]
         if ids:
             lines.append("Evidence: " + ", ".join(
-                f"[Reader #{identifier}](/reader?article={identifier})"
+                f"[Reader #{identifier}]({canonical_vault_browser_path('reader', f'article/{identifier}')})"
                 for identifier in ids
             ))
             lines.append("")

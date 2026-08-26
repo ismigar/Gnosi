@@ -1,4 +1,5 @@
 import { stripManagedBlockMarkers } from './managedMarkdownUtils';
+import { vaultPath } from '../../lib/vaultRouting';
 
 export function getGalleryMarkdown(note) {
     const markdown = note?.body_md || note?.content || note?.excerpt
@@ -12,7 +13,7 @@ export function openGalleryPageWindow(pageId) {
 }
 
 export function getGalleryPageUrl(pageId) {
-    const path = `/vault/page/${encodeURIComponent(pageId || '')}`;
+    const path = vaultPath('knowledge', `page/${encodeURIComponent(pageId || '')}`);
     if (typeof window === 'undefined') return path;
     return new URL(path, window.location.origin).toString();
 }

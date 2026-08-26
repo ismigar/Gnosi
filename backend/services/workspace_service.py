@@ -252,6 +252,11 @@ def get_workspace_context(
     # For now, if there are any, we filter. If there aren't, we allow the first one (original behavior).
     
     query = db.query(Vault).filter(Vault.workspace_id == x_workspace_id)
+    if x_vault_id:
+        # Canonical vault routes inject this immutable id after resolving the
+        # human-readable slug. It must select the requested vault, not whichever
+        # accessible row happens to be returned first.
+        query = query.filter(Vault.id == x_vault_id)
     if allowed_vault_ids:
         query = query.filter(Vault.id.in_(allowed_vault_ids))
     
@@ -259,7 +264,7 @@ def get_workspace_context(
     
     if not vault:
         # If there were restrictions and none valid were found
-        if allowed_vault_ids:
+        if allowed_vault_ids or x_vault_id:
              raise HTTPException(status_code=403, detail="No accessible vault in this workspace")
         # Otherwise, if there's no vault in the workspace
         raise HTTPException(status_code=404, detail="No vault found for this workspace")

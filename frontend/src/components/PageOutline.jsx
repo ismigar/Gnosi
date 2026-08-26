@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { ListTree, X } from 'lucide-react';
 import { announceFloatingPanelOpen, useExclusiveFloatingPanel } from '../hooks/useExclusiveFloatingPanel';
 import { useFloatingActionDock } from '../hooks/useFloatingActionDock';
+import { vaultAppFromPath } from '../lib/vaultRouting';
 
 // Main scroll container defined in App.jsx. We look for headings inside it.
 const CONTENT_SELECTOR = '#page-content-scroll';
@@ -16,9 +17,8 @@ const ACTIVE_OFFSET = 120;
 // The heading navigator only makes sense on long-content pages: Vault
 // (notes/documents), Mail and News Reader. On the rest (Control Center,
 // Settings, Graph, etc.) it isn't shown.
-const ALLOWED_PREFIXES = ['/vault', '/mail', '/reader'];
-const isOutlineRoute = (path) =>
-    ALLOWED_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`));
+const ALLOWED_APPS = new Set(['knowledge', 'mail', 'reader']);
+const isOutlineRoute = (path) => ALLOWED_APPS.has(vaultAppFromPath(path));
 
 // Stable internal id; the `i` prefix already guarantees its uniqueness.
 const slugify = (text, i) =>

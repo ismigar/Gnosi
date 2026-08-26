@@ -625,7 +625,9 @@ const boundedSourceHref = value => {
     const href = boundedString(value, 2000);
     if (
         href.startsWith('/vault/page/')
+        || /^\/@[^/]+\/knowledge\/page\//.test(href)
         || href.startsWith('/reader?article=')
+        || /^\/@[^/]+\/reader(?:\?|\/)/.test(href)
         || isCitationHref(href)
         || /^https?:\/\//i.test(href)
     ) return href;

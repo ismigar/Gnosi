@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useState, Suspense, lazy } from 'react';
-import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AppSidebar } from './components/AppSidebar';
 import HomePage from './pages/HomePage';
@@ -47,6 +47,13 @@ import { DesktopUpdateNotice } from './components/DesktopUpdateNotice';
 import { vaultAgentContextRefs } from './lib/vaultAgentContext';
 import { PluginRoute, PluginSurface } from './components/PluginGate';
 import { usePlugins } from './plugins/usePlugins';
+import {
+  activateVaultSlug,
+  getActiveVaultSlug,
+  legacyBrowserPathToCanonical,
+  vaultAppFromPath,
+  vaultPath,
+} from './lib/vaultRouting';
 
 const ROUTE_ANNOUNCEMENT_LABELS = [
   { match: (path) => path === '/', key: 'fs_picker.home', fallback: 'Home' },
@@ -66,13 +73,63 @@ const ROUTE_ANNOUNCEMENT_LABELS = [
   { match: (path) => path === '/composer', key: 'social.composer', fallback: 'Composer' },
 ];
 
+const APP_ANNOUNCEMENT_LABELS = {
+  knowledge: ['sidebar.nav_vault', 'Knowledge'],
+  notebooks: ['sidebar.nav_notebooks', 'Notebooks'],
+  graph: ['sidebar.nav_graph', 'Graph'],
+  contacts: ['sidebar.nav_contacts', 'Contacts'],
+  mail: ['sidebar.nav_mail', 'Mail'],
+  calendar: ['sidebar.nav_calendar', 'Calendar'],
+  reader: ['sidebar.nav_reader', 'Reader'],
+  social: ['sidebar.nav_social', 'Social'],
+  media: ['sidebar.nav_media', 'Photos'],
+  planning: ['sidebar.nav_planning', 'Planning'],
+  resources: ['sidebar.nav_literature', 'Literature Search'],
+  automations: ['scheduler.title', 'Scheduler'],
+};
+
+function VaultRouteScope({ children }) {
+  const { vaultHandle } = useParams();
+  const vaultSlug = vaultHandle?.startsWith('@')
+    ? decodeURIComponent(vaultHandle.slice(1)).toLowerCase()
+    : '';
+  const [resolvedSlug, setResolvedSlug] = useState(() => (
+    getActiveVaultSlug() === vaultSlug ? vaultSlug : ''
+  ));
+  const [missingSlug, setMissingSlug] = useState('');
+
+  useEffect(() => {
+    let alive = true;
+    if (getActiveVaultSlug() === vaultSlug) {
+      return () => { alive = false; };
+    }
+    activateVaultSlug(vaultSlug).then((vault) => {
+      if (!alive) return;
+      if (vault) setResolvedSlug(vaultSlug);
+      else setMissingSlug(vaultSlug);
+    });
+    return () => { alive = false; };
+  }, [vaultSlug]);
+
+  const ready = getActiveVaultSlug() === vaultSlug || resolvedSlug === vaultSlug;
+  if (!vaultSlug || missingSlug === vaultSlug) return <Navigate to="/" replace />;
+  if (!ready) return <RouteFallback />;
+  return children;
+}
+
+function LegacyVaultRedirect() {
+  const location = useLocation();
+  const target = legacyBrowserPathToCanonical(location.pathname);
+  return <Navigate to={`${target}${location.search}${location.hash}`} replace />;
+}
+
 // Fallback while the chunk for a lazy route is downloading. Discreet and centered,
 // reusing the auth bootstrap's style so there's no visual jump.
 function RouteFallback() {
   const { t } = useTranslation();
   const location = useLocation();
 
-  if (location.pathname === '/graph') {
+  if (vaultAppFromPath(location.pathname) === 'graph') {
     return <GraphLoadingState />;
   }
 
@@ -103,6 +160,13 @@ function App() {
   const [vaultRevision, setVaultRevision] = useState(0);
   const mainContentRef = React.useRef(null);
   const routeAnnouncement = useMemo(() => {
+    const app = vaultAppFromPath(location.pathname);
+    const appLabel = APP_ANNOUNCEMENT_LABELS[app];
+    if (appLabel) {
+      return t('accessibility.route_loaded', '{{page}} loaded', {
+        page: t(appLabel[0], appLabel[1]),
+      });
+    }
     const route = ROUTE_ANNOUNCEMENT_LABELS.find(({ match }) => match(location.pathname));
     const page = route ? t(route.key, route.fallback) : t('fs_picker.home', 'Home');
     return t('accessibility.route_loaded', '{{page}} loaded', { page });
@@ -143,7 +207,15 @@ function App() {
       '/calendar': [{ id: 'route-calendar', type: 'internal', ref: 'calendar', label: t('sidebar.calendar', 'Calendars'), scope: {} }],
       '/contacts': [{ id: 'route-contacts', type: 'internal', ref: 'contacts', label: t('sidebar.contacts', 'Contacts'), scope: {} }],
     };
-    if (location.pathname.startsWith('/vault')) return vaultAgentContextRefs();
+    const app = vaultAppFromPath(location.pathname);
+    if (app === 'knowledge') return vaultAgentContextRefs();
+    const canonicalByApp = {
+      reader: byRoute['/reader'],
+      mail: byRoute['/mail'],
+      calendar: byRoute['/calendar'],
+      contacts: byRoute['/contacts'],
+    };
+    if (app) return canonicalByApp[app] || [];
     return byRoute[location.pathname] || [];
   }, [location.pathname, t]);
   const moduleContextRefs = moduleContextOverride?.locationKey === location.key
@@ -181,7 +253,7 @@ function App() {
 
   // Bootstrap: we wait to know the mode and whether there's a session before deciding.
   if (loading) {
-    if (location.pathname === '/graph') {
+    if (vaultAppFromPath(location.pathname) === 'graph') {
       return <GraphLoadingState />;
     }
 
@@ -260,21 +332,34 @@ function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/graph" element={<GraphPage />} />
-          <Route path="/vault/pdf" element={<ZoteroReaderPage />} />
-          <Route path="/vault/*" element={<VaultDashboard />} />
-          <Route path="/calendar" element={<PluginRoute pluginId="calendar"><CalendarPage /></PluginRoute>} />
-          <Route path="/reader" element={<PluginRoute pluginId="feeds-reader"><ReaderDashboard /></PluginRoute>} />
-          <Route path="/mail" element={<PluginRoute pluginId="mail"><MailPage /></PluginRoute>} />
-          <Route path="/scheduler" element={<PluginRoute pluginId="automations"><SchedulerPage /></PluginRoute>} />
-          <Route path="/composer" element={<PluginRoute pluginId="social-publishing"><ComposerPage /></PluginRoute>} />
-          <Route path="/social-dashboard" element={<PluginRoute pluginId="social-publishing"><SocialDashboard /></PluginRoute>} />
-          <Route path="/media" element={<PluginRoute pluginId="social-publishing"><MediaCenter /></PluginRoute>} />
-          <Route path="/contacts" element={<PluginRoute pluginId="contacts"><ContactsPage /></PluginRoute>} />
-          <Route path="/planning" element={<PluginRoute pluginId="project-planning"><ProjectPlanningPage /></PluginRoute>} />
-          <Route path="/literature" element={<PluginRoute pluginId="resources"><LiteraturePage /></PluginRoute>} />
-          <Route path="/notebooks" element={<PluginRoute pluginId="grounded-notebooks"><NotebooksPage /></PluginRoute>} />
-          <Route path="/notebooks/:notebookId" element={<PluginRoute pluginId="grounded-notebooks"><NotebooksPage /></PluginRoute>} />
+          <Route path="/:vaultHandle/graph/*" element={<VaultRouteScope><GraphPage /></VaultRouteScope>} />
+          <Route path="/:vaultHandle/knowledge/document" element={<VaultRouteScope><ZoteroReaderPage /></VaultRouteScope>} />
+          <Route path="/:vaultHandle/knowledge/*" element={<VaultRouteScope><VaultDashboard /></VaultRouteScope>} />
+          <Route path="/:vaultHandle/calendar/*" element={<VaultRouteScope><PluginRoute pluginId="calendar"><CalendarPage /></PluginRoute></VaultRouteScope>} />
+          <Route path="/:vaultHandle/reader/*" element={<VaultRouteScope><PluginRoute pluginId="feeds-reader"><ReaderDashboard /></PluginRoute></VaultRouteScope>} />
+          <Route path="/:vaultHandle/mail/*" element={<VaultRouteScope><PluginRoute pluginId="mail"><MailPage /></PluginRoute></VaultRouteScope>} />
+          <Route path="/:vaultHandle/automations/*" element={<VaultRouteScope><PluginRoute pluginId="automations"><SchedulerPage /></PluginRoute></VaultRouteScope>} />
+          <Route path="/:vaultHandle/social/compose/*" element={<VaultRouteScope><PluginRoute pluginId="social-publishing"><ComposerPage /></PluginRoute></VaultRouteScope>} />
+          <Route path="/:vaultHandle/social/*" element={<VaultRouteScope><PluginRoute pluginId="social-publishing"><SocialDashboard /></PluginRoute></VaultRouteScope>} />
+          <Route path="/:vaultHandle/media/*" element={<VaultRouteScope><PluginRoute pluginId="social-publishing"><MediaCenter /></PluginRoute></VaultRouteScope>} />
+          <Route path="/:vaultHandle/contacts/*" element={<VaultRouteScope><PluginRoute pluginId="contacts"><ContactsPage /></PluginRoute></VaultRouteScope>} />
+          <Route path="/:vaultHandle/planning/*" element={<VaultRouteScope><PluginRoute pluginId="project-planning"><ProjectPlanningPage /></PluginRoute></VaultRouteScope>} />
+          <Route path="/:vaultHandle/resources/*" element={<VaultRouteScope><PluginRoute pluginId="resources"><LiteraturePage /></PluginRoute></VaultRouteScope>} />
+          <Route path="/:vaultHandle/notebooks/:notebookId" element={<VaultRouteScope><PluginRoute pluginId="grounded-notebooks"><NotebooksPage /></PluginRoute></VaultRouteScope>} />
+          <Route path="/:vaultHandle/notebooks/*" element={<VaultRouteScope><PluginRoute pluginId="grounded-notebooks"><NotebooksPage /></PluginRoute></VaultRouteScope>} />
+          <Route path="/graph" element={<LegacyVaultRedirect />} />
+          <Route path="/vault/*" element={<LegacyVaultRedirect />} />
+          <Route path="/calendar" element={<LegacyVaultRedirect />} />
+          <Route path="/reader" element={<LegacyVaultRedirect />} />
+          <Route path="/mail" element={<LegacyVaultRedirect />} />
+          <Route path="/scheduler" element={<LegacyVaultRedirect />} />
+          <Route path="/composer" element={<LegacyVaultRedirect />} />
+          <Route path="/social-dashboard" element={<LegacyVaultRedirect />} />
+          <Route path="/media" element={<LegacyVaultRedirect />} />
+          <Route path="/contacts" element={<LegacyVaultRedirect />} />
+          <Route path="/planning" element={<LegacyVaultRedirect />} />
+          <Route path="/literature" element={<LegacyVaultRedirect />} />
+          <Route path="/notebooks/*" element={<LegacyVaultRedirect />} />
           {/* Catch-all: a non-existent URL (typo, stale link, route wrongly
               written by code) used to render ONLY the layout with a blank body.
               We redirect to the home page (replace so as not to leave the bad URL in
@@ -290,7 +375,7 @@ function App() {
       <PageOutline key={`outline-${vaultRevision}`} />
       <PluginSurface pluginIds="ai-platform">
         <Suspense fallback={null}>
-          {!location.pathname.startsWith('/notebooks') && (
+          {vaultAppFromPath(location.pathname) !== 'notebooks' && (
             <AgentChat key={`chat-${vaultRevision}`} storageIdentity={user?.id || 'personal'} contextRefs={moduleContextRefs} />
           )}
         </Suspense>
@@ -302,7 +387,7 @@ function App() {
             isOpen={Array.isArray(bulkNotebookResources)}
             initialResourceIds={bulkNotebookResources || []}
             onClose={() => setBulkNotebookResources(null)}
-            onCreated={(notebook) => navigate(`/notebooks/${notebook.id}`)}
+            onCreated={(notebook) => navigate(vaultPath('notebooks', notebook.id))}
           />
         </Suspense>
       </PluginSurface>

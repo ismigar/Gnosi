@@ -1,7 +1,7 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import axios from 'axios';
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
     GalleryContentPreview,
@@ -17,6 +17,10 @@ const mountedRoots = [];
 
 beforeAll(() => {
     globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+});
+
+beforeEach(() => {
+    localStorage.setItem('gnosi_active_vault_slug', 'principal');
 });
 
 afterEach(async () => {
@@ -106,7 +110,9 @@ describe('GalleryCardPreview', () => {
             container.querySelector('a').dispatchEvent(new MouseEvent('click', { bubbles: true }));
         });
 
-        expect(container.querySelector('a').href).toBe('http://localhost:3000/vault/page/page%2Fid');
+        expect(container.querySelector('a').href).toBe(
+            'http://localhost:3000/@principal/knowledge/page/page%2Fid',
+        );
         expect(container.querySelector('a').target).toBe('_blank');
         expect(container.querySelector('a').rel).toBe('noopener noreferrer');
         expect(parentClick).not.toHaveBeenCalled();

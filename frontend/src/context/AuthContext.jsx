@@ -118,6 +118,9 @@ export function AuthProvider({ children }) {
         });
         setUser(me);
         persistUser(me);
+        const { initializeVaultRouting } = await import('../lib/vaultRouting.js');
+        await initializeVaultRouting({ force: true });
+        window.dispatchEvent(new CustomEvent('gnosi:vault-changed'));
         return me;
     }, []);
 
@@ -128,6 +131,9 @@ export function AuthProvider({ children }) {
         });
         setUser(me);
         persistUser(me);
+        const { initializeVaultRouting } = await import('../lib/vaultRouting.js');
+        await initializeVaultRouting({ force: true });
+        window.dispatchEvent(new CustomEvent('gnosi:vault-changed'));
         return me;
     }, []);
 

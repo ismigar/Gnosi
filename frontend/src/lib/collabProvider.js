@@ -10,6 +10,7 @@
 import * as Y from 'yjs';
 import { Awareness, encodeAwarenessUpdate, applyAwarenessUpdate } from 'y-protocols/awareness';
 import { ensureBackendOrigin } from './electron';
+import { canonicalizeVaultApiUrl } from './vaultRouting';
 
 function toBase64(uint8) {
     let binary = '';
@@ -37,7 +38,8 @@ async function buildWsUrl(pageId) {
         user_id: localStorage.getItem('gnosi_user_id') || 'anon',
         name: localStorage.getItem('gnosi_user_email') || 'Anònim',
     });
-    return `${proto}://${host}/api/vault/collab/${encodeURIComponent(pageId)}?${params.toString()}`;
+    const path = canonicalizeVaultApiUrl(`/api/vault/collab/${encodeURIComponent(pageId)}`);
+    return `${proto}://${host}${path}?${params.toString()}`;
 }
 
 /**

@@ -162,7 +162,10 @@ const ReaderDashboard = () => {
     useEffect(() => {
         fetchSources();
         fetchUnreadCounts();
-        const articleId = new URLSearchParams(window.location.search).get('article');
+        const canonicalMatch = window.location.pathname.match(/^\/@[^/]+\/reader\/article\/([^/]+)\/?$/);
+        const articleId = canonicalMatch
+            ? decodeURIComponent(canonicalMatch[1])
+            : new URLSearchParams(window.location.search).get('article');
         if (articleId) openEvidenceArticle(articleId);
     }, []);
 

@@ -16,6 +16,7 @@ import { usePlugins } from '../plugins/usePlugins';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useModalKeyboard } from '../hooks/useModalKeyboard';
 import { normalizeSidebarPreferences, orderSidebarItems } from '../lib/appSidebarNavigation';
+import { legacyBrowserPathToCanonical } from '../lib/vaultRouting';
 
 export const ENGINEERING_DOCUMENTATION_URL = 'https://gnosi.temenosismael.org/engineering/';
 
@@ -90,7 +91,10 @@ export function AppSidebar() {
         () => orderSidebarItems(visibleNavItems, sidebarPreferences.pinnedRoutes),
         [sidebarPreferences.pinnedRoutes, visibleNavItems],
     );
-    const activeNavItem = visibleNavItems.find((item) => location.pathname === item.to);
+    const activeNavItem = visibleNavItems.find((item) => {
+        const canonical = legacyBrowserPathToCanonical(item.to);
+        return location.pathname === canonical || location.pathname.startsWith(`${canonical}/`);
+    });
     const railNavItems = activeNavItem && !pinnedNavItems.some((item) => item.to === activeNavItem.to)
         ? [...pinnedNavItems, activeNavItem]
         : pinnedNavItems;
@@ -200,7 +204,7 @@ export function AppSidebar() {
             const target = navItems.find((item) => item.shortcut === `Ctrl ${e.key}`);
             if (target && (!target.pluginId || isEnabled(target.pluginId))) {
                 e.preventDefault();
-                navigate(target.to);
+                navigate(legacyBrowserPathToCanonical(target.to));
                 setMobileOpen(false);
             } else if (e.key === ',') {
                 e.preventDefault();
@@ -267,7 +271,7 @@ export function AppSidebar() {
                         return (
                             <NavLink
                                 key={to}
-                                to={to}
+                                to={legacyBrowserPathToCanonical(to)}
                                 end={to === '/'}
                                 title={label}
                                 aria-label={label}
@@ -370,7 +374,7 @@ export function AppSidebar() {
                         return (
                             <NavLink
                                 key={to}
-                                to={to}
+                                to={legacyBrowserPathToCanonical(to)}
                                 role="menuitem"
                                 title={label}
                                 aria-label={label}

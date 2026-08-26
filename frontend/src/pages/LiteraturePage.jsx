@@ -11,6 +11,7 @@ import { usePlugins } from '../plugins/usePlugins';
 import { useKeyboardScroll } from '../hooks/useKeyboardScroll';
 import { toast } from '../lib/toast';
 import { AppHeader } from '../components/AppHeader';
+import { canonicalizeVaultApiUrl } from '../lib/vaultRouting';
 import './LiteraturePage.css';
 
 const EMPTY_FILTERS = {
@@ -574,7 +575,7 @@ export default function LiteraturePage() {
             startPolling(searchId);
             return;
         }
-        const stream = new window.EventSource(`/api/vault/literature/searches/${encodeURIComponent(searchId)}/events?after=${eventCursorRef.current}`);
+        const stream = new window.EventSource(canonicalizeVaultApiUrl(`/api/vault/literature/searches/${encodeURIComponent(searchId)}/events?after=${eventCursorRef.current}`));
         eventSourceRef.current = stream;
         SEARCH_EVENTS.forEach((eventName) => stream.addEventListener(eventName, (event) => {
             const sequence = Number(event.lastEventId || 0);

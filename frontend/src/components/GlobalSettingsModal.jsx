@@ -1409,7 +1409,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                         const next = { ...newsletterAccount };
                         if (!newsletterPasswordDirty) delete next.password;
                         promises.push(
-                            axios.post('/api/newsletter/account', next)
+                            axios.put('/api/reader/newsletter-account', next)
                         );
                     }
 

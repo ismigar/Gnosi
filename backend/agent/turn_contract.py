@@ -17,6 +17,8 @@ from urllib.parse import parse_qs, quote, urlparse
 
 from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 
+from backend.services.vault_routing import canonical_vault_browser_path
+
 
 LOCAL_PROVIDERS = frozenset({"ollama", "llama-cpp", "lmstudio", "local", "generic"})
 GUARDED_EFFECTS = frozenset({
@@ -532,9 +534,9 @@ def _safe_source_href(*, source_id: str, source_kind: str, url: Any = "") -> str
         return ""
     encoded = quote(source_id, safe="")
     if source_kind == "reader_article":
-        return f"/reader?article={encoded}"
+        return canonical_vault_browser_path("reader", f"article/{encoded}")
     if source_kind == "vault_record":
-        return f"/vault/page/{encoded}"
+        return canonical_vault_browser_path("knowledge", f"page/{encoded}")
     return ""
 
 
