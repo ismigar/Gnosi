@@ -4,7 +4,6 @@ import toast from '../lib/toast';
 import { AppHeader } from '../components/AppHeader';
 import { useApi } from '../hooks/use-api';
 import { useTranslation } from 'react-i18next';
-import { useTheme } from '../hooks/useTheme';
 import { useConfigChanged } from '../lib/configEvents';
 import { APP_VERSION } from '../lib/version';
 import ConfirmModal from '../components/ConfirmModal';
@@ -23,7 +22,6 @@ const ROLE_CAPABILITIES = {
 function Dashboard() {
     const { role: initialRole, apiFetch } = useApi();
     const { t } = useTranslation();
-    const { isDark } = useTheme();
     const { isEnabled } = usePlugins();
     const automationsEnabled = isEnabled('automations');
     const aiEnabled = isEnabled('ai-platform');

@@ -270,9 +270,39 @@ html body :is(
   [role="button"],
   [role="tab"],
   [role="switch"]
-):focus-visible {
+):focus {
+  outline: none;
+}
+
+html[data-focus-modality="keyboard"] body :is(
+  button,
+  select,
+  [role="button"],
+  [role="tab"],
+  [role="switch"]
+):focus {
   outline: 2px solid var(--focus-outline-color);
   outline-offset: 2px;
+}
+
+html[data-focus-modality="keyboard"] body :is(input, textarea):focus {
+  outline: none;
+  border-color: var(--focus-outline-color);
+  box-shadow: 0 0 0 1px var(--focus-outline-color);
+}
+
+html[data-focus-modality="keyboard"] body a[href]:focus {
+  outline: none;
+  text-decoration: underline;
+  text-decoration-color: var(--focus-outline-color);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+html[data-focus-modality] body textarea.vault-page-title:focus {
+  outline: none;
+  border-color: transparent;
+  box-shadow: none;
 }
 
 summary,

@@ -67,6 +67,15 @@ visible et ordonné, le clavier complet, le focus roving des onglets mobiles,
 Échap dans les dialogues annulables, le focus trap et le retour du focus, les
 noms accessibles et les annonces de changement d’itinéraire.
 
+Le style global du focus utilise l’attribut `data-focus-modality` à la racine
+du document. L’activation au pointeur supprime les contours génériques ; au
+clavier, des indicateurs contextuels sont appliqués : bordure existante pour
+les champs, soulignement pour les liens et contour pour les contrôles sans
+bordure. Les titres modifiables du Vault conservent uniquement leur curseur de
+saisie. Les tests unitaires couvrent les transitions de modalité et les tests
+du navigateur, le focus au pointeur et au clavier dans les thèmes clair et
+sombre.
+
 ## Essais de déploiement
 
 Docker CI construit des images de backend et de frontend, valide Composer et exerce le paramètre santé avec le stockage local. Electron release CI possède des emballages multiplateformes; une compilation locale macOS ne peut pas valider les artefacts Windows et Linux.

@@ -110,6 +110,12 @@ they must never depend on a single translated label.
   whether focus returns correctly or whether a workflow is keyboard-complete.
 - Do not remove outlines unless the same selector supplies an equally visible
   replacement in the same rule.
+- Do not rely on `:focus-visible` alone to distinguish pointer and keyboard
+  focus on text controls. Chromium intentionally matches focused inputs after
+  pointer activation, which makes a global outline appear on every editable
+  surface. Track the current input modality and use contextual indicators:
+  existing control borders for fields, text decoration for links, and outlines
+  for borderless controls.
 - Do not use `title` as the only accessible name for an icon-only control; use
   a localized `aria-label` and retain `title` only as optional pointer help.
 - Do not add `role="tab"` without the complete tab and panel relationship;

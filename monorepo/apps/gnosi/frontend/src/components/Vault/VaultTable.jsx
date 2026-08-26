@@ -2457,8 +2457,8 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         if (!selectionRect) return;
         let srcMatrix = clipboardRef.current?.matrix || null;
         if (!srcMatrix) {
-            let text = '';
-            try { text = await navigator.clipboard.readText(); } catch { text = ''; }
+            let text;
+            try { text = await navigator.clipboard.readText(); } catch { return; }
             const parsed = parseClipboardMatrix(text);
             if (parsed.length === 0) return;
             srcMatrix = parsed;
