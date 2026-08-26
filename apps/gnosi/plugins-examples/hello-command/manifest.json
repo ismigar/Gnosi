@@ -1,0 +1,11 @@
+{
+  "id": "hello-command",
+  "apiVersion": 2,
+  "version": "1.0.0",
+  "name": "Hola (comanda d'exemple)",
+  "description": "Afegeix una comanda a la paleta que saluda i, si té permís, escriu a la pàgina.",
+  "icon": "Puzzle",
+  "main": "main.js",
+  "permissions": ["ui:command", "ui:settings", "settings", "vault:read", "vault:write"],
+  "author": "Gnosi"
+}

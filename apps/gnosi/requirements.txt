@@ -1,0 +1,76 @@
+python-multipart>=0.0.32
+PyYAML>=6.0.3
+dotenv>=0.9.9
+python-dotenv>=1.2.2
+Flask>=3.1.3
+flask-cors>=4.0.0
+requests>=2.31.0
+httpx>=0.28.1
+defusedxml>=0.7.1
+networkx>=3.6.1
+python-igraph>=1.0.0
+numpy>=1.26.4
+gunicorn>=26.0.0
+cloudinary>=1.46.0
+fastapi>=0.136.3
+uvicorn[standard]>=0.51.0
+# AI stack migrated to LangChain/LangGraph 1.x (2026-06-24). Floors match the
+# versions actually validated with the agent; see agent_langchain_v1_migration.md.
+# Do not downgrade to 0.x: LangGraph 0.x lacks prebuilt.ToolNode/START, and
+# langchain-core 0.x is incompatible with 1.x integrations.
+langgraph>=1.2.9
+langchain>=1.3.15
+langchain-openai>=1.4.2
+langchain-ollama>=1.1.0
+langchain-groq>=1.1.3
+langchain-anthropic>=1.5.3  # wrapper imported by factory.py; the raw anthropic SDK is insufficient
+pydantic>=2.13.4
+pytest>=9.1.1
+chromadb>=0.4.0
+langchain-chroma>=1.1.0
+langgraph-checkpoint-sqlite>=3.1.1
+psutil>=7.2.2
+simpleeval>=1.0.7
+trafilatura>=2.2.0
+sentence-transformers>=5.6.0
+langchain-huggingface>=1.2.2
+icalendar>=7.2.2
+google-auth>=2.56.3
+google-auth-oauthlib>=1.4.0
+google-api-python-client>=2.0.0
+# Floor only — langchain-groq 1.x requires groq<1.0.0, so any groq>=1.x floor
+# makes a CLEAN install unresolvable (Docker build / fresh venv) even though
+# incrementally-grown venvs hide it (caught by the docker-build CI guard).
+# Validated combo: groq 0.37.x + langchain-groq 1.1.x. Dependabot major bumps
+# ignored in .github/dependabot.yml until langchain-groq lifts the cap.
+groq>=0.37.1
+anthropic>=0.122.0
+cohere>=7.0.5
+sqlalchemy>=2.0.51
+feedparser>=6.0.14
+beautifulsoup4>=4.15.0
+pypdf>=6.16.1
+pypdfium2>=4.30.0
+python-docx>=1.1.0
+EbookLib>=0.20
+yt-dlp>=2025.1.15
+alembic>=1.19.1
+gTTS>=2.5.0
+faster-whisper>=1.2.1
+httplib2>=0.32.0
+python-jose[cryptography]>=3.5.0
+bcrypt>=4.1
+# cryptography 49+ no longer publishes macOS x86_64 wheels. Keep Intel desktop
+# packaging on the final universal2 release so OpenSSL remains statically linked.
+cryptography>=48.0.1,<49.0.0; sys_platform == "darwin" and platform_machine == "x86_64"
+cryptography>=50.0.0; sys_platform != "darwin" or platform_machine != "x86_64"
+aiosqlite>=0.22.1
+Pillow>=12.3.0
+email-validator==2.3.0
+# OPUS-MT models (Marian) for translate_row skill — used only on demand
+# (es↔fr lazy load + auto-unload). Torch and transformers come transitively
+# from sentence-transformers.
+sentencepiece>=0.2.2
+# py-spy: inspect a live backend stack without stopping it to diagnose event
+# loop stalls. Docker use: docker exec gnosi_backend py-spy dump --pid 1
+py-spy>=0.3.14
