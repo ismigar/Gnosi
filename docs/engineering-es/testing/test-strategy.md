@@ -67,6 +67,14 @@ visible y ordenado, teclado completo, foco roving de las pestañas móviles,
 Escape en diálogos cancelables, focus trap y retorno del foco, nombres
 accesibles y anuncios de cambio de ruta.
 
+El estilo global de foco utiliza el atributo `data-focus-modality` en la raíz
+del documento. La activación con puntero elimina los contornos genéricos; con
+teclado se aplican indicadores contextuales: el borde existente en los campos,
+subrayado en los enlaces y contorno en los controles sin borde. Los títulos
+editables del Vault conservan únicamente el cursor de escritura. Las pruebas
+unitarias cubren los cambios de modalidad y las pruebas de navegador, el foco
+con puntero y teclado en los temas claro y oscuro.
+
 ## Ensayos de despliegue
 
 Docker CI construye imágenes de backend y frontend, valida Composi, y ejerce el punto final de salud con almacenamiento local. Elecron release CI posee un paquete multiplataforma; una compilación local de macOS no puede validar artefactos de Windows y Linux.

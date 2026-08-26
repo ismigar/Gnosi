@@ -87,15 +87,23 @@ export default function SpellCheckLayer({ editor, enabled = true, pageId, forced
             e.stopPropagation();
             const v = view();
             if (!v) return;
-            let info = null;
-            try {
-                const pos = v.posAtDOM(span, 0);
-                info = spellErrorAt(v.state, pos) || spellErrorAt(v.state, pos + 1);
-            } catch { info = null; }
+            const info = (() => {
+                try {
+                    const pos = v.posAtDOM(span, 0);
+                    return spellErrorAt(v.state, pos) || spellErrorAt(v.state, pos + 1);
+                } catch {
+                    return null;
+                }
+            })();
             if (!info) return;
             const rect = span.getBoundingClientRect();
-            let suggestions = [];
-            try { suggestions = (spellerRef.current?.suggest(info.word) || []).slice(0, 7); } catch { suggestions = []; }
+            const suggestions = (() => {
+                try {
+                    return (spellerRef.current?.suggest(info.word) || []).slice(0, 7);
+                } catch {
+                    return [];
+                }
+            })();
             setMenu({ x: rect.left, y: rect.bottom + 4, ...info, suggestions });
         };
 

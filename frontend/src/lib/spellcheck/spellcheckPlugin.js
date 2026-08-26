@@ -30,8 +30,13 @@ function buildDecorations(doc, ctx) {
                 if (/\d/.test(part)) continue;            // alphanumeric codes
                 if (part === part.toUpperCase()) continue; // sigles (PDF, HTTP)
                 if (ignored && ignored.has(part.toLowerCase())) continue;
-                let ok = false;
-                try { ok = speller.correct(part); } catch { ok = true; }
+                const ok = (() => {
+                    try {
+                        return speller.correct(part);
+                    } catch {
+                        return true;
+                    }
+                })();
                 if (ok) continue;
                 const from = pos + partStart;
                 decos.push(

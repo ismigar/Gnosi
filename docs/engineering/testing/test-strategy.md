@@ -82,6 +82,13 @@ trap and restoration, accessible names, and live route announcements. Shared
 focus, modal, navigation, or color-token changes must pass this project before
 release.
 
+Global focus styling uses the `data-focus-modality` attribute on the document
+root. Pointer activation suppresses generic outlines; keyboard activation uses
+contextual indicators: existing borders for fields, underlines for links, and
+outlines for borderless controls. Editable Vault page titles retain their caret
+without an enclosing ring. Unit tests must cover modality transitions, while
+browser checks cover pointer and keyboard focus in light and dark themes.
+
 ## Deployment tests
 
 Docker CI builds backend and frontend images, validates Compose, and exercises

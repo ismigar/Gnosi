@@ -55,12 +55,13 @@ function resolveDevHttps(env) {
       https = { cert: fs.readFileSync(certFile), key: fs.readFileSync(keyFile) };
     } catch (err) {
       if (forced === true) {
-        // Fail LOUDLY instead of silently falling back to HTTP (this was the
-        // that caused the flickering). Actionable message.
+        // Fail loudly instead of silently falling back to HTTP, which caused
+        // redirect flickering. Keep the message actionable.
         throw new Error(
-          `[vite] VITE_DEV_HTTPS=true però no s'han pogut llegir els certs a ` +
+          `[vite] VITE_DEV_HTTPS=true but certificates could not be read from ` +
             `${path.join(rootDir, "certs")} (${err.code || err.message}). ` +
-            `Genera'ls amb sh/setup-https-dev.sh o posa VITE_DEV_HTTPS=false.`,
+            `Generate them with sh/setup-https-dev.sh or set VITE_DEV_HTTPS=false.`,
+          { cause: err },
         );
       }
       https = undefined; // auto without certs → HTTP (normal case on the other Mac)

@@ -66,6 +66,14 @@ ordenat, teclat complet, focus roving de les pestanyes mòbils, Escape als
 diàlegs cancel·lables, focus trap i retorn del focus, noms accessibles i anuncis
 de canvi de ruta.
 
+L’estil global de focus utilitza l’atribut `data-focus-modality` a l’arrel del
+document. L’activació amb punter elimina els contorns genèrics; amb teclat
+s’apliquen indicadors contextuals: la vora existent als camps, subratllat als
+enllaços i contorn als controls sense vora. Els títols editables del Vault
+conserven només el cursor d’escriptura. Les proves unitàries cobreixen els
+canvis de modalitat i les proves de navegador, el focus amb punter i teclat en
+els temes clar i fosc.
+
 ## Comprovacions de desplegament
 
 En Docker CI construeix el dorsal i les imatges de la interfície, validen el Compup, i exercicis de salut amb l' emmagatzematge local. El llançament electrònica CI és propietari de la plataforma creuada. Una construcció local de macOS no pot validar defectes Windows i Linux.

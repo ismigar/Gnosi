@@ -39,6 +39,7 @@ import PageOutline from './components/PageOutline';
 import CommandPalette from './components/CommandPalette';
 import { useTheme } from './hooks/useTheme';
 import { useFileLinkInterceptor } from './hooks/useFileLinkInterceptor';
+import { useFocusModality } from './hooks/useFocusModality';
 import { useAuth } from './context/AuthContext';
 import { LoginPage } from './components/Auth/LoginPage';
 import { GraphLoadingState } from './components/GraphLoadingState';
@@ -109,6 +110,7 @@ function App() {
   // Captures clicks on file:// everywhere and redirects them to the system shell
   // via the backend, instead of letting Chrome open blank tabs.
   useFileLinkInterceptor();
+  useFocusModality();
 
   useEffect(() => {
     const handleVaultChanged = () => {
