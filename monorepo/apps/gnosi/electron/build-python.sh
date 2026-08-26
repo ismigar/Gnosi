@@ -66,8 +66,18 @@ echo "2. Creating virtual environment for clean build..."
 # follow PEP 668 ("externally-managed-environment") and refuse global
 # installs without --break-system-packages. Everything (PyInstaller
 # included) goes inside this venv.
-VENV_DIR="$ELECTRON_DIR/.venv-python"
-rm -rf "$VENV_DIR"
+VENV_DIR="$(mktemp -d "${TMPDIR:-/tmp}/gnosi-python-venv.XXXXXX")"
+
+cleanup_venv() {
+    # Windows can briefly retain handles after PyInstaller exits. A failed
+    # best-effort cleanup must not invalidate an otherwise valid package, and
+    # the unique temporary path prevents it from blocking the next build.
+    if ! rm -rf "$VENV_DIR"; then
+        echo "Warning: could not remove temporary virtual environment: $VENV_DIR"
+    fi
+}
+trap cleanup_venv EXIT
+
 "$PYTHON_CMD" -m venv "$VENV_DIR"
 
 # Cross-platform venv layout: POSIX uses bin/, Windows venvs use Scripts/.

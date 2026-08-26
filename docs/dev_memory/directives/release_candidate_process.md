@@ -144,6 +144,10 @@ until a maintainer publishes them.
   first, and binary wheels can then bind against incompatible OpenSSL dylibs.
   Set `GNOSI_PYTHON_CMD=python` in every release job so the bundle uses the
   Python 3.11 supplied by `actions/setup-python`.
+- Do not reuse a repository-local `.venv-python` directory across packaging
+  attempts. Windows can retain handles after a failed PyInstaller process and
+  make `rm -rf` fail with `Device or resource busy`; create a unique temporary
+  virtual environment for every invocation and clean it up best-effort.
 - Do not let the packaged backend build `cryptography` from source on macOS
   Intel. Version 49 removed x86_64 macOS wheels, so a source build links to the
   runner's Homebrew OpenSSL while PyInstaller can collect a different
@@ -228,6 +232,7 @@ until a maintainer publishes them.
 | 2026-08-24 | The Linux frozen backend exited with `No module named 'defusedxml'` | The canonical minimal runtime requirements missed a direct import used by the academic literature connector | Keep `defusedxml` in `requirements-e2e.txt` and require the frozen-backend startup smoke test in every release build |
 | 2026-08-24 | A PR created as draft had no checks after being marked ready | Path-filtered pull-request workflows did not subscribe to `ready_for_review` | Include `ready_for_review` alongside opened, reopened, and synchronize in every PR workflow |
 | 2026-08-25 | Three release retries completed the Linux package build and then failed while rendering notes | Tags `v2.0.2` through `v2.0.4` pointed to packages still versioned `2.0.1` and had no matching localized catalog entry | Run a release preflight before every platform job and create a new tag only after the synchronized version, catalog, and changelog are reviewed on `main` |
+| 2026-08-26 | A retried Windows package failed removing `.venv-python` with `Device or resource busy` | A terminated Python process retained a handle to the repository-local virtual environment | Use a unique temporary virtual environment per packaging invocation and make final cleanup best-effort |
 | 2026-08-25 | Repeated Docker PR checks left less than 3 GiB free and delayed the current run behind obsolete jobs | Successful image exports remained in rootless containerd, and the workflow did not cancel an earlier run for the same PR | Cancel superseded Docker runs and remove only the generated CI image plus BuildKit cache in each job's unconditional cleanup |
 | 2026-08-25 | The ARM64 backend image was fully built and logged as loaded, but the Docker check still exited before its smoke test | Rootless `nerdctl` exceeded its client-side context deadline while completing the local image import | When the build command fails, verify the exact local image tag for a short bounded interval; proceed only if it exists and then require the normal smoke test |
 | 2026-08-25 | The new release preflight stopped immediately with `node: command not found` | The self-hosted Linux runner does not expose a runner-global Node.js binary, while the preflight used Node before any platform setup step | Provision the pinned Node.js runtime inside the preflight just as every platform packaging job does |

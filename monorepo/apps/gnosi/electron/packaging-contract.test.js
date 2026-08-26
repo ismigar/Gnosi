@@ -103,6 +103,8 @@ test('the frozen backend keeps required standard-library and media modules', () 
   assert.match(buildScript, /GNOSI_PYTHON_CMD/);
   assert.match(buildScript, /requested Python command not found/);
   assert.match(buildScript, /--only-binary=cryptography/);
+  assert.match(buildScript, /mktemp -d .*gnosi-python-venv\.XXXXXX/);
+  assert.doesNotMatch(buildScript, /VENV_DIR="\$ELECTRON_DIR\/\.venv-python"/);
   assert.doesNotMatch(buildScript, /excludes=\[[^\]]*['"]unittest['"]/s);
   assert.doesNotMatch(buildScript, /excludes=\[[^\]]*['"]PIL['"]/s);
   assert.match(runtimeRequirements, /^defusedxml>=0\.7\.1$/m);
