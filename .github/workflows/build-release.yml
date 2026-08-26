@@ -225,6 +225,7 @@ jobs:
     steps:
       - name: Ensure Git is available
         run: |
+          Set-ExecutionPolicy -Scope LocalMachine -ExecutionPolicy RemoteSigned -Force
           $git = Get-Command git -ErrorAction SilentlyContinue
           if (-not $git) {
             $gitDirectory = Join-Path $env:ProgramFiles 'Git\cmd'
@@ -233,10 +234,13 @@ jobs:
               throw 'Git 2.18 or newer is required on the Windows release runner.'
             }
             $gitDirectory | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-            & $gitExecutable --version
           } else {
-            git --version
+            $gitExecutable = $git.Source
           }
+          $gitBinDirectory = Join-Path $env:ProgramFiles 'Git\bin'
+          $gitBinDirectory | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          & $gitExecutable config --system core.longpaths true
+          & $gitExecutable --version
 
       - name: Checkout
         uses: actions/checkout@v7

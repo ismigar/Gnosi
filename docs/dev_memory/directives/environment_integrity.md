@@ -61,6 +61,17 @@ Host prerequisites are installed per machine and do not travel with Git:
 - `pdflatex` from MacTeX is optional and required only for PDF export.
 - System dependencies must be discoverable under the minimal LaunchAgent
   `PATH`. Use the pattern `environment override -> which -> Homebrew paths`.
+- Self-hosted Windows release runners must enable Git `core.longpaths` at the
+  system level before checkout. Do not rely on global Git configuration because
+  `actions/checkout` temporarily overrides `HOME`, which hides user-level settings
+  and causes tracked paths longer than the Windows default to fail checkout.
+- Keep the Windows runner's local-machine PowerShell policy at `RemoteSigned`.
+  A per-step `Bypass` shell only affects workflow `run` steps; JavaScript actions
+  such as `actions/setup-python` spawn their own PowerShell process and otherwise
+  fail when executing their bundled local setup scripts.
+- Add both Git's `cmd` and `bin` directories to the Windows job path. `git.exe`
+  lives under `cmd`, while the Electron packaging scripts invoke `bash.exe` from
+  `bin`; adding only the former lets checkout pass but fails during packaging.
 
 On the Intel Mac, keep the validated ML dependency caps: torch `2.2.2`,
 NumPy `1.26`, transformers `4.44`, and sentence-transformers `3.0`. These caps
