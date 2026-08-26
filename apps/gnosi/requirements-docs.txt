@@ -1,0 +1,4 @@
+# Isolated documentation toolchain. Keep it separate from runtime/ML dependencies.
+mkdocs>=1.6.1,<2
+mkdocs-material>=9.6,<10
+pymdown-extensions>=11.0.1,<12
