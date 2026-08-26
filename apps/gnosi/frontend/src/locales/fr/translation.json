@@ -4869,7 +4869,7 @@
     "no_data": "Aucune donnée à afficher dans la chronologie."
   },
   "home": {
-    "subtitle": "Votre écosystème de connaissances personnel",
+    "subtitle": "Votre écosystème de connaissances",
     "module_graph_title": "Graphe de connaissances",
     "module_graph_desc": "Explorez les connexions entre vos idées et vos ressources.",
     "module_vault_desc": "Rédigez et organisez vos notes et documents.",
