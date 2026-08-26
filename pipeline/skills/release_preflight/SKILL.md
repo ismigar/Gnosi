@@ -63,6 +63,7 @@
 | 26/08 | Gate documental rebutja el bump | Canviar `frontend/package.json` és d'alt impacte i exigeix actualitzar `docs/engineering` | Nota: no preparar una versió sense documentar el contracte de release dins del domini d'escriptori |
 | 26/08 | Suite documental no importa `pipeline` | La suite es va executar des de l'arrel del monorepo privat | Nota: no executar la suite completa des de fora de `monorepo/apps/gnosi`; usar aquesta arrel perquè els imports siguin resolubles |
 | 26/08 | Referència generada obsoleta | Afegir una skill i un test va canviar els inventaris, però no es va executar el generador | Nota: no publicar una skill nova sense executar `generate.py`, després `generate.py --check`, `localize.py --check` i el validador des de l'arrel de Gnosi amb la `.venv` |
+| 27/08 | `npm ci` falla només al runner Linux | El lockfile es va validar amb npm 11 local, però Node 22.22.2 proporciona npm 10 i aquest detecta paquets opcionals `@y/*` absents | Nota: no validar lockfiles amb una versió de npm diferent del runner; regenerar amb npm 10.9.4 i executar `npm ci --dry-run` al primer job abans de reservar cap build de plataforma |
 
 ## 7. Rationalizations
 
