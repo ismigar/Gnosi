@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { X, Eye, Filter, ArrowUpDown, SlidersHorizontal, Plus, Trash2, GripVertical, Layers } from 'lucide-react';
@@ -670,6 +670,55 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     const [modalPinnedViewIds, setModalPinnedViewIds] = useState(new Set());
     const [modalViewToDelete, setModalViewToDelete] = useState(null);
     const [modalViewToDeleteUsage, setModalViewToDeleteUsage] = useState(null);
+    const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
+    const [formBaselineRevision, setFormBaselineRevision] = useState(0);
+    const [formBaselineSnapshot, setFormBaselineSnapshot] = useState('');
+
+    const formSnapshot = useMemo(() => JSON.stringify({
+        heading,
+        headingLevel,
+        sourceTableId,
+        viewName,
+        visibleProperties,
+        joins,
+        viewType,
+        filterTree,
+        sorts,
+        resultSnapshot,
+        resultSnapshotLimit,
+        cardSize,
+        galleryPreview,
+        coverField,
+        imageFit,
+        groupBy,
+        groupSort,
+        groupSortDir,
+        dateField,
+        endDateField,
+        calendarView,
+        colorField,
+        rowHeight,
+        feedPillLimit,
+        feedExcerptLines,
+        feedFocus,
+        summaryModel,
+        chartType,
+        xField,
+        yField,
+        aggregation,
+        saveToTableViews,
+        selectedExistingViewId,
+        editScope,
+        pinnedViewIds: [...modalPinnedViewIds].sort(),
+    }), [heading, headingLevel, sourceTableId, viewName, visibleProperties, joins,
+        viewType, filterTree, sorts, resultSnapshot, resultSnapshotLimit, cardSize,
+        galleryPreview, coverField, imageFit, groupBy, groupSort, groupSortDir,
+        dateField, endDateField, calendarView, colorField, rowHeight, feedPillLimit,
+        feedExcerptLines, feedFocus, summaryModel, chartType, xField, yField,
+        aggregation, saveToTableViews, selectedExistingViewId, editScope,
+        modalPinnedViewIds]);
+    const currentFormSnapshotRef = useRef(formSnapshot);
+    currentFormSnapshotRef.current = formSnapshot;
 
     const requestDeleteViewFromModal = (v) => {
         if (!v?.id || v.is_main || v.id === 'default') return;
@@ -717,6 +766,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     // Stable handle for close-with-flush: useModalKeyboard is called before
     // closeWithFlush is defined, so we keep the latest closure in a ref.
     const closeWithFlushRef = useRef(() => {});
+    const requestCloseRef = useRef(() => {});
     // Stable handle for persistView: the autosave/flush effects run before the
     // early `if (!isOpen) return null`, but persistView is defined after it, so
     // the effects call this ref instead.
@@ -969,6 +1019,9 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
             skipNextAutosaveRef.current = false;
             setAutosaveStatus('idle');
             setJoins([]);
+            setDiscardConfirmOpen(false);
+            setFormBaselineRevision(0);
+            setFormBaselineSnapshot('');
             return;
         }
         // TABLE mode: we configure a registry view directly (not an
@@ -1021,6 +1074,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
             // tick so it isn't treated as a user change.
             initializedRef.current = true;
             skipNextAutosaveRef.current = true;
+            setFormBaselineRevision(revision => revision + 1);
             return;
         }
         // EDIT mode: we prefill from the existing block's props.
@@ -1088,6 +1142,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                         // Async prefill finished: the state writes above would
                         // otherwise look like a user edit and trigger autosave.
                         skipNextAutosaveRef.current = true;
+                        setFormBaselineRevision(revision => revision + 1);
                     })
                     .catch(() => {
                         // If we fail, we leave the modal in create-new mode.
@@ -1095,6 +1150,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                             setSourceTableId(preselectedTableId || '');
                             setSelectedExistingViewId('');
                             skipNextAutosaveRef.current = true;
+                            setFormBaselineRevision(revision => revision + 1);
                         }
                     });
                 return () => { cancelled = true; };
@@ -1113,6 +1169,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
             setExistingViews([]);
             initializedRef.current = true;
             skipNextAutosaveRef.current = true;
+            setFormBaselineRevision(revision => revision + 1);
             return;
         }
         // CREATE mode: everything clean.
@@ -1138,7 +1195,17 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         setError('');
         initializedRef.current = true;
         skipNextAutosaveRef.current = true;
+        setFormBaselineRevision(revision => revision + 1);
     }, [isOpen, preselectedTableId, editingBlock, isTableMode, editingView, initialTab]);
+
+    // Initialization and existing-view selection update many fields in one
+    // render. Capture the resulting state as the discard baseline only after
+    // those batched writes have committed; subsequent user edits then compare
+    // against this stable snapshot.
+    useEffect(() => {
+        if (!isOpen || formBaselineRevision === 0) return;
+        setFormBaselineSnapshot(currentFormSnapshotRef.current);
+    }, [isOpen, formBaselineRevision]);
 
     // When the source table changes, we load the views already saved for
     // allow choosing one instead of creating it from scratch.
@@ -1293,6 +1360,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         // Pre-selecting an existing view overwrites editing state; skip the
         // next autosave so it isn't mistaken for a user change.
         skipNextAutosaveRef.current = true;
+        setFormBaselineRevision(revision => revision + 1);
         if (selectedExistingViewId === 'default' || v.is_main) {
             setSaveToTableViews(true);
             setViewUsage({ count: 0, pages: [] });
@@ -1376,7 +1444,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     // overrides BlockNote's stopPropagation (TipTap/ProseMirror).
     useModalKeyboard({
         isOpen,
-        onClose: () => closeWithFlushRef.current(),
+        onClose: () => requestCloseRef.current(),
         containerRef: panelRef,
         trapFocus: true,
     });
@@ -1735,7 +1803,9 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
             //     ends up disconnected from the shared view.
             if (selectedExistingViewId && !isDefaultPick) {
                 const original = existingViews.find(x => x.id === selectedExistingViewId);
+                const nextViewName = (viewName || original?.name || 'Vista').trim();
                 const newPropsJson = JSON.stringify({
+                    name: nextViewName,
                     // `type` also counts as a modification: without it, changing
                     // ONLY the type (table→board/feed/graph, without extras) did not
                     // was never upserted to the registry and DbViewEmbed —which prefers the
@@ -1755,6 +1825,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                     ...buildViewExtras(),
                 });
                 const oldPropsJson = JSON.stringify({
+                    name: String(original?.name || ''),
                     type: String(original?.view_type || original?.type || 'table').toLowerCase(),
                     // Normalize the original's filters through the same tree pipeline
                     // so a simple flat filter doesn't read as "modified" just because
@@ -1777,6 +1848,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                         ...(original || {}),
                         id: selectedExistingViewId,
                         table_id: sourceTableId,
+                        name: nextViewName,
                         ...(isMultiTable ? { joins } : {}),
                         type: viewType,
                         filters: cleanFilters,
@@ -1906,7 +1978,23 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
             setFlushing(false);
         }
     };
+    const discardChanges = () => {
+        pendingSaveRef.current = null;
+        setDiscardConfirmOpen(false);
+        onClose(false);
+    };
+    const requestDiscardChanges = () => {
+        if (flushing) return;
+        const hasUnsavedChanges = Boolean(formBaselineSnapshot)
+            && formSnapshot !== formBaselineSnapshot;
+        if (hasUnsavedChanges) {
+            setDiscardConfirmOpen(true);
+            return;
+        }
+        discardChanges();
+    };
     closeWithFlushRef.current = closeWithFlush;
+    requestCloseRef.current = isTableMode ? closeWithFlush : requestDiscardChanges;
     persistViewRef.current = persistView;
 
     // Schema fields suitable for each per-type control: grouping of
@@ -1941,7 +2029,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                 ? t('page_view.title_edit', "Edit database view")
                                 : t('page_view.title', "Add database view"))}
                     </h2>
-                    <button type="button" onClick={() => closeWithFlushRef.current()} className="gnosi-close-btn" aria-label={t('common.close', 'Close')}>
+                    <button type="button" onClick={() => requestCloseRef.current()} className="gnosi-close-btn" aria-label={t('common.close', 'Close')}>
                         <X size={16} />
                     </button>
                 </div>
@@ -1963,11 +2051,16 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                     ? t('view.loading_views', "Loading views…")
                                     : t('view.create_new_view', "— Create new view —")}
                             </option>
-                            {existingViews.map(v => (
-                                <option key={v.id} value={v.id}>
-                                    {v.name || t('view.unnamed', "(unnamed)")} {v.type ? `· ${v.type}` : ''}
-                                </option>
-                            ))}
+                            {existingViews.map(v => {
+                                const displayedName = v.id === selectedExistingViewId
+                                    ? viewName
+                                    : v.name;
+                                return (
+                                    <option key={v.id} value={v.id}>
+                                        {displayedName || t('view.unnamed', "(unnamed)")} {v.type ? `· ${v.type}` : ''}
+                                    </option>
+                                );
+                            })}
                         </select>
                         {existingViewsLoadError && (
                             <div className="mt-2 flex items-center justify-between gap-3 rounded-md border border-[var(--status-error)]/30 bg-[var(--status-error)]/5 px-2.5 py-2">
@@ -3024,7 +3117,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                     )}
                 </div>
 
-                {/* Footer — single Close button (autosave/flush handles persistence). */}
+                {/* Footer: the primary action persists; Cancel discards local edits. */}
                 <div className="px-5 py-4 border-t border-[var(--border-primary)] bg-[var(--bg-secondary)] flex items-center justify-between gap-3 rounded-b-xl shrink-0">
                     {/* Autosave status pill (table mode shows live state; embed mode
                         only shows transient states during the flush). */}
@@ -3048,19 +3141,31 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                             </span>
                         )}
                     </div>
-                    <button
-                        onClick={() => closeWithFlushRef.current()}
-                        disabled={flushing}
-                        className="btn-gnosi btn-gnosi-primary px-6"
-                    >
-                        {flushing ? t('view.saving', "Saving…") : (
-                            isTableMode
-                                ? t('common.close', "Close")
-                                : (selectedExistingViewId && selectedExistingViewId !== 'default'
-                                    ? t('common.insert', "Insert")
-                                    : t('view.create_view', "Create view"))
+                    <div className="flex items-center gap-2">
+                        {!isTableMode && (
+                            <button
+                                type="button"
+                                onClick={requestDiscardChanges}
+                                disabled={flushing}
+                                className="btn-gnosi btn-gnosi-secondary px-5"
+                            >
+                                {t('common.cancel', "Cancel")}
+                            </button>
                         )}
-                    </button>
+                        <button
+                            onClick={() => closeWithFlushRef.current()}
+                            disabled={flushing}
+                            className="btn-gnosi btn-gnosi-primary px-6"
+                        >
+                            {flushing ? t('view.saving', "Saving…") : (
+                                isTableMode
+                                    ? t('common.close', "Close")
+                                    : (selectedExistingViewId && selectedExistingViewId !== 'default'
+                                        ? t('common.insert', "Insert")
+                                        : t('view.create_view', "Create view"))
+                            )}
+                        </button>
+                    </div>
                 </div>
             </div>
             {modalViewToDelete && (
@@ -3079,6 +3184,16 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                     isDestructive
                 />
             )}
+            <ConfirmModal
+                isOpen={discardConfirmOpen}
+                onClose={() => setDiscardConfirmOpen(false)}
+                onConfirm={discardChanges}
+                title={t('view.discard_changes_title', "Discard changes?")}
+                message={t('view.discard_changes_message', "Your unsaved changes will be lost.")}
+                confirmText={t('view.discard_changes_confirm', "Discard changes")}
+                cancelText={t('view.continue_editing', "Continue editing")}
+                isDestructive
+            />
         </div>
     );
 }
