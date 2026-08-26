@@ -199,6 +199,9 @@ export function GlobalTooltip() {
         document.addEventListener('focusin', handleFocusIn);
         document.addEventListener('focusout', handleFocusOut);
         document.addEventListener('keydown', handleKeyDown);
+        document.addEventListener('pointerdown', dismissTooltip, true);
+        document.addEventListener('click', dismissTooltip, true);
+        document.addEventListener('contextmenu', dismissTooltip, true);
         window.addEventListener('scroll', dismissTooltip, true);
         window.addEventListener('resize', dismissTooltip);
 
@@ -209,6 +212,9 @@ export function GlobalTooltip() {
             document.removeEventListener('focusin', handleFocusIn);
             document.removeEventListener('focusout', handleFocusOut);
             document.removeEventListener('keydown', handleKeyDown);
+            document.removeEventListener('pointerdown', dismissTooltip, true);
+            document.removeEventListener('click', dismissTooltip, true);
+            document.removeEventListener('contextmenu', dismissTooltip, true);
             window.removeEventListener('scroll', dismissTooltip, true);
             window.removeEventListener('resize', dismissTooltip);
             removeTooltipDescription(activeTriggerRef.current);

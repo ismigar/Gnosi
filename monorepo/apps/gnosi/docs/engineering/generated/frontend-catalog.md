@@ -48,7 +48,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Files | Lines | Literal API references |
 | --- | ---: | ---: | ---: |
 | `application root` | 3 | 501 | 0 |
-| `components` | 211 | 83071 | 209 |
+| `components` | 211 | 83192 | 209 |
 | `context` | 1 | 183 | 6 |
 | `hooks` | 18 | 1346 | 7 |
 | `lib` | 23 | 2404 | 27 |
@@ -100,7 +100,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/FolderPickerModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/FolderPickerModal.jsx) | 205 | `FolderPickerModal` | `/api/system/browse` |
 | [`frontend/src/components/ForcesSection.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/ForcesSection.jsx) | 172 | `ForcesSection` | — |
 | [`frontend/src/components/GlobalSettingsModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/GlobalSettingsModal.jsx) | 5004 | `FormGroup`, `GlobalSettingsModal`, `GnosiToggle`, `Section` | `/api/ai/catalog`, `/api/ai/model-comparison`, `/api/ai/models`, `/api/ai/usage`, `/api/auth/google/login?type=calendar`, `/api/auth/google/status`, `/api/auth/microsoft/login`, `/api/calendar/calendars`, `/api/config`, `/api/contacts/sync`, `/api/credentials/`, `/api/credentials/deepl_api_key`, `/api/env`, `/api/graph`, `/api/identity`, `/api/integrations/bulk`, `/api/integrations/default_calendar`, `/api/integrations/default_contacts`, `/api/integrations/default_mail`, `/api/integrations/test-email`, `/api/reader/newsletter-account`, `/api/reader/newsletter-account/sync`, `/api/reader/newsletter-account/test`, `/api/reader/sources`, `/api/reader/sources/opml`, `/api/social/networks`, `/api/social/streams`, `/api/vault/databases`, `/api/vault/tables` |
-| [`frontend/src/components/GlobalTooltip.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/GlobalTooltip.jsx) | 285 | `GlobalTooltip` | — |
+| [`frontend/src/components/GlobalTooltip.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/GlobalTooltip.jsx) | 291 | `GlobalTooltip` | — |
 | [`frontend/src/components/GraphLoadingState.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/GraphLoadingState.jsx) | 44 | `GraphLoadingState` | — |
 | [`frontend/src/components/GraphViewer.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/GraphViewer.jsx) | 1016 | `GraphViewer` | — |
 | [`frontend/src/components/Layout.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Layout.jsx) | 147 | `Layout` | — |
@@ -173,7 +173,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | [`frontend/src/components/Vault/PageHistory.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PageHistory.jsx) | 337 | `PageHistory` | — |
 | [`frontend/src/components/Vault/PageHoverCard.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PageHoverCard.jsx) | 361 | `PageHoverCard` | — |
 | [`frontend/src/components/Vault/PageLinksGraph.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PageLinksGraph.jsx) | 185 | `PageLinksGraph` | — |
-| [`frontend/src/components/Vault/PageViewModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PageViewModal.jsx) | 3084 | `PageViewModal` | `/api/ai/models`, `/api/vault/plugins/vault-summary/settings`, `/api/vault/views` |
+| [`frontend/src/components/Vault/PageViewModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PageViewModal.jsx) | 3199 | `PageViewModal` | `/api/ai/models`, `/api/vault/plugins/vault-summary/settings`, `/api/vault/views` |
 | [`frontend/src/components/Vault/PdfAnnotationsToCite.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PdfAnnotationsToCite.jsx) | 151 | `PdfAnnotationsToCite` | `/api/vault/pdf-annotations` |
 | [`frontend/src/components/Vault/PresentationMode.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PresentationMode.jsx) | 99 | `PresentationMode`, `function` | — |
 | [`frontend/src/components/Vault/ProcessResourceModal.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/ProcessResourceModal.jsx) | 255 | `ProcessResourceModal` | `/api/vault/llm-wiki/process` |

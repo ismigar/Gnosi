@@ -48,6 +48,9 @@ technology users.
   visible text or an explicit accessible name must keep their existing naming.
 - Do not show a second tooltip when a trigger already contains a rich tooltip
   owned by the component.
+- Do not leave a tooltip visible after pointer activation or a native context-menu
+  request; it can cover the first item in a newly opened menu. Dismiss activation
+  events during capture because menu triggers commonly stop propagation.
 - Portal-based and lazy-loaded content must be covered after initial render.
 - System appearance is resolved by the existing `useTheme` hook and the
   document's effective `.dark` class; tooltip code must not maintain a second

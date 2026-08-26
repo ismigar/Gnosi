@@ -81,6 +81,21 @@ Before considering a view complete, verify:
   object in place, because stale or reused response data can otherwise leave
   the picker in a permanent loading state.
 
+- **Renaming an embedded existing view leaves the picker stale or loses the
+  name.** Render the selected option from the modal's draft `viewName`, so the
+  closed picker updates while typing and retains the value after blur. Include
+  the normalized name in both change detection and the registry update payload;
+  updating only the input state does not persist a shared-view rename.
+
+- **Closing the embedded-view editor saves changes that the user meant to
+  cancel.** Keep the primary Insert/Create action as the persistence path. The
+  footer Cancel button, header close button, and Escape must share a discard
+  path, show `ConfirmModal` only when the normalized form differs from its
+  post-initialization baseline, and call the parent with `changed=false` after
+  discard. Do not reuse the flush-and-save close handler for these negative
+  actions. Table-mode view configuration retains its established autosave and
+  close behavior.
+
 - **An empty embedded calendar shows only its toolbar.** The embedded calendar
   has no parent height to inherit. Give its calendar container a minimum height
   and let FullCalendar calculate its own height, so the month/week/day grid is

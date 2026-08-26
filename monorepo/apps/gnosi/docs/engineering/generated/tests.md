@@ -11,7 +11,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
 | Playwright | 15 | 43 |
-| Vitest | 92 | 346 |
+| Vitest | 93 | 353 |
 | pytest | 205 | 1729 |
 
 ## Files
@@ -43,7 +43,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/components/AppSidebar.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AppSidebar.test.jsx) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/components/AppSidebarSettings.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/AppSidebarSettings.test.jsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/components/DesktopUpdateNotice.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/DesktopUpdateNotice.test.jsx) | 4 | call-pattern estimate |
-| Vitest | [`frontend/src/components/GlobalTooltip.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/GlobalTooltip.test.jsx) | 6 | call-pattern estimate |
+| Vitest | [`frontend/src/components/GlobalTooltip.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/GlobalTooltip.test.jsx) | 8 | call-pattern estimate |
 | Vitest | [`frontend/src/components/GraphLoadingState.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/GraphLoadingState.test.jsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Notebooks/NotebookCreateDialog.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Notebooks/NotebookCreateDialog.test.jsx) | 6 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Notebooks/notebookResourceCatalog.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Notebooks/notebookResourceCatalog.test.js) | 2 | call-pattern estimate |
@@ -56,6 +56,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/components/Vault/GalleryCardPreview.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/GalleryCardPreview.test.jsx) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/MarkdownCodeTextarea.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/MarkdownCodeTextarea.test.jsx) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/PageLinksGraph.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PageLinksGraph.test.js) | 5 | call-pattern estimate |
+| Vitest | [`frontend/src/components/Vault/PageViewModal.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/PageViewModal.test.jsx) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/RelationItem.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/RelationItem.test.js) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/VaultDateProperty.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultDateProperty.test.jsx) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/components/Vault/VaultMarkdown.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/components/Vault/VaultMarkdown.test.jsx) | 1 | call-pattern estimate |

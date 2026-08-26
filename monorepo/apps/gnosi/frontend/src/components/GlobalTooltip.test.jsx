@@ -86,6 +86,53 @@ describe('GlobalTooltip', () => {
         expect(trigger.hasAttribute('aria-describedby')).toBe(false);
     });
 
+    it('closes before a click opens a contextual menu even when propagation is stopped', async () => {
+        const fixture = await mountTooltipLayer(`
+            <div title="Click to switch · double-click to rename">
+                <button type="button">View options</button>
+            </div>
+        `);
+        const tab = fixture.querySelector('div');
+        const trigger = fixture.querySelector('button');
+
+        trigger.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const menu = document.createElement('div');
+            menu.setAttribute('role', 'menu');
+            fixture.appendChild(menu);
+        });
+
+        await act(async () => {
+            tab.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+        });
+        expect(document.getElementById('gnosi-global-tooltip')).not.toBeNull();
+
+        await act(async () => {
+            trigger.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        });
+
+        expect(fixture.querySelector('[role="menu"]')).not.toBeNull();
+        expect(document.getElementById('gnosi-global-tooltip')).toBeNull();
+        expect(tab.hasAttribute('aria-describedby')).toBe(false);
+    });
+
+    it('closes on a native context-menu request', async () => {
+        const fixture = await mountTooltipLayer('<button title="Open actions">Actions</button>');
+        const trigger = fixture.querySelector('button');
+
+        await act(async () => {
+            trigger.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+        });
+        expect(document.getElementById('gnosi-global-tooltip')).not.toBeNull();
+
+        await act(async () => {
+            trigger.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+        });
+
+        expect(document.getElementById('gnosi-global-tooltip')).toBeNull();
+        expect(trigger.hasAttribute('aria-describedby')).toBe(false);
+    });
+
     it('preserves a title-only icon control as an accessible name', async () => {
         const fixture = await mountTooltipLayer('<button title="Filter unread"><svg aria-hidden="true"></svg></button>');
         const trigger = fixture.querySelector('button');
