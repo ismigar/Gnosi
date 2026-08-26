@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { Upload, Download, Loader2, ChevronDown, LibraryBig } from 'lucide-react';
 import { toast } from '../../lib/toast';
+import { vaultPath } from '../../lib/vaultRouting';
 
 export function ReferenceImportExport({ tableId, onImported }) {
     const { t } = useTranslation();
@@ -107,7 +108,7 @@ export function ReferenceImportExport({ tableId, onImported }) {
         <div className="flex items-center gap-1">
             <button
                 type="button"
-                onClick={() => navigate('/literature')}
+                onClick={() => navigate(vaultPath('resources'))}
                 className={btnCls}
                 aria-label={t('literature.title')}
             >

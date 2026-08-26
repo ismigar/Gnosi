@@ -70,6 +70,7 @@ import asyncio
 
 from backend.services.workspace_service import get_workspace_context, require_role
 from backend.services.plugin_access import require_plugins
+from backend.services.vault_routing import canonical_vault_browser_path
 router = APIRouter(dependencies=[Depends(get_workspace_context)])
 
 from backend.services.context_vars import get_active_vault_path
@@ -15733,14 +15734,22 @@ def get_backlinks(id: str):
 
         candidates.add(base)
 
-        vault_page_match = re.search(r"(?:https?://[^/]+)?/vault/page/([^/?#]+)", base, re.IGNORECASE)
+        vault_page_match = re.search(
+            r"(?:https?://[^/]+)?/(?:vault/page|@[^/]+/knowledge/(?:page|dashboard))/([^/?#]+)",
+            base,
+            re.IGNORECASE,
+        )
         if vault_page_match and vault_page_match.group(1):
             try:
                 candidates.add(urllib.parse.unquote(vault_page_match.group(1).strip()))
             except Exception:
                 candidates.add(vault_page_match.group(1).strip())
 
-        api_page_match = re.search(r"(?:https?://[^/]+)?/api/vault/pages/([^/?#]+)", base, re.IGNORECASE)
+        api_page_match = re.search(
+            r"(?:https?://[^/]+)?/(?:api/vault|api/v1/vaults/[^/]+/knowledge)/pages/([^/?#]+)",
+            base,
+            re.IGNORECASE,
+        )
         if api_page_match and api_page_match.group(1):
             try:
                 candidates.add(urllib.parse.unquote(api_page_match.group(1).strip()))
@@ -15961,7 +15970,10 @@ def _link_mentions_in_plain_segments(body: str, target_title: str, target_id: st
         return str(body or ""), 0
 
     source = str(body or "")
-    link_token = f"/vault/page/{urllib.parse.quote(str(target_id or '').strip())}"
+    link_token = canonical_vault_browser_path(
+        "knowledge",
+        f"page/{urllib.parse.quote(str(target_id or '').strip())}",
+    )
     existing_link_pattern = re.compile(r"!?\[\[[^\]]+\]\]|\[[^\]]*\]\([^)]+\)")
 
     parts = []

@@ -40,6 +40,20 @@ export const ROUTE_PLUGIN_IDS = Object.fromEntries(
 );
 
 export function pluginForPath(pathname) {
+    const canonicalApp = pathname.match(/^\/@[^/]+\/([^/]+)/)?.[1];
+    const canonicalPlugins = {
+        planning: 'project-planning',
+        resources: 'resources',
+        reader: 'feeds-reader',
+        contacts: 'contacts',
+        mail: 'mail',
+        calendar: 'calendar',
+        social: 'social-publishing',
+        media: 'social-publishing',
+        notebooks: 'grounded-notebooks',
+        automations: 'automations',
+    };
+    if (canonicalApp && canonicalPlugins[canonicalApp]) return canonicalPlugins[canonicalApp];
     const exact = ROUTE_PLUGIN_IDS[pathname];
     if (exact) return exact;
     if (pathname.startsWith('/notebooks/')) return 'grounded-notebooks';

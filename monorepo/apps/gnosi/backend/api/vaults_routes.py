@@ -22,6 +22,7 @@ from backend.services.workspace_service import (
 )
 from backend.services.context_vars import get_active_vault_path
 from backend.config.app_config import load_params
+from backend.services.vault_routing import assign_vault_slug, ensure_vault_slugs
 
 router = APIRouter(prefix="/vaults", tags=["Vaults"])
 
@@ -119,9 +120,10 @@ def list_vaults(ctx: WorkspaceContext = Depends(get_workspace_context),
     """Workspace vaults + which one is active (the one resolved by X-Vault-Id or the main one)."""
     _ensure_main_vault(db, ctx.workspace_id, _default_vault_path())
     _prune_container_rows(db, ctx.workspace_id, _default_vault_path())
+    ensure_vault_slugs(db)
     active = str(get_active_vault_path() or "")
     rows = db.query(Vault).filter(Vault.workspace_id == ctx.workspace_id).all()
-    vaults = [{"id": v.id, "name": v.name, "path": v.path_override or "",
+    vaults = [{"id": v.id, "name": v.name, "slug": v.slug, "path": v.path_override or "",
                "active": (v.path_override or "") == active} for v in rows]
     return {"vaults": vaults, "active_path": active}
 
@@ -155,6 +157,8 @@ def create_vault(payload: CreateVaultPayload,
     v = Vault(id=str(uuid.uuid4()), workspace_id=ctx.workspace_id, name=name, path_override=str(path))
     db.add(v)
     try:
+        db.flush()
+        assign_vault_slug(db, v)
         db.commit()
     except Exception:
         db.rollback()
@@ -164,7 +168,7 @@ def create_vault(payload: CreateVaultPayload,
         reset_vault_path_cache()
     except Exception:
         pass
-    return {"id": v.id, "name": v.name, "path": str(path)}
+    return {"id": v.id, "name": v.name, "slug": v.slug, "path": str(path)}
 
 
 @router.patch("/{vault_id}", dependencies=[Depends(require_role("editor"))])
@@ -191,7 +195,7 @@ def rename_vault(vault_id: str, payload: RenameVaultPayload,
         reset_vault_path_cache()
     except Exception:
         pass
-    return {"id": v.id, "name": v.name, "path": v.path_override or ""}
+    return {"id": v.id, "name": v.name, "slug": v.slug, "path": v.path_override or ""}
 
 
 @router.delete("/{vault_id}", dependencies=[Depends(require_role("editor"))])

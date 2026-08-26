@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { RefreshCw, Pencil, Check, Loader2 } from 'lucide-react';
 import { VaultMarkdown } from './VaultMarkdown';
+import { canonicalizeVaultApiUrl } from '../../lib/vaultRouting';
 
 /**
  * SyncedBlock
@@ -25,7 +26,7 @@ let _sse = null;
 const ensureSyncedSSE = () => {
     if (_sse || typeof EventSource === 'undefined') return;
     try {
-        _sse = new EventSource('/api/vault/synced-events');
+        _sse = new EventSource(canonicalizeVaultApiUrl('/api/vault/synced-events'));
         _sse.onmessage = (e) => {
             let d; try { d = JSON.parse(e.data); } catch { return; }
             if (d?.syncId) _sseListeners.forEach((fn) => { try { fn(d.syncId); } catch { /* noop */ } });

@@ -81,6 +81,9 @@ def _apply_lightweight_migrations(engine):
         "share_links": {
             "vault_id": "VARCHAR",
         },
+        "vaults": {
+            "slug": "VARCHAR",
+        },
     }
     # Runs once, right after the column is added: addresses are the only
     # evidence available for accounts minted before the column existed.

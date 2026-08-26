@@ -116,6 +116,13 @@ export function syncActiveVaultCookie() {
  */
 export function withActiveVault(url, explicitVid) {
     if (typeof url !== 'string' || !url.startsWith('/api/vault/')) return url;
+    if (!explicitVid) {
+        let slug = '';
+        try { slug = localStorage.getItem('gnosi_active_vault_slug') || ''; } catch { /* Storage unavailable. */ }
+        if (slug) {
+            return `/api/v1/vaults/${encodeURIComponent(slug)}/knowledge/${url.slice('/api/vault/'.length)}`;
+        }
+    }
     if (/[?&]vault=/.test(url)) return url;
     const vid = explicitVid || getActiveVaultId();
     if (!vid) return url;
@@ -520,10 +527,15 @@ export function openFileResource(target, { title, navigate, location, t = (k, o)
         if (!handled) {
             const qs = new URLSearchParams({ src, kind: docKind });
             if (location?.pageNumber) qs.set('page', String(location.pageNumber));
-            if (navigate) navigate(`/vault/pdf?${qs.toString()}`);
+            let slug = '';
+            try { slug = localStorage.getItem('gnosi_active_vault_slug') || ''; } catch { /* Storage unavailable. */ }
+            const documentUrl = slug
+                ? `/@${encodeURIComponent(slug)}/knowledge/document?${qs.toString()}`
+                : `/vault/pdf?${qs.toString()}`;
+            if (navigate) navigate(documentUrl);
             else {
                 const readerWindow = window.open(
-                    `/vault/pdf?${qs.toString()}`,
+                    documentUrl,
                     documentWindowName(src),
                 );
                 if (readerWindow) {

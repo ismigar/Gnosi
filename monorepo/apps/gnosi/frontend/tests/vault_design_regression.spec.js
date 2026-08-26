@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import process from 'node:process';
 
 const vaultPageUrl = process.env.GNOSI_VISUAL_PAGE_URL
-  || 'https://localhost:5173/vault/page/74d075a3-eec5-5d71-8d6c-5300b22b5868';
+  || 'https://localhost:5173/@principal/knowledge/page/74d075a3-eec5-5d71-8d6c-5300b22b5868';
 
 const viewports = [
   { name: 'mobile', width: 390, height: 844 },

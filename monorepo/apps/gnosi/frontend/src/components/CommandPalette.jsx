@@ -9,6 +9,7 @@ import {
 import { usePluginHost } from '../plugins/usePluginHost';
 import { runCommand } from '../plugins/host';
 import { usePlugins } from '../plugins/usePlugins';
+import { vaultPath } from '../lib/vaultRouting';
 
 /**
  * CommandPalette
@@ -60,28 +61,28 @@ export default function CommandPalette() {
         try {
             const res = await axios.post('/api/vault/pages', { title: 'Sense títol', content: '', metadata: {} });
             const id = res?.data?.id;
-            if (id) navigate(`/vault/page/${id}`);
+            if (id) navigate(vaultPath('knowledge', `page/${id}`));
         } catch { /* noop */ }
     }, [navigate]);
 
     const commands = useMemo(() => [
         { id: 'nav-home', title: t('command_palette.nav_home'), section: t('command_palette.section_nav'), icon: Command, kw: ['inici', 'home', 'casa'], run: () => navigate('/') },
-        { id: 'nav-vault', title: t('command_palette.nav_vault'), section: t('command_palette.section_nav'), icon: FileText, kw: ['coneixement', 'vault', 'notes'], run: () => navigate('/vault') },
-        { id: 'nav-graph', title: t('command_palette.nav_graph'), section: t('command_palette.section_nav'), icon: Network, kw: ['graf', 'graph'], run: () => navigate('/graph') },
-        { id: 'nav-contacts', pluginId: 'contacts', title: t('command_palette.nav_contacts'), section: t('command_palette.section_nav'), icon: Users, kw: ['contactes', 'contacts', 'persones'], run: () => navigate('/contacts') },
-        { id: 'nav-mail', pluginId: 'mail', title: t('command_palette.nav_mail'), section: t('command_palette.section_nav'), icon: Mail, kw: ['correu', 'mail', 'email'], run: () => navigate('/mail') },
-        { id: 'nav-calendar', pluginId: 'calendar', title: t('command_palette.nav_calendar'), section: t('command_palette.section_nav'), icon: Calendar, kw: ['calendari', 'calendar', 'cites'], run: () => navigate('/calendar') },
-        { id: 'nav-reader', pluginId: 'feeds-reader', title: t('command_palette.nav_reader'), section: t('command_palette.section_nav'), icon: BookOpen, kw: ['lector', 'reader', 'rss'], run: () => navigate('/reader') },
-        { id: 'nav-social', pluginId: 'social-publishing', title: t('command_palette.nav_social'), section: t('command_palette.section_nav'), icon: Share2, kw: ['social', 'xarxes'], run: () => navigate('/social-dashboard') },
-        { id: 'nav-media', pluginId: 'social-publishing', title: t('command_palette.nav_media'), section: t('command_palette.section_nav'), icon: ImageIcon, kw: ['fotos', 'media', 'imatges'], run: () => navigate('/media') },
-        { id: 'nav-scheduler', pluginId: 'automations', title: t('command_palette.nav_scheduler'), section: t('command_palette.section_nav'), icon: Clock, kw: ['planificador', 'scheduler', 'tasques'], run: () => navigate('/scheduler') },
+        { id: 'nav-vault', title: t('command_palette.nav_vault'), section: t('command_palette.section_nav'), icon: FileText, kw: ['coneixement', 'vault', 'notes'], run: () => navigate(vaultPath('knowledge')) },
+        { id: 'nav-graph', title: t('command_palette.nav_graph'), section: t('command_palette.section_nav'), icon: Network, kw: ['graf', 'graph'], run: () => navigate(vaultPath('graph')) },
+        { id: 'nav-contacts', pluginId: 'contacts', title: t('command_palette.nav_contacts'), section: t('command_palette.section_nav'), icon: Users, kw: ['contactes', 'contacts', 'persones'], run: () => navigate(vaultPath('contacts')) },
+        { id: 'nav-mail', pluginId: 'mail', title: t('command_palette.nav_mail'), section: t('command_palette.section_nav'), icon: Mail, kw: ['correu', 'mail', 'email'], run: () => navigate(vaultPath('mail')) },
+        { id: 'nav-calendar', pluginId: 'calendar', title: t('command_palette.nav_calendar'), section: t('command_palette.section_nav'), icon: Calendar, kw: ['calendari', 'calendar', 'cites'], run: () => navigate(vaultPath('calendar')) },
+        { id: 'nav-reader', pluginId: 'feeds-reader', title: t('command_palette.nav_reader'), section: t('command_palette.section_nav'), icon: BookOpen, kw: ['lector', 'reader', 'rss'], run: () => navigate(vaultPath('reader')) },
+        { id: 'nav-social', pluginId: 'social-publishing', title: t('command_palette.nav_social'), section: t('command_palette.section_nav'), icon: Share2, kw: ['social', 'xarxes'], run: () => navigate(vaultPath('social')) },
+        { id: 'nav-media', pluginId: 'social-publishing', title: t('command_palette.nav_media'), section: t('command_palette.section_nav'), icon: ImageIcon, kw: ['fotos', 'media', 'imatges'], run: () => navigate(vaultPath('media')) },
+        { id: 'nav-scheduler', pluginId: 'automations', title: t('command_palette.nav_scheduler'), section: t('command_palette.section_nav'), icon: Clock, kw: ['planificador', 'scheduler', 'tasques'], run: () => navigate(vaultPath('automations')) },
         { id: 'act-newnote', title: t('command_palette.new_note'), section: t('command_palette.section_actions'), icon: Plus, kw: ['nova', 'nota', 'crear', 'new', 'note'], run: createNote },
-        { id: 'act-search', title: t('command_palette.global_search'), section: t('command_palette.section_actions'), icon: Search, kw: ['cerca', 'search', 'buscar'], run: () => { navigate('/vault'); setTimeout(() => window.dispatchEvent(new CustomEvent('gnosi:open-search')), 60); } },
-        { id: 'act-tags', pluginId: 'tags-page', title: t('command_palette.tags'), section: t('command_palette.section_actions'), icon: Hash, kw: ['etiquetes', 'tags', 'tag', '#'], run: () => { navigate('/vault'); setTimeout(() => window.dispatchEvent(new CustomEvent('gnosi:open-tags')), 60); } },
+        { id: 'act-search', title: t('command_palette.global_search'), section: t('command_palette.section_actions'), icon: Search, kw: ['cerca', 'search', 'buscar'], run: () => { navigate(vaultPath('knowledge')); setTimeout(() => window.dispatchEvent(new CustomEvent('gnosi:open-search')), 60); } },
+        { id: 'act-tags', pluginId: 'tags-page', title: t('command_palette.tags'), section: t('command_palette.section_actions'), icon: Hash, kw: ['etiquetes', 'tags', 'tag', '#'], run: () => { navigate(vaultPath('knowledge')); setTimeout(() => window.dispatchEvent(new CustomEvent('gnosi:open-tags')), 60); } },
         { id: 'act-present', title: t('command_palette.presentation_mode'), section: t('command_palette.section_actions'), icon: Presentation, kw: ['presentació', 'presentation', 'slides', 'diapositives'], run: () => window.dispatchEvent(new CustomEvent('gnosi:present')) },
         { id: 'act-import', title: t('command_palette.import_notes'), section: t('command_palette.section_actions'), icon: Upload, kw: ['importa', 'import', 'markdown', 'obsidian', 'md'], run: importNotes },
         { id: 'act-comments', pluginId: 'page-comments', title: t('command_palette.page_comments'), section: t('command_palette.section_actions'), icon: MessageSquare, kw: ['comentaris', 'comments', 'comentar'], run: () => window.dispatchEvent(new CustomEvent('gnosi:toggle-comments')) },
-        { id: 'act-workspaces', title: t('command_palette.workspaces'), section: t('command_palette.section_actions'), icon: LayoutPanelLeft, kw: ['espais', 'workspace', 'layout', 'disposició', 'pestanyes'], run: () => { navigate('/vault'); setTimeout(() => window.dispatchEvent(new CustomEvent('gnosi:open-workspaces')), 60); } },
+        { id: 'act-workspaces', title: t('command_palette.workspaces'), section: t('command_palette.section_actions'), icon: LayoutPanelLeft, kw: ['espais', 'workspace', 'layout', 'disposició', 'pestanyes'], run: () => { navigate(vaultPath('knowledge')); setTimeout(() => window.dispatchEvent(new CustomEvent('gnosi:open-workspaces')), 60); } },
         { id: 'theme-light', title: t('command_palette.theme_light'), section: t('command_palette.section_appearance'), icon: Sun, kw: ['tema', 'clar', 'light', 'theme'], run: () => setTheme('light') },
         { id: 'theme-dark', title: t('command_palette.theme_dark'), section: t('command_palette.section_appearance'), icon: Moon, kw: ['tema', 'fosc', 'dark', 'theme'], run: () => setTheme('dark') },
         { id: 'theme-system', title: t('command_palette.theme_system'), section: t('command_palette.section_appearance'), icon: Monitor, kw: ['tema', 'sistema', 'system', 'auto'], run: () => setTheme('system') },

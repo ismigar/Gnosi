@@ -196,7 +196,11 @@ def test_verifier_exposes_freshness_and_namespaced_background_job():
     assert metadata["gnosi_explanation"]["budgets"]["max_model_calls"] > 0
 
 
-def test_deterministic_inventory_maps_each_claim_to_current_turn_sources():
+def test_deterministic_inventory_maps_each_claim_to_current_turn_sources(monkeypatch):
+    monkeypatch.setattr(
+        "backend.agent.turn_contract.canonical_vault_browser_path",
+        lambda app, resource_path="": f"/@research/{app}/{resource_path}".rstrip("/"),
+    )
     plan = build_turn_plan(
         "Troba totes les notes sobre coaching",
         mode="inventory",
@@ -230,8 +234,8 @@ def test_deterministic_inventory_maps_each_claim_to_current_turn_sources():
     assert citations["claim_count"] == 3
     assert citations["source_count"] == 3
     assert {source["href"] for source in citations["sources"]} >= {
-        "/vault/page/note-1",
-        "/vault/page/note-2",
+        "/@research/knowledge/page/note-1",
+        "/@research/knowledge/page/note-2",
     }
     assert verified.additional_kwargs["gnosi_verification"]["status"] == "passed"
 

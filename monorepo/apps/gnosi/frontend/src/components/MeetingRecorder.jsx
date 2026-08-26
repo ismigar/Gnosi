@@ -6,6 +6,7 @@ import { Mic, Square, Loader2, X, FileText, Monitor, Users, AlertTriangle, Check
 import { toast } from '../lib/toast';
 import { announceFloatingPanelOpen, useExclusiveFloatingPanel } from '../hooks/useExclusiveFloatingPanel';
 import { useFloatingActionDock } from '../hooks/useFloatingActionDock';
+import { vaultPath } from '../lib/vaultRouting';
 
 /**
  * AI meeting minutes taker (Notion AI Meeting Notes style).
@@ -295,7 +296,7 @@ export default function MeetingRecorder() {
                                 <div className="flex gap-2">
                                     <button
                                         type="button"
-                                        onClick={() => { if (pageId) navigate(`/vault/page/${pageId}`); reset(); setOpen(false); }}
+                                        onClick={() => { if (pageId) navigate(vaultPath('knowledge', `page/${pageId}`)); reset(); setOpen(false); }}
                                         disabled={!pageId}
                                         className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
                                     >

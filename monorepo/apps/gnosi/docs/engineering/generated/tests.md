@@ -11,8 +11,8 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Runner | Files | Test signals |
 | --- | ---: | ---: |
 | Playwright | 15 | 43 |
-| Vitest | 90 | 342 |
-| pytest | 204 | 1726 |
+| Vitest | 92 | 346 |
+| pytest | 205 | 1729 |
 
 ## Files
 
@@ -97,6 +97,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/src/lib/notebookTableActions.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/notebookTableActions.test.js) | 1 | call-pattern estimate |
 | Vitest | [`frontend/src/lib/releaseNotesFormatting.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/releaseNotesFormatting.test.js) | 2 | call-pattern estimate |
 | Vitest | [`frontend/src/lib/vaultAgentContext.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/vaultAgentContext.test.js) | 4 | call-pattern estimate |
+| Vitest | [`frontend/src/lib/vaultRouting.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/lib/vaultRouting.test.js) | 3 | call-pattern estimate |
 | Vitest | [`frontend/src/locales/blocknote/registry.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/locales/blocknote/registry.test.js) | 4 | call-pattern estimate |
 | Vitest | [`frontend/src/locales/registry.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/locales/registry.test.js) | 5 | call-pattern estimate |
 | Vitest | [`frontend/src/pages/LiteraturePage.test.jsx`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/src/pages/LiteraturePage.test.jsx) | 9 | call-pattern estimate |
@@ -121,6 +122,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Vitest | [`frontend/tests/interface-language.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/tests/interface-language.test.js) | 7 | call-pattern estimate |
 | Vitest | [`frontend/tests/rich_link_insert.spec.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/tests/rich_link_insert.spec.js) | 3 | call-pattern estimate |
 | Vitest | [`frontend/tests/vault_design_regression.spec.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/tests/vault_design_regression.spec.js) | 1 | call-pattern estimate |
+| Vitest | [`frontend/tests/vault_routing.spec.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/tests/vault_routing.spec.js) | 1 | call-pattern estimate |
 | Vitest | [`frontend/tests/web-clipper.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/tests/web-clipper.test.js) | 18 | call-pattern estimate |
 | Vitest | [`frontend/tests/word-addin.test.js`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/frontend/tests/word-addin.test.js) | 13 | call-pattern estimate |
 | pytest | [`backend/agent/generated_tools/test_sandbox.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/agent/generated_tools/test_sandbox.py) | 0 | Python AST |
@@ -297,6 +299,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_translation_index.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_translation_index.py) | 7 | Python AST |
 | pytest | [`backend/tests/test_truthy_checkbox_parity.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_truthy_checkbox_parity.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_validator_string_dunder.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_validator_string_dunder.py) | 4 | Python AST |
+| pytest | [`backend/tests/test_vault_canonical_routing.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_vault_canonical_routing.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_vault_delete_purge.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_vault_delete_purge.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_vault_registry_race.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_vault_registry_race.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_vault_registry_seed_guard.py`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/backend/tests/test_vault_registry_seed_guard.py) | 12 | Python AST |

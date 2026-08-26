@@ -66,6 +66,10 @@ class Vault(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     workspace_id = Column(String, ForeignKey("workspaces.id"))
     name = Column(String, nullable=False)
+    # Stable URL identity. Display-name changes deliberately do not mutate it.
+    # Uniqueness is enforced by vault_routing.assign_vault_slug so existing
+    # SQLite installations can adopt the column without rebuilding the table.
+    slug = Column(String, index=True)
     path_override = Column(String) # For custom storage paths
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Network, BookOpen, Gauge, Share2, FileText, Calendar, Inbox, Settings, Users, Image as ImageIcon, CalendarRange, NotebookTabs } from 'lucide-react';
 import { useActiveVaultName } from '../hooks/useActiveVaultName';
 import { usePlugins } from '../plugins/usePlugins';
+import { legacyBrowserPathToCanonical } from '../lib/vaultRouting';
 
 const MODULES = [
     {
@@ -156,7 +157,7 @@ function HomePage() {
                         );
                     }
                     return (
-                        <Link key={to} to={to} className="home-card">
+                        <Link key={to} to={legacyBrowserPathToCanonical(to)} className="home-card">
                             <div className="home-card__icon-wrap">
                                 <Icon size={28} strokeWidth={1.5} />
                             </div>

@@ -9,6 +9,11 @@ import { syncActiveVaultCookie } from './lib/fileResource.js'
 import { AuthProvider } from './context/AuthContext.jsx'
 import { initializeInterfaceLanguage } from './lib/interfaceLanguage.js'
 import { installDesktopApplicationMenu } from './lib/desktopMenu.js'
+import {
+    initializeVaultRouting,
+    installVaultApiRouting,
+    legacyBrowserPathToCanonical,
+} from './lib/vaultRouting.js'
 import { GlobalTooltip } from './components/GlobalTooltip.jsx'
 
 // Multi-vault: reflects the active vault (localStorage) in a same-origin cookie
@@ -16,6 +21,7 @@ import { GlobalTooltip } from './components/GlobalTooltip.jsx'
 // native, background-image, SSE, /api/chat, WebSocket— carries the vault without
 // depend on the axios header. Without this, all these channels fall back to the
 // default vault. See setActiveVaultCookie in lib/fileResource.js.
+installVaultApiRouting();
 syncActiveVaultCookie();
 
 // Optimistic concurrency for /api/vault/pages — auto-attaches `expected_etag`
@@ -24,6 +30,15 @@ syncActiveVaultCookie();
 installPageEtagInterceptor();
 
 async function bootstrap() {
+    await initializeVaultRouting();
+    const canonicalPath = legacyBrowserPathToCanonical(window.location.pathname);
+    if (canonicalPath !== window.location.pathname && canonicalPath.startsWith('/@')) {
+        window.history.replaceState(
+            window.history.state,
+            '',
+            `${canonicalPath}${window.location.search}${window.location.hash}`,
+        );
+    }
     await initializeInterfaceLanguage(i18n);
     installDesktopApplicationMenu(i18n);
     ReactDOM.createRoot(document.getElementById('root')).render(

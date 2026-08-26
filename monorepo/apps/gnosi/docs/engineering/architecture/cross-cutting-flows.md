@@ -1,18 +1,25 @@
 ---
 status: implemented
-last_verified: 2026-08-21
+last_verified: 2026-08-26
 source_paths:
   - backend/server.py
+  - backend/services/active_vault_middleware.py
   - backend/services/context_vars.py
+  - backend/services/vault_routing.py
   - backend/services/auth_service.py
   - backend/security/keychain_manager.py
+  - frontend/src/App.jsx
   - frontend/src/context/AuthContext.jsx
   - frontend/src/hooks/useModalKeyboard.js
   - frontend/src/index.css
+  - frontend/src/lib/vaultRouting.js
 tests:
   - backend/tests/test_auth_central_gate.py
+  - backend/tests/test_vault_canonical_routing.py
   - backend/tests/test_workspace_bootstrap_race.py
   - e2e/tests/accessibility/accessibility.spec.ts
+  - frontend/src/lib/vaultRouting.test.js
+  - frontend/tests/vault_routing.spec.js
 ---
 
 # Cross-cutting flows
@@ -44,6 +51,29 @@ security boundary.
 Context variables carry the active vault through nested service calls without
 turning the path into a global mutable setting. Code outside a request must
 provide an explicit vault or use the documented default resolution path.
+
+## Vault-scoped routing
+
+Private browser deep links identify the stable vault slug before the product
+surface and resource: `/@{vaultSlug}/{app}/{resourceType}/{resourceId}`. App
+landing pages stop after the app segment. Vault names remain editable, while
+their URL slugs are persisted separately and do not change on rename. Public
+shares and global account or vault-management surfaces stay outside this
+namespace.
+
+Vault data APIs mirror the same ownership boundary under
+`/api/v1/vaults/{vaultSlug}/{app}/...`. `ActiveVaultMiddleware` resolves the
+slug before normal FastAPI dispatch, binds the immutable vault id and path, and
+then reuses the existing endpoint implementation. The canonical path wins over
+a conflicting legacy header, query parameter, or cookie, but workspace and
+vault-access dependencies still make the authorization decision.
+
+The frontend installs one route builder and one API rewriter before rendering.
+This covers Axios, `fetch`, server-sent events, collaboration WebSockets, and
+native asset URLs. Stored legacy browser links are replaced with their
+canonical location while preserving query parameters and fragments. Legacy API
+paths remain compatibility aliases for older clients; new callers and all
+frontend traffic use the versioned vault-scoped form.
 
 ## Configuration flow
 

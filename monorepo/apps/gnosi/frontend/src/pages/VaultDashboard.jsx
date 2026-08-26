@@ -46,6 +46,7 @@ import {
 } from '../components/Vault/relationItemUtils';
 import { documentTabId } from '../lib/fileResource';
 import { vaultAgentContextRefs, vaultPageViewIds } from '../lib/vaultAgentContext';
+import { knowledgeDocumentType, vaultPath } from '../lib/vaultRouting';
 // The drawing editor (tldraw) is very heavy and is only used in 'drawing' mode:
 // we load it lazily so it doesn't end up in the Vault chunk.
 const TldrawEditor = lazy(() => import('../components/Vault/TldrawEditor'));
@@ -452,12 +453,18 @@ export default function VaultDashboard() {
     const pushToHistory = useCallback((entry) => {
         // React Router Navigation (URL Synchronization)
         if (entry.type === 'table') {
-            const url = entry.subId ? `/vault/table/${entry.id}/view/${entry.subId}` : `/vault/table/${entry.id}`;
+            const url = entry.subId
+                ? vaultPath('knowledge', `table/${entry.id}/view/${entry.subId}`)
+                : vaultPath('knowledge', `table/${entry.id}`);
             navigate(url);
         } else if (entry.type === 'editor') {
-            navigate(`/vault/page/${entry.id}`);
+            const resourceType = entry.resourceType || knowledgeDocumentType(entry);
+            navigate(vaultPath('knowledge', `${resourceType}/${encodeURIComponent(entry.id)}`));
         } else if (entry.type === 'drawing') {
-            navigate('/vault/drawing');
+            const drawingPath = entry.id
+                ? `drawing/${encodeURIComponent(entry.id)}`
+                : 'drawing';
+            navigate(vaultPath('knowledge', drawingPath));
         }
 
         setNavigationHistory(prev => {
@@ -959,6 +966,13 @@ export default function VaultDashboard() {
         const tabId = pageId;
         const existingTab = tabs.find(t => t.id === tabId);
         if (existingTab) {
+            const resourceType = knowledgeDocumentType(existingTab);
+            if (fromHistory && nestedPath?.startsWith('page/') && resourceType === 'dashboard') {
+                navigate(
+                    vaultPath('knowledge', `dashboard/${encodeURIComponent(pageId)}`),
+                    { replace: true },
+                );
+            }
             // No request in flight: we just change the focus.
             if (activeLoadAbortRef.current) {
                 activeLoadAbortRef.current.abort();
@@ -967,7 +981,7 @@ export default function VaultDashboard() {
             setActiveTabId(tabId);
             setViewMode('editor');
             setActiveTableId(null);
-            if (!fromHistory) pushToHistory({ type: 'editor', id: pageId });
+            if (!fromHistory) pushToHistory({ type: 'editor', id: pageId, resourceType });
             return;
         }
 
@@ -984,10 +998,11 @@ export default function VaultDashboard() {
             try {
                 const res = await pageRequestInFlightRef.current.get(pageId);
                 if (res?.data) {
+                    const resourceType = knowledgeDocumentType(res.data);
                     setActiveTabId(tabId);
                     setViewMode('editor');
                     setActiveTableId(null);
-                    if (!fromHistory) pushToHistory({ type: 'editor', id: pageId });
+                    if (!fromHistory) pushToHistory({ type: 'editor', id: pageId, resourceType });
                 }
             } catch { /* the first call will already report errors */ }
             return;
@@ -1007,6 +1022,13 @@ export default function VaultDashboard() {
             if (controller.signal.aborted) return;
             if (!res) return;
             const pageData = res.data;
+            const resourceType = knowledgeDocumentType(pageData);
+            if (fromHistory && nestedPath?.startsWith('page/') && resourceType === 'dashboard') {
+                navigate(
+                    vaultPath('knowledge', `dashboard/${encodeURIComponent(pageId)}`),
+                    { replace: true },
+                );
+            }
             const tableIdOfPage = resolvePageTableId(pageData);
             if (tableIdOfPage) await fetchPagesByTable(tableIdOfPage);
             if (controller.signal.aborted) return;
@@ -1022,7 +1044,7 @@ export default function VaultDashboard() {
             setActiveTabId(tabId);
             setViewMode('editor');
             setActiveTableId(null);
-            if (!fromHistory) pushToHistory({ type: 'editor', id: pageId });
+            if (!fromHistory) pushToHistory({ type: 'editor', id: pageId, resourceType });
         } catch (err) {
             if (controller.signal.aborted || isAbortLikeError(err)) {
                 // Aborted by a newer loadPage — silent, not a real error.
@@ -1039,7 +1061,7 @@ export default function VaultDashboard() {
             }
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [fetchPageById, fetchPagesByTable, isAbortLikeError, pushToHistory, resolvePageTableId, tabs]);
+    }, [fetchPageById, fetchPagesByTable, isAbortLikeError, navigate, nestedPath, pushToHistory, resolvePageTableId, tabs]);
 
     const openRecordFromView = useCallback((pageId, tableId, viewId, openContext = null) => {
         const sourceRecordId = openContext?.returnFocusId;
@@ -1639,7 +1661,8 @@ export default function VaultDashboard() {
         }
 
         const parts = nestedPath.split('/');
-        // Casos: table/:id, table/:id/view/:id, page/:id, drawing, view/:id
+        // Cases: table/:id, table/:id/view/:id, page/:id, dashboard/:id,
+        // drawing/:id, and the legacy view/:id alias.
         if (parts[0] === 'table' && parts[1]) {
             const tableId = parts[1];
             const viewId = parts[3]; // table/:id/view/:id
@@ -1657,12 +1680,22 @@ export default function VaultDashboard() {
             } else if (viewId && activeViewId !== viewId) {
                 setActiveViewId(viewId);
             }
-        } else if (parts[0] === 'page' && parts[1]) {
-            const pageId = parts[1];
+        } else if ((parts[0] === 'page' || parts[0] === 'dashboard') && parts[1]) {
+            const pageId = parts.slice(1).join('/');
             if (activeTabId !== pageId) {
                 loadPage(pageId, true);
             }
         } else if (parts[0] === 'drawing') {
+            const drawingId = parts.slice(1).join('/');
+            if (drawingId) {
+                setTabs(prev => (
+                    prev.some(tab => tab.id === drawingId)
+                        ? prev
+                        : [...prev, { id: drawingId, title: t('common.untitled'), isDrawing: true }]
+                ));
+                setActiveTabId(drawingId);
+                setActiveTableId(null);
+            }
             if (viewMode !== 'drawing') setViewMode('drawing');
         } else if (parts[0] === 'view' && parts[1]) {
             // Support for existing routes like /vault/view/areas
@@ -2483,7 +2516,11 @@ export default function VaultDashboard() {
             // PDF tabs don't go into the navigation history (they have no canonical route
             // within the Vault) — they're session-only. Reacts to opening them
             // again with the same link.
-            pushToHistory({ type: 'editor', id: tabId });
+            pushToHistory({
+                type: 'editor',
+                id: tabId,
+                resourceType: knowledgeDocumentType(tab),
+            });
         }
 
         setActiveTabId(tabId);
@@ -2589,6 +2626,7 @@ export default function VaultDashboard() {
                 setActiveTabId(drawingId);
                 setViewMode('drawing');
                 setTabs(prev => (prev.some(t => t.id === drawingId) ? prev : [...prev, { id: drawingId, title: title, isDrawing: true }]));
+                pushToHistory({ type: 'drawing', id: drawingId });
             } else if (isDatabase && databaseId) {
                 // Table inside a Database (App)
                 const tableRes = await axios.post('/api/vault/tables', {
@@ -2662,11 +2700,15 @@ export default function VaultDashboard() {
                 } else if (fallback?.isTable) {
                     const tableId = getTableIdFromTab(fallback);
                     if (tableId) pushToHistory({ type: 'table', id: tableId });
-                    else navigate('/vault');
+                    else navigate(vaultPath('knowledge'));
                 } else if (fallback) {
-                    pushToHistory({ type: 'editor', id: fallback.id });
+                    pushToHistory({
+                        type: 'editor',
+                        id: fallback.id,
+                        resourceType: knowledgeDocumentType(fallback),
+                    });
                 } else {
-                    navigate('/vault');
+                    navigate(vaultPath('knowledge'));
                 }
             }
         };
