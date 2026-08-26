@@ -4873,7 +4873,7 @@
     "no_data": "No hi ha dades per mostrar al cronograma."
   },
   "home": {
-    "subtitle": "El teu ecosistema de coneixement personal",
+    "subtitle": "El teu ecosistema de coneixement",
     "module_graph_title": "Graf de Coneixement",
     "module_graph_desc": "Explora les connexions entre les teves idees i recursos.",
     "module_vault_desc": "Escriu i organitza les teves notes i documents.",
@@ -5789,6 +5789,18 @@
     "section_improvements": "Millores",
     "section_fixes": "Correccions",
     "entries": {
+      "v2_0_6": {
+        "highlights": {
+          "vault_scoped_routes": "La navegació web i les rutes de l'API respecten ara el Vault actiu per mantenir cada context aïllat."
+        },
+        "improvements": {
+          "contextual_focus": "Els indicadors de focus contextual tornen a mostrar amb claredat quin element està actiu."
+        },
+        "fixes": {
+          "windows_release": "L'empaquetat de Windows aïlla l'entorn Python i prepara rutes llargues per evitar conflictes amb altres processos.",
+          "contextual_tooltips": "Els tooltips contextuals es tanquen correctament en obrir menús i els esborranys de vista es poden cancel·lar sense residus."
+        }
+      },
       "v2_0_5": {
         "highlights": {},
         "improvements": {

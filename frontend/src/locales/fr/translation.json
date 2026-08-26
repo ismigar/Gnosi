@@ -4873,7 +4873,7 @@
     "no_data": "Aucune donnée à afficher dans la chronologie."
   },
   "home": {
-    "subtitle": "Votre écosystème de connaissances personnel",
+    "subtitle": "Votre écosystème de connaissances",
     "module_graph_title": "Graphe de connaissances",
     "module_graph_desc": "Explorez les connexions entre vos idées et vos ressources.",
     "module_vault_desc": "Rédigez et organisez vos notes et documents.",
@@ -5789,6 +5789,18 @@
     "section_improvements": "Améliorations",
     "section_fixes": "Corrections",
     "entries": {
+      "v2_0_6": {
+        "highlights": {
+          "vault_scoped_routes": "La navigation web et les routes API respectent désormais le Vault actif afin de maintenir chaque contexte isolé."
+        },
+        "improvements": {
+          "contextual_focus": "Les indicateurs de focus contextuel montrent à nouveau clairement l'élément actif."
+        },
+        "fixes": {
+          "windows_release": "L'empaquetage Windows isole son environnement Python et active les chemins longs pour éviter les conflits avec d'autres processus.",
+          "contextual_tooltips": "Les infobulles contextuelles se ferment correctement à l'ouverture des menus et les brouillons de vue peuvent être annulés sans état résiduel."
+        }
+      },
       "v2_0_5": {
         "highlights": {},
         "improvements": {

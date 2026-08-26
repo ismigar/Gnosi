@@ -4873,7 +4873,7 @@
     "no_data": "No hay datos para mostrar en el cronograma."
   },
   "home": {
-    "subtitle": "Tu ecosistema de conocimiento personal",
+    "subtitle": "Tu ecosistema de conocimiento",
     "module_graph_title": "Grafo de Conocimiento",
     "module_graph_desc": "Explora las conexiones entre tus ideas y recursos.",
     "module_vault_desc": "Escribe y organiza tus notas y documentos.",
@@ -5789,6 +5789,18 @@
     "section_improvements": "Mejoras",
     "section_fixes": "Correcciones",
     "entries": {
+      "v2_0_6": {
+        "highlights": {
+          "vault_scoped_routes": "La navegación web y las rutas de la API respetan ahora el Vault activo para mantener cada contexto aislado."
+        },
+        "improvements": {
+          "contextual_focus": "Los indicadores de foco contextual vuelven a mostrar con claridad qué elemento está activo."
+        },
+        "fixes": {
+          "windows_release": "El empaquetado de Windows aísla su entorno Python y habilita rutas largas para evitar conflictos con otros procesos.",
+          "contextual_tooltips": "Los tooltips contextuales se cierran correctamente al abrir menús y los borradores de vista se pueden cancelar sin estado residual."
+        }
+      },
       "v2_0_5": {
         "highlights": {},
         "improvements": {

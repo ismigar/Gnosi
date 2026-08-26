@@ -1,5 +1,22 @@
 [
   {
+    "version": "2.0.6",
+    "date": "2026-08-26",
+    "channel": "stable",
+    "sections": {
+      "highlights": [
+        "release_notes.entries.v2_0_6.highlights.vault_scoped_routes"
+      ],
+      "improvements": [
+        "release_notes.entries.v2_0_6.improvements.contextual_focus"
+      ],
+      "fixes": [
+        "release_notes.entries.v2_0_6.fixes.windows_release",
+        "release_notes.entries.v2_0_6.fixes.contextual_tooltips"
+      ]
+    }
+  },
+  {
     "version": "2.0.5",
     "date": "2026-08-25",
     "channel": "stable",

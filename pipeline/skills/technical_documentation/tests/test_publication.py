@@ -17,6 +17,9 @@ PUBLIC_DESKTOP_BUILD_WORKFLOW = (
 DOCUMENTATION_CI_WORKFLOW = (
     PRIVATE_REPOSITORY_ROOT / ".github" / "workflows" / "documentation.yml"
 )
+PRIVATE_RELEASE_WORKFLOW = (
+    PRIVATE_REPOSITORY_ROOT / ".github" / "workflows" / "build-release.yml"
+)
 SIDEBAR_SOURCE = APP_ROOT / "frontend" / "src" / "components" / "AppSidebar.jsx"
 CANONICAL_URL = "https://gnosi.temenosismael.org/engineering/"
 ENGINEERING_CSS = APP_ROOT / "docs" / "engineering" / "assets" / "engineering.css"
@@ -140,3 +143,18 @@ def test_public_desktop_build_is_manual_and_keeps_updater_artifacts():
     assert "apps/gnosi/electron/dist/latest-linux.yml" in workflow_source
     assert "apps/gnosi/electron/dist/latest.yml" in workflow_source
     assert "apps/gnosi/electron/dist/*.blockmap" in workflow_source
+
+
+def test_private_release_serializes_shared_host_builds():
+    """Heavy platform builds must not compete for the same physical Mac."""
+    workflow_source = PRIVATE_RELEASE_WORKFLOW.read_text(encoding="utf-8")
+    workflow = yaml.safe_load(workflow_source)
+
+    assert workflow["concurrency"] == {
+        "group": "gnosi-release",
+        "cancel-in-progress": False,
+    }
+    assert workflow["jobs"]["build-macos"]["strategy"]["max-parallel"] == 1
+    assert workflow["jobs"]["build-windows"]["needs"] == "build-macos"
+    assert workflow_source.count("node-version: '22.22.2'") == 4
+    assert "npm install" not in workflow_source

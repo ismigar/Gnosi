@@ -6,7 +6,7 @@ Packages under `pipeline/skills/` are application automation and operational cap
 
 Regenerate with `python pipeline/skills/technical_documentation/scripts/generate.py`.
 
-Discovered **23 documented runtime skills**.
+Discovered **24 documented runtime skills**.
 
 | Skill | Declared title | Documentation lines | Scripts | Contract |
 | --- | --- | ---: | ---: | --- |
@@ -22,6 +22,7 @@ Discovered **23 documented runtime skills**.
 | `playwright_e2e` | SKILL: Playwright E2E | 194 | 2 | [`pipeline/skills/playwright_e2e/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/playwright_e2e/SKILL.md) |
 | `proves_dataset` | SKILL: Representative Proves Dataset | 29 | 1 | [`pipeline/skills/proves_dataset/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/proves_dataset/SKILL.md) |
 | `publisher` | SKILL: Publisher | 55 | 0 | [`pipeline/skills/publisher/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/publisher/SKILL.md) |
+| `release_preflight` | DIRECTIVE: RELEASE_PREFLIGHT | 103 | 1 | [`pipeline/skills/release_preflight/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/release_preflight/SKILL.md) |
 | `rss_to_audio` | SKILL: RSS to Audio Podcast | 86 | 1 | [`pipeline/skills/rss_to_audio/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/rss_to_audio/SKILL.md) |
 | `scheduler` | SKILL: Backend Background Scheduler | 59 | 0 | [`pipeline/skills/scheduler/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/scheduler/SKILL.md) |
 | `suggest_connections` | SKILL: Brain Connection Proposals | 48 | 0 | [`pipeline/skills/suggest_connections/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/apps/gnosi/pipeline/skills/suggest_connections/SKILL.md) |

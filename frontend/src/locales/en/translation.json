@@ -4676,7 +4676,7 @@
     "no_data": "No data to show in the timeline."
   },
   "home": {
-    "subtitle": "Your personal knowledge ecosystem",
+    "subtitle": "Your knowledge ecosystem",
     "module_graph_title": "Knowledge Graph",
     "module_graph_desc": "Explore the connections between your ideas and resources.",
     "module_vault_desc": "Write and organize your notes and documents.",
@@ -5738,6 +5738,18 @@
     "section_improvements": "Improvements",
     "section_fixes": "Fixes",
     "entries": {
+      "v2_0_6": {
+        "highlights": {
+          "vault_scoped_routes": "Browser navigation and API routes now respect the active Vault, keeping each context isolated."
+        },
+        "improvements": {
+          "contextual_focus": "Contextual focus indicators once again make the active element clear."
+        },
+        "fixes": {
+          "windows_release": "Windows packaging isolates its Python environment and enables long paths to avoid conflicts with other processes.",
+          "contextual_tooltips": "Contextual tooltips close correctly when menus open, and view drafts can be cancelled without stale state."
+        }
+      },
       "v2_0_5": {
         "highlights": {},
         "improvements": {

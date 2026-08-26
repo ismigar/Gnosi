@@ -14,6 +14,7 @@ packages:
   playwright_e2e: {kind: developer}
   proves_dataset: {kind: developer}
   publisher: {kind: automation}
+  release_preflight: {kind: developer}
   rss_to_audio: {kind: automation}
   scheduler: {kind: infrastructure}
   suggest_connections: {kind: action}

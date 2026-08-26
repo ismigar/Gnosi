@@ -200,6 +200,15 @@ packaging. It rejects a tag unless the Electron and frontend manifests, the
 monorepo lockfile, the four localized release catalogs, and the generated
 changelog all describe the same version.
 
+The v2.0.6 preparation makes the local release deterministic before dispatch.
+Every build uses Node 22.22.2 and clean lockfile installs. A reusable preflight
+checks version alignment, available disk, idle architecture-specific runners,
+and concurrent release runs. Platform jobs are deliberately serialized as
+Linux, macOS ARM64, macOS X64, and Windows because the runners share one
+physical Mac host; this prevents virtual machines and native packaging from
+competing for memory, CPU, and disk. Workflow-level concurrency also prevents
+two release attempts from overlapping.
+
 ## Web clipper
 
 The browser extension extracts the current page's title, URL, selected or

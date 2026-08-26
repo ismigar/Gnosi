@@ -1,5 +1,22 @@
 # Gnosi changelog
 
+## Gnosi 2.0.6
+
+_2026-08-26 · Stable_
+
+### Highlights
+
+- Browser navigation and API routes now respect the active Vault, keeping each context isolated.
+
+### Improvements
+
+- Contextual focus indicators once again make the active element clear.
+
+### Fixes
+
+- Windows packaging isolates its Python environment and enables long paths to avoid conflicts with other processes.
+- Contextual tooltips close correctly when menus open, and view drafts can be cancelled without stale state.
+
 ## Gnosi 2.0.5
 
 _2026-08-25 · Stable_
