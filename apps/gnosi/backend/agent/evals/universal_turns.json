@@ -1,0 +1,136 @@
+[
+  {
+    "id": "ca-conversation",
+    "message": "Hola, bon dia",
+    "provider": "mistral",
+    "expected": {"mode": "conversation", "route": "General", "execution": "foreground", "allowed_tool_count": 0}
+  },
+  {
+    "id": "ca-vault-inventory",
+    "message": "Troba tots els recursos dels quals soc autor",
+    "provider": "mistral",
+    "context_refs": [{"id": "vault", "type": "vault", "ref": "active-vault"}],
+    "expected": {"mode": "inventory", "route": "Brain", "required_tool": "inventory_context", "privacy.classification": "private_local_processing", "allowed_tool_count": 1, "allowed_contains": ["inventory_context"], "domains_contains": ["vault"]}
+  },
+  {
+    "id": "ca-topic-is-data",
+    "message": "Busca quines fonts i notes tinc relacionades amb coaching",
+    "provider": "mistral",
+    "context_refs": [{"id": "vault", "type": "vault", "ref": "active-vault"}],
+    "expected": {"mode": "inventory", "required_tool": "inventory_context", "allowed_contains": ["inventory_context"], "domains_contains": ["vault"]}
+  },
+  {
+    "id": "es-dynamic-table",
+    "message": "Muéstrame todas las titulaciones que tengo",
+    "provider": "mistral",
+    "context_refs": [{"id": "vault", "type": "vault", "ref": "active-vault"}],
+    "expected": {"mode": "inventory", "required_tool": "inventory_context", "allowed_contains": ["inventory_context"]}
+  },
+  {
+    "id": "fr-vault-inventory",
+    "message": "Trouve toutes mes ressources sur le coaching",
+    "provider": "mistral",
+    "context_refs": [{"id": "vault", "type": "vault", "ref": "active-vault"}],
+    "expected": {"mode": "inventory", "required_tool": "inventory_context", "privacy.classification": "private_local_processing", "allowed_tool_count": 1}
+  },
+  {
+    "id": "en-reader-background",
+    "message": "Analyze all Reader articles by topic and compare the trends",
+    "provider": "mistral",
+    "authorized_tool_names": ["start_reader_context_analysis"],
+    "context_refs": [{"id": "reader", "type": "internal", "ref": "reader"}],
+    "expected": {"mode": "analysis", "required_tool": "start_reader_context_analysis", "execution": "background", "allowed_contains": ["start_reader_context_analysis"], "domains_contains": ["reader"], "privacy.classification": "private_remote_processing"}
+  },
+  {
+    "id": "ca-reader-count",
+    "message": "Quantes notícies llegides i pendents tinc al Reader?",
+    "provider": "ollama",
+    "context_refs": [{"id": "reader", "type": "internal", "ref": "reader"}],
+    "expected": {"mode": "inventory", "required_tool": "inspect_reader_context", "execution": "foreground", "privacy.classification": "private_local_processing", "allowed_contains": ["inspect_reader_context"]}
+  },
+  {
+    "id": "en-weather-lookup",
+    "message": "What is the weather forecast for Barcelona?",
+    "provider": "mistral",
+    "expected": {"mode": "lookup", "domains_contains": ["weather"], "allowed_contains": ["get_weather"], "allowed_excludes": ["inventory_context"]}
+  },
+  {
+    "id": "ca-mail-action",
+    "message": "Envia aquest correu ara",
+    "provider": "mistral",
+    "authorized_tool_names": ["send_mail"],
+    "expected": {"mode": "action", "domains_contains": ["mail"], "allowed_contains": ["send_mail"], "allowed_excludes": ["delete_page"]}
+  },
+  {
+    "id": "ca-negated-action",
+    "message": "No enviïs cap correu",
+    "provider": "mistral",
+    "expected": {"mode": "conversation", "domains_contains": ["mail"], "allowed_tool_count": 0}
+  },
+  {
+    "id": "es-notion-does-not-use-vault",
+    "message": "Busca en Notion el proyecto Alpha",
+    "provider": "mistral",
+    "context_refs": [{"id": "vault", "type": "vault", "ref": "active-vault"}],
+    "expected": {"mode": "lookup", "required_tool": null, "domains_contains": ["notion"], "allowed_contains": ["search_notion"], "allowed_excludes": ["inventory_context"]}
+  },
+  {
+    "id": "en-web-external-read",
+    "message": "Search the web for the current W3C accessibility guidance",
+    "provider": "mistral",
+    "expected": {"mode": "lookup", "domains_contains": ["web"], "privacy.classification": "external_read", "allowed_contains": ["web_search"]}
+  },
+  {
+    "id": "ca-private-local-lookup",
+    "message": "Què diu aquesta nota sobre autonomia?",
+    "provider": "ollama",
+    "context_refs": [{"id": "page", "type": "page", "ref": "page-1"}],
+    "expected": {"mode": "analysis", "required_tool": "read_context_source", "privacy.classification": "private_local_processing", "allowed_contains": ["read_context_source"]}
+  },
+  {
+    "id": "en-governed-delete",
+    "message": "Delete this page",
+    "provider": "mistral",
+    "authorized_tool_names": ["delete_page"],
+    "context_refs": [{"id": "page", "type": "page", "ref": "page-1"}],
+    "expected": {"mode": "action", "allowed_contains": ["delete_page"], "privacy.classification": "private_remote_processing"}
+  },
+  {
+    "id": "fr-general-analysis",
+    "message": "Explique la photosynthèse simplement",
+    "provider": "mistral",
+    "expected": {"mode": "analysis", "route": "General", "allowed_tool_count": 0}
+  },
+  {
+    "id": "es-contact-lookup",
+    "message": "Busca el contacto de Marta",
+    "provider": "mistral",
+    "expected": {"mode": "lookup", "domains_contains": ["contacts"], "allowed_contains": ["search_contacts"], "allowed_excludes": ["send_mail"]}
+  },
+  {
+    "id": "es-bibliographic-intent",
+    "message": "Buscame que notas tengo en relación a como encontrar fuentes bibliográficas de calidad",
+    "provider": "mistral",
+    "context_refs": [{"id": "vault", "type": "vault", "ref": "active-vault"}],
+    "expected": {"mode": "inventory", "required_tool": "inventory_context", "allowed_tool_count": 1, "allowed_contains": ["inventory_context"], "domains_contains": ["vault"]}
+  },
+  {
+    "id": "ca-meta-search-instruction",
+    "message": "Com puc trobar fonts bibliogràfiques de qualitat?",
+    "provider": "mistral",
+    "expected": {"mode": "lookup", "route": "General", "allowed_tool_count": 0}
+  },
+  {
+    "id": "ca-ambiguous-search-clarification",
+    "message": "Busca",
+    "provider": "mistral",
+    "context_refs": [{"id": "vault", "type": "vault", "ref": "active-vault"}],
+    "expected": {"mode": "lookup", "required_tool": "search_context", "interpretation.clarification_required": true}
+  },
+  {
+    "id": "es-ambiguous-analysis-clarification",
+    "message": "Analiza",
+    "provider": "mistral",
+    "expected": {"mode": "analysis", "route": "General", "allowed_tool_count": 0, "interpretation.clarification_required": true}
+  }
+]

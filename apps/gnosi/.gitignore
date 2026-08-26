@@ -1,0 +1,56 @@
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+.env*
+.env*.*
+
+# Data
+backend/data/*.db
+backend/data/*.json
+# vendored snapshot, IS versioned (regenerate: python -m backend.scripts.refresh_model_catalog)
+!backend/data/model_catalog.json
+backend/data/logs/
+# Dades locals del runtime NATIU (chroma, sqlite, index, cache) — mai al repo
+local_data/
+
+# Node
+node_modules/
+dist/
+
+# Certificats HTTPS de dev (mkcert) per provar Office Add-ins — mai al repo
+frontend/certs/
+
+# Outputs
+out/markdown_backup/
+site/
+.env.example
+
+# Security & storage
+pipeline/private_skills/
+pipeline/backups/
+data/chroma_db/
+*.log
+*.bak
+.DS_Store
+.macos-secrets/
+debug_mcp_spawn.py
+reproduce_issue.py
+start_server.sh
+mastodon_test.py
+
+# Scratch dir dels agents (brain/<session-uuid>/scratch), local.
+brain/
+
+# SQLite del vault generat en runtime (mai es comita).
+vault.db
+
+# Backups manuals de config (params.yaml.bak-ollama-native, etc.).
+*.bak-*
+
+# Config per-màquina del sync de Zotero: el JSON viu porta target_table,
+# credencials i mapping reals. Es versiona només la plantilla `.example`
+# (mateixa convenció que config/params.yaml + params.yaml.example).
+pipeline/skills/zotero_sync/zotero_db_config.json
