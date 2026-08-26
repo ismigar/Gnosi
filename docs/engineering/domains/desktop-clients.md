@@ -112,6 +112,11 @@ Every release job also passes the Python command provisioned by
 `actions/setup-python` explicitly to the backend builder. This keeps binary
 extensions and their collected OpenSSL libraries on one interpreter ABI instead
 of allowing a newer runner-level Python to override the release environment.
+Each backend build creates a uniquely named virtual environment under the host
+temporary directory. Packaging attempts never reuse a repository-local virtual
+environment, because Windows can retain handles from a terminated PyInstaller
+process and reject removal of that directory. Final temporary-environment
+cleanup is best-effort; a retained handle cannot block the next invocation.
 Because `cryptography` 49 and later no longer publish macOS x86_64 wheels, the
 Intel package uses the final compatible universal2 line (`48.0.1`) while other
 platforms retain the current dependency floor. The frozen-backend installer
