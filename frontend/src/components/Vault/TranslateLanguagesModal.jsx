@@ -182,7 +182,7 @@ export function TranslateLanguagesModal({ isOpen, onClose, noteId, noteIds = [],
                     )}
 
                     <p className="text-[10px] text-[var(--text-secondary)]/60">
-                        {t('translate.provider_hint', "Catalan is translated via Softcatalà; the rest via DeepL. Configure credentials in .env_shared.")}
+                        {t('translate.provider_hint', "Catalan is translated via Softcatalà; the rest via DeepL. Configure credentials in secure settings.")}
                     </p>
                 </div>
 

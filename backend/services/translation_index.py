@@ -16,11 +16,11 @@ importable in isolation for tests.
 """
 import json
 import logging
-import os
 import threading
 from pathlib import Path
 from typing import Dict
 
+from backend.config.data_dir import resolve_data_dir
 from backend.services.translation_helpers import canonicalize_id
 
 log = logging.getLogger(__name__)
@@ -30,9 +30,7 @@ _lock = threading.Lock()
 
 def _index_path() -> Path:
     """Path to the index JSON, in `local_data/system/` (never in OneDrive)."""
-    local_env = os.environ.get("GNOSI_LOCAL_DATA")
-    base = Path(local_env) if local_env else Path("/app/data")
-    return base / "system" / "translation_index.json"
+    return resolve_data_dir() / "system" / "translation_index.json"
 
 
 def _load() -> Dict[str, Dict[str, str]]:

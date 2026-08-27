@@ -110,7 +110,7 @@ HF_HOME=${HOME}/.cache/huggingface  # model cache outside OneDrive
 ```
 
 Store the DeepL key in Keychain through the Translation tab in Settings, not
-in `.env_shared`.
+in an environment file.
 
 ## Restrictions and edge cases
 

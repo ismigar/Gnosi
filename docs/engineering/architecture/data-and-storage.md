@@ -78,10 +78,10 @@ revocation state.
 
 ## Local-data isolation
 
-`GNOSI_LOCAL_DATA` points to the per-instance root. The path resolver creates
+`GNOSI_DATA_DIR` points to the per-instance root. The path resolver creates
 cache, system, checkpoint, log, audio, output, backup, and secret directories.
-Docker maps this to `/app/data`; the native runtime uses
-`Gnosi/local_data`.
+Docker maps this to `/data`; native defaults follow the operating system's
+application-data convention. `GNOSI_LOCAL_DATA` remains a deprecated 3.x alias.
 
 SQLite files must not be placed on OneDrive, iCloud Drive, Dropbox, or another
 file-sync layer. File synchronization does not provide SQLite locking semantics
@@ -101,3 +101,8 @@ Configuration is deep-merged from base parameters and the applicable user or
 active-vault `.gnosi/params.yaml`. Environment values override deployment paths
 and a small set of bootstrap behavior. Credentials are references into local
 secret storage, not raw values embedded in the vault configuration.
+
+Process variables have priority over Gnosi's local `.env`. A shared environment
+file is loaded only when `GNOSI_SHARED_ENV_FILE` explicitly names it and remains
+read-only to the application. UI-managed credentials use the operating-system
+credential store, with an encrypted fallback under `GNOSI_DATA_DIR/secrets`.

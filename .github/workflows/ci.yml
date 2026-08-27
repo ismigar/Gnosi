@@ -76,7 +76,6 @@ jobs:
         env:
           DIGITAL_BRAIN_VAULT_PATH: ${{ github.workspace }}/vault
           GNOSI_DATA_DIR: ${{ runner.temp }}/gnosi-data
-          GNOSI_LOCAL_DATA: ${{ runner.temp }}/gnosi-data
         run: |
           uv run uvicorn backend.server:app --host 127.0.0.1 --port 5002 > "${RUNNER_TEMP}/gnosi-backend.log" 2>&1 &
           pnpm dev:frontend -- --host 127.0.0.1 > "${RUNNER_TEMP}/gnosi-frontend.log" 2>&1 &

@@ -18,7 +18,7 @@ What we cover:
 
 Run:
     cd Gnosi
-    GNOSI_LOCAL_DATA=local_data .venv/bin/python -m pytest \
+    GNOSI_DATA_DIR=local_data .venv/bin/python -m pytest \
         backend/tests/test_property_upload_storage_gate.py -v
 """
 from __future__ import annotations

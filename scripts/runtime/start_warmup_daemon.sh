@@ -1,7 +1,7 @@
 #!/bin/bash
-# Llança onedrive_warmup_daemon.py al host. Usa el VAULT_HOST_PATH del
-# .env_shared del repo principal (~/Projectes) o el del worktree, segons quin
-# existeixi.
+# Llança onedrive_warmup_daemon.py al host. La configuració del procés té
+# prioritat, seguida del `.env` local i d'un fitxer compartit només quan
+# `GNOSI_SHARED_ENV_FILE` el configura explícitament.
 #
 # Ús:
 #   scripts/runtime/start_warmup_daemon.sh           # foreground (log a stdout)
@@ -14,7 +14,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 
-# Extraiem només les variables que ens interessen del .env_shared. No fem
+# Extraiem només les variables que ens interessen dels fitxers autoritzats. No fem
 # `source` complet perquè el fitxer pot tenir valors amb espais sense
 # quoting (ex: EVENT_USER_NAME=Ismael Garcia Fernandez) i bash hi falla.
 extract_var() {
@@ -22,10 +22,8 @@ extract_var() {
     grep -E "^${key}=" "$file" 2>/dev/null | head -1 | sed -E "s/^${key}=//"
 }
 
-for env_file in \
-    "$HOME/Projectes/.env_shared" \
-    "$(pwd)/../../../../.env_shared"
-do
+for env_file in "$(pwd)/.env" "${GNOSI_SHARED_ENV_FILE:-}"; do
+    [ -n "$env_file" ] || continue
     if [ -f "$env_file" ]; then
         VAULT_HOST_PATH="${VAULT_HOST_PATH:-$(extract_var DIGITAL_BRAIN_VAULT_PATH "$env_file")}"
         VAULT_HOST_PATH="${VAULT_HOST_PATH:-$(extract_var VAULT_PATH "$env_file")}"
@@ -43,7 +41,7 @@ export VAULT_HOST_PATH
 # client LAN amb la firewall macOS oberta podria triggerar warmups i
 # enumerar roots via /healthz. Si necessites obrir PDFs/imatges
 # enllaçats fora del Vault (a Documents/Desktop d'OneDrive), defineix
-# explícitament ONEDRIVE_WARMUP_ALLOWED_ROOTS al teu .env_shared,
+# explícitament ONEDRIVE_WARMUP_ALLOWED_ROOTS al procés, `.env` local o fitxer compartit,
 # separades per ':', i preferiblement combina-ho amb un bind acotat:
 #   ONEDRIVE_WARMUP_ALLOWED_ROOTS="$HOME/Library/CloudStorage/OneDrive-XXX"
 #   ONEDRIVE_WARMUP_BIND=127.0.0.1   # si el contenidor pot accedir-hi

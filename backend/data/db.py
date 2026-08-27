@@ -72,8 +72,9 @@ def get_engine_for_path(vault_path: Path):
             _cfg = _load_params(strict_env=False)
             local_data = _cfg.paths.get("LOCAL_DATA")
             if not local_data:
-                # Fallback when LOCAL_DATA isn't wired yet.
-                local_data = Path("/app/data")
+                from backend.config.data_dir import resolve_data_dir
+
+                local_data = resolve_data_dir()
             vault_hash = _hashlib.sha1(v_str.encode("utf-8")).hexdigest()[:12]
             db_dir = Path(local_data) / "system" / "vault_dbs"
             db_dir.mkdir(parents=True, exist_ok=True)
@@ -104,7 +105,11 @@ def vault_db_path_for(vault_path) -> Path:
     import hashlib as _hashlib
     from backend.config.app_config import load_params as _load_params
 
-    local_data = _load_params(strict_env=False).paths.get("LOCAL_DATA") or Path("/app/data")
+    local_data = _load_params(strict_env=False).paths.get("LOCAL_DATA")
+    if not local_data:
+        from backend.config.data_dir import resolve_data_dir
+
+        local_data = resolve_data_dir()
     vault_hash = _hashlib.sha1(str(vault_path).encode("utf-8")).hexdigest()[:12]
     return Path(local_data) / "system" / "vault_dbs" / f"gnosi_vault_{vault_hash}.db"
 

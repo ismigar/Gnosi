@@ -7,7 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from backend.security.keychain_manager import get_keychain
-from backend.config.env_config import reload_keychain
+from backend.config.env_config import configured_shared_env_path, reload_keychain
 from backend.services.workspace_service import require_role
 
 # Auth gate: these endpoints manage the Keychain (HuggingFace, OpenRouter,
@@ -156,6 +156,7 @@ async def delete_credential(credential_key: str):
     success = keychain.delete_credential(credential_key)
 
     if success:
+        reload_keychain()
         return {
             "status": "success",
             "key": credential_key,
@@ -167,16 +168,14 @@ async def delete_credential(credential_key: str):
 
 @router.post("/migrate")
 async def migrate_from_env():
-    """Migrate credentials from .env_shared to Keychain."""
-    from pathlib import Path
-    import shutil
-    from datetime import datetime
+    """Import credentials from the explicitly configured shared env file."""
+    env_path = configured_shared_env_path()
 
-    projectes_root = Path(__file__).resolve().parents[5]
-    env_path = projectes_root / ".env_shared"
-
-    if not env_path.exists():
-        raise HTTPException(status_code=404, detail=".env_shared not found")
+    if env_path is None or not env_path.is_file():
+        raise HTTPException(
+            status_code=404,
+            detail="GNOSI_SHARED_ENV_FILE is not configured or does not exist",
+        )
 
     keychain = get_keychain()
     migrated = []
@@ -208,4 +207,5 @@ async def migrate_from_env():
         "migrated": migrated,
         "failed": failed,
         "total": len(migrated),
+        "source_modified": False,
     }

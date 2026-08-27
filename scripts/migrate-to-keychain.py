@@ -3,22 +3,18 @@
 Migrate credentials from .env_shared to Keychain.
 
 This script:
-1. Reads .env_shared
+1. Reads an explicitly selected environment file
 2. Identifies credential variables (API keys, tokens, passwords)
 3. Migrates them to macOS Keychain (or file fallback)
-4. Creates a backup of .env_shared
-5. Optionally removes credentials from .env_shared
+4. Leaves the source file unchanged
 
 Usage:
-    python migrate_to_keychain.py [--dry-run] [--keep-env]
+    GNOSI_SHARED_ENV_FILE=/absolute/path/.env_shared python scripts/migrate-to-keychain.py
 """
 
 import os
 import sys
-import json
-import shutil
 from pathlib import Path
-from datetime import datetime
 
 CREDENTIAL_PATTERNS = [
     "TOKEN",
@@ -90,11 +86,15 @@ def is_credential(key: str, value: str) -> bool:
     return False
 
 
-def get_env_path() -> Path:
-    """Get path to .env_shared."""
-    script_dir = Path(__file__).resolve().parent
-    projectes_root = script_dir.parent.parent
-    return projectes_root / ".env_shared"
+def get_env_path(explicit_path: str | None = None) -> Path:
+    """Resolve an explicitly supplied shared environment file."""
+    raw = explicit_path or os.environ.get("GNOSI_SHARED_ENV_FILE")
+    if not raw:
+        raise ValueError("Provide --source or configure GNOSI_SHARED_ENV_FILE")
+    path = Path(raw).expanduser()
+    if not path.is_absolute():
+        raise ValueError("The shared environment source must be an absolute path")
+    return path
 
 
 def load_env_file(path: Path) -> dict:
@@ -141,15 +141,15 @@ def main():
         action="store_true",
         help="Show what would be migrated without making changes",
     )
-    parser.add_argument(
-        "--keep-env",
-        action="store_true",
-        help="Keep credentials in .env_shared after migration",
-    )
+    parser.add_argument("--source", help="Absolute environment file to import")
     parser.add_argument("--force", action="store_true", help="Skip confirmation prompt")
     args = parser.parse_args()
 
-    env_path = get_env_path()
+    try:
+        env_path = get_env_path(args.source)
+    except ValueError as exc:
+        print(f"❌ Error: {exc}")
+        sys.exit(2)
 
     if not env_path.exists():
         print(f"❌ Error: {env_path} not found")
@@ -168,9 +168,7 @@ def main():
     print(f"\nFound {len(credentials)} credentials in {env_path}:\n")
 
     for key in sorted(credentials.keys()):
-        value = credentials[key]
-        masked = value[:8] + "..." + value[-4:] if len(value) > 12 else "***"
-        print(f"  • {key}: {masked}")
+        print(f"  • {key}")
 
     print(f"\nTarget: macOS Keychain (service: gnosi-app)")
 
@@ -206,24 +204,7 @@ def main():
             failed.append(key)
             print(f"  ❌ {key} - FAILED")
 
-    backup_path = env_path.with_suffix(
-        f".shared.backup.{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-    )
-    shutil.copy2(env_path, backup_path)
-    print(f"\n💾 Backup created: {backup_path}")
-
-    if not args.keep_env:
-        print(f"\n🧹 Cleaning .env_shared...")
-        with open(env_path, "w") as f:
-            for key, value in env_vars.items():
-                if key not in credentials:
-                    f.write(f"{key}={value}\n")
-                else:
-                    f.write(f"# MIGRATED_TO_KEYCHAIN: {key}=\n")
-
-        print(f"  • {len(credentials)} credentials commented out")
-    else:
-        print("\n⚠️  .env_shared kept as-is (credentials still present)")
+    print("\n🔒 Source file left unchanged (operator-owned, read-only input)")
 
     print("\n" + "=" * 60)
     print("MIGRATION COMPLETE")
@@ -231,11 +212,10 @@ def main():
     print(f"\n✅ Migrated: {len(migrated)}")
     if failed:
         print(f"❌ Failed: {len(failed)}")
-    print(f"\n📝 Log file: {backup_path}")
     print("\n⚠️  IMPORTANT:")
     print("   1. Restart your app to load credentials from Keychain")
     print("   2. Test that the app works correctly")
-    print("   3. Commit .env_shared changes (credentials are commented)")
+    print("   3. Remove obsolete source credentials manually only after verification")
 
 
 if __name__ == "__main__":

@@ -21,7 +21,7 @@ import tempfile
 
 # The backend does mkdir on the data directory at import time; it must be pointed at scratch
 # BEFORE importing anything from `backend.*` (without this, the import crashes trying /app).
-os.environ.setdefault("GNOSI_LOCAL_DATA", tempfile.mkdtemp(prefix="gnosi-test-contacts-"))
+os.environ.setdefault("GNOSI_DATA_DIR", tempfile.mkdtemp(prefix="gnosi-test-contacts-"))
 
 import pytest  # noqa: E402
 from sqlalchemy import create_engine  # noqa: E402

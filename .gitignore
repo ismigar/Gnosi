@@ -36,7 +36,7 @@ out/markdown_backup/
 site/
 playwright-report/
 test-results/
-.env.example
+!.env.example
 
 # Security & storage
 pipeline/private_skills/

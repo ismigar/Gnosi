@@ -1,6 +1,7 @@
 import os
 import sys
 import xml.etree.ElementTree as ET
+from pathlib import Path
 import feedparser
 from datetime import datetime, timedelta, timezone
 from bs4 import BeautifulSoup
@@ -8,15 +9,13 @@ from groq import Groq
 from gtts import gTTS
 import time
 
-# Load variables
-try:
-    from dotenv import load_dotenv
-    # Load .env_shared from the projects root
-    env_path = os.path.join(os.path.dirname(__file__), '../../../../.env_shared')
-    if os.path.exists(env_path):
-        load_dotenv(env_path)
-except ImportError:
-    print("pip install python-dotenv is required to load env vars")
+REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
+if str(REPOSITORY_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPOSITORY_ROOT))
+
+from backend.config.env_config import load_env
+
+load_env()
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 

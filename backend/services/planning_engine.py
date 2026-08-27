@@ -12,7 +12,6 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 import hashlib
 import json
-import os
 from pathlib import Path
 from typing import Any
 
@@ -271,7 +270,9 @@ class ScheduleIndex:
     """Stores only rebuildable schedule results outside the synced vault."""
 
     def __init__(self, vault_path: Path):
-        root = Path(os.environ.get("GNOSI_LOCAL_DATA") or "/app/data") / "cache" / "planning"
+        from backend.config.data_dir import resolve_data_dir
+
+        root = resolve_data_dir() / "cache" / "planning"
         fingerprint = hashlib.sha256(str(vault_path.resolve()).encode()).hexdigest()[:24]
         self.path = root / f"{fingerprint}.json"
 

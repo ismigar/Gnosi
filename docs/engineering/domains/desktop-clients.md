@@ -143,9 +143,10 @@ requirements, including provider and API dependencies, then starts the frozen
 executable as a cross-platform smoke test before the desktop package can
 proceed.
 
-The installed desktop process supplies `GNOSI_LOCAL_DATA` under Electron's
-per-user application-data directory, unless an explicit override exists. This
-keeps native packages away from Docker-only `/app/data`. Readiness polling uses
+The installed desktop process supplies `GNOSI_DATA_DIR` under Electron's
+per-user application-data directory and exports `GNOSI_LOCAL_DATA` only as a
+3.x compatibility alias. This keeps native packages away from Docker-only
+`/data`. Readiness polling uses
 the unauthenticated `/api/health` endpoint so startup does not wait on a
 protected application endpoint. Frozen backends disable Uvicorn's filesystem
 reload watcher; native source development retains reload behavior.

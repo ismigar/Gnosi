@@ -28,7 +28,9 @@ Protocol for file relationships.
 ## 3. Path Management (Vault Path)
 Definition of the knowledge root.
 
-- **Config**: The path is defined in `DIGITAL_BRAIN_VAULT_PATH` (.env_shared).
+- **Config**: The path is defined in `DIGITAL_BRAIN_VAULT_PATH` through the
+  process environment, Gnosi's local `.env`, or an explicit
+  `GNOSI_SHARED_ENV_FILE`.
 - **Tooling**: All scripts must use `get_paths()` from `backend/config/paths_config.py`.
 - **Restriction**: Do not use hardcoded paths like `./vault/`.
 

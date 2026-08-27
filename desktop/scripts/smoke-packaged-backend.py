@@ -43,7 +43,7 @@ def verify_backend(executable: Path) -> None:
             text=True,
             env={
                 **os.environ,
-                "GNOSI_LOCAL_DATA": local_data,
+                "GNOSI_DATA_DIR": local_data,
                 "PYTHONUNBUFFERED": "1",
             },
         )

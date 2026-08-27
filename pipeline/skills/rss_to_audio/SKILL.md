@@ -18,7 +18,7 @@
 
 ### Inputs
 - **Required Arguments:** None by default (daily autonomous execution).
-- **Environment Variables (.env_shared):**
+- **Environment Variables (process, local `.env`, or explicit shared file):**
     - `GROQ_API_KEY`: Groq API access key for synthesis.
 - **Source Files:**
     - `feeds.opml`: Exported file from Reeder with feeds and folders. It must be in the same folder or in a known path.
@@ -73,7 +73,8 @@ python rss_to_audio.py
 ---
 
 ## 8. Pre-Execution Checklist
-- [x] Environment variables configured in `.env`/`.env_shared` (`GROQ_API_KEY`).
+- [x] `GROQ_API_KEY` configured through Settings secure storage, the process,
+  or Gnosi's local `.env`.
 - [x] Dependencies installed (`uv sync --frozen`).
 - [x] Input `feeds.opml` file available.
 

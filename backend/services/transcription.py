@@ -2,7 +2,7 @@
 
 Private: the audio is processed on the machine, it never goes to any cloud. The
 model is loaded lazily (singleton) and downloaded on first use to
-`GNOSI_LOCAL_DATA/cache/whisper` (outside OneDrive, cf. the caches memory note).
+`GNOSI_DATA_DIR/cache/whisper` (outside OneDrive, cf. the caches memory note).
 Decodes webm/opus (what the browser's MediaRecorder produces) via PyAV,
 without external ffmpeg.
 

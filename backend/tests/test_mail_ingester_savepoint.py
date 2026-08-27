@@ -24,7 +24,7 @@ import tempfile
 # The backend does a mkdir of the data directory on import; it must be pointed to scratch
 # BEFORE importing anything from `backend.*`. We also point the vault to a nonexistent path
 # so that no code touches OneDrive during the test.
-os.environ.setdefault("GNOSI_LOCAL_DATA", tempfile.mkdtemp(prefix="gnosi-test-mailingest-"))
+os.environ.setdefault("GNOSI_DATA_DIR", tempfile.mkdtemp(prefix="gnosi-test-mailingest-"))
 os.environ.setdefault("DIGITAL_BRAIN_VAULT_PATH", "/tmp/nonexistent")
 
 import email  # noqa: E402

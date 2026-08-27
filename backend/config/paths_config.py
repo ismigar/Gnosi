@@ -2,6 +2,8 @@ from pathlib import Path
 import os
 from typing import Dict, Optional
 
+from .data_dir import resolve_data_dir
+
 # --- Early Boot Paths (Safe Fallbacks) ---
 # This allows logger_config to import LOG_DIR safely before get_paths() is called.
 _tmp_base = Path("/tmp/gnosi_pending_vault")
@@ -58,15 +60,7 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
     # SQLite databases, caches, indices, locks. These are per-instance and must
     # not be uploaded to OneDrive/Dropbox/iCloud — cloud sync corrupts SQLite
     # binary files and causes I/O bottlenecks. Override via env var if needed.
-    local_data_env = os.environ.get("GNOSI_LOCAL_DATA") or os.environ.get("LOCAL_DATA_DIR")
-    if local_data_env:
-        local_data = Path(local_data_env)
-    else:
-        from .env_config import _is_docker
-        if _is_docker():
-            local_data = Path("/app/data")
-        else:
-            local_data = project_root / "local_data"
+    local_data = resolve_data_dir(create=True)
     try:
         local_data.mkdir(parents=True, exist_ok=True)
         (local_data / "cache").mkdir(parents=True, exist_ok=True)
