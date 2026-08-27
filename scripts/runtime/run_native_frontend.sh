@@ -30,4 +30,4 @@ if [[ -n "$REPO_ROOT" ]]; then
 fi
 
 echo "🎨 Native frontend (Vite) on :5173 → backend localhost:$VITE_BACKEND_PORT"
-exec pnpm --filter @gnosi/frontend dev
+exec corepack pnpm --filter @gnosi/frontend dev
