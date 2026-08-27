@@ -1,4 +1,3 @@
-import os
 import imaplib
 import email
 import email.utils
@@ -8,9 +7,6 @@ from datetime import datetime
 import yaml
 import re
 
-from dotenv import load_dotenv
-
-# Load environment and paths
 import sys
 # Add project root to sys.path to allow importing from backend.config
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
@@ -19,10 +15,14 @@ if str(PROJECT_ROOT) not in sys.path:
 
 # Now we can import the unified config
 from backend.config.paths_config import get_paths
+from backend.config.env_config import get_env
 
 paths = get_paths()
 VAULT_PATH = paths["VAULT"]
 INBOX_PATH = VAULT_PATH / "Inbox"
+IMAP_SERVER = get_env("IMAP_SERVER", "", required=False) or ""
+IMAP_USER = get_env("IMAP_USER", "", required=False) or ""
+IMAP_PASS = get_env("IMAP_PASS", "", required=False) or ""
 
 # Ensure Inbox exists
 INBOX_PATH.mkdir(parents=True, exist_ok=True)

@@ -4,33 +4,33 @@ last_verified: 2026-08-24
 source_paths:
   - backend/config/env_config.py
   - backend/server.py
-  - electron/application-menu.js
-  - electron/backend-launch.js
-  - electron/main.js
-  - electron/preload.js
-  - electron/update-policy.js
-  - electron/electron-builder.yml
-  - electron/package.json
-  - electron/release.sh
-  - electron/scripts/after-pack.cjs
-  - electron/scripts/packaging-contract.cjs
-  - electron/scripts/smoke-packaged-backend.py
-  - electron/scripts/generate-icons.py
-  - electron/build/icon.icns
-  - requirements-e2e.txt
+  - desktop/application-menu.js
+  - desktop/backend-launch.js
+  - desktop/main.js
+  - desktop/preload.js
+  - desktop/update-policy.js
+  - desktop/electron-builder.yml
+  - desktop/package.json
+  - desktop/release.sh
+  - desktop/scripts/after-pack.cjs
+  - desktop/scripts/packaging-contract.cjs
+  - desktop/scripts/smoke-packaged-backend.py
+  - desktop/scripts/generate-icons.py
+  - desktop/assets/icon.icns
+  - pnpm-workspace.yaml
   - frontend/public/favicon.svg
   - frontend/package.json
   - frontend/src/content/releases.json
-  - web-clipper
-  - integrations/libreoffice-cite
-  - integrations/word-cite-pin
+  - extensions/web-clipper
+  - extensions/office/libreoffice-cite
+  - extensions/office/word-cite
 tests:
   - backend/tests/test_env_config_runtime.py
-  - electron/application-menu.test.js
-  - electron/backend-launch.test.js
-  - electron/packaging-contract.test.js
-  - electron/update-policy.test.js
-  - integrations/libreoffice-cite/tests
+  - desktop/application-menu.test.js
+  - desktop/backend-launch.test.js
+  - desktop/packaging-contract.test.js
+  - desktop/update-policy.test.js
+  - extensions/office/libreoffice-cite/tests
 ---
 
 # Desktop and companion clients
@@ -150,10 +150,10 @@ the unauthenticated `/api/health` endpoint so startup does not wait on a
 protected application endpoint. Frozen backends disable Uvicorn's filesystem
 reload watcher; native source development retains reload behavior.
 
-The release catalog, localized notes, generated changelog, Electron manifest,
-frontend manifest, and monorepo lockfile form one versioned unit. The
-deterministic synchronizer updates the three version fields only after the
-catalog and changelog validate.
+The release catalog, localized notes, generated changelog, root, desktop and
+frontend manifests, Python project metadata, and the pnpm/uv locks form one
+versioned unit. The deterministic synchronizer updates version fields only
+after the catalog and changelog validate.
 
 ## Application mark
 
@@ -167,8 +167,8 @@ the canonical mark changes; do not edit a packaged application bundle.
 ## Release preparation
 
 `frontend/src/content/releases.json` is the canonical bundled release history.
-The version synchronizer keeps the frontend manifest, Electron manifest, and
-frontend workspace entry in the monorepo lockfile identical. A stable entry
+The version synchronizer keeps the root, frontend, desktop and Python versions
+identical. A stable entry
 prepared before publication deliberately omits `downloadUrl`; that field is
 added only after the immutable tag and its platform artifacts exist.
 Because the frontend manifest version is a high-impact desktop boundary, every
@@ -183,12 +183,9 @@ Windows CRLF checkout does not fail the cross-platform packaging gate.
 
 Before tagging, the release PR must pass frontend validation, backend tests,
 native browser QA, and the engineering-documentation gate. After merge, the
-reviewed commit must reach the public repository through the sync workflow and
-pass release readiness there. The private source workflow is the sole owner of
-official tags, cross-platform artifacts, signed catalogs, release notes, and
-the draft in the public repository. The synchronized public desktop workflow is
-manual-only so it can validate packaging without racing or duplicating an
-official tag build. The resulting macOS, Windows, and Linux artifacts are
+canonical public workflow builds the reviewed commit. The release workflow is
+the sole owner of official tags, cross-platform artifacts, signed catalogs,
+release notes and drafts. The resulting macOS, Windows and Linux artifacts are
 inspected before publication.
 
 The v2.0.0 preparation follows this boundary: its localized bundled notes and
@@ -202,9 +199,8 @@ matrix. This makes the release workflow validate the same local environments
 that produce the platform artifacts.
 
 The v2.0.5 preparation adds a mandatory metadata preflight before platform
-packaging. It rejects a tag unless the Electron and frontend manifests, the
-monorepo lockfile, the four localized release catalogs, and the generated
-changelog all describe the same version.
+packaging. Gnosi 3 extends that contract to the root, desktop, frontend and
+Python manifests plus the single pnpm and uv locks.
 
 The v2.0.6 preparation makes the local release deterministic before dispatch.
 Every build uses Node 22.22.2 and clean lockfile installs. A reusable preflight

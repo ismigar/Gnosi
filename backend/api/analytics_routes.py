@@ -7,53 +7,29 @@ import shutil
 from datetime import datetime
 
 from backend.agent.generated_tools.registry import registry
-from backend.config.app_config import load_params
 from backend.utils.cache import global_cache
 from backend.utils.safe_io import safe_write_text
 from backend.utils.errors import safe_error_detail
 from backend.services.workspace_service import require_role
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
+GNOSI_ROOT = Path(__file__).resolve().parents[2]
 
 # --- Helpers ---
 
 def _get_base_dir() -> Path:
-    """Find monorepo root. Priority to env-derived host path for Docker stability."""
-    # Priority 1: repo root on the host. Inside Docker, all of $HOME is mounted at the same
-    # path (${HOME}:${HOME}:ro), so the repo is at HOME_HOST_PATH/Projectes (or
-    # REPO_ROOT if defined in .env). Previously it was hardcoded to /Users/<user>/Projectes,
-    # which broke on machines with a different macOS user. We do NOT use PROJECT_DIR: inside the
-    # container it's /app, where there's neither docs/ nor monorepo/.
-    repo_root_env = os.environ.get("REPO_ROOT")
-    if repo_root_env:
-        host_root = Path(repo_root_env)
-    else:
-        host_home = os.environ.get("HOME_HOST_PATH") or str(Path.home())
-        host_root = Path(host_home) / "Projectes"
-    if host_root.exists():
-        return host_root
+    """Return the optional private development-memory root.
 
-    # Priority 2: Walk up from current file (works for local dev without Docker)
-    current_path = Path(__file__).resolve().parent
-    base_dir = current_path
-    for _ in range(10):
-        if (base_dir / "monorepo").exists() and (base_dir / "docs").exists():
-            return base_dir
-        if base_dir.parent == base_dir:
-            break
-        base_dir = base_dir.parent
-        
-    # Fallback
-    try:
-        return Path(__file__).resolve().parents[5]
-    except IndexError:
-        return Path(__file__).resolve().parent
+    Public checkouts never discover a parent workspace implicitly. A local
+    operator may expose WorkspaceTools deliberately through this read-only
+    configuration value.
+    """
+    configured = os.environ.get("GNOSI_DEV_MEMORY_ROOT")
+    return Path(configured).expanduser().resolve() if configured else GNOSI_ROOT
 
 def _get_trap_sources(base_dir: Path) -> List[Dict[str, Any]]:
     """Return list of directories to scan for traps and directives."""
     current_path = Path(__file__).resolve()
-    cfg = load_params(strict_env=False)
-    project_dir = cfg.paths.get("PROJECT_DIR")
     
     return [
         # 1. Agent Instructions
@@ -70,7 +46,7 @@ def _get_trap_sources(base_dir: Path) -> List[Dict[str, Any]]:
         },
         # 3. Consolidated Skills
         {
-            "dir": project_dir / "pipeline" / "skills" if project_dir else base_dir / "monorepo" / "apps" / "gnosi" / "pipeline" / "skills",
+            "dir": GNOSI_ROOT / "pipeline" / "skills",
             "category": "Skill",
             "pattern": "**/SKILL.md"
         }

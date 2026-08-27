@@ -6424,10 +6424,9 @@ def _resolve_csl_path(style: str) -> Optional[Path]:
     # OWN default style — every citation came out as "(Bauman 2007)" instead of
     # APA's "(Bauman, 2007)", whatever style the add-in asked for. The
     # repo-relative path is derived from this very file
-    # (backend/api/vault_routes.py → apps/gnosi) so it holds wherever it's checked out.
+    # (backend/api/vault_routes.py → repository root) so it holds wherever it is checked out.
     style_dirs = [
         Path('/app/frontend/public/csl/styles'),
-        Path('/app/monorepo/apps/gnosi/frontend/public/csl/styles'),
         Path(__file__).resolve().parents[2] / 'frontend' / 'public' / 'csl' / 'styles',
     ]
     # Unknown ids are user-uploaded styles: `save_uploaded_style` drops them in
@@ -12816,7 +12815,7 @@ async def serve_vault_raw_file(rel_path: str):
 #
 # For files that `<img>` cannot render (videos, PDFs, audio...),
 # we generate a thumbnail using `qlmanage` through the host daemon
-# (`sh/onedrive_warmup_daemon.py`, endpoint `/thumb`). The thumb is cached on the
+# (`scripts/runtime/onedrive_warmup_daemon.py`, endpoint `/thumb`). The thumb is cached on the
 # host at `${HOME}/.cache/gnosi/thumbs/<sha>.png` and the container can
 # read it directly (the home directory is bind-mounted for OneDrive).
 #

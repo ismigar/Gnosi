@@ -15,8 +15,8 @@ This skill enables Antigravity and background agents to orchestrate complex task
 ---
 
 ## 2. Components
-- **Orchestrator**: `monorepo/apps/gnosi/pipeline/brain/orchestrator.py`.
-- **Harness**: The `monorepo/apps/gnosi/pipeline/sandbox/` environment.
+- **Orchestrator**: `pipeline/brain/orchestrator.py`.
+- **Harness**: The `pipeline/sandbox/` environment.
 - **Memory**: The `docs/dev_memory/directives/` SOPs.
 
 ---
@@ -27,9 +27,9 @@ This skill enables Antigravity and background agents to orchestrate complex task
 1. **Define Tasks**: Manual or automatic creation of items in `tasks.json`.
 2. **Launch Orchestrator**:
    ```bash
-   python monorepo/apps/gnosi/pipeline/brain/orchestrator.py
+   uv run python pipeline/brain/orchestrator.py
    ```
-3. **Monitor**: Check `monorepo/apps/gnosi/pipeline/.tmp/orchestrator.log`.
+3. **Monitor**: Check `pipeline/.tmp/orchestrator.log`.
 
 ### Self-Correction Protocol
 If the orchestrator encounters a "FAILED" status:

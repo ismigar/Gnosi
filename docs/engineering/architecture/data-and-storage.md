@@ -81,7 +81,7 @@ revocation state.
 `GNOSI_LOCAL_DATA` points to the per-instance root. The path resolver creates
 cache, system, checkpoint, log, audio, output, backup, and secret directories.
 Docker maps this to `/app/data`; the native runtime uses
-`monorepo/apps/gnosi/local_data`.
+`Gnosi/local_data`.
 
 SQLite files must not be placed on OneDrive, iCloud Drive, Dropbox, or another
 file-sync layer. File synchronization does not provide SQLite locking semantics

@@ -30,7 +30,7 @@ from dotenv import load_dotenv
 #  Environment & Configuration (Gnosi Unified)
 # ──────────────────────────────────────────────
 
-# Path to Gnosi app root (monorepo/apps/gnosi)
+# Path to Gnosi app root (Gnosi)
 GNOSI_APP_ROOT = Path(__file__).resolve().parents[4]
 if str(GNOSI_APP_ROOT) not in sys.path:
     sys.path.insert(0, str(GNOSI_APP_ROOT))

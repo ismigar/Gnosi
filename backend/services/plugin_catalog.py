@@ -3,11 +3,11 @@
 An index of recommended plugins, in the style of Obsidian's "community plugins",
 with one-click installation. Two input sources:
 
-  * `bundled`: example plugins that ship with Gnosi in `plugins-examples/`. They
+  * `bundled`: example plugins that ship with Gnosi in `extensions/examples/`. They
     are zipped on the fly and passed to `plugin_system.install_from_zip`.
   * `url`: a remote .zip (requires network access on the backend; admin action).
 
-The catalog is read from `plugins-examples/catalog.json`. Keeping it as
+The catalog is read from `extensions/examples/catalog.json`. Keeping it as
 data (not code) allows it to be extended without touching the backend.
 """
 from __future__ import annotations
@@ -41,8 +41,8 @@ def default_registry_url() -> str:
 
 
 def _examples_dir() -> Path:
-    # plugin_catalog.py → services → backend → gnosi → plugins-examples/
-    return Path(__file__).resolve().parents[2] / "plugins-examples"
+    # plugin_catalog.py → services → backend → gnosi → extensions/examples/
+    return Path(__file__).resolve().parents[2] / "extensions" / "examples"
 
 
 def _load_bundled_catalog() -> List[Dict[str, Any]]:
@@ -138,7 +138,7 @@ def install_bundled(config_dir: Path, entry_id: str) -> Dict[str, Any]:
     entry = next((e for e in load_catalog() if e.get("id") == entry_id), None)
     if not entry or entry.get("source") != "bundled":
         raise ps.PluginError(f"unknown catalog entry: {entry_id!r}")
-    # `path` is relative to plugins-examples/ and validated against path traversal.
+    # `path` is relative to extensions/examples/ and validated against path traversal.
     rel = str(entry.get("path") or entry_id)
     if ".." in rel.split("/") or rel.startswith("/"):
         raise ps.PluginError("invalid example path")

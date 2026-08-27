@@ -3,7 +3,7 @@ site_description: Architecture, implémentation, opérations et référence du c
 site_url: https://gnosi.temenosismael.org/engineering/fr/
 repo_url: https://github.com/ismigar/Gnosi
 repo_name: ismigar/Gnosi
-edit_uri: edit/main/apps/gnosi/docs/engineering/
+edit_uri: edit/main/docs/engineering/
 docs_dir: docs/engineering-fr
 site_dir: site/engineering/fr
 strict: true

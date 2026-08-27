@@ -49,11 +49,11 @@ services:
       # Credencials d'integracions (tokens Google, contrasenyes IMAP/SMTP)
       # editades via UI han de persistir entre rebuilds del container. La
       # resta de `pipeline/` queda a la imatge perquè és codi versionat;
-      # només els secrets es mantenen al host (gitignored a apps/gnosi/.gitignore).
+      # només els secrets es mantenen al host (gitignored a .gitignore).
       - ./pipeline/private_skills/secrets:/app/pipeline/private_skills/secrets
       # Local-only data (SQLite, caches, indices). NEVER point at cloud-synced
       # storage — SQLite + cloud sync = corruption. See paths_config.py.
-      - gnosi_local_data:/app/data
+      - gnosi_local_data:/data
     # Rutes del host parametritzades: ${HOME} resol per màquina. Per usar un
     # altre núvol o cap, defineix al `.env` local (gitignored, auto-carregat per
     # compose) VAULT_HOST_PATH i VAULTS_ROOT_HOST_PATH (i opcionalment
@@ -61,8 +61,10 @@ services:
     # del repo, per al mount de .antigravity) per defecte és $HOME/Projectes; si
     # el repo viu en una altra ubicació, defineix REPO_ROOT al mateix `.env`.
     env_file:
-      - ../../../.env_shared # 1. Variables compartides
-      - .env # 2. Variables locals (sobreescriuen) — opcional: REPO_ROOT
+      - path: ${GNOSI_SHARED_ENV_FILE:-.env.shared.disabled}
+        required: false
+      - path: .env
+        required: false
     environment:
       - LOGGING_LEVEL=debug
       # REQUIRED on this exposed deployment: a strong, private JWT signing secret.
@@ -79,6 +81,8 @@ services:
       - HOME_HOST_PATH=${HOME}
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
+      - GNOSI_DATA_DIR=/data
+      - GNOSI_LOCAL_DATA=/data
       # Variables calculades dinàmicament o especials
       - AI_MODEL_URL=http://host.docker.internal:11434/v1/chat/completions
       - TZ=Europe/Madrid
@@ -100,6 +104,7 @@ services:
       - "5173:5173"
     volumes:
       - .:/app
+      - /app/node_modules
       - /app/frontend/node_modules
     environment:
       - VITE_BACKEND_HOST=backend

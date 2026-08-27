@@ -2,17 +2,17 @@
 status: implemented
 last_verified: 2026-08-15
 source_paths:
-  - sh/run_native_dev.sh
-  - sh/run_native_frontend.sh
-  - sh/native_watchdog.sh
+  - scripts/runtime/run_native_dev.sh
+  - scripts/runtime/run_native_frontend.sh
+  - scripts/runtime/native_watchdog.sh
   - docker-compose.yml
   - Dockerfile.backend
   - Dockerfile.frontend
-  - electron/main.js
+  - desktop/main.js
 tests:
-  - electron/application-menu.test.js
+  - desktop/application-menu.test.js
   - backend/tests/test_host_helper_url.py
-  - e2e/tests/anon/smoke.spec.ts
+  - tests/e2e/tests/anon/smoke.spec.ts
 ---
 
 # Runtime and deployment
@@ -24,8 +24,8 @@ two repository scripts:
 
 | Process | Command boundary | Address | Reload behavior |
 | --- | --- | --- | --- |
-| Backend | `.venv/bin/uvicorn backend.server:app` | `127.0.0.1:5002` | Watches `backend/`; dependency changes need a restart. |
-| Frontend | `npm run dev` | HTTPS `:5173` | Vite hot reloads source. |
+| Backend | `uv run uvicorn backend.server:app` | `127.0.0.1:5002` | Watches `backend/`; dependency changes need a restart. |
+| Frontend | `pnpm dev:frontend` | HTTP(S) `:5173` | Vite hot reloads source. |
 
 `run_native_dev.sh` loads shared environment input without sourcing it as shell
 code, establishes native vault and local-data paths, selects host-safe defaults,
@@ -48,7 +48,7 @@ sequenceDiagram
     F->>U: Proxy /api and WebSocket traffic
 ```
 
-The repository virtual environment is authoritative. Intel macOS uses validated
+The frozen `uv.lock` and repository virtual environment are authoritative. Intel macOS uses validated
 caps for its machine-learning stack; package changes must begin by inspecting
 the actual environment rather than assuming the Apple Silicon dependency set.
 
@@ -65,7 +65,7 @@ Docker requires a non-default JWT signing secret because it is considered an
 exposed deployment.
 
 The backend container installs the pinned CPU-only PyTorch wheel before the
-general Python requirements. Docker inference is CPU-based, and this prevents
+general Python lock export. Docker inference is CPU-based, and this prevents
 Linux ARM64 builds from downloading unused CUDA libraries and exhausting the
 runner disk.
 

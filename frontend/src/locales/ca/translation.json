@@ -1771,7 +1771,7 @@
       "llm_wiki_save": "Desa i prepara",
       "llm_wiki_autosave": "Els canvis es desen automàticament.",
       "llm_wiki_capabilities": "OCR {{ocr}} · transcripció {{transcription}} · streaming {{streaming}}",
-      "llm_wiki_capability_help": "Instal·la Tesseract (ca/es/en/fr), FFmpeg i les dependències Python indicades a requirements.txt; després reinicia el backend natiu.",
+      "llm_wiki_capability_help": "Instal·la Tesseract (ca/es/en/fr), FFmpeg i les dependències Python bloquejades amb uv; després reinicia el backend natiu.",
       "llm_wiki_missing_ocr_languages": "Idiomes OCR que falten: {{languages}}.",
       "llm_wiki_lint_cites": "{{count}} cites trencades",
       "llm_wiki_lint_indexes": "{{count}} índexs pendents",

@@ -45,7 +45,7 @@
 - No iniciar una release mentre una altra estigui `queued`, `in_progress`, `waiting` o `pending`.
 - No considerar el nom de l'artefacte com a prova d'arquitectura; validar les etiquetes del runner.
 - No modificar ni aturar VMs des del preflight; només informar i bloquejar si hi ha processos de build competidors.
-- No usar `npm ci` amb lockfiles desalineats; regenerar-los primer i tornar a validar.
+- No usar instal·lacions permissives amb locks desalineats; exigir `pnpm install --frozen-lockfile` i `uv sync --frozen`.
 - No executar simultàniament builds Linux, macOS i Windows quan comparteixen el mateix host físic; serialitzar-los i limitar la matriu macOS a una arquitectura cada vegada.
 
 ## 6. Error Protocol and Learning (Live Memory)
@@ -61,7 +61,7 @@
 | 26/08 | `pytest` i PyYAML absents | El Python global del Mac no conté les dependències de desenvolupament | Nota: no executar QA backend amb el Python del sistema; usar la `.venv` local de Gnosi |
 | 26/08 | Backend CI rebutja una skill nova | `release_preflight` no constava a `pipeline/skills/catalog.yaml` | Nota: no consolidar una skill sense afegir-ne la classificació explícita al catàleg i executar el test de classificació |
 | 26/08 | Gate documental rebutja el bump | Canviar `frontend/package.json` és d'alt impacte i exigeix actualitzar `docs/engineering` | Nota: no preparar una versió sense documentar el contracte de release dins del domini d'escriptori |
-| 26/08 | Suite documental no importa `pipeline` | La suite es va executar des de l'arrel del monorepo privat | Nota: no executar la suite completa des de fora de `monorepo/apps/gnosi`; usar aquesta arrel perquè els imports siguin resolubles |
+| 26/08 | Suite documental no importa `pipeline` | La suite es va executar des de l'arrel del monorepo privat | Nota: no executar la suite completa des de fora de `Gnosi`; usar aquesta arrel perquè els imports siguin resolubles |
 | 26/08 | Referència generada obsoleta | Afegir una skill i un test va canviar els inventaris, però no es va executar el generador | Nota: no publicar una skill nova sense executar `generate.py`, després `generate.py --check`, `localize.py --check` i el validador des de l'arrel de Gnosi amb la `.venv` |
 | 27/08 | `npm ci` falla només al runner Linux | El lockfile es va validar amb npm 11 local, però Node 22.22.2 proporciona npm 10 i aquest detecta paquets opcionals `@y/*` absents | Nota: no validar lockfiles amb una versió de npm diferent del runner; regenerar amb npm 10.9.4 i executar `npm ci --dry-run` al primer job abans de reservar cap build de plataforma |
 
@@ -70,7 +70,7 @@
 | Rationalization | Consequence |
 | --- | --- |
 | "Els runners apareixen online, per tant la release funcionarà." | Online no garanteix eines, espai, arquitectura ni absència de processos competidors. |
-| "`npm install` ho arreglarà al runner." | Pot resoldre dependències diferents a cada plataforma i ocultar un lockfile trencat. |
+| "Una instal·lació no congelada ho arreglarà al runner." | Pot resoldre dependències diferents a cada plataforma i ocultar un lockfile trencat. |
 
 ## 8. Red flags
 
@@ -82,7 +82,7 @@
 
 ## 9. Examples of Use
 
-`python monorepo/apps/gnosi/pipeline/sandbox/release_preflight.py --version 2.0.6`
+`uv run python pipeline/skills/release_preflight/scripts/release_preflight.py --version 2.0.6`
 
 ## 10. Pre-Execution Checklist
 
@@ -95,7 +95,7 @@
 
 - [ ] Informe JSON inspeccionat.
 - [ ] Frontend construït amb Node 22.22.2.
-- [ ] `npm ci` d'Electron correcte.
+- [ ] Instal·lacions pnpm i uv congelades correctes.
 - [ ] Workflow validat sintàcticament.
 - [ ] PR fusionat abans de crear el tag.
 

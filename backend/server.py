@@ -11,8 +11,8 @@ from datetime import datetime
 from contextlib import asynccontextmanager, suppress
 
 # Configure paths
-BASE_DIR = Path(__file__).resolve().parents[1]  # monorepo/apps/gnosi
-BACKEND_DIR = Path(__file__).resolve().parents[0]  # monorepo/apps/gnosi/backend
+BASE_DIR = Path(__file__).resolve().parents[1]  # Gnosi
+BACKEND_DIR = Path(__file__).resolve().parents[0]  # Gnosi/backend
 
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))

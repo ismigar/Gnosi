@@ -29,7 +29,7 @@ manually duplicate a 400-operation API table in a reviewed guide.
 
 ## Standard workflow
 
-From `monorepo/apps/gnosi/`:
+From `Gnosi/`:
 
 ```bash
 python pipeline/skills/technical_documentation/scripts/generate.py
@@ -48,15 +48,14 @@ tables and diagrams, and verify the browser console.
 ## Public access
 
 The canonical portal is published at
-`https://gnosi.temenosismael.org/engineering/`. The private monorepo exports
-`monorepo/` to the root of the public `ismigar/Gnosi` repository. That makes
-`monorepo/.github/workflows/documentation-pages.yml` the source of the public
-`.github/workflows/documentation-pages.yml` deployment workflow.
+`https://gnosi.temenosismael.org/engineering/`. The canonical public
+`ismigar/Gnosi` repository builds and publishes it directly through
+`.github/workflows/documentation-pages.yml`; no mirror rewrites the source tree.
 
 On each relevant push to the public `main` branch, the workflow verifies the
 generated catalogs and localized mirrors, validates traceability, builds the
 English, Catalan, Spanish, and French MkDocs portals in strict mode, and
-publishes the complete `apps/gnosi/site/` tree through GitHub Pages. Publishing
+publishes the complete `site/` tree through GitHub Pages. Publishing
 the parent `site/` directory preserves the `/engineering/` URL segment.
 
 Gnosi's global sidebar links to the same canonical address. The label is

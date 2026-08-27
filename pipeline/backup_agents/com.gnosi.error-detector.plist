@@ -12,11 +12,11 @@
 	<key>ProgramArguments</key>
 	<array>
 		<string>/usr/bin/python3</string>
-		<string>/Users/ismaelgarciafernandez/Projectes/monorepo/apps/gnosi/pipeline/skills/auto_improver/scripts/error_detector.py</string>
+		<string>/Users/ismaelgarciafernandez/Projectes/Gnosi/pipeline/skills/auto_improver/scripts/error_detector.py</string>
 	</array>
 	<key>StandardErrorPath</key>
-	<string>/Users/ismaelgarciafernandez/Projectes/monorepo/apps/gnosi/pipeline/.tmp/error_detector.log</string>
+	<string>/Users/ismaelgarciafernandez/Projectes/Gnosi/pipeline/.tmp/error_detector.log</string>
 	<key>StandardOutPath</key>
-	<string>/Users/ismaelgarciafernandez/Projectes/monorepo/apps/gnosi/pipeline/.tmp/error_detector.log</string>
+	<string>/Users/ismaelgarciafernandez/Projectes/Gnosi/pipeline/.tmp/error_detector.log</string>
 </dict>
 </plist>

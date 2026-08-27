@@ -38,7 +38,7 @@ tests:
   - backend/tests/test_agent_universal_runtime_phase2.py
   - backend/tests/test_e2e_tables_assets.py
   - backend/tests/test_vault_trash.py
-  - e2e/tests/e2e/ai-chat.spec.ts
+  - tests/e2e/tests/e2e/ai-chat.spec.ts
 ---
 
 # AI agents, models, tools, and skills

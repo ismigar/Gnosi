@@ -10,7 +10,7 @@ source_paths:
 tests:
   - backend/tests/test_app_config_language.py
   - backend/tests/test_host_helper_url.py
-  - e2e/tests/anon/smoke.spec.ts
+  - tests/e2e/tests/anon/smoke.spec.ts
 ---
 
 # Plataforma base i hora d' execució
@@ -50,7 +50,7 @@ Reforçament de la configuració de l' IA. Un entorn antic credential pot crear 
 ## Invariants
 
 - Port `5002` és el contracte del dorsal; `5173` El contracte per a la Frontal.
-- El codi d' aplicació usa l' autoriu `monorepo/apps/gnosi/` Arbre.
+- El codi d' aplicació usa l' autoriu `Gnosi/` Arbre.
 - Cadenes visibles per Frontals utilitzen tots els catàlegs locals.
 - No s' han d' usar les importacions d' execució per la generació de documentació.
 - Una volta no disponible es representa explícitament; un camí segur temporal pot

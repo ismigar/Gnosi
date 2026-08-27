@@ -19,7 +19,7 @@ The account keeps its `id`, which is what memberships, vaults and PATs are keyed
 by, so nothing has to be migrated.
 
 Usage:
-    cd monorepo/apps/gnosi
+    cd Gnosi
     GNOSI_LOCAL_DATA=local_data .venv/bin/python pipeline/scripts/set_user_password.py --list
     GNOSI_LOCAL_DATA=local_data .venv/bin/python pipeline/scripts/set_user_password.py \
         --user-id ismael-legacy --email you@example.com

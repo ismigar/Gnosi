@@ -38,10 +38,10 @@ Crucial for the operation of synchronization scripts. If these UUIDs change in N
 
 ```bash
 # Sync pending articles to Drupal
-python monorepo/apps/gnosi/pipeline/skills/publisher/scripts/sync_vault_to_drupal.py --status "Ready to Publish"
+uv run python pipeline/skills/publisher/scripts/sync_vault_to_drupal.py --status "Ready to Publish"
 
 # Publish a specific article to Social Media
-python monorepo/apps/gnosi/pipeline/skills/publisher/scripts/broadcast_social.py --page-id "uuid-of-the-page"
+uv run python pipeline/skills/publisher/scripts/broadcast_social.py --page-id "uuid-of-the-page"
 ```
 
 ---

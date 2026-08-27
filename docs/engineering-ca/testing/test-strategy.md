@@ -4,11 +4,11 @@ last_verified: 2026-08-21
 source_paths:
   - backend/tests
   - frontend/src
-  - e2e
-  - requirements.txt
+  - tests/e2e
+  - pyproject.toml
   - frontend/package.json
 tests:
-  - e2e/tests/accessibility/accessibility.spec.ts
+  - tests/e2e/tests/accessibility/accessibility.spec.ts
 ---
 
 # Eina de proves

@@ -147,7 +147,7 @@ the first translatable field.
 ## Quick test
 
 ```bash
-cd monorepo/apps/gnosi
+cd Gnosi
 python3 -m pipeline.skills.translate_row.scripts.translate_text \
     --text "Hello, how are you?" --source en --target ca
 ```

@@ -10,7 +10,7 @@ source_paths:
 tests:
   - backend/tests/test_app_config_language.py
   - backend/tests/test_host_helper_url.py
-  - e2e/tests/anon/smoke.spec.ts
+  - tests/e2e/tests/anon/smoke.spec.ts
 ---
 
 # Fundación y duración de la plataforma
@@ -50,7 +50,7 @@ Una credencial de entorno legado puede crear un proveedor una vez, pero una láp
 ## Invariantes
 
 - Puerto `5002` es el contrato de motor; `5173` es el contrato de frontend.
-- El código de aplicación utiliza el autoritativo `monorepo/apps/gnosi/` árbol.
+- El código de aplicación utiliza el autoritativo `Gnosi/` árbol.
 - Las cadenas visibles de Frontend usan todos los catálogos locales.
 - Las importaciones en tiempo de ejecución no deben utilizarse para la generación de documentación.
 - Una bóveda no disponible está representada explícitamente; una ruta segura temporal puede

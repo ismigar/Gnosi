@@ -13,7 +13,7 @@ tests:
   - backend/tests/test_mail_inline_images.py
   - backend/tests/test_mail_reply_cid.py
   - backend/tests/test_mail_ingester_savepoint.py
-  - e2e/tests/e2e/mail-reply-quoted-cid.spec.ts
+  - tests/e2e/tests/e2e/mail-reply-quoted-cid.spec.ts
 ---
 
 # Correu

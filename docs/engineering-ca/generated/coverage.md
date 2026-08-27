@@ -34,14 +34,14 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 
 - Guia: [AhrtVult i fitxers l' ordre de l' ekaVault](../domains/vault-files.md)
 - Patrons de codi font: `backend/api/vault*.py`, `backend/services/**/*vault*.py`, `backend/services/files_provider/*.py`, `frontend/src/pages/Vault*.jsx`, `frontend/src/components/Vault/**/*`
-- Prova els patrons: `backend/tests/test_vault*.py`, `e2e/tests/e2e/vault*.spec.ts`
+- Prova els patrons: `backend/tests/test_vault*.py`, `tests/e2e/tests/e2e/vault*.spec.ts`
 - Directives: `docs/dev_memory/directives/vault_database_architecture.md`, `docs/dev_memory/directives/files_provider_abstraction.md`, `docs/dev_memory/directives/attachment_link_portability.md`, `docs/dev_memory/directives/markdown_roundtrip_escaping.md`
 
 ## Vistes de base de dades i planificació del projecte
 
 - Guia: [Vistes  1] Search unchName](../domains/database-views-planning.md)
 - Patrons de codi font: `backend/api/vault_views_routes.py`, `backend/api/planning_routes.py`, `backend/services/planning*.py`, `frontend/src/components/Vault/*Table*`, `frontend/src/components/Vault/*View*`, `frontend/src/pages/ProjectPlanningPage.jsx`
-- Prova els patrons: `backend/tests/test_*view*.py`, `backend/tests/test_planning*.py`, `e2e/tests/e2e/dashboards.spec.ts`
+- Prova els patrons: `backend/tests/test_*view*.py`, `backend/tests/test_planning*.py`, `tests/e2e/tests/e2e/dashboards.spec.ts`
 - Directives: `docs/dev_memory/directives/automations_and_formulas.md`, `docs/dev_memory/directives/project_planning_authoritative_engine.md`, `docs/dev_memory/directives/vault_views_management.md`
 
 ## Gràfic coneixement
@@ -55,7 +55,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 
 - Guia: [ekaReider, referències i citacions de l'AKIPUCI](../domains/reader-references.md)
 - Patrons de codi font: `backend/api/reader.py`, `backend/models/reader.py`, `backend/models/pdf_annotation.py`, `backend/services/**/*citation*.py`, `backend/services/**/*reference*.py`, `frontend/src/pages/ReaderDashboard.jsx`, `frontend/src/components/Vault/ZoteroReaderTab.jsx`
-- Prova els patrons: `backend/tests/test_*citation*.py`, `backend/tests/test_*reader*.py`, `e2e/tests/e2e/*citation*.spec.ts`
+- Prova els patrons: `backend/tests/test_*citation*.py`, `backend/tests/test_*reader*.py`, `tests/e2e/tests/e2e/*citation*.spec.ts`
 - Directives: `docs/dev_memory/directives/gnosi_native_reference_manager.md`, `docs/dev_memory/directives/pdf_quote_capture.md`, `docs/dev_memory/directives/zotero_reader_translation_contribution.md`
 
 ## Agents de la IA, models, eines i habilitats
@@ -69,21 +69,21 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 
 - Guia: [ManveenMailtsthandenmark_ counties. kgm](../domains/mail.md)
 - Patrons de codi font: `backend/api/mail_routes.py`, `backend/models/mail.py`, `backend/services/mail*.py`, `frontend/src/pages/MailPage.jsx`, `frontend/src/components/Mail/**/*`
-- Prova els patrons: `backend/tests/test_mail*.py`, `e2e/tests/e2e/mail*.spec.ts`
+- Prova els patrons: `backend/tests/test_mail*.py`, `tests/e2e/tests/e2e/mail*.spec.ts`
 - Directives: `docs/dev_memory/directives/mail_smart_extraction.md`, `docs/dev_memory/directives/mail_tags.md`, `docs/dev_memory/directives/mail_inline_images_cid.md`, `docs/dev_memory/directives/mail_imap_xoauth2_migration.md`
 
 ## Calendari i reunions
 
 - Guia: [CalendarCalendar i reunions de l' ordre d' antelació](../domains/calendar-meetings.md)
 - Patrons de codi font: `backend/api/calendar_routes.py`, `backend/api/meeting_routes.py`, `backend/models/calendar.py`, `backend/services/**/*calendar*.py`, `backend/services/**/*meeting*.py`, `frontend/src/pages/CalendarPage.jsx`, `frontend/src/components/Meeting*`
-- Prova els patrons: `backend/tests/test_*calendar*.py`, `backend/tests/test_*meeting*.py`, `e2e/tests/e2e/calendar.spec.ts`
+- Prova els patrons: `backend/tests/test_*calendar*.py`, `backend/tests/test_*meeting*.py`, `tests/e2e/tests/e2e/calendar.spec.ts`
 - Directives: `docs/dev_memory/directives/ai_meeting_notetaker.md`, `docs/dev_memory/directives/calendar_hover_popup.md`, `docs/dev_memory/directives/hide_calendar_events.md`
 
 ## Contactes
 
 - Guia: [tstacts occidentalindonesia. kgm](../domains/contacts.md)
 - Patrons de codi font: `backend/api/contacts_routes.py`, `backend/models/contact.py`, `backend/services/**/*contact*.py`, `frontend/src/pages/ContactsPage.jsx`, `frontend/src/components/Contacts/**/*`
-- Prova els patrons: `backend/tests/test_contact*.py`, `e2e/tests/e2e/contacts.spec.ts`
+- Prova els patrons: `backend/tests/test_contact*.py`, `tests/e2e/tests/e2e/contacts.spec.ts`
 - Directives: `docs/dev_memory/directives/contacts-sync.md`, `docs/dev_memory/directives/contacts_design_unification.md`
 
 ## Publicació social i suport
@@ -96,7 +96,7 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 ## Integració i connectors
 
 - Guia: [establishmentIntegrations i connectors del screensaver](../domains/integrations-plugins.md)
-- Patrons de codi font: `backend/api/integrations_routes.py`, `backend/services/integration*.py`, `backend/services/plugin*.py`, `integrations/**/*`, `plugins-examples/**/*`, `mcp-servers/**/*`
+- Patrons de codi font: `backend/api/integrations_routes.py`, `backend/services/integration*.py`, `backend/services/plugin*.py`, `integrations/**/*`, `extensions/examples/**/*`, `mcp-servers/**/*`
 - Prova els patrons: `backend/tests/test_integration*.py`, `backend/tests/test_plugin*.py`, `integrations/**/tests/**/*`
 - Directives: `docs/dev_memory/directives/plugin_system.md`, `docs/dev_memory/directives/integrations_persistence.md`, `docs/dev_memory/directives/skill_vs_tool_architecture.md`
 
@@ -111,12 +111,12 @@ Regenera amb `python pipeline/skills/technical_documentation/scripts/generate.py
 
 - Guia: [automàtica de la planificació i la planificació de l'  automàtica](../domains/automation-scheduling.md)
 - Patrons de codi font: `backend/api/scheduler_routes.py`, `backend/scheduler/**/*.py`, `backend/models/scheduler.py`, `frontend/src/pages/SchedulerPage.jsx`, `pipeline/skills/scheduler/**/*`
-- Prova els patrons: `backend/tests/test_schedul*.py`, `e2e/tests/e2e/automation*.spec.ts`
+- Prova els patrons: `backend/tests/test_schedul*.py`, `tests/e2e/tests/e2e/automation*.spec.ts`
 - Directives: `docs/dev_memory/directives/scheduler_config_resilience.md`, `docs/dev_memory/directives/autonomous_quality_loop.md`, `docs/dev_memory/directives/automations_and_formulas.md`
 
 ## Clients d'escriptori i company
 
 - Guia: [Desktop i company de clients del Beagle](../domains/desktop-clients.md)
-- Patrons de codi font: `electron/**/*`, `web-clipper/**/*`, `integrations/libreoffice-cite/**/*`, `integrations/word-cite-pin/**/*`
-- Prova els patrons: `electron/**/*test*`, `integrations/**/tests/**/*`
+- Patrons de codi font: `desktop/**/*`, `web-clipper/**/*`, `extensions/office/libreoffice-cite/**/*`, `extensions/office/word-cite/**/*`
+- Prova els patrons: `desktop/**/*test*`, `integrations/**/tests/**/*`
 - Directives: `docs/dev_memory/directives/release_candidate_process.md`, `docs/dev_memory/directives/libreoffice_cite_extension.md`, `docs/dev_memory/directives/word_addin_persistence.md`

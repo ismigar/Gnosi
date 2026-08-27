@@ -17,7 +17,7 @@ tests:
   - frontend/src/components/Notebooks/NotebookCreateDialog.test.jsx
   - frontend/src/pages/NotebooksPage.test.jsx
   - frontend/src/lib/notebookTableActions.test.js
-  - e2e/tests/e2e/notebooks.spec.ts
+  - tests/e2e/tests/e2e/notebooks.spec.ts
 ---
 
 # Cuadernos fundamentados en fuentes

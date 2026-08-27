@@ -2,16 +2,16 @@
 status: implemented
 last_verified: 2026-08-02
 source_paths:
-  - sh/run_native_dev.sh
-  - sh/run_native_frontend.sh
-  - sh/native_watchdog.sh
+  - scripts/runtime/run_native_dev.sh
+  - scripts/runtime/run_native_frontend.sh
+  - scripts/runtime/native_watchdog.sh
   - docker-compose.yml
   - Dockerfile.backend
   - Dockerfile.frontend
-  - electron/main.js
+  - desktop/main.js
 tests:
   - backend/tests/test_host_helper_url.py
-  - e2e/tests/anon/smoke.spec.ts
+  - tests/e2e/tests/anon/smoke.spec.ts
 ---
 
 # Execució i desplegament
@@ -22,8 +22,8 @@ L' operació nativa és l' arquitectura de desenvolupament per omissió. Els age
 
 | Procés | Límit d' ordre | Adreça | Recarrega el comportament |
 | --- | --- | --- | --- |
-| Dorsal | `.venv/bin/uvicorn backend.server:app` | `127.0.0.1:5002` | Observacions `backend/`El canvi de dependència necessita un reinici. |
-| Frontal | `npm run dev` | HTTPS `:5173` | Torna a carregar la font de les fallades calenta. |
+| Dorsal | `uv run uvicorn backend.server:app` | `127.0.0.1:5002` | Observacions `backend/`El canvi de dependència necessita un reinici. |
+| Frontal | `pnpm dev:frontend` | HTTPS `:5173` | Torna a carregar la font de les fallades calenta. |
 
 `run_native_dev.sh` S' ha compartit una entrada d' entorn sense reubicar- la com a codi shell, establir rutes de volta natius i dades locals, seleccioneu els valors per omissió de la zona, i comença avucorar. `run_native_frontend.sh` Selecciona el destí i superfícies del dorsal de l' intermediari quan la recuperació servia és un avantpassat ja prestat `origin/main`.
 

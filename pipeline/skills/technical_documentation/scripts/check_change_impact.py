@@ -11,32 +11,30 @@ import sys
 
 
 APP_ROOT = Path(__file__).resolve().parents[4]
-REPOSITORY_ROOT = APP_ROOT.parents[2]
+REPOSITORY_ROOT = APP_ROOT
 SYSTEM_GIT_CANDIDATES = (Path("/usr/bin/git"), Path("/usr/local/bin/git"))
-APP_PREFIX = "monorepo/apps/gnosi/"
+APP_PREFIX = ""
 IMPLEMENTATION_PREFIXES = (
     f"{APP_PREFIX}backend/",
-    f"{APP_PREFIX}electron/",
+    f"{APP_PREFIX}desktop/",
     f"{APP_PREFIX}frontend/src/",
-    f"{APP_PREFIX}integrations/",
-    f"{APP_PREFIX}mcp-servers/",
-    f"{APP_PREFIX}sh/",
-    f"{APP_PREFIX}web-clipper/",
+    f"{APP_PREFIX}extensions/",
+    f"{APP_PREFIX}scripts/",
 )
 IMPLEMENTATION_FILES = {
     f"{APP_PREFIX}docker-compose.yml",
     f"{APP_PREFIX}Dockerfile.backend",
     f"{APP_PREFIX}Dockerfile.frontend",
     f"{APP_PREFIX}package.json",
-    f"{APP_PREFIX}requirements.txt",
+    f"{APP_PREFIX}pyproject.toml",
+    f"{APP_PREFIX}uv.lock",
+    f"{APP_PREFIX}pnpm-lock.yaml",
 }
 HIGH_IMPACT_PREFIXES = (
     f"{APP_PREFIX}backend/",
-    f"{APP_PREFIX}electron/",
-    f"{APP_PREFIX}integrations/",
-    f"{APP_PREFIX}mcp-servers/",
-    f"{APP_PREFIX}sh/",
-    f"{APP_PREFIX}web-clipper/",
+    f"{APP_PREFIX}desktop/",
+    f"{APP_PREFIX}extensions/",
+    f"{APP_PREFIX}scripts/",
 )
 HIGH_IMPACT_FRONTEND_PREFIXES = (
     f"{APP_PREFIX}frontend/src/components/Auth",
@@ -75,10 +73,9 @@ DEPENDENCY_MANIFEST_NAMES = {
     "Pipfile",
     "Pipfile.lock",
     "poetry.lock",
-    "package-lock.json",
+    "pnpm-lock.yaml",
     "package.json",
     "pyproject.toml",
-    "requirements.txt",
     "uv.lock",
 }
 
@@ -144,7 +141,7 @@ def validate_change_set(paths: set[str]) -> list[str]:
         return []
     return [
         "High-impact Gnosi changes require an update under "
-        "monorepo/apps/gnosi/docs/engineering/. Changed high-impact files: "
+        "docs/engineering/. Changed high-impact files: "
         + ", ".join(high_impact[:8])
     ]
 

@@ -6,10 +6,10 @@ source_paths:
   - frontend/src/App.jsx
   - frontend/vite.config.js
   - docker-compose.yml
-  - electron/main.js
+  - desktop/main.js
 tests:
   - backend/tests
-  - e2e/tests/anon/smoke.spec.ts
+  - tests/e2e/tests/anon/smoke.spec.ts
 ---
 
 # System context

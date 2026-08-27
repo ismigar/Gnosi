@@ -25,10 +25,10 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `backend/` | 450 | FastAPI, services, models, agents, scheduling, and storage adapters |
 | `frontend/src/` | 373 | React application, UI behavior, state, and browser integrations |
 | `pipeline/` | 102 | Reusable application skills and deterministic processing tools |
-| `electron/` | 28 | Desktop lifecycle, backend packaging, IPC, and updates |
+| `desktop/` | 28 | Desktop lifecycle, backend packaging, IPC, and updates |
 | `integrations/` | 12 | Office and external-system adapters |
 | `web-clipper/` | 11 | Browser extension capture surface |
-| `e2e/` | 26 | Host-level Playwright acceptance tests |
+| `tests/e2e/` | 26 | Host-level Playwright acceptance tests |
 | `sh/` | 22 | Native and self-host operational scripts |
 
 ## Exclusion boundary

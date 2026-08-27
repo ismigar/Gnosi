@@ -1,6 +1,6 @@
 """Regenerate the vendored model catalog from models.dev.
 
-Usage (from monorepo/apps/gnosi, venv active):
+Usage (from Gnosi, venv active):
 
     python -m backend.scripts.refresh_model_catalog
 

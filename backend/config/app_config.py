@@ -98,7 +98,7 @@ def load_params(strict_env: bool = True) -> Config:
     Priority:
     1. DIGITAL_BRAIN_VAULT_PATH/.gnosi/params.yaml
     2. ~/.gnosi/params.yaml
-    3. monorepo/apps/gnosi/config/params.yaml (Base/Default)
+    3. Gnosi/config/params.yaml (Base/Default)
     
     """
     load_env()

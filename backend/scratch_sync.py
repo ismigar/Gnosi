@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 # Add the app directory to the path so we can import the backend modules.
-# We derive it from the location of this file (.../monorepo/apps/gnosi/backend/scratch_sync.py
+# We derive it from the location of this file (.../Gnosi/backend/scratch_sync.py
 # on the host, /app/backend inside Docker) instead of an absolute path with a macOS user
 # hardcoded, which broke on the other machine.
 sys.path.append(str(Path(__file__).resolve().parent.parent))

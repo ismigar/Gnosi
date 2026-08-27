@@ -10,7 +10,7 @@ source_paths:
 tests:
   - backend/tests/test_connection_scheduler_alignment.py
   - backend/tests/test_planning_scheduler.py
-  - e2e/tests/e2e/automation-scout.spec.ts
+  - tests/e2e/tests/e2e/automation-scout.spec.ts
 ---
 
 # Automatisation et planification

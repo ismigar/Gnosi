@@ -13,7 +13,7 @@ tests:
   - backend/tests/test_e2e_etag_concurrency.py
   - backend/tests/test_page_sidecar.py
   - backend/tests/test_files_provider.py
-  - e2e/tests/e2e/vault.spec.ts
+  - tests/e2e/tests/e2e/vault.spec.ts
 ---
 
 # Bóveda y archivos

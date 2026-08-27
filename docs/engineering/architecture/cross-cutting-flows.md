@@ -17,9 +17,9 @@ tests:
   - backend/tests/test_auth_central_gate.py
   - backend/tests/test_vault_canonical_routing.py
   - backend/tests/test_workspace_bootstrap_race.py
-  - e2e/tests/accessibility/accessibility.spec.ts
+  - tests/e2e/tests/accessibility/accessibility.spec.ts
   - frontend/src/lib/vaultRouting.test.js
-  - frontend/tests/vault_routing.spec.js
+  - tests/e2e/tests/legacy/vault-routing.spec.js
 ---
 
 # Cross-cutting flows

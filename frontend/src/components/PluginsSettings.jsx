@@ -1440,7 +1440,7 @@ export function LlmWikiConfig() {
                         || (serverState.capabilities.ocr_missing_languages || []).length > 0) && (
                         <div style={{ marginTop: 3, color: 'var(--status-warning, #b45309)' }}>
                             {tp('llm_wiki_capability_help', {
-                                defaultValue: "Install Tesseract (ca/es/en/fr), FFmpeg, and the Python dependencies listed in requirements.txt, then restart the native backend.",
+                                defaultValue: "Install Tesseract (ca/es/en/fr), FFmpeg, and the Python dependencies locked with uv, then restart the native backend.",
                             })}
                             {(serverState.capabilities.ocr_missing_languages || []).length > 0 && (
                                 <span style={{ display: 'block' }}>

@@ -1,0 +1,63 @@
+name: Documentation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/engineering/**'
+      - 'docs/engineering-ca/**'
+      - 'docs/engineering-es/**'
+      - 'docs/engineering-fr/**'
+      - 'docs/engineering-overrides/**'
+      - 'pipeline/skills/technical_documentation/**'
+      - 'mkdocs*.yml'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/documentation-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - uses: astral-sh/setup-uv@v10.0.1
+        with:
+          version: '0.9.15'
+      - run: uv sync --frozen --group docs
+      - name: Validate generated reference
+        run: uv run python pipeline/skills/technical_documentation/scripts/generate.py --check
+      - name: Validate traceability and links
+        run: uv run python pipeline/skills/technical_documentation/scripts/validate.py
+      - name: Build localized portals
+        run: |
+          uv run mkdocs build --strict --config-file mkdocs.yml
+          uv run mkdocs build --strict --config-file mkdocs-ca.yml
+          uv run mkdocs build --strict --config-file mkdocs-es.yml
+          uv run mkdocs build --strict --config-file mkdocs-fr.yml
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+  deploy:
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

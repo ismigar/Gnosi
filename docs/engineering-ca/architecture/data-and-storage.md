@@ -61,7 +61,7 @@ Només PAT hahes i un prefix reconegut es persisteix. Les fitxes públiques comp
 
 ## Instústització de dades locals
 
-`GNOSI_LOCAL_DATA` Apunta a l' arrel per exemple. El mecanisme de resolució de rutes crea el cau, el sistema, el punt de comprovació, el registre, l' àudio, la sortida, els directoris secrets i els directoris. Feu- ho a `/app/data`; l' ús de temps d' execució natiu `monorepo/apps/gnosi/local_data`.
+`GNOSI_LOCAL_DATA` Apunta a l' arrel per exemple. El mecanisme de resolució de rutes crea el cau, el sistema, el punt de comprovació, el registre, l' àudio, la sortida, els directoris secrets i els directoris. Feu- ho a `/app/data`; l' ús de temps d' execució natiu `Gnosi/local_data`.
 
 No s' han de situar fitxers SQLite a OneDriva, iCloud Drive, Dropbox, o una altra capa de sincronització de fitxers. La sincronització de fitxer no proporciona semàntics SQLite i pot corrompre o forçar la base de dades.
 

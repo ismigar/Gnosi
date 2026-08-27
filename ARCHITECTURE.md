@@ -35,14 +35,16 @@ models, configuration, and module catalogs. For setup and conventions, see
 
 ## Repository layout & publishing
 
-In this public repository the app lives at **`apps/gnosi/`** — backend, frontend, pipeline, and the Electron desktop wrapper. It is mirrored from a development monorepo via `.github/workflows/sync.yml`, and it is what the release workflow packages into the desktop installers.
+This public repository is the canonical source. Ordinary pull requests update `main`; no external monorepo or generated mirror rewrites it.
 
 ```
-apps/gnosi/
+Gnosi/
 ├── backend/      FastAPI application
 ├── frontend/     React + Vite SPA
-├── electron/     Electron desktop wrapper (packaged installers)
-└── pipeline/     Python "skills" — analysis, integrations, idempotent scripts
+├── desktop/      Electron desktop wrapper and distribution assets
+├── extensions/   Connectors and add-ins
+├── pipeline/     Public reusable Python skills
+└── tests/e2e/    Consolidated Playwright suite
 ```
 
 ## Backend (FastAPI)

@@ -54,6 +54,8 @@ export default defineConfig([
       // release builds.
       'react-hooks/set-state-in-effect': 'warn',
       'react-hooks/refs': 'warn',
+      'react-hooks/immutability': 'warn',
+      'react-hooks/purity': 'warn',
       'react-hooks/preserve-manual-memoization': 'warn',
       'react-refresh/only-export-components': 'warn',
     },

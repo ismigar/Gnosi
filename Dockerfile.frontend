@@ -1,18 +1,25 @@
-FROM node:20-alpine
+FROM node:22.22.2-alpine
 
-WORKDIR /app/frontend
+WORKDIR /app
 
-# Copy package files
-COPY frontend/package*.json ./
+RUN corepack enable && corepack prepare pnpm@11.19.0 --activate
 
-# Install dependencies
-RUN npm install
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY patches/ patches/
+COPY scripts/verify-toolchain.mjs scripts/verify-toolchain.mjs
+COPY frontend/package.json frontend/package.json
+COPY desktop/package.json desktop/package.json
+COPY tests/e2e/package.json tests/e2e/package.json
+
+RUN pnpm install --frozen-lockfile --filter @gnosi/frontend...
 
 # Copy the rest of the frontend code
-COPY frontend/ .
+COPY frontend/ frontend/
+
+WORKDIR /app/frontend
 
 # Expose port
 EXPOSE 5173
 
 # Command to run the dev server
-CMD ["npm", "run", "dev", "--", "--host"]
+CMD ["pnpm", "run", "dev", "--host", "0.0.0.0"]

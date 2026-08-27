@@ -1,6 +1,6 @@
 """Unit tests for the translate_page markdown segmenter.
 
-Run from `monorepo/apps/gnosi`:
+Run from `Gnosi`:
 
     python3 -m pytest pipeline/skills/translate_page/scripts/test_markdown_segmenter.py -v
 

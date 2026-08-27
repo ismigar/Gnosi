@@ -8,7 +8,7 @@ source_paths:
 tests:
   - backend/tests
   - frontend/src
-  - e2e/tests
+  - tests/e2e/tests
 ---
 
 # Documentación de ingeniería de Gnosi

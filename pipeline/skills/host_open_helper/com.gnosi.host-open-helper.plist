@@ -8,7 +8,7 @@
     <key>ProgramArguments</key>
     <array>
         <string>/usr/bin/python3</string>
-        <string>/Users/ismaelgarciafernandez/Projectes/monorepo/apps/gnosi/pipeline/skills/host_open_helper/scripts/host_open_helper.py</string>
+        <string>/Users/ismaelgarciafernandez/Projectes/Gnosi/pipeline/skills/host_open_helper/scripts/host_open_helper.py</string>
     </array>
 
     <key>EnvironmentVariables</key>

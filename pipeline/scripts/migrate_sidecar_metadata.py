@@ -6,7 +6,7 @@ See `docs/dev_memory/directives/sidecar_internal_metadata.md`.
 
 Usage:
 
-    cd ~/Projectes/monorepo/apps/gnosi
+    cd ~/Projectes/Gnosi
     DIGITAL_BRAIN_VAULT_PATH=/path/vault \\
         python -m pipeline.scripts.migrate_sidecar_metadata --dry-run
     DIGITAL_BRAIN_VAULT_PATH=/path/vault \\
@@ -31,7 +31,7 @@ import yaml
 
 # Allows running as a standalone script (without `python -m`).
 _HERE = Path(__file__).resolve()
-_ROOT = _HERE.parents[3]  # .../monorepo/apps/gnosi
+_ROOT = _HERE.parents[3]  # .../Gnosi
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 

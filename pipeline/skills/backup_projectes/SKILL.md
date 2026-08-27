@@ -1,7 +1,7 @@
 # SKILL: Projectes Daily Backup
 
 > ID: 2026-04-08
-> Associated Script: monorepo/apps/gnosi/pipeline/skills/backup_projectes/scripts/backup_projectes.py
+> Associated Script: pipeline/skills/backup_projectes/scripts/backup_projectes.py
 > Status: ACTIVE
 > Version: 2.0 (Consolidated)
 
@@ -71,5 +71,5 @@
 
 ```bash
 # Execution via pipeline
-python monorepo/apps/gnosi/pipeline/skills/backup_projectes/scripts/backup_projectes.py
+uv run python pipeline/skills/backup_projectes/scripts/backup_projectes.py
 ```

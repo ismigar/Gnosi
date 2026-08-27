@@ -41,7 +41,7 @@ from typing import Dict, List
 # `fr-FR` added 2026-07-11 (the French UI fell back to ca-AD labels).
 LOCALES = ("ca-AD", "es-ES", "en-GB", "en-US", "fr-FR")
 
-ROOT = Path(__file__).resolve().parents[4]  # monorepo/apps/gnosi
+ROOT = Path(__file__).resolve().parents[4]  # Gnosi
 SCHEMA_PATH = ROOT / "pipeline/skills/zotero_schema/schema.json"
 OUT_PY = ROOT / "backend/services/zotero_schema.py"
 OUT_JS = ROOT / "frontend/src/components/Vault/zoteroSchema.js"

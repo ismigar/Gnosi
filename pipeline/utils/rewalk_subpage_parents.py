@@ -3,7 +3,7 @@
 Fixes a clone made BEFORE #689 (which already writes parent_id when cloning): the Wiki was
 left inflated with all subpages flattened out. Cf. the `vault_subpages_hierarchy.md` directive.
 
-Usage (from the root of the `monorepo/apps/gnosi` app, with the native backend running):
+Usage (from the root of the `Gnosi` app, with the native backend running):
     .venv/bin/python pipeline/utils/rewalk_subpage_parents.py --vault-id <CLONE-VAULT-ID>
     .venv/bin/python pipeline/utils/rewalk_subpage_parents.py --vault-id <ID> --apply
 
@@ -34,7 +34,7 @@ from pathlib import Path
 
 import httpx
 
-APP = Path(__file__).resolve().parents[2]   # …/monorepo/apps/gnosi
+APP = Path(__file__).resolve().parents[2]   # …/Gnosi
 
 # clone_page_id without importing the backend package (notion_clone pulls in heavy imports):
 # same namespace as backend/services/notion_clone.py (_CLONE_NS).
