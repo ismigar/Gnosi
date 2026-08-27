@@ -5,37 +5,32 @@ iCloud Drive uses the same pattern as OneDrive on macOS:
 - Materialization triggered by `open()/read()` (the File Provider
   framework handles the download transparently).
 
-The `scripts/runtime/onedrive_warmup_daemon.py` daemon is provider-agnostic:
-it only receives an absolute path and does `open()/read()`. So the same daemon
-serves both OneDrive and iCloud — the only thing that changes is the provider
-label (visible in the log) and, optionally, dedicated env vars.
+The configured host helper is provider-agnostic: it receives an absolute path
+and performs a bounded read. iCloud uses only `ICLOUD_*` client settings.
 
 If the user has a dedicated daemon for iCloud (for example, a different
 port), they can define `ICLOUD_WARMUP_URL` and `ICLOUD_WARMUP_TIMEOUT`. If
-not, it falls back to `ONEDRIVE_WARMUP_URL` / `ONEDRIVE_WARMUP_TIMEOUT` (default
-`host.docker.internal:5009`).
+not, the provider-neutral runtime default is used.
 
-See `docs/dev_memory/directives/files_provider_abstraction.md`.
+See `docs/engineering/domains/vault-files.md`.
 """
 
 from __future__ import annotations
 
-import os
 from typing import Optional
 
-from .onedrive import OneDriveProvider
+from .on_demand import OnDemandFilesProvider
 
 
-class iCloudDriveProvider(OneDriveProvider):
+class iCloudDriveProvider(OnDemandFilesProvider):
     """Detection + materialization for iCloud Drive (macOS File Provider).
 
-    Reuses all the logic of `OneDriveProvider`; it only changes the
-    `name` (for logs/observability) and prioritizes `ICLOUD_*` env vars
-    before falling back to `ONEDRIVE_*` for the HTTP daemon.
-    
+    It shares provider-neutral hydration but has no OneDrive recovery behavior.
+
     """
 
     name = "icloud"
+    env_prefix = "ICLOUD"
 
     def __init__(
         self,
@@ -45,11 +40,6 @@ class iCloudDriveProvider(OneDriveProvider):
         container_root: str = "/vault",
         max_concurrent_warmups: int = 2,
     ) -> None:
-        warmup_url = warmup_url or os.environ.get("ICLOUD_WARMUP_URL")
-        if warmup_timeout_s is None:
-            env = os.environ.get("ICLOUD_WARMUP_TIMEOUT")
-            if env is not None:
-                warmup_timeout_s = float(env)
         super().__init__(
             warmup_url=warmup_url,
             warmup_timeout_s=warmup_timeout_s,

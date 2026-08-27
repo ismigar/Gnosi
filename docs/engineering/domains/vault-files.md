@@ -1,6 +1,6 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-27
 source_paths:
   - backend/api/vault_routes.py
   - backend/api/vaults_routes.py
@@ -66,13 +66,24 @@ not remove the rest of the vault from a response.
 
 ## File providers
 
-The provider abstraction selects local, OneDrive, iCloud Drive, Google Drive,
-or Nextcloud-aware behavior. Normal domain code still works with `Path`; the
-adapter adds placeholder detection, hydration, availability, and path mapping.
+The provider abstraction selects local, generic macOS File Provider, OneDrive,
+iCloud Drive, Google Drive, Nextcloud, or Dropbox-aware behavior. Normal domain
+code still works with `Path`; the adapter adds placeholder detection,
+hydration, availability, and path mapping. Set `GNOSI_FILES_PROVIDER`
+explicitly when automatic path detection is ambiguous.
 
-Native OneDrive operation delegates hydration to a GUI-session `open` action
-when the LaunchAgent cannot materialize an online-only file. Docker deployments
-may use a host warmup endpoint because container reads cross another boundary.
+The files-on-demand runtime is provider-neutral. Google Drive, iCloud and
+Nextcloud do not inherit OneDrive recovery behavior; only `OneDriveProvider`
+may restart the OneDrive client after a bounded hydration failure. Native macOS
+providers use a GUI-session `open` action by default. Docker deployments may
+use a configured host helper because container reads cross another boundary.
+
+Dropbox File Provider paths are detected explicitly. An unknown service under
+macOS `~/Library/CloudStorage` uses the side-effect-free `fileprovider` adapter;
+any fully synchronized or ordinary mounted folder uses `local`. A new named
+adapter is needed only for a different placeholder signal or a vendor-specific
+hydration mechanism. `GNOSI_DATA_DIR` remains local regardless of the vault
+provider.
 
 ## Attachments and file-valued properties
 

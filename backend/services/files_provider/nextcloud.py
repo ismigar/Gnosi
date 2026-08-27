@@ -12,15 +12,17 @@ has its own mechanism:
   or (depending on version) a file with the `.nc-virt` extension.
 
 **Detection** in this implementation:
-1. If the path extension matches `PLACEHOLDER_EXT` (default
+1. Modern macOS File Provider placeholders use the provider-neutral
+   `st_blocks == 0` signal.
+2. If the path extension matches `PLACEHOLDER_EXT` (default
    `.nc-virt`, configurable via env `NEXTCLOUD_PLACEHOLDER_EXT`).
-2. Otherwise, check the `user.nextcloud.is-virtual-file` xattr.
+3. Otherwise, check the `user.nextcloud.is-virtual-file` xattr.
 
 If the filesystem doesn't support xattrs (some bind-mounts), `is_online_only`
 will return False by default — cautious behavior that avoids unnecessary
 warmups.
 
-**Materialization:** delegates to the HTTP daemon just like OneDrive. The
+**Materialization:** delegates to the provider-neutral helper. The
 `open()/read()` call on a NextCloud placeholder triggers the download in
 most macOS/Linux installations. If your version doesn't respond
 to `open()`, configure a dedicated daemon with `NEXTCLOUD_WARMUP_URL`
@@ -30,7 +32,7 @@ that runs a specific CLI command (for example
 **Status:** Skeleton. Validated only with unit tests (xattr/extension).
 Needs validation with a real NextCloud client installation.
 
-See `docs/dev_memory/directives/files_provider_abstraction.md`.
+See `docs/engineering/domains/vault-files.md`.
 """
 
 from __future__ import annotations
@@ -40,21 +42,21 @@ import os
 from pathlib import Path
 from typing import Optional
 
-from .onedrive import OneDriveProvider
+from .on_demand import OnDemandFilesProvider
 
 log = logging.getLogger(__name__)
 
 
-class NextCloudProvider(OneDriveProvider):
+class NextCloudProvider(OnDemandFilesProvider):
     """NextCloud Virtual Files (EXPERIMENTAL).
 
-    Overrides only `is_online_only` to use xattr / extension instead
-    of `st_blocks==0`. Reuses materialization via the HTTP daemon
-    from `OneDriveProvider`.
-    
+    Overrides placeholder detection and reuses provider-neutral
+    materialization. It has no vendor application restart behavior.
+
     """
 
     name = "nextcloud"
+    env_prefix = "NEXTCLOUD"
 
     XATTR_KEY = "user.nextcloud.is-virtual-file"
 
@@ -67,14 +69,8 @@ class NextCloudProvider(OneDriveProvider):
         max_concurrent_warmups: int = 2,
         placeholder_ext: Optional[str] = None,
     ) -> None:
-        warmup_url = warmup_url or os.environ.get("NEXTCLOUD_WARMUP_URL")
-        if warmup_timeout_s is None:
-            env = os.environ.get("NEXTCLOUD_WARMUP_TIMEOUT")
-            if env is not None:
-                warmup_timeout_s = float(env)
-        self.placeholder_ext = (
-            placeholder_ext
-            or os.environ.get("NEXTCLOUD_PLACEHOLDER_EXT", ".nc-virt")
+        self.placeholder_ext = placeholder_ext or os.environ.get(
+            "NEXTCLOUD_PLACEHOLDER_EXT", ".nc-virt"
         )
         super().__init__(
             warmup_url=warmup_url,
@@ -89,14 +85,12 @@ class NextCloudProvider(OneDriveProvider):
         container_path: Path,
         stat_result: Optional[os.stat_result] = None,
     ) -> bool:
-        """Detects a NextCloud placeholder by extension or xattr.
+        """Detect a modern File Provider or legacy Nextcloud placeholder."""
+        if super().is_online_only(container_path, stat_result):
+            return True
 
-        The `stat_result` parameter is ignored here — we don't use `st_blocks`,
-        so a previous stat doesn't provide useful info. We accept it to honor
-        the base contract.
-        
-        """
-        # Heuristic 1: extension. Configurable via NEXTCLOUD_PLACEHOLDER_EXT.
+        # Legacy heuristic 1: extension. Configurable via
+        # NEXTCLOUD_PLACEHOLDER_EXT.
         if container_path.suffix == self.placeholder_ext:
             return True
 

@@ -7,7 +7,7 @@ Usage:
     if provider.is_online_only(path):
         await provider.materialize(path)
 
-See `docs/dev_memory/directives/files_provider_abstraction.md`.
+See `docs/engineering/domains/vault-files.md`.
 """
 
 from __future__ import annotations
@@ -18,17 +18,21 @@ import threading
 from typing import Optional
 
 from .base import FilesProvider
+from .dropbox import DropboxProvider
 from .gdrive import GoogleDriveProvider
 from .icloud import iCloudDriveProvider
 from .local import LocalProvider
 from .nextcloud import NextCloudProvider
+from .on_demand import OnDemandFilesProvider
 from .onedrive import OneDriveProvider
 
 log = logging.getLogger(__name__)
 
 __all__ = [
     "FilesProvider",
+    "DropboxProvider",
     "LocalProvider",
+    "OnDemandFilesProvider",
     "OneDriveProvider",
     "iCloudDriveProvider",
     "GoogleDriveProvider",
@@ -40,7 +44,15 @@ _provider_instance: Optional[FilesProvider] = None
 _provider_lock = threading.Lock()
 
 
-_KNOWN_PROVIDERS = {"local", "onedrive", "icloud", "gdrive", "nextcloud"}
+_KNOWN_PROVIDERS = {
+    "local",
+    "fileprovider",
+    "onedrive",
+    "icloud",
+    "gdrive",
+    "nextcloud",
+    "dropbox",
+}
 
 
 def _detect_provider_name() -> str:
@@ -54,12 +66,14 @@ def _detect_provider_name() -> str:
        - contains "Mobile Documents"
          or "iCloud" (case-insens.)              → "icloud"
        - contains "Nextcloud" (case-insens.)     → "nextcloud"
+       - contains "Dropbox" (case-insens.)       → "dropbox"
+       - another macOS CloudStorage path          → "fileprovider"
        - otherwise                               → "local"
 
     The order of checks is deliberate — `OneDrive` comes first
     because it's the most common installation and has an exact match; the others
     are fallback heuristics.
-    
+
     """
     explicit = os.environ.get("GNOSI_FILES_PROVIDER", "").strip().lower()
     if explicit in _KNOWN_PROVIDERS:
@@ -84,6 +98,10 @@ def _detect_provider_name() -> str:
         return "icloud"
     if "nextcloud" in vault_host_lower:
         return "nextcloud"
+    if "dropbox" in vault_host_lower:
+        return "dropbox"
+    if "/library/cloudstorage/" in vault_host_lower:
+        return "fileprovider"
     return "local"
 
 
@@ -96,6 +114,10 @@ def _build_provider(name: str) -> FilesProvider:
         return GoogleDriveProvider()
     if name == "nextcloud":
         return NextCloudProvider()
+    if name == "dropbox":
+        return DropboxProvider()
+    if name == "fileprovider":
+        return OnDemandFilesProvider()
     if name == "local":
         return LocalProvider()
     raise ValueError(f"Proveïdor desconegut: {name!r}")

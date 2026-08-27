@@ -92,8 +92,13 @@ and can corrupt or fork the database.
 File-provider adapters separate ordinary filesystem behavior from hydration
 and availability. Reads catch transient per-file errors and continue when a
 partial response is meaningful. A partial scan is marked and must never be
-saved as a complete cache. Native OneDrive hydration uses a GUI-session helper
+saved as a complete cache. Native macOS hydration uses a GUI-session action
 because a LaunchAgent process may receive `EDEADLK` for online-only content.
+The hydration runtime is provider-neutral: OneDrive, iCloud Drive, Google
+Drive, Nextcloud and Dropbox have separate adapters and configuration prefixes.
+An unknown service mounted under macOS `~/Library/CloudStorage` uses the
+generic `fileprovider` adapter. Ordinary mounted or fully synchronized folders
+use local-filesystem behavior.
 
 ## Configuration ownership
 

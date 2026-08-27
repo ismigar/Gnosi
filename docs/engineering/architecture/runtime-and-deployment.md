@@ -101,7 +101,8 @@ maintainer inspects all platform artifacts.
 
 - Host-open helper: opening files, Spotlight-backed search, native pickers, and
   moving files to Trash without granting the container unrestricted host access.
-- OneDrive warmup: recovery and hydration of online-only placeholders.
+- Cloud-file helper: optional hydration of online-only placeholders. Any
+  vendor application recovery remains isolated to the matching adapter.
 - Native watchdog: detects failed native processes and restarts within its
   documented scope.
 
@@ -113,8 +114,9 @@ maintainer inspects all platform artifacts.
 - Native and Docker instances must not run concurrently on the same ports.
 - Backend source reload does not install changed Python dependencies.
 - Frontend hot reload does not replace a startup-injected build version.
-- Temporary worktrees need access to the existing development certificates for
-  valid HTTPS browser QA.
+- Browser QA must use the protocol advertised by the active Vite process. HTTP
+  is the native default; HTTPS requires the ignored local certificates or an
+  explicit `VITE_DEV_HTTPS=true` configuration.
 
 ## Health gates
 

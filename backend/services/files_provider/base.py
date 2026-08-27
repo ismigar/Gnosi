@@ -5,7 +5,7 @@ behind a uniform API, so product code doesn't need to
 know the details of each provider (OneDrive, GDrive File Stream,
 iCloud Drive, NextCloud, local vault, etc.).
 
-See `docs/dev_memory/directives/files_provider_abstraction.md`.
+See `docs/engineering/domains/vault-files.md`.
 """
 
 from __future__ import annotations
@@ -24,10 +24,11 @@ class FilesProvider(ABC):
     """Contract for a storage provider.
 
     Concrete implementations in `local.py`, `onedrive.py`, etc.
-    
+
     """
 
     name: str  # identificador curt: "local", "onedrive", ...
+    _warmup_tasks: Dict[str, asyncio.Task[None]]
 
     @abstractmethod
     def is_online_only(
@@ -46,7 +47,7 @@ class FilesProvider(ABC):
         avoid an additional stat() call. If not, the implementer will perform a
         new one; on error it returns False (we can't assert that it is
         online-only without the stat).
-        
+
         """
 
     @abstractmethod
@@ -58,7 +59,7 @@ class FilesProvider(ABC):
         error, file out of scope, etc.).
 
         For local-only providers, this is a no-op that returns True.
-        
+
         """
 
     def schedule_warmup(self, container_path: Path) -> None:
@@ -72,7 +73,11 @@ class FilesProvider(ABC):
         `<img>` tags for the same asset trigger a SINGLE download. Without an event loop
         running (sync context) it's a silent no-op."""
         key = str(container_path)
-        tasks: Dict[str, asyncio.Task] = getattr(self, "_warmup_tasks", None)
+        tasks: Optional[Dict[str, asyncio.Task[None]]] = getattr(
+            self,
+            "_warmup_tasks",
+            None,
+        )
         if tasks is None:
             tasks = self._warmup_tasks = {}
         existing = tasks.get(key)
@@ -85,7 +90,7 @@ class FilesProvider(ABC):
         task = loop.create_task(self._warmup_bg(container_path))
         tasks[key] = task
 
-        def _cleanup(t: asyncio.Task) -> None:
+        def _cleanup(t: asyncio.Task[None]) -> None:
             tasks.pop(key, None)
             if not t.cancelled():
                 t.exception()  # retrieves it to silence "exception never retrieved"
