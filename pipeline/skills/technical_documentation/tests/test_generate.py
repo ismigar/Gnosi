@@ -76,6 +76,56 @@ def test_route_module_combines_all_prefixes(tmp_path: Path) -> None:
     assert operations[0].summary == "Return one item."
 
 
+def test_route_module_follows_imported_router_registrars(tmp_path: Path) -> None:
+    """Injected-router registration remains visible in the API catalog."""
+    app_root = tmp_path / "gnosi"
+    api_root = app_root / "backend" / "api"
+    domain_root = app_root / "backend" / "domains" / "items"
+    api_root.mkdir(parents=True)
+    domain_root.mkdir(parents=True)
+    route_path = api_root / "sample_routes.py"
+    route_path.write_text(
+        "from fastapi import APIRouter, Depends\n"
+        "from backend.domains.items import api as items_api\n"
+        "router = APIRouter(prefix='/items', tags=['items'], "
+        "dependencies=[Depends(workspace)])\n"
+        "items_api.register_routes(router)\n",
+        encoding="utf-8",
+    )
+    domain_path = domain_root / "api.py"
+    domain_path.write_text(
+        "from fastapi import Depends\n"
+        "async def create_item(user=Depends(current_user)):\n"
+        "    '''Create one item.'''\n"
+        "    return user\n"
+        "def register_routes(router):\n"
+        "    router.add_api_route(\n"
+        "        '/dynamic', create_item, methods=['POST'],\n"
+        "        dependencies=[Depends(editor)],\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+    registration = RouterRegistration(
+        module="sample_routes",
+        prefix="/api",
+        tags=("Sample",),
+        line=10,
+    )
+
+    operations = parse_route_module(route_path, app_root, registration)
+
+    assert len(operations) == 1
+    assert operations[0].path == "/api/items/dynamic"
+    assert operations[0].method == "POST"
+    assert operations[0].handler == "create_item"
+    assert operations[0].module == "backend/domains/items/api.py"
+    assert operations[0].tags == ("Sample", "items")
+    assert operations[0].guards == (
+        "[Depends(workspace)], [Depends(editor)], Depends(current_user)"
+    )
+    assert operations[0].summary == "Create one item."
+
+
 def test_api_catalog_is_deterministic() -> None:
     """Repeated static inspection produces byte-identical API reference."""
     first = build_api_catalog(APP_ROOT)

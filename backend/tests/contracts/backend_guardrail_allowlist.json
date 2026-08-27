@@ -57,7 +57,7 @@
     },
     "backend/api/vault_routes.py": {
       "max_complexity": 62,
-      "max_lines": 20062,
+      "max_lines": 18912,
       "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
     },
     "backend/app/lifespan.py": {

@@ -4,10 +4,12 @@ last_verified: 2026-08-27
 source_paths:
   - backend/api/vault_routes.py
   - backend/api/vaults_routes.py
-  - backend/domains/vault
+  - backend/domains/vault/assets
+  - backend/domains/vault/files
+  - backend/domains/vault/pages
+  - backend/platform/files
   - backend/services/graph_service.py
   - backend/services/page_sidecar.py
-  - backend/services/files_provider
   - backend/services/vault_templates.py
   - backend/api/vault_templates_routes.py
   - frontend/src/pages/VaultDashboard.jsx
@@ -16,6 +18,8 @@ tests:
   - backend/tests/test_e2e_etag_concurrency.py
   - backend/tests/test_page_sidecar.py
   - backend/tests/test_files_provider.py
+  - backend/tests/test_vault_assets_files_containment.py
+  - backend/tests/test_vault_assets_files_route_contract.py
   - tests/e2e/tests/e2e/vault.spec.ts
 ---
 
@@ -56,9 +60,13 @@ destabilize portable content.
 ## Backend boundary
 
 Page reads and writes, previews, duplication, history, and trash are implemented
-under `backend/domains/vault`. This package separates strict request schemas,
-route adapters, application services, repositories, and the single owner of
-page caches and locks. New Vault behavior belongs in that domain boundary.
+under `backend/domains/vault/pages`, while asset uploads, icons and image
+serving live under `backend/domains/vault/assets`. Contained file serving,
+Library/raw/thumbnail routes, local-file tokens, property uploads, portable
+links and physical deletion live under `backend/domains/vault/files`. These
+packages separate strict request schemas, route adapters, application services,
+repositories, and the single owners of mutable locks, caches and token stores.
+New Vault behavior belongs in the corresponding domain boundary.
 
 `backend/api/vault_routes.py` remains a temporary compatibility and composition
 facade while the rest of the legacy router is split. It injects existing
@@ -107,6 +115,14 @@ Writes choose an allowed target under the active vault, normalize names, avoid
 collisions, and return portable metadata. File links are re-rooted at read time
 for the current host. Upload and delete operations validate containment; a
 client-provided path is never sufficient authorization.
+
+The assets/files route handlers are canonical domain exports. The legacy vault
+router registers them at their historical positions and injects narrow ports
+for registry lookups, path resolution and provider selection. It must not own a
+second local-token mapping, custom-icon lock or file-stream semaphore. Repeated
+`/local-file/{token}` decorators retain their original bottom-up route order,
+and every structural move must preserve streaming headers and the exact OpenAPI
+document.
 
 ## Trash and destructive operations
 

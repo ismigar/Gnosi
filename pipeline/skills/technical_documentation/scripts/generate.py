@@ -103,6 +103,15 @@ class RouteOperation:
 
 
 @dataclass(frozen=True)
+class RouterConfiguration:
+    """Describe static prefix, tags, and guards owned by an APIRouter."""
+
+    prefix: str = ""
+    tags: tuple[str, ...] = ()
+    guard: str = ""
+
+
+@dataclass(frozen=True)
 class EnvironmentReference:
     """Describe one environment-variable reference without exposing its value."""
 
@@ -381,6 +390,135 @@ def dependency_summary(function: ast.FunctionDef | ast.AsyncFunctionDef, call: a
     return ", ".join(dict.fromkeys(guards)) or "—"
 
 
+def router_configuration(tree: ast.Module) -> RouterConfiguration:
+    """Return configuration declared by the module's canonical router."""
+    for node in tree.body:
+        if not isinstance(node, ast.Assign):
+            continue
+        if not any(
+            isinstance(target, ast.Name) and target.id == "router" for target in node.targets
+        ):
+            continue
+        if not isinstance(node.value, ast.Call) or expression_name(node.value.func) != "APIRouter":
+            continue
+        dependency_node = keyword(node.value, "dependencies")
+        return RouterConfiguration(
+            prefix=constant_string(keyword(node.value, "prefix")),
+            tags=string_list(keyword(node.value, "tags")),
+            guard=(safe_unparse(dependency_node, limit=120) if dependency_node else ""),
+        )
+    return RouterConfiguration()
+
+
+def _top_level_call(node: ast.stmt) -> ast.Call | None:
+    """Return a call directly executed by one module-level statement."""
+    if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
+        return node.value
+    if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call):
+        return node.value
+    if isinstance(node, ast.AnnAssign) and isinstance(node.value, ast.Call):
+        return node.value
+    return None
+
+
+def _accepts_canonical_router(call: ast.Call) -> bool:
+    """Return whether a composition call receives the canonical router."""
+    if call.args and expression_name(call.args[0]) == "router":
+        return True
+    router_arg = keyword(call, "router")
+    return router_arg is not None and expression_name(router_arg) == "router"
+
+
+def _declares_added_router_routes(path: Path) -> bool:
+    """Return whether a module registers endpoints on an injected router."""
+    tree = ast.parse(read_text(path), filename=str(path))
+    return any(
+        isinstance(node, ast.Call) and expression_name(node.func) == "router.add_api_route"
+        for node in ast.walk(tree)
+    )
+
+
+def imported_router_registrars(path: Path, app_root: Path) -> list[Path]:
+    """Resolve imported modules that register routes on this module's router."""
+    tree = ast.parse(read_text(path), filename=str(path))
+    registrars: set[Path] = set()
+    for node in tree.body:
+        call = _top_level_call(node)
+        if call is None or not _accepts_canonical_router(call):
+            continue
+        owner = expression_name(call.func).partition(".")[0]
+        if not owner or owner in {"app", "router"}:
+            continue
+        target = _import_target(path, owner, app_root)
+        if target is not None and _declares_added_router_routes(target):
+            registrars.add(target)
+    return sorted(registrars)
+
+
+def parse_added_router_routes(
+    path: Path,
+    app_root: Path,
+    registration: RouterRegistration | None,
+    owner: RouterConfiguration,
+) -> list[RouteOperation]:
+    """Extract routes registered by a module onto an injected APIRouter."""
+    tree = ast.parse(read_text(path), filename=str(path))
+    functions = {
+        node.name: node
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    operations: list[RouteOperation] = []
+    for call in (node for node in ast.walk(tree) if isinstance(node, ast.Call)):
+        if expression_name(call.func) != "router.add_api_route" or len(call.args) < 2:
+            continue
+        route_path = constant_string(call.args[0], "<dynamic-path>")
+        handler_name = expression_name(call.args[1]) or "<dynamic-handler>"
+        methods = string_list(keyword(call, "methods")) or ("ANY",)
+        handler = functions.get(handler_name)
+        dependencies = keyword(call, "dependencies")
+        guards = (
+            dependency_summary(handler, call)
+            if handler is not None
+            else safe_unparse(dependencies, limit=120)
+            if dependencies
+            else "—"
+        )
+        if owner.guard:
+            guards = owner.guard if guards == "—" else f"{owner.guard}, {guards}"
+        tags = tuple(
+            dict.fromkeys(
+                [
+                    *(registration.tags if registration else ()),
+                    *owner.tags,
+                    *string_list(keyword(call, "tags")),
+                ]
+            )
+        )
+        for method in methods:
+            operations.append(
+                RouteOperation(
+                    method=method.upper(),
+                    path=join_url_paths(
+                        registration.prefix if registration else "",
+                        owner.prefix,
+                        route_path,
+                    ),
+                    handler=handler_name,
+                    module=relative_posix(path, app_root),
+                    line=call.lineno,
+                    tags=tags,
+                    guards=guards,
+                    summary=(
+                        first_doc_line(handler, handler_name)
+                        if handler is not None
+                        else handler_name.replace("_", " ").capitalize()
+                    ),
+                )
+            )
+    return operations
+
+
 def parse_route_module(
     path: Path,
     app_root: Path,
@@ -389,21 +527,7 @@ def parse_route_module(
     """Extract route operations from one Python module."""
     text = read_text(path)
     tree = ast.parse(text, filename=str(path))
-    router_prefix = ""
-    router_tags: tuple[str, ...] = ()
-    router_guard = ""
-
-    for node in tree.body:
-        if not isinstance(node, ast.Assign):
-            continue
-        if not any(isinstance(target, ast.Name) and target.id == "router" for target in node.targets):
-            continue
-        if not isinstance(node.value, ast.Call) or expression_name(node.value.func) != "APIRouter":
-            continue
-        router_prefix = constant_string(keyword(node.value, "prefix"))
-        router_tags = string_list(keyword(node.value, "tags"))
-        dependency_node = keyword(node.value, "dependencies")
-        router_guard = safe_unparse(dependency_node, limit=120) if dependency_node else ""
+    configuration = router_configuration(tree)
 
     operations: list[RouteOperation] = []
     for node in tree.body:
@@ -421,20 +545,26 @@ def parse_route_module(
                 dict.fromkeys(
                     [
                         *(registration.tags if registration else ()),
-                        *router_tags,
+                        *configuration.tags,
                         *string_list(keyword(decorator, "tags")),
                     ]
                 )
             )
             guards = dependency_summary(node, decorator)
-            if router_guard:
-                guards = router_guard if guards == "—" else f"{router_guard}, {guards}"
+            if configuration.guard:
+                guards = (
+                    configuration.guard if guards == "—" else f"{configuration.guard}, {guards}"
+                )
             source = relative_posix(path, app_root)
             for method in methods:
                 operations.append(
                     RouteOperation(
                         method=method,
-                        path=join_url_paths(registration_prefix, router_prefix, route_path),
+                        path=join_url_paths(
+                            registration_prefix,
+                            configuration.prefix,
+                            route_path,
+                        ),
                         handler=node.name,
                         module=source,
                         line=node.lineno,
@@ -443,6 +573,15 @@ def parse_route_module(
                         summary=first_doc_line(node, node.name),
                     )
                 )
+    for registrar_path in imported_router_registrars(path, app_root):
+        operations.extend(
+            parse_added_router_routes(
+                registrar_path,
+                app_root,
+                registration,
+                configuration,
+            )
+        )
     return operations
 
 

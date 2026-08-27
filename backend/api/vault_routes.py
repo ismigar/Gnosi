@@ -42,7 +42,7 @@ except Exception:
     Image = None
 from backend.config.app_config import load_params
 from backend.config.data_dir import resolve_data_dir
-from backend.config.env_config import default_host_helper_url
+from backend.config.env_config import default_host_helper_url, default_thumb_daemon_url
 from backend.services.content_revision import path_collection_revision
 from backend.services.rule_engine import RuleEngine
 log = logging.getLogger(__name__)
@@ -467,6 +467,20 @@ def _hidden_calendar_event_ids() -> set[str]:
     return {str(value) for value in _get_hidden_event_ids()}
 
 
+from backend.domains.vault.assets import api as assets_api
+from backend.domains.vault.assets import service as assets_service
+from backend.domains.vault.assets.schemas import CustomIconsRequest, IconUrlImportRequest
+from backend.domains.vault.assets.state import CustomIconStore, normalize_custom_icons
+from backend.domains.vault.files import api as files_api
+from backend.domains.vault.files import host_trash as file_host_trash
+from backend.domains.vault.files import local_service as file_local_service
+from backend.domains.vault.files import property_service as property_file_service
+from backend.domains.vault.files import serving as file_serving
+from backend.domains.vault.files.state import LocalLinkStore, file_serving_state
+from backend.domains.vault.files import thumbnails as file_thumbnails
+from backend.domains.vault.files.thumbnails import ThumbnailDependencies
+
+
 def _table_by_id(table_id: str) -> Optional[dict]:
     """Return one table through the canonical registry domain."""
     return registry_api.table_by_id(table_id, registry_api_dependencies)
@@ -658,42 +672,9 @@ class OpenResourceRequest(BaseModel):
     attachments: Optional[object] = None
 
 
-class CustomIconsRequest(BaseModel):
-    icons: List[str] = []
-
-
-class IconUrlImportRequest(BaseModel):
-    url: str
-
-
 class LinkMentionsRequest(BaseModel):
     target_id: str
     source_id: Optional[str] = None
-
-
-def _normalize_custom_icons(values: Any, limit: int = 100) -> List[str]:
-    if not isinstance(values, list):
-        return []
-
-    seen = set()
-    normalized: List[str] = []
-
-    for raw in values:
-        if not isinstance(raw, str):
-            continue
-        icon = raw.strip()
-        if not icon or len(icon) > 2048:
-            continue
-        if icon in seen:
-            continue
-
-        seen.add(icon)
-        normalized.append(icon)
-
-        if len(normalized) >= limit:
-            break
-
-    return normalized
 
 
 # RuleEngine becomes a dictionary to store an instance for each vault_path (cache)
@@ -714,7 +695,7 @@ def get_rule_engine():
 
 # Instead of a global constant, we use a function
 def get_custom_icons_path():
-    return get_p("CUSTOM_ICONS")
+    return assets_api.get_custom_icons_path()
 
 _table_recalc_lock = threading.Lock()
 _table_recalc_state = {}
@@ -1041,145 +1022,36 @@ def preload_page_index_from_disk(v_path: Path) -> bool:
         return False
     return _load_page_index_from_disk(str(v_path))
 
-_custom_icons_lock = threading.Lock()
+_normalize_custom_icons = normalize_custom_icons
 
 def _load_custom_icons() -> List[str]:
-    with _custom_icons_lock:
-        try:
-            path = get_custom_icons_path()
-            if not path.exists():
-                return []
-
-            raw = json.loads(path.read_text(encoding="utf-8"))
-            return _normalize_custom_icons(raw, limit=100)
-        except Exception:
-            return []
+    return assets_api._load_custom_icons()
 
 
 def _save_custom_icons(values: List[str]) -> List[str]:
-    normalized = _normalize_custom_icons(values, limit=100)
-
-    with _custom_icons_lock:
-        try:
-            path = get_custom_icons_path()
-            path.parent.mkdir(parents=True, exist_ok=True)
-            safe_write_json(path, normalized, indent=2, ensure_ascii=False)
-        except Exception as exc:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Could not save custom icons: {exc}",
-            )
-
-    return normalized
+    return assets_api._save_custom_icons(values)
 
 
 def _is_image_upload(file: UploadFile) -> bool:
-    content_type = str(file.content_type or "").strip().lower()
-    if content_type.startswith("image/"):
-        return True
-
-    guessed_type, _ = mimetypes.guess_type(file.filename or "")
-    return bool(guessed_type and guessed_type.startswith("image/"))
+    return assets_api._is_image_upload(file)
 
 
 def _upload_image_to_assets_subdir(file: UploadFile, subdir: str) -> Dict[str, str]:
-    if not _is_image_upload(file):
-        raise HTTPException(status_code=400, detail="Uploaded file must be an image")
-
-    target_path = get_p("ASSETS") / subdir
-    target_path.mkdir(parents=True, exist_ok=True)
-
-    try:
-        relative_path = _save_uploaded_file_to_assets(file, target_path)
-    except Exception as e:
-        log.error(f"Error uploading image to {subdir}: {e}")
-        raise HTTPException(status_code=500, detail="Could not save image")
-
-    url = f"/api/vault/assets/{relative_path[len('Assets/') :]}"
-    return {"url": url, "path": relative_path}
+    return assets_api._upload_image_to_assets_subdir(file, subdir)
 
 
 def _normalize_icon_extension(filename: str, content_type: str) -> str:
-    ext = (Path(filename or "").suffix or "").strip().lower()
-    if ext in {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".svg"}:
-        return ".jpg" if ext == ".jpeg" else ext
-
-    ctype = str(content_type or "").split(";")[0].strip().lower()
-    mapped = {
-        "image/jpeg": ".jpg",
-        "image/jpg": ".jpg",
-        "image/png": ".png",
-        "image/webp": ".webp",
-        "image/gif": ".gif",
-        "image/bmp": ".bmp",
-        "image/svg+xml": ".svg",
-    }.get(ctype)
-    return mapped or ".png"
+    return assets_api._normalize_icon_extension(filename, content_type)
 
 
 def _store_icon_bytes(
     payload: bytes, source_name: str, content_type: str
 ) -> Dict[str, Optional[str]]:
-    if not payload:
-        raise HTTPException(status_code=400, detail="Empty icon payload")
-
-    icons_dir = get_p("ASSETS") / "Icons"
-    icons_dir.mkdir(parents=True, exist_ok=True)
-
-    digest = hashlib.sha256(payload).hexdigest()[:12]
-    ext = _normalize_icon_extension(source_name, content_type)
-    filename = f"icon-{digest}{ext}"
-    icon_path = icons_dir / filename
-
-    if not icon_path.exists():
-        safe_write_bytes(icon_path, payload)
-
-    # Thumbnail generation moved to background task in the route
-    
-    icon_rel = str(icon_path.relative_to(get_p("VAULT"))).replace("\\", "/")
-
-    # Thumbnail generation has been moved to a background task on the route;
-    # here the response leaves it as None (previously there was a block that referenced
-    # `thumbnail_rel`, a variable that no longer exists → NameError when saving the
-    # icon).
-    response = {
-        "url": f"/api/vault/assets/{icon_rel[len('Assets/') :]}",
-        "path": icon_rel,
-        "thumbnail_url": None,
-        "thumbnail_path": None,
-    }
-
-    return response
+    return assets_api._store_icon_bytes(payload, source_name, content_type)
 
 
 def _maybe_create_icon_thumbnail(icon_path: Path, digest: str) -> Optional[str]:
-    if Image is None:
-        return None
-
-    # Raster-only thumbnails; skip vectors such as SVG.
-    if icon_path.suffix.lower() == ".svg":
-        return None
-
-    try:
-        with Image.open(icon_path) as img:
-            width, height = img.size
-            if max(width, height) <= 256:
-                return None
-
-            side = min(width, height)
-            left = (width - side) // 2
-            top = (height - side) // 2
-            cropped = img.crop((left, top, left + side, top + side))
-            thumb = cropped.resize((128, 128), Image.LANCZOS)
-
-            thumbs_dir = get_p("ASSETS") / "Icons" / "Thumbnails"
-            thumbs_dir.mkdir(parents=True, exist_ok=True)
-            thumb_path = thumbs_dir / f"icon-{digest}-thumb.png"
-
-            thumb.save(thumb_path, format="PNG")
-            return str(thumb_path.relative_to(get_p("VAULT"))).replace("\\", "/")
-    except Exception:
-        return None
+    return assets_api._maybe_create_icon_thumbnail(icon_path, digest)
 
 
 def _normalize_resource_title(value: str) -> str:
@@ -10814,60 +10686,130 @@ purge_trash_entry = trash_api.purge_trash_entry
 purge_expired_trash = trash_api.purge_expired_trash
 
 
-@router.post("/upload-cover", dependencies=[Depends(require_role("editor"))])
-async def upload_cover(file: UploadFile = File(...)):
-    """Uploads an image to the Assets/Covers folder and returns the URL."""
-    # Offload the blocking write to a worker thread (see upload_asset) so a cold
-    # OneDrive folder can't freeze the event loop during materialization.
-    return await asyncio.to_thread(_upload_image_to_assets_subdir, file, "Covers")
-
-
-@router.post("/upload-icon", dependencies=[Depends(require_role("editor"))])
-async def upload_icon(
-    background_tasks: BackgroundTasks,
-    file: UploadFile = File(...)
-):
-    """Uploads an image to the Assets/Icons folder and returns the URL."""
-    if not _is_image_upload(file):
-        raise HTTPException(status_code=400, detail="Uploaded file must be an image")
-
-    log.debug(f"upload_icon: START {file.filename} ({file.content_type})")
-    try:
-        payload = await file.read()
-        log.debug(f"upload_icon: READ {len(payload)} bytes")
-
-        if len(payload) > 10 * 1024 * 1024:
-            raise HTTPException(status_code=413, detail="Icon is too large (max 10MB)")
-
-        icons_dir = get_p("ASSETS") / "Icons"
-        icons_dir.mkdir(parents=True, exist_ok=True)
-        digest = hashlib.sha256(payload).hexdigest()[:12]
-        ext = _normalize_icon_extension(file.filename or "", file.content_type or "")
-        filename = f"icon-{digest}{ext}"
-        icon_path = icons_dir / filename
-        
-        if not icon_path.exists():
-            safe_write_bytes(icon_path, payload)
-            log.debug(f"upload_icon: SAVED {icon_path}")
-        else:
-            log.debug(f"upload_icon: EXISTS {icon_path}")
-
-        # Schedule thumbnail creation in the background
-        background_tasks.add_task(_maybe_create_icon_thumbnail, icon_path, digest)
-
-        icon_rel = str(icon_path.relative_to(get_p("VAULT"))).replace("\\", "/")
-        result = {
-            "url": f"/api/vault/assets/{icon_rel[len('Assets/') :]}",
-            "path": icon_rel,
-            "thumbnail_url": None,
-            "thumbnail_path": None,
-        }
-
-        log.debug(f"upload_icon: FINISH URL {result.get('url')}")
-        return result
-    except Exception as e:
-        log.error(f"upload_icon: FATAL {str(e)}")
-        raise
+_LOCAL_LINK_STORE = LocalLinkStore(resolve_data_dir)
+_PROPERTY_FILE_DEPENDENCIES = property_file_service.PropertyFileDependencies(
+    get_path=lambda key: get_p(key),
+    load_registry=lambda: load_registry(),
+    resolve_table=lambda table_id, registry: _resolve_table_and_database_for_assets(
+        table_id,
+        registry,
+    ),
+    find_property=lambda table, name: _find_table_property(table, name),
+    property_config_value=lambda prop, key: _property_config_value(prop, key),
+    property_assets_dir=lambda table, database, name: _property_assets_dir(
+        table,
+        database,
+        name,
+    ),
+    sanitize_filename=lambda value: _sanitize_filename_base(value),
+    sanitize_segment=lambda value, fallback: _sanitize_asset_segment(
+        value,
+        fallback,
+    ),
+    active_vault_path=lambda: get_active_vault_path(),
+    library_roots=lambda vault: _library_roots(vault),
+)
+_LOCAL_FILE_DEPENDENCIES = file_local_service.LocalFileDependencies(
+    store=_LOCAL_LINK_STORE,
+    resolve_target=lambda raw: _resolve_stored_file_target(raw),
+    materialize=lambda path, label: _ensure_materialized_or_503(path, label),
+    classify_kind=lambda extension: media_service.classify_kind(extension),
+    get_path=lambda key: get_p(key),
+    provider=get_files_provider,
+)
+_LINK_FILE_DEPENDENCIES = file_local_service.LinkFileDependencies(
+    resolve_target=lambda raw: _resolve_stored_file_target(raw),
+    materialize=lambda path, label: _ensure_materialized_or_503(path, label),
+    sanitize_filename=lambda value: _sanitize_filename_base(value),
+    library_roots=lambda vault: _library_roots(vault),
+    active_vault_path=lambda: get_active_vault_path(),
+    get_path=lambda key: get_p(key),
+    host_home_path=lambda: _host_home_path(),
+)
+_DELETE_FILE_DEPENDENCIES = file_local_service.DeleteFileDependencies(
+    store=_LOCAL_LINK_STORE,
+    get_path=lambda key: get_p(key),
+    expand_host_tilde=lambda value: _expand_host_tilde(value),
+    reroot_attachment=lambda value: _reroot_attachment_under_current_host(value),
+    move_to_trash=lambda target: file_host_trash.try_host_trash_helper(
+        target,
+        helper_url=_HOST_TRASH_HELPER_URL,
+    ),
+)
+_THUMBNAIL_DEPENDENCIES = ThumbnailDependencies(
+    get_path=lambda key: get_p(key),
+    provider=get_files_provider,
+    daemon_url=lambda: _THUMB_DAEMON_URL,
+    daemon_timeout=lambda: _THUMB_DAEMON_TIMEOUT,
+)
+files_api.configure(
+    files_api.FileApiDependencies(
+        get_path=lambda key: get_p(key),
+        active_vault_path=lambda: get_active_vault_path(),
+        library_roots=lambda vault: _library_roots(vault),
+        provider=get_files_provider,
+        serving_state=file_serving_state,
+        local_files=_LOCAL_FILE_DEPENDENCIES,
+        link_files=_LINK_FILE_DEPENDENCIES,
+        delete_files=_DELETE_FILE_DEPENDENCIES,
+        property_files=_PROPERTY_FILE_DEPENDENCIES,
+        thumbnails=_THUMBNAIL_DEPENDENCIES,
+    )
+)
+_CUSTOM_ICON_STORE = CustomIconStore(
+    path_provider=lambda: get_p("CUSTOM_ICONS"),
+    json_writer=lambda path, value: safe_write_json(
+        path,
+        value,
+        indent=2,
+        ensure_ascii=False,
+    ),
+)
+_ASSET_SERVICE_DEPENDENCIES = assets_service.AssetDependencies(
+    get_path=lambda key: get_p(key),
+    save_uploaded_asset=lambda upload, target, name: _save_uploaded_file_to_assets(
+        upload,
+        target,
+        name,
+    ),
+    load_registry=lambda: load_registry(),
+    resolve_table=lambda table_id, registry: _resolve_table_and_database_for_assets(
+        table_id,
+        registry,
+    ),
+    table_assets_dir=lambda table, database: _table_assets_dir(table, database),
+    safe_write_bytes=lambda path, payload: safe_write_bytes(path, payload),
+    validate_external_url=lambda url: _is_safe_external_url(url),
+)
+assets_api.configure(
+    assets_api.AssetApiDependencies(
+        service=_ASSET_SERVICE_DEPENDENCIES,
+        custom_icons=_CUSTOM_ICON_STORE,
+        materialize=lambda path, label: _materialize_if_online_only(path, label),
+        serve_contained=lambda root, rel: files_api._serve_file_with_containment(
+            root,
+            rel,
+        ),
+        serve_image=lambda vault, rel: file_serving.serve_vault_image(
+            vault,
+            rel,
+            state=file_serving_state,
+            provider=get_files_provider(),
+        ),
+    )
+)
+assets_api.register_primary_routes(
+    router,
+    editor_dependencies=[Depends(require_role("editor"))],
+)
+upload_cover = assets_api.upload_cover
+upload_icon = assets_api.upload_icon
+import_icon_from_url = assets_api.import_icon_from_url
+upload_asset = assets_api.upload_asset
+get_asset = assets_api.get_asset
+_custom_icons_lock = _CUSTOM_ICON_STORE.lock
+_LOCAL_LINKS_LOCK = _LOCAL_LINK_STORE.lock
+_VAULT_IMAGE_SEMAPHORE = file_serving_state.semaphore
 
 
 def _is_safe_external_url(url: str) -> tuple[bool, str]:
@@ -10902,115 +10844,6 @@ def _is_safe_external_url(url: str) -> tuple[bool, str]:
                 or ip.is_multicast or ip.is_reserved or ip.is_unspecified):
             return False, f"Host resolves to a non-public address ({ip})"
     return True, ""
-
-
-@router.post("/import-icon-url", dependencies=[Depends(require_role("editor"))])
-async def import_icon_from_url(request: IconUrlImportRequest):
-    """Downloads an external icon URL and stores it in Assets/Icons."""
-    url = str(request.url or "").strip()
-    if not url:
-        raise HTTPException(status_code=400, detail="URL is required")
-
-    if not re.match(r"^https?://", url, re.IGNORECASE):
-        raise HTTPException(status_code=400, detail="URL must be http(s)")
-
-    # SSRF guard — block loopback, RFC1918 private ranges, cloud metadata
-    # (169.254.169.254), n8n/redis on the docker network, etc.
-    ok, reason = _is_safe_external_url(url)
-    if not ok:
-        raise HTTPException(status_code=400, detail=f"Refusing to fetch URL: {reason}")
-
-    try:
-        # Wrap blocking requests.get in a thread to avoid stalling the loop
-        response = await asyncio.to_thread(
-            requests.get, url, timeout=12, stream=True
-        )
-        response.raise_for_status()
-    except HTTPException:
-        raise
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail=f"Could not fetch icon URL: {exc}")
-
-    content_type = str(response.headers.get("Content-Type") or "").split(";")[0].lower()
-    if not content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="URL does not point to an image")
-
-    max_size = 10 * 1024 * 1024
-    chunks = []
-    total = 0
-    try:
-        for chunk in response.iter_content(chunk_size=64 * 1024):
-            if not chunk:
-                continue
-            total += len(chunk)
-            if total > max_size:
-                raise HTTPException(status_code=413, detail="Icon is too large (max 10MB)")
-            chunks.append(chunk)
-    finally:
-        response.close()
-
-    payload = b"".join(chunks)
-    source_name = Path(urllib.parse.urlparse(url).path).name or "remote-icon"
-    return _store_icon_bytes(payload, source_name, content_type)
-
-
-@router.post("/assets/upload", dependencies=[Depends(require_role("editor"))])
-async def upload_asset(
-    file: UploadFile = File(...),
-    table_id: Optional[str] = Query(None),
-    target_name: Optional[str] = Query(None),
-):
-    """Uploads an image or PDF to Assets/Inline or Assets/Files and returns the URL.
-    If table_id is given, saves to Assets/<DB>/<Table>/Inline/ or .../Files/.
-    `target_name` (optional): already-interpolated base name (e.g. "{title} {index}")
-    to rename the file on disk with; if missing, the original name is used.
-    
-    """
-    is_image = _is_image_upload(file)
-    subdir = "Inline" if is_image else "Files"
-
-    if table_id:
-        registry = load_registry()
-        table, database = _resolve_table_and_database_for_assets(table_id, registry)
-        if table:
-            target_dir = _table_assets_dir(table, database) / subdir
-        else:
-            target_dir = get_p("ASSETS") / subdir
-    else:
-        target_dir = get_p("ASSETS") / subdir
-
-    try:
-        # Offload the blocking write to a worker thread. On a cold OneDrive
-        # subtree the mkdir + copy can block for tens of seconds while the folder
-        # materializes; doing it inline on the event loop freezes the whole
-        # backend (every other request stalls until the loop is released).
-        # asyncio.to_thread propagates the active-vault contextvar, so the
-        # get_p("VAULT") inside _save_uploaded_file_to_assets still resolves the
-        # correct vault from the worker thread.
-        relative_path = await asyncio.to_thread(
-            _save_uploaded_file_to_assets, file, target_dir, target_name or ""
-        )
-    except Exception as e:
-        log.error(f"Error uploading asset: {e}")
-        raise HTTPException(status_code=500, detail="Could not save file")
-    url = f"/api/vault/assets/{relative_path[len('Assets/'):]}"
-    return {"url": url, "path": relative_path, "is_image": is_image}
-
-
-@router.get("/assets/{asset_path:path}")
-async def get_asset(asset_path: str):
-    """Serves files from the Vault Assets directory.
-
-    Delegates to `_serve_file_with_containment` to inherit the OneDrive
-    warmup pattern — without this, online-only files under `Assets/` (e.g. the
-    custom icons in `Assets/Icons/`) were served with HTTP 200 and a 0-byte
-    body the first time they were requested, and the `<img>` tags were left
-    broken on the frontend.
-    
-    """
-    if not get_p("ASSETS"):
-        raise HTTPException(status_code=500, detail="Assets path is not configured")
-    return await _serve_file_with_containment(get_p("ASSETS"), asset_path)
 
 
 # --- Media Manager (ADVANCED ARCHIVE) ---
@@ -11190,7 +11023,7 @@ async def delete_media_view(view_id: str):
 # cloud-on-demand (OneDrive/iCloud File Provider) and each file is
 # materialized separately. With HTTP/1.1 the browser already limits it to ~6
 # per host, but more serialization is needed to avoid chaining errors.
-_VAULT_IMAGE_SEMAPHORE = asyncio.Semaphore(3)
+_VAULT_IMAGE_SEMAPHORE = file_serving_state.semaphore
 
 # The detection + materialization of cloud-on-demand files lives in
 # `backend.platform.files`. The instance (OneDriveProvider or
@@ -11202,144 +11035,15 @@ _NO_STORE_HEADERS = {"Cache-Control": "no-store, must-revalidate"}
 
 
 def _image_error(status: int, detail: str, retry_after: Optional[int] = None) -> HTTPException:
-    """Returns an HTTPException with `no-store` headers to prevent the browser
-    from persisting transient errors (warmup in progress, timeouts) and giving up on
-    re-requesting the image. Without this, the 410/503s stayed in Chrome's
-    disk cache and photos appeared as 'Not downloaded' indefinitely.
-
-    `retry_after` adds the `Retry-After` header (seconds) for warmup 503s:
-    it tells well-behaved clients when to retry while the
-    background download continues.
-    
-    """
-    headers = _NO_STORE_HEADERS
-    if retry_after is not None:
-        headers = {**_NO_STORE_HEADERS, "Retry-After": str(retry_after)}
-    return HTTPException(status_code=status, detail=detail, headers=headers)
+    return file_serving.image_error(status, detail, retry_after)
 
 
 def _onedrive_read_failure_hint(err: OSError) -> str:
-    """Actionable hint for the log when an OneDrive on-access read fails.
-
-    errno 1 (Operation not permitted) when reading a dataless placeholder means
-    the PROCESS doesn't have Full Disk Access — natively, it must be granted to
-    the actual Python binary in the venv (the one running uvicorn), followed by a
-    backend restart. Without this hint, the generic "Read failed" led to looking
-    toward OneDrive (errno 35/11) when the cause was actually macOS permissions
-    (diagnosed 2026-07-06: Photos stuck at 503 permanently with the 'direct' warmup
-    properly configured).
-    
-    """
-    if getattr(err, "errno", None) == 1:
-        return (
-            " — errno 1 = el procés NO té Full Disk Access; concedeix-lo al "
-            "binari Python del venv del backend (Configuració del Sistema → "
-            "Privadesa i seguretat → Accés total al disc) i reinicia el backend"
-        )
-    return ""
+    return file_serving.read_failure_hint(err)
 
 
-@router.get("/images/{image_path:path}")
-async def serve_vault_image(image_path: str):
-    """Serves images directly from VAULT/Images."""
-    v_path = get_p("VAULT")
-    if not v_path:
-        raise _image_error(500, "Vault not configured")
-
-    img_root = (v_path / "Images").resolve()
-
-    # Decode the path in case it comes with extra escaped characters
-    from urllib.parse import unquote
-    decoded_path = unquote(image_path)
-
-    requested = (img_root / decoded_path).resolve()
-
-    # Robust security validation
-    try:
-        # is_relative_to is available in Python 3.9+
-        if not requested.is_relative_to(img_root):
-            log.warning(f"⛔ Attempted access outside the media root: {requested} (root: {img_root})")
-            raise _image_error(403, "Access denied")
-    except (ValueError, AttributeError):
-        # Fallback for earlier versions or resolution errors
-        if not str(requested).startswith(str(img_root)):
-            log.warning(f"⛔ Fallback startswith: access denied for {requested}")
-            raise _image_error(403, "Access denied")
-
-    if not requested.exists() or not requested.is_file():
-        log.error(f"❌ Image not found on disk: {requested}")
-        raise _image_error(404, "Image not found")
-
-    # Detection of OneDrive online-only files: logical size > 0 but st_blocks == 0
-    # → they are not materialized on local disk. Reading them via a Docker bind-mount
-    # causes Errno 35 (Resource deadlock avoided). Retrying makes no sense: the
-    # user needs to mark them "Always keep on this device" in OneDrive.
-    try:
-        st = requested.stat()
-    except OSError as e:
-        log.warning(f"stat() failed for {requested}: {e}")
-        raise _image_error(503, "Image temporarily unavailable")
-
-    if st.st_size == 0:
-        log.warning(f"☁️ Placeholder file detected (0 bytes): {requested}. Download it from OneDrive.")
-        raise _image_error(404, "Image is an empty placeholder (OneDrive)")
-
-    provider = get_files_provider()
-    if provider.is_online_only(requested, st):
-        # Online-only: we do NOT block the request until OneDrive downloads the file
-        # (it can take tens of seconds and, natively, the download is done by a
-        # GUI app in the session via LaunchServices). We kick off materialization in the
-        # background and we respond with 503 immediately; the client (RetryableImage)
-        # retries with backoff until a request finds the file already on disk.
-        provider.schedule_warmup(requested)
-        log.info(f"☁️ Background warmup started for {requested} (503 pending)")
-        raise _image_error(503, "Image warming up; retry shortly", retry_after=3)
-
-    async with _VAULT_IMAGE_SEMAPHORE:
-        # Warm-up: open(1 byte) to stabilize the read before the
-        # FileResponse. Retries for Errno 35 (Resource deadlock avoided) with
-        # exponential backoff. Pattern used in _read_frontmatter_partial.
-        last_error: Optional[OSError] = None
-        for attempt in range(5):
-            try:
-                with open(requested, "rb") as f:
-                    f.read(1)
-                last_error = None
-                break
-            except OSError as e:
-                last_error = e
-                if e.errno == 35 and attempt < 4:
-                    await asyncio.sleep(0.2 * (2 ** attempt))
-                    continue
-                break
-
-        if last_error is not None:
-            log.warning(
-                f"☁️ Read failed after retries for {requested}: "
-                f"{last_error}{_onedrive_read_failure_hint(last_error)}"
-            )
-            raise _image_error(503, "Image temporarily unavailable")
-
-        media_type, _ = mimetypes.guess_type(str(requested))
-        if not media_type:
-            ext = requested.suffix.lower()
-            media_type = {
-                ".jpg": "image/jpeg",
-                ".jpeg": "image/jpeg",
-                ".png": "image/png",
-                ".webp": "image/webp",
-                ".gif": "image/gif",
-                ".svg": "image/svg+xml"
-            }.get(ext, "application/octet-stream")
-
-        # Short cache in the browser for files served OK; errors are never
-        # cache it (see _image_error) to prevent a cloud-only file
-        # stays marked as 'Not downloaded' permanently.
-        return FileResponse(
-            path=str(requested),
-            media_type=media_type,
-            headers={"Cache-Control": "public, max-age=300"},
-        )
+assets_api.register_image_route(router)
+serve_vault_image = assets_api.serve_vault_image
 
 
 # --- File servers for the multi-root roots ---
@@ -11354,105 +11058,18 @@ async def serve_vault_image(image_path: str):
 # long because PDFs and videos can be updated in place.
 
 async def _serve_file_with_containment(root_dir: Path, rel_path: str) -> FileResponse:
-    if not root_dir or not root_dir.exists():
-        raise HTTPException(status_code=404, detail="Root directory not available")
-    try:
-        root_resolved = root_dir.resolve()
-        requested = (root_dir / rel_path).resolve()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid path")
-
-    try:
-        if not requested.is_relative_to(root_resolved):
-            raise HTTPException(status_code=403, detail="Access denied")
-    except AttributeError:
-        if not str(requested).startswith(str(root_resolved) + os.sep) and requested != root_resolved:
-            raise HTTPException(status_code=403, detail="Access denied")
-
-    if not requested.exists() or not requested.is_file():
-        raise HTTPException(status_code=404, detail="File not found")
-
-    # Same OneDrive online-only protection as `/images/`: without this,
-    # FileResponse fails with Errno 35 (Resource deadlock avoided) for any
-    # vault file not materialized on local disk. It mainly affects
-    # `/raw/` (root=vault) where most files come from OneDrive.
-    try:
-        st = requested.stat()
-    except OSError as e:
-        log.warning(f"stat() failed for {requested}: {e}")
-        raise HTTPException(status_code=503, detail="File temporarily unavailable")
-
-    if st.st_size == 0:
-        raise HTTPException(status_code=404, detail="File is an empty placeholder (OneDrive)")
-
-    provider = get_files_provider()
-    if provider.is_online_only(requested, st):
-        await provider.materialize(requested)
-        try:
-            st = requested.stat()
-        except OSError as e:
-            log.warning(f"stat() failed after warmup for {requested}: {e}")
-            raise HTTPException(status_code=503, detail="File temporarily unavailable")
-        if provider.is_online_only(requested, st):
-            log.warning(f"☁️ Online-only file has not been downloaded yet: {requested}")
-            raise HTTPException(status_code=503, detail="File temporarily unavailable; warmup pending")
-
-    async with _VAULT_IMAGE_SEMAPHORE:
-        last_error: Optional[OSError] = None
-        for attempt in range(5):
-            try:
-                with open(requested, "rb") as f:
-                    f.read(1)
-                last_error = None
-                break
-            except OSError as e:
-                last_error = e
-                if e.errno == 35 and attempt < 4:
-                    await asyncio.sleep(0.2 * (2 ** attempt))
-                    continue
-                break
-
-        if last_error is not None:
-            log.warning(
-                f"☁️ Read failed after retries for {requested}: "
-                f"{last_error}{_onedrive_read_failure_hint(last_error)}"
-            )
-            raise HTTPException(status_code=503, detail="File temporarily unavailable")
-
-        media_type, _ = mimetypes.guess_type(str(requested))
-        return FileResponse(
-            path=str(requested),
-            media_type=media_type,
-            headers={"Cache-Control": "public, max-age=300"},
-        )
+    return await files_api._serve_file_with_containment(root_dir, rel_path)
 
 
-@router.get("/library/{rel_path:path}")
-async def serve_library_file(rel_path: str):
-    """Serves Library with vault-first resolution and fallback to the legacy (sibling) one:
-    old `/api/vault/library/<rel>` links keep working even if the
-    vault has its own Library, and vice versa."""
-    from backend.services.context_vars import get_active_vault_path
-    roots = _library_roots(get_active_vault_path())
-    for root in roots[:-1]:
-        try:
-            if (root / rel_path).exists():   # the actual containment is done in _serve_*
-                return await _serve_file_with_containment(root, rel_path)
-        except OSError:
-            continue
-    return await _serve_file_with_containment(roots[-1], rel_path)
-
-
-@router.get("/raw/{rel_path:path}")
-async def serve_vault_raw_file(rel_path: str):
-    """Serves any file under VAULT/ with containment check.
-
-    Used by the multi-root media picker when `root=vault`. The frontend may
-    receive URLs like `/api/vault/raw/Assets/Inline/foo.png` or
-    `/api/vault/raw/Wiki/notes/img.jpg`. Containment is checked against
-    VAULT, so paths cannot escape the vault.
-    """
-    return await _serve_file_with_containment(get_p("VAULT"), rel_path)
+files_api.register_serving_routes(
+    router,
+    editor_dependencies=[Depends(require_role("editor"))],
+)
+serve_library_file = files_api.serve_library_file
+serve_vault_raw_file = files_api.serve_vault_raw_file
+serve_thumb = files_api.serve_thumb
+register_local_file = files_api.register_local_file
+serve_local_file = files_api.serve_local_file
 
 
 # --- Thumbnails (QuickLook via host daemon) ---
@@ -11469,8 +11086,7 @@ async def serve_vault_raw_file(rel_path: str):
 
 # Autodetect native vs Docker (host.docker.internal does not resolve natively,
 # which silently broke thumbnails on the default native runtime).
-from backend.config.env_config import default_thumb_daemon_url as _default_thumb_daemon_url  # noqa: E402
-_THUMB_DAEMON_URL = _default_thumb_daemon_url()
+_THUMB_DAEMON_URL = default_thumb_daemon_url()
 _THUMB_DAEMON_TIMEOUT = float(os.environ.get("THUMB_DAEMON_TIMEOUT", "45"))
 # Roots exposed to thumbs. All of them live inside /vault; `library` isn't there
 # because no frontend consumer requests thumbs for Library (the PDFs
@@ -11479,200 +11095,19 @@ _THUMB_DAEMON_TIMEOUT = float(os.environ.get("THUMB_DAEMON_TIMEOUT", "45"))
 # supports it — the daemon accepts multiple roots (allowlist OneDrive-UNED,
 # 2026-05-18) and `_container_to_host_path` passes the mounts as-is
 # identity like Library or HOME (2026-06-10).
-_THUMB_ROOTS_MAP = {
-    "images": ("IMAGES", "Images"),
-    "raw": ("VAULT", None),
-    "assets": ("ASSETS", "Assets"),
-}
+_THUMB_ROOTS_MAP = file_thumbnails.THUMB_ROOTS_MAP
 
 
 def _resolve_thumb_source(rel_url: str) -> Path:
-    """Parses a rel_url like `raw/foo/bar.mp4` or `images/a/b.jpg`, validates
-    containment within the corresponding root, and returns the absolute Path inside
-    the container. Raises HTTPException on error."""
-    parts = rel_url.split("/", 1)
-    if len(parts) != 2 or not parts[1]:
-        raise HTTPException(status_code=400, detail="Invalid thumb URL")
-    root_key, rel = parts[0], parts[1]
-    cfg = _THUMB_ROOTS_MAP.get(root_key)
-    if not cfg:
-        raise HTTPException(status_code=400, detail=f"Unknown root '{root_key}'")
-    paths_key, vault_subdir = cfg
-
-    if paths_key == "IMAGES":
-        vault = get_p("VAULT")
-        if not vault:
-            raise HTTPException(status_code=500, detail="VAULT not configured")
-        root_dir = vault / vault_subdir
-    elif paths_key == "ASSETS":
-        vault = get_p("VAULT")
-        if not vault:
-            raise HTTPException(status_code=500, detail="VAULT not configured")
-        root_dir = vault / vault_subdir
-    else:
-        root_dir = get_p(paths_key)
-        if not root_dir:
-            raise HTTPException(status_code=500, detail=f"{paths_key} not configured")
-
-    try:
-        root_resolved = root_dir.resolve()
-        requested = (root_dir / rel).resolve()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid path")
-
-    try:
-        if not requested.is_relative_to(root_resolved):
-            raise HTTPException(status_code=403, detail="Access denied")
-    except AttributeError:
-        if not str(requested).startswith(str(root_resolved) + os.sep) and requested != root_resolved:
-            raise HTTPException(status_code=403, detail="Access denied")
-
-    if not requested.exists() or not requested.is_file():
-        raise HTTPException(status_code=404, detail="Source file not found")
-    return requested
+    return files_api._resolve_thumb_source(rel_url)
 
 
 def _container_to_host_path(container_path: Path) -> Optional[str]:
-    """Translates /vault/X → VAULT_HOST_PATH/X (and /vaults/X → VAULTS_ROOT_HOST_PATH/X
-    for the sibling multi-vault vaults). Necessary because the daemon
-    works with host paths (qlmanage lives there). The identity mount
-    (HOME — same host ↔ container path) is passed through as-is."""
-    vault_host = os.environ.get("VAULT_HOST_PATH")
-    if not vault_host:
-        return None
-    try:
-        rel = container_path.relative_to("/vault")
-    except ValueError:
-        # Active sibling vault (multi-vault): lives under /vaults, not under /vault.
-        vaults_root_host = os.environ.get("VAULTS_ROOT_HOST_PATH")
-        if vaults_root_host:
-            try:
-                rel = container_path.relative_to("/vaults")
-                return str(Path(vaults_root_host) / rel)
-            except ValueError:
-                pass
-        resolved = container_path.resolve()  # Collapses `..` and symlinks.
-        for env_key in ("HOME_HOST_PATH",):
-            root = os.environ.get(env_key)
-            if not root or not root.rstrip("/"):
-                continue
-            if str(resolved).startswith(str(Path(root).resolve()) + os.sep):
-                return str(resolved)
-        return None
-    return str(Path(vault_host) / rel)
+    return files_api._container_to_host_path(container_path)
 
 
 def _thumb_no_store(status_code: int, detail: str):
-    """Transient 503/error with `Cache-Control: no-store` so that the
-    browser does NOT cache the error (otherwise, the thumb would stay broken until
-    the browser's cache expires)."""
-    from fastapi.responses import JSONResponse
-    return JSONResponse(
-        status_code=status_code,
-        content={"detail": detail},
-        headers={"Cache-Control": "no-store"},
-    )
-
-
-@router.get("/thumb/{rel_url:path}")
-async def serve_thumb(rel_url: str, size: int = 256, v: Optional[str] = None):
-    """Serves a PNG thumbnail generated by QuickLook (macOS) for
-    non-image files (video, PDF, audio...).
-
-    The `rel_url` URL follows the same scheme as the file endpoints
-    for roots that live inside /vault: `raw/...`,
-    `images/...`, `assets/...`. Size clamped to [64, 1024] in the daemon.
-
-    Query param `v` (version, typically mtime): if the frontend passes it,
-    we cache with `immutable` since the URL will change when the source
-    file changes. Without `v`, we use a short cache + must-revalidate so the
-    browser doesn't keep a stale thumb until the next day.
-    
-    """
-    _ = v  # consumed only for URL-level cache-busting
-    requested = _resolve_thumb_source(rel_url)
-
-    # OneDrive warmup if the file is not materialized: qlmanage cannot
-    # read cloud-only files from the Docker bind-mount, but it can from the host.
-    # Same pattern as `_serve_file_with_containment`: we call materialize,
-    # check the result, re-stat to confirm, and if it's still
-    # online-only we return 503 with `no-store` so the browser doesn't
-    # cache the transient error.
-    try:
-        st = requested.stat()
-    except OSError as e:
-        log.warning(f"stat() failed for {requested}: {e}")
-        return _thumb_no_store(503, "File temporarily unavailable")
-
-    provider = get_files_provider()
-    if provider.is_online_only(requested, st):
-        # Background warmup + immediate 503 (same pattern as `/images/`): we don't
-        # block the request until OneDrive downloads the file; the client
-        # (RetryableImage) retries until a request finds it materialized.
-        provider.schedule_warmup(requested)
-        log.info(f"☁️ Thumb: warmup en segon pla engegat per {requested} (503 pending)")
-        return _thumb_no_store(503, "Thumbnail warming up; retry shortly")
-
-    host_path = _container_to_host_path(requested)
-    if not host_path:
-        # This shouldn't happen with _THUMB_ROOTS_MAP restricted to /vault, but
-        # we cover it defensively.
-        raise HTTPException(
-            status_code=500,
-            detail="VAULT_HOST_PATH not configured or file outside /vault",
-        )
-
-    try:
-        import httpx
-        async with httpx.AsyncClient(timeout=_THUMB_DAEMON_TIMEOUT) as cli:
-            r = await cli.get(
-                _THUMB_DAEMON_URL,
-                params={"path": host_path, "size": size},
-            )
-    except Exception as e:
-        log.warning(f"Thumb daemon inaccessible for {requested}: {e!r}")
-        return _thumb_no_store(503, "Thumb daemon unavailable")
-
-    if r.status_code != 200:
-        try:
-            body = r.json()
-        except Exception:
-            body = {}
-        log.warning(
-            f"Thumb daemon HTTP {r.status_code} for {requested}: {body}"
-        )
-        # no-store: a transient daemon error must not be cached, or the thumb
-        # would stay broken until the browser cache expires for a file that
-        # would render fine on retry.
-        return _thumb_no_store(r.status_code, str(body) or "Thumb daemon error")
-
-    body = r.json()
-    if body.get("status") != "ok":
-        return _thumb_no_store(500, str(body) or "Thumb daemon error")
-
-    host_thumb_path = body.get("thumb_path")
-    if not host_thumb_path or not Path(host_thumb_path).is_file():
-        return _thumb_no_store(500, "Thumb path missing or not readable")
-
-    # Cache:
-    #  - With `?v=<mtime>` the frontend changes the URL when the file changes,
-    #    so we can cache aggressively.
-    #  - Without `v`, we use a short cache + ETag so the browser revalidates and
-    #    gets a 304 if nothing changed (ETag = mtime).
-    has_version = v is not None and v != ""
-    cache_header = (
-        "public, max-age=86400, immutable"
-        if has_version
-        else "public, max-age=300, must-revalidate"
-    )
-    return FileResponse(
-        path=host_thumb_path,
-        media_type="image/png",
-        headers={
-            "Cache-Control": cache_header,
-            "ETag": f'W/"{int(st.st_mtime)}-{size}"',
-        },
-    )
+    return files_api._thumb_no_store(status_code, detail)
 
 
 # --- Links to local files (Variant C: no copy, no upload) ---
@@ -11690,214 +11125,27 @@ async def serve_thumb(rel_url: str, size: int = 256, v: Optional[str] = None):
 #  3) If the original path moves, we can invalidate the token without changing the URL
 #     saved in the document.
 
-import secrets
-
-_LOCAL_LINKS_LOCK = threading.Lock()
+_LOCAL_LINKS_LOCK = _LOCAL_LINK_STORE.lock
 
 
 def _local_links_file() -> Path:
-    """Resolves the links JSON path lazily. It cannot be done as
-    `_LOCAL_LINKS_FILE = get_p("LOCAL_DATA") / ...` at the top level because
-    `get_p` requires the vault context (it only exists within a request)."""
-    return resolve_data_dir() / "local_file_links.json"
+    return files_api._local_links_file()
 
 
 def _load_local_links() -> Dict[str, str]:
-    """Loads the {token: absolute_path} mapping. Fast (<1KB typical)."""
-    f_path = _local_links_file()
-    if not f_path.exists():
-        return {}
-    try:
-        with open(f_path, "r", encoding="utf-8") as f:
-            return json.load(f) or {}
-    except (OSError, json.JSONDecodeError) as e:
-        log.warning(f"Could not read {f_path}: {e}")
-        return {}
+    return files_api._load_local_links()
 
 
 def _save_local_links(mapping: Dict[str, str]) -> None:
-    f_path = _local_links_file()
-    try:
-        f_path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = f_path.with_suffix(".tmp")
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(mapping, f, indent=2, ensure_ascii=False)
-        tmp.replace(f_path)
-    except OSError as e:
-        log.error(f"Could not persist local links to {f_path}: {e}")
+    files_api._save_local_links(mapping)
 
 
-@router.post("/local-file/register", dependencies=[Depends(require_role("editor"))])
-async def register_local_file(body: dict):
-    """Registers an absolute path and returns a token + servable URL.
-
-    Body: { "file_path": "/abs/path/to/file" }
-    Response: { "token": "...", "url": "/api/vault/local-file/<token>",
-                "name": "...", "size": N, "kind": "image|video|pdf|..." }
-
-    If the same path is already registered, we reuse the token: this way if
-    the user registers the same file twice we don't accumulate entries.
-    
-    """
-    file_path = str(body.get("file_path", "")).strip()
-    if not file_path:
-        raise HTTPException(status_code=400, detail="file_path is mandatory")
-
-    # Accepts all saved formats (file://, ~/, path from the other Mac…) and
-    # re-roots to the current machine: the PDF viewer receives the field's value exactly
-    # as it was saved, perhaps on a Mac with a different username.
-    p = _resolve_stored_file_target(file_path)
-    if p is None or not p.is_file():
-        raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
-
-    # Online-only file (OneDrive/iCloud placeholder) → download it now (like
-    # Office/Adobe) so the reader can actually open it afterwards.
-    await _ensure_materialized_or_503(p, "local-file/register")
-
-    abs_path = str(p.resolve())
-    with _LOCAL_LINKS_LOCK:
-        mapping = _load_local_links()
-        token = next((t for t, v in mapping.items() if v == abs_path), None)
-        if token is None:
-            token = secrets.token_urlsafe(16)
-            mapping[token] = abs_path
-            _save_local_links(mapping)
-
-    ext = p.suffix.lower()
-    return {
-        "token": token,
-        # Self-descriptive URL: the final segment (real name, encoded) doesn't
-        # is used to look up the file (the lookup is by token), only so that the
-        # URL carries name + extension. This way the frontend shows the real name and
-        # detects the type (PDF→built-in reader) without having to resolve anything.
-        "url": f"/api/vault/local-file/{token}/{urllib.parse.quote(p.name, safe='')}",
-        "name": p.name,
-        "size": p.stat().st_size,
-        "kind": media_service.classify_kind(ext),
-        "extension": ext,
-        "path": abs_path,
-    }
-
-
-@router.get("/local-file/{token}")
-@router.get("/local-file/{token}/{filename:path}")
-async def serve_local_file(token: str, filename: str | None = None):
-    """Serves a file registered via /local-file/register.
-
-    The optional `{filename}` segment is decorative (the lookup is by `token`):
-    it allows the saved URL to carry a real name + extension so the frontend
-    can show the name and detect the type. Both forms are accepted for
-    compatibility with old URLs without a name.
-
-    If the token doesn't exist → 404. If the path is no longer accessible (the user
-    has moved/deleted the file) → 410 Gone so the UI can distinguish it
-    from a never-registered token.
-
-    If the file is online-only on OneDrive (typical for documents linked
-    from `~/Library/CloudStorage/...`), we ask the provider to
-    materialize it before doing the `FileResponse`. Without this, FastAPI sends
-    the headers (200 OK) and when it tries to stream the content it crashes with
-    Errno 35 (Resource deadlock avoided) mid-stream → the UI receives a
-    truncated response and the browser doesn't open the file.
-    
-    """
-    with _LOCAL_LINKS_LOCK:
-        mapping = _load_local_links()
-        abs_path = mapping.get(token)
-    if not abs_path:
-        raise HTTPException(status_code=404, detail="Local file token not found")
-    p = Path(abs_path)
-    if not p.exists() or not p.is_file():
-        raise HTTPException(status_code=410, detail=f"Local file no longer available: {p.name}")
-
-    # Containment: only serve files under the user's HOME or the active vault.
-    # The GET is not role-gated (embeds must render for viewers too), so without
-    # this a stored or leaked token would be a read primitive for any absolute
-    # path the backend can reach (/etc/passwd, other users' files, secrets).
-    resolved = p.resolve()
-    allowed_roots = [Path(os.environ.get("HOME_HOST_PATH") or str(Path.home())).resolve()]
-    try:
-        allowed_roots.append(get_p("VAULT").resolve())
-    except Exception:
-        pass
-    if not any(resolved.is_relative_to(root) for root in allowed_roots):
-        log.warning(f"Blocked local-file access outside allowed roots: {resolved}")
-        raise HTTPException(status_code=403, detail="File is outside the allowed roots")
-
-    # Proactive warmup if the file is online-only (same pattern as
-    # _serve_file_with_containment for Assets/Images).
-    try:
-        provider = get_files_provider()
-        st = p.stat()
-        if provider.is_online_only(p, st):
-            await provider.materialize(p)
-            try:
-                st = p.stat()
-            except OSError as e:
-                log.warning(f"stat() failed after warmup for {p}: {e}")
-                raise HTTPException(
-                    status_code=503,
-                    detail="Local file temporarily unavailable",
-                    headers={"Cache-Control": "no-store, must-revalidate"},
-                )
-            if provider.is_online_only(p, st):
-                log.warning(f"☁️ Local file is still online-only after warmup: {p}")
-                raise HTTPException(
-                    status_code=503,
-                    detail="Local file warmup pending; try again",
-                    headers={"Cache-Control": "no-store, must-revalidate"},
-                )
-    except HTTPException:
-        raise
-    except Exception as e:
-        log.debug(f"Proactive warmup failed for {p}: {e}")
-        # We continue regardless: the next step (1-byte probe) will handle
-        # any read error with backoff.
-
-    # 1-byte probe with backoff to stabilize the read before streaming.
-    # Same pattern as _serve_file_with_containment around line ~4584.
-    last_error: Optional[OSError] = None
-    for attempt in range(5):
-        try:
-            with open(p, "rb") as f:
-                f.read(1)
-            last_error = None
-            break
-        except OSError as e:
-            last_error = e
-            if e.errno == 35 and attempt < 4:
-                await asyncio.sleep(0.2 * (2 ** attempt))
-                continue
-            break
-    if last_error is not None:
-        log.warning(f"☁️ Local file is unreadable after warmup: {p} ({last_error})")
-        raise HTTPException(
-            status_code=503,
-            detail="Local file temporarily unavailable; try again",
-            headers={"Cache-Control": "no-store, must-revalidate"},
-        )
-
-    media_type, _ = mimetypes.guess_type(str(p))
-    return FileResponse(path=str(p), media_type=media_type)
-
-
-@router.get("/custom-icons")
-async def get_custom_icons():
-    """Returns the shared custom icon library for Vault icon picker."""
-    # The library's JSON lives in the vault (OneDrive). If it's online-only,
-    # `_load_custom_icons` would read it with EDEADLK and its silent `except`
-    # would return an empty list (missing icons). Materialize it beforehand.
-    icons_path = get_custom_icons_path()
-    if icons_path:
-        await _materialize_if_online_only(icons_path, "custom-icons")
-    return {"icons": _load_custom_icons()}
-
-
-@router.put("/custom-icons", dependencies=[Depends(require_role("editor"))])
-async def save_custom_icons(request: CustomIconsRequest):
-    """Persists the shared custom icon library for Vault icon picker."""
-    saved = _save_custom_icons(request.icons)
-    return {"icons": saved}
+assets_api.register_custom_icon_routes(
+    router,
+    editor_dependencies=[Depends(require_role("editor"))],
+)
+get_custom_icons = assets_api.get_custom_icons
+save_custom_icons = assets_api.save_custom_icons
 
 
 # Legacy `storage_folder` values kept working: the Library folder was called
@@ -11905,426 +11153,52 @@ async def save_custom_icons(request: CustomIconsRequest):
 # it. Without this alias the value matched no branch and silently fell through
 # to Assets — a field configured for the Library uploaded to Assets instead
 # (seen on Recursos/"Arxiu/s", whose config is still storage_folder=biblioteca).
-_STORAGE_FOLDER_ALIASES = {"biblioteca": "library"}
+_STORAGE_FOLDER_ALIASES = property_file_service.STORAGE_FOLDER_ALIASES
 
 
 def _normalize_storage_folder(storage_folder: str) -> str:
-    """Canonical `storage_folder` key: lowercased, trimmed, legacy names mapped."""
-    key = str(storage_folder or "").strip().lower()
-    return _STORAGE_FOLDER_ALIASES.get(key, key)
+    return files_api._normalize_storage_folder(storage_folder)
 
 
 def _effective_storage_folder(configured_storage: str, requested_storage: str) -> str:
-    """Decide the authoritative `storage_folder` for an upload.
-
-    The property's registry config wins; the request's value is only a fallback
-    for properties that have none configured (the implicit-Assets default).
-
-    'free' is the exception. It is the one mode that lets the caller pick an
-    arbitrary host directory to write into, so it may ONLY come from the registry
-    config, never from the client-controlled request: otherwise any property
-    without a configured `storage_folder` — most of them — would accept
-    `storage_folder=free` + `dest_folder=/anywhere` and hand out a write-anywhere
-    primitive for a field nobody ever configured as Lliure. A request asking for
-    'free' on a property not configured as such falls back to 'assets'.
-
-    Args:
-        configured_storage: value stored in the property's registry config.
-        requested_storage: value supplied by the caller in the request.
-
-    Returns:
-        The storage_folder key to resolve the destination with.
-    """
-    effective = str(configured_storage or "").strip() or str(requested_storage or "").strip()
-    if (
-        _normalize_storage_folder(effective) == "free"
-        and _normalize_storage_folder(configured_storage) != "free"
-    ):
-        return "assets"
-    return effective
+    return files_api._effective_storage_folder(configured_storage, requested_storage)
 
 
 def _resolve_storage_dir(
     storage_folder: str, table, database, property_name: str, dest_folder: str = ""
 ) -> tuple[Path, str]:
-    """Resolve the target directory and URL prefix based on storage_folder config.
-
-    Returns (target_dir, url_prefix_type) where url_prefix_type is 'assets' or 'absolute'.
-
-    'free' means the user picks the destination per attachment, so it is the ONE
-    mode where the caller-supplied `dest_folder` decides where the file lands —
-    anywhere on the host, by design (the same trust model as
-    /api/system/browse and link-existing-file, which already read arbitrary host
-    paths). It is still required to be an absolute path to an existing
-    directory: a relative or missing one is a client bug, and silently creating
-    the tree would scatter uploads in unexpected places.
-    """
-    normalized = _normalize_storage_folder(storage_folder)
-    if normalized == "library":
-        library = get_p("LIBRARY")
-        library.mkdir(parents=True, exist_ok=True)
-        return library, "absolute"
-    if normalized == "free":
-        chosen = str(dest_folder or "").strip()
-        if not chosen:
-            raise HTTPException(
-                status_code=400,
-                detail="dest_folder is mandatory for a 'free' storage field",
-            )
-        target = Path(chosen).expanduser()
-        if not target.is_absolute():
-            raise HTTPException(status_code=400, detail="dest_folder must be an absolute path")
-        if not target.is_dir():
-            raise HTTPException(status_code=400, detail="dest_folder is not an existing directory")
-        return target, "absolute"
-    # Default: assets (nested per DB/Table/Property)
-    return _property_assets_dir(table, database, property_name), "assets"
+    return files_api._resolve_storage_dir(
+        storage_folder, table, database, property_name, dest_folder
+    )
 
 
 def _file_response_payload(dest_path: Path, url_prefix_type: str) -> dict:
-    """Build the API response dict for a saved/linked file."""
-    if url_prefix_type == "assets":
-        vault = get_p("VAULT")
-        try:
-            rel = str(dest_path.relative_to(vault)).replace("\\", "/")
-        except ValueError:
-            rel = str(dest_path)
-        # Strip leading "Assets/" to build the /api/vault/assets/ URL
-        if rel.startswith("Assets/"):
-            url = f"/api/vault/assets/{rel[len('Assets/'):]}"
-        else:
-            url = f"/api/vault/assets/{rel}"
-        return {"path": rel, "url": url, "storage": "assets"}
-    else:
-        # Library: in addition to the absolute path (compat / open in Finder), we return
-        # a served relative URL `/api/vault/library/<rel>`. The frontend saves
-        # `data.url || data.path` → NEW attachments stay PORTABLE across
-        # construction (no user/cloud in the saved value); the container serves them
-        # via serve_library_file, and open/delete re-root them to the current machine.
-        # It's tried against ALL roots (inside the vault and the legacy one): the same
-        # URL form is served with fallback, so the saved value doesn't distinguish layouts.
-        from backend.services.context_vars import get_active_vault_path
-        url = None
-        for root in _library_roots(get_active_vault_path()):
-            try:
-                rel = str(dest_path.relative_to(root)).replace("\\", "/")
-                url = f"/api/vault/library/{rel}"
-                break
-            except ValueError:
-                continue
-        return {"path": str(dest_path), "url": url, "storage": "absolute"}
-
-
-@router.post("/upload-property-file", dependencies=[Depends(require_role("editor"))])
-async def upload_property_file(
-    table_id: str = Query(...),
-    property_name: str = Query(...),
-    storage_folder: str = Query(default="assets"),
-    target_name: str = Query(default=""),
-    file: UploadFile = File(...),
-    dest_folder: str = Form(default=""),
-):
-    """Upload a file for a property. Routes to Assets/, Library/ or a free path
-    depending on the storage_folder parameter (assets | library | free).
-
-    `target_name` (optional): base name already interpolated from the field's pattern
-    (e.g. "Authors - Year - Title"). If provided, the file is saved with
-    this name (sanitized) + the original extension.
-
-    `dest_folder` (only for storage_folder='free'): absolute host directory the
-    user picked for THIS attachment."""
-    registry = load_registry()
-    table, database = _resolve_table_and_database_for_assets(table_id, registry)
-    if not table:
-        raise HTTPException(status_code=404, detail="Table not found")
-
-    property_clean = str(property_name or "").strip()
-    if not property_clean:
-        raise HTTPException(status_code=400, detail="property_name is mandatory")
-
-    # The destination (storage_folder) is authoritative from the property's config in the
-    # registry, not from the query param: the frontend could send it out of sync (session with
-    # an old in-memory schema, divergent upload paths...) and this caused a
-    # field configured as 'library' to end up saving to Assets. If the property doesn't have
-    # has none configured, we fall back to the query param value.
-    target_prop = _find_table_property(table, property_clean)
-    configured_storage = str(_property_config_value(target_prop, "storage_folder") or "").strip()
-    effective_storage = _effective_storage_folder(configured_storage, storage_folder)
-
-    target_dir, url_type = _resolve_storage_dir(
-        effective_storage, table, database, property_clean, dest_folder
+    return property_file_service.file_response_payload(
+        dest_path, url_prefix_type, _PROPERTY_FILE_DEPENDENCIES
     )
-    try:
-        # Offload the blocking write to a worker thread (see upload_asset): a cold
-        # OneDrive folder can block the copy for tens of seconds, and running it
-        # inline would freeze the event loop for every other request.
-        dest_path = Path(
-            await asyncio.to_thread(_save_uploaded_file_to_dir, file, target_dir, target_name)
-        )
-    except Exception as e:
-        log.error(f"Error uploading property file: {e}")
-        raise HTTPException(status_code=500, detail="Could not save file")
 
-    return _file_response_payload(dest_path, url_type)
+
+files_api.register_property_routes(
+    router,
+    editor_dependencies=[Depends(require_role("editor"))],
+)
+upload_property_file = files_api.upload_property_file
+link_existing_file = files_api.link_existing_file
+delete_physical_file = files_api.delete_physical_file
 
 
 def _numbered_candidate(directory: Path, stem: str, ext: str, index: int) -> Path:
-    """`stem.ext` for index 1, `stem-2.ext`, `stem-3.ext`… afterwards.
-
-    The numbering every attachment path shares, so a field with a name pattern
-    produces a readable series ("Autor - 2024 - Títol", "… -2", "… -3") instead
-    of one name plus random hashes.
-    """
-    return directory / (f"{stem}{ext}" if index <= 1 else f"{stem}-{index}{ext}")
+    return files_api._numbered_candidate(directory, stem, ext, index)
 
 
 # Ceiling on the numbering probe. A field pattern that resolves to the same name
 # for hundreds of rows is a schema problem, not something to spin on; past this
 # we fall back to a random suffix, which always terminates.
-_MAX_NUMBERED_ATTEMPTS = 500
+_MAX_NUMBERED_ATTEMPTS = property_file_service.MAX_NUMBERED_ATTEMPTS
 
 
 def _save_uploaded_file_to_dir(upload: UploadFile, target_dir: Path, target_name: str = "") -> Path:
-    """Save an UploadFile to target_dir and return the absolute destination path.
-
-    If `target_name` (an already-interpolated name pattern) is provided, it is used as
-    the base of the name (sanitized) instead of the file's original name.
-
-    Several files uploaded to the SAME field share that target name (the pattern
-    interpolates the row's metadata, not the file), so the destination is
-    numbered: "Nom.pdf", "Nom-2.pdf", "Nom-3.pdf"… — matching what
-    link-existing-file does when it renames in place.
-
-    Each candidate is created with "xb" (exclusive): the create is what claims
-    the name, so two uploads racing for the same number can't both win and
-    silently overwrite each other. A plain exists() check would leave that gap
-    open between the check and the write.
-    """
-    target_dir.mkdir(parents=True, exist_ok=True)
-    original_name = upload.filename or "upload.bin"
-    ext = Path(original_name).suffix
-    if target_name and target_name.strip():
-        stem = _sanitize_filename_base(target_name.strip())
-    else:
-        stem = _sanitize_asset_segment(Path(original_name).stem, "upload")
-    for index in range(1, _MAX_NUMBERED_ATTEMPTS + 1):
-        destination = _numbered_candidate(target_dir, stem, ext, index)
-        try:
-            handle = open(destination, "xb")
-        except FileExistsError:
-            continue
-        with handle as buffer:
-            shutil.copyfileobj(upload.file, buffer)
-        return destination
-    destination = target_dir / f"{stem}-{uuid.uuid4().hex[:8]}{ext}"
-    with open(destination, "wb") as buffer:
-        shutil.copyfileobj(upload.file, buffer)
-    return destination
-
-
-@router.post("/link-existing-file", dependencies=[Depends(require_role("editor"))])
-async def link_existing_file(body: dict):
-    """Variant B: register an existing local file path without copying it.
-
-    Body: { "file_path": "/absolute/path/to/file.pdf", "target_name": "..." }
-    Returns the path and a display name.
-
-    If `target_name` (an already-interpolated name pattern) is provided, the file is
-    RENAMED on disk within the same folder (Zotero-style), preserving
-    the extension and avoiding collisions. Warning: if the file is a linked
-    attachment from Zotero, renaming it will break the link to Zotero.
-    
-    """
-    file_path = str(body.get("file_path", "")).strip()
-    if not file_path:
-        raise HTTPException(status_code=400, detail="file_path is mandatory")
-
-    # Also accepts old formats (file://, ~/, path from the OTHER Mac): a value
-    # saved previously and re-linked must resolve to this machine's local path.
-    p = _resolve_stored_file_target(file_path)
-    if p is None:
-        raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
-    if not p.is_file():
-        raise HTTPException(status_code=400, detail="Path is not a file")
-
-    # Online-only file (OneDrive/iCloud placeholder) → download it now (like
-    # Office/Adobe) before linking, so it's readable when served.
-    await _ensure_materialized_or_503(p, "link-existing-file")
-
-    target_name = str(body.get("target_name", "")).strip()
-    renamed = False
-    if target_name:
-        new_stem = _sanitize_filename_base(target_name)
-        ext = p.suffix
-        desired = _numbered_candidate(p.parent, new_stem, ext, 1)
-        if desired != p:
-            if desired.exists():
-                # Same numbering as the upload path, so a batch linked into one
-                # folder reads as a series: "Nom.pdf", "Nom-2.pdf", "Nom-3.pdf".
-                # Past the ceiling, a random suffix keeps the link working
-                # instead of renaming over an existing file.
-                desired = p.parent / f"{new_stem}-{uuid.uuid4().hex[:8]}{ext}"
-                for index in range(2, _MAX_NUMBERED_ATTEMPTS + 1):
-                    cand = _numbered_candidate(p.parent, new_stem, ext, index)
-                    if not cand.exists():
-                        desired = cand
-                        break
-            try:
-                p.rename(desired)
-                p = desired
-                renamed = True
-            except OSError as e:
-                # Cannot rename: typically the file is OUTSIDE the Vault,
-                # on a read-only mount (~/Library/CloudStorage via the HOME mount
-                # `ro` → errno 30 EROFS), or it is a Zotero linked attachment. We do NOT
-                # block the insertion: we link the file with its name
-                # ORIGINAL. Moreover, renaming a file from the user's general OneDrive
-                # (outside the Vault) would be intrusive — better not to touch it.
-                log.warning(
-                    f"link-existing-file: could not rename "
-                    f"{p} → {desired} ({e}); linking with the original name."
-                )
-
-    # PORTABLE value to save in the field (independent of the Mac username;
-    # see attachment_link_portability.md, phase 2). The frontend saves
-    # `data.url || data.path`: if we can express the file in a
-    # re-rootable, we put it in `url`; otherwise (outside HOME), the path remains
-    # absolute as a last resort.
-    portable: Optional[str] = None
-    from backend.services.context_vars import get_active_vault_path
-    for _broot in _library_roots(get_active_vault_path()):
-        try:
-            rel = p.relative_to(_broot)
-            portable = f"/api/vault/library/{str(rel).replace(os.sep, '/')}"
-            break
-        except Exception:
-            continue
-    if portable is None:
-        vault_roots = [get_p("VAULT")]
-        vhp = (os.environ.get("VAULT_HOST_PATH") or "").strip()
-        if vhp:
-            vault_roots.append(Path(vhp))
-        for vroot in vault_roots:
-            try:
-                rel = p.relative_to(vroot)
-                portable = f"/api/vault/raw/{str(rel).replace(os.sep, '/')}"
-                break
-            except ValueError:
-                continue
-    if portable is None:
-        try:
-            rel = p.relative_to(_host_home_path())
-            portable = f"~/{str(rel).replace(os.sep, '/')}"
-        except ValueError:
-            portable = None
-
-    return {
-        "path": str(p),
-        "url": portable,
-        "storage": "absolute",
-        "name": p.name,
-        "size": p.stat().st_size,
-        "renamed": renamed,
-    }
-
-
-@router.post("/delete-physical-file", dependencies=[Depends(require_role("editor"))])
-async def delete_physical_file(body: dict):
-    """Deletes the physical file referenced by `target` (does not touch any page).
-
-    `target` is the value saved in the `files` field: `file://…`,
-    `/api/vault/local-file/<token>[/nom]`, `/api/vault/assets/<rel>` or `Assets/<rel>`.
-
-    - Files under HOME (OneDrive/Library, via file:// or token): delegated to the
-      host_open_helper, which moves them to the Mac's TRASH (recoverable). The HOME
-      mount in the container is read-only, so the backend cannot delete them.
-    - Files under Assets (inside the vault, rw): deleted in the container (permanent).
-
-    Containment: only under the host's HOME or under the vault's Assets. Never outside.
-    
-    """
-    target = str(body.get("target", "")).strip()
-    if not target:
-        raise HTTPException(status_code=400, detail="target is mandatory")
-
-    home = Path(os.environ.get("HOME_HOST_PATH") or str(Path.home())).resolve()
-    token_to_clear: Optional[str] = None
-    host_path: Optional[Path] = None
-    vault_path: Optional[Path] = None
-
-    m = re.match(r"^/api/vault/local-file/([^/]+)", target)
-    if m:
-        token = m.group(1)
-        with _LOCAL_LINKS_LOCK:
-            abs_path = _load_local_links().get(token)
-        if not abs_path:
-            raise HTTPException(status_code=404, detail="Local file token not found")
-        host_path = Path(abs_path)
-        token_to_clear = token
-    elif target.lower().startswith("file://"):
-        host_path = Path(urllib.parse.unquote(target[7:]))
-    elif target.startswith("/api/vault/assets/"):
-        vault_path = (get_p("VAULT").resolve() / "Assets" / target[len("/api/vault/assets/"):])
-    elif target.startswith("Assets/"):
-        vault_path = get_p("VAULT").resolve() / target
-    elif target.startswith("/api/vault/library/"):
-        # New library attachments (portable): re-rooted to the current root.
-        # Goes before the catch-all "/" because this form also starts with "/".
-        host_path = get_p("LIBRARY") / urllib.parse.unquote(target[len("/api/vault/library/"):])
-    elif target == "~" or target.startswith("~/"):
-        # Portable value `~/<rel>`: the host's HOME, never the container's.
-        host_path = Path(_expand_host_tilde(target))
-    elif target.startswith("/"):
-        host_path = Path(target)
-    else:
-        vault_path = get_p("VAULT").resolve() / target
-
-    # --- File under HOME → Mac Trash via host helper (recoverable) ---
-    if host_path is not None:
-        # Portability: if the saved value comes from the other Mac (a foreign HOME) and does not
-        # exist as-is, re-root it before the containment check.
-        try:
-            if not host_path.exists():
-                rerooted = _reroot_attachment_under_current_host(str(host_path))
-                if rerooted is not None:
-                    host_path = rerooted
-        except OSError:
-            pass
-        try:
-            resolved = host_path.expanduser().resolve()
-        except OSError:
-            raise HTTPException(status_code=400, detail="Invalid path")
-        try:
-            resolved.relative_to(home)
-        except ValueError:
-            raise HTTPException(status_code=403, detail="Refusing to delete a path outside HOME")
-        if not resolved.exists():
-            raise HTTPException(status_code=404, detail=f"File not found: {resolved.name}")
-        ok, detail = _try_host_trash_helper(str(resolved))
-        if not ok:
-            raise HTTPException(status_code=502, detail=f"Could not move the file to Trash: {detail}")
-        if token_to_clear:
-            with _LOCAL_LINKS_LOCK:
-                mapping = _load_local_links()
-                if token_to_clear in mapping:
-                    del mapping[token_to_clear]
-                    _save_local_links(mapping)
-        return {"status": "trashed", "method": "macos_trash", "target": str(resolved)}
-
-    # --- Assets file (vault rw) → deleted in the container (permanent) ---
-    assets_root = (get_p("VAULT").resolve() / "Assets").resolve()
-    try:
-        resolved = vault_path.resolve()
-        resolved.relative_to(assets_root)
-    except (ValueError, AttributeError, OSError):
-        raise HTTPException(status_code=400, detail="Path no és sota Assets ni sota HOME")
-    if not resolved.is_file():
-        raise HTTPException(status_code=404, detail="File not found")
-    try:
-        resolved.unlink()
-    except OSError as e:
-        raise HTTPException(status_code=500, detail=f"Could not delete: {e}")
-    return {"status": "deleted", "method": "vault_unlink", "target": str(resolved)}
+    return files_api._save_uploaded_file_to_dir(upload, target_dir, target_name)
 
 
 def _run_osascript_picker(script: str) -> str:
@@ -14944,33 +13818,11 @@ _HOST_TRASH_HELPER_URL = os.environ.get(
 
 
 def _try_host_trash_helper(target: str, timeout: float = 20.0) -> "tuple[bool, str]":
-    """Asks host_open_helper to move `target` to the Mac Trash.
-
-    Needed because the container mounts HOME read-only and cannot delete files from
-    OneDrive/Library. Returns (ok, error_detail).
-    
-    """
-    try:
-        import urllib.request
-        import urllib.error
-        req = urllib.request.Request(
-            _HOST_TRASH_HELPER_URL,
-            data=json.dumps({"path": target}).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            if 200 <= resp.status < 300:
-                return True, ""
-            return False, f"HTTP {resp.status}"
-    except urllib.error.HTTPError as e:
-        try:
-            detail = json.loads(e.read() or b"{}").get("detail", str(e))
-        except Exception:
-            detail = str(e)
-        return False, str(detail)
-    except Exception as e:
-        return False, str(e)
+    return file_host_trash.try_host_trash_helper(
+        target,
+        timeout,
+        helper_url=_HOST_TRASH_HELPER_URL,
+    )
 
 
 def _try_host_open_helper(target: str, timeout: float = 2.0) -> bool:
