@@ -22,9 +22,13 @@ What we deliberately do NOT cover here:
 Run inside the backend container:
     docker exec gnosi_backend python -m pytest backend/tests/test_mail_reply_cid.py -v
 """
+
 from __future__ import annotations
 
 import asyncio
+import importlib.util
+from pathlib import Path
+from types import ModuleType
 
 from backend.services.mail_inline_images import (
     build_mail_content,
@@ -35,6 +39,16 @@ from backend.services.mail_inline_images import (
     rewrite_mail_cid_srcs,
 )
 
+
+def _load_mail_routes() -> ModuleType:
+    facade_path = Path(__file__).resolve().parents[1] / "api" / "mail_routes.py"
+    spec = importlib.util.spec_from_file_location("mail_routes_cid_compat", facade_path)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 # 1x1 transparent PNG
 PNG_BYTES = (
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
@@ -44,6 +58,7 @@ PNG_BYTES = (
 
 
 # ── find_cid_srcs / rewrite_cid_srcs ─────────────────────────────────────────
+
 
 def test_find_cid_srcs_basic_and_quotes():
     body = (
@@ -94,14 +109,16 @@ def test_find_mail_cid_refs_parses_url_query_and_dedups():
     assert ref["url"] == QUOTED_URL
     assert ref["message_id"] == "imap_777"
     assert ref["cid"] == "logo123@original.example"  # percent-decodificat
-    assert ref["email"] == "compte@example.com"      # &amp; → & (html unescape)
+    assert ref["email"] == "compte@example.com"  # &amp; → & (html unescape)
     assert ref["folder"] == "Clients"
 
 
 def test_find_mail_cid_refs_absolute_and_no_query():
-    body = ('<img src="https://localhost:5173/api/mail/messages/abc/cid/x%40y">'
-            '<img src="/api/vault/assets/Inline/a.png">'
-            '<a href="/api/mail/messages/abc/cid/z@z">no és src</a>')
+    body = (
+        '<img src="https://localhost:5173/api/mail/messages/abc/cid/x%40y">'
+        '<img src="/api/vault/assets/Inline/a.png">'
+        '<a href="/api/mail/messages/abc/cid/z@z">no és src</a>'
+    )
     refs = find_mail_cid_refs(body)
     assert len(refs) == 1
     assert refs[0]["message_id"] == "abc"
@@ -119,18 +136,23 @@ def test_rewrite_mail_cid_srcs_by_literal_url():
     body = f'<img src="{QUOTED_URL}"><img src="/api/mail/messages/m2/cid/k@k">'
     out = rewrite_mail_cid_srcs(body, {QUOTED_URL: "nou@gnosi.local"})
     assert 'src="cid:nou@gnosi.local"' in out
-    assert '/api/mail/messages/m2/cid/k@k' in out  # no mapping → unchanged
+    assert "/api/mail/messages/m2/cid/k@k" in out  # no mapping → unchanged
     assert QUOTED_URL not in out
 
 
 # ── extract_inline_parts_from_mime (IMAP path) ───────────────────────────────
 
+
 def _raw_original(cids=("orig1@mx", "orig2@mx")):
     """Real MIME message with one inline part per cid."""
     body = "".join(f'<img src="cid:{c}">' for c in cids)
     inline = [
-        {"filename": f"img{i}.png", "content_type": "image/png",
-         "data": PNG_BYTES + bytes([i]), "content_id": c}
+        {
+            "filename": f"img{i}.png",
+            "content_type": "image/png",
+            "data": PNG_BYTES + bytes([i]),
+            "content_id": c,
+        }
         for i, c in enumerate(cids)
     ]
     return build_mail_content(body, inline_images=inline).as_bytes()
@@ -160,33 +182,48 @@ def test_extract_parts_ignores_unwanted_and_missing():
 
 # ── _embed_quoted_cid_images (orchestration in mail_routes) ──────────────────
 
-def _embed(monkeypatch, body, inline_images, collected, raises=False,
-           source_message_id="msg1", source_folder="Arxiu"):
+
+def _embed(
+    monkeypatch,
+    body,
+    inline_images,
+    collected,
+    raises=False,
+    source_message_id="msg1",
+    source_folder="Arxiu",
+):
     """Runs _embed_quoted_cid_images with the collector substituted."""
-    from backend.api import mail_routes
+    mail_routes = _load_mail_routes()
 
     calls = []
 
     async def fake_collect(email, message_id, wanted, folder="INBOX"):
-        calls.append({"email": email, "message_id": message_id,
-                      "wanted": set(wanted), "folder": folder})
+        calls.append(
+            {"email": email, "message_id": message_id, "wanted": set(wanted), "folder": folder}
+        )
         if raises:
             raise RuntimeError("transport caigut")
         return collected
 
     monkeypatch.setattr(mail_routes, "_collect_original_inline_parts", fake_collect)
-    new_body = asyncio.run(mail_routes._embed_quoted_cid_images(
-        "a@b.c", body, inline_images,
-        source_message_id=source_message_id, source_folder=source_folder,
-    ))
+    new_body = asyncio.run(
+        mail_routes._embed_quoted_cid_images(
+            "a@b.c",
+            body,
+            inline_images,
+            source_message_id=source_message_id,
+            source_folder=source_folder,
+        )
+    )
     return new_body, calls
 
 
 def test_embed_attaches_and_rewrites(monkeypatch):
     body = '<p>resposta</p><blockquote><img src="cid:orig1@mx"></blockquote>'
     inline = []
-    collected = {"orig1@mx": {"filename": "foto.png", "content_type": "image/png",
-                              "data": PNG_BYTES}}
+    collected = {
+        "orig1@mx": {"filename": "foto.png", "content_type": "image/png", "data": PNG_BYTES}
+    }
     new_body, calls = _embed(monkeypatch, body, inline, collected)
 
     assert len(inline) == 1
@@ -203,8 +240,13 @@ def test_embed_api_url_uses_embedded_context(monkeypatch):
     """The /cid/ URL rules: email, message and folder come from its query."""
     body = f'<p>resposta</p><img src="{QUOTED_URL}">'
     inline = []
-    collected = {"logo123@original.example": {
-        "filename": "logo.png", "content_type": "image/png", "data": PNG_BYTES}}
+    collected = {
+        "logo123@original.example": {
+            "filename": "logo.png",
+            "content_type": "image/png",
+            "data": PNG_BYTES,
+        }
+    }
     new_body, calls = _embed(monkeypatch, body, inline, collected)
 
     assert len(inline) == 1
@@ -220,12 +262,17 @@ def test_embed_api_url_uses_embedded_context(monkeypatch):
 
 def test_embed_api_url_without_source_message(monkeypatch):
     """/send (resumed draft): /cid/ URLs get resolved; raw cid: are left intact."""
-    from backend.api import mail_routes
+    mail_routes = _load_mail_routes()
 
     body = f'<img src="{QUOTED_URL}"><img src="cid:orfe@mx">'
     inline = []
-    collected = {"logo123@original.example": {
-        "filename": "logo.png", "content_type": "image/png", "data": PNG_BYTES}}
+    collected = {
+        "logo123@original.example": {
+            "filename": "logo.png",
+            "content_type": "image/png",
+            "data": PNG_BYTES,
+        }
+    }
 
     calls = []
 
@@ -244,8 +291,10 @@ def test_embed_api_url_without_source_message(monkeypatch):
 
 def test_embed_groups_api_urls_per_source_message(monkeypatch):
     """Two images from the same quoted message → a single fetch with both cids."""
-    body = ('<img src="/api/mail/messages/m9/cid/a%40x?email=c%40d.e&amp;folder=F">'
-            '<img src="/api/mail/messages/m9/cid/b%40x?email=c%40d.e&amp;folder=F">')
+    body = (
+        '<img src="/api/mail/messages/m9/cid/a%40x?email=c%40d.e&amp;folder=F">'
+        '<img src="/api/mail/messages/m9/cid/b%40x?email=c%40d.e&amp;folder=F">'
+    )
     inline = []
     collected = {
         "a@x": {"filename": "a.png", "content_type": "image/png", "data": PNG_BYTES},
@@ -263,8 +312,14 @@ def test_embed_groups_api_urls_per_source_message(monkeypatch):
 def test_embed_skips_own_fresh_cids(monkeypatch):
     """cids just generated by extract_vault_inline_images are not refetched."""
     body = '<img src="cid:nou@gnosi.local">'
-    inline = [{"filename": "x.png", "content_type": "image/png",
-               "data": PNG_BYTES, "content_id": "nou@gnosi.local"}]
+    inline = [
+        {
+            "filename": "x.png",
+            "content_type": "image/png",
+            "data": PNG_BYTES,
+            "content_id": "nou@gnosi.local",
+        }
+    ]
     new_body, calls = _embed(monkeypatch, body, inline, {})
     assert new_body == body
     assert calls == []  # no residual → the collector is not called
@@ -274,8 +329,7 @@ def test_embed_skips_own_fresh_cids(monkeypatch):
 def test_embed_partial_resolution(monkeypatch):
     body = '<img src="cid:orig1@mx"><img src="cid:perdut@mx">'
     inline = []
-    collected = {"orig1@mx": {"filename": "a.png", "content_type": "image/png",
-                              "data": PNG_BYTES}}
+    collected = {"orig1@mx": {"filename": "a.png", "content_type": "image/png", "data": PNG_BYTES}}
     new_body, _ = _embed(monkeypatch, body, inline, collected)
     assert len(inline) == 1
     assert 'src="cid:perdut@mx"' in new_body  # irrecuperable → intacte
@@ -304,8 +358,9 @@ def test_embed_end_to_end_mime(monkeypatch):
 
     body = '<p>gràcies!</p><blockquote><img src="cid:orig1@mx"></blockquote>'
     inline = []
-    collected = {"orig1@mx": {"filename": "foto.png", "content_type": "image/png",
-                              "data": PNG_BYTES}}
+    collected = {
+        "orig1@mx": {"filename": "foto.png", "content_type": "image/png", "data": PNG_BYTES}
+    }
     new_body, _ = _embed(monkeypatch, body, inline, collected)
     msg = build_mail_content(new_body, inline_images=inline)
 
@@ -316,20 +371,34 @@ def test_embed_end_to_end_mime(monkeypatch):
 
 # ── microsoft_get_inline_parts ───────────────────────────────────────────────
 
+
 def test_microsoft_inline_parts_filters_and_decodes(monkeypatch):
     import base64
 
     from backend.services import microsoft_mail_service as ms
 
-    payload = {"value": [
-        {"contentId": "<orig1@mx>", "name": "foto.png", "contentType": "image/png",
-         "contentBytes": base64.b64encode(PNG_BYTES).decode()},
-        {"contentId": "altre@mx", "name": "x.png", "contentType": "image/png",
-         "contentBytes": base64.b64encode(b"zz").decode()},
-        {"name": "sense-cid.pdf", "contentType": "application/pdf",
-         "contentBytes": base64.b64encode(b"pdf").decode()},
-        {"contentId": "ref@mx", "name": "referenceAttachment"},  # no contentBytes
-    ]}
+    payload = {
+        "value": [
+            {
+                "contentId": "<orig1@mx>",
+                "name": "foto.png",
+                "contentType": "image/png",
+                "contentBytes": base64.b64encode(PNG_BYTES).decode(),
+            },
+            {
+                "contentId": "altre@mx",
+                "name": "x.png",
+                "contentType": "image/png",
+                "contentBytes": base64.b64encode(b"zz").decode(),
+            },
+            {
+                "name": "sense-cid.pdf",
+                "contentType": "application/pdf",
+                "contentBytes": base64.b64encode(b"pdf").decode(),
+            },
+            {"contentId": "ref@mx", "name": "referenceAttachment"},  # no contentBytes
+        ]
+    }
     monkeypatch.setattr(ms, "_authed_get", lambda email, path, **kw: payload)
 
     parts = ms.microsoft_get_inline_parts("a@b.c", "m1", {"orig1@mx", "ref@mx"})

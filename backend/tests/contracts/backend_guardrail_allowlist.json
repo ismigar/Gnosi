@@ -40,11 +40,6 @@
       "max_lines": 1004,
       "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
     },
-    "backend/api/mail_routes.py": {
-      "max_complexity": 23,
-      "max_lines": 1942,
-      "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
-    },
     "backend/api/notion_routes.py": {
       "max_complexity": 39,
       "max_lines": 800,
@@ -105,39 +100,9 @@
       "max_lines": 800,
       "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
     },
-    "backend/services/drupal_sync_service.py": {
-      "max_complexity": 20,
-      "max_lines": 800,
-      "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
-    },
-    "backend/services/feed_ingester.py": {
-      "max_complexity": 16,
-      "max_lines": 800,
-      "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
-    },
-    "backend/services/google_calendar_service.py": {
-      "max_complexity": 20,
-      "max_lines": 800,
-      "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
-    },
     "backend/services/graph_service.py": {
       "max_complexity": 27,
       "max_lines": 958,
-      "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
-    },
-    "backend/services/hybrid_mail_service.py": {
-      "max_complexity": 30,
-      "max_lines": 869,
-      "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
-    },
-    "backend/services/imap_idle_service.py": {
-      "max_complexity": 16,
-      "max_lines": 800,
-      "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
-    },
-    "backend/services/imap_mail_sync_service.py": {
-      "max_complexity": 20,
-      "max_lines": 1340,
       "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
     },
     "backend/services/literature_service.py": {
@@ -172,11 +137,6 @@
     },
     "backend/services/lookup_normalizers.py": {
       "max_complexity": 32,
-      "max_lines": 800,
-      "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
-    },
-    "backend/services/mail_ingester.py": {
-      "max_complexity": 23,
       "max_lines": 800,
       "reason": "Legacy debt scheduled for Gnosi PRs 4-6"
     },
