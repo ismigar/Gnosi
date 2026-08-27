@@ -139,3 +139,38 @@ def test_extract_symbols_rejects_partial_state(tmp_path: Path) -> None:
             destination_preamble="from __future__ import annotations",
             source_import="from domain import first, missing",
         )
+
+
+def test_extract_symbols_ignores_unrelated_duplicate_assignments(tmp_path: Path) -> None:
+    source = tmp_path / "source.py"
+    destination = tmp_path / "domain.py"
+    source.write_text(
+        "LEGACY = 1\nLEGACY = 2\n\ndef selected() -> str:\n    return 'moved'\n",
+        encoding="utf-8",
+    )
+
+    assert (
+        extract_symbols(
+            source,
+            destination,
+            ["selected"],
+            destination_preamble="from __future__ import annotations",
+            source_import="from domain import selected",
+        )
+        is True
+    )
+    assert source.read_text(encoding="utf-8").count("LEGACY =") == 2
+
+
+def test_extract_symbols_rejects_requested_duplicate_assignment(tmp_path: Path) -> None:
+    source = tmp_path / "source.py"
+    source.write_text("SELECTED = 1\nSELECTED = 2\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Duplicate top-level symbols.*SELECTED"):
+        extract_symbols(
+            source,
+            tmp_path / "domain.py",
+            ["SELECTED"],
+            destination_preamble="from __future__ import annotations",
+            source_import="from domain import SELECTED",
+        )

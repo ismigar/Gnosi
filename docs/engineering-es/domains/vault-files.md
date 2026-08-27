@@ -59,6 +59,13 @@ El índice de páginas acelera el listado, la resolución de identificadores, el
 
 Iniciar primero carga instantáneas de disco válidas, luego comienza el trabajo de actualización. Un análisis parcial de proveedor de archivos está marcado parcial y no puede reemplazar una caché completa conocida. Los fallos por archivo están aislados de modo que un marcador de posición solo en línea o huérfano no elimina el resto del almacén de una respuesta.
 
+`pages/index_entries.py` es responsable de las lecturas acotadas del
+frontmatter, los reintentos ante bloqueos del proveedor y la normalización de
+entradas de caché. `pages/index_service.py` gestiona el descubrimiento, la
+actualización, el mapa inverso de identificadores y los snapshots deduplicados.
+La fachada inyecta los puertos de bóveda activa, registro, calendario y caché;
+estos servicios no importan las rutas HTTP.
+
 ## Proveedores de archivos
 
 La abstracción del proveedor selecciona el proveedor de archivos macOS local, genérico, OneDrive, iCloud Drive, Google Drive, Nextcloud o el comportamiento de Dropbox. El código de dominio normal todavía funciona con `Path`; el adaptador añade detección de marcadores de posición, hidratación, disponibilidad y asignación de rutas. `GNOSI_FILES_PROVIDER` explícitamente cuando la detección automática de trayectoria es ambigua.
@@ -66,6 +73,15 @@ La abstracción del proveedor selecciona el proveedor de archivos macOS local, g
 El tiempo de ejecución de archivos a la carta es neutral para el proveedor. Google Drive, iCloud y Nextcloud no heredan el comportamiento de recuperación de OneDrive; sólo `OneDriveProvider` puede reiniciar el cliente OneDrive después de un fallo de hidratación limitada. Los proveedores nativos de macOS utilizan una sesión de interfaz gráfica `open` Las implementaciones Docker pueden usar un ayudante de host configurado porque el contenedor lee cruzar otro límite.
 
 Las rutas de Dropbox File Provider se detectan explícitamente. Un servicio desconocido bajo macOS `~/Library/CloudStorage` utiliza el producto sin efectos secundarios `fileprovider` adaptador; cualquier carpeta montada totalmente sincronizada u ordinaria utiliza `local`. Un nuevo adaptador llamado es necesario sólo para una señal de marcador de posición diferente o un mecanismo de hidratación específico del proveedor. `GNOSI_DATA_DIR` sigue siendo local independientemente del proveedor de la bóveda.
+
+Solo el Markdown portátil y los adjuntos de la bóveda pueden residir en un
+árbol sincronizado. Las bases SQLite, los bloqueos, las cachés derivadas, los
+secretos y `GNOSI_DATA_DIR` permanecen en el almacenamiento local de la
+aplicación. Una carpeta Nextcloud totalmente sincronizada funciona como
+`local`; los archivos virtuales requieren el adaptador correspondiente o
+`fileprovider`. WebDAV y las API directas de nube son transportes de
+importación, exportación o copia de seguridad, no almacenamiento activo para
+SQLite. El destino de las copias es independiente del proveedor de la bóveda.
 
 ## Adjuntos y propiedades valoradas por archivos
 

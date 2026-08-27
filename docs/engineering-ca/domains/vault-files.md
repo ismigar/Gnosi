@@ -59,6 +59,13 @@ L' índex de pàgina accelera el llistat, resolució d' identificador, accés fr
 
 Primer s' inicia un carrega les instantànies de disc vàlides, després comença a refrescar el treball. Es marca un escàner parcial de fitxer i no es pot reemplaçar un cau complet. Els errors de fitxer s' aïllaran de manera que un únic espai de substitució en línia o orfe no elimina la resta de la caixa volta d' una resposta.
 
+`pages/index_entries.py` és responsable de la lectura limitada del frontmatter,
+dels reintents davant bloquejos del proveïdor i de normalitzar les entrades de
+cau. `pages/index_service.py` gestiona el descobriment, l'actualització, el mapa
+invers d'identificadors i els snapshots deduplicats. La façana injecta els ports
+de vault actiu, registre, calendari i cau; aquests serveis no importen les rutes
+HTTP.
+
 ## Proveïdors de fitxers
 
 L' abstracció del proveïdor selecciona el proveïdor local, proveïdor de fitxers genèric, iClod Drive, Google Drive, Nextcloud, o el comportament de la caixa desplegable. El codi de domini normal encara funciona `Path`; l' adaptador afegeix detecció de marcadors de posició, hidratació, disponibilitat i mapa de rutes. Establiu `GNOSI_FILES_PROVIDER` explícitament quan la detecció de la ruta automàtica és ambigua.
@@ -66,6 +73,15 @@ L' abstracció del proveïdor selecciona el proveïdor local, proveïdor de fitx
 El temps d' execució dels fitxers i d' execució és proveïdor de proveïdor. Google Drive, iCold i Nextcloud no hereta només el comportament de recuperació d' Onevariva; `OneDriveProvider` Pot reiniciar el client OneDive després d' un fracàs de hidratació. Els proveïdors natius de macOS usen una sessió gràfica `open` Per omissió, els desplegaments Dockers poden usar un auxiliar de remot configurat perquè el recipient llegeix la creu d' un altre límit.
 
 Les rutes del proveïdor de fitxers de sortida de caixa són detectades explícitament. Un servei desconegut sota el " macOS " `~/Library/CloudStorage` Usa l' efecte secundari lliure `fileprovider` adaptador; qualsevol carpeta completa sincronitzada o muntada utilitza `local`Un nou adaptador de noms només cal per a un senyal de posició diferent o un mecanisme d' hidratació específic del venedor. `GNOSI_DATA_DIR` Encara és local sense importar el proveïdor de la caixa forta.
+
+Només el Markdown portable i els adjunts del vault poden viure dins un arbre
+sincronitzat. Les bases SQLite, els bloquejos, les memòries cau derivades, els
+secrets i `GNOSI_DATA_DIR` es mantenen a l'emmagatzematge local de l'aplicació.
+Una carpeta Nextcloud completament sincronitzada funciona com a `local`; si usa
+fitxers virtuals cal l'adaptador corresponent o `fileprovider`. WebDAV i les API
+directes del núvol són transports d'importació, exportació o còpia de seguretat,
+no emmagatzematge viu per a SQLite. El destí dels backups és independent del
+proveïdor del vault.
 
 ## Propietats dels adjunts i de fitxer amb valor
 

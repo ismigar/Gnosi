@@ -59,6 +59,13 @@ L'index de page accélère la liste, la résolution d'identification, l'accès a
 
 Démarrer charge d'abord des instantanés de disque valides, puis démarre le travail de rafraîchissement. Un scan partiel du fournisseur de fichiers est marqué de manière partielle et ne peut remplacer un cache complet connu. Les défaillances par fichier sont isolées de sorte qu'un marqueur de place en ligne ou orphelin ne supprime pas le reste de la voûte d'une réponse.
 
+`pages/index_entries.py` est responsable des lectures bornées du frontmatter,
+des nouvelles tentatives lors des verrous du fournisseur et de la normalisation
+des entrées de cache. `pages/index_service.py` gère la découverte, le
+rafraîchissement, la table inverse des identifiants et les instantanés
+dédoublonnés. La façade injecte les ports du coffre actif, du registre, du
+calendrier et du cache; ces services n'importent pas les routes HTTP.
+
 ## Fournisseurs de fichiers
 
 L'abstraction du fournisseur sélectionne le comportement local, générique de macOS File Provider, OneDrive, iCloud Drive, Google Drive, Nextcloud ou Dropbox-aware. `Path`; l'adaptateur ajoute la détection, l'hydratation, la disponibilité et la cartographie des chemins. `GNOSI_FILES_PROVIDER` explicitement lorsque la détection automatique du chemin est ambiguë.
@@ -66,6 +73,15 @@ L'abstraction du fournisseur sélectionne le comportement local, générique de 
 Le temps d'exécution des fichiers sur demande est neutre pour le fournisseur. Google Drive, iCloud et Nextcloud n'héritent pas du comportement de récupération OneDrive; seulement `OneDriveProvider` peut redémarrer le client OneDrive après une défaillance d'hydratation limitée. Les fournisseurs macOS natifs utilisent une session GUI `open` Les déploiements Docker peuvent utiliser un helper d'hôte configuré parce que le conteneur lit traverser une autre limite.
 
 Les chemins du fournisseur de fichiers Dropbox sont détectés explicitement. Un service inconnu sous macOS `~/Library/CloudStorage` utilise le produit sans effet secondaire `fileprovider` adaptateur; tout dossier entièrement synchronisé ou monté ordinaire utilise `local`. Un nouvel adaptateur nommé n'est nécessaire que pour un signal différent de marqueur de place ou un mécanisme d'hydratation spécifique au fournisseur. `GNOSI_DATA_DIR` reste local, indépendamment du fournisseur de coffre.
+
+Seuls le Markdown portable et les pièces jointes du coffre peuvent résider dans
+une arborescence synchronisée. Les bases SQLite, les verrous, les caches
+dérivés, les secrets et `GNOSI_DATA_DIR` restent dans le stockage local de
+l'application. Un dossier Nextcloud entièrement synchronisé fonctionne comme
+`local`; les fichiers virtuels exigent l'adaptateur correspondant ou
+`fileprovider`. WebDAV et les API cloud directes sont des transports d'import,
+d'export ou de sauvegarde, pas un stockage actif pour SQLite. La destination
+des sauvegardes est indépendante du fournisseur du coffre.
 
 ## Pièces jointes et propriétés évaluées par fichier
 

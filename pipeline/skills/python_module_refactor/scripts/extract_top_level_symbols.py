@@ -27,7 +27,8 @@ def _node_name(node: ast.stmt) -> str | None:
     return None
 
 
-def _named_nodes(tree: ast.Module) -> dict[str, NamedNode]:
+def _named_nodes(tree: ast.Module, selected_names: set[str]) -> dict[str, NamedNode]:
+    """Return requested named nodes and reject ambiguity only in that scope."""
     result: dict[str, NamedNode] = {}
     duplicates: set[str] = set()
     for node in tree.body:
@@ -37,7 +38,7 @@ def _named_nodes(tree: ast.Module) -> dict[str, NamedNode]:
         ):
             continue
         name = _node_name(node)
-        if name is None:
+        if name is None or name not in selected_names:
             continue
         if name in result:
             duplicates.add(name)
@@ -79,7 +80,8 @@ def extract_symbols(
     selected_names = _validate_names(names)
     source_text = source.read_text(encoding="utf-8")
     source_tree = ast.parse(source_text, filename=str(source))
-    source_nodes = _named_nodes(source_tree)
+    selected_name_set = set(selected_names)
+    source_nodes = _named_nodes(source_tree, selected_name_set)
     present = [name for name in selected_names if name in source_nodes]
 
     if not present:
@@ -87,7 +89,7 @@ def extract_symbols(
             raise ValueError("Symbols are absent from source and destination does not exist")
         destination_text = destination.read_text(encoding="utf-8")
         destination_tree = ast.parse(destination_text, filename=str(destination))
-        destination_nodes = _named_nodes(destination_tree)
+        destination_nodes = _named_nodes(destination_tree, selected_name_set)
         missing = [name for name in selected_names if name not in destination_nodes]
         if missing:
             raise ValueError("Symbols are absent from both modules: " + ", ".join(missing))

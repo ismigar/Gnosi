@@ -135,6 +135,22 @@ from backend.domains.vault.schemas.pages import (
     _BulkWarmPayload,
 )
 from backend.domains.vault.pages.state import page_state
+from backend.domains.vault.pages import index_entries as page_index_entries
+from backend.domains.vault.pages import index_service as page_index_service
+from backend.domains.vault.pages.index_entries import (
+    build_cache_entry_from_memory as _build_cache_entry_from_memory,
+    build_page_cache_entry as _build_page_cache_entry,
+    humanize_relation_index_title as _humanize_relation_index_title,
+    is_metadata_stub as _is_metadata_stub,
+    read_frontmatter_partial as _read_frontmatter_partial,
+)
+from backend.domains.vault.pages.index_service import (
+    bump_page_index_version as _bump_page_index_version,
+    get_cached_page_entries as _get_cached_page_entries,
+    get_pages_snapshot as _get_pages_snapshot,
+    refresh_page_index_entry as _refresh_page_index_entry,
+    refresh_table_pages_metadata as _refresh_table_pages_metadata,
+)
 from backend.domains.vault.pages.identifiers import (
     HISTORY_TIMESTAMP_RE as _HISTORY_TIMESTAMP_RE,
     PAGE_ID_RE as _PAGE_ID_RE,
@@ -824,7 +840,6 @@ def _vault_cache_key() -> str:
 
 # Google Calendar sync cooldown (5 minutes)
 _GOOGLE_CALENDAR_SYNC_COOLDOWN_SECONDS = 300
-_last_google_calendar_sync_time = 0.0
 
 def get_page_index_cache_path(v_str: Optional[str] = None):
     # Local-only: this cache is per-instance and contains absolute paths that
@@ -2765,778 +2780,6 @@ def _recompute_cross_record_formulas_for_table(
             state["running"] = False
 
 
-def _read_frontmatter_partial(file_path: Path):
-    """Reads only the top part of a markdown file to extract frontmatter.
-    Extremely efficient for large vaults on slow drives (OneDrive).
-    """
-    lines = []
-    frontmatter_started = False
-    frontmatter_count = 0
-    
-    # OneDrive sync can lock the file for a few seconds. Backoff
-    # exponential up to 4s — more than the partial read with 60 lines should
-    # of ever needing under normal conditions.
-    retries = 7
-    delays = [0.05, 0.1, 0.2, 0.4, 0.8, 1.0, 1.5]
-    last_error = None
-    for attempt in range(retries + 1):
-        try:
-            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                for line in f:
-                    content_line = line.strip()
-                    if content_line == '---':
-                        frontmatter_count += 1
-                        if frontmatter_count == 2:
-                            lines.append(line)
-                            # Read up to 60 more lines for body snippet (efficient partial read)
-                            for _ in range(60):
-                                try:
-                                    body_line = next(f, None)
-                                    if body_line is None: break
-                                    lines.append(body_line)
-                                except StopIteration:
-                                    break
-                            break
-                        frontmatter_started = True
-                    
-                    if frontmatter_started:
-                        lines.append(line)
-                    elif content_line != "":
-                        # If we find non-empty text before ---, it's not a valid frontmatter
-                        break
-
-                    # Safety break for files with an opening `---` that never
-                    # closes (corrupted frontmatter): we avoid reading them whole.
-                    # The limit must be high enough to cover frontmatters
-                    # that are legitimately large —a page with many Notion relations
-                    # can have hundreds of lines of YAML before the
-                    # closing `---` (e.g. an Àrea with 229 lines)—; with
-                    # too low a limit the closing marker falls out of range,
-                    # the frontmatter is read without closing and `parse_frontmatter`
-                    # it returns {} → the id falls back to the filename and all wikilinks
-                    # by UUID pointing to it silently start returning 404.
-                    # Outside the frontmatter we already exit at the first line of text,
-                    # so this limit only affects the frontmatter case.
-                    if len(lines) > 2000:
-                        break
-                        
-            content = "".join(lines)
-            return parse_frontmatter(content, file_path)
-        except OSError as e:
-            if e.errno == 35: # Resource deadlock
-                last_error = e
-                if attempt < retries:
-                    time.sleep(delays[attempt])
-                    continue
-            log.warning(f"Error in partial read of {file_path}: {e}")
-            return {}, ""
-        except Exception as e:
-            log.warning(f"Error in partial read of {file_path}: {e}")
-            return {}, ""
-    
-    if last_error:
-        log.warning(f"Final error reading {file_path} after retries: {last_error}")
-    return {}, ""
-
-
-def _is_metadata_stub(metadata: Dict[str, Any]) -> bool:
-    """Heuristic: the cache was initialized from a partial index
-    (only id/title/description) and the frontmatter hasn't been reread yet.
-    If the metadata has only basic keys, we consider that it needs to be refreshed
-    from the file before returning it to the frontend.
-    
-    """
-    if not metadata:
-        return True
-    keys = set(metadata.keys())
-    bare = {"id", "title", "parent_id", "description", "is_database"}
-    return keys.issubset(bare)
-
-
-def _humanize_relation_index_title(title: Any, metadata: Dict[str, Any]) -> str:
-    """Replace a relation-index UUID suffix with its wikilink display name."""
-    display_title = str(title or "").strip()
-    match = re.match(
-        r"^(?:Index|Índex)\s*[·:]\s*(?:Projecte|Project|Àrea|Area)\s*:\s*"
-        r"([0-9a-f]{8}-[0-9a-f-]{27,})$",
-        display_title,
-        re.IGNORECASE,
-    )
-    if not match:
-        return display_title
-
-    target_id = match.group(1)
-    for raw_value in (metadata or {}).values():
-        values = raw_value if isinstance(raw_value, list) else [raw_value]
-        for value in values:
-            relation_match = re.search(
-                r"\[\[([^]|]+)\|\s*" + re.escape(target_id) + r"\s*\]\]",
-                str(value or ""),
-                re.IGNORECASE,
-            )
-            if relation_match:
-                return f"{display_title.split(':', 1)[0]}: {relation_match.group(1).strip()}"
-    return display_title
-
-
-def _build_page_cache_entry(file_path: Path, stat_result) -> Dict[str, Any]:
-    # body always defined: if the dashboard branch or the except discards body,
-    # the return further down references it → NameError → caller empties the whole
-    # cache and the next GET returns 404 (rglob only searches *.md).
-    body = ""
-    parse_failed = False
-    try:
-        if _is_dashboard_file_path(file_path):
-            metadata, body = _read_dashboard_file(file_path)
-        else:
-            metadata, body = _read_frontmatter_partial(file_path)
-            # If _read_frontmatter_partial returns ({}, "") it means it failed
-            # (Errno 35 retries exhausted). We flag it to avoid persisting
-            # an entry with empty metadata that would overwrite a good one.
-            if not metadata and not body:
-                parse_failed = True
-            # HARDENING (anti id→name): if the partial read did NOT yield an id
-            # valid —either because it came back empty, or `({}, body)` with a
-            # frontmatter that doesn't close within the line limit—, we retry with
-            # the FULL text and the complete parser (with tolerant YAML rescue)
-            # before falling back to `file_path.stem`. Without this, the page
-            # would get indexed with an invalid id (the name) and all wikilinks/
-            # relations by UUID pointing to them would fail silently. In order to
-            # online-only OneDrive files the full read also fails
-            # (Errno 35) and we keep the fallback to the stem (it doesn't make things worse).
-            # Legitimate pages without `id` (system/readme) come back without an id
-            # from the full read too → no change, no relevant cost.
-            if not str((metadata or {}).get("id") or "").strip():
-                try:
-                    full_md, full_body = parse_frontmatter(
-                        file_path.read_text(encoding="utf-8", errors="ignore"), file_path
-                    )
-                    if full_md and str(full_md.get("id") or "").strip():
-                        metadata, body = full_md, full_body
-                        parse_failed = False
-                except OSError:
-                    pass
-                except Exception as e:
-                    log.warning(f"Full-read fallback failed for {file_path.name}: {e}")
-            metadata = _process_metadata_paths(metadata)
-            # Support Catalan 'data' as 'date' alias
-            if "data" in metadata and "date" not in metadata:
-                metadata["date"] = metadata["data"]
-    except Exception as e:
-        log.warning(f"Error parsing frontmatter for {file_path.name}: {e}")
-        metadata = {}
-        parse_failed = True
-
-    file_id = str(metadata.get("id") or file_path.stem)
-    vault_root = get_p("VAULT")
-    try:
-        rel_folder = str(file_path.parent.relative_to(vault_root)).replace("\\", "/")
-    except ValueError:
-        # Vault roots behind a symlink (e.g. /tmp -> /private/tmp on macOS):
-        # a caller may pass a resolved file path while get_p("VAULT") stays
-        # unresolved (or vice versa). Retry with both sides resolved before
-        # giving up, otherwise the entry silently never makes it into the index.
-        rel_folder = str(
-            file_path.parent.resolve().relative_to(Path(vault_root).resolve())
-        ).replace("\\", "/")
-    if rel_folder == ".":
-        rel_folder = ""
-
-    # Better title handling: metadata > filename stem > "Untitled". Generated
-    # relation-index pages can have a filename such as ``Index · Projecte:
-    # <uuid>`` while their relation metadata still contains ``[[Name|uuid]]``;
-    # prefer that human title for table rows and page lists.
-    title = metadata.get("title")
-    if not title:
-        title = file_path.stem
-    title = _humanize_relation_index_title(title, metadata)
-
-    entry = {
-        "path": str(file_path),
-        "mtime_ns": stat_result.st_mtime_ns,
-        "mtime": stat_result.st_mtime,
-        # File creation date (macOS: st_birthtime; fallback st_ctime).
-        "created_mtime": getattr(stat_result, "st_birthtime", None) or stat_result.st_ctime,
-        "size": stat_result.st_size,
-        "id": file_id,
-        "title": title,
-        "parent_id": metadata.get("parent_id"),
-        "is_database": metadata.get("is_database", False),
-        "metadata": {
-            **metadata,
-            "description": metadata.get("description") or (body.strip()[:500] if body else None)
-        },
-        "folder": rel_folder,
-    }
-    # Flag for the caller: if the frontmatter parse failed, avoid
-    # overwriting an old entry with good data (Errno 35 OneDrive).
-    if parse_failed:
-        entry["_parse_failed"] = True
-    return entry
-
-
-def _build_cache_entry_from_memory(
-    file_path: Path, stat_result, metadata: Dict[str, Any], body: str
-) -> Dict[str, Any]:
-    """Fast variant of `_build_page_cache_entry` for when the caller already
-    has the final `metadata` and `body` in memory (typically after a
-    PATCH/PUT). Avoids reading the file just written to OneDrive, which
-    costs 100-300 ms and is the dominant bottleneck of the idempotent PATCH.
-
-    Entry shape identical to that of `_build_page_cache_entry`.
-    
-    """
-    # Applies the same post-processing that the disk version does via
-    # `_read_frontmatter_partial` + `_process_metadata_paths`. Here it
-    # we have the metadata after `_persist_metadata_assets`; the `_process_*`
-    # only affects cover/icon which are already handled in the PATCH pipeline.
-    md = _process_metadata_paths(dict(metadata or {}))
-    if "data" in md and "date" not in md:
-        md["date"] = md["data"]
-
-    file_id = str(md.get("id") or file_path.stem)
-    rel_folder = str(file_path.parent.relative_to(get_p("VAULT"))).replace("\\", "/")
-    if rel_folder == ".":
-        rel_folder = ""
-
-    title = md.get("title") or file_path.stem
-
-    return {
-        "path": str(file_path),
-        "mtime_ns": stat_result.st_mtime_ns,
-        "mtime": stat_result.st_mtime,
-        "created_mtime": getattr(stat_result, "st_birthtime", None) or stat_result.st_ctime,
-        "size": stat_result.st_size,
-        "id": file_id,
-        "title": title,
-        "parent_id": md.get("parent_id"),
-        "is_database": md.get("is_database", False),
-        "metadata": {
-            **md,
-            "description": md.get("description") or (body.strip()[:500] if body else None),
-        },
-        "folder": rel_folder,
-    }
-
-
-def _refresh_page_index_entry(file_path: Path, metadata: Dict[str, Any], body: str) -> None:
-    """Refreshes `_page_index_entries` with the NEW metadata after a
-    `save_page_md`, so that `GET /pages` and `/by-table` (which serve from
-    this index) don't return the OLD metadata until the next full rescan
-    (600s cooldown). Best-effort. `create` and `PATCH` do the equivalent
-    inline; this helper is shared by writers that previously ONLY
-    updated the id→path map (PUT) or nothing in the cache (promote-zotero),
-    leaving stale metadata in the grid."""
-    try:
-        v_path = get_active_vault_path()
-        if not v_path:
-            return
-        v_str = str(v_path)
-        new_entry = _build_cache_entry_from_memory(
-            file_path, file_path.stat(), metadata, body or ""
-        )
-        with _page_index_lock:
-            _page_index_entries.setdefault(v_str, {})[str(file_path)] = new_entry
-            eid = new_entry.get("id") or (metadata or {}).get("id")
-            if eid:
-                _page_id_to_path.setdefault(v_str, {})[eid] = str(file_path)
-            _bump_page_index_version(v_str)
-        with _body_cache_lock:
-            _body_cache.pop(str(file_path), None)
-    except Exception as exc:
-        log.debug(f"refresh index entry failed for {file_path}: {exc}")
-
-
-def _refresh_table_pages_metadata(filtered: List[Any]) -> None:
-    """For each PageInfo with stub metadata, rereads the file's
-    frontmatter and updates the in-memory cache. Parallelized with a thread pool:
-    without parallelism a 270-file table takes 35-40s on OneDrive;
-    with 16 workers, it drops to 3-5s.
-    """
-    from backend.services.context_vars import get_active_vault_path
-    from concurrent.futures import ThreadPoolExecutor
-    v_path = get_active_vault_path()
-    if not v_path:
-        return
-    v_str = str(v_path)
-
-    targets = []
-    for p in filtered:
-        if not _is_metadata_stub(p.metadata or {}):
-            continue
-        file_path = Path(p.path) if getattr(p, "path", None) else None
-        if not file_path or not file_path.exists():
-            continue
-        targets.append((p, file_path))
-
-    if not targets:
-        return
-
-    def _read_one(item):
-        page_obj, file_path = item
-        try:
-            entry = _build_page_cache_entry(file_path, file_path.stat())
-            return page_obj, file_path, entry
-        except Exception as e:
-            log.debug(f"refresh read fail {file_path.name}: {e}")
-            return page_obj, file_path, None
-
-    max_workers = min(16, len(targets))
-    with ThreadPoolExecutor(max_workers=max_workers) as ex:
-        results = list(ex.map(_read_one, targets))
-
-    for page_obj, file_path, entry in results:
-        if entry is None:
-            continue
-        if entry.pop("_parse_failed", False):
-            continue
-        new_meta = entry.get("metadata") or {}
-        if _is_metadata_stub(new_meta):
-            continue
-        page_obj.metadata = new_meta
-        if entry.get("title"):
-            page_obj.title = entry.get("title")
-        with _page_index_lock:
-            cached = _page_index_entries.setdefault(v_str, {}).get(str(file_path))
-            if cached is not None:
-                cached.update(entry)
-                _bump_page_index_version(v_str)
-
-
-def _get_cached_page_entries(
-    search_paths: Optional[List[Path]] = None, 
-    force_refresh: bool = False
-) -> List[Dict[str, Any]]:
-    from backend.services.context_vars import get_active_vault_path
-    v_path = get_active_vault_path()
-    if not v_path or not v_path.exists():
-        return []
-    v_str = str(v_path)
-
-    # 1. Initialize from disk if needed
-    if not _page_index_initialized.get(v_str):
-        loaded = _load_page_index_from_disk(v_str)
-        if not loaded:
-            # Disk cache missing: mark as initialized to prevent repeated reads
-            # and force a synchronous scan so the first response is never empty.
-            with _page_index_lock:
-                _page_index_entries.setdefault(v_str, {})
-            _page_index_initialized[v_str] = True
-            force_refresh = True
-
-    # 2. If it's a read-only request (Fast Path), return immediately
-    if not force_refresh:
-        with _page_index_lock:
-            entries = _page_index_entries.get(v_str, {})
-            if search_paths:
-                search_paths_strs = [str(p) for p in search_paths]
-                return [
-                    e for e in entries.values()
-                    if any((e.get("path") or "").startswith(s) for s in search_paths_strs)
-                ]
-            return list(entries.values())
-
-    # 3. Discovery (Slow Path) - Only reached if force_refresh=True
-    # 3. Discovery (Slow Path) - Efficient walk skipping known heavy/redundant folders
-    candidate_files = []
-    
-    # Folders to skip entirely
-    SKIP_DIRS = {
-        'assets', 'drawings', 'mail',
-        '.history', '.trash'
-    }
-    # Hidden folders (`.<name>`) that we DO index as content. .Dashboards
-    # contains the derived layouts; without this exception, os.walk would filter out
-    # all dirnames starting with "." and the dashboards would never make it in
-    # in the cache → they would disappear on reload.
-    HIDDEN_ALLOWED = {'.dashboards'}
-
-    # Subtrees excluded from page indexing, by relative path (POSIX).
-    # `Calendar/External` are the SUBSCRIBED Google calendars (sunrise/sunset for
-    # city, moon phases, primary, sunday…): ~2000 files, many of them
-    # which stay as OneDrive on-demand placeholders that Docker can NOT
-    # read (`OSError: [Errno 35] Resource deadlock avoided`) nor stat without
-    # block on → they used to jam the indexer and leave the page list
-    # empty. They're not our own content (subscribed events); we prune them from the walk
-    # so that none of their files get touched. ASCII path → no NFC/NFD issue.
-    EXCLUDED_DIRS_REL = {"Calendar/External"}
-
-    root_paths = search_paths if search_paths else [v_path]
-    dashboard_path = get_p("DASHBOARDS")
-
-    for root in root_paths:
-        if not root.exists(): continue
-        for dirpath, dirnames, filenames in os.walk(root):
-            rel_to_vault = Path(dirpath).relative_to(v_path)
-            # Skip hidden and excluded folders, except those explicitly
-            # allowed (e.g. .Dashboards), and prunes the subtrees under EXCLUDED_DIRS_REL
-            # before descending into them (so their files never get read).
-            dirnames[:] = [
-                d for d in dirnames
-                if (not d.startswith('.') or d.lower() in HIDDEN_ALLOWED)
-                and d.lower() not in SKIP_DIRS
-                and (rel_to_vault / d).as_posix() not in EXCLUDED_DIRS_REL
-            ]
-
-            # Additional nested redundancy check: skipping duplicates like folder/folder
-            parts = rel_to_vault.parts
-            if len(parts) >= 2:
-                p_parent = parts[-2].lower().replace('_', '').replace('.', '')
-                p_current = parts[-1].lower().replace('_', '').replace('.', '')
-                if p_parent == p_current and len(p_parent) > 3:
-                    dirnames[:] = [] # Stop recursion
-                    continue
-
-            for f in filenames:
-                if f.startswith('.'): continue
-                if f.endswith(".md"):
-                    candidate_files.append(Path(dirpath) / f)
-                elif f.endswith(".json") and dashboard_path and str(dirpath).startswith(str(dashboard_path)):
-                    candidate_files.append(Path(dirpath) / f)
-
-    log.info(f"🔍 Indexer found {len(candidate_files)} candidate files.")
-
-    # 4. Prepare updates OUTSIDE lock
-    new_entries = {}
-    current_paths = set()
-
-    # Get a snapshot of existing entries to avoid constant locking
-    with _page_index_lock:
-        if v_str not in _page_index_entries:
-            _page_index_entries[v_str] = {}
-        cached_snapshot = dict(_page_index_entries[v_str])
-
-    for file_path in candidate_files:
-        is_dashboard_file = _is_dashboard_file_path(file_path)
-        try:
-            rel_path = file_path.relative_to(v_path)
-            parts = rel_path.parts
-            # Ignore hidden folders except those explicitly allowed
-            # (e.g. .Dashboards). Without this exception, the dashboards
-            # would end up in candidate_files (because the first pass of the
-            # walk includes them) but here we'd filter them out.
-            if any(part.startswith('.') and part.lower() not in HIDDEN_ALLOWED for part in parts):
-                continue
-            
-            # Detect nested redundancy: [a, b, b, c] -> skip
-            # Often caused by sync glitches: ismigar_gmail_com/ismigargmailcom/
-            if len(parts) >= 2:
-                is_redundant = False
-                for i in range(len(parts) - 1):
-                    # We only flag redundancy if the directory name matches exactly 
-                    # its parent (ignoring case/underscores/dots)
-                    p_parent = parts[i].lower().replace('_', '').replace('.', '')
-                    p_current = parts[i+1].lower().replace('_', '').replace('.', '')
-                    
-                    # Safety check: p_current must be a directory (not the final file) to be a sync artifact folder
-                    # Since parts includes the filename at the end, the last loop iteration
-                    # compares the last folder with the filename. We want to avoid that for Wiki pages.
-                    if i < len(parts) - 2: # Stop before the last part (filename)
-                        if p_parent == p_current and len(p_parent) > 3:
-                            # EXCEPTION: Allow similar names within the Calendar folder
-                            # (e.g. ismigar_gmail_com/ismigargmailcom)
-                            if "calendar" in [p.lower() for p in parts]:
-                                continue
-                            is_redundant = True
-                            break
-                if is_redundant:
-                    continue
-        except ValueError:
-            continue
-
-        path_str = str(file_path)
-        current_paths.add(path_str)
-
-        try:
-            stat_result = file_path.stat()
-        except (FileNotFoundError, PermissionError):
-            continue
-
-        cached = cached_snapshot.get(path_str)
-        if (
-            cached
-            and cached.get("mtime_ns") == stat_result.st_mtime_ns
-            and cached.get("size") == stat_result.st_size
-        ):
-            new_entries[path_str] = cached
-            continue
-
-        # Heavy part: parsing frontmatter
-        built = _build_page_cache_entry(file_path, stat_result)
-        # If the parse failed (Errno 35) and we have an old entry with
-        # real metadata, we keep the old one instead of sweeping it away.
-        if built.pop("_parse_failed", False) and cached and not _is_metadata_stub(cached.get("metadata") or {}):
-            new_entries[path_str] = cached
-        else:
-            new_entries[path_str] = built
-
-    # 5. Merge and persist inside lock (Briefly)
-    with _page_index_lock:
-        if not search_paths:
-             _page_index_entries[v_str] = new_entries
-             # Rebuild reverse ID map
-             new_id_map = {}
-             all_files_ordered = []
-             for p_str, entry in new_entries.items():
-                 all_files_ordered.append(Path(p_str))
-                 pid = entry.get("id")
-                 if pid:
-                     # Keep most recent if duplicate ID exists in filesystem
-                     existing_path = new_id_map.get(pid)
-                     if not existing_path or entry.get("mtime", 0) > new_entries.get(existing_path, {}).get("mtime", 0):
-                        new_id_map[pid] = p_str
-             _page_id_to_path[v_str] = new_id_map
-             # UPDATE GLOBAL RESOLVER
-             path_resolver.update_index(v_path, new_id_map, all_files_ordered)
-        else:
-             _page_index_entries.setdefault(v_str, {}).update(new_entries)
-             # Incremental update of ID map
-             id_map = _page_id_to_path.setdefault(v_str, {})
-             for p_str, entry in new_entries.items():
-                 pid = entry.get("id")
-                 if pid:
-                     id_map[pid] = p_str
-             # UPDATE GLOBAL RESOLVER INCREMENTALLY
-             path_resolver.update_index(v_path, id_map, [Path(p) for p in _page_index_entries[v_str].keys()])
-
-        _page_index_initialized[v_str] = True
-        _bump_page_index_version(v_str)
-
-    _save_page_index_to_disk(v_str)
-
-    if search_paths:
-        search_paths_strs = [str(p) for p in search_paths]
-        return [
-            e for e in new_entries.values()
-            if any((e.get("path") or "").startswith(s) for s in search_paths_strs)
-        ]
-
-    return list(new_entries.values())
-
-
-def _bump_page_index_version(v_str: str) -> None:
-    """Marks `_page_index_entries[v_str]` as changed so derived caches
-    know to rebuild on the next read.
-    Must be called with `_page_index_lock` held (every mutation site of
-    `_page_index_entries` is already under that lock).
-    """
-    _page_index_version[v_str] = _page_index_version.get(v_str, 0) + 1
-
-
-def _get_pages_snapshot(
-    only_calendar: bool = False,
-    background_tasks: Optional[BackgroundTasks] = None
-) -> List[PageInfo]:
-    # TTL micro-cache. The `/pages`, `/sidebar/summary` routes and their
-    # parallel invocations on the frontend's first load (4-6 at a time) did
-    # so they can join into a single real computation.
-    cache_key = f"snapshot:{_vault_cache_key()}:{'cal' if only_calendar else 'all'}"
-    cached = _pages_cache_get(cache_key)
-    if cached is not None:
-        return cached
-
-    global _last_google_calendar_sync_time
-    search_paths = None
-    enabled_calendar_tables = []
-    registry = load_registry()
-
-    if only_calendar:
-        try:
-            from backend.services.integration_manager import integration_manager
-            integrations = integration_manager.get_all_safe()
-            enabled_calendar_tables = integrations.get("vault_calendar", {}).get("enabled_tables", [])
-            
-            search_paths = [get_p("CALENDAR")]
-            # Find folders for enabled tables. Resolve through _table_vault_dir so
-            # the DB prefix (BD/<db>/<folder>) is included — the on-disk layout is
-            # VAULT/BD/<db>/<folder>, not VAULT/<folder>, so a plain join would
-            # point at a non-existent path and the table's events would vanish.
-            for table in registry.get("tables", []):
-                if table.get("id") in enabled_calendar_tables:
-                    table_dir = _table_vault_dir(table, registry)
-                    if table_dir:
-                        search_paths.append(table_dir)
-        except Exception as e:
-            log.warning(f"Could not prepare selective search paths for calendar: {e}")
-
-    # Trigger background sync if background_tasks provided AND cooldown passed
-    if background_tasks:
-        now = time.monotonic()
-        
-        # 1. Disk Index Sync (Vault)
-        if now - page_state.last_vault_sync_time > _VAULT_SYNC_COOLDOWN_SECONDS:
-            page_state.last_vault_sync_time = now
-            background_tasks.add_task(_get_cached_page_entries, search_paths, True)
-            log.info("📡 Background sync triggered for page index.")
-        
-        # 2. Google Calendar Sync (Remote)
-        # Triggered ONLY if specifically looking at calendar and cooldown passed
-        if only_calendar and (now - _last_google_calendar_sync_time > _GOOGLE_CALENDAR_SYNC_COOLDOWN_SECONDS):
-            _last_google_calendar_sync_time = now
-            try:
-                from backend.services.vault_calendar_sync_service import calendar_sync_service
-                background_tasks.add_task(calendar_sync_service.sync_all_calendars)
-                log.info("📅 Background Google Calendar sync triggered.")
-            except Exception as e:
-                log.error(f"Could not trigger background Google Calendar sync: {e}")
-
-    raw_entries = _get_cached_page_entries(search_paths=search_paths, force_refresh=False)
-    if not raw_entries:
-        return []
-
-    # Filter out entries whose files no longer exist (deleted externally).
-    # WARNING: Path.exists() for each entry is 3988 stat() calls on OneDrive every
-    # time /pages is called — this raises the time to 15+ seconds. With a cache
-    # of mtime in `_iter_docs_cache`, we only validate stale_paths once per
-    # `_STALE_CHECK_TTL` seconds. If a file is deleted externally, it stays
-    # visible in the sidebar until the next stat — acceptable.
-    now_mono = time.monotonic()
-    do_stale_check = (now_mono - _last_stale_check["ts"]) > _STALE_CHECK_TTL
-    entries = []
-    stale_paths = []
-    if do_stale_check:
-        for e in raw_entries:
-            p_str = e.get("path")
-            if p_str and not Path(p_str).exists():
-                stale_paths.append(p_str)
-            else:
-                entries.append(e)
-        _last_stale_check["ts"] = now_mono
-    else:
-        entries = list(raw_entries)
-
-    if stale_paths:
-        from backend.services.context_vars import get_active_vault_path
-        v_str = str(get_active_vault_path())
-        with _page_index_lock:
-            idx = _page_index_entries.get(v_str, {})
-            id_map = _page_id_to_path.get(v_str, {})
-            pruned_any = False
-            for p_str in stale_paths:
-                entry = idx.pop(p_str, None)
-                if entry:
-                    id_map.pop(entry.get("id", ""), None)
-                    pruned_any = True
-            if pruned_any:
-                _bump_page_index_version(v_str)
-        page_state.last_vault_sync_time = 0.0
-        log.info(f"🗑️ Pruned {len(stale_paths)} stale page entries from cache.")
-
-    folder_to_table = _build_table_folder_index(registry)
-    sorted_folders = sorted(folder_to_table.keys(), key=len, reverse=True)
-
-    pages_by_id: Dict[str, PageInfo] = {}
-    duplicate_ids = set()
-
-    # If we did a selective scan, we should only process the entries relevant to those paths
-    if search_paths:
-        search_paths_strs = [str(p) for p in search_paths]
-        relevant_entries = []
-        for entry in entries:
-            entry_path = entry.get("path") or ""
-            # Check if this entry belongs to one of our requested folders
-            if any(entry_path.startswith(s) for s in search_paths_strs):
-                relevant_entries.append(entry)
-        entries = relevant_entries
-
-    # List of hidden IDs. We reuse the calendar_routes helper that already
-    # correctly manages the session lifecycle (open/try/finally close),
-    # instead of duplicating the pattern here.
-    from backend.api.calendar_routes import _get_hidden_event_ids
-    hidden_ids = _get_hidden_event_ids()
-
-    for entry in entries:
-        metadata = entry.get("metadata", {})
-        
-        # 1. Skip if hidden
-        if entry["id"] in hidden_ids:
-            continue
-            
-        # 2. Resolve table context efficiently
-        resolved_table_id = _resolve_table_id_from_context(
-            metadata, entry["folder"], folder_to_table, sorted_folders=sorted_folders
-        )
-        
-        # 2. Filter if requested (Server-side filtering for calendar performance)
-        if only_calendar:
-            table_id = resolved_table_id or metadata.get("table_id") or metadata.get("database_table_id")
-            
-            is_relevant = False
-            # a) Is it in an enabled calendar table?
-            if table_id and table_id in enabled_calendar_tables:
-                is_relevant = True
-            # b) Does it have an explicit date?
-            elif metadata.get("date"):
-                is_relevant = True
-            # c) Is it an external source that isn't 'Gnosi'?
-            else:
-                source = (metadata.get("source") or "").strip().lower()
-                if source and source not in {"gnosi", "gnosi vault"}:
-                    is_relevant = True
-            
-            if not is_relevant:
-                continue
-
-        # `model_construct` skips Pydantic validation; the data from the
-        # mtime-validated cache is already well-typed. Savings ~80µs × 4200
-        # entries = ~300 ms on the global snapshot.
-        page_info = PageInfo.model_construct(
-            id=entry["id"],
-            title=entry["title"],
-            parent_id=entry["parent_id"],
-            is_database=entry["is_database"],
-            metadata=metadata,
-            last_modified=datetime.fromtimestamp(entry["mtime"]).isoformat(),
-            created_time=datetime.fromtimestamp(entry.get("created_mtime") or entry["mtime"]).isoformat(),
-            size=entry["size"],
-            folder=entry["folder"],
-            path=entry.get("path"),
-            resolved_table_id=resolved_table_id,
-        )
-
-        existing = pages_by_id.get(entry["id"])
-        if existing is None:
-            pages_by_id[entry["id"]] = page_info
-        else:
-            duplicate_ids.add(entry["id"])
-            if page_info.last_modified > existing.last_modified:
-                pages_by_id[entry["id"]] = page_info
-
-    if duplicate_ids:
-        # Cosmetic noise: the in-memory deduplication is O(n) and runs on every
-        # call; the real duplicates (Sunrise events and similar) are a
-        # filesystem constant, not a new error. We keep the signal at
-        # debug level for whenever incidents need inspecting.
-        log.debug(
-            f"Deduplicated {len(duplicate_ids)} pages with repeated ID in the Vault"
-        )
-
-    pages = list(pages_by_id.values())
-    pages.sort(key=lambda x: x.last_modified, reverse=True)
-
-    # Centralized lazy metadata refresh: the on-disk cache may have entries with
-    # stub metadata (only id/title) if it was partially reconstructed.
-    # Automatic refresh for pages that the wiki sidebar renders (Wiki/,
-    # .Dashboards/, root). For DB pages, the by-table endpoints do their own
-    # own refresh because it's cheaper (filtered by the specific table_id).
-    # Placing it here avoids having to remember to add a refresh to each new
-    # endpoint that uses _get_pages_snapshot.
-    INCLUDED_PREFIXES = ("Wiki", ".Dashboards")
-    refresh_targets = [
-        p for p in pages
-        if (not p.folder)  # root
-        or (p.folder or "").startswith(INCLUDED_PREFIXES)
-    ]
-    if refresh_targets:
-        try:
-            _refresh_table_pages_metadata(refresh_targets)
-        except Exception as e:
-            log.debug(f"sidebar metadata refresh skipped: {e}")
-
-    _pages_cache_set(cache_key, pages)
-    return pages
-
-
 def _vf_page_loader(table_id: str) -> List[PageInfo]:
     """Load canonical table rows for virtual-field computations."""
     return table_rows.virtual_page_loader(table_id, table_row_query_dependencies)
@@ -3587,8 +2830,7 @@ def _enrich_single_query_page(
 
 
 def _cached_page_entry_count(vault_key: str) -> int:
-    with _page_index_lock:
-        return len(_page_index_entries.get(vault_key, {}))
+    return page_index_service.cached_page_entry_count(vault_key)
 
 
 page_queries_api.configure(
@@ -5537,7 +4779,10 @@ _PANDOC_MISSING_MSG = citation_formatting.PANDOC_MISSING_MSG
 
 
 def _pandoc_bin() -> str:
-    return citation_formatting.pandoc_binary()
+    return citation_formatting.pandoc_binary(
+        path_factory=Path,
+        which=shutil.which,
+    )
 
 
 (
@@ -11431,6 +10676,96 @@ def _update_registry_cache(reg_path, data) -> None:
 def load_registry():
     """Read the central registry through its canonical repository."""
     return registry_repository.load()
+
+
+def _enabled_vault_calendar_tables() -> List[str]:
+    from backend.services.integration_manager import integration_manager
+
+    integrations = integration_manager.get_all_safe()
+    calendar_config = integrations.get("vault_calendar", {})
+    values = calendar_config.get("enabled_tables", [])
+    return [str(value) for value in values] if isinstance(values, list) else []
+
+
+def _hidden_calendar_event_ids() -> set[str]:
+    from backend.api.calendar_routes import _get_hidden_event_ids
+
+    return {str(value) for value in _get_hidden_event_ids()}
+
+
+def _sync_vault_calendars() -> object:
+    from backend.services.vault_calendar_sync_service import calendar_sync_service
+
+    return calendar_sync_service.sync_all_calendars()
+
+
+def _get_last_vault_sync_time() -> float:
+    return page_state.last_vault_sync_time
+
+
+def _set_last_vault_sync_time(value: float) -> None:
+    page_state.last_vault_sync_time = value
+
+
+page_index_entries.configure(
+    page_index_entries.PageIndexEntryDependencies(
+        parse_frontmatter=lambda content, path: parse_frontmatter(content, path),
+        is_dashboard_file=lambda path: _is_dashboard_file_path(path),
+        read_dashboard_file=lambda path: _read_dashboard_file(path),
+        process_metadata_paths=lambda metadata: _process_metadata_paths(metadata),
+        vault_root=lambda: get_p("VAULT"),
+        logger=log,
+    )
+)
+
+page_index_service.configure(
+    page_index_service.PageIndexDependencies(
+        active_vault_path=lambda: get_active_vault_path(),
+        get_path=lambda name: get_p(name),
+        load_from_disk=lambda vault_key: _load_page_index_from_disk(vault_key),
+        save_to_disk=lambda vault_key: _save_page_index_to_disk(vault_key),
+        build_entry=lambda path, stat_result: _build_page_cache_entry(
+            path,
+            stat_result,
+        ),
+        build_entry_from_memory=lambda path, stat_result, metadata, body: (
+            _build_cache_entry_from_memory(path, stat_result, metadata, body)
+        ),
+        is_metadata_stub=lambda metadata: _is_metadata_stub(metadata),
+        vault_cache_key=_vault_cache_key,
+        cache_get=lambda key: _pages_cache_get(key),
+        cache_set=lambda key, pages: _pages_cache_set(key, pages),
+        load_registry=lambda: load_registry(),
+        table_vault_dir=lambda table, registry: _table_vault_dir(table, registry),
+        build_table_folder_index=lambda registry: _build_table_folder_index(registry),
+        resolve_table_id=lambda metadata, folder, index, sorted_folders: (
+            _resolve_table_id_from_context(
+                metadata,
+                folder,
+                index,
+                sorted_folders=sorted_folders,
+            )
+        ),
+        enabled_calendar_tables=_enabled_vault_calendar_tables,
+        hidden_event_ids=_hidden_calendar_event_ids,
+        sync_calendars=_sync_vault_calendars,
+        update_path_resolver=path_resolver.update_index,
+        get_last_vault_sync=_get_last_vault_sync_time,
+        set_last_vault_sync=_set_last_vault_sync_time,
+        index_lock=_page_index_lock,
+        index_entries=_page_index_entries,
+        index_initialized=_page_index_initialized,
+        id_to_path=_page_id_to_path,
+        index_version=_page_index_version,
+        body_cache_lock=_body_cache_lock,
+        body_cache=_body_cache,
+        last_stale_check=_last_stale_check,
+        vault_sync_cooldown_seconds=_VAULT_SYNC_COOLDOWN_SECONDS,
+        calendar_sync_cooldown_seconds=_GOOGLE_CALENDAR_SYNC_COOLDOWN_SECONDS,
+        stale_check_ttl=_STALE_CHECK_TTL,
+        logger=log,
+    )
+)
 
 
 def _load_registry_from_disk(registry_path, _ck: str, now: float):

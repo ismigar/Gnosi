@@ -22,7 +22,7 @@ Discovered **25 documented runtime skills**.
 | `playwright_e2e` | SKILL: Playwright E2E | 182 | 2 | [`pipeline/skills/playwright_e2e/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/playwright_e2e/SKILL.md) |
 | `proves_dataset` | SKILL: Representative Proves Dataset | 29 | 1 | [`pipeline/skills/proves_dataset/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/proves_dataset/SKILL.md) |
 | `publisher` | SKILL: Publisher | 56 | 0 | [`pipeline/skills/publisher/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/publisher/SKILL.md) |
-| `python_module_refactor` | SKILL: Python module refactor | 80 | 2 | [`pipeline/skills/python_module_refactor/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/python_module_refactor/SKILL.md) |
+| `python_module_refactor` | SKILL: Python module refactor | 90 | 3 | [`pipeline/skills/python_module_refactor/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/python_module_refactor/SKILL.md) |
 | `release_preflight` | DIRECTIVE: RELEASE_PREFLIGHT | 104 | 1 | [`pipeline/skills/release_preflight/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/release_preflight/SKILL.md) |
 | `rss_to_audio` | SKILL: RSS to Audio Podcast | 87 | 1 | [`pipeline/skills/rss_to_audio/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/rss_to_audio/SKILL.md) |
 | `scheduler` | SKILL: Backend Background Scheduler | 59 | 0 | [`pipeline/skills/scheduler/SKILL.md`](https://github.com/ismigar/Gnosi/blob/main/pipeline/skills/scheduler/SKILL.md) |

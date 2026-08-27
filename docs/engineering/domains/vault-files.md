@@ -88,6 +88,12 @@ file-provider scan is marked partial and cannot replace a known complete cache.
 Per-file failures are isolated so one online-only or orphaned placeholder does
 not remove the rest of the vault from a response.
 
+`pages/index_entries.py` owns bounded front-matter reads, cloud-lock retries and
+cache-entry normalization. `pages/index_service.py` owns discovery, refresh,
+reverse-ID maps and deduplicated snapshots. The compatibility router injects
+the active-vault, registry, calendar and cache ports, so neither service imports
+the HTTP facade.
+
 ## File providers
 
 The provider abstraction selects local, generic macOS File Provider, OneDrive,
@@ -108,6 +114,14 @@ any fully synchronized or ordinary mounted folder uses `local`. A new named
 adapter is needed only for a different placeholder signal or a vendor-specific
 hydration mechanism. `GNOSI_DATA_DIR` remains local regardless of the vault
 provider.
+
+Only portable Vault Markdown and attachments may live in a synchronized tree.
+SQLite databases, locks, derived caches, secrets and `GNOSI_DATA_DIR` stay on
+local application storage. A fully synchronized Nextcloud folder behaves as
+`local`; virtual-file deployments use the matching provider or the generic
+`fileprovider` adapter. WebDAV and direct cloud APIs are transfer or backup
+transports, not live storage for SQLite. Backup destination and Vault provider
+are configured independently.
 
 ## Attachments and file-valued properties
 

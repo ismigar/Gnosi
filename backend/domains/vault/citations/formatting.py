@@ -13,7 +13,7 @@ import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from fastapi import APIRouter, Body, HTTPException, Query
 
@@ -37,6 +37,14 @@ class FormattingDependencies:
     find_page: Callable[[str], Path | None]
     parse_frontmatter: Callable[[str, Path], tuple[dict[str, Any], str]]
     resolve_csl_type: Callable[[object], str]
+
+
+class ExistingPath(Protocol):
+    """Minimal path contract needed while resolving host executables."""
+
+    def exists(self) -> bool:
+        """Return whether the candidate executable exists."""
+        ...
 
 
 def resolve_csl_path(style: str) -> Path | None:
@@ -117,15 +125,19 @@ def build_csl_items_for_keys(
     return result
 
 
-def pandoc_binary() -> str:
+def pandoc_binary(
+    *,
+    path_factory: Callable[[str], ExistingPath] = Path,
+    which: Callable[[str], str | None] = shutil.which,
+) -> str:
     configured = os.environ.get("PANDOC_PATH", "").strip()
-    if configured and Path(configured).exists():
+    if configured and path_factory(configured).exists():
         return configured
-    found = shutil.which("pandoc")
+    found = which("pandoc")
     if found:
         return found
     for candidate in ("/opt/homebrew/bin/pandoc", "/usr/local/bin/pandoc"):
-        if Path(candidate).exists():
+        if path_factory(candidate).exists():
             return candidate
     return "pandoc"
 
