@@ -164,20 +164,312 @@ from backend.domains.vault.pages import save_service as page_save_service
 from backend.domains.vault.pages import patch_service as page_patch_service
 from backend.domains.vault.api import pages_commands as page_commands_api
 from backend.domains.vault.trash.repository import TrashRepository
+from backend.domains.vault.registry import api as registry_api
+from backend.domains.vault.registry import defaults as registry_defaults
+from backend.domains.vault.registry.names import (
+    is_main_or_locked_view as registry_is_main_or_locked_view,
+    main_view_fields as registry_main_view_fields,
+    normalize_main_view_configuration as registry_normalize_main_view_configuration,
+    normalize_registry_table_view_names as registry_normalize_table_view_names,
+    normalize_table_view_name as registry_normalize_table_view_name,
+    sort_key_name as registry_sort_key_name,
+    table_name_from_registry as registry_table_name,
+)
+from backend.domains.vault.registry.repository import (
+    RegistryRepository,
+    RegistryRepositoryDependencies,
+)
+from backend.domains.vault.registry.state import registry_state
+from backend.domains.vault.tables import api as table_collection_api
+from backend.domains.vault.tables import lifecycle as table_lifecycle
+from backend.domains.vault.tables import options as table_options
+from backend.domains.vault.tables import rows as table_rows
+from backend.domains.vault.tables import schema as table_schema
+from backend.domains.vault.views import api as vault_views
+from backend.domains.vault.views import schema as vault_view_schema
+from backend.domains.vault.views import snapshots as vault_view_snapshots
+
+
+registry_repository = RegistryRepository(
+    dependencies=RegistryRepositoryDependencies(
+        registry_path=lambda: get_p("REGISTRY"),
+        normalize_folder=lambda value: _normalize_rel_folder(value),
+        ensure_table_folder=lambda table, registry: _ensure_table_vault_folder(
+            table, registry
+        ),
+        ensure_status_catalog=lambda registry: _ensure_registry_status_catalog(
+            registry
+        ),
+        write_json=safe_write_json,
+    ),
+    state=registry_state,
+    logger=log,
+)
+registry_api_dependencies = registry_api.RegistryApiDependencies(
+    load_registry=lambda: load_registry(),
+    save_registry=lambda data: save_registry(data),
+    sort_key=lambda item: _sort_key_name(item),
+    safe_error_detail=safe_error_detail,
+    logger=log,
+)
+default_registry_dependencies = registry_defaults.DefaultRegistryDependencies(
+    load_registry=lambda: load_registry(),
+    save_registry=lambda data: save_registry(data),
+    registry_mutation=lambda: registry_mutation(),
+    registry_path=lambda: get_p("REGISTRY"),
+    overwrite_is_risky=lambda path: _degenerate_overwrite_is_risky(path),
+    state=registry_state,
+    logger=log,
+)
+table_collection_dependencies = table_collection_api.TableCollectionDependencies(
+    load_registry=lambda: load_registry(),
+    save_registry=lambda data: save_registry(data),
+    registry_mutation=lambda: registry_mutation(),
+    sort_key=lambda item: _sort_key_name(item),
+)
+table_property_dependencies = table_schema.PropertyDependencies(
+    load_registry=lambda: load_registry(),
+    save_registry=lambda data: save_registry(data),
+    registry_mutation=lambda: registry_mutation(),
+    get_prop_options=option_catalogs_service.get_prop_options,
+    set_prop_options=option_catalogs_service.set_prop_options,
+    normalize_options=option_catalogs_service.normalize_options,
+    option_types=frozenset(option_catalogs_service.OPTION_TYPES),
+)
+table_create_dependencies = table_lifecycle.CreateTableDependencies(
+    load_registry=lambda: load_registry(),
+    save_registry=lambda data: save_registry(data),
+    registry_mutation=lambda: registry_mutation(),
+    configured_language=lambda: _configured_table_language(),
+    ensure_system_dates=ensure_system_date_properties,
+    normalize_folder=lambda value: _normalize_rel_folder(value),
+    sanitize_folder=sanitize_rel_folder,
+    is_asset_property=lambda prop: _is_asset_property(prop),
+    delete_asset_property=lambda table, database, name: _delete_asset_property_dir(
+        table, database, name
+    ),
+    ensure_asset_directories=lambda table, registry: _ensure_asset_dirs_for_table_entry(
+        table, registry
+    ),
+    ensure_table_folder=lambda table, registry: _ensure_table_vault_folder(
+        table, registry
+    ),
+    ensure_table_seeds=option_catalogs_service.ensure_table_seeds,
+    ensure_global_status_catalog=option_catalogs_service.ensure_global_status_catalog,
+    ensure_action_rules=action_rules_service.ensure_action_rules,
+)
+table_delete_dependencies = table_lifecycle.DeleteTableDependencies(
+    load_registry=lambda: load_registry(),
+    save_registry=lambda data: save_registry(data),
+    registry_mutation=lambda: registry_mutation(),
+    vault_root=lambda: get_p("VAULT"),
+    stable_revision=lambda value: _stable_value_revision(value),
+    views_revision=lambda registry, table_id: _table_views_revision(
+        registry, table_id
+    ),
+    quarantine_assets=lambda table, database: _quarantine_table_asset_dirs(
+        table, database
+    ),
+    quarantined_revision=lambda table, database, moved: _quarantined_table_asset_revision(
+        table, database, moved
+    ),
+    restore_quarantine=lambda quarantine, moved: _restore_quarantined_table_assets(
+        quarantine, moved
+    ),
+    mark_quarantine_ready=lambda quarantine: _mark_table_asset_quarantine_ready(
+        quarantine
+    ),
+    delete_quarantine=lambda quarantine, vault_root: _delete_table_asset_quarantine(
+        quarantine, vault_root
+    ),
+    logger=log,
+)
+table_rename_dependencies = table_lifecycle.RenameTableDependencies(
+    load_registry=lambda: load_registry(),
+    save_registry=lambda data: save_registry(data),
+    registry_mutation=lambda: registry_mutation(),
+    assets_root=lambda: get_p("ASSETS"),
+    sanitize_title=sanitize_vault_title,
+    sanitize_folder=sanitize_rel_folder,
+    sanitize_asset_segment=lambda value, fallback: _sanitize_asset_segment(
+        value, fallback
+    ),
+    asset_segments_collide=lambda first, second: _asset_segments_collide(
+        first, second
+    ),
+    move_loose_files=lambda source, destination: _move_loose_files(
+        source, destination
+    ),
+    table_vault_directory=lambda table, registry: _table_vault_dir(
+        table, registry
+    ),
+    ensure_asset_directories=lambda table, registry: _ensure_asset_dirs_for_table_entry(
+        table, registry
+    ),
+    ensure_table_folder=lambda table, registry: _ensure_table_vault_folder(
+        table, registry
+    ),
+    rewrite_inline_asset_refs=lambda table_dir, old, new: _rewrite_inline_asset_refs(
+        table_dir, old, new
+    ),
+    logger=log,
+)
+table_option_dependencies = table_options.OptionDependencies(
+    load_registry=lambda: load_registry(),
+    save_registry=lambda data: save_registry(data),
+    registry_mutation=lambda: registry_mutation(),
+    pages_for_table=lambda table_id: _get_pages_for_table(table_id),
+    find_page=lambda page_id, allow_full_scan=True: find_page_path(
+        page_id,
+        allow_full_scan=allow_full_scan,
+    ),
+    materialize=lambda path, reason: _materialize_if_online_only(path, reason),
+    parse_frontmatter=lambda raw, path: parse_frontmatter(raw, path),
+    save_page=lambda path, metadata, body: save_page_md(path, metadata, body),
+    refresh_page_cache=lambda path, metadata, body, row: _refresh_option_rewrite_cache(
+        path, metadata, body, row
+    ),
+    invalidate_page_responses=_pages_cache_invalidate_all,
+    read_prop_value=action_rules_service.read_prop_value,
+    get_prop_config=option_catalogs_service.get_prop_config,
+    get_prop_options=lambda prop, catalogs=None: option_catalogs_service.get_prop_options(
+        prop, catalogs
+    ),
+    set_prop_options=option_catalogs_service.set_prop_options,
+    normalize_options=option_catalogs_service.normalize_options,
+    auto_color=option_catalogs_service.auto_color,
+    is_global_status_prop=option_catalogs_service.is_global_status_prop,
+    status_catalog_ref=option_catalogs_service.STATUS_CATALOG_REF,
+    logger=log,
+)
+vault_view_dependencies = vault_views.ViewDependencies(
+    load_registry=lambda: load_registry(),
+    save_registry=lambda data: save_registry(data),
+    registry_mutation=lambda: registry_mutation(),
+    sort_key=lambda item: _sort_key_name(item),
+    pages_snapshot=lambda: _get_pages_snapshot(),
+    logger=log,
+)
+vault_schema_dependencies = vault_view_schema.SchemaDependencies(
+    vault_root=lambda: get_p("VAULT"),
+    write_json=lambda path, data, indent: safe_write_json(
+        path, data, indent=indent
+    ),
+    logger=log,
+)
+vault_view_snapshot_dependencies = vault_view_snapshots.SnapshotDependencies(
+    pages_for_table=lambda table_id: _get_pages_for_table(table_id),
+    table_by_id=lambda table_id: _table_by_id(table_id),
+    inject_virtual_fields=_vf_inject_for_table,
+    virtual_page_loader=lambda table_id: table_rows.virtual_page_loader(
+        table_id, table_row_query_dependencies
+    ),
+    response_names=lambda metadata, table: to_response_names(metadata, table),
+    load_registry=lambda: load_registry(),
+    apply_joins=apply_joins,
+    resolve_row_ids=resolve_row_ids,
+    resolve_rows=resolve_rows,
+    decorate_relation=lambda value: _decorate_relation_item(
+        value, _link_index_title_for, None
+    ),
+    link_title=lambda page_id: _link_index_title_for(page_id),
+    default_limit=_VIEW_SNAPSHOT_DEFAULT_LIMIT,
+    documents=lambda: _iter_linkable_page_documents(),
+    resolve_page_id=lambda metadata, path: _resolve_page_id_from_metadata(
+        metadata, path
+    ),
+    rematerialize=rematerialize_md,
+    write_text=lambda path, content: safe_write_text(path, content),
+    logger=log,
+)
+table_row_query_dependencies = table_rows.TableRowQueryDependencies(
+    vault_cache_key=lambda: _vault_cache_key(),
+    cache_get=lambda key: _pages_cache_get(key),
+    cache_set=lambda key, pages: _pages_cache_set(key, pages),
+    cached_entries=lambda: _get_cached_page_entries(force_refresh=False),
+    load_registry=lambda: load_registry(),
+    hidden_event_ids=lambda: _hidden_calendar_event_ids(),
+    humanize_title=lambda title, metadata: _humanize_relation_index_title(
+        title, metadata
+    ),
+    table_by_id=lambda table_id: _table_by_id(table_id),
+    refresh_metadata=lambda pages: _refresh_table_pages_metadata(pages),
+    inject_virtual_fields=_vf_inject_for_table,
+    response_names=lambda metadata, table: to_response_names(metadata, table),
+    vault_root=lambda: get_p("VAULT"),
+    logger=log,
+)
+table_metadata_dependencies = table_rows.TableMetadataDependencies(
+    table_id=lambda metadata: get_table_id(metadata),
+    table_by_id=lambda table_id: _table_by_id(table_id),
+    storage_names=lambda metadata, table: to_storage_names(metadata, table),
+    stamp_system_dates=stamp_system_dates,
+    option_types=frozenset(option_catalogs_service.OPTION_TYPES),
+    prop_config=option_catalogs_service.get_prop_config,
+    read_prop_value=action_rules_service.read_prop_value,
+    effect_write_key=action_rules_service.effect_write_key,
+)
+
+# Compatibility aliases. The mutable objects and lock are owned only by
+# ``backend.domains.vault.registry.state``.
+_registry_cache = registry_state.cache
+_registry_cache_mtime = registry_state.cache_mtime
+_registry_cache_ts = registry_state.cache_timestamp
+_registry_cache_ttl_seconds = registry_state.cache_ttl_seconds
+_registry_ensured_tables = registry_state.ensured_tables
+_registry_seen_nondegenerate = registry_state.seen_nondegenerate
+_registry_mutation_lock = registry_state.mutation_lock
+
+
+def _ensure_registry_status_catalog(registry: dict) -> bool:
+    """Run the optional legacy status-catalog migrator when it is available."""
+    ensure_status_catalog = getattr(
+        option_catalogs_service,
+        "ensure_global_status_catalog",
+        None,
+    )
+    return bool(
+        ensure_status_catalog(registry) if callable(ensure_status_catalog) else False
+    )
+
+
+def _configured_table_language() -> str:
+    try:
+        return str(load_params(strict_env=False).settings.get("language") or "en")
+    except Exception:
+        return "en"
+
+
+def _refresh_option_rewrite_cache(
+    file_path: Path,
+    metadata: dict,
+    body: str,
+    row: PageInfo,
+) -> None:
+    """Refresh the existing page-index owner after an option row rewrite."""
+    vault_path = get_active_vault_path()
+    if not vault_path:
+        return
+    vault_key = str(vault_path)
+    stat_result = file_path.stat()
+    entry = _build_cache_entry_from_memory(file_path, stat_result, metadata, body)
+    with _page_index_lock:
+        _page_index_entries.setdefault(vault_key, {})[str(file_path)] = entry
+        _page_id_to_path.setdefault(vault_key, {})[
+            str(metadata.get("id") or row.id)
+        ] = str(file_path)
+        _bump_page_index_version(vault_key)
+
+
+def _hidden_calendar_event_ids() -> set[str]:
+    from backend.api.calendar_routes import _get_hidden_event_ids
+
+    return {str(value) for value in _get_hidden_event_ids()}
 
 
 def _table_by_id(table_id: str) -> Optional[dict]:
-    """Helper for virtual_fields injection — looks up the table dict in registry."""
-    if not table_id:
-        return None
-    try:
-        reg = load_registry()
-        for t in reg.get("tables", []):
-            if t.get("id") == table_id:
-                return t
-    except Exception:
-        return None
-    return None
+    """Return one table through the canonical registry domain."""
+    return registry_api.table_by_id(table_id, registry_api_dependencies)
 
 # Library resolution (vault-first + legacy fallback): a single source of truth,
 # shared with media_service and the Notion clone. See services/library_paths.py.
@@ -891,81 +1183,17 @@ def _maybe_create_icon_thumbnail(icon_path: Path, digest: str) -> Optional[str]:
 
 
 def _normalize_resource_title(value: str) -> str:
-    normalized = unicodedata.normalize("NFD", str(value or ""))
-    normalized = "".join(ch for ch in normalized if unicodedata.category(ch) != "Mn")
-    normalized = normalized.lower()
-    normalized = re.sub(r"[^a-z0-9]+", " ", normalized).strip()
-    return normalized
+    return table_rows._normalize_resource_title(value)
 
 
 def _resource_visible_record(page: PageInfo) -> bool:
-    metadata = page.metadata or {}
-    if metadata.get("is_template"):
-        return False
-
-    # Locate a "type" property regardless of locale/casing. Hardcoding "Type"
-    # / "Tipus" was a pre-identity-normalization patch that misses any other
-    # localized variant (`Tipo`, `Categoria`, `tipus de recurs`, …). Now that
-    # frontmatter keys equal canonical schema names, we just scan all keys
-    # whose normalized form is "type"/"tipus"/"tipo".
-    tipus = ""
-    for k, v in metadata.items():
-        norm_k = str(k).strip().lower().replace("_", "").replace(" ", "")
-        if norm_k in ("type", "tipus", "tipo"):
-            tipus = str(v or "").strip().lower()
-            break
-    title = str(page.title or "").strip().lower()
-    gnosi_id = str(metadata.get("id") or page.id or "").strip()
-
-    if tipus == "annotation":
-        return False
-
-    if title in {"new", "untitled", "sense títol", "sense titol"}:
-        return False
-
-    if not gnosi_id:
-        return False
-
-    return True
+    return table_rows._resource_visible_record(page)
 
 
 def _canonical_visible_table_pages(
     table_id: str, pages: List[PageInfo]
 ) -> List[PageInfo]:
-    # Base rule shared by all tables: templates are not records in table counts.
-    filtered = [p for p in pages if not (p.metadata or {}).get("is_template")]
-
-    if table_id != "resources":
-        return filtered
-
-    filtered = [p for p in filtered if _resource_visible_record(p)]
-
-    # Recursos may include semantic duplicates (accent/punctuation variants).
-    deduped: Dict[str, PageInfo] = {}
-    for page in filtered:
-        key = _normalize_resource_title(page.title)
-        if not key:
-            key = f"__{page.id}"
-
-        existing = deduped.get(key)
-        if existing is None:
-            deduped[key] = page
-            continue
-
-        try:
-            existing_ts = datetime.fromisoformat(existing.last_modified).timestamp()
-        except Exception:
-            existing_ts = 0
-
-        try:
-            next_ts = datetime.fromisoformat(page.last_modified).timestamp()
-        except Exception:
-            next_ts = 0
-
-        if next_ts > existing_ts:
-            deduped[key] = page
-
-    return list(deduped.values())
+    return table_rows.canonical_visible_table_pages(table_id, pages)
 
 
 def is_calendar_entry(metadata: Optional[dict]) -> bool:
@@ -1009,72 +1237,12 @@ def init_vault():
 
 def ensure_default_registry_structure():
     """Ensures the existence of the default DB and an initial table."""
-    with registry_mutation():
-        _ensure_default_registry_structure_locked()
+    registry_defaults.ensure_default_registry_structure(default_registry_dependencies)
 
 
 def _ensure_default_registry_structure_locked():
-    registry = load_registry()
-    if "databases" not in registry or not isinstance(registry["databases"], list):
-        registry["databases"] = []
-    if "tables" not in registry or not isinstance(registry["tables"], list):
-        registry["tables"] = []
-    if "views" not in registry or not isinstance(registry["views"], list):
-        registry["views"] = []
-
-    # Clobber guard (2026-07-14 incident): a device that reads the registry as
-    # empty (dataless/unsynced OneDrive file) must NOT seed the default structure
-    # over a vault that shows signs of an existing registry (backups, conflict
-    # copies, non-empty table folders in BD/). Seeding here would overwrite the
-    # real schema+views and propagate through cloud sync to every other device.
-    reg_path = get_p("REGISTRY")
-    if (
-        not registry["databases"]
-        and not registry["tables"]
-        and reg_path
-        and str(reg_path) not in _registry_seen_nondegenerate
-        and _degenerate_overwrite_is_risky(reg_path)
-    ):
-        log.error(
-            "🛑 Default registry seed aborted: the registry reads empty but the "
-            f"vault shows existing data next to {reg_path}. Leaving the file "
-            "untouched (likely a cloud-sync misread; restore from a .bak-* if needed)."
-        )
-        return
-
-    changed = False
-
-    db = next(
-        (d for d in registry["databases"] if d.get("id") == "gnosi_vault_db"), None
-    )
-    if db is None:
-        db = {
-            "id": "gnosi_vault_db",
-            "name": "Gnosi Vault",
-            "folder": "Databases/Gnosi",
-        }
-        registry["databases"].append(db)
-        changed = True
-    else:
-        if db.get("name") != "Gnosi Vault":
-            db["name"] = "Gnosi Vault"
-            changed = True
-        if db.get("folder") != "Databases/Gnosi":
-            db["folder"] = "Databases/Gnosi"
-            changed = True
-
-    default_table = next(
-        (t for t in registry["tables"] if t.get("id") == "table_1"), None
-    )
-    if default_table is None:
-        has_any_table_for_default_db = any(
-            t.get("database_id") == "digital_brain_db" for t in registry["tables"]
-        )
-        # Disabled to avoid unnecessary noise in the Vault per user feedback
-        pass
-
-    if changed:
-        save_registry(registry)
+    """Compatibility adapter for callers already holding the registry lock."""
+    registry_defaults.ensure_default_registry_structure(default_registry_dependencies)
 
 
 # init_vault() # Disabled: Now initialized dynamically per workspace via WorkspaceService
@@ -1214,282 +1382,68 @@ def _link_index_unique_id_for_title(title: str) -> Optional[str]:
 
 
 def _load_table_rows(table_id: str) -> List[dict]:
-    """Loads the NON-template rows of `table_id` with metadata in RESPONSE names
-    (virtual fields injected). Reused by single-table and multi-table (join)
-    views so the join loader works on the same shape as the base rows."""
-    if not table_id:
-        return []
-    pages = _get_pages_for_table(table_id)
-    table_obj = _table_by_id(table_id)
-    try:
-        _vf_inject_for_table(
-            table_obj, pages,
-            _vf_page_loader,
-        )
-    except Exception as e:
-        log.debug(f"virtual fields injection (table {table_id}) failed: {e}")
-    rows: List[dict] = []
-    for p in pages:
-        meta = p.metadata or {}
-        if meta.get("is_template"):
-            continue
-        resp_meta = to_response_names(dict(meta), table_obj) if table_obj else dict(meta)
-        rows.append({"id": p.id, "title": p.title, "metadata": resp_meta})
-    return rows
+    """Load non-template rows with response-facing field names."""
+    return vault_view_snapshots.load_table_rows(
+        table_id,
+        vault_view_snapshot_dependencies,
+    )
 
 
 def _resolve_view_and_candidates(view_id: str, host_page_id: Optional[str]):
-    """(view, files-candidates) for the `view_id` view: the NON-template pages of
-    its table, with metadata in RESPONSE names (like `/pages/by-table`,
-    so filters match against them). Filter+sort are applied by the caller (via the
-    pure functions `resolve_row_ids` / `resolve_rows`). Returns `(None, [])` if it
-    cannot be resolved.
-
-    Multi-table views: if the view has a non-empty `joins` list, the base rows
-    are combined in-memory with the join tables (`apply_joins`), producing
-    composite rows whose `metadata` exposes both the base columns (unqualified,
-    for backward compatibility with filters/sorts) and the join columns under
-    the qualified key `_join:{tableId}`."""
-    vid = str(view_id or "").strip()
-    if not vid:
-        return None, []
-    registry = load_registry()
-    views = registry.get("views", []) if isinstance(registry, dict) else []
-    view = next((v for v in views if str(v.get("id")) == vid), None)
-    if not view:
-        return None, []
-    table_id = view.get("table_id")
-    if not table_id:
-        return view, []
-    rows = _load_table_rows(table_id)
-    joins = view.get("joins")
-    if isinstance(joins, list) and joins:
-        try:
-            rows = apply_joins(rows, joins, _load_table_rows)
-        except Exception as e:
-            log.debug(f"apply_joins (view {vid}) failed: {e}")
-    return view, rows
+    """Resolve one saved view and its candidate rows."""
+    return vault_view_snapshots.resolve_view_and_candidates(
+        view_id,
+        host_page_id,
+        vault_view_snapshot_dependencies,
+    )
 
 
 def _resolve_view_row_ids(view_id: str, host_page_id: Optional[str]) -> List[str]:
-    """Page ids (sorted) that the view returns — for the LIST snapshot
-    of wikilinks (fallback for non-table views). Defensive: `[]` on failure."""
-    try:
-        view, rows = _resolve_view_and_candidates(view_id, host_page_id)
-        if not view:
-            return []
-        return resolve_row_ids(rows, view, host_page_id)
-    except Exception as e:
-        log.debug(f"_resolve_view_row_ids({view_id}) ha fallat: {e}")
-        return []
+    """Return the ordered page IDs produced by one saved view."""
+    return vault_view_snapshots.resolve_view_row_ids(
+        view_id,
+        host_page_id,
+        vault_view_snapshot_dependencies,
+    )
 
 
 def _format_snapshot_cell(value: Any, ftype: Optional[str]) -> str:
-    """Formats a cell's value for the snapshot's markdown table.
-    Relations → wikilinks `[[Title|id]]`; lists → comma; everything else → text (truncated)."""
-    if value is None or value == "":
-        return ""
-    if ftype == "relation":
-        vals = value if isinstance(value, list) else [value]
-        return ", ".join(
-            _decorate_relation_item(str(v), _link_index_title_for, None)
-            for v in vals if v not in (None, "")
-        )
-    if isinstance(value, list):
-        return ", ".join(str(v) for v in value if v not in (None, ""))
-    if isinstance(value, dict):
-        return str(value.get("src") or value.get("title") or value.get("name") or "")
-    s = str(value)
-    return (s[:200] + "…") if len(s) > 200 else s
+    """Format one value for a materialized Markdown table cell."""
+    return vault_view_snapshots.format_snapshot_cell(
+        value,
+        ftype,
+        vault_view_snapshot_dependencies,
+    )
 
 
 def _normalize_visible_properties(vis: Any, base_table_id: Optional[str]) -> List[dict]:
-    """Normalizes `visibleProperties` (which may be a list of strings or of
-    `{tableId, fieldKey, label}`) into a list of dicts `{tableId, fieldKey,
-    label?}`. Strings are treated as fields of the base table. `None`/empty
-    → `[{base, "title"}]`."""
-    if not vis:
-        return [{"tableId": base_table_id, "fieldKey": "title"}]
-    out = []
-    for entry in vis:
-        if isinstance(entry, str):
-            out.append({"tableId": base_table_id, "fieldKey": entry})
-        elif isinstance(entry, dict) and entry.get("fieldKey"):
-            out.append({
-                "tableId": entry.get("tableId") or base_table_id,
-                "fieldKey": entry.get("fieldKey"),
-                "label": entry.get("label"),
-            })
-    return out or [{"tableId": base_table_id, "fieldKey": "title"}]
+    """Normalize visible property references for snapshot rendering."""
+    return vault_view_snapshots.normalize_visible_properties(vis, base_table_id)
 
 
 def _resolve_view_table(view_id: str, host_page_id: Optional[str]) -> Optional[dict]:
-    """For `table`/`list` views: `{headers, rows}` with the actual data (title
-    as a wikilink + visible columns). Returns `None` for other types (the
-    caller falls back to the wikilink list) or if it cannot be resolved.
-
-    Multi-table: the visible columns may belong to any of the join tables. For
-    each row, the value of a column `tableId.fieldKey` is read from the row's
-    base metadata (if it belongs to the base table) or from the joined row's
-    metadata under `_join:{tableId}`."""
-    try:
-        view, rows = _resolve_view_and_candidates(view_id, host_page_id)
-        if not view:
-            return None
-        if str(view.get("type") or "table").lower() not in ("table", "list"):
-            return None
-        base_id = view.get("table_id")
-        table_obj = _table_by_id(base_id) if base_id else None
-        props = (table_obj.get("properties") if table_obj else []) or []
-        title_field = next((p.get("name") for p in props if p.get("type") == "title"), None)
-        type_by_name = {p.get("name"): p.get("type") for p in props if p.get("name")}
-
-        def _is_title_ref(k):
-            return k == "title" or (title_field and k == title_field) or type_by_name.get(k) == "title"
-
-        vis = view.get("visibleProperties") or view.get("visible_properties") or ["title"]
-        norm = _normalize_visible_properties(vis, base_id)
-        # The first column is always the canonical title (wikilink) of the base
-        # row; the title column is excluded from the explicit list, as before.
-        non_title = [c for c in norm if not (c.get("tableId") == base_id and _is_title_ref(c.get("fieldKey")))]
-
-        # Resolve table names for the headers (for disambiguation).
-        table_name_by_id: Dict[str, str] = {}
-        for c in non_title:
-            tid = c.get("tableId")
-            if tid and tid not in table_name_by_id:
-                tobj = _table_by_id(tid)
-                table_name_by_id[tid] = (tobj or {}).get("name") or tid
-
-        headers = [title_field or "Títol"]
-        for c in non_title:
-            label = c.get("label")
-            if label:
-                headers.append(label)
-            else:
-                tid = c.get("tableId")
-                fk = c.get("fieldKey")
-                # If several tables expose a field with the same key, prefix
-                # the header with the table name to disambiguate.
-                same_key = [x for x in non_title if x.get("fieldKey") == fk]
-                if tid and tid != base_id and len(same_key) > 1:
-                    headers.append(f"{table_name_by_id.get(tid, tid)} · {fk}")
-                else:
-                    headers.append(fk)
-
-        ordered = resolve_rows(rows, view, host_page_id)
-        out_rows = []
-        for r in ordered:
-            cells = [_decorate_relation_item(str(r.get("id")), _link_index_title_for, None)]
-            meta = r.get("metadata") or {}
-            for c in non_title:
-                tid = c.get("tableId")
-                fk = c.get("fieldKey")
-                if not tid or tid == base_id:
-                    cells.append(_format_snapshot_cell(meta.get(fk), type_by_name.get(fk)))
-                else:
-                    # Joined column: take the first match (fan-out rows are
-                    # already expanded, so the list has at most one element).
-                    joined_list = meta.get("_join:%s" % tid) or []
-                    joined_meta = joined_list[0] if joined_list else {}
-                    cells.append(_format_snapshot_cell(joined_meta.get(fk), None))
-            out_rows.append(cells)
-        return {"headers": headers, "rows": out_rows}
-    except Exception as e:
-        log.debug(f"_resolve_view_table({view_id}) ha fallat: {e}")
-        return None
+    """Resolve one table/list view into materialized headers and rows."""
+    return vault_view_snapshots.resolve_view_table(
+        view_id,
+        host_page_id,
+        vault_view_snapshot_dependencies,
+    )
 
 
 def _view_snapshot_config(view_id: str) -> dict:
-    """PER-VIEW config for the wikilinks snapshot (registry fields):
-    `resultSnapshot` (bool, def. True) turns the list on/off; and
-    `resultSnapshotLimit` (int, def. 500; 0 = no limit) caps it. Defensive:
-    on any error, default values (enabled, 500)."""
-    try:
-        registry = load_registry()
-        views = registry.get("views", []) if isinstance(registry, dict) else []
-        view = next((v for v in views if str(v.get("id")) == str(view_id)), None) or {}
-        enabled = view.get("resultSnapshot", True)
-        if isinstance(enabled, str):
-            enabled = enabled.strip().lower() not in ("false", "0", "no", "")
-        try:
-            limit = int(view.get("resultSnapshotLimit", _VIEW_SNAPSHOT_DEFAULT_LIMIT))
-        except (TypeError, ValueError):
-            limit = _VIEW_SNAPSHOT_DEFAULT_LIMIT
-        return {"enabled": bool(enabled), "limit": limit}
-    except Exception:
-        return {"enabled": True, "limit": _VIEW_SNAPSHOT_DEFAULT_LIMIT}
+    """Return persisted materialization settings for one view."""
+    return vault_view_snapshots.view_snapshot_config(
+        view_id,
+        vault_view_snapshot_dependencies,
+    )
 
 
 def refresh_view_snapshots(dry_run: bool = False) -> Dict[str, Any]:
-    """Materializes the snapshot of ALL pages with an embedded view, so
-    the on-disk vault is always ready to migrate (each view = real markdown
-    table/list + navigable wikilinks, readable without Gnosi).
-
-    Walks the vault, re-resolves each view with the CURRENT data and rewrites the
-    snapshot ONLY if it changed (touches exclusively the body's snapshot region;
-    the frontmatter is left byte-for-byte → no useless mtime on OneDrive).
-    `dry_run=True` only counts. Designed for the scheduled task
-    `materialize_view_snapshots`; defensive (no page blocks the rest).
-    
-    """
-    scanned = 0
-    changed = 0
-    errors = 0
-    changed_pages: List[str] = []
-    try:
-        docs = _iter_linkable_page_documents()
-    except Exception as e:
-        log.warning(f"refresh_view_snapshots: could not list the vault: {e}")
-        return {"ok": False, "error": str(e), "scanned": 0, "changed": 0, "errors": 1}
-
-    for file_path, metadata, _body, is_dashboard in docs:
-        if is_dashboard:
-            continue  # dashboards are saved as JSON; the snapshot is for .md
-        try:
-            raw = file_path.read_text(encoding="utf-8")
-        except Exception:
-            errors += 1
-            continue
-        if "gnosi-view" not in raw:
-            continue
-        scanned += 1
-        try:
-            page_id = str(
-                metadata.get("id")
-                or _resolve_page_id_from_metadata(metadata, file_path)
-                or ""
-            )
-            new_raw = rematerialize_md(
-                raw,
-                page_id,
-                resolve_ids=_resolve_view_row_ids,
-                id_to_title=_link_index_title_for,
-                config_for=_view_snapshot_config,
-                resolve_table=_resolve_view_table,
-            )
-            if new_raw != raw:
-                changed += 1
-                if len(changed_pages) < 50:
-                    changed_pages.append(str(file_path))
-                if not dry_run:
-                    safe_write_text(file_path, new_raw)
-        except Exception as e:
-            errors += 1
-            log.warning(f"refresh_view_snapshots: error a {file_path.name}: {e}")
-
-    log.info(
-        f"refresh_view_snapshots: scanned={scanned} changed={changed} "
-        f"errors={errors} dry_run={dry_run}"
+    """Materializes the snapshot of ALL pages with an embedded view."""
+    return vault_view_snapshots.refresh_view_snapshots(
+        dry_run,
+        vault_view_snapshot_dependencies,
     )
-    return {
-        "ok": True,
-        "dry_run": dry_run,
-        "scanned": scanned,
-        "changed": changed,
-        "errors": errors,
-        "changed_pages": changed_pages,
-    }
 
 
 def save_page_md(file_path: Path, metadata: dict, body: str) -> None:
@@ -1641,23 +1595,7 @@ def normalize_metadata_ids(metadata: dict) -> dict:
 
 def normalize_table_context(metadata: dict) -> dict:
     """Keeps table context fields synchronized (canonical + legacy)."""
-    table_id = metadata.get("table_id")
-    database_table_id = metadata.get("database_table_id")
-
-    # Legacy compatibility: wiki pages must not behave as DB rows.
-    if str(table_id or "").strip().lower() == "wiki":
-        metadata.pop("table_id", None)
-        table_id = None
-    if str(database_table_id or "").strip().lower() == "wiki":
-        metadata.pop("database_table_id", None)
-        database_table_id = None
-
-    if table_id and not database_table_id:
-        metadata["database_table_id"] = table_id
-    elif database_table_id and not table_id:
-        metadata["table_id"] = database_table_id
-
-    return metadata
+    return table_rows.normalize_table_context(metadata)
 
 
 def ensure_correct_page_location(file_path: Path, metadata: dict) -> Path:
@@ -2781,117 +2719,41 @@ def _persist_metadata_assets(metadata: dict) -> dict:
 
 
 def _normalize_rel_folder(folder: Optional[str]) -> str:
-    """Normalizes the folder path to make it relative to get_p("VAULT").
-    THIS VERSION detects if an absolute path from the Mac host is received and cleans it.
-    """
-    if not folder:
-        return ""
-    
-    f = str(folder).replace("\\", "/")
-    
-    # Cleanup of redundant prefixes (Gnosi Segment)
-    if "Gnosi/" in f:
-        f = f.split("Gnosi/", 1)[1]
-    elif f.startswith("/vault/"):
-        f = f[7:]
-    elif f.startswith("/vault"):
-        f = f[6:]
-
-    return f.strip().strip("/")
+    """Normalize a host/container folder to a vault-relative path."""
+    return table_rows.normalize_relative_folder(folder)
 
 
 def _build_table_folder_index(registry: dict) -> dict:
-    folder_to_table = {}
-    
-    # Database folder mapping for path prefixing
-    db_folders = {db["id"]: _normalize_rel_folder(db.get("folder", "")) 
-                  for db in registry.get("databases", [])}
-
-    for table in registry.get("tables", []):
-        raw_folder = table.get("folder")
-        table_id = table.get("id")
-        if not raw_folder or not table_id:
-            continue
-            
-        db_id = table.get("database_id")
-        db_prefix = db_folders.get(db_id, "") if db_id else ""
-        
-        # 1. Flat folder (e.g. "Arees")
-        plain_folder = _normalize_rel_folder(raw_folder)
-        if plain_folder:
-            folder_to_table[plain_folder.lower()] = table_id
-            
-        # 2. Full path with DB prefix (e.g., "Gnosi/Areas")
-        if db_prefix:
-            full_path = _normalize_rel_folder(f"{db_prefix}/{raw_folder}")
-            if full_path and full_path.lower() != plain_folder.lower():
-                folder_to_table[full_path.lower()] = table_id
-                
-    return folder_to_table
+    """Map canonical table folders to immutable table IDs."""
+    return table_rows.build_table_folder_index(registry)
 
 
 def _resolve_table_id_from_context(
     metadata: dict, rel_folder: str, folder_to_table: dict, sorted_folders: Optional[List[str]] = None
 ) -> Optional[str]:
-    # Canonical source: table folder from registry.
-    folder_key = _normalize_rel_folder(rel_folder).lower()
-    if folder_key:
-        # Use provided sorted folders if available, otherwise calculate once
-        if sorted_folders is None:
-            sorted_folders = sorted(folder_to_table.keys(), key=len, reverse=True)
-            
-        for f in sorted_folders:
-            if folder_key == f or folder_key.startswith(f + "/"):
-                return folder_to_table[f]
-
-
-    # Fallback for legacy/template notes outside table folders.
-    res_id = metadata.get("table_id") or metadata.get("database_table_id")
-    if str(res_id or "").strip().lower() == "wiki":
-        return None
-    return res_id
+    return table_rows.resolve_table_id_from_context(
+        metadata,
+        rel_folder,
+        folder_to_table,
+        sorted_folders,
+    )
 
 
 def _resolve_table_folder_from_metadata(metadata: dict) -> Optional[Path]:
-    table_id = metadata.get("table_id") or metadata.get("database_table_id")
-    if not table_id:
-        return None
-
-    registry = load_registry()
-    table = next(
-        (t for t in registry.get("tables", []) if t.get("id") == table_id), None
+    return table_rows.resolve_table_folder_from_metadata(
+        metadata,
+        table_row_query_dependencies,
     )
-    if not table:
-        return None
-
-    folder_rel = _normalize_rel_folder(table.get("folder"))
-    if not folder_rel:
-        return None
-
-    # Find the database folder
-    db_id = table.get("database_id")
-    db_folder = "BD"
-    for db in registry.get("databases", []):
-        if db.get("id") == db_id:
-            db_folder = _normalize_rel_folder(db.get("folder")) or f"BD/{db.get('name', 'General')}"
-            break
-
-    return get_p("VAULT") / db_folder / folder_rel
 
 
 def _resolve_page_context_from_path(
     metadata: dict, file_path: Path
 ) -> tuple[str, Optional[str]]:
-    rel_folder = str(file_path.parent.relative_to(get_p("VAULT"))).replace("\\", "/")
-    if rel_folder == ".":
-        rel_folder = ""
-
-    registry = load_registry()
-    folder_to_table = _build_table_folder_index(registry)
-    resolved_table_id = _resolve_table_id_from_context(
-        metadata, rel_folder, folder_to_table
+    return table_rows.resolve_page_context_from_path(
+        metadata,
+        file_path,
+        table_row_query_dependencies,
     )
-    return rel_folder, resolved_table_id
 
 
 def _recompute_cross_record_formulas_for_table(
@@ -3772,22 +3634,8 @@ def _get_pages_snapshot(
 
 
 def _vf_page_loader(table_id: str) -> List[PageInfo]:
-    """Loads a table's pages with metadata in CANONICAL names, for
-    inverse-rollup computers (e.g. `task_progress` reading Tasques). Refreshes
-    the metadata stubs so `Estat`/`Projecte` are present."""
-    pages = _get_pages_for_table(table_id)
-    try:
-        _refresh_table_pages_metadata(pages)
-    except Exception as e:
-        log.debug(f"_vf_page_loader refresh skipped for {table_id}: {e}")
-    tbl = _table_by_id(table_id)
-    if tbl:
-        for p in pages:
-            try:
-                p.metadata = to_response_names(p.metadata or {}, tbl)
-            except Exception:
-                pass
-    return pages
+    """Load canonical table rows for virtual-field computations."""
+    return table_rows.virtual_page_loader(table_id, table_row_query_dependencies)
 
 
 def _strip_virtual_keys(metadata: Dict[str, Any], table: Optional[Dict[str, Any]]) -> Dict[str, Any]:
@@ -3804,133 +3652,16 @@ def _strip_virtual_keys(metadata: Dict[str, Any], table: Optional[Dict[str, Any]
 
 
 def _get_pages_for_table(table_id: str) -> List[PageInfo]:
-    """Fast-path for `/pages/by-table/{table_id}`.
-
-    The `_get_pages_snapshot` loop builds ~4200 Pydantic `PageInfo`
-    (~1.2s per call on this machine) only to then discard 95% of them.
-    This function iterates the same cache but only builds `PageInfo`
-    for the entries that belong to `table_id`, in two phases:
-
-    1. Cheap filter (no Pydantic): folder-based membership — if the
-       entry's folder starts with a prefix registered as "our
-       table" we accept it; if it starts with a prefix from ANOTHER table we
-       discard it; if it doesn't touch any registry folder, we fall back to the
-       metadata-based fallback (`table_id` / `database_table_id`).
-    2. Pydantic construction only for the entries that passed (1).
-
-    Result: for a table of ~300 pages in a vault of 4243,
-    we save the cost of creating ~3940 `PageInfo` that would have been discarded.
-    
-    """
-    # TTL micro-cache: if a recent identical call has already computed the
-    # list, we return it directly. Typical burst /by-table + /snapshot +
-    # global-index within the same second → a single real computation.
-    cache_key = f"by-table:{_vault_cache_key()}:{table_id}"
-    cached = _pages_cache_get(cache_key)
-    if cached is not None:
-        return cached
-
-    raw_entries = _get_cached_page_entries(force_refresh=False)
-    if not raw_entries:
-        return []
-
-    registry = load_registry()
-    folder_to_table = _build_table_folder_index(registry)
-    # Canonical prefixes that resolve to the requested table and to any
-    # other table. Sorted by decreasing length so that a more
-    # specific prefix wins the match (same criterion as
-    # `_resolve_table_id_from_context`).
-    our_prefixes = sorted(
-        (f for f, t in folder_to_table.items() if t == table_id),
-        key=len, reverse=True,
-    )
-    all_prefixes = sorted(folder_to_table.keys(), key=len, reverse=True)
-
-    from backend.api.calendar_routes import _get_hidden_event_ids
-    hidden_ids = _get_hidden_event_ids()
-
-    # Phase 1: filter raw entries without building any Pydantic.
-    matching: List[Dict[str, Any]] = []
-    for entry in raw_entries:
-        if entry["id"] in hidden_ids:
-            continue
-
-        folder_key = _normalize_rel_folder(entry.get("folder") or "").lower()
-        belongs = False
-        resolved_elsewhere = False
-
-        if folder_key:
-            for f in all_prefixes:
-                if folder_key == f or folder_key.startswith(f + "/"):
-                    if folder_to_table[f] == table_id:
-                        belongs = True
-                    else:
-                        resolved_elsewhere = True
-                    break
-
-        if not belongs and not resolved_elsewhere:
-            # Metadata-based fallback for legacy notes outside a folder
-            # registered (templates, old ones). Same criteria as
-            # `_resolve_table_id_from_context` (excluding "wiki").
-            metadata = entry.get("metadata") or {}
-            md_tid = metadata.get("table_id") or metadata.get("database_table_id")
-            if (
-                md_tid == table_id
-                and str(md_tid).strip().lower() != "wiki"
-            ):
-                belongs = True
-
-        if belongs:
-            matching.append(entry)
-
-    # Phase 2: build Pydantic + dedup by ID only for the matches.
-    # We use `model_construct` to skip Pydantic validation: the data
-    # comes from the mtime-validated cache, the types are already correct, and the
-    # validation costs ~80µs/instance × 300 entries = 25-50 ms for free.
-    pages_by_id: Dict[str, PageInfo] = {}
-    duplicate_ids: set = set()
-    for entry in matching:
-        entry_metadata = entry.get("metadata") or {}
-        page_info = PageInfo.model_construct(
-            id=entry["id"],
-            title=_humanize_relation_index_title(entry["title"], entry_metadata),
-            parent_id=entry["parent_id"],
-            is_database=entry["is_database"],
-            metadata=entry_metadata,
-            last_modified=datetime.fromtimestamp(entry["mtime"]).isoformat(),
-            created_time=datetime.fromtimestamp(entry.get("created_mtime") or entry["mtime"]).isoformat(),
-            size=entry["size"],
-            folder=entry["folder"],
-            path=entry.get("path"),
-            resolved_table_id=table_id,
-        )
-
-        existing = pages_by_id.get(entry["id"])
-        if existing is None:
-            pages_by_id[entry["id"]] = page_info
-        else:
-            duplicate_ids.add(entry["id"])
-            if page_info.last_modified > existing.last_modified:
-                pages_by_id[entry["id"]] = page_info
-
-    if duplicate_ids:
-        log.debug(
-            f"Deduplicated {len(duplicate_ids)} pages with repeated ID in table {table_id}"
-        )
-
-    pages = list(pages_by_id.values())
-    pages.sort(key=lambda x: x.last_modified, reverse=True)
-    _pages_cache_set(cache_key, pages)
-    return pages
+    """Fast-path for pages belonging to one table."""
+    return table_rows.get_pages_for_table(table_id, table_row_query_dependencies)
 
 
 def _enrich_table_query_pages(table_id: str, pages: List[PageInfo]) -> None:
-    _refresh_table_pages_metadata(pages)
-    table_obj = _table_by_id(table_id)
-    _vf_inject_for_table(table_obj, pages, _vf_page_loader)
-    if table_obj:
-        for page in pages:
-            page.metadata = to_response_names(page.metadata or {}, table_obj)
+    table_rows.enrich_table_query_pages(
+        table_id,
+        pages,
+        table_row_query_dependencies,
+    )
 
 
 def _enrich_single_query_page(
@@ -4073,24 +3804,10 @@ def _stamp_author(metadata: dict, user_id: Optional[str], is_create: bool) -> No
 def _prepare_create_table_metadata(
     metadata: Dict[str, Any],
 ) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]]]:
-    table = _table_by_id(get_table_id(metadata))
-    if not table:
-        return metadata, None
-    metadata, _ = to_storage_names(metadata, table)
-    stamp_system_dates(metadata, table, is_create=True)
-    for prop in table.get("properties") or []:
-        if prop.get("type") not in option_catalogs_service.OPTION_TYPES:
-            continue
-        default = str(
-            option_catalogs_service.get_prop_config(prop).get("default_option") or ""
-        ).strip()
-        if not default:
-            continue
-        if action_rules_service.read_prop_value(metadata, prop) in (None, "", []):
-            key = action_rules_service.effect_write_key(metadata, prop)
-            if key:
-                metadata[key] = [default] if prop.get("type") == "multi_select" else default
-    return metadata, table
+    return table_rows.prepare_create_table_metadata(
+        metadata,
+        table_metadata_dependencies,
+    )
 
 
 def _index_created_page(page_id: str, file_path: Path) -> None:
@@ -15103,14 +14820,14 @@ async def link_unlinked_mentions(request: LinkMentionsRequest):
 # PER-VAULT registry keys (key = registry path, which depends on the active vault via get_p).
 # They used to be global → in multi-vault they served another vault's registry. Now each vault has
 # its cache entry.
-_registry_cache: dict = {}        # registry_path_str -> data
-_registry_cache_mtime: dict = {}  # registry_path_str -> mtime
-_registry_cache_ts: dict = {}     # registry_path_str -> monotonic ts
-_registry_cache_ttl_seconds = 30  # serve from cache without stat() if recent
+_registry_cache = registry_state.cache
+_registry_cache_mtime = registry_state.cache_mtime
+_registry_cache_ts = registry_state.cache_timestamp
+_registry_cache_ttl_seconds = registry_state.cache_ttl_seconds
 
 # Tracks tables that already had _ensure_table_vault_folder called once successfully
 # during this process lifetime. Avoids redundant FUSE stat() calls on every read.
-_registry_ensured_tables: set = set()
+_registry_ensured_tables = registry_state.ensured_tables
 
 # Registry paths (str of get_p("REGISTRY")) this process has ever seen NON-degenerate,
 # read from disk or written. A degenerate save on such a path is a deliberate mutation
@@ -15118,65 +14835,17 @@ _registry_ensured_tables: set = set()
 # far more likely a misread being written back. 2026-07-14 incident: a second Mac read
 # the OneDrive registry as a dataless placeholder (→ empty), reseeded the default
 # structure and clobbered 16 tables / 797 views on the shared vault.
-_registry_seen_nondegenerate: set = set()
+_registry_seen_nondegenerate = registry_state.seen_nondegenerate
 
 
 def _registry_is_degenerate(data) -> bool:
-    """True when the payload carries no structure at all (no databases and no
-    tables): either a genuinely fresh vault or a misread of an existing registry
-    (unsynced/dataless file on cloud storage)."""
-    return not isinstance(data, dict) or (
-        not data.get("databases") and not data.get("tables")
-    )
+    """True when the registry carries no database or table structure."""
+    return registry_repository.is_degenerate(data)
 
 
 def _degenerate_overwrite_is_risky(reg_path) -> bool:
-    """Signals that `reg_path` belongs to a vault that ALREADY had a real registry,
-    so writing a degenerate/default one over it would destroy the schema+views.
-
-    Only consulted when this process never saw a non-degenerate registry for the
-    path. Directory listings keep working even when the registry file itself is an
-    unreadable cloud placeholder — hence the BD/ scan as a fallback signal.
-    """
-    try:
-        if reg_path.exists():
-            try:
-                previous = json.loads(reg_path.read_text(encoding="utf-8"))
-            except Exception:
-                # Exists but unreadable (dataless OneDrive placeholder, half-synced
-                # file): assume it is the good copy and refuse to replace it.
-                return True
-            if not _registry_is_degenerate(previous):
-                return True
-    except Exception:
-        # Wedged FS: blocking a seed is harmless, clobbering a registry is not.
-        return True
-
-    # Backups / conflict copies next to the registry, or non-empty table folders
-    # inside BD/, imply this vault already had real structure even if the registry
-    # file itself is missing or reads empty right now.
-    try:
-        bd_dir = reg_path.parent
-        if not bd_dir.is_dir():
-            return False
-        for entry in bd_dir.iterdir():
-            name = entry.name
-            if entry.is_file():
-                # vault_db_registry.bak-* backups and OneDrive conflict copies
-                # (vault_db_registry-<Device> (N).json) both imply a prior registry.
-                if name.startswith("vault_db_registry") and name != reg_path.name:
-                    return True
-                continue
-            if name.startswith("."):
-                continue  # .trash / .history scaffolding is not table data
-            try:
-                if next(entry.iterdir(), None) is not None:
-                    return True
-            except Exception:
-                return True
-    except Exception:
-        return True
-    return False
+    """Return whether an empty write could clobber an existing registry."""
+    return registry_repository.degenerate_overwrite_is_risky(reg_path)
 
 # Serializes the ENTIRE load→modify→save cycle of the central registry
 # (vault_db_registry.json). Same systemic pattern as #728/#729/#743 (daily
@@ -15184,7 +14853,7 @@ def _degenerate_overwrite_is_risky(reg_path) -> bool:
 # same snapshot and the last write clobbered the other (last-writer-wins).
 # RLock and not Lock because `load_registry` calls `save_registry` when it sanitizes
 # (changed=True) with the lock already held by the same thread.
-_registry_mutation_lock = threading.RLock()
+_registry_mutation_lock = registry_state.mutation_lock
 
 
 # Decorative emoji and their presentation/control characters. This is scoped to
@@ -15201,383 +14870,66 @@ _LEGACY_MAIN_VIEW_NAMES = frozenset(
 
 def _normalize_table_view_name(value: object, fallback: str) -> str:
     """Return a compact table/view label without decorative emoji."""
-    raw = str(value or "")
-    cleaned = _TABLE_VIEW_KEYCAP_RE.sub("", raw)
-    cleaned = _TABLE_VIEW_EMOJI_RE.sub("", cleaned)
-    cleaned = _TABLE_VIEW_EMOJI_CONTROL_RE.sub("", cleaned)
-    cleaned = re.sub(r"\s+", " ", cleaned).strip()
-    return cleaned or fallback
+    return registry_normalize_table_view_name(value, fallback)
 
 
 def _table_name_from_registry(registry: dict, table_id: object) -> str:
     """Return the normalized display name for a table ID."""
-    table = next(
-        (
-            item
-            for item in registry.get("tables", []) or []
-            if str(item.get("id") or "") == str(table_id or "")
-        ),
-        None,
-    )
-    return _normalize_table_view_name(
-        (table or {}).get("name") or (table or {}).get("id"),
-        "Untitled Table",
-    )
+    return registry_table_name(registry, table_id)
 
 
 def _main_view_fields(registry: dict, table_id: object) -> list[str]:
     """Return the canonical visible fields for a table's main view."""
-    table = next(
-        (
-            item
-            for item in registry.get("tables", []) or []
-            if str(item.get("id") or "") == str(table_id or "")
-        ),
-        None,
-    )
-    fields = ["title"]
-    for prop in (table or {}).get("properties", []) or []:
-        name = prop.get("name") if isinstance(prop, dict) else None
-        if name and name not in fields:
-            fields.append(name)
-    return fields
+    return registry_main_view_fields(registry, table_id)
 
 
 def _is_main_or_locked_view(view: dict) -> bool:
     """Return whether a view is protected as a table's main view."""
-    if (
-        view.get("is_main")
-        or view.get("is_default")
-        or view.get("id") == "default"
-    ):
-        return True
-    normalized_name = _normalize_table_view_name(view.get("name"), "View")
-    if normalized_name.casefold() in _LEGACY_MAIN_VIEW_NAMES:
-        return True
-    return any(
-        bool(view.get(key))
-        for key in ("locked", "is_locked", "isLocked")
-    )
+    return registry_is_main_or_locked_view(view)
 
 
 def _normalize_main_view_configuration(registry: dict, view: dict) -> bool:
-    """Enforce the immutable configuration of a main or locked view.
-
-    Main views are the table's canonical entry point. They must remain a plain
-    table showing every field, without saved filters or grouping, sorted by the
-    record title. Legacy aliases are written alongside the canonical keys so
-    older renderers cannot revive stale configuration.
-    """
-    if not _is_main_or_locked_view(view):
-        return False
-
-    table_id = view.get("table_id")
-    table_name = _table_name_from_registry(registry, table_id)
-    sort = {"field": "title", "direction": "asc"}
-    visible_fields = _main_view_fields(registry, table_id)
-    canonical = {
-        "name": table_name,
-        "type": "table",
-        "filters": [],
-        "filter": None,
-        "filterTree": None,
-        "sort": sort,
-        "sorts": [dict(sort)],
-        "groupBy": None,
-        "group_by": None,
-        "groupSort": None,
-        "group_sort": None,
-        "groupSortDir": "asc",
-        "group_sort_dir": "asc",
-        "visibleProperties": visible_fields,
-    }
-    changed = False
-    for key, value in canonical.items():
-        if key not in view or view.get(key) != value:
-            view[key] = value
-            changed = True
-    if not view.get("is_main"):
-        view["is_main"] = True
-        changed = True
-    return changed
+    """Enforce the immutable configuration of a main or locked view."""
+    return registry_normalize_main_view_configuration(registry, view)
 
 def _normalize_registry_table_view_names(registry: dict) -> bool:
     """Normalize persisted table/view labels and canonicalize main view names."""
-    changed = False
-    tables = registry.setdefault("tables", [])
-    views = registry.setdefault("views", [])
-    table_names: dict[str, str] = {}
-
-    for table in tables:
-        table_id = str(table.get("id") or "")
-        old_name = table.get("name")
-        new_name = _normalize_table_view_name(
-            old_name or table_id, "Untitled Table"
-        )
-        if old_name != new_name:
-            table["name"] = new_name
-            changed = True
-        if table_id:
-            table_names[table_id] = new_name
-
-    for view in views:
-        table_id = str(view.get("table_id") or "")
-        table_name = table_names.get(table_id) or _table_name_from_registry(
-            registry, table_id
-        )
-        old_view_name = view.get("name")
-        normalized_view_name = _normalize_table_view_name(old_view_name, "View")
-        is_main = _is_main_or_locked_view(view)
-        if is_main and not view.get("is_main"):
-            view["is_main"] = True
-            changed = True
-        desired_name = table_name if is_main else normalized_view_name
-        if old_view_name != desired_name:
-            view["name"] = desired_name
-            changed = True
-        if _normalize_main_view_configuration(registry, view):
-            changed = True
-
-    return changed
+    return registry_normalize_table_view_names(registry)
 
 
 @contextmanager
 def registry_mutation():
-    """Wraps an entire load_registry→modify→save_registry cycle.
-
-    Usage rules (if violated, the protection silently disappears):
-      - ALWAYS the entire cycle inside, never just the load or the save.
-      - Inside an `async def` handler, the block must not contain any `await`:
-        the RLock is reentrant PER THREAD and all coroutines share the
-        event loop thread, so a second coroutine would re-enter it during the
-        suspension. If the cycle needs slow I/O, move the body to a
-        synchronous function and run it with `asyncio.to_thread` (cf. `rename_table`).
-    
-    """
-    with _registry_mutation_lock:
+    """Wrap an entire load, modify and save registry cycle."""
+    with registry_repository.mutation():
         yield
 
 
 def _update_registry_cache(reg_path, data) -> None:
-    """Synchronizes the in-memory (per-vault) cache after writing the file.
-
-    `vault_views_routes._save_registry` also calls it, since it writes the SAME
-    file with its own I/O: without this refresh, this module's readers would
-    serve up to 30s (TTL) of stale data after a view upsert.
-    
-    """
-    _sk = str(reg_path)
-    _registry_cache[_sk] = data
-    _registry_cache_ts[_sk] = time.monotonic()
-    try:
-        _registry_cache_mtime[_sk] = reg_path.stat().st_mtime
-    except Exception:
-        pass
+    """Synchronize the canonical per-vault registry cache after a write."""
+    registry_repository.update_cache(reg_path, data)
 
 
 def load_registry():
-    """Reads the central registry. Resilient to slow cloud filesystems (OneDrive).
-
-    Strategy:
-    - In-memory cache with 30s TTL: skip ALL filesystem I/O when fresh.
-    - Beyond TTL, attempt mtime-based stat with short timeout; on slow FS, return stale cache.
-    - Only run `_ensure_table_vault_folder` on first encounter per table per process.
-    - On any unexpected error, return last cached data (graceful degradation).
-    """
-    global _registry_cache, _registry_cache_mtime, _registry_cache_ts
-
-    now = time.monotonic()
-    # The key depends on the ACTIVE VAULT (get_p("REGISTRY") = <active_vault>/BD/vault_db_registry.json)
-    registry_path = get_p("REGISTRY")
-    empty = {"databases": [], "tables": [], "views": []}
-    if not registry_path:
-        return empty
-    _ck = str(registry_path)
-    cached = _registry_cache.get(_ck)
-
-    # Fast path: THIS vault's cache is fresh (TTL) → no I/O
-    if cached is not None and (now - _registry_cache_ts.get(_ck, 0.0)) < _registry_cache_ttl_seconds:
-        return cached
-
-    # mtime check: if file unchanged since last load, return cache without re-reading
-    try:
-        if not registry_path.exists():
-            return cached if cached is not None else empty
-        mtime = registry_path.stat().st_mtime
-        if cached is not None and mtime <= _registry_cache_mtime.get(_ck, 0):
-            _registry_cache_ts[_ck] = now
-            return cached
-    except Exception as e:
-        # FS hung (cloud sync etc.). Prefer stale cache over blocking the request.
-        if cached is not None:
-            log.warning(f"⚠️ load_registry: stat failed ({e}); serving stale cache")
-            return cached
-        # No cache yet: bail out with empty registry (better than hanging).
-        log.error(f"❌ load_registry: stat failed and no cache available: {e}")
-        return empty
-
-    try:
-        # Lock around the disk section: the sanitization below can end up in a
-        # save_registry (changed=True) and cannot interleave with a mutation cycle from
-        # another thread. Reentrant: if we already come from a registry_mutation()
-        # in the same thread, it doesn't block.
-        with _registry_mutation_lock:
-            return _load_registry_from_disk(registry_path, _ck, now)
-    except Exception as e:
-        log.error(f"❌ Error loading registry: {e}")
-        if cached is not None:
-            log.warning("⚠️ load_registry: serving stale cache after error")
-            return cached
-        return empty
+    """Read the central registry through its canonical repository."""
+    return registry_repository.load()
 
 
 def _load_registry_from_disk(registry_path, _ck: str, now: float):
-    """Reads from disk + sanitizes the registry. ALWAYS call with
-    `_registry_mutation_lock` held (which `load_registry` does)."""
-    data = json.loads(registry_path.read_text(encoding="utf-8"))
-
-    # Remember that this path once held real structure: a later degenerate save
-    # is then a deliberate mutation, not a misread (see save_registry guard).
-    if not _registry_is_degenerate(data):
-        _registry_seen_nondegenerate.add(_ck)
-
-    changed = False
-    tables = data.get("tables", [])
-    # 1. Cleanup: delete the default table id `taula_1` if it exists.
-    if any(t.get("name") == "taula_1" for t in tables):
-        data["tables"] = [t for t in tables if t.get("name") != "taula_1"]
-        changed = True
-        log.info("🗑️ Deleted the default table from the registry.")
-
-    # 1.5 Cleanup: legacy wiki table is no longer supported as DB table.
-    if any(str(t.get("id") or "").strip().lower() == "wiki" for t in data.get("tables", [])):
-        data["tables"] = [
-            t
-            for t in data.get("tables", [])
-            if str(t.get("id") or "").strip().lower() != "wiki"
-        ]
-        data["views"] = [
-            v
-            for v in data.get("views", [])
-            if str(v.get("table_id") or "").strip().lower() != "wiki"
-        ]
-        changed = True
-        log.info("🧹 Removed legacy wiki table and its views from registry.")
-
-    # 1.6 Cleanup: fix views with null or empty IDs
-    for view in data.get("views", []):
-        if not view.get("id"):
-            view["id"] = str(uuid.uuid4())
-            changed = True
-            log.info(f"🧹 Assigned UUID to view with null/empty ID: {view.get('name')}")
-
-    # Table and saved-view labels are user-facing registry data. Normalize them
-    # on read so existing databases are migrated before any API response or
-    # frontend render. The operation is idempotent and does not touch page data.
-    if _normalize_registry_table_view_names(data):
-        changed = True
-
-    # Dedicated `status` fields share one lifecycle catalog across the vault.
-    # This is deliberately done while loading so existing registries are
-    # migrated before the frontend renders any table schema.
-    ensure_status_catalog = getattr(
-        option_catalogs_service, "ensure_global_status_catalog", None
-    )
-    if callable(ensure_status_catalog) and ensure_status_catalog(data):
-        changed = True
-
-    # 2. Sanitization and folder creation (only for tables not yet validated)
-    for table in data.get("tables", []):
-        folder_raw = table.get("folder") or table.get("name", "untitled_table")
-        folder_normalized = _normalize_rel_folder(folder_raw)
-
-        if table.get("folder") != folder_normalized:
-            table["folder"] = folder_normalized
-            changed = True
-            log.info(f"🧹 Normalized table path '{table.get('name')}': {folder_normalized}")
-
-        tid = str(table.get("id") or "")
-        if tid and tid in _registry_ensured_tables:
-            continue
-        try:
-            _ensure_table_vault_folder(table, data)
-            if tid:
-                _registry_ensured_tables.add(tid)
-        except Exception as e:
-            log.error(f"❌ Error ensuring folder for table {table.get('name')}: {e}")
-
-    if changed:
-        save_registry(data)
-
-    # Sync cache (per-vault, key = registry path)
-    _registry_cache[_ck] = data
-    _registry_cache_ts[_ck] = now
-    try:
-        _registry_cache_mtime[_ck] = registry_path.stat().st_mtime
-    except Exception:
-        pass
-
-    return data
+    """Read and normalize a registry while holding the mutation lock."""
+    return registry_repository.load_from_disk(registry_path, _ck, now)
 
 
 def save_registry(data):
-    """Saves the current state to the registry file and updates cache."""
-    reg_path = get_p('REGISTRY')
-    if not reg_path:
-        log.warning("⚠️ Registry save attempt without configured path.")
-        return
-    try:
-        # Reentrant lock: a standalone save (outside a registry_mutation()) also doesn't
-        # must not interleave with a cycle's write+cache refresh.
-        with _registry_mutation_lock:
-            # Clobber guard (2026-07-14 incident): refuse to replace a registry with
-            # a degenerate one (no databases and no tables) unless this process has
-            # actually seen the registry non-degenerate — i.e. the emptiness comes
-            # from deliberate mutations, not from a cloud-sync misread of the file.
-            _ck = str(reg_path)
-            if _registry_is_degenerate(data):
-                if (
-                    _ck not in _registry_seen_nondegenerate
-                    and _degenerate_overwrite_is_risky(reg_path)
-                ):
-                    log.error(
-                        "🛑 Refused to overwrite the registry with an empty structure: "
-                        f"{reg_path} shows prior data that this process never managed "
-                        "to read (likely a dataless/unsynced file). Leaving it intact."
-                    )
-                    return
-            else:
-                _registry_seen_nondegenerate.add(_ck)
-            # Atomic write — registry lives on cloud-synced storage, so any
-            # half-flushed write would propagate to other devices and corrupt the
-            # central config. safe_write_json does tmp + fsync + rename.
-            safe_write_json(reg_path, data, indent=2, ensure_ascii=False)
-            # Refresh cache (per-vault) so subsequent reads see new data without re-stat
-            _update_registry_cache(reg_path, data)
-    except Exception as e:
-        log.error(f"❌ Error saving registry: {e}")
+    """Persist the registry through its canonical repository."""
+    registry_repository.save(data)
 
 
 # ensure_default_registry_structure() # Disabled: initialized dynamically per workspace
 
 
 def _sort_key_name(item):
-    """Sorting key that prioritizes 'order' and then the name (ignoring accents)."""
-    order = item.get("order")
-    # If it has order, return it as the first element of the tuple for sorting
-    if order is not None:
-        try:
-            order_val = int(order)
-        except (ValueError, TypeError):
-            order_val = 999999
-    else:
-        order_val = 999999
-
-    name = (item.get("name") or "").lower()
-    normalized_name = "".join(
-        c for c in unicodedata.normalize("NFD", name) if unicodedata.category(c) != "Mn"
-    )
-    return (order_val, normalized_name)
+    """Sort by explicit order, then accent-insensitive display name."""
+    return registry_sort_key_name(item)
 
 
 _HOST_OPEN_HELPER_URL = (
@@ -15738,35 +15090,7 @@ def _pick_existing_path(
 @router.get("/registry")
 async def get_registry():
     """Returns the full registry of databases, tables, and views (sorted alphabetically)."""
-    try:
-        registry = load_registry()
-        # SHALLOW COPY for the RESPONSE: `load_registry` returns the object
-        # from the shared cache; reassigning keys on it (alphabetical order, filter
-        # wiki) mutated the cache and a later mutation cycle persisted
-        # these presentation transformations to the file.
-        response = dict(registry)
-        response["databases"] = sorted(
-            registry.get("databases", []), key=_sort_key_name
-        )
-        response["tables"] = sorted(
-            [
-                t
-                for t in registry.get("tables", [])
-                if str(t.get("id") or "").strip().lower() != "wiki"
-            ],
-            key=_sort_key_name,
-        )
-        # Views: we respect the file's insertion (append) order to avoid
-        # a new view named "AAA…" jumping to the front of the tabs.
-        # PUT /api/vault/views/order persists the order chosen by the user.
-        response["views"] = list(registry.get("views", []))
-        return response
-    except Exception as e:
-        logging.exception(f"ERROR in get_registry: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=safe_error_detail(e, "GET /registry"),
-        )
+    return await registry_api.get_registry(registry_api_dependencies)
 
 
 @router.post("/registry", dependencies=[Depends(require_role("admin"))])
@@ -15778,11 +15102,7 @@ async def update_registry(data: dict = Body(...)):
     databases/tables/views of a workspace in a single call.
     
     """
-    # Full overwrite by design (replaces the ENTIRE registry). It's not an
-    # RMW cycle, but `save_registry` already takes `_registry_mutation_lock` internally, so
-    # it cannot interleave with another cycle's write.
-    save_registry(data)
-    return {"status": "success"}
+    return await registry_api.update_registry(data, registry_api_dependencies)
 
 
 @router.post("/open-resource", dependencies=[Depends(require_role("editor"))])
@@ -16050,278 +15370,55 @@ async def open_local_path(payload: dict = Body(...)):
 
 @router.get("/databases")
 async def list_databases():
-    registry = load_registry()
-    databases = registry.get("databases", [])
-    return sorted(databases, key=_sort_key_name)
+    return await table_collection_api.list_databases(table_collection_dependencies)
 
 
 @router.post("/databases", dependencies=[Depends(require_role("editor"))])
 async def create_database(db: dict = Body(...)):
-    # Auth gate: creating/editing databases is a structural mutation of the
-    # registry (impacts all views and tables). Same as `delete_database`
-    # further below, it must require at least the editor role.
-    #
-    # Entire load→modify→save cycle under lock (synchronous block with no `await`:
-    # also atomic with respect to other coroutines of the event loop).
-    with registry_mutation():
-        registry = load_registry()
-        if "id" not in db:
-            db["id"] = str(uuid.uuid4())
-
-        # Upsert
-        existing_idx = next(
-            (i for i, d in enumerate(registry["databases"]) if d["id"] == db["id"]), None
-        )
-        if existing_idx is not None:
-            registry["databases"][existing_idx] = db
-        else:
-            registry["databases"].append(db)
-
-        save_registry(registry)
-    return db
+    return await table_collection_api.create_database(db, table_collection_dependencies)
 
 
 @router.delete("/databases/{database_id}", dependencies=[Depends(require_role("admin"))])
 async def delete_database(database_id: str):
-    with registry_mutation():
-        registry = load_registry()
-        registry["databases"] = [
-            db for db in registry["databases"] if db.get("id") != database_id
-        ]
-        # Remove associated tables and views.
-        tables_to_remove = [
-            t["id"] for t in registry["tables"] if t.get("database_id") == database_id
-        ]
-        registry["tables"] = [
-            t for t in registry["tables"] if t.get("database_id") != database_id
-        ]
-        registry["views"] = [
-            v for v in registry["views"] if v.get("table_id") not in tables_to_remove
-        ]
-        save_registry(registry)
-    return {"status": "success"}
+    return await table_collection_api.delete_database(
+        database_id, table_collection_dependencies
+    )
 
 
 @router.get("/tables")
 async def list_tables(database_id: Optional[str] = None):
-    registry = load_registry()
-    tables = [
-        t
-        for t in registry.get("tables", [])
-        if str(t.get("id") or "").strip().lower() != "wiki"
-    ]
-    if database_id:
-        tables = [t for t in tables if t.get("database_id") == database_id]
-    return sorted(tables, key=_sort_key_name)
+    return await table_collection_api.list_tables(
+        database_id, table_collection_dependencies
+    )
 
 
 def _ensure_main_view(registry: dict, table_id: str) -> Optional[dict]:
-    """Guarantee that `table_id` has at least one view with `is_main=True`.
-
-    Resolution order:
-      1. If a view already has `is_main=True`, do nothing.
-      2. Otherwise promote an existing `type=="table"` view (the closest
-         match for "default") by flagging it `is_main=True` — this avoids
-         creating duplicate "Taula Principal" rows when migrating older
-         tables whose only view simply lacked the flag.
-      3. Otherwise (table has zero views at all) create a fresh
-         `Taula Principal` view.
-
-    Returns the view that ended up being the main one only when the
-    registry was modified, otherwise None. The caller is responsible for
-    persisting via `save_registry`.
-    """
-    views = registry.setdefault("views", [])
-    table_views = [v for v in views if v.get("table_id") == table_id]
-    table_name = _table_name_from_registry(registry, table_id)
-    existing_main = next((v for v in table_views if v.get("is_main")), None)
-    if existing_main is not None:
-        if _normalize_main_view_configuration(registry, existing_main):
-            return existing_main
-        return None
-    # Prefer the first existing table-typed view (oldest at the top of
-    # the list); fall back to any view; create only if there are none.
-    promote_candidate = next(
-        (v for v in table_views if v.get("type") == "table"),
-        None,
-    ) or (table_views[0] if table_views else None)
-    if promote_candidate is not None:
-        promote_candidate["is_main"] = True
-        promote_candidate["name"] = table_name
-        _normalize_main_view_configuration(registry, promote_candidate)
-        return promote_candidate
-    new_view = {
-        "id": str(uuid.uuid4()),
-        "table_id": table_id,
-        "name": table_name,
-        "is_main": True,
-    }
-    _normalize_main_view_configuration(registry, new_view)
-    views.append(new_view)
-    return new_view
+    """Guarantee that ``table_id`` owns one canonical main view."""
+    return table_schema.ensure_main_view(registry, table_id)
 
 
 @router.post("/tables", dependencies=[Depends(require_role("editor"))])
 async def create_table(table: dict = Body(...)):
-    # Entire load→modify→save cycle under lock. The body is synchronous (no `await`),
-    # extracted to `_create_table_locked` to avoid reindenting it; the reentrant lock
-    # also serializes with respect to worker threads (to_thread) that load/save the
-    # registry. Callable from `social_store.ensure_social_table` and
-    # `create_reference_table` (`await create_table(...)`): none of them holds the
-    # lock during the await, so there's no deadlock.
-    with registry_mutation():
-        return _create_table_locked(table)
+    return await table_lifecycle.create_table(table, table_create_dependencies)
 
 
 def _table_schema_signature(properties: object) -> str:
     """Return a deterministic signature for one ordered property schema."""
-    return json.dumps(
-        properties if isinstance(properties, list) else [],
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-    )
+    return table_schema.table_schema_signature(properties)
 
 
 def _schema_revision(value: object) -> int:
     """Parse a non-negative schema revision without trusting client types."""
-    try:
-        return max(0, int(value or 0))
-    except (TypeError, ValueError):
-        return 0
+    return table_schema.schema_revision(value)
 
 
 def _reconcile_table_schema_revision(old_table: dict, incoming_table: dict) -> None:
-    """Reject a stale full-table update before it can restore an old schema.
-
-    The schema modal sends the complete table object. A browser tab that was
-    already open during an external reconciliation can therefore hold an old
-    property list. Once a table has a schema revision, any property change must
-    be based on that exact revision. Non-schema updates remain compatible with
-    older clients because they cannot overwrite the current property list.
-    """
-    old_revision = _schema_revision(old_table.get("schema_revision"))
-    incoming_revision = _schema_revision(incoming_table.get("schema_revision"))
-    schema_changed = _table_schema_signature(
-        old_table.get("properties")
-    ) != _table_schema_signature(incoming_table.get("properties"))
-
-    if schema_changed and old_revision and incoming_revision != old_revision:
-        raise HTTPException(
-            status_code=409,
-            detail=(
-                "The table schema changed after this editor loaded it. "
-                "Reload the table before saving schema changes."
-            ),
-        )
-
-    if schema_changed:
-        incoming_table["schema_revision"] = old_revision + 1
-    elif old_revision:
-        incoming_table["schema_revision"] = old_revision
-
-    # Source provenance belongs to the authoritative table, not to a browser
-    # snapshot. Preserve it across compatible legacy non-schema updates.
-    if old_table.get("schema_source") and not incoming_table.get("schema_source"):
-        incoming_table["schema_source"] = old_table["schema_source"]
+    """Reject stale schema writes through the canonical table domain."""
+    table_schema.reconcile_table_schema_revision(old_table, incoming_table)
 
 
 def _create_table_locked(table: dict):
-    registry = load_registry()
-    locale = table.pop("locale", None) or table.pop("language", None)
-    if not locale:
-        try:
-            locale = load_params(strict_env=False).settings.get("language")
-        except Exception:
-            locale = "en"
-    if "id" not in table:
-        table["id"] = str(uuid.uuid4())
-    table["name"] = _normalize_table_view_name(
-        table.get("name") or table.get("id"), "Untitled Table"
-    )
-
-    # Every table owns the two read-only audit fields. This is the single
-    # backend boundary used by the UI, imports, plugins, and internal services.
-    ensure_system_date_properties(table, locale)
-
-    # Ensure and normalize the folder property. `sanitize_rel_folder` on top of the
-    # path normalization: the name may come verbatim from the API payload (or from a
-    # Notion title) and OneDrive rejects `<>:"|?*`, trailing dots/spaces per segment,
-    # and Windows reserved device names; it also drops `..` traversal segments.
-    folder_raw = table.get("folder") or table.get("name", "untitled_table")
-    table["folder"] = sanitize_rel_folder(
-        _normalize_rel_folder(folder_raw), fallback="untitled_table"
-    )
-
-    # If already exists, update it (upsert)
-    existing_idx = next(
-        (i for i, t in enumerate(registry["tables"]) if t["id"] == table["id"]), None
-    )
-    if existing_idx is not None:
-        old_table = registry["tables"][existing_idx]
-        # Preserves the `aliases` per property: the modal's save reconstructs
-        # the properties from the flat schema (which doesn't carry them) and, without
-        # this, every save would erase the aliases from previous renames — and the
-        # old rows would stop resolving their values.
-        _old_props_by_id = {
-            p.get("id"): p
-            for p in (old_table.get("properties") or [])
-            if p.get("id")
-        }
-        for _p in table.get("properties") or []:
-            _old_p = _old_props_by_id.get(_p.get("id"))
-            if _old_p and _old_p.get("aliases") and not _p.get("aliases"):
-                _p["aliases"] = list(_old_p["aliases"])
-        _reconcile_table_schema_revision(old_table, table)
-        # Detect removed properties to delete their assets folders
-        old_asset_props = {
-            str(p.get("name") or "").strip()
-            for p in (old_table.get("properties") or [])
-            if _is_asset_property(p) and str(p.get("name") or "").strip()
-        }
-        new_asset_props = {
-            str(p.get("name") or "").strip()
-            for p in (table.get("properties") or [])
-            if _is_asset_property(p) and str(p.get("name") or "").strip()
-        }
-        removed_props = old_asset_props - new_asset_props
-        if removed_props:
-            db_entry = next(
-                (
-                    d
-                    for d in registry.get("databases", [])
-                    if str(d.get("id")) == str(old_table.get("database_id"))
-                ),
-                None,
-            )
-            for prop_name in removed_props:
-                _delete_asset_property_dir(old_table, db_entry, prop_name)
-        registry["tables"][existing_idx] = table
-    else:
-        registry["tables"].append(table)
-
-    _ensure_asset_dirs_for_table_entry(table, registry)
-    _ensure_table_vault_folder(table, registry)
-
-    # Seed-on-enable (vault_option_catalogs_action_rules directive §3.3):
-    # every table save normalizes the option catalogs (rich format,
-    # single location), assigns semantic roles by name and guarantees the states
-    # that active features require (base «Draft»/«Reviewed»;
-    # «Translated», «Published to Drupal», «Published to XXSS» depending on toggles) and the
-    # corresponding action_rules blocks. Idempotent.
-    option_catalogs_service.ensure_table_seeds(table)
-    option_catalogs_service.ensure_global_status_catalog(registry)
-    action_rules_service.ensure_action_rules(table)
-
-    # Product invariant: every table must always own at least one main
-    # view. Without this, a freshly-created table renders as a blank
-    # canvas in the UI and the (now-guarded) frontend auto-create no
-    # longer kicks in. Doing it server-side also covers any non-UI client
-    # that POSTs a table directly.
-    _ensure_main_view(registry, table["id"])
-
-    save_registry(registry)
-    return table
+    return table_lifecycle.create_table_locked(table, table_create_dependencies)
 
 
 @router.delete("/tables/{table_id}", dependencies=[Depends(require_role("admin"))])
@@ -16342,266 +15439,32 @@ async def delete_table(
       We update the registry synchronously (the user-visible source of
       truth) and queue the disk cleanup as a background task.
     """
-    # Entire load→modify→save cycle under lock (synchronous block, no `await`).
-    vault_root = get_p("VAULT").resolve()
-    quarantine: Optional[Path] = None
-    ready_quarantine: Optional[Path] = None
-    moved_assets: List[tuple[Path, Path]] = []
-    with registry_mutation():
-        registry = load_registry()
-        # Get table info BEFORE deleting it from registry
-        table_entry = next((t for t in registry["tables"] if t.get("id") == table_id), None)
-        db_entry = None
-        if table_entry:
-            db_entry = next(
-                (
-                    d
-                    for d in registry.get("databases", [])
-                    if str(d.get("id")) == str(table_entry.get("database_id"))
-                ),
-                None,
-            )
-        if expected_table_revision is not None:
-            if not table_entry:
-                raise HTTPException(
-                    status_code=409,
-                    detail="Table changed after confirmation preview",
-                )
-            if _stable_value_revision(table_entry) != expected_table_revision:
-                raise HTTPException(
-                    status_code=409,
-                    detail="Table changed after confirmation preview",
-                )
-        if (
-            expected_views_revision is not None
-            and _table_views_revision(registry, table_id)
-            != expected_views_revision
-        ):
-            raise HTTPException(
-                status_code=409,
-                detail="Table views changed after confirmation preview",
-            )
-        if table_entry:
-            quarantine, moved_assets = _quarantine_table_asset_dirs(
-                table_entry,
-                db_entry,
-            )
-            if (
-                expected_asset_revision is not None
-                and _quarantined_table_asset_revision(
-                    table_entry,
-                    db_entry,
-                    moved_assets,
-                )
-                != expected_asset_revision
-            ):
-                _restore_quarantined_table_assets(quarantine, moved_assets)
-                raise HTTPException(
-                    status_code=409,
-                    detail="Table assets changed after confirmation preview",
-                )
-        # Update the registry after active assets have been sealed.
-        registry["tables"] = [t for t in registry["tables"] if t.get("id") != table_id]
-        # Remove associated views.
-        registry["views"] = [v for v in registry["views"] if v.get("table_id") != table_id]
-        try:
-            save_registry(registry)
-        except Exception:
-            _restore_quarantined_table_assets(quarantine, moved_assets)
-            raise
-        if quarantine:
-            try:
-                ready_quarantine = _mark_table_asset_quarantine_ready(quarantine)
-            except Exception:
-                log.exception(
-                    "Table deletion committed but asset quarantine could not "
-                    "be marked ready: %s",
-                    quarantine,
-                )
-
-    # The active paths have already been detached atomically. Only deletion of
-    # the durable quarantine remains asynchronous and can resume after restart.
-    if ready_quarantine:
-        background_tasks.add_task(
-            _delete_table_asset_quarantine,
-            ready_quarantine,
-            vault_root,
-        )
-
-    return {
-        "status": "success",
-        "cleanup_status": (
-            "queued"
-            if ready_quarantine
-            else "deferred"
-            if quarantine
-            else "not_required"
-        ),
-    }
+    return await table_lifecycle.delete_table(
+        table_id,
+        background_tasks,
+        expected_table_revision,
+        expected_views_revision,
+        expected_asset_revision,
+        table_delete_dependencies,
+    )
 
 
 @router.put("/tables/{table_id}", dependencies=[Depends(require_role("editor"))])
 async def rename_table(table_id: str, data: dict = Body(...)):
-    # The registry cycle + the SYNCHRONOUS asset folder moves go under
-    # lock. The only async part (rewriting inline refs in page bodies,
-    # via to_thread) is deferred OUTSIDE the lock: it touches .md files, not the registry,
-    # and was best-effort. This way we don't hold the RLock during any `await`.
-    with registry_mutation():
-        deferred_rewrite = _rename_table_locked(table_id, data)
-
-    if deferred_rewrite:
-        table_dir, old_seg, new_seg = deferred_rewrite
-        try:
-            # rglob + read/write for many .md: we offload it to a thread so as not to
-            # blocking the event loop on large tables or cloud vaults (slow).
-            n = await asyncio.to_thread(_rewrite_inline_asset_refs, table_dir, old_seg, new_seg)
-            if n:
-                log.info(
-                    f"Rewrote inline asset refs in {n} page(s) for "
-                    f"table rename ({old_seg}→{new_seg})."
-                )
-        except Exception as e:
-            log.warning(f"Could not rewrite inline asset refs: {e}")
-
-    return {"status": "success"}
+    return await table_lifecycle.rename_table(
+        table_id,
+        data,
+        table_rename_dependencies,
+    )
 
 
 def _rename_table_locked(table_id: str, data: dict):
-    """Load→modify→save cycle for the table rename + synchronous asset
-    folder moves. ALWAYS call with `registry_mutation()` held.
-
-    Returns `(table_dir, old_seg, new_seg)` if inline refs in page
-    bodies need to be rewritten (async work that the caller does OUTSIDE the lock), or `None`.
-    
-    """
-    deferred_rewrite = None
-    registry = load_registry()
-    for t in registry["tables"]:
-        if t["id"] == table_id:
-            old_name = str(t.get("name") or "").strip()
-            if "name" in data:
-                t["name"] = _normalize_table_view_name(
-                    data["name"], old_name or "Untitled Table"
-                )
-                if not t.get("folder"):
-                    t["folder"] = sanitize_vault_title(
-                        t["name"], fallback="untitled_table"
-                    )
-            if "folder" in data:
-                # Direct pass-through from the API payload → per-segment OneDrive
-                # sanitation (forbidden chars, trailing dot/space, reserved names, `..`).
-                t["folder"] = sanitize_rel_folder(
-                    data["folder"], fallback=t.get("folder") or "untitled_table"
-                )
-            new_name = str(t.get("name") or "").strip()
-
-            # If the name has changed, moves both asset folders so the
-            # existing files keep following the table object:
-            #   1) Assets/<OldName>/                  (flat, generic drag&drop)
-            #   2) Assets/<DB>/<OldTable>/            (structured by properties)
-            # If the destination already exists (extremely rare collision), we do nothing
-            # and we leave a warning in the log for manual inspection.
-            if old_name and new_name and old_name != new_name:
-                # Resolve the DB once: we need it for the nesting
-                # structured (step 2) and to detect collisions between the
-                # flat folder and the DB root (step 1).
-                db_entry = next(
-                    (
-                        d
-                        for d in registry.get("databases", []) or []
-                        if str(d.get("id")) == str(t.get("database_id"))
-                    ),
-                    None,
-                )
-                db_seg = _sanitize_asset_segment(
-                    (db_entry or {}).get("name") or t.get("database_id") or "General",
-                    "General",
-                )
-                old_seg = _sanitize_asset_segment(old_name, "Table")
-                new_seg = _sanitize_asset_segment(new_name, "Table")
-
-                # 1) Flat Assets/<Table>/
-                #
-                # COLLISION (see docs/dev_memory/directives/table_rename_flat_folder_collision.md):
-                # when the table's segment matches the DB's
-                # (case-insensitive on APFS), `Assets/<Taula>/` is PHYSICALLY
-                # the same directory as the nesting root `Assets/<DB>/`.
-                # Renaming it in bulk would drag along the structured trees
-                # of other tables (e.g. Assets/Cervell Digital/Recursos/...)
-                # and would break its references. In this case we move
-                # only the table's loose files.
-                should_rewrite_refs = False
-                try:
-                    old_dir = get_p("ASSETS") / old_seg
-                    new_dir = get_p("ASSETS") / new_seg
-                    old_collides = _asset_segments_collide(old_seg, db_seg)
-                    new_collides = _asset_segments_collide(new_seg, db_seg)
-
-                    if old_dir.is_dir():
-                        if old_collides and new_collides:
-                            # Old and new both resolve to the DB root:
-                            # only the capitalization changes, nothing to relocate.
-                            log.info(
-                                f"Flat assets folder coincides with DB root for "
-                                f"both names ({old_name}→{new_name}); nothing to move."
-                            )
-                        elif old_collides or new_collides:
-                            # One of the segments is the DB's root: we never
-                            # rename in bulk; we only move the loose files.
-                            moved = _move_loose_files(old_dir, new_dir)
-                            should_rewrite_refs = True
-                            log.info(
-                                f"Collision-safe flat assets move "
-                                f"({old_name}→{new_name}): {moved} loose file(s) "
-                                f"{old_dir} → {new_dir}; left DB-nested "
-                                f"subfolders in place."
-                            )
-                        elif not new_dir.exists():
-                            old_dir.rename(new_dir)
-                            should_rewrite_refs = True
-                            log.info(f"Renamed flat assets folder: {old_dir} → {new_dir}")
-                        else:
-                            log.warning(
-                                f"Both old and new flat assets dirs exist for table "
-                                f"rename ({old_name}→{new_name}); leaving as-is."
-                            )
-                except Exception as e:
-                    log.warning(f"Could not rename flat assets folder: {e}")
-
-                # 1b) If the flat folder has changed segment, the
-                #     loose files now live at <new_seg>: inline refs in page bodies
-                #     need rewriting (`/api/vault/assets/<seg>/...`). We
-                #     DEFER this outside the lock (async work on .md, not the registry).
-                if should_rewrite_refs:
-                    try:
-                        table_dir = _table_vault_dir(t, registry)
-                        if table_dir:
-                            deferred_rewrite = (table_dir, old_seg, new_seg)
-                    except Exception as e:
-                        log.warning(f"Could not resolve table dir for inline ref rewrite: {e}")
-
-                # 2) Structured Assets/<DB>/<Table>/ — always safe: it goes
-                #    nested under <DB>/, never collides with the root.
-                try:
-                    old_struct = get_p("ASSETS") / db_seg / old_seg
-                    new_struct = get_p("ASSETS") / db_seg / new_seg
-                    if old_struct.is_dir() and not new_struct.exists():
-                        old_struct.rename(new_struct)
-                        log.info(f"Renamed structured assets folder: {old_struct} → {new_struct}")
-                    elif old_struct.is_dir() and new_struct.exists():
-                        log.warning(
-                            f"Both old and new structured assets dirs exist for "
-                            f"table rename ({old_name}→{new_name}); leaving as-is."
-                        )
-                except Exception as e:
-                    log.warning(f"Could not rename structured assets folder: {e}")
-
-            _ensure_asset_dirs_for_table_entry(t, registry)
-            _ensure_table_vault_folder(t, registry)
-            break
-    _normalize_registry_table_view_names(registry)
-    save_registry(registry)
-    return deferred_rewrite
+    """Rename a table while the canonical registry mutation lock is held."""
+    return table_lifecycle.rename_table_locked(
+        table_id,
+        data,
+        table_rename_dependencies,
+    )
 
 
 # --- Propagate a property rename to every place that stores the field NAME ----
@@ -16620,101 +15483,22 @@ _FILTER_TREE_CHILD_KEYS = ("rules", "conditions", "children", "groups", "filters
 
 
 def _rename_field_in_filter_tree(node: Any, old: str, new: str) -> bool:
-    """Recursively rewrite a leaf's `field` old→new inside a filterTree."""
-    if not isinstance(node, dict):
-        return False
-    changed = False
-    if node.get("field") == old:
-        node["field"] = new
-        changed = True
-    for child_key in _FILTER_TREE_CHILD_KEYS:
-        kids = node.get(child_key)
-        if isinstance(kids, list):
-            for child in kids:
-                if _rename_field_in_filter_tree(child, old, new):
-                    changed = True
-    return changed
+    """Recursively rewrite a field reference inside a filter tree."""
+    return table_schema.rename_field_in_filter_tree(node, old, new)
 
 
 def _rename_field_refs_in_view_like(container: Any, old: str, new: str) -> bool:
-    """Rewrite every field-NAME reference old→new in a view/section dict.
-
-    Touches only positions that hold a field name (visible columns, group/date/
-    cover fields, sort/sorts/filters `field`, filterTree leaves, and the keys of
-    columnWidths/aggregations). Never touches a filter VALUE, which may legitimately
-    equal the field name.
-    """
-    if not isinstance(container, dict) or not old or old == new:
-        return False
-    changed = False
-    for key in _VIEW_REF_LIST_KEYS:
-        val = container.get(key)
-        if isinstance(val, list) and old in val:
-            container[key] = [new if x == old else x for x in val]
-            changed = True
-    for key in _VIEW_REF_SCALAR_KEYS:
-        if container.get(key) == old:
-            container[key] = new
-            changed = True
-    # `sort` appears both as a single {field,direction} and as a list of them.
-    sort_val = container.get("sort")
-    if isinstance(sort_val, dict):
-        if sort_val.get("field") == old:
-            sort_val["field"] = new
-            changed = True
-    elif isinstance(sort_val, list):
-        for item in sort_val:
-            if isinstance(item, dict) and item.get("field") == old:
-                item["field"] = new
-                changed = True
-    for key in _VIEW_REF_FIELD_LIST_KEYS:
-        val = container.get(key)
-        if isinstance(val, list):
-            for item in val:
-                if isinstance(item, dict) and item.get("field") == old:
-                    item["field"] = new
-                    changed = True
-    for key in _VIEW_REF_DICT_KEYS:
-        val = container.get(key)
-        if isinstance(val, dict) and old in val:
-            val[new] = val.pop(old)
-            changed = True
-    tree = container.get("filterTree")
-    if isinstance(tree, dict) and _rename_field_in_filter_tree(tree, old, new):
-        changed = True
-    return changed
+    """Rewrite field-name references in a view or embedded section."""
+    return table_schema.rename_field_refs_in_view_like(container, old, new)
 
 
 def _propagate_property_rename(
     registry: dict, table_id: str, old_name: str, new_name: str
 ) -> int:
-    """Rewrite old_name→new_name in the table's views and in the embedded-view
-    snapshots of page sections. Returns the number of containers changed."""
-    if not old_name or old_name == new_name:
-        return 0
-    changed = 0
-    for view in registry.get("views", []) or []:
-        if view.get("table_id") != table_id:
-            continue
-        if _rename_field_refs_in_view_like(view, old_name, new_name):
-            changed += 1
-    pages = registry.get("pages")
-    page_iter = pages.values() if isinstance(pages, dict) else (pages or [])
-    for page in page_iter:
-        if not isinstance(page, dict):
-            continue
-        for section in (page.get("sections") or []):
-            sec_table = (
-                section.get("source_table_id")
-                or section.get("table_id")
-                or section.get("tableId")
-            )
-            # Only touch sections that render THIS table (skip unknown-table ones).
-            if sec_table and sec_table != table_id:
-                continue
-            if _rename_field_refs_in_view_like(section, old_name, new_name):
-                changed += 1
-    return changed
+    """Propagate a property rename through canonical view configuration."""
+    return table_schema.propagate_property_rename(
+        registry, table_id, old_name, new_name
+    )
 
 
 @router.patch("/tables/{table_id}/properties/{field_id}",
@@ -16736,95 +15520,21 @@ async def patch_table_property(table_id: str, field_id: str, data: dict = Body(.
       - config: dict that gets merged with the existing config
     
     """
-    # Entire load→modify→save cycle under lock. Synchronous body (no `await`,
-    # only HTTPException raises, which propagate fine through the context manager),
-    # extracted to avoid reindenting.
-    with registry_mutation():
-        return _patch_table_property_locked(table_id, field_id, data)
+    return await table_schema.patch_table_property(
+        table_id,
+        field_id,
+        data,
+        table_property_dependencies,
+    )
 
 
 def _patch_table_property_locked(table_id: str, field_id: str, data: dict):
-    registry = load_registry()
-    target_table = None
-    target_prop = None
-    for t in registry.get("tables", []):
-        if t.get("id") == table_id:
-            target_table = t
-            for p in t.get("properties", []) or []:
-                if p.get("id") == field_id:
-                    target_prop = p
-                    break
-            break
-    if not target_table:
-        raise HTTPException(status_code=404, detail=f"Table {table_id} not found")
-    if not target_prop:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Property {field_id} not found in table {table_id}",
-        )
-
-    if "name" in data and isinstance(data["name"], str) and data["name"].strip():
-        new_name = data["name"].strip()
-        # Validation: don't allow collision with another name in the same table
-        for p in target_table.get("properties", []) or []:
-            if p is target_prop:
-                continue
-            if (p.get("name") or "").strip() == new_name:
-                raise HTTPException(
-                    status_code=409,
-                    detail=f"A property named '{new_name}' already exists in the table",
-                )
-        old_name = (target_prop.get("name") or "").strip()
-        if old_name and old_name != new_name:
-            # Records the old name as an alias so existing rows (which the
-            # save as key) keep resolving until they migrate on their own.
-            aliases = target_prop.get("aliases") or []
-            if old_name not in aliases:
-                aliases.append(old_name)
-            # The new name cannot also be an alias (of this or another property).
-            aliases = [a for a in aliases if a != new_name]
-            target_prop["aliases"] = aliases
-            for p in target_table.get("properties", []) or []:
-                if p is target_prop:
-                    continue
-                if new_name in (p.get("aliases") or []):
-                    p["aliases"] = [a for a in p["aliases"] if a != new_name]
-            # Propagate the rename to every stored reference by name (views +
-            # embedded-view page sections) so the config doesn't keep the old
-            # name. Rows in the .md still resolve via the alias above.
-            _propagate_property_rename(registry, table_id, old_name, new_name)
-        target_prop["name"] = new_name
-
-    if "type" in data and isinstance(data["type"], str):
-        target_prop["type"] = data["type"]
-
-    if "config" in data and isinstance(data["config"], dict):
-        existing = target_prop.get("config") or {}
-        if not isinstance(existing, dict):
-            existing = {}
-        prior_options = option_catalogs_service.get_prop_options(target_prop)
-        existing.update(data["config"])
-        target_prop["config"] = existing
-        # Option catalog: canonicalizes (rich format {name,color,group} and
-        # single location in config.options) also when the inline cell PATCH
-        # writes it. If plain names arrive, the color/group that
-        # the option already had in the catalog is preserved (not re-derived).
-        if "options" in data["config"] and target_prop.get("type") in option_catalogs_service.OPTION_TYPES:
-            prior_by_name = {o["name"]: o for o in prior_options}
-            merged = [
-                prior_by_name.get(o, o) if isinstance(o, str) else o
-                for o in (existing.get("options") or [])
-            ]
-            option_catalogs_service.set_prop_options(
-                target_prop, option_catalogs_service.normalize_options(merged)
-            )
-
-    save_registry(registry)
-    return {
-        "status": "success",
-        "table_id": table_id,
-        "property": target_prop,
-    }
+    return table_schema.patch_table_property_locked(
+        table_id,
+        field_id,
+        data,
+        table_property_dependencies,
+    )
 
 
 # --- Option catalogs: usage, renaming and deletion everywhere ---------------------
@@ -16834,141 +15544,42 @@ def _patch_table_property_locked(table_id: str, field_id: str, data: dict):
 
 
 def _find_table_and_prop(registry: dict, table_id: str, field_ref: str) -> tuple:
-    """(table, property) by table id and field id or name; 404 if not found."""
-    table = next(
-        (t for t in registry.get("tables", []) if t.get("id") == table_id), None
-    )
-    if not table:
-        raise HTTPException(status_code=404, detail=f"Table {table_id} not found")
-    prop = next(
-        (
-            p
-            for p in table.get("properties") or []
-            if p.get("id") == field_ref or (p.get("name") or "").strip() == field_ref
-        ),
-        None,
-    )
-    if not prop:
-        raise HTTPException(
-            status_code=404, detail=f"Property {field_ref} not found in table"
-        )
-    return table, prop
+    """Return a table and property by table ID and field ID or name."""
+    return table_options.find_table_and_property(registry, table_id, field_ref)
 
 
 def _option_value_keys(prop: dict) -> list:
     """Candidate frontmatter keys for this field's value."""
-    keys = []
-    if prop.get("id"):
-        keys.append(prop["id"])
-    if prop.get("name"):
-        keys.append(prop["name"])
-    keys.extend(a for a in (prop.get("aliases") or []) if a)
-    return keys
+    return table_options.option_value_keys(prop)
 
 
 def _global_status_members(registry: dict) -> list[tuple[dict, dict]]:
     """Return every table/property pair backed by the global status catalog."""
-    return [
-        (table, prop)
-        for table in registry.get("tables", []) or []
-        for prop in table.get("properties") or []
-        if option_catalogs_service.is_global_status_prop(prop)
-    ]
+    return table_options.global_status_members(registry, table_option_dependencies)
 
 
 async def _rewrite_option_in_rows(
     table: dict, prop: dict, old: str, new: Optional[str]
 ) -> int:
-    """Rewrites the `old` value of an option in ALL rows of the table:
-    `new` (rename/reassign) or clear it (None). Direct write with
-    `save_page_md` (atomic per file, without rule engine or etags, like the
-    staleness flag) + surgical cache refresh. Returns the number of
-    modified files."""
-    rows = await asyncio.to_thread(_get_pages_for_table, table.get("id"))
-    keys = _option_value_keys(prop)
-    is_multi = prop.get("type") == "multi_select"
-    changed = 0
-    for r in rows:
-        fp = await asyncio.to_thread(find_page_path, r.id)
-        if not fp or not fp.exists():
-            continue
-        await _materialize_if_online_only(fp, f"option-rewrite/{r.id}")
-        try:
-            raw = await asyncio.to_thread(fp.read_text, encoding="utf-8")
-            md, page_body = parse_frontmatter(raw, fp)
-        except Exception as exc:
-            log.warning(f"option-rewrite: could not read {r.id}: {exc}")
-            continue
-        modified = False
-        for k in keys:
-            if k not in md:
-                continue
-            v = md[k]
-            if is_multi:
-                arr = v if isinstance(v, list) else (
-                    [s.strip() for s in str(v).split(",") if s.strip()] if v else []
-                )
-                arr = [str(x) for x in arr]
-                if old not in arr:
-                    continue
-                out = []
-                for x in arr:
-                    repl = new if x == old else x
-                    if repl and repl not in out:
-                        out.append(repl)
-                md[k] = out
-                modified = True
-            elif str(v) == old:
-                md[k] = new or ""
-                modified = True
-        if not modified:
-            continue
-        try:
-            await asyncio.to_thread(save_page_md, fp, md, page_body)
-            changed += 1
-        except Exception as exc:
-            log.warning(f"option-rewrite: could not write {r.id}: {exc}")
-            continue
-        # Surgical cache refresh (same pattern as the stale flag).
-        try:
-            from backend.services.context_vars import get_active_vault_path
-            v_path = get_active_vault_path()
-            if v_path:
-                v_str = str(v_path)
-                stat_result = fp.stat()
-                new_entry = _build_cache_entry_from_memory(fp, stat_result, md, page_body)
-                with _page_index_lock:
-                    _page_index_entries.setdefault(v_str, {})[str(fp)] = new_entry
-                    _page_id_to_path.setdefault(v_str, {})[md.get("id") or r.id] = str(fp)
-                    _bump_page_index_version(v_str)
-        except Exception as exc:
-            log.debug(f"option-rewrite: cache update failed for {r.id}: {exc}")
-    if changed:
-        _pages_cache_invalidate_all()
-    return changed
+    """Rewrite one option value in all rows of a table."""
+    return await table_options.rewrite_option_in_rows(
+        table,
+        prop,
+        old,
+        new,
+        table_option_dependencies,
+    )
 
 
 @router.get("/tables/{table_id}/options/usage")
 async def table_option_usage(table_id: str, field_id: str):
     """Usage counter per option (how many rows use each value) — feeds
     the option editor of the SchemaConfigModal."""
-    registry = load_registry()
-    table, prop = _find_table_and_prop(registry, table_id, field_id)
-    counts: Dict[str, int] = {}
-    members = _global_status_members(registry) if option_catalogs_service.is_global_status_prop(prop) else [(table, prop)]
-    total_rows = 0
-    for member_table, member_prop in members:
-        rows = await asyncio.to_thread(_get_pages_for_table, member_table.get("id"))
-        total_rows += len(rows)
-        for r in rows:
-            v = action_rules_service.read_prop_value(r.metadata or {}, member_prop)
-            if v in (None, "", []):
-                continue
-            values = [str(x).strip() for x in v] if isinstance(v, list) else [str(v).strip()]
-            for val in values:
-                if val:
-                    counts[val] = counts.get(val, 0) + 1
-    return {"field": prop.get("name"), "counts": counts, "total_rows": total_rows}
+    return await table_options.table_option_usage(
+        table_id,
+        field_id,
+        table_option_dependencies,
+    )
 
 
 @router.post(
@@ -16982,61 +15593,11 @@ async def rename_table_option(table_id: str, payload: dict = Body(...)):
     Body: ``{field_id, old, new}``. Returns the count of touched files.
     
     """
-    field_ref = (payload.get("field_id") or payload.get("field") or "").strip()
-    old = str(payload.get("old") or "").strip()
-    new = str(payload.get("new") or "").strip()
-    if not field_ref or not old or not new:
-        raise HTTPException(status_code=400, detail="field_id, old i new són obligatoris")
-    if old == new:
-        return {"status": "ok", "files_changed": 0}
-    # The registry cycle (option catalog) is under lock; the rewrite
-    # eager rewrite of the .md files (`_rewrite_option_in_rows`, async) stays OUTSIDE. `table`/`prop`
-    # remain valid after the `with` block (references to the saved objects).
-    with registry_mutation():
-        registry = load_registry()
-        table, prop = _find_table_and_prop(registry, table_id, field_ref)
-        cfg = option_catalogs_service.get_prop_config(prop)
-        if option_catalogs_service.is_global_status_prop(prop):
-            options = option_catalogs_service.get_prop_options(
-                {"config": {"catalog_ref": option_catalogs_service.STATUS_CATALOG_REF}},
-                registry.get("option_catalogs"),
-            )
-            names = {o["name"] for o in options}
-            renamed = []
-            for option in options:
-                if option["name"] == old:
-                    if new in names:
-                        continue
-                    option = {**option, "name": new}
-                renamed.append(option)
-            registry.setdefault("option_catalogs", {})[option_catalogs_service.STATUS_CATALOG_REF] = renamed
-            for _, status_prop in _global_status_members(registry):
-                if str(option_catalogs_service.get_prop_config(status_prop).get("default_option") or "") == old:
-                    option_catalogs_service.get_prop_config(status_prop)["default_option"] = new
-            save_registry(registry)
-            members = _global_status_members(registry)
-        elif not str(cfg.get("catalog_ref") or "").strip():
-            options = option_catalogs_service.get_prop_options(prop)
-            names = {o["name"] for o in options}
-            renamed = []
-            for o in options:
-                if o["name"] == old:
-                    if new in names:
-                        continue  # merge: the destination option already exists
-                    o = {**o, "name": new}
-                renamed.append(o)
-            option_catalogs_service.set_prop_options(prop, renamed)
-            if str(cfg.get("default_option") or "") == old:
-                cfg["default_option"] = new
-            save_registry(registry)
-            members = [(table, prop)]
-        else:
-            members = []
-    files_changed = 0
-    for member_table, member_prop in members:
-        files_changed += await _rewrite_option_in_rows(member_table, member_prop, old, new)
-    response_options = registry.get("option_catalogs", {}).get(option_catalogs_service.STATUS_CATALOG_REF) if option_catalogs_service.is_global_status_prop(prop) else None
-    return {"status": "ok", "files_changed": files_changed, "options": response_options}
+    return await table_options.rename_table_option(
+        table_id,
+        payload,
+        table_option_dependencies,
+    )
 
 
 @router.post(
@@ -17050,52 +15611,11 @@ async def remove_table_option(table_id: str, payload: dict = Body(...)):
     Body: ``{field_id, value, reassign_to?}``. Returns touched files.
     
     """
-    field_ref = (payload.get("field_id") or payload.get("field") or "").strip()
-    value = str(payload.get("value") or "").strip()
-    reassign_to = str(payload.get("reassign_to") or "").strip() or None
-    if not field_ref or not value:
-        raise HTTPException(status_code=400, detail="field_id and value are required")
-    if reassign_to == value:
-        raise HTTPException(status_code=400, detail="Cannot reassign to the same option")
-    # Registry cycle under lock; eager rewrite of the .md files (async) outside.
-    with registry_mutation():
-        registry = load_registry()
-        table, prop = _find_table_and_prop(registry, table_id, field_ref)
-        cfg = option_catalogs_service.get_prop_config(prop)
-        if option_catalogs_service.is_global_status_prop(prop):
-            options = [
-                option
-                for option in option_catalogs_service.get_prop_options(
-                    {"config": {"catalog_ref": option_catalogs_service.STATUS_CATALOG_REF}},
-                    registry.get("option_catalogs"),
-                )
-                if option["name"] != value
-            ]
-            registry.setdefault("option_catalogs", {})[option_catalogs_service.STATUS_CATALOG_REF] = options
-            for _, status_prop in _global_status_members(registry):
-                status_cfg = option_catalogs_service.get_prop_config(status_prop)
-                if str(status_cfg.get("default_option") or "") == value:
-                    status_cfg.pop("default_option", None)
-            save_registry(registry)
-            members = _global_status_members(registry)
-        elif not str(cfg.get("catalog_ref") or "").strip():
-            options = [
-                o
-                for o in option_catalogs_service.get_prop_options(prop)
-                if o["name"] != value
-            ]
-            option_catalogs_service.set_prop_options(prop, options)
-            if str(cfg.get("default_option") or "") == value:
-                cfg.pop("default_option", None)
-            save_registry(registry)
-            members = [(table, prop)]
-        else:
-            members = []
-    files_changed = 0
-    for member_table, member_prop in members:
-        files_changed += await _rewrite_option_in_rows(member_table, member_prop, value, reassign_to)
-    response_options = registry.get("option_catalogs", {}).get(option_catalogs_service.STATUS_CATALOG_REF) if option_catalogs_service.is_global_status_prop(prop) else None
-    return {"status": "ok", "files_changed": files_changed, "options": response_options}
+    return await table_options.remove_table_option(
+        table_id,
+        payload,
+        table_option_dependencies,
+    )
 
 
 # --- Named shared catalogs (root registry `option_catalogs`) ---------
@@ -17105,48 +15625,7 @@ async def remove_table_option(table_id: str, payload: dict = Body(...)):
 
 @router.get("/option-catalogs")
 async def list_option_catalogs():
-    registry = load_registry()
-    cats = registry.get("option_catalogs") or {}
-    # A previous local-status migration may already have removed the field's
-    # catalog before the root catalog was populated. Recover values that are
-    # actually present in rows so the UI never presents an empty lifecycle
-    # picker for existing data.
-    status_options = option_catalogs_service.normalize_options(
-        cats.get(option_catalogs_service.STATUS_CATALOG_REF)
-    )
-    status_names = {option["name"] for option in status_options}
-    status_members = _global_status_members(registry)
-    recovered_values: list[str] = []
-    if status_members:
-        for table, prop in status_members:
-            rows = await asyncio.to_thread(_get_pages_for_table, table.get("id"))
-            for row in rows:
-                value = action_rules_service.read_prop_value(row.metadata or {}, prop)
-                values = value if isinstance(value, list) else [value]
-                for item in values:
-                    clean = str(item or "").strip()
-                    if clean and clean not in status_names:
-                        status_names.add(clean)
-                        recovered_values.append(clean)
-    if recovered_values:
-        status_options.extend(
-            {"name": value, "color": option_catalogs_service.auto_color(value)}
-            for value in recovered_values
-        )
-        with registry_mutation():
-            fresh_registry = load_registry()
-            fresh_registry.setdefault("option_catalogs", {})[
-                option_catalogs_service.STATUS_CATALOG_REF
-            ] = status_options
-            save_registry(fresh_registry)
-        cats = fresh_registry.get("option_catalogs") or {}
-    return {
-        "catalogs": {
-            name: option_catalogs_service.normalize_options(opts)
-            for name, opts in cats.items()
-            if isinstance(opts, list)
-        }
-    }
+    return await table_options.list_option_catalogs(table_option_dependencies)
 
 
 @router.put(
@@ -17154,15 +15633,11 @@ async def list_option_catalogs():
 )
 async def put_option_catalog(name: str, payload: dict = Body(...)):
     """Creates or replaces a shared catalog. Body: ``{options: [...]}``."""
-    clean = (name or "").strip()
-    if not clean:
-        raise HTTPException(status_code=400, detail="Catalog name is required")
-    options = option_catalogs_service.normalize_options(payload.get("options"))
-    with registry_mutation():
-        registry = load_registry()
-        registry.setdefault("option_catalogs", {})[clean] = options
-        save_registry(registry)
-    return {"status": "ok", "name": clean, "options": options}
+    return await table_options.put_option_catalog(
+        name,
+        payload,
+        table_option_dependencies,
+    )
 
 
 @router.delete(
@@ -17170,83 +15645,20 @@ async def put_option_catalog(name: str, payload: dict = Body(...)):
 )
 async def delete_option_catalog(name: str):
     """Deletes a shared catalog. 409 if any field still references it."""
-    with registry_mutation():
-        registry = load_registry()
-        cats = registry.get("option_catalogs") or {}
-        if name not in cats:
-            raise HTTPException(status_code=404, detail="Catalog not found")
-        referenced_by = [
-            f"{t.get('name')}/{p.get('name')}"
-            for t in registry.get("tables", [])
-            for p in t.get("properties") or []
-            if str(option_catalogs_service.get_prop_config(p).get("catalog_ref") or "") == name
-        ]
-        if referenced_by:
-            raise HTTPException(
-                status_code=409,
-                detail=f"The catalog is used by: {', '.join(referenced_by)}",
-            )
-        cats.pop(name, None)
-        save_registry(registry)
-    return {"status": "ok"}
+    return await table_options.delete_option_catalog(
+        name,
+        table_option_dependencies,
+    )
 
 
 @router.get("/views")
 async def list_views(table_id: Optional[str] = None):
-    registry = load_registry()
-    views = registry.get("views", [])
-    if table_id:
-        # A view belongs to a table if it is its base (`table_id`) OR if it
-        # appears in any of its joins. This way a multi-table view shows up in
-        # the list of every table it involves (consistent with the sidebar).
-        def _involves(v, tid):
-            if v.get("table_id") == tid:
-                return True
-            for j in (v.get("joins") or []):
-                if isinstance(j, dict) and j.get("tableId") == tid:
-                    return True
-            return False
-        views = [v for v in views if _involves(v, table_id)]
-
-    # ensure new configuration fields have sensible defaults so frontend
-    # can render older views without modifications.
-    # COPY per view (like get_view): the dicts are references to the cache
-    # shared by load_registry — writing the defaults into it mutated it and the
-    # next mutation cycle would PERSIST them to the file (cardSize="medium" in
-    # all views, even non-gallery ones).
-    out = []
-    for v in views:
-        v = dict(v)
-        # cardSize is only meaningful for gallery views; default to 'medium'
-        if v.get("cardSize") is None:
-            v["cardSize"] = "medium"
-        # galleryPreview can be 'cover','properties' or 'content'
-        if v.get("galleryPreview") is None:
-            v["galleryPreview"] = "cover"
-        # visibleProperties may be missing; frontend treats undefined as show-all
-        out.append(v)
-    return sorted(out, key=_sort_key_name)
+    return await vault_views.list_views(table_id, vault_view_dependencies)
 
 
 @router.post("/views", dependencies=[Depends(require_role("editor"))])
 async def create_view(view: dict = Body(...)):
-    with registry_mutation():
-        registry = load_registry()
-        if not view.get("id"):
-            view["id"] = str(uuid.uuid4())
-
-        existing_idx = next(
-            (i for i, v in enumerate(registry["views"]) if v["id"] == view["id"]), None
-        )
-        if existing_idx is not None:
-            registry["views"][existing_idx] = view
-        else:
-            registry["views"].append(view)
-
-        _normalize_registry_table_view_names(registry)
-
-        save_registry(registry)
-    return view
+    return await vault_views.create_view(view, vault_view_dependencies)
 
 
 @router.put("/views/order", dependencies=[Depends(require_role("editor"))])
@@ -17259,174 +15671,37 @@ async def reorder_views(body: dict = Body(...)):
     the given order.
     
     """
-    table_id = str(body.get("table_id") or "").strip()
-    ordered_ids = body.get("ordered_ids") or []
-    if not table_id or not isinstance(ordered_ids, list):
-        raise HTTPException(status_code=422, detail="table_id and ordered_ids (list) are required.")
-
-    with registry_mutation():
-        registry = load_registry()
-        views = registry.get("views") or []
-        table_views = {v["id"]: v for v in views if v.get("table_id") == table_id}
-        if not table_views:
-            raise HTTPException(status_code=404, detail=f"Table '{table_id}' has no views.")
-
-        other_views = [v for v in views if v.get("table_id") != table_id]
-        seen = set()
-        ordered_table_views = []
-        for vid in ordered_ids:
-            v = table_views.get(vid)
-            if v and vid not in seen:
-                ordered_table_views.append(v)
-                seen.add(vid)
-        for v in views:
-            if v.get("table_id") == table_id and v["id"] not in seen:
-                ordered_table_views.append(v)
-
-        registry["views"] = other_views + ordered_table_views
-        save_registry(registry)
-    return {"ok": True, "table_id": table_id, "count": len(ordered_table_views)}
+    return await vault_views.reorder_views(body, vault_view_dependencies)
 
 
 @router.get("/views/{view_id}")
 async def get_view(view_id: str):
-    registry = load_registry()
-    views = registry.get("views", [])
-    view = next((v for v in views if v.get("id") == view_id), None)
-    if not view:
-        raise HTTPException(status_code=404, detail="View not found")
-
-    response_view = dict(view)
-    if response_view.get("cardSize") is None:
-        response_view["cardSize"] = "medium"
-    if response_view.get("galleryPreview") is None:
-        response_view["galleryPreview"] = "cover"
-    return response_view
+    return await vault_views.get_view(view_id, vault_view_dependencies)
 
 
 @router.get("/views/{view_id}/usage")
 async def get_view_usage(view_id: str):
     """Find all pages/notes in the vault where this view_id is embedded or referenced."""
-    pages = _get_pages_snapshot() or []
-    linked_pages = []
-    vid_str = str(view_id).strip()
-
-    for page in pages:
-        path_str = getattr(page, "path", None)
-        if not path_str:
-            continue
-        p = Path(path_str)
-        if not p.exists() or not p.is_file():
-            continue
-        try:
-            content = p.read_text(encoding="utf-8", errors="ignore")
-            if vid_str in content:
-                linked_pages.append({
-                    "id": getattr(page, "id", None) or p.stem,
-                    "title": getattr(page, "title", None) or p.stem,
-                    "path": str(p),
-                })
-        except Exception as err:
-            log.warning("Could not check view usage in %s: %s", p, err)
-
-    return {
-        "view_id": vid_str,
-        "count": len(linked_pages),
-        "pages": linked_pages,
-    }
+    return await vault_views.get_view_usage(view_id, vault_view_dependencies)
 
 
 @router.delete("/views/{view_id}", dependencies=[Depends(require_role("editor"))])
 async def delete_view(view_id: str):
-    with registry_mutation():
-        registry = load_registry()
-        views = registry.get("views", [])
-        target = next((v for v in views if v.get("id") == view_id), None)
-        if not target:
-            raise HTTPException(status_code=404, detail="View not found")
-
-        table_id = target.get("table_id")
-        siblings = [v for v in views if v.get("table_id") == table_id]
-        is_only = len(siblings) <= 1
-        is_main = bool(target.get("is_main"))
-        other_mains = [v for v in siblings if v.get("id") != view_id and v.get("is_main")]
-
-        # Product invariant: every table must keep at least one main view at
-        # all times. Reject deletes that would leave a table with no views, or
-        # that would strip the last `is_main` flag.
-        if is_only:
-            raise HTTPException(
-                status_code=400,
-                detail={
-                    "error": "cannot_delete_last_view",
-                    "message": (
-                        "Cannot delete a table's only view. "
-                        "Create another view first."
-                    ),
-                },
-            )
-        if is_main and not other_mains:
-            raise HTTPException(
-                status_code=400,
-                detail={
-                    "error": "cannot_delete_main_view",
-                    "message": (
-                        "Cannot delete the main view. Mark another view as main "
-                        "before deleting this one."
-                    ),
-                },
-            )
-
-        registry["views"] = [v for v in views if v.get("id") != view_id]
-        save_registry(registry)
-    return {"status": "success"}
+    return await vault_views.delete_view(view_id, vault_view_dependencies)
 
 
 @router.put("/views/{view_id}", dependencies=[Depends(require_role("editor"))])
 async def update_view(view_id: str, data: dict = Body(...)):
-    with registry_mutation():
-        registry = load_registry()
-        found = False
-        for v in registry["views"]:
-            if v["id"] == view_id:
-                # Update all sent fields
-                for key, value in data.items():
-                    v[key] = value
-                found = True
-                break
-
-        if not found:
-            # If it doesn't exist and we have enough data, we could create it,
-            # but the expected behavior of PUT is update.
-            # However, for robustness with the frontend, if they pass the whole object:
-            if "id" in data and data["id"] == view_id:
-                registry["views"].append(data)
-            else:
-                raise HTTPException(status_code=404, detail="View not found")
-
-        _normalize_registry_table_view_names(registry)
-
-        save_registry(registry)
-    return {"status": "success"}
+    return await vault_views.update_view(view_id, data, vault_view_dependencies)
 
 
 def _resolve_subpath_within_vault(folder: str, *segments: str) -> Path:
-    """Resolve `VAULT/folder/segments...` and ensure it stays under VAULT.
-
-    Raises HTTPException(400) if the `folder` arriving via query string
-    tries to escape the Vault (`../etc`, absolute paths, symbolic links, etc.).
-    
-    """
-    vault_root = get_p("VAULT").resolve()
-    rel = str(folder or "").strip()
-    if not rel:
-        raise HTTPException(status_code=400, detail="Empty folder")
-    try:
-        target = (vault_root / rel).joinpath(*segments).resolve()
-        target.relative_to(vault_root)
-    except (ValueError, OSError):
-        raise HTTPException(status_code=400, detail="Invalid folder path")
-    return target
+    """Resolve a subpath and reject traversal outside the active vault."""
+    return vault_view_schema.resolve_subpath_within_vault(
+        folder,
+        *segments,
+        dependencies=vault_schema_dependencies,
+    )
 
 
 # Route for backward compatibility with the existing frontend (SchemaConfigModal)
@@ -17436,25 +15711,16 @@ async def save_schema(folder: str, schema: dict = Body(...)):
     Legacy route to save schemas per folder.
     Now we redirect it to table creation if needed, or save it as a local file.
     """
-    schema_path = _resolve_subpath_within_vault(folder, "schema.json")
-    schema_path.parent.mkdir(parents=True, exist_ok=True)
-    safe_write_json(schema_path, schema, indent=2)
-    return {"status": "success"}
+    return await vault_view_schema.save_schema(
+        folder,
+        schema,
+        vault_schema_dependencies,
+    )
 
 
 @router.get("/schema")
 async def get_schema(folder: str):
-    schema_path = _resolve_subpath_within_vault(folder, "schema.json")
-    if not schema_path.exists():
-        return {}
-    try:
-        return json.loads(schema_path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError) as e:
-        # Corrupt schema (partial write from other processes / OneDrive sync)
-        # → we return {} instead of 500 so the UI can open the table
-        # and overwrite it from SchemaConfigModal.
-        log.warning(f"Schema {schema_path} corrupte o no llegible: {e}")
-        return {}
+    return await vault_view_schema.get_schema(folder, vault_schema_dependencies)
 
 
 # --------------------------------------------------------------------------
