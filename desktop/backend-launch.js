@@ -6,10 +6,15 @@ function getPackagedBackendExecutable(resourcesPath, platform) {
 }
 
 function getPackagedBackendEnvironment(baseEnvironment, userDataPath, backendPort) {
+  const dataDirectory =
+    baseEnvironment.GNOSI_DATA_DIR ||
+    baseEnvironment.GNOSI_LOCAL_DATA ||
+    userDataPath;
   return {
     ...baseEnvironment,
-    GNOSI_LOCAL_DATA:
-      baseEnvironment.GNOSI_LOCAL_DATA || path.join(userDataPath, 'local_data'),
+    GNOSI_DATA_DIR: dataDirectory,
+    // Compatibility alias for third-party extensions throughout Gnosi 3.x.
+    GNOSI_LOCAL_DATA: baseEnvironment.GNOSI_LOCAL_DATA || dataDirectory,
     BACKEND_PORT: String(backendPort),
     LOGGING_LEVEL: 'info',
   };

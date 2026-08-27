@@ -2,7 +2,7 @@
 
 Private: the stroke image is processed on the machine, it never goes to any cloud
 (consistent with Gnosi's offline-first vault). The model is loaded
-lazily (singleton) and downloaded on first use to `GNOSI_LOCAL_DATA/cache/trocr`
+lazily (singleton) and downloaded on first use to `GNOSI_DATA_DIR/cache/trocr`
 (outside OneDrive, cf. caches memory).
 
 Configurable model: env `GNOSI_TROCR_MODEL` or `ai.handwriting.model` in

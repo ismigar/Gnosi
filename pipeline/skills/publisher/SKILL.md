@@ -28,7 +28,8 @@ Crucial for the operation of synchronization scripts. If these UUIDs change in N
 
 ## 3. Requirements and Configuration
 - Access to **mcp-drupal-proxy** (Docker).
-- Environment variables in `.env_shared`:
+- Environment variables supplied by the process, Gnosi's local `.env`, or an
+  explicit `GNOSI_SHARED_ENV_FILE`:
   - `DRUPAL_URL`, `OPENAI_API_KEY`, etc.
   - Social media tokens managed via Keychain.
 

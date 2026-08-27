@@ -38,7 +38,7 @@ values, and undeclared frontmatter keys. Relation wikilink labels are treated
 as storage decoration; the relation IDs must still match.
 
 ```bash
-GNOSI_LOCAL_DATA="$PWD/local_data" \
+GNOSI_DATA_DIR="$PWD/local_data" \
 DIGITAL_BRAIN_VAULT_PATH="/path/to/vault" \
 .venv/bin/python pipeline/skills/notion_clone/scripts/verify_notion_table_exact.py \
     --database-id <notion-db-id> \
@@ -51,7 +51,7 @@ Requirements:
 
 - Native backend running on `uvicorn :5002`.
 - Connected Notion MCP integration through OAuth.
-- `GNOSI_LOCAL_DATA` pointing to the data directory containing
+- `GNOSI_DATA_DIR` pointing to the data directory containing
   `integrations.json`.
 - An existing cloned vault on local disk or OneDrive.
 

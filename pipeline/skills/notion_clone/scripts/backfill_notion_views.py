@@ -37,10 +37,10 @@ from pathlib import Path
 
 GNOSI_ROOT = Path(__file__).resolve().parents[4]     # .../Gnosi
 sys.path.insert(0, str(GNOSI_ROOT))
-# Secrets from the LIVE backend (Notion REST + MCP tokens) — the native setup runs with
-# GNOSI_LOCAL_DATA=<repo principal>/local_data (cf. scripts/runtime/run_native_dev.sh).
-os.environ.setdefault(
-    "GNOSI_LOCAL_DATA", str(Path.home() / "Projectes/Gnosi/local_data"))
+from backend.config.data_dir import resolve_data_dir  # noqa: E402
+
+# Resolve secrets and local state through the canonical per-device data root.
+os.environ.setdefault("GNOSI_DATA_DIR", str(resolve_data_dir()))
 
 import httpx  # noqa: E402
 import yaml  # noqa: E402

@@ -12,7 +12,7 @@ dataless-sidecar and warmup-indexer fixes), returns the rest of the vault,
 marks the build as ``partial`` and never stores it in the TTL cache, so the
 frontend doesn't get pinned on a near-empty graph until the next TTL.
 
-Runs fully isolated: temp vault + temp GNOSI_LOCAL_DATA, os.scandir
+Runs fully isolated: temp vault + temp GNOSI_DATA_DIR, os.scandir
 monkeypatched to raise EDEADLK for one directory. No real OneDrive needed.
 """
 from __future__ import annotations
@@ -49,7 +49,7 @@ def vault(tmp_path, monkeypatch):
     )
 
     monkeypatch.setenv("DIGITAL_BRAIN_VAULT_PATH", str(vault))
-    monkeypatch.setenv("GNOSI_LOCAL_DATA", str(tmp_path / "localdata"))
+    monkeypatch.setenv("GNOSI_DATA_DIR", str(tmp_path / "localdata"))
     # Gate _request_dir_warmup: tests must never spawn a real `open` process.
     monkeypatch.setenv("ONEDRIVE_WARMUP_MODE", "daemon")
 

@@ -120,7 +120,7 @@ See `docs/dev_memory/directives/i18n_and_english_standardization.md`.
 
 ### Reusable scripts and tools
 
-Mature, reusable tooling lives under `pipeline/skills/[name]/` with a `SKILL.md` describing it and a `scripts/` subfolder. Experiments and one-offs stay in `pipeline/sandbox/` (gitignored). Secrets come from `.env_shared` (shared) and `.env` (local override) — never hard-code them.
+Mature, reusable tooling lives under `pipeline/skills/[name]/` with a `SKILL.md` describing it and a `scripts/` subfolder. Experiments and one-offs stay in `pipeline/sandbox/` (gitignored). UI-managed secrets use the system credential store. Process variables take precedence over Gnosi's local `.env`; an optional shared file is read only when `GNOSI_SHARED_ENV_FILE` explicitly names it. Never hard-code credentials.
 
 ## Testing & QA
 

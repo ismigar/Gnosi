@@ -65,7 +65,9 @@ The complete contract and v1 limitations are documented in
 Use the same providers as `translate_row`: Softcatalà NMT for `en↔ca`,
 Softcatalà Apertium for Catalan pairs, local OPUS-MT for `es↔fr`, public
 Apertium APy, and DeepL as a configured fallback. Environment variables are
-shared through `.env_shared`. Primary pairs work without extra configuration.
+read from the process, Gnosi's local `.env`, or an explicitly configured
+`GNOSI_SHARED_ENV_FILE`. UI-managed keys use secure storage. Primary pairs
+work without extra configuration.
 
 ## Child page shape
 

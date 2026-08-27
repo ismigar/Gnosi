@@ -110,6 +110,23 @@ pnpm dev
 
 Open `http://localhost:5173`.
 
+### Local data and environment
+
+Gnosi stores per-device databases, caches and encrypted fallback credentials in
+`GNOSI_DATA_DIR`. Without an override, the location is `~/Library/Application
+Support/Gnosi` on macOS, `${XDG_DATA_HOME:-~/.local/share}/gnosi` on Linux,
+`%APPDATA%\Gnosi` on Windows and `/data` in Docker. `GNOSI_LOCAL_DATA` remains a
+deprecated compatibility alias throughout 3.x.
+
+Process variables override Gnosi's local `.env`. A shared environment file is
+optional and is read only when `GNOSI_SHARED_ENV_FILE` explicitly names it; the
+application never edits that file. Credentials saved in Settings use the
+operating-system credential store or an encrypted fallback under the data
+directory.
+
+See [the Gnosi 3 data migration guide](docs/data-migration-3.md) before moving
+an existing installation.
+
 ### Run with Docker (optional)
 
 ```bash

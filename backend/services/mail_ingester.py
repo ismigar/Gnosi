@@ -19,32 +19,14 @@ import logging
 from datetime import datetime, timezone
 from bs4 import BeautifulSoup
 from sqlalchemy.orm import Session
-from pathlib import Path
 
+from backend.config.env_config import load_env
 from backend.data.db import get_engine_for_path
 from backend.services.context_vars import get_active_vault_path
 from backend.models.reader import FeedSource, Article, NewsletterAccount
 from backend.utils.safe_io import sanitize_filename_component
 
-# Load .env_shared (global) then .env (local override)
-# Works both locally (deep path) and inside Docker (/app/...)
-try:
-    from dotenv import load_dotenv
-    _here = Path(__file__).resolve().parent
-    # Walk upward looking for .env_shared
-    for _p in _here.parents:
-        _shared = _p / ".env_shared"
-        if _shared.exists():
-            load_dotenv(_shared)
-            break
-    # Load local .env (2 levels up from services/ → backend root → app root)
-    for _p in _here.parents:
-        _local = _p / ".env"
-        if _local.exists():
-            load_dotenv(_local, override=True)
-            break
-except ImportError:
-    pass  # Inside Docker, env_file handles this
+load_env()
 
 log = logging.getLogger(__name__)
 

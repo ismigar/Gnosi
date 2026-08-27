@@ -20,8 +20,8 @@ by, so nothing has to be migrated.
 
 Usage:
     cd Gnosi
-    GNOSI_LOCAL_DATA=local_data .venv/bin/python pipeline/scripts/set_user_password.py --list
-    GNOSI_LOCAL_DATA=local_data .venv/bin/python pipeline/scripts/set_user_password.py \
+    GNOSI_DATA_DIR=/absolute/data .venv/bin/python pipeline/scripts/set_user_password.py --list
+    GNOSI_DATA_DIR=/absolute/data .venv/bin/python pipeline/scripts/set_user_password.py \
         --user-id ismael-legacy --email you@example.com
 
 The password is read interactively with `getpass`, never taken as an argument:

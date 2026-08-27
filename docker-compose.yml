@@ -70,7 +70,7 @@ services:
       # REQUIRED on this exposed deployment: a strong, private JWT signing secret.
       # Without it the backend refuses to start (it will not fall back to the
       # public dev secret, which would be an authentication bypass). Set it in
-      # .env / .env_shared, e.g. GNOSI_JWT_SECRET=$(openssl rand -hex 32).
+      # process env / local .env / explicit shared file, e.g. GNOSI_JWT_SECRET=$(openssl rand -hex 32).
       - GNOSI_JWT_SECRET=${GNOSI_JWT_SECRET:?set GNOSI_JWT_SECRET to a strong random value}
       - DIGITAL_BRAIN_VAULT_PATH=/vault
       - VAULT_HOST_PATH=${VAULT_HOST_PATH:-$HOME/Library/CloudStorage/OneDrive-UNED/Gnosi/Principal}
@@ -82,7 +82,6 @@ services:
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
       - GNOSI_DATA_DIR=/data
-      - GNOSI_LOCAL_DATA=/data
       # Variables calculades dinàmicament o especials
       - AI_MODEL_URL=http://host.docker.internal:11434/v1/chat/completions
       - TZ=Europe/Madrid

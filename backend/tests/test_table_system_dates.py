@@ -101,7 +101,7 @@ def test_ensure_preserves_internal_authorship_date_properties():
 
 
 def test_table_creation_uses_interface_language_from_settings(monkeypatch, tmp_path):
-    monkeypatch.setenv("GNOSI_LOCAL_DATA", str(tmp_path / "local-data"))
+    monkeypatch.setenv("GNOSI_DATA_DIR", str(tmp_path / "local-data"))
     monkeypatch.setenv("DIGITAL_BRAIN_VAULT_PATH", str(tmp_path / "vault"))
     from backend.api import vault_routes
 

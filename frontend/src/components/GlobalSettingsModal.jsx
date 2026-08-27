@@ -638,12 +638,12 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
     const [isSaving, setIsSaving] = useState(false);
 
     // Translate-row skill: DeepL key lives in the Keychain (`/api/credentials/`),
-    // the Softcatalà URL in `.env_shared` (it's not secret). The bind is
+    // the Softcatalà URL in Gnosi's local `.env` (it isn't secret). The bind is
     // separate because they use different endpoints with different semantics.
     const [translateState, setTranslateState] = useState({
         deepl_has_value: false,    // GET /api/credentials/deepl_api_key.has_value
         deepl_input: '',           // new value pending save (never pre-populated)
-        softcatala_url: '',        // current value of SOFTCATALA_API_URL in .env_shared
+        softcatala_url: '',        // current value of SOFTCATALA_API_URL in local .env
         loading: false,
         saving_deepl: false,
         saving_softcatala: false,
@@ -1164,8 +1164,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
 
     // Translate tab: loads the state of the DeepL key (Keychain) and the URL of
     // Softcatalà (env). It's called on every tab open to
-    // reflectir canvis fets via /api/credentials/migrate o edicions
-    // externes a .env_shared.
+    // reflectir canvis fets via ajustos segurs o edicions locals externes.
     useEffect(() => {
         if (activeTab !== 'translate' || !isOpen) return;
         let cancelled = false;
@@ -4749,7 +4748,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general', i
                                     {/* Softcatalà */}
                                     <FormGroup
                                         label={t('translate_settings.softcatala_label')}
-                                        description={t('translate_settings.softcatala_desc') || "Endpoint del servei de traducció de Softcatalà (català). Es desa a .env_shared. Buida = usa el default."}
+                                        description={t('translate_settings.softcatala_desc') || "Endpoint del servei de traducció de Softcatalà (català). Es desa al .env local de Gnosi. Buida = usa el valor per defecte."}
                                     >
                                         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                                             <input

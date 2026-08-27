@@ -6,7 +6,7 @@ from backend.services.planning_scheduler import recalculate_vault
 
 
 def test_scheduler_rebuilds_index_and_only_writes_automatic_boundaries(tmp_path, monkeypatch):
-    monkeypatch.setenv("GNOSI_LOCAL_DATA", str(tmp_path / "local"))
+    monkeypatch.setenv("GNOSI_DATA_DIR", str(tmp_path / "local"))
     config = tmp_path / ".gnosi"
     config.mkdir()
     (config / "plugins.json").write_text(json.dumps({
@@ -43,7 +43,7 @@ Body
 
 
 def test_scheduler_preserves_manual_boundaries(tmp_path, monkeypatch):
-    monkeypatch.setenv("GNOSI_LOCAL_DATA", str(tmp_path / "local"))
+    monkeypatch.setenv("GNOSI_DATA_DIR", str(tmp_path / "local"))
     config = tmp_path / ".gnosi"
     config.mkdir()
     (config / "plugins.json").write_text(json.dumps({

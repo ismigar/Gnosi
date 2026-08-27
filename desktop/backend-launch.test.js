@@ -33,20 +33,33 @@ test('packaged backends use a writable per-user data directory', () => {
   );
 
   assert.equal(
-    environment.GNOSI_LOCAL_DATA,
-    path.join('/Users/example/Library/Application Support/Gnosi', 'local_data'),
+    environment.GNOSI_DATA_DIR,
+    '/Users/example/Library/Application Support/Gnosi',
   );
+  assert.equal(environment.GNOSI_LOCAL_DATA, environment.GNOSI_DATA_DIR);
   assert.equal(environment.BACKEND_PORT, '5002');
   assert.equal(environment.LOGGING_LEVEL, 'info');
   assert.equal(environment.PATH, '/usr/bin');
 });
 
-test('an explicit local-data override is preserved', () => {
+test('the canonical data override wins over the compatibility alias', () => {
   const environment = getPackagedBackendEnvironment(
-    { GNOSI_LOCAL_DATA: '/custom/data' },
+    { GNOSI_DATA_DIR: '/canonical/data', GNOSI_LOCAL_DATA: '/legacy/data' },
     '/ignored/user-data',
     5002,
   );
 
-  assert.equal(environment.GNOSI_LOCAL_DATA, '/custom/data');
+  assert.equal(environment.GNOSI_DATA_DIR, '/canonical/data');
+  assert.equal(environment.GNOSI_LOCAL_DATA, '/legacy/data');
+});
+
+test('the 3.x compatibility alias still selects the packaged data directory', () => {
+  const environment = getPackagedBackendEnvironment(
+    { GNOSI_LOCAL_DATA: '/legacy/data' },
+    '/ignored/user-data',
+    5002,
+  );
+
+  assert.equal(environment.GNOSI_DATA_DIR, '/legacy/data');
+  assert.equal(environment.GNOSI_LOCAL_DATA, '/legacy/data');
 });

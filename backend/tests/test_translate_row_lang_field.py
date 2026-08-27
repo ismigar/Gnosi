@@ -67,7 +67,7 @@ def captured(tmp_path, monkeypatch):
         encoding="utf-8",
     )
     # Translation index isolated in tmp (never touches the real /app/data).
-    monkeypatch.setenv("GNOSI_LOCAL_DATA", str(tmp_path))
+    monkeypatch.setenv("GNOSI_DATA_DIR", str(tmp_path))
 
     monkeypatch.setattr(vr, "find_page_path", lambda pid: origin)
     monkeypatch.setattr(vr, "_table_by_id", lambda tid: _make_table() if tid == TABLE_ID else None)

@@ -45,12 +45,14 @@ import unicodedata
 from pathlib import Path
 from typing import Any, Dict, List
 
+from backend.config.data_dir import resolve_data_dir
+
 log = logging.getLogger(__name__)
 
 # ── Configuration ──
 _VAULT_INTERNAL = os.environ.get("DIGITAL_BRAIN_VAULT_PATH") or "/vault"
 _VAULT_HOST = os.environ.get("VAULT_HOST_PATH") or ""
-_LOCAL_DATA = Path(os.environ.get("GNOSI_LOCAL_DATA") or "/app/data")
+_LOCAL_DATA = resolve_data_dir()
 _CACHE_PATH = _LOCAL_DATA / "cache" / "vault_file_index.json"
 # Periodic refresh (seconds). The walk is metadata-only (it doesn't download files).
 _REFRESH_SECONDS = int(os.environ.get("GNOSI_FILE_INDEX_REFRESH_SECONDS", "600"))

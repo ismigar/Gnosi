@@ -98,6 +98,7 @@ rm -rf "$PYTHON_BUILD_DIR/build" "$PYTHON_BUILD_DIR/dist"
 $PYTHON_VENV << PYSCRIPT
 import os
 import platform
+from PyInstaller.utils.hooks import collect_submodules
 
 backend_dir = os.environ['BACKEND_DIR']
 system = platform.system().lower()
@@ -113,7 +114,7 @@ hiddenimports = [
     'jinja2', 'itsdangerous', 'click', 'werkzeug', 'blinker',
     'dateutil', 'six', 'pytz', 'tzdata',
     'pydantic_core', 'pydantic_settings',
-    'cryptography', 'cffi', 'pyasn1', 'pyasn1_modules',
+    'cryptography', 'cffi', 'pyasn1', 'pyasn1_modules', 'keyring',
     'httpcore', 'h11', 'anyio',
     'grpc', 'google.protobuf', 'google.api',
     'starlette', 'typing_extensions',
@@ -121,6 +122,7 @@ hiddenimports = [
     'jsonschema', 'jsonschema_specifications', 'referencing', 'rpds',
     'pkg_resources', 'setuptools',
 ]
+hiddenimports += collect_submodules('keyring.backends')
 
 spec_content = f'''
 # -*- mode: python ; coding: utf-8 -*-

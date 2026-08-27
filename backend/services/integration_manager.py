@@ -1,7 +1,10 @@
 import json
+import hashlib
 import logging
 import threading
+
 from backend.config.app_config import load_params
+from backend.security.keychain_manager import get_keychain
 from backend.utils.safe_io import safe_write_json
 
 log = logging.getLogger(__name__)
@@ -20,8 +23,94 @@ class IntegrationManager:
         # can lose updates if they read the same snapshot.
         self._lock = threading.RLock()
 
-    def _load(self) -> dict:
-        """Loads from disk only if needed."""
+    @staticmethod
+    def _is_sensitive_field(name: str) -> bool:
+        normalized = str(name or "").lower()
+        if normalized.endswith(("_status", "_uri", "_url")):
+            return False
+        return any(
+            marker in normalized
+            for marker in (
+                "password",
+                "secret",
+                "token",
+                "api_key",
+                "private_key",
+                "access_key",
+            )
+        )
+
+    @staticmethod
+    def _path_identity(item, index: int) -> str:
+        if isinstance(item, dict):
+            for field in ("id", "email", "username", "name"):
+                if item.get(field):
+                    return str(item[field])
+        return str(index)
+
+    @staticmethod
+    def _credential_key(path: tuple[str, ...]) -> str:
+        digest = hashlib.sha256("/".join(path).encode("utf-8")).hexdigest()[:24]
+        field = path[-1].lower().replace("-", "_")[:32]
+        return f"integration_{digest}_{field}"
+
+    def _externalize_secrets(self, value, path=()):
+        """Replace plaintext integration credentials with secure-store refs."""
+        changed = False
+        if isinstance(value, dict):
+            result = {}
+            for key, item in value.items():
+                current_path = (*path, str(key))
+                if self._is_sensitive_field(key) and isinstance(item, str) and item:
+                    if item.startswith("__keychain__:"):
+                        result[key] = item
+                        continue
+                    credential_key = self._credential_key(current_path)
+                    if not get_keychain().save_credential(credential_key, item):
+                        raise RuntimeError(f"Secure storage is unavailable for integration field {key}")
+                    result[key] = f"__keychain__:{credential_key}"
+                    changed = True
+                    continue
+                result[key], nested_changed = self._externalize_secrets(item, current_path)
+                changed = changed or nested_changed
+            return result, changed
+        if isinstance(value, list):
+            result = []
+            for index, item in enumerate(value):
+                identity = self._path_identity(item, index)
+                secured, nested_changed = self._externalize_secrets(item, (*path, identity))
+                result.append(secured)
+                changed = changed or nested_changed
+            return result, changed
+        return value, False
+
+    def _resolve_secret_refs(self, value):
+        if isinstance(value, dict):
+            return {key: self._resolve_secret_refs(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [self._resolve_secret_refs(item) for item in value]
+        if isinstance(value, str) and value.startswith("__keychain__:"):
+            return get_keychain().get_credential(value.split(":", 1)[1]) or ""
+        return value
+
+    @staticmethod
+    def _collect_secret_refs(value) -> set[str]:
+        if isinstance(value, dict):
+            refs = set()
+            for item in value.values():
+                refs.update(IntegrationManager._collect_secret_refs(item))
+            return refs
+        if isinstance(value, list):
+            refs = set()
+            for item in value:
+                refs.update(IntegrationManager._collect_secret_refs(item))
+            return refs
+        if isinstance(value, str) and value.startswith("__keychain__:"):
+            return {value.split(":", 1)[1]}
+        return set()
+
+    def _load_persisted(self) -> dict:
+        """Load the reference-only integration document from disk."""
         if not self.config_file.exists():
             return {}
         
@@ -35,6 +124,8 @@ class IntegrationManager:
         try:
             with open(self.config_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
+                if not isinstance(data, dict):
+                    return {}
                 self._cache = data
                 try:
                     self._cache_mtime = self.config_file.stat().st_mtime
@@ -45,20 +136,34 @@ class IntegrationManager:
             log.error(f"Error loading integrations from {self.config_file}: {e}")
             return {}
         
-        return data if isinstance(data, dict) else {}
+        return {}
+
+    def _load(self) -> dict:
+        """Return resolved integration data, migrating legacy plaintext once."""
+        with self._lock:
+            persisted = self._load_persisted()
+            secured, changed = self._externalize_secrets(persisted)
+            if changed:
+                self._write_persisted(secured)
+                persisted = secured
+            return self._resolve_secret_refs(persisted)
+
+    def _write_persisted(self, data: dict) -> None:
+        safe_write_json(self.config_file, data, indent=4)
+        self._cache = data
+        try:
+            self._cache_mtime = self.config_file.stat().st_mtime
+        except Exception:
+            self._cache_mtime = 0
 
     def _save(self, data: dict):
         try:
-            # Atomic write: integrations.json contains ALL the credentials.
-            # A crash midway through json.dump would leave the file truncated and
-            # all integrations would stop working on the next restart.
-            safe_write_json(self.config_file, data, indent=4)
-            # Update cache immediately
-            self._cache = data
-            try:
-                self._cache_mtime = self.config_file.stat().st_mtime
-            except Exception:
-                self._cache_mtime = 0
+            previous_refs = self._collect_secret_refs(self._load_persisted())
+            secured, _ = self._externalize_secrets(data)
+            self._write_persisted(secured)
+            stale_refs = previous_refs - self._collect_secret_refs(secured)
+            for credential_key in stale_refs:
+                get_keychain().delete_credential(credential_key)
         except Exception as e:
             log.error(f"Error saving integrations: {e}")
             # `raise` (not `raise e`) preserves the original traceback

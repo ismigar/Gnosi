@@ -10,7 +10,7 @@ Discovery (content types and fields) goes through JSON:API GET. See the
 restrictions.
 
 Credentials: ``DRUPAL_ROOT_USER`` (default ``admin``) + ``DRUPAL_ROOT_PASSWORD``
-(env inside Docker via ``.env_shared``; ``drupal_root_password`` keychain entry on the host).
+(process environment inside Docker; ``drupal_root_password`` secure-store entry on the host).
 """
 import base64
 import html as _html
@@ -45,7 +45,7 @@ class DrupalNotFound(DrupalSyncError):
 def _base_url() -> str:
     """Canonical Drupal URL, without ``www`` or a trailing slash.
 
-    ``.env_shared`` stores ``DRUPAL_URL`` with ``www``, but the site issues a 301
+    The configured ``DRUPAL_URL`` may contain ``www``, while the site issues a 301
     to the host without ``www``, and the redirect drops the Basic auth → we must always
     hit the canonical host directly.
     

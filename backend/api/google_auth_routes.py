@@ -121,7 +121,10 @@ async def health():
 async def login(type: str = None):
     config = get_google_config()
     if not config:
-        raise HTTPException(status_code=400, detail="Google OAuth credentials not configured in .env_shared")
+        raise HTTPException(
+            status_code=400,
+            detail="Google OAuth credentials are not configured in secure settings or the environment",
+        )
         
     flow = Flow.from_client_config(
         config,

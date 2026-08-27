@@ -25,11 +25,12 @@ from typing import Any, Dict, Iterable, Optional, Tuple
 import yaml
 
 _HERE = Path(__file__).resolve()
-_ROOT = _HERE.parents[3]
+_ROOT = _HERE.parents[2]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from backend.services.notion_clone import clone_page_id, clone_table_id  # noqa: E402
+from backend.config.data_dir import resolve_data_dir  # noqa: E402
 from backend.services.table_system_dates import (  # noqa: E402
     ensure_system_date_properties,
     property_role,
@@ -449,22 +450,19 @@ def main() -> int:
     parser.add_argument(
         "--notion-config",
         type=Path,
-        help="Notion import configuration; defaults to GNOSI_LOCAL_DATA/system/notion_import_config.json",
+        help="Notion import configuration; defaults to GNOSI_DATA_DIR/system/notion_import_config.json",
     )
     parser.add_argument(
         "--backup-dir",
         type=Path,
-        help="Parent directory for recoverable backups; defaults to GNOSI_LOCAL_DATA/backups",
+        help="Parent directory for recoverable backups; defaults to GNOSI_DATA_DIR/backups",
     )
     args = parser.parse_args()
     vault_arg = args.vault or os.environ.get("DIGITAL_BRAIN_VAULT_PATH")
     if not vault_arg:
         parser.error("--vault or DIGITAL_BRAIN_VAULT_PATH is required")
 
-    local_data = Path(
-        os.environ.get("GNOSI_LOCAL_DATA")
-        or (_HERE.parents[2] / "local_data")
-    ).expanduser().resolve()
+    local_data = resolve_data_dir()
     notion_index: Optional[NotionTimestampIndex] = None
     notion_report: Dict[str, int] = {}
     if args.notion:

@@ -1,6 +1,6 @@
 """Tests for the `translation_index` module (local idempotency index for translate-row).
 
-`GNOSI_LOCAL_DATA` points to a tmp, so these do NOT touch the real /app/data.
+`GNOSI_DATA_DIR` points to a tmp, so these do NOT touch the real /app/data.
 
     docker exec gnosi_backend python -m pytest backend/tests/test_translation_index.py -v
 """
@@ -11,7 +11,7 @@ from backend.services import translation_index
 
 @pytest.fixture(autouse=True)
 def _isolated_index(tmp_path, monkeypatch):
-    monkeypatch.setenv("GNOSI_LOCAL_DATA", str(tmp_path))
+    monkeypatch.setenv("GNOSI_DATA_DIR", str(tmp_path))
     return tmp_path
 
 

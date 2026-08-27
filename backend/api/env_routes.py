@@ -1,8 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pathlib import Path
 import logging
+import os
 import re
 
+from backend.config.env_config import (
+    LOCAL_ENV,
+    is_sensitive_env_key,
+    keychain_key_for_env,
+    load_env,
+)
+from backend.security.keychain_manager import get_keychain
 from backend.utils.errors import safe_error_detail
 from backend.utils.safe_io import safe_write_text
 from backend.services.workspace_service import require_role
@@ -14,11 +21,9 @@ from backend.services.workspace_service import require_role
 router = APIRouter(dependencies=[Depends(require_role("admin"))])
 log = logging.getLogger(__name__)
 
-# Secrets: .env_shared (Projectes root)
-try:
-    ENV_PATH = Path(__file__).resolve().parents[5] / ".env_shared"
-except IndexError:
-    ENV_PATH = Path(__file__).resolve().parents[2] / ".env"
+# Gnosi may manage only its repository-local configuration. A shared env file
+# is an operator-owned, read-only input selected through GNOSI_SHARED_ENV_FILE.
+ENV_PATH = LOCAL_ENV
 
 
 def parse_env_file(filepath):
@@ -48,7 +53,7 @@ def parse_env_file(filepath):
 
 
 def write_env_file(filepath, env_vars, original_lines):
-    """Write env vars back to file, preserving comments and structure."""
+    """Write Gnosi's local env file while preserving comments and structure."""
     new_lines = []
     processed_keys = set()
 
@@ -78,9 +83,6 @@ def write_env_file(filepath, env_vars, original_lines):
         if key not in processed_keys:
             new_lines.append(f"{key}={value}\n")
 
-    # Atomic write: .env_shared is the source of all secrets — a crash
-    # halfway through writelines would leave the file corrupt and the app would be left
-    # without credentials on the next restart.
     safe_write_text(filepath, "".join(new_lines))
 
 
@@ -94,15 +96,10 @@ async def get_env():
         # so PASSWORD/SECRET/DSN/credential-bearing URLs were returned in the
         # clear. Fully redact anything that looks secret (no partial reveal),
         # and also redact any value that embeds `user:pass@` credentials.
-        sensitive_markers = (
-            "TOKEN", "KEY", "SECRET", "PASSWORD", "PASS", "DSN",
-            "CREDENTIAL", "PRIVATE",
-        )
         cred_url_re = re.compile(r"://[^/@\s]+:[^/@\s]+@")
         masked_vars = {}
         for key, value in env_vars.items():
-            upper = key.upper()
-            if any(marker in upper for marker in sensitive_markers) or cred_url_re.search(value or ""):
+            if is_sensitive_env_key(key) or cred_url_re.search(value or ""):
                 masked_vars[key] = "********" if value else ""
             else:
                 masked_vars[key] = value
@@ -116,30 +113,56 @@ async def get_env():
 
 @router.post("/env")
 async def update_env(request: Request):
-    """Update environment variables in .env file."""
+    """Update local settings and route credentials to secure storage."""
     try:
         new_vars = await request.json()
-        if not new_vars:
+        if not isinstance(new_vars, dict) or not new_vars:
             raise HTTPException(status_code=400, detail="No data provided")
 
         # Read current .env file
         current_vars, original_lines = parse_env_file(ENV_PATH)
 
-        # Merge with new values
-        # Only update keys that are provided and not masked
+        secure_updates = 0
         for key, value in new_vars.items():
-            # Skip if value is masked (contains '...')
-            if "..." in str(value):
+            normalized_key = str(key or "").strip().upper()
+            if not re.fullmatch(r"[A-Z_][A-Z0-9_]*", normalized_key):
+                raise HTTPException(status_code=400, detail=f"Invalid environment key: {key}")
+            text_value = str(value or "")
+            if text_value.startswith("***"):
                 continue
 
-            # Update or add the key
-            current_vars[key] = value
+            secure_key = keychain_key_for_env(normalized_key)
+            if secure_key:
+                if text_value:
+                    if not get_keychain().save_credential(secure_key, text_value):
+                        raise HTTPException(
+                            status_code=503,
+                            detail=f"Secure storage is unavailable for {normalized_key}",
+                        )
+                    os.environ[normalized_key] = text_value
+                    secure_updates += 1
+                else:
+                    get_keychain().delete_credential(secure_key)
+                    os.environ.pop(normalized_key, None)
+                current_vars.pop(normalized_key, None)
+                continue
+
+            current_vars[normalized_key] = text_value
 
         # Write back to file
         write_env_file(ENV_PATH, current_vars, original_lines)
+        load_env(force_reload=True)
 
-        log.info(f"Updated .env file with {len(new_vars)} variables")
-        return {"status": "success", "message": "Environment variables updated"}
+        log.info(
+            "Updated local environment settings: total=%s secure=%s",
+            len(new_vars),
+            secure_updates,
+        )
+        return {
+            "status": "success",
+            "message": "Environment variables updated",
+            "secure_updates": secure_updates,
+        }
 
     except HTTPException:
         raise

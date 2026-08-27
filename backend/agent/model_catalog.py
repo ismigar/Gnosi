@@ -8,7 +8,7 @@ Layered sources, most fresh wins:
 
 1. **Remote**: https://models.dev/api.json — the open-source model database the
    OpenCode harness uses. Fetched at most once per `_CACHE_TTL` and cached on
-   disk OUTSIDE the vault/OneDrive (`GNOSI_LOCAL_DATA/cache`, else
+   disk OUTSIDE the vault/OneDrive (`GNOSI_DATA_DIR/cache`, else
    `~/.cache/gnosi`), so offline runs keep the last snapshot.
 2. **Vendored**: `backend/data/model_catalog.json`, committed to the repo and
    regenerated with `python -m backend.scripts.refresh_model_catalog`. Works

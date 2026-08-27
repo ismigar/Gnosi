@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any, Iterator, Tuple
 from datetime import datetime
 from fastapi import UploadFile, HTTPException
+from backend.config.data_dir import resolve_data_dir
 from backend.services.context_vars import get_active_vault_path
 from backend.utils.safe_io import safe_write_bytes, sanitize_path_segment
 
@@ -31,7 +32,7 @@ _SCAN_CACHE_TTL_S = 24 * 60 * 60  # 24 h: the normal rate of changes in Images/
 # Persistent cache: the container can restart often and we don't want every
 # restart to trigger a scan of 56k files. /app/data is a local volume
 # (gnosi_local_data) — it's fine to leave pickles there.
-_PERSIST_DIR = Path("/app/data/media_cache")
+_PERSIST_DIR = resolve_data_dir() / "media_cache"
 
 # Multi-root roots supported for the media search. The key is sent from the
 # frontend (?root=...). Each root resolves to a folder and a URL prefix to

@@ -13,7 +13,7 @@ WITHOUT lifespan (TestClient without context manager → neither scheduler nor M
         -e PYTHONPATH=/tmp/wt:/app \\
         -e GNOSI_OPTCAT_E2E=1 \\
         -e DIGITAL_BRAIN_VAULT_PATH=/tmp/testvault \\
-        -e GNOSI_LOCAL_DATA=/tmp/testdata \\
+        -e GNOSI_DATA_DIR=/tmp/testdata \\
         gnosi_backend python -m pytest backend/tests/test_e2e_option_catalogs.py -v
 """
 from __future__ import annotations

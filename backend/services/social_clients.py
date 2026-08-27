@@ -21,7 +21,7 @@ class MastodonClient:
         self.instance = os.getenv("TEMENOS_MASTODON_INSTANCE", "https://mastodon.social")
 
     # Tokens read from the environment DYNAMICALLY (not at startup). The singleton
-    # is created at import-time, before load_env propagates .env_shared/keychain to
+    # is created at import-time, before load_env propagates explicit env/secure-store values to
     # os.environ; capturing them in __init__ left the client empty depending on the load
     # order and after a restart (is_configured=False and feeds in
     # "setup" even though it has the tokens). As properties, the client always

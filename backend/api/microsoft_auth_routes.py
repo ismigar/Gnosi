@@ -56,7 +56,10 @@ async def login():
     if not cfg:
         raise HTTPException(
             status_code=400,
-            detail="Microsoft OAuth no configurat. Afegeix MICROSOFT_OAUTH_CLIENT_ID i MICROSOFT_OAUTH_CLIENT_SECRET a .env_shared",
+            detail=(
+                "Microsoft OAuth no configurat. Desa les credencials als ajustos segurs "
+                "o configura-les a l'entorn del procés."
+            ),
         )
     state = secrets.token_urlsafe(32)
     _pending[state] = True

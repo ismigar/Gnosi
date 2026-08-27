@@ -9,7 +9,7 @@ Runs against an isolated TEST vault (never the real one) and WITHOUT lifespan
 (TestClient without context manager → neither scheduler nor MCP):
 
     GNOSI_REFS_E2E=1 DIGITAL_BRAIN_VAULT_PATH=/tmp/testvault-refs \\
-    GNOSI_LOCAL_DATA=/tmp/testdata-refs \\
+    GNOSI_DATA_DIR=/tmp/testdata-refs \\
     python -m pytest backend/tests/test_e2e_import_references_item_type.py -v
 """
 from __future__ import annotations

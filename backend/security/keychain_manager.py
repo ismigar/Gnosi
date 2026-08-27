@@ -17,6 +17,8 @@ import base64
 from pathlib import Path
 from typing import Optional, Dict, List
 
+from backend.config.data_dir import resolve_data_dir
+
 
 def _get_logger():
     """Lazy logger import to avoid circular dependencies."""
@@ -184,59 +186,128 @@ class KeychainManager:
         log.warning("Cannot save to Docker secrets at runtime")
         return False
 
+    # ── Portable system keyring (Windows / Linux) ─────────────────────
+
+    def _portable_save(self, key: str, value: str) -> bool:
+        try:
+            import keyring
+
+            keyring.set_password(self.service_name, self._get_key_name(key), value)
+            return True
+        except Exception as exc:
+            log.info("System credential store unavailable; using encrypted fallback: %s", exc)
+            return False
+
+    def _portable_get(self, key: str) -> Optional[str]:
+        try:
+            import keyring
+
+            return keyring.get_password(self.service_name, self._get_key_name(key))
+        except Exception:
+            return None
+
+    def _portable_delete(self, key: str) -> bool:
+        try:
+            import keyring
+
+            keyring.delete_password(self.service_name, self._get_key_name(key))
+            return True
+        except Exception:
+            return False
+
     # ── File-based Fallback ────────────────────────────────────────────
 
     def _get_fallback_path(self) -> Path:
-        """Get path for file-based fallback storage."""
-        secrets_dir = Path.home() / ".gnosi" / "secrets"
+        """Return the encrypted fallback inside the canonical data root."""
+        secrets_dir = resolve_data_dir(create=True) / "secrets"
         secrets_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            secrets_dir.chmod(0o700)
+        except OSError:
+            pass
         return secrets_dir / "credentials.enc"
 
-    def _file_save(self, key: str, value: str) -> bool:
-        """Save credential to encrypted file (fallback)."""
+    def _get_fallback_key_path(self) -> Path:
+        return self._get_fallback_path().with_name("credentials.key")
+
+    def _legacy_fallback_path(self) -> Path:
+        return Path.home() / ".gnosi" / "secrets" / "credentials.enc"
+
+    @staticmethod
+    def _protect_file(path: Path) -> None:
         try:
+            path.chmod(0o600)
+        except OSError:
+            pass
+
+    def _fallback_cipher(self):
+        from cryptography.fernet import Fernet
+
+        storage_path = self._get_fallback_path()
+        key_path = self._get_fallback_key_path()
+        if not key_path.exists():
+            if storage_path.exists():
+                raise RuntimeError(
+                    f"Encrypted credential key is missing for {storage_path}; refusing to overwrite it"
+                )
+            from backend.utils.safe_io import safe_write_bytes
+
+            safe_write_bytes(key_path, Fernet.generate_key())
+            self._protect_file(key_path)
+        key = key_path.read_bytes().strip()
+        self._protect_file(key_path)
+        return Fernet(key)
+
+    def _read_legacy_data(self) -> Dict[str, str]:
+        """Read the old fallback once so its values can be migrated safely."""
+        legacy_path = self._legacy_fallback_path()
+        if not legacy_path.exists() or legacy_path == self._get_fallback_path():
+            return {}
+        content = legacy_path.read_bytes()
+        master_key = os.environ.get("GNOSI_MASTER_KEY", "").encode()
+        if master_key:
             import hashlib
             from cryptography.fernet import Fernet
 
-            storage_path = self._get_fallback_path()
-            data = {}
+            cipher = Fernet(base64.urlsafe_b64encode(hashlib.sha256(master_key).digest()))
+            try:
+                return json.loads(cipher.decrypt(content))
+            except Exception:
+                pass
+        try:
+            data = json.loads(content)
+            return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
 
-            if storage_path.exists():
-                with open(storage_path, "rb") as f:
-                    encrypted = f.read()
-                master_key = os.environ.get("GNOSI_MASTER_KEY", "").encode()
-                if master_key:
-                    cipher = Fernet(
-                        base64.urlsafe_b64encode(hashlib.sha256(master_key).digest())
-                    )
-                    try:
-                        data = json.loads(cipher.decrypt(encrypted))
-                    except Exception:
-                        pass
+    def _read_file_data(self) -> Dict[str, str]:
+        storage_path = self._get_fallback_path()
+        if not storage_path.exists():
+            return self._read_legacy_data()
+        from cryptography.fernet import InvalidToken
 
+        try:
+            data = json.loads(self._fallback_cipher().decrypt(storage_path.read_bytes()))
+        except InvalidToken as exc:
+            raise RuntimeError(f"Encrypted credential file cannot be decrypted: {storage_path}") from exc
+        if not isinstance(data, dict):
+            raise RuntimeError(f"Encrypted credential file has an invalid payload: {storage_path}")
+        return {str(key): str(value) for key, value in data.items()}
+
+    def _write_file_data(self, data: Dict[str, str]) -> None:
+        from backend.utils.safe_io import safe_write_bytes
+
+        storage_path = self._get_fallback_path()
+        encrypted = self._fallback_cipher().encrypt(json.dumps(data).encode("utf-8"))
+        safe_write_bytes(storage_path, encrypted)
+        self._protect_file(storage_path)
+
+    def _file_save(self, key: str, value: str) -> bool:
+        """Save a credential to the mandatory encrypted fallback."""
+        try:
+            data = self._read_file_data()
             data[key] = value
-
-            from backend.utils.safe_io import safe_write_bytes, safe_write_json
-            master_key = os.environ.get("GNOSI_MASTER_KEY", "").encode()
-            if master_key:
-                cipher = Fernet(
-                    base64.urlsafe_b64encode(hashlib.sha256(master_key).digest())
-                )
-                # Atomic write: this file contains encrypted credentials,
-                # a crash in the middle would leave it empty/corrupt.
-                safe_write_bytes(storage_path, cipher.encrypt(json.dumps(data).encode()))
-            else:
-                # Without GNOSI_MASTER_KEY the credentials are written in
-                # IN THE CLEAR on disk. We warn because this is a security lapse
-                # that goes unnoticed (the user would assume the .enc file is
-                # encrypted as the name says).
-                log.warning(
-                    f"⚠️ GNOSI_MASTER_KEY is not configured — credential '{key}' "
-                    f"was written UNENCRYPTED to {storage_path}. Configure "
-                    f"GNOSI_MASTER_KEY to protect it."
-                )
-                safe_write_json(storage_path, data)
-
+            self._write_file_data(data)
             return True
         except Exception as e:
             log.error(f"Failed to save to file: {e}")
@@ -245,67 +316,25 @@ class KeychainManager:
     def _file_get(self, key: str) -> Optional[str]:
         """Get credential from encrypted file (fallback)."""
         try:
-            storage_path = self._get_fallback_path()
-            if not storage_path.exists():
-                return None
-
-            master_key = os.environ.get("GNOSI_MASTER_KEY", "").encode()
-
-            with open(storage_path, "rb") as f:
-                content = f.read()
-
-            if master_key:
-                import hashlib
-                from cryptography.fernet import Fernet
-
-                cipher = Fernet(
-                    base64.urlsafe_b64encode(hashlib.sha256(master_key).digest())
-                )
-                data = json.loads(cipher.decrypt(content))
-            else:
-                data = json.loads(content)
-
-            return data.get(key)
-        except Exception:
+            return self._read_file_data().get(key)
+        except Exception as exc:
+            log.error("Failed to read encrypted credential fallback: %s", exc)
             return None
 
     def _file_delete(self, key: str) -> bool:
         """Delete credential from file."""
         try:
             storage_path = self._get_fallback_path()
-            if not storage_path.exists():
+            legacy_path = self._legacy_fallback_path()
+            if not storage_path.exists() and not legacy_path.exists():
                 return True
-
-            import hashlib
-            from cryptography.fernet import Fernet
-
-            master_key = os.environ.get("GNOSI_MASTER_KEY", "").encode()
-
-            with open(storage_path, "rb") as f:
-                content = f.read()
-
-            if master_key:
-                cipher = Fernet(
-                    base64.urlsafe_b64encode(hashlib.sha256(master_key).digest())
-                )
-                data = json.loads(cipher.decrypt(content))
-            else:
-                data = json.loads(content)
-
+            data = self._read_file_data()
             data.pop(key, None)
-
-            from backend.utils.safe_io import safe_write_bytes, safe_write_json
-            if master_key:
-                cipher = Fernet(
-                    base64.urlsafe_b64encode(hashlib.sha256(master_key).digest())
-                )
-                safe_write_bytes(storage_path, cipher.encrypt(json.dumps(data).encode()))
-            else:
-                safe_write_json(storage_path, data)
-
+            self._write_file_data(data)
             return True
-        except Exception:
-            return True
+        except Exception as exc:
+            log.error("Failed to delete encrypted fallback credential: %s", exc)
+            return False
 
     # ── Public API ────────────────────────────────────────────────────
 
@@ -324,10 +353,12 @@ class KeychainManager:
                 return True
             return self._file_save(key, value)
 
-        if self.system == "Darwin":
-            return self._macos_save(key, value)
-
-        return self._file_save(key, value)
+        stored = (
+            self._macos_save(key, value)
+            if self.system == "Darwin"
+            else self._portable_save(key, value)
+        )
+        return stored or self._file_save(key, value)
 
     def get_credential(self, key: str) -> Optional[str]:
         """Get a credential from the secure storage."""
@@ -341,6 +372,10 @@ class KeychainManager:
             value = self._macos_get(key)
             if value:
                 return value
+        else:
+            value = self._portable_get(key)
+            if value:
+                return value
 
         return self._file_get(key)
 
@@ -351,6 +386,8 @@ class KeychainManager:
 
         if self.system == "Darwin":
             self._macos_delete(key)
+        else:
+            self._portable_delete(key)
 
         return self._file_delete(key)
 
@@ -369,27 +406,9 @@ class KeychainManager:
                         )
 
         try:
-            storage_path = self._get_fallback_path()
-            if storage_path.exists():
-                import hashlib
-                from cryptography.fernet import Fernet
-
-                master_key = os.environ.get("GNOSI_MASTER_KEY", "").encode()
-
-                with open(storage_path, "rb") as f:
-                    content = f.read()
-
-                if master_key:
-                    cipher = Fernet(
-                        base64.urlsafe_b64encode(hashlib.sha256(master_key).digest())
-                    )
-                    data = json.loads(cipher.decrypt(content))
-                else:
-                    data = json.loads(content)
-
-                for k in data.keys():
-                    if k not in keys:
-                        keys.append(k)
+            for key in self._read_file_data():
+                if key not in keys:
+                    keys.append(key)
         except Exception:
             pass
 

@@ -1006,7 +1006,7 @@ def _save_view_registry():
 
 def main():
     if not TOKEN:
-        print("❌ NOTION_TOKEN was not found in .env_shared")
+        print("❌ NOTION_TOKEN is not configured in the process or Gnosi environment")
         sys.exit(1)
 
     # Build reverse maps from vault_db_registry for embedded views
@@ -1029,7 +1029,7 @@ def main():
         total = 0
         for db_name, db_id in DATABASE_MAP.items():
             if not db_id:
-                print(f"⚠️  Skipping {db_name}: ID is not configured in .env_shared")
+                print(f"⚠️  Skipping {db_name}: ID is not configured in the Gnosi environment")
                 continue
             total += migrate_database(db_name, db_id)
 

@@ -3,20 +3,32 @@
 # directament del host (evita l'EDEADLK de OneDrive via Docker/gRPC-FUSE).
 # Ús: run_native_dev.sh [PORT]   (PORT per defecte 5002)
 BASE="$(cd "$(dirname "$0")/../.." && pwd)"
-WORKSPACE_ROOT="$(dirname "$BASE")"
 
-# 1) Variables compartides (API keys, client OAuth de Google, etc.).
-# Es llegeix línia a línia (NO `source`): els valors poden tenir espais sense
-# cometes (format env_file de Docker), que `source` interpretaria com a comandes.
-SHARED_ENV_FILE="${GNOSI_SHARED_ENV_FILE:-$WORKSPACE_ROOT/.env_shared}"
-if [ -f "$SHARED_ENV_FILE" ]; then
+# 1) La configuració del procés té prioritat. Després ve el `.env` local i,
+# només si s'ha configurat explícitament, el fitxer compartit.
+load_env_defaults() {
+  local env_file="$1"
+  [ -f "$env_file" ] || return 0
   while IFS= read -r line || [ -n "$line" ]; do
-    case "$line" in ''|\#*) continue ;; *=*) export "$line" ;; esac
-  done < "$SHARED_ENV_FILE"
+    case "$line" in
+      ''|\#*) continue ;;
+      [A-Za-z_]*=*)
+        local key="${line%%=*}"
+        case "$key" in
+          ''|*[!A-Za-z0-9_]*) continue ;;
+        esac
+        if [ -z "${!key+x}" ]; then export "$line"; fi
+        ;;
+    esac
+  done < "$env_file"
+}
+load_env_defaults "$BASE/.env"
+if [ -n "${GNOSI_SHARED_ENV_FILE:-}" ]; then
+  load_env_defaults "$GNOSI_SHARED_ENV_FILE"
 fi
 
 # 2) Variables específiques del runtime NATIU (sobreescriuen les de Docker)
-# Vault per defecte: mana el valor de `.env_shared` (ja és ruta de host). Només
+# Vault per defecte: mana la configuració efectiva (ja és ruta de host). Només
 # si no hi és, caiem al vault Principal. MAI l'arrel OneDrive-UNED/Gnosi: des
 # del multi-vault és el CONTENIDOR de vaults (Principal/, Notion/, …) —
 # apuntar-hi el backend re-crea tota l'estructura (BD/, Mail/, Assets/…) a
@@ -34,8 +46,18 @@ export HOME_HOST_PATH="$HOME"
 # llegir-los. Vegeu services/files_provider/onedrive.py i la memòria
 # feedback_onedrive_warmup_native (exploració 2026-07-06).
 export ONEDRIVE_WARMUP_MODE="open"
-export GNOSI_LOCAL_DATA="${GNOSI_LOCAL_DATA:-$BASE/local_data}"
-export GNOSI_DATA_DIR="${GNOSI_DATA_DIR:-$GNOSI_LOCAL_DATA}"
+if [ -z "${GNOSI_DATA_DIR:-}" ]; then
+  if [ -n "${GNOSI_LOCAL_DATA:-}" ]; then
+    export GNOSI_DATA_DIR="$GNOSI_LOCAL_DATA"
+    echo "⚠️  GNOSI_LOCAL_DATA està obsolet; configura GNOSI_DATA_DIR."
+  elif [ "$(uname -s)" = "Darwin" ]; then
+    export GNOSI_DATA_DIR="$HOME/Library/Application Support/Gnosi"
+  else
+    export GNOSI_DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/gnosi"
+  fi
+fi
+# Àlies compatible durant tota la sèrie 3.x per a complements antics.
+export GNOSI_LOCAL_DATA="${GNOSI_LOCAL_DATA:-$GNOSI_DATA_DIR}"
 export PYTHONPATH="$BASE"
 export AI_MODEL_URL="${AI_MODEL_URL:-http://localhost:11434/v1/chat/completions}"
 export TRANSLATION_SERVER_URL=""   # translation-server queda fora (degrada bé)

@@ -41,6 +41,7 @@ try:
 except Exception:
     Image = None
 from backend.config.app_config import load_params
+from backend.config.data_dir import resolve_data_dir
 from backend.config.env_config import default_host_helper_url
 from backend.services.content_revision import path_collection_revision
 from backend.services.rule_engine import RuleEngine
@@ -161,8 +162,7 @@ def get_p(key: str) -> Path:
 
     # Local-only data root (Docker volume, never on cloud-synced storage).
     # Resolved from env to match paths_config.py.
-    local_env = os.environ.get("GNOSI_LOCAL_DATA")
-    local_data = Path(local_env) if local_env else Path("/app/data")
+    local_data = resolve_data_dir()
 
     # Mapping of standard sub-folders
     mapping = {
@@ -576,13 +576,13 @@ def get_page_index_cache_path(v_str: Optional[str] = None):
     p = get_p("PAGE_INDEX_CACHE")
     if not p:
         # Fallback if LOCAL_DATA isn't configured for some reason
-        p = Path("/app/data/cache/vault_page_index.json")
+        p = resolve_data_dir() / "cache" / "vault_page_index.json"
     if v_str:
         digest = hashlib.sha256(v_str.encode("utf-8")).hexdigest()[:16]
         return p.with_name(f"{p.stem}_{digest}{p.suffix}")
     if p:
         return p
-    return Path("/app/data/cache/vault_page_index.json")
+    return resolve_data_dir() / "cache" / "vault_page_index.json"
 
 
 # ── Indexer status (background warmup state) ──────────────────────────────
@@ -13055,8 +13055,7 @@ def _local_links_file() -> Path:
     """Resolves the links JSON path lazily. It cannot be done as
     `_LOCAL_LINKS_FILE = get_p("LOCAL_DATA") / ...` at the top level because
     `get_p` requires the vault context (it only exists within a request)."""
-    base = os.environ.get("GNOSI_LOCAL_DATA")
-    return (Path(base) if base else Path("/app/data")) / "local_file_links.json"
+    return resolve_data_dir() / "local_file_links.json"
 
 
 def _load_local_links() -> Dict[str, str]:
@@ -13906,7 +13905,11 @@ def _get_id_title_cache_path(v_str: Optional[str] = None) -> Optional[Path]:
     """Local path where the id→title index is persisted, PER VAULT (same pattern as
     `get_page_index_cache_path`: one file per vault via a hash of the path)."""
     base = get_p("PAGE_INDEX_CACHE")
-    p = base.parent / "vault_id_title_index.json" if base else Path("/app/data/cache/vault_id_title_index.json")
+    p = (
+        base.parent / "vault_id_title_index.json"
+        if base
+        else resolve_data_dir() / "cache" / "vault_id_title_index.json"
+    )
     if v_str:
         digest = hashlib.sha256(v_str.encode("utf-8")).hexdigest()[:16]
         return p.with_name(f"{p.stem}_{digest}{p.suffix}")
@@ -14067,7 +14070,7 @@ def _get_body_cache_path() -> Optional[Path]:
     base = get_p("PAGE_INDEX_CACHE")
     if base:
         return base.parent / "vault_body_cache.json"
-    return Path("/app/data/cache/vault_body_cache.json")
+    return resolve_data_dir() / "cache" / "vault_body_cache.json"
 
 
 def _save_body_cache_to_disk() -> None:
@@ -14212,7 +14215,7 @@ def _get_parsed_doc_cache_path() -> Optional[Path]:
     base = get_p("PAGE_INDEX_CACHE")
     if base:
         return base.parent / "vault_parsed_doc_cache.json"
-    return Path("/app/data/cache/vault_parsed_doc_cache.json")
+    return resolve_data_dir() / "cache" / "vault_parsed_doc_cache.json"
 
 
 def _save_parsed_doc_cache_to_disk() -> None:
@@ -14428,7 +14431,7 @@ def _get_link_index_cache_path() -> Optional[Path]:
     p = get_p("LINK_INDEX_CACHE")
     if p:
         return p
-    return Path("/app/data/cache/vault_link_index.json")
+    return resolve_data_dir() / "cache" / "vault_link_index.json"
 
 
 def _save_link_index_to_disk() -> None:
