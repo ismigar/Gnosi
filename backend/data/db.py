@@ -11,40 +11,6 @@ _lock = threading.Lock()
 
 Base = declarative_base()
 
-
-def _apply_lazy_migrations(engine):
-    """Add new columns idempotently to existing tables.
-
-    `Base.metadata.create_all()` only creates tables that don't exist yet —
-    it does NOT add new columns to tables that are already there. Because
-    this project doesn't use Alembic, we apply additive schema changes by
-    hand here, keyed off `inspect()`. Each migration must be a no-op when
-    the column already exists.
-    """
-    from sqlalchemy import inspect, text
-
-    inspector = inspect(engine)
-
-    if "articles" in inspector.get_table_names():
-        cols = {c["name"] for c in inspector.get_columns("articles")}
-        if "full_content" not in cols:
-            with engine.begin() as conn:
-                # SQLite supports ADD COLUMN since 3.2 (2005); no IF NOT
-                # EXISTS clause needed because the inspector check above
-                # already gates this branch.
-                conn.execute(text("ALTER TABLE articles ADD COLUMN full_content TEXT"))
-
-    if "pdf_annotations" in inspector.get_table_names():
-        cols = {c["name"] for c in inspector.get_columns("pdf_annotations")}
-        with engine.begin() as conn:
-            if "managed_key" not in cols:
-                conn.execute(text("ALTER TABLE pdf_annotations ADD COLUMN managed_key VARCHAR"))
-            conn.execute(text(
-                "CREATE UNIQUE INDEX IF NOT EXISTS "
-                "ix_pdf_annotations_managed_key ON pdf_annotations (managed_key)"
-            ))
-
-
 class VaultNotConfiguredError(Exception):
     """Raised when no vault path has been configured by the user."""
 
@@ -79,6 +45,9 @@ def get_engine_for_path(vault_path: Path):
             db_dir = Path(local_data) / "system" / "vault_dbs"
             db_dir.mkdir(parents=True, exist_ok=True)
             db_path = db_dir / f"gnosi_vault_{vault_hash}.db"
+            from backend.migrations.runner import ensure_database_schema_once
+
+            ensure_database_schema_once(db_path, "vault", Path(local_data))
 
             engine = create_engine(
                 f"sqlite:///{db_path}",
@@ -88,9 +57,6 @@ def get_engine_for_path(vault_path: Path):
                 pool_pre_ping=True,
                 pool_recycle=1800,
             )
-            Base.metadata.create_all(bind=engine)
-            _apply_lazy_migrations(engine)
-
             _engines[v_str] = engine
             _sessionmakers[v_str] = sessionmaker(
                 autocommit=False, autoflush=False, bind=engine

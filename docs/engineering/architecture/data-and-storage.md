@@ -66,11 +66,12 @@ erDiagram
     USER ||--o{ SHARE_LINK : creates
 ```
 
-The engine is initialized lazily and guarded against concurrent first access.
-`Base.metadata.create_all` creates missing tables. There is no general migration
-framework: a small idempotent startup pass adds explicitly registered columns
-and applies narrowly scoped backfills. New non-additive schema evolution needs
-a dedicated migration design.
+Before workers start, the schema coordinator resolves the management database,
+every dynamic vault and each durable first-party auxiliary store. Independent
+Alembic revision lines recognize exact reviewed 2.x structural fingerprints,
+create verified backups and apply forward-only upgrades. Unknown or drifted
+schemas abort without mutation. Derived caches and externally owned databases
+remain outside Gnosi's migration heads.
 
 Only PAT hashes and a recognizable prefix are persisted. Public share tokens
 are opaque identifiers whose rows retain creator, vault, permission, expiry, and

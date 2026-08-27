@@ -3,12 +3,13 @@ from __future__ import annotations
 
 import ctypes
 import json
+import sqlite3
 from pathlib import Path
 
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import sessionmaker
 
-from backend.data.db import _apply_lazy_migrations
+from backend.migrations.runner import _run_alembic, ensure_database_schema
 from backend.models.pdf_annotation import PdfAnnotation
 from backend.services import llm_wiki_pdf_annotations
 
@@ -142,17 +143,16 @@ def test_managed_highlights_are_idempotent_and_preserve_manual_annotations(tmp_p
     assert remaining == [manual]
 
 
-def test_lazy_migration_adds_unique_managed_key_column():
-    engine = create_engine("sqlite:///:memory:")
-    with engine.begin() as connection:
-        connection.execute(text(
-            "CREATE TABLE pdf_annotations ("
-            "id INTEGER PRIMARY KEY, source_uri VARCHAR NOT NULL, "
-            "page INTEGER NOT NULL, type VARCHAR NOT NULL)"
-        ))
+def test_alembic_migration_adds_unique_managed_key_column(tmp_path: Path):
+    database = tmp_path / "system" / "vault_dbs" / "gnosi_vault_test.db"
+    database.parent.mkdir(parents=True)
+    _run_alembic(database, "upgrade", "vault_0002")
+    with sqlite3.connect(database) as connection:
+        connection.execute("DROP TABLE alembic_version")
 
-    _apply_lazy_migrations(engine)
+    ensure_database_schema(database, "vault", tmp_path)
 
+    engine = create_engine(f"sqlite:///{database}")
     inspector = inspect(engine)
     columns = {column["name"] for column in inspector.get_columns("pdf_annotations")}
     indexes = {index["name"]: index for index in inspector.get_indexes("pdf_annotations")}

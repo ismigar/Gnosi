@@ -54,7 +54,6 @@ def test_negative_feedback_creates_deduplicated_runnable_candidate(
             paths={"LOCAL_DATA": tmp_path / "local-data"}
         ),
     )
-    telemetry._SCHEMA_READY.clear()
 
     first_event = _record_inventory_feedback("turn-1")
     repeated_event = _record_inventory_feedback("turn-1")
@@ -90,7 +89,6 @@ def test_feedback_clear_rebuilds_pending_candidates(tmp_path, monkeypatch):
             paths={"LOCAL_DATA": tmp_path / "local-data"}
         ),
     )
-    telemetry._SCHEMA_READY.clear()
 
     _record_inventory_feedback("turn-1")
     assert len(telemetry.list_evaluation_candidates(_scope())) == 1
@@ -106,7 +104,6 @@ def test_quality_dashboard_aggregates_turns_without_content(tmp_path, monkeypatc
             paths={"LOCAL_DATA": tmp_path / "local-data"}
         ),
     )
-    telemetry._SCHEMA_READY.clear()
     telemetry.record_quality_signal(
         _scope(),
         agent_id="brain",
@@ -133,7 +130,6 @@ def test_error_candidate_and_database_are_metadata_only(tmp_path, monkeypatch):
         "load_params",
         lambda strict_env=False: SimpleNamespace(paths={"LOCAL_DATA": local_data}),
     )
-    telemetry._SCHEMA_READY.clear()
 
     telemetry.record_quality_signal(
         _scope(),

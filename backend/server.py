@@ -114,7 +114,15 @@ async def lifespan(app: FastAPI):
     # STARTUP
     log.info("🚀 Starting Gnosi Agent (FastAPI Port)...")
 
-    # 0. Fail fast if an exposed deployment is missing a real JWT secret.
+    # 0. Bring every existing first-party SQLite store to its explicit head
+    # before schedulers, workers or request handlers can open a writer.
+    from backend.config.data_dir import resolve_data_dir
+    from backend.migrations.coordinator import migrate_existing_databases
+
+    migrated_databases = migrate_existing_databases(resolve_data_dir())
+    log.info("Database schema verification complete (%s stores).", len(migrated_databases))
+
+    # 0a. Fail fast if an exposed deployment is missing a real JWT secret.
     # Signing sessions with the public dev fallback would be an auth bypass.
     from backend.services.auth_service import assert_signing_secret_safe
     assert_signing_secret_safe()

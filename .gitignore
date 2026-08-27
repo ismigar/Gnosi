@@ -16,6 +16,12 @@ venv/
 # Data
 backend/data/*.db
 backend/data/*.json
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
 # vendored snapshot, IS versioned (regenerate: python -m backend.scripts.refresh_model_catalog)
 !backend/data/model_catalog.json
 backend/data/logs/

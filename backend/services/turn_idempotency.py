@@ -13,9 +13,12 @@ from backend.config.app_config import load_params
 def _db() -> sqlite3.Connection:
     root = Path(load_params(strict_env=False).paths["LOCAL_DATA"])
     root.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(root / "agent_turns.sqlite3", timeout=30, isolation_level=None)
+    path = root / "agent_turns.sqlite3"
+    from backend.migrations.runner import ensure_database_schema_once
+
+    ensure_database_schema_once(path, "turn_claims", root)
+    connection = sqlite3.connect(path, timeout=30, isolation_level=None)
     connection.execute("PRAGMA journal_mode=WAL")
-    connection.execute("CREATE TABLE IF NOT EXISTS turn_claims (claim_key TEXT PRIMARY KEY, state TEXT NOT NULL, trace_id TEXT, result TEXT, updated_at TEXT NOT NULL)")
     return connection
 
 

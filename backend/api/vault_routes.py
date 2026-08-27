@@ -21157,8 +21157,8 @@ async def translate_page(background_tasks: BackgroundTasks, payload: dict = Body
 # -----------------------------------------------------------------------------
 # Persistent annotations from the integrated PDF viewer. See
 # `backend/models/pdf_annotation.py` for the model and fields. The table lives
-# in the active vault's DB (created via Base.metadata.create_all on the first
-# get_engine_for_path for this vault).
+# in the active vault's DB, whose schema reaches the reusable Vault Alembic
+# head before get_engine_for_path exposes a session.
 
 from sqlalchemy.orm import Session as _AnnSession
 from backend.data.db import get_db as _ann_get_db

@@ -17,7 +17,6 @@ _FAILURE_THRESHOLD = 2
 _FAILURE_WINDOW_SECONDS = 300.0
 _QUARANTINE_SECONDS = 60.0
 _RETENTION_SECONDS = 30 * 24 * 60 * 60
-_SCHEMA_READY: set[str] = set()
 _CACHE_TTL_SECONDS = 10.0
 _cache_loaded_at = 0.0
 _cache_rows: dict[str, dict[str, Any]] = {}
@@ -31,34 +30,16 @@ def _database_path() -> Path:
 
 def _connect() -> sqlite3.Connection:
     path = _database_path()
+    from backend.migrations.runner import (
+        data_dir_for_database,
+        ensure_database_schema_once,
+    )
+
+    ensure_database_schema_once(path, "capability_health", data_dir_for_database(path))
     connection = sqlite3.connect(str(path), timeout=10)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA journal_mode=WAL")
     connection.execute("PRAGMA busy_timeout=10000")
-    key = str(path)
-    with _LOCK:
-        if key not in _SCHEMA_READY:
-            connection.executescript(
-                """
-                CREATE TABLE IF NOT EXISTS capability_health (
-                    capability_key TEXT PRIMARY KEY,
-                    successes INTEGER NOT NULL DEFAULT 0,
-                    failures INTEGER NOT NULL DEFAULT 0,
-                    consecutive_failures INTEGER NOT NULL DEFAULT 0,
-                    last_error_code TEXT,
-                    last_failure_at REAL,
-                    last_success_at REAL,
-                    quarantined_until REAL,
-                    latency_total_ms INTEGER NOT NULL DEFAULT 0,
-                    latency_samples INTEGER NOT NULL DEFAULT 0,
-                    updated_at REAL NOT NULL
-                );
-                CREATE INDEX IF NOT EXISTS idx_capability_health_updated
-                ON capability_health(updated_at DESC);
-                """
-            )
-            connection.commit()
-            _SCHEMA_READY.add(key)
     try:
         os.chmod(path, 0o600)
     except OSError:

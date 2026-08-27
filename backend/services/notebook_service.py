@@ -61,7 +61,6 @@ _RESOURCE_AUTHOR_FIELD_NAMES = {
     "creator",
     "creators",
 }
-_SCHEMA_LOCK = threading.RLock()
 _WRITE_LOCK = threading.RLock()
 _THREAD_LOCK = threading.RLock()
 _THREADS: dict[str, threading.Thread] = {}
@@ -89,218 +88,19 @@ def database_path() -> Path:
 
 
 def _connect() -> sqlite3.Connection:
-    connection = sqlite3.connect(database_path(), timeout=30)
+    path = database_path()
+    from backend.migrations.runner import (
+        data_dir_for_database,
+        ensure_database_schema_once,
+    )
+
+    ensure_database_schema_once(path, "notebooks", data_dir_for_database(path))
+    connection = sqlite3.connect(path, timeout=30)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA journal_mode=WAL")
     connection.execute("PRAGMA foreign_keys=ON")
     connection.execute("PRAGMA busy_timeout=30000")
-    _ensure_schema(connection)
     return connection
-
-
-def _ensure_schema(connection: sqlite3.Connection) -> None:
-    with _SCHEMA_LOCK:
-        connection.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS notebooks (
-                id TEXT PRIMARY KEY,
-                vault_scope TEXT NOT NULL,
-                workspace_id TEXT NOT NULL,
-                owner_user_id TEXT NOT NULL,
-                source_table_id TEXT NOT NULL,
-                title TEXT NOT NULL,
-                visibility TEXT NOT NULL,
-                conversation_mode TEXT NOT NULL,
-                groups_json TEXT NOT NULL DEFAULT '[]',
-                active_revision INTEGER,
-                status TEXT NOT NULL DEFAULT 'pending',
-                last_error TEXT,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL,
-                UNIQUE(vault_scope, workspace_id, id)
-            );
-            CREATE INDEX IF NOT EXISTS idx_notebooks_scope
-                ON notebooks(vault_scope, workspace_id, updated_at DESC);
-
-            CREATE TABLE IF NOT EXISTS notebook_acl (
-                notebook_id TEXT NOT NULL REFERENCES notebooks(id) ON DELETE CASCADE,
-                principal_type TEXT NOT NULL,
-                principal_id TEXT NOT NULL,
-                access_role TEXT NOT NULL,
-                PRIMARY KEY(notebook_id, principal_type, principal_id)
-            );
-
-            CREATE TABLE IF NOT EXISTS notebook_resources (
-                notebook_id TEXT NOT NULL REFERENCES notebooks(id) ON DELETE CASCADE,
-                resource_id TEXT NOT NULL,
-                ordinal INTEGER NOT NULL,
-                fingerprint TEXT,
-                url_validators_json TEXT NOT NULL DEFAULT '{}',
-                url_checked_at TEXT,
-                last_checked_at TEXT,
-                state TEXT NOT NULL DEFAULT 'pending',
-                error TEXT,
-                updated_at TEXT NOT NULL,
-                PRIMARY KEY(notebook_id, resource_id)
-            );
-            CREATE INDEX IF NOT EXISTS idx_notebook_resources_order
-                ON notebook_resources(notebook_id, ordinal, resource_id);
-
-            CREATE TABLE IF NOT EXISTS notebook_revisions (
-                notebook_id TEXT NOT NULL REFERENCES notebooks(id) ON DELETE CASCADE,
-                revision INTEGER NOT NULL,
-                job_id TEXT,
-                state TEXT NOT NULL,
-                total_resources INTEGER NOT NULL DEFAULT 0,
-                processed_resources INTEGER NOT NULL DEFAULT 0,
-                available_sources INTEGER NOT NULL DEFAULT 0,
-                error_sources INTEGER NOT NULL DEFAULT 0,
-                created_at TEXT NOT NULL,
-                completed_at TEXT,
-                error TEXT,
-                current_resource_id TEXT,
-                current_resource_title TEXT,
-                cancel_requested_at TEXT,
-                retention_eligible INTEGER NOT NULL DEFAULT 0,
-                PRIMARY KEY(notebook_id, revision)
-            );
-
-            CREATE TABLE IF NOT EXISTS notebook_sources (
-                notebook_id TEXT NOT NULL,
-                revision INTEGER NOT NULL,
-                source_id TEXT NOT NULL,
-                resource_id TEXT NOT NULL,
-                kind TEXT NOT NULL,
-                label TEXT NOT NULL,
-                source_url TEXT,
-                fingerprint TEXT NOT NULL,
-                snapshot_id TEXT,
-                status TEXT NOT NULL,
-                error TEXT,
-                origin_json TEXT NOT NULL,
-                PRIMARY KEY(notebook_id, revision, source_id),
-                FOREIGN KEY(notebook_id, revision)
-                    REFERENCES notebook_revisions(notebook_id, revision)
-                    ON DELETE CASCADE
-            );
-            CREATE INDEX IF NOT EXISTS idx_notebook_sources_resource
-                ON notebook_sources(notebook_id, revision, resource_id);
-
-            CREATE TABLE IF NOT EXISTS notebook_chunks (
-                notebook_id TEXT NOT NULL,
-                revision INTEGER NOT NULL,
-                chunk_id TEXT NOT NULL,
-                source_id TEXT NOT NULL,
-                resource_id TEXT NOT NULL,
-                ordinal INTEGER NOT NULL,
-                text TEXT NOT NULL,
-                locator_json TEXT NOT NULL,
-                citation_href TEXT NOT NULL,
-                vector_json TEXT NOT NULL,
-                PRIMARY KEY(notebook_id, revision, chunk_id),
-                FOREIGN KEY(notebook_id, revision, source_id)
-                    REFERENCES notebook_sources(notebook_id, revision, source_id)
-                    ON DELETE CASCADE
-            );
-            CREATE INDEX IF NOT EXISTS idx_notebook_chunks_source
-                ON notebook_chunks(notebook_id, revision, source_id, ordinal);
-
-            CREATE VIRTUAL TABLE IF NOT EXISTS notebook_chunks_fts USING fts5(
-                notebook_id UNINDEXED,
-                revision UNINDEXED,
-                chunk_id UNINDEXED,
-                text,
-                tokenize='unicode61 remove_diacritics 2'
-            );
-
-            CREATE TABLE IF NOT EXISTS notebook_analyses (
-                notebook_id TEXT NOT NULL REFERENCES notebooks(id) ON DELETE CASCADE,
-                analysis_id TEXT NOT NULL,
-                revision INTEGER NOT NULL,
-                owner_user_id TEXT NOT NULL,
-                request TEXT NOT NULL,
-                state TEXT NOT NULL,
-                result TEXT,
-                error TEXT,
-                job_id TEXT,
-                source_ids_json TEXT NOT NULL DEFAULT 'null',
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL,
-                PRIMARY KEY(notebook_id, analysis_id)
-            );
-
-            CREATE TABLE IF NOT EXISTS notebook_conversation_principals (
-                notebook_id TEXT NOT NULL REFERENCES notebooks(id) ON DELETE CASCADE,
-                principal_id TEXT NOT NULL,
-                session_id TEXT NOT NULL,
-                user_id TEXT NOT NULL,
-                conversation_mode TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                PRIMARY KEY(notebook_id, principal_id, session_id)
-            );
-
-            CREATE TABLE IF NOT EXISTS notebook_revision_pins (
-                notebook_id TEXT NOT NULL,
-                revision INTEGER NOT NULL,
-                pin_type TEXT NOT NULL,
-                pin_id TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                PRIMARY KEY(notebook_id, revision, pin_type, pin_id),
-                FOREIGN KEY(notebook_id, revision)
-                    REFERENCES notebook_revisions(notebook_id, revision)
-                    ON DELETE CASCADE
-            );
-            """
-        )
-        resource_columns = {
-            str(row[1])
-            for row in connection.execute("PRAGMA table_info(notebook_resources)")
-        }
-        if "url_validators_json" not in resource_columns:
-            connection.execute(
-                "ALTER TABLE notebook_resources ADD COLUMN "
-                "url_validators_json TEXT NOT NULL DEFAULT '{}'"
-            )
-        analysis_columns = {
-            str(row[1])
-            for row in connection.execute("PRAGMA table_info(notebook_analyses)")
-        }
-        if "source_ids_json" not in analysis_columns:
-            connection.execute(
-                "ALTER TABLE notebook_analyses ADD COLUMN "
-                "source_ids_json TEXT NOT NULL DEFAULT 'null'"
-            )
-        if "url_checked_at" not in resource_columns:
-            connection.execute(
-                "ALTER TABLE notebook_resources ADD COLUMN url_checked_at TEXT"
-            )
-        if "last_checked_at" not in resource_columns:
-            connection.execute(
-                "ALTER TABLE notebook_resources ADD COLUMN last_checked_at TEXT"
-            )
-        revision_columns = {
-            str(row[1])
-            for row in connection.execute("PRAGMA table_info(notebook_revisions)")
-        }
-        notebook_columns = {
-            str(row[1])
-            for row in connection.execute("PRAGMA table_info(notebooks)")
-        }
-        if "groups_json" not in notebook_columns:
-            connection.execute(
-                "ALTER TABLE notebooks ADD COLUMN groups_json TEXT NOT NULL DEFAULT '[]'"
-            )
-        for column, declaration in (
-            ("current_resource_id", "TEXT"),
-            ("current_resource_title", "TEXT"),
-            ("cancel_requested_at", "TEXT"),
-            ("retention_eligible", "INTEGER NOT NULL DEFAULT 0"),
-        ):
-            if column not in revision_columns:
-                connection.execute(
-                    f"ALTER TABLE notebook_revisions ADD COLUMN {column} {declaration}"
-                )
-        connection.commit()
 
 
 def _row_dict(row: Optional[sqlite3.Row]) -> Optional[dict[str, Any]]:

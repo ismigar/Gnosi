@@ -113,8 +113,6 @@ Total: **228 mòduls** i **Línies font de 91530**.
 | Mòdul | Línies | Classes | Funcions | Async | Declaracions documentades | Senyal de preposa |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | [backend/__init__.pypypypypyypythy](https://github.com/ismigar/Gnosi/blob/main/backend/__init__.py) | 0 | 0 | 0 | 0 | 0 | Sense documentació de mòduls |
-| [backend/migren_Atribucions.](https://github.com/ismigar/Gnosi/blob/main/backend/migrate_memberships.py) | 30 | 0 | 0 | 0 | 0 | No s' ha pogut analitzar la sintaxi |
-| [backend/migren_Partides_final.pypypypyonthailand. kgm](https://github.com/ismigar/Gnosi/blob/main/backend/migrate_memberships_final.py) | 30 | 0 | 0 | 0 | 0 | No s' ha pogut analitzar la sintaxi |
 | [backend/patch_fonts.pypypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/patch_sources.py) | 36 | 0 | 1 | 0 | 0 | Sense documentació de mòduls |
 | [backend/scrad_Sincronització.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/scratch_sync.py) | 30 | 0 | 1 | 0 | 0 | Sense documentació de mòduls |
 | [backend/server.pypypypypypy](https://github.com/ismigar/Gnosi/blob/main/backend/server.py) | 501 | 0 | 5 | 4 | 3 | Sense documentació de mòduls |
