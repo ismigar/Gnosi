@@ -1,7 +1,8 @@
 ---
 status: implemented
-last_verified: 2026-08-17
+last_verified: 2026-08-28
 source_paths:
+  - backend/domains/configuration/llm_wiki.py
   - backend/agent
   - backend/api/agent_routes.py
   - backend/api/agent_skills_routes.py
@@ -21,6 +22,7 @@ source_paths:
   - frontend/src/components/AgentChat.jsx
   - frontend/src/components/AI
 tests:
+  - backend/tests/test_llm_wiki_configuration_domain_contract.py
   - backend/tests/test_agent_turn_contract.py
   - backend/tests/test_agent_chat_safety.py
   - backend/tests/test_agent_context_sources.py
@@ -147,6 +149,14 @@ Les mesures de tours comprennent une estimation USD basée sur le catalogue du f
 Le corpus déterministe en vertu de l'article `backend/agent/evals/` couvre tous les modes de requête, les quatre langues d'interface utilisateur, le confinement de domaine, le traitement local et à distance privé, les actions régies et l'admission durable du lecteur. Il fonctionne avant la suite de test backend sur les requêtes de tirage correspondant et tous les jours; tout cas échoué sort non zéro sans appeler un fournisseur ou passer des jetons.
 
 Les erreurs de production et les commentaires des pouces assistants alimentent une boucle de qualité locale et authentifiée. `POST /api/chat/feedback` Les erreurs de flux sont enregistrées par le serveur avec des codes stables. Le magasin local SQLite conserve les identités de virage/session/agent haché, les champs de plan et de vérification, les noms d'outils et les seaux de timing; il n'a pas d'invite, de réponse, de source, de titre, de chemin, d'URL, d'extrait, d'annexe ou de colonnes de charge d'outils brutes. `/api/ai/evals/candidates*`. Les affaires locales acceptées restent séparées du corpus de CI versionné jusqu'à ce qu'un responsable les encourage délibérément.
+
+## Configuration LLM Wiki
+
+`backend/domains/configuration/llm_wiki.py` valide la table Brain, les sources,
+les dimensions catégorielles, les champs fichier/URL, les valeurs fixes et les
+relations avant toute mutation du schéma. Il crée ensuite les rôles et relations
+canoniques, revalide les champs d'index, enregistre atomiquement et actualise les
+pages système.
 
 ## Invariants de défaillance et de sécurité
 

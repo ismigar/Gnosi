@@ -1,7 +1,8 @@
 ---
 status: implemented
-last_verified: 2026-08-21
+last_verified: 2026-08-28
 source_paths:
+  - backend/domains/configuration/llm_wiki.py
   - backend/agent
   - backend/api/agent_routes.py
   - backend/api/agent_skills_routes.py
@@ -26,6 +27,7 @@ source_paths:
   - frontend/src/components/AgentChat.jsx
   - frontend/src/components/AI
 tests:
+  - backend/tests/test_llm_wiki_configuration_domain_contract.py
   - backend/tests/test_agent_turn_contract.py
   - backend/tests/test_agent_chat_safety.py
   - backend/tests/test_agent_context_sources.py
@@ -429,6 +431,14 @@ Version 2 fails closed unless timeout, idempotency, privacy, egress, and durable
 result behavior are valid. Legacy version 1 tools and skills remain visible as
 legacy or partial in Settings while they migrate; conformance metadata never
 makes a handler executable.
+
+## LLM Wiki configuration
+
+`backend/domains/configuration/llm_wiki.py` validates the Brain table, source
+tables, categorical dimensions, file/URL fields, fixed values and relation
+targets before any schema mutation. It then provisions the canonical roles and
+source relations, revalidates eligible index fields, persists atomically and
+refreshes the system pages through late-bound facade ports.
 
 ## Failure and safety invariants
 

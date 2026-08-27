@@ -1,7 +1,8 @@
 ---
 status: implemented
-last_verified: 2026-08-14
+last_verified: 2026-08-28
 source_paths:
+  - backend/domains/configuration/llm_wiki.py
   - backend/agent
   - backend/api/agent_routes.py
   - backend/api/agent_skills_routes.py
@@ -10,6 +11,7 @@ source_paths:
   - frontend/src/components/AgentChat.jsx
   - frontend/src/components/AI
 tests:
+  - backend/tests/test_llm_wiki_configuration_domain_contract.py
   - backend/tests/test_agent_chat_safety.py
   - backend/tests/test_agent_skill_runtime.py
   - backend/tests/test_generated_tool_validator.py
@@ -97,6 +99,13 @@ de context, el cost i la qualitat existents. Els canvis de proveïdor o model
 invaliden els grafs en memòria perquè el suport d'eines i les credencials siguin
 efectius al torn següent. La capçalera del xat mostra el model seleccionat, el
 nombre exacte d'eines i motius accionables per a qualsevol degradació.
+
+## Configuració del LLM Wiki
+
+`backend/domains/configuration/llm_wiki.py` valida la taula Brain, les fonts,
+les dimensions categòriques, els camps de fitxer/URL, els valors fixos i les
+relacions abans de mutar l'esquema. Després crea els rols i relacions canònics,
+revalida els camps d'índex, desa atòmicament i actualitza les pàgines del sistema.
 
 ## Ha fallat i seguretat envaris
 

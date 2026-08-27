@@ -1,7 +1,8 @@
 ---
 status: implemented
-last_verified: 2026-08-14
+last_verified: 2026-08-28
 source_paths:
+  - backend/domains/configuration/llm_wiki.py
   - backend/agent
   - backend/api/agent_routes.py
   - backend/api/agent_skills_routes.py
@@ -10,6 +11,7 @@ source_paths:
   - frontend/src/components/AgentChat.jsx
   - frontend/src/components/AI
 tests:
+  - backend/tests/test_llm_wiki_configuration_domain_contract.py
   - backend/tests/test_agent_chat_safety.py
   - backend/tests/test_agent_skill_runtime.py
   - backend/tests/test_generated_tool_validator.py
@@ -99,6 +101,14 @@ o modelo invalidan los grafos en memoria para que el soporte de herramientas y
 las credenciales surtan efecto en el turno siguiente. La cabecera del chat
 muestra el modelo seleccionado, el número exacto de herramientas y motivos
 accionables para cualquier degradación.
+
+## Configuración de LLM Wiki
+
+`backend/domains/configuration/llm_wiki.py` valida la tabla Brain, las fuentes,
+las dimensiones categóricas, los campos de archivo/URL, los valores fijos y las
+relaciones antes de modificar el esquema. Después crea roles y relaciones
+canónicos, revalida los campos de índice, guarda atómicamente y actualiza las
+páginas del sistema.
 
 ## Fallo y invariantes de seguridad
 

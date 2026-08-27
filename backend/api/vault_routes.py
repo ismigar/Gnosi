@@ -3282,6 +3282,7 @@ _COMMENTS_DEPENDENCIES = comments_api.CommentDependencies(
 # ---------------------------------------------------------------------------
 # Plugin configuration domain composition.
 # ---------------------------------------------------------------------------
+from backend.domains.configuration import llm_wiki as llm_wiki_configuration
 from backend.domains.configuration import plugin_state
 from backend.domains.configuration.api import plugin_lifecycle
 from backend.domains.configuration.api import plugin_models
@@ -5243,181 +5244,30 @@ async def get_llm_wiki_config():
     return await asyncio.to_thread(_llm_wiki_config_response, cfg)
 
 
+_LLM_WIKI_CONFIG_DEPENDENCIES = llm_wiki_configuration.LlmWikiConfigDependencies(
+    table_by_id=lambda table_id: _table_by_id(table_id),
+    infer_brain_roles=lambda table: _infer_brain_roles(table),
+    property_options=lambda prop: _llm_wiki_property_options(prop),
+    ensure_default_db_group=lambda: _ensure_default_db_group(),
+    ensure_brain_schema=lambda table_id, locale: ensure_brain_table_schema(
+        table_id,
+        locale,
+    ),
+    ensure_source_relation=lambda brain_id, source_id, locale: (
+        ensure_brain_source_relation(brain_id, source_id, locale)
+    ),
+    config_response=lambda config: _llm_wiki_config_response(config),
+    source_contract_revision=BRAIN_SOURCE_CONTRACT_REVISION,
+)
+
+
 @router.put("/llm-wiki/config", dependencies=[Depends(require_role("editor"))])
 async def put_llm_wiki_config(payload: dict = Body(...)):
     """Validate and atomically save Brain, sources, roles, and index fields."""
-    from backend.services import llm_wiki_config, llm_wiki_indices
-
-    normalized = llm_wiki_config.normalize_config(payload)
-    brain_id = str(normalized.get("brain_table_id") or "")
-    if not brain_id or not _table_by_id(brain_id):
-        raise HTTPException(status_code=400, detail="A valid Brain table is required")
-    if not normalized.get("source_tables"):
-        raise HTTPException(status_code=400, detail="At least one source table is required")
-    for source in normalized["source_tables"]:
-        source_id = str(source.get("table_id") or "")
-        if source_id == brain_id:
-            raise HTTPException(status_code=400, detail="The Brain table cannot also be a source table")
-        if not _table_by_id(source_id):
-            raise HTTPException(status_code=404, detail=f"Source table {source_id} was not found")
-
-    brain = _table_by_id(brain_id) or {}
-    requested_index_ids = list(normalized.get("index_field_ids") or [])
-    brain_properties = {
-        str(prop.get("id") or ""): prop
-        for prop in brain.get("properties") or []
-        if isinstance(prop, dict) and prop.get("id")
-    }
-    preliminary_roles = _infer_brain_roles(brain)
-    configured_source_ids = {
-        str(source.get("table_id") or "")
-        for source in normalized["source_tables"]
-    }
-    existing_source_relation_ids = {
-        str(prop.get("id") or "")
-        for prop in brain.get("properties") or []
-        if prop.get("type") == "relation"
-        and str(prop.get("relation_database_id") or "") in configured_source_ids
-    }
-    eligible_ids_before_mutation = {
-        str(prop.get("id"))
-        for prop in llm_wiki_config.eligible_index_properties(
-            brain,
-            excluded_ids=existing_source_relation_ids | {
-                str(preliminary_roles.get("note_type") or ""),
-            },
-        )
-    }
-    invalid_index_ids = [
-        field_id for field_id in requested_index_ids
-        if field_id not in eligible_ids_before_mutation
-    ]
-    if invalid_index_ids:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Non-categorical or reserved index fields: {', '.join(invalid_index_ids)}",
-        )
-
-    prepared_sources = []
-    for source in normalized["source_tables"]:
-        source_id = str(source["table_id"])
-        source_table = _table_by_id(source_id) or {}
-        source_properties = {
-            str(prop.get("id") or ""): prop
-            for prop in source_table.get("properties") or []
-            if isinstance(prop, dict) and prop.get("id")
-        }
-        prepared = llm_wiki_config.auto_detect_source(
-            source_table,
-            brain,
-            requested_index_ids,
-            source,
-        )
-        scalar_ids = [
-            str(prepared.get("title_property_id") or ""),
-            str(prepared.get("language_property_id") or ""),
-        ]
-        if any(field_id and field_id not in source_properties for field_id in scalar_ids):
-            raise HTTPException(status_code=400, detail=f"Invalid source field in table {source_id}")
-        invalid_file_ids = [
-            field_id for field_id in prepared.get("attachment_property_ids") or []
-            if str((source_properties.get(field_id) or {}).get("type") or "").lower()
-            not in llm_wiki_config.FILE_TYPES
-        ]
-        invalid_url_ids = [
-            field_id for field_id in prepared.get("url_property_ids") or []
-            if str((source_properties.get(field_id) or {}).get("type") or "").lower()
-            not in llm_wiki_config.URL_TYPES | {"text", "rich_text"}
-        ]
-        if invalid_file_ids or invalid_url_ids:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid attachment or URL field type in table {source_id}",
-            )
-        for field_id in requested_index_ids:
-            mapping = (prepared.get("dimension_mappings") or {}).get(field_id) or {"mode": "ai"}
-            mode = str(mapping.get("mode") or "ai")
-            brain_prop = brain_properties[field_id]
-            if mode == "source":
-                source_prop = source_properties.get(str(mapping.get("source_property_id") or ""))
-                if not source_prop or not llm_wiki_config._compatible_dimension_types(
-                    str(source_prop.get("type") or ""),
-                    str(brain_prop.get("type") or ""),
-                ):
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Incompatible categorical mapping for {field_id} in table {source_id}",
-                    )
-                if (
-                    source_prop.get("type") == "relation"
-                    and str(source_prop.get("relation_database_id") or "")
-                    != str(brain_prop.get("relation_database_id") or "")
-                ):
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Relation mapping for {field_id} points to a different table",
-                    )
-            elif mode == "fixed":
-                options = _llm_wiki_property_options(brain_prop)
-                canonical = {
-                    str(item["label"]).strip().casefold(): item["value"]
-                    for item in options
-                }
-                raw_values = mapping.get("fixed_value")
-                raw_values = raw_values if isinstance(raw_values, list) else [raw_values]
-                values = [
-                    canonical.get(str(value or "").strip().casefold())
-                    for value in raw_values
-                    if str(value or "").strip()
-                ]
-                if not values or any(value is None for value in values):
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Fixed value for {field_id} must already exist in the Brain field",
-                    )
-                mapping["fixed_value"] = (
-                    values
-                    if str(brain_prop.get("type") or "") in {"multi_select", "relation"}
-                    else values[0]
-                )
-        prepared_sources.append(prepared)
-
-    _ensure_default_db_group()
-    ensure_brain_table_schema(brain_id, normalized.get("ui_locale") or "en")
-    brain = _table_by_id(brain_id)
-    normalized["brain_roles"] = _infer_brain_roles(brain)
-
-    relation_ids = set()
-    for source in prepared_sources:
-        source_id = str(source["table_id"])
-        source["relation_property_id"] = ensure_brain_source_relation(
-            brain_id,
-            source_id,
-            normalized.get("ui_locale") or "en",
-        )
-        relation_ids.add(source["relation_property_id"])
-    normalized["source_tables"] = prepared_sources
-    brain = _table_by_id(brain_id)
-    note_type_id = str(normalized["brain_roles"].get("note_type") or "")
-    eligible_ids = {
-        str(prop.get("id"))
-        for prop in llm_wiki_config.eligible_index_properties(
-            brain,
-            excluded_ids=relation_ids | {note_type_id},
-        )
-    }
-    invalid_index_ids = [field_id for field_id in requested_index_ids if field_id not in eligible_ids]
-    if invalid_index_ids:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Non-categorical or reserved index fields: {', '.join(invalid_index_ids)}",
-        )
-    normalized["index_field_ids"] = requested_index_ids
-    normalized["source_contract_revision"] = BRAIN_SOURCE_CONTRACT_REVISION
-    normalized["configured"] = True
-    saved = await asyncio.to_thread(llm_wiki_config.set_full_config, normalized)
-    await asyncio.to_thread(llm_wiki_indices.ensure_system_pages, brain_id, saved)
-    return await asyncio.to_thread(_llm_wiki_config_response, saved)
+    return await llm_wiki_configuration.put_config(
+        payload,
+        _LLM_WIKI_CONFIG_DEPENDENCIES,
+    )
 
 
 @router.post("/llm-wiki/brain/create", dependencies=[Depends(require_role("editor"))])
