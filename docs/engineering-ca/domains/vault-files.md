@@ -1,12 +1,15 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-27
 source_paths:
   - backend/api/vault_routes.py
   - backend/api/vaults_routes.py
+  - backend/domains/vault
   - backend/services/graph_service.py
   - backend/services/page_sidecar.py
   - backend/services/files_provider
+  - backend/services/vault_templates.py
+  - backend/api/vault_templates_routes.py
   - frontend/src/pages/VaultDashboard.jsx
   - frontend/src/components/Vault
 tests:
@@ -27,7 +30,7 @@ Els mapes de domini Vulta portàtils Markdown i actius a les pàgines, carpetes,
 ```mermaid
 sequenceDiagram
     participant UI as Vault UI or editor
-    participant R as vault_routes
+    participant R as Vault domain API
     participant C as Vault context
     participant F as File provider
     participant I as Page and link indexes
@@ -44,6 +47,12 @@ sequenceDiagram
 
 La identitat de pàgina està separada del títol i del camí. La matèria frontal està normalitzada en la recerca d' escriptura mentre que les claus de l' usuari- author són preservades. L' estat intern només pertany a `.gnosi` Els llocs secundaris quan l'exposassin al tema d'entrada contaminarien o contaminarien contingut portàtil.
 
+## Límit del dorsal
+
+La pàgina llegeix i escriu vistes prèvies, duplicació, història i escombraries s' accepten sota `backend/domains/vault`. Aquest paquet separa esquemes de sol· licitud estrictes, adaptadors de ruta, serveis d' aplicació, repositoris i el únic propietari de les cau de pàgines i panys. El nou comportament Vult pertany al límit de domini.
+
+`backend/api/vault_routes.py` Encara hi ha una compatibilitat temporal i una constant façana mentre la resta de l' encaminador antic es divideix. Injecta operacions de plataforma existents i re- ports implementats en Python, però no és propietari dels gestors de pàgines extrets. La migració preserva les rutes HTTP, codis d' estat, dependències de fons, comentaris i el document OpenAPI determinant. Cada extracció ha de reduir les subsidis del codi de la interqual· lació de la safata de la safata d' interès; mai pot afegir una nova excepció per al codi sota `backend/domains`.
+
 ## Índexs i registres
 
 L' índex de pàgina accelera el llistat, resolució d' identificador, accés frontal- minatter i cerca. La resolució d' índex del wikilink resol els enllaços que s' enganxen per tal que la pàgina reanomena referències. Els cossos i els registres analitzats no es repeteixen. Cada cau es deriva i ha de tolerar una refució freda.
@@ -52,9 +61,11 @@ Primer s' inicia un carrega les instantànies de disc vàlides, després començ
 
 ## Proveïdors de fitxers
 
-L' abstracció del proveïdor selecciona el local, OneDritiu, iCloud Drive, Google Drive, o el comportament de la consciència de Nextclou. El codi de domini normal encara funciona amb `Path`; l' adaptador afegeix detecció de marcadors de posició, hidratació, disponibilitat i mapa de rutes.
+L' abstracció del proveïdor selecciona el proveïdor local, proveïdor de fitxers genèric, iClod Drive, Google Drive, Nextcloud, o el comportament de la caixa desplegable. El codi de domini normal encara funciona `Path`; l' adaptador afegeix detecció de marcadors de posició, hidratació, disponibilitat i mapa de rutes. Establiu `GNOSI_FILES_PROVIDER` explícitament quan la detecció de la ruta automàtica és ambigua.
 
-Operació nativa Onevariva delegar a una sessió gràfica d'usuari `open` L' acció quan l' agent de llançament no pot materialitzar un fitxer en línia. El desplegament Dockers pot usar un punt d' escalfament de la màquina perquè el recipient llegeix el límit creuat d' un altre.
+El temps d' execució dels fitxers i d' execució és proveïdor de proveïdor. Google Drive, iCold i Nextcloud no hereta només el comportament de recuperació d' Onevariva; `OneDriveProvider` Pot reiniciar el client OneDive després d' un fracàs de hidratació. Els proveïdors natius de macOS usen una sessió gràfica `open` Per omissió, els desplegaments Dockers poden usar un auxiliar de remot configurat perquè el recipient llegeix la creu d' un altre límit.
+
+Les rutes del proveïdor de fitxers de sortida de caixa són detectades explícitament. Un servei desconegut sota el " macOS " `~/Library/CloudStorage` Usa l' efecte secundari lliure `fileprovider` adaptador; qualsevol carpeta completa sincronitzada o muntada utilitza `local`Un nou adaptador de noms només cal per a un senyal de posició diferent o un mecanisme d' hidratació específic del venedor. `GNOSI_DATA_DIR` Encara és local sense importar el proveïdor de la caixa forta.
 
 ## Propietats dels adjunts i de fitxer amb valor
 
@@ -64,6 +75,14 @@ Escriu un objectiu permès sota la caixa de seguretat activa, normalitza els nom
 
 L' eliminació normal es recuperable: pàgines i actius relacionats es mouen a través del model de brossa Vulta. La freqüència és diferent i elimina contingut més metadades derivades i relacions inverses. L' eliminació del registre elimina la fila de registre lògica per omissió; l' eliminació física requereix un senyal explícit i comprovacions de contenció més fortes.
 
+## Plantilles d' anticipació
+
+El repositori de plantilles és un catàleg d' execució; els actius de paquets no es troben en el repositori d' aplicacions Git. La creació d' una plantilla verifica la signatura d' índex separada, paquet SHA- 256, signatura de l' editor, manifest, l' inventari, els límits de l' arxiu, rutes, tipus de fitxers i enllaços abans d' escriure. L' extracció es produeix en un directori d' arc de sisiging sota l' arrel de Vultes. El directori completat es mou a lloc atòmic i només s' ha registrat a la gestió de bases de dades, de manera que un fracàs no pot exposar a una Culta parcial.
+
+L' exportació està permetent la llista basada en els noms i els determinants. Exclosiona `.gnosi`, connectors, botigues de confiança, correu, paperera, historial, contingut d' entorn, enllaços, fitxers illegibles i continguts de mida. Una llista de vistes prèvies totes i excloses i explora fitxers de text lligats per a valors credents com ara credents. Cercar requereix informació explícita. Els connectors recomanats són identificadors en el codi d' executables no es mouen mai dins d' una plantilla Vault.
+
+La submissió pública està separada d' exportació i requereix accés d' administrador. Usa un moderació opcional en comptes d' un " gtHub credential encastat en el Gnosi.
+
 ## Conculència envaris
 
 - Modifica els sobreescriure de Stale ETag Type
@@ -72,6 +91,8 @@ L' eliminació normal es recuperable: pàgines i actius relacionats es mouen a t
 Un nom o supressió.
 - S' han rebut camins absoluts d' un client sota arrels aprovades.
 - Els enllaços de Symlinks i el camí del traversal no poden escapar del límit de la volta seleccionada.
+- L' extracció de la plantilla no pot publicar un directori parcial o registrar- lo aviat.
+- Els exportaciós de la plantilla no poden incloure el contingut de l' estat d' execució o de l' executable del connector.
 - Marca els viatges rodó conservant contingut sensible a l'escapament i la sintaxi wikilink.
 
 ## Frontal

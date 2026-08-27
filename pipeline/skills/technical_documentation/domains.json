@@ -19,6 +19,7 @@
     "guide": "docs/engineering/domains/vault-files.md",
     "source_globs": [
       "backend/api/vault*.py",
+      "backend/domains/vault/**/*.py",
       "backend/services/**/*vault*.py",
       "backend/services/files_provider/*.py",
       "frontend/src/pages/Vault*.jsx",

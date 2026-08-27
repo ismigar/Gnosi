@@ -9,7 +9,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Domain | Status | Guide | Source files | Test files | Directives found |
 | --- | --- | --- | ---: | ---: | ---: |
 | `foundation-runtime` | **covered** | [`Platform foundation and runtime`](../domains/foundation-runtime.md) | 15 | 5 | 0 |
-| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 188 | 13 | 0 |
+| `vault-files` | **covered** | [`Vault and files`](../domains/vault-files.md) | 208 | 16 | 0 |
 | `database-views-planning` | **covered** | [`Database views and project planning`](../domains/database-views-planning.md) | 17 | 10 | 0 |
 | `knowledge-graph` | **covered** | [`Knowledge graph`](../domains/knowledge-graph.md) | 10 | 12 | 0 |
 | `reader-references` | **covered** | [`Reader, references, and citations`](../domains/reader-references.md) | 16 | 10 | 0 |
@@ -33,7 +33,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 ## Vault and files
 
 - Guide: [`Vault and files`](../domains/vault-files.md)
-- Source patterns: `backend/api/vault*.py`, `backend/services/**/*vault*.py`, `backend/services/files_provider/*.py`, `frontend/src/pages/Vault*.jsx`, `frontend/src/components/Vault/**/*`
+- Source patterns: `backend/api/vault*.py`, `backend/domains/vault/**/*.py`, `backend/services/**/*vault*.py`, `backend/services/files_provider/*.py`, `frontend/src/pages/Vault*.jsx`, `frontend/src/components/Vault/**/*`
 - Test patterns: `backend/tests/test_vault*.py`, `tests/e2e/tests/e2e/vault*.spec.ts`
 - Directives: none found
 

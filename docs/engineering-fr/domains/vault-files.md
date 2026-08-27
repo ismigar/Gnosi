@@ -1,9 +1,10 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-27
 source_paths:
   - backend/api/vault_routes.py
   - backend/api/vaults_routes.py
+  - backend/domains/vault
   - backend/services/graph_service.py
   - backend/services/page_sidecar.py
   - backend/services/files_provider
@@ -29,7 +30,7 @@ Le domaine de Vault cartographie le marquage portable et les actifs sur les page
 ```mermaid
 sequenceDiagram
     participant UI as Vault UI or editor
-    participant R as vault_routes
+    participant R as Vault domain API
     participant C as Vault context
     participant F as File provider
     participant I as Page and link indexes
@@ -46,6 +47,12 @@ sequenceDiagram
 
 L'identité de la page est séparée du titre et du chemin. La matière avant est normalisée aux limites de l'écriture tandis que les clés autorisées par l'utilisateur sont préservées. `.gnosi` les sidecars lorsqu'ils le déposent devant la matière pollueraient ou déstabiliseraient le contenu portable.
 
+## Limites de l'arrière-pays
+
+Page lit et écrit, prévisualise, duplication, historique, et les déchets sont implémentés sous `backend/domains/vault`. Ce paquet sépare les schémas de requête stricts, les adaptateurs de route, les services d'application, les dépôts, et le propriétaire unique des caches et verrous de page. Le nouveau comportement de Vault appartient à cette limite de domaine.
+
+`backend/api/vault_routes.py` Il injecte les opérations de plate-forme existantes et les réexportations supportées par les symboles Python, mais il ne possède pas les gestionnaires de pages extraits. La migration préserve les chemins HTTP, les codes d'état, les charges utiles, les dépendances, les rappels d'arrière-plan et le document déterministe OpenAPI. Chaque extraction doit réduire l'allocation de garde-fonte de la façade; il ne peut jamais ajouter une nouvelle exception pour le code sous `backend/domains`.
+
 ## Index et caches
 
 L'index de page accélère la liste, la résolution d'identification, l'accès au front-mate et la recherche. L'index wikilink résout les liens entrants afin que les renoms de page puissent mettre à jour les références. Les caches de corps et de documents analysés évitent les lectures répétées. Chaque cache est dérivée et doit tolérer une reconstruction froide.
@@ -54,9 +61,11 @@ Démarrer charge d'abord des instantanés de disque valides, puis démarre le tr
 
 ## Fournisseurs de fichiers
 
-L'abstraction du fournisseur sélectionne le comportement local, OneDrive, iCloud Drive, Google Drive ou Nextcloud-aware. `Path`; l'adaptateur ajoute la détection de marqueur de place, l'hydratation, la disponibilité et la cartographie de chemin.
+L'abstraction du fournisseur sélectionne le comportement local, générique de macOS File Provider, OneDrive, iCloud Drive, Google Drive, Nextcloud ou Dropbox-aware. `Path`; l'adaptateur ajoute la détection, l'hydratation, la disponibilité et la cartographie des chemins. `GNOSI_FILES_PROVIDER` explicitement lorsque la détection automatique du chemin est ambiguë.
 
-Opération Native OneDrive déléguée hydratation à une session GUI `open` Les déploiements de Docker peuvent utiliser un paramètre d'échauffement de l'hôte parce que le conteneur lit traverser une autre limite.
+Le temps d'exécution des fichiers sur demande est neutre pour le fournisseur. Google Drive, iCloud et Nextcloud n'héritent pas du comportement de récupération OneDrive; seulement `OneDriveProvider` peut redémarrer le client OneDrive après une défaillance d'hydratation limitée. Les fournisseurs macOS natifs utilisent une session GUI `open` Les déploiements Docker peuvent utiliser un helper d'hôte configuré parce que le conteneur lit traverser une autre limite.
+
+Les chemins du fournisseur de fichiers Dropbox sont détectés explicitement. Un service inconnu sous macOS `~/Library/CloudStorage` utilise le produit sans effet secondaire `fileprovider` adaptateur; tout dossier entièrement synchronisé ou monté ordinaire utilise `local`. Un nouvel adaptateur nommé n'est nécessaire que pour un signal différent de marqueur de place ou un mécanisme d'hydratation spécifique au fournisseur. `GNOSI_DATA_DIR` reste local, indépendamment du fournisseur de coffre.
 
 ## Pièces jointes et propriétés évaluées par fichier
 

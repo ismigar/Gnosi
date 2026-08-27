@@ -101,6 +101,7 @@ import platform
 from PyInstaller.utils.hooks import collect_submodules
 
 backend_dir = os.environ['BACKEND_DIR']
+repository_dir = os.path.dirname(backend_dir)
 system = platform.system().lower()
 
 hiddenimports = [
@@ -131,7 +132,10 @@ block_cipher = None
 
 a = Analysis(
     ['{backend_dir}/server.py'],
-    pathex=['{backend_dir}'],
+    # Import ``backend`` from the repository root. Adding backend/ itself here
+    # makes backend/platform shadow Python's standard-library ``platform``
+    # module inside the frozen executable.
+    pathex=['{repository_dir}'],
     binaries=[],
     datas=[
         ('{backend_dir}', 'backend'),
