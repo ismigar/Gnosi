@@ -51,6 +51,10 @@ automáticamente la primera tabla con Citation Key, bajo el mismo bloqueo que Aj
 
 Translation-server es un sidecar opcional. La operación nativa puede ejecutarse sin ella; los solucionadores específicos de identificador y las referencias existentes continúan funcionando. Los fallos de traducción web devuelven errores procesables en lugar de un registro vacío exitoso.
 
+`citations/pdf_fallback.py` deriva un registro citable de los metadatos PDF cuando
+falla la resolución de identificadores. `citations/web_capture.py` selecciona y
+mapea resultados Zotero, y `platform/translation_server.py` gestiona el transporte HTTP.
+
 ## Descubrimiento académico federal
 
 El complemento de recursos incorporado posee configuración de repositorio mientras `/api/vault/reference-table` sigue siendo la única fuente de verdad para la tabla de recursos objetivo. `/literature` ejecuta cada conector seleccionado de forma independiente y emite resultados parciales; una cuota o fallo del proveedor se adjunta a esa fuente sin descartar resultados saludables.

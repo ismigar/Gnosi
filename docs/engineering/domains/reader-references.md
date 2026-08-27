@@ -59,6 +59,10 @@ identifier-specific resolvers and existing references continue to work. Web
 translation failures return actionable errors rather than an empty successful
 record.
 
+`citations/pdf_fallback.py` derives a citable record from embedded PDF metadata
+when identifier resolution fails. `citations/web_capture.py` owns Zotero result
+selection and mapping, while `platform/translation_server.py` owns HTTP transport.
+
 ## Federated academic discovery
 
 The built-in Resources plugin owns repository configuration while

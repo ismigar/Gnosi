@@ -36,6 +36,10 @@ table dotée d'une Citation Key, sous le même verrou que les réglages.
 
 Le serveur de traduction est un sidecar optionnel. L'opération native peut fonctionner sans lui; les résolveurs spécifiques à l'identifiant et les références existantes continuent de fonctionner. Les erreurs de traduction Web retournent des erreurs résiliables plutôt qu'un enregistrement vidé réussi.
 
+`citations/pdf_fallback.py` dérive une référence citable des métadonnées PDF
+lorsque la résolution échoue. `citations/web_capture.py` sélectionne et mappe les
+résultats Zotero, tandis que `platform/translation_server.py` gère le transport HTTP.
+
 ## Parcours de citation
 
 ```mermaid

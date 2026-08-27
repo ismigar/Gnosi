@@ -99,6 +99,7 @@ from backend.services.relation_links import _decorate_item as _decorate_relation
 from backend.services.workspace_service import get_workspace_context, WorkspaceContext
 from backend.services.media_service import media_service
 from backend.platform.files import get_files_provider
+from backend.platform import translation_server as translation_server_transport
 from backend.api.virtual_fields import (
     inject_for_table as _vf_inject_for_table,
     inject_for_single_page as _vf_inject_for_single_page,
@@ -547,9 +548,11 @@ from backend.domains.vault.citations import io_api as citation_io_api
 from backend.domains.vault.citations import keys as citation_keys
 from backend.domains.vault.citations import keys_api as citation_keys_api
 from backend.domains.vault.citations import metadata_lookup
+from backend.domains.vault.citations import pdf_fallback as citation_pdf_fallback
 from backend.domains.vault.citations import reference_configuration
 from backend.domains.vault.citations import references_api as citation_references_api
 from backend.domains.vault.citations import search as citation_search
+from backend.domains.vault.citations import web_capture as citation_web_capture
 from backend.domains.vault.citations.references_api import (
     REFERENCE_SCHEMA as _REFERENCE_SCHEMA,
 )
@@ -5684,37 +5687,19 @@ def _pdf_fallback_to_recursos(data: bytes, filename: str, ids: Optional[dict] = 
     the record so it is not lost when the online source is unreachable. Returns
     `{}` when not even a title can be derived.
     """
-    meta = _pdf_embedded_metadata(data)
-    title = meta.get('title') or _title_from_filename(filename)
-    if not title:
-        return {}
-    item: dict = {'itemType': 'document', 'title': title}
-    if (ids or {}).get('doi'):
-        item['DOI'] = ids['doi']
-    if (ids or {}).get('arxiv'):
-        # No native Zotero field for the arXiv id; the canonical abstract URL
-        # keeps the pointer to the source without inventing a column.
-        item['url'] = f"https://arxiv.org/abs/{ids['arxiv']}"
-    author = meta.get('author')
-    if author:
-        # Normalize common multi-author separators to ';' so the shared parser
-        # (which only splits on ';') can pick out individual authors.
-        normalized = re.sub(r'\s+and\s+|\s*&\s*|[\r\n]+', '; ', author, flags=re.IGNORECASE)
-        creators = []
-        for a in _parse_authors_to_csl(normalized):
-            c = {'creatorType': 'author'}
-            if a.get('family'):
-                c['lastName'] = a['family']
-            if a.get('given'):
-                c['firstName'] = a['given']
-            if c.get('lastName') or c.get('firstName'):
-                creators.append(c)
-        if creators:
-            item['creators'] = creators
-    if meta.get('year'):
-        item['date'] = meta['year']
-    from backend.services.zotero_to_recursos_mapper import zotero_item_to_recursos
-    return _inject_citation_key(zotero_item_to_recursos(item))
+    dependencies = citation_pdf_fallback.PdfFallbackDependencies(
+        embedded_metadata=lambda payload: _pdf_embedded_metadata(payload),
+        title_from_filename=lambda value: _title_from_filename(value),
+        parse_authors=lambda value: _parse_authors_to_csl(value),
+        map_zotero_item=lambda item: _zotero_item_to_recursos(item),
+        inject_citation_key=lambda metadata: _inject_citation_key(metadata),
+    )
+    return citation_pdf_fallback.pdf_fallback_metadata(
+        data,
+        filename,
+        ids,
+        dependencies,
+    )
 
 
 @router.post("/recognize-pdf", dependencies=[Depends(require_role("editor"))])
@@ -5797,62 +5782,22 @@ async def translate_url(payload: dict = Body(...)):
     { source:'web', identifier, suggested (with Citation Key), count, error }.
     
     """
-    url = (payload.get('url') or '').strip()
-    if not url.startswith(('http://', 'https://')):
-        return {'source': 'web', 'identifier': url, 'suggested': {}, 'error': 'URL no vàlida'}
-    ts = os.environ.get('TRANSLATION_SERVER_URL', 'http://translation-server:1969').rstrip('/')
-
-    def _post_web(body: str, content_type: str):
-        import urllib.request
-        import urllib.error
-        req = urllib.request.Request(
-            f'{ts}/web', data=body.encode('utf-8'),
-            headers={'Content-Type': content_type}, method='POST',
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                return resp.status, resp.read().decode('utf-8', errors='replace')
-        except urllib.error.HTTPError as e:
-            return e.code, e.read().decode('utf-8', errors='replace')
-        except (urllib.error.URLError, TimeoutError) as e:
-            log.warning(f'translation-server inaccessible: {e}')
-            return None, None
-
-    status, body = await asyncio.to_thread(_post_web, url, 'text/plain')
-    if status is None:
-        return {'source': 'web', 'identifier': url, 'suggested': {},
-                'error': "El servei de captura web (translation-server) no està disponible"}
-
-    # 300 Multiple Choices: the page contains multiple references. Select them
-    # all of them (up to 50) and resend to resolve them.
-    if status == 300 and body:
-        try:
-            data = json.loads(body)
-            sel = dict(list((data.get('items') or {}).items())[:50])
-            if sel:
-                back = json.dumps({'items': sel, 'session': data.get('session')})
-                status, body = await asyncio.to_thread(_post_web, back, 'application/json')
-        except (json.JSONDecodeError, TypeError, AttributeError):
-            pass
-
-    items = []
-    if status == 200 and body:
-        try:
-            arr = json.loads(body)
-            if isinstance(arr, list):
-                items = [_zotero_item_to_recursos(it) for it in arr if isinstance(it, dict)]
-        except json.JSONDecodeError:
-            pass
-    items = [it for it in items if it]
-    if not items:
-        return {'source': 'web', 'identifier': url, 'suggested': {},
-                'error': "Could not extract any reference from the URL"}
-
-    suggested = _normalize_suggested_item_type(_inject_citation_key(items[0]))
-    if not suggested.get('URL'):
-        suggested['URL'] = url
-    return {'source': 'web', 'identifier': url, 'suggested': suggested,
-            'count': len(items), 'error': None}
+    dependencies = citation_web_capture.WebCaptureDependencies(
+        server_url=lambda: os.environ.get(
+            "TRANSLATION_SERVER_URL",
+            "http://translation-server:1969",
+        ),
+        post_web=lambda server_url, body, content_type: translation_server_transport.post_web(
+            server_url,
+            body,
+            content_type,
+            log,
+        ),
+        map_zotero_item=lambda item: _zotero_item_to_recursos(item),
+        inject_citation_key=lambda metadata: _inject_citation_key(metadata),
+        normalize_item_type=lambda metadata: _normalize_suggested_item_type(metadata),
+    )
+    return await citation_web_capture.capture_url(payload, dependencies)
 
 
 # ---------------------------------------------------------------------------

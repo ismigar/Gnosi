@@ -11,16 +11,16 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | Group | Modules | Lines |
 | --- | ---: | ---: |
 | `agent` | 46 | 14435 |
-| `api` | 38 | 25944 |
+| `api` | 38 | 25889 |
 | `app` | 6 | 617 |
 | `application root` | 4 | 107 |
 | `config` | 9 | 992 |
 | `data` | 2 | 203 |
-| `domains` | 166 | 33937 |
+| `domains` | 168 | 34133 |
 | `mcp` | 3 | 394 |
 | `migrations` | 33 | 1949 |
 | `models` | 12 | 1221 |
-| `platform` | 10 | 1012 |
+| `platform` | 11 | 1045 |
 | `scheduler` | 2 | 1019 |
 | `scripts` | 3 | 130 |
 | `security` | 5 | 804 |
@@ -29,7 +29,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | `sync` | 1 | 1 |
 | `utils` | 4 | 444 |
 
-Total: **493 modules** and **128591 source lines**.
+Total: **496 modules** and **128765 source lines**.
 
 ## agent
 
@@ -118,7 +118,7 @@ Total: **493 modules** and **128591 source lines**.
 | [`backend/api/system_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/system_routes.py) | 673 | 4 | 14 | 9 | 13 | No module docstring |
 | [`backend/api/tools_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/tools_routes.py) | 164 | 3 | 6 | 5 | 6 | API Routes for Generated Tools Management. |
 | [`backend/api/vault_graph_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_graph_routes.py) | 25 | 0 | 1 | 1 | 1 | No module docstring |
-| [`backend/api/vault_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_routes.py) | 11243 | 8 | 517 | 111 | 316 | No module docstring |
+| [`backend/api/vault_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_routes.py) | 11188 | 8 | 517 | 111 | 316 | No module docstring |
 | [`backend/api/vault_templates_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_templates_routes.py) | 246 | 2 | 9 | 0 | 7 | Vault template catalog, creation, export, and moderated submission routes. |
 | [`backend/api/vault_views_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vault_views_routes.py) | 350 | 2 | 9 | 3 | 7 | vault_views_routes.py — API to manage per-page views. |
 | [`backend/api/vaults_routes.py`](https://github.com/ismigar/Gnosi/blob/main/backend/api/vaults_routes.py) | 280 | 2 | 10 | 0 | 9 | Vaults API (personal multi-vault mode): list, create and choose vaults. |
@@ -250,10 +250,12 @@ Total: **493 modules** and **128591 source lines**.
 | [`backend/domains/vault/citations/keys.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/keys.py) | 196 | 0 | 8 | 0 | 0 | Deterministic Better BibTeX-style citation keys. |
 | [`backend/domains/vault/citations/keys_api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/keys_api.py) | 43 | 0 | 1 | 0 | 0 | Citation-key generation HTTP adapter. |
 | [`backend/domains/vault/citations/metadata_lookup.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/metadata_lookup.py) | 211 | 2 | 9 | 6 | 3 | Read-only metadata resolution for external reference identifiers. |
+| [`backend/domains/vault/citations/pdf_fallback.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/pdf_fallback.py) | 77 | 1 | 2 | 0 | 2 | Fallback reference metadata derived from a PDF and its filename. |
 | [`backend/domains/vault/citations/reference_configuration.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/reference_configuration.py) | 105 | 1 | 5 | 0 | 2 | Canonical reference-table designation and legacy auto-adoption. |
 | [`backend/domains/vault/citations/references_api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/references_api.py) | 158 | 1 | 1 | 0 | 0 | Designated references-table HTTP composition. |
 | [`backend/domains/vault/citations/search.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/search.py) | 422 | 1 | 14 | 0 | 0 | Citation-key indexing, search and resolution routes. |
 | [`backend/domains/vault/citations/state.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/state.py) | 32 | 2 | 0 | 0 | 0 | Single owner for the per-vault citation-key index. |
+| [`backend/domains/vault/citations/web_capture.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/citations/web_capture.py) | 119 | 1 | 3 | 1 | 2 | Read-only Zotero translation-server web capture orchestration. |
 | [`backend/domains/vault/comments/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/comments/__init__.py) | 15 | 0 | 0 | 0 | 0 | Vault page and inline comment domain. |
 | [`backend/domains/vault/comments/api.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/comments/api.py) | 285 | 2 | 2 | 0 | 0 | HTTP registration for page and inline comments. |
 | [`backend/domains/vault/comments/repository.py`](https://github.com/ismigar/Gnosi/blob/main/backend/domains/vault/comments/repository.py) | 88 | 1 | 5 | 0 | 0 | Filesystem repositories for page and inline comments. |
@@ -414,6 +416,7 @@ Total: **493 modules** and **128591 source lines**.
 | [`backend/platform/files/nextcloud.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/nextcloud.py) | 107 | 1 | 0 | 0 | 1 | NextCloudProvider: vault over NextCloud Virtual Files (EXPERIMENTAL). |
 | [`backend/platform/files/on_demand.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/on_demand.py) | 429 | 1 | 3 | 0 | 4 | Provider-neutral support for vaults with files on demand. |
 | [`backend/platform/files/onedrive.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/files/onedrive.py) | 90 | 1 | 0 | 0 | 1 | OneDrive adapter for the provider-neutral files-on-demand runtime. |
+| [`backend/platform/translation_server.py`](https://github.com/ismigar/Gnosi/blob/main/backend/platform/translation_server.py) | 33 | 0 | 1 | 0 | 1 | HTTP transport adapter for the optional Zotero translation server. |
 
 ## scheduler
 

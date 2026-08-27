@@ -51,6 +51,10 @@ la primera taula amb Citation Key, sota el mateix bloqueig que Configuració.
 
 El servidor de traducció és un port opcional. L' operació nativa pot executar- se sense ell; els resoldors específics d' identificador i les referències existents continuen treballant. Els errors de traducció web retornen errors no vàlids en lloc d' un registre buit.
 
+`citations/pdf_fallback.py` deriva un registre citable de les metadades PDF quan
+falla la resolució d'identificadors. `citations/web_capture.py` selecciona i
+mapeja resultats Zotero, i `platform/translation_server.py` gestiona el transport HTTP.
+
 ## Un descobriment acadèmic Federed
 
 La configuració del repositori dels connectors de recursos integrats mentre que `/api/vault/reference-table` Encara queda l'única font de veritat per a la taula de recursos de destí. `/literature` Executa cada connector seleccionat de forma independent i els resultats parcials de fluxos; una fallada de quota o proveïdor està connectada a aquesta font sense descartar resultats sans.

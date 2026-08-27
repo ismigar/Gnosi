@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 19 | 49 |
 | Vitest | 89 | 347 |
-| pytest | 239 | 1861 |
+| pytest | 240 | 1865 |
 
 ## Files
 
@@ -329,6 +329,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_vault_page_index_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_page_index_domain_contract.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_vault_page_state_singleton.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_page_state_singleton.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_vault_pages_history_trash_route_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_pages_history_trash_route_contract.py) | 2 | Python AST |
+| pytest | [`backend/tests/test_vault_reference_capture_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_reference_capture_domain_contract.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_vault_registry_race.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_registry_race.py) | 4 | Python AST |
 | pytest | [`backend/tests/test_vault_registry_seed_guard.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_registry_seed_guard.py) | 12 | Python AST |
 | pytest | [`backend/tests/test_vault_registry_state_singleton.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_registry_state_singleton.py) | 1 | Python AST |
