@@ -115,6 +115,9 @@ Every release job also passes the Python command provisioned by
 `actions/setup-python` explicitly to the backend builder. This keeps binary
 extensions and their collected OpenSSL libraries on one interpreter ABI instead
 of allowing a newer runner-level Python to override the release environment.
+The final publication job provisions the same pinned Node.js runtime before
+rendering public release notes; self-hosted Linux runners do not guarantee a
+global `node` command.
 Each backend build creates a uniquely named virtual environment under the host
 temporary directory. Packaging attempts never reuse a repository-local virtual
 environment, because Windows can retain handles from a terminated PyInstaller
