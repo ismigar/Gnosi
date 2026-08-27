@@ -1,12 +1,15 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-27
 source_paths:
   - backend/api/vault_routes.py
   - backend/api/vaults_routes.py
+  - backend/domains/vault
   - backend/services/graph_service.py
   - backend/services/page_sidecar.py
   - backend/services/files_provider
+  - backend/services/vault_templates.py
+  - backend/api/vault_templates_routes.py
   - frontend/src/pages/VaultDashboard.jsx
   - frontend/src/components/Vault
 tests:
@@ -27,7 +30,7 @@ El dominio Vault mapea Markdown portátil y activos a páginas, carpetas, archiv
 ```mermaid
 sequenceDiagram
     participant UI as Vault UI or editor
-    participant R as vault_routes
+    participant R as Vault domain API
     participant C as Vault context
     participant F as File provider
     participant I as Page and link indexes
@@ -44,6 +47,12 @@ sequenceDiagram
 
 La identidad de página está separada del título y la ruta. La materia frontal se normaliza en los límites de escritura mientras se conservan las claves de usuario. `.gnosi` sidecars cuando se expone en la materia delantera contaminaría o desestabilizaría el contenido portátil.
 
+## Límite del motor
+
+Página lee y escribe, previsualiza, duplica, historia y basura se implementan bajo `backend/domains/vault`. Este paquete separa esquemas de petición estrictos, adaptadores de ruta, servicios de aplicación, repositorios y el propietario único de cachés de página y bloqueos. El comportamiento de la nueva bóveda pertenece a ese límite de dominio.
+
+`backend/api/vault_routes.py` sigue siendo una fachada de compatibilidad y composición temporal mientras el resto del router heredado se divide. Inyecta operaciones de plataforma existentes y reexporta símbolos de Python compatibles, pero no es el propietario de los manejadores de páginas extraídos. La migración preserva rutas HTTP, códigos de estado, cargas útiles, dependencias, callbacks de fondo y el documento OpenAPI determinista. Cada extracción debe reducir la asignación de barandilla fuente de la fachada; nunca puede añadir una nueva excepción para el código bajo `backend/domains`.
+
 ## Índices y cachés
 
 El índice de páginas acelera el listado, la resolución de identificadores, el acceso a la materia frontal y la búsqueda. El índice de enlaces wiki resuelve los enlaces entrantes para que los renombrados de página puedan actualizar las referencias. Los cachés de cuerpo y documentos analizados evitan las lecturas repetidas.
@@ -52,9 +61,11 @@ Iniciar primero carga instantáneas de disco válidas, luego comienza el trabajo
 
 ## Proveedores de archivos
 
-La abstracción del proveedor selecciona local, OneDrive, iCloud Drive, Google Drive o comportamiento con conocimiento de Nextcloud. `Path`; el adaptador añade detección de marcadores de posición, hidratación, disponibilidad y asignación de rutas.
+La abstracción del proveedor selecciona el proveedor de archivos macOS local, genérico, OneDrive, iCloud Drive, Google Drive, Nextcloud o el comportamiento de Dropbox. El código de dominio normal todavía funciona con `Path`; el adaptador añade detección de marcadores de posición, hidratación, disponibilidad y asignación de rutas. `GNOSI_FILES_PROVIDER` explícitamente cuando la detección automática de trayectoria es ambigua.
 
-Native OneDrive operation delega la hidratación en una GUI-sesión `open` acción cuando el LaunchAgent no puede materializar un archivo en línea. Las implementaciones Docker pueden utilizar un punto final de calentamiento del host porque el contenedor lee cruzar otro límite.
+El tiempo de ejecución de archivos a la carta es neutral para el proveedor. Google Drive, iCloud y Nextcloud no heredan el comportamiento de recuperación de OneDrive; sólo `OneDriveProvider` puede reiniciar el cliente OneDrive después de un fallo de hidratación limitada. Los proveedores nativos de macOS utilizan una sesión de interfaz gráfica `open` Las implementaciones Docker pueden usar un ayudante de host configurado porque el contenedor lee cruzar otro límite.
+
+Las rutas de Dropbox File Provider se detectan explícitamente. Un servicio desconocido bajo macOS `~/Library/CloudStorage` utiliza el producto sin efectos secundarios `fileprovider` adaptador; cualquier carpeta montada totalmente sincronizada u ordinaria utiliza `local`. Un nuevo adaptador llamado es necesario sólo para una señal de marcador de posición diferente o un mecanismo de hidratación específico del proveedor. `GNOSI_DATA_DIR` sigue siendo local independientemente del proveedor de la bóveda.
 
 ## Adjuntos y propiedades valoradas por archivos
 
@@ -64,6 +75,14 @@ Los escritos eligen un objetivo permitido bajo el almacén activo, normalizan lo
 
 La eliminación ordinaria es recuperable: las páginas y los activos relacionados se mueven a través del modelo de basura Vault. Purga es distinta y elimina el contenido más metadatos derivados y relaciones inversas. La eliminación del registro de Vault elimina la fila de registro lógica por defecto; la eliminación de carpetas físicas requiere una señal explícita separada y comprobaciones de contención más fuertes.
 
+## Plantillas de vault
+
+El repositorio de plantillas es un catálogo de tiempo de ejecución firmado; los activos de paquete no se rastrean en el repositorio Git de aplicaciones. Crear a partir de una plantilla verifica la firma de índice separada, paquete SHA-256, firma de editor, manifiesto, inventario de archivos, límites de archivo, rutas, tipos de archivo y enlaces antes de escribir. La extracción ocurre en un directorio de escenificación de hermanos bajo la raíz Vaults. El directorio completado se mueve atómicamente y sólo entonces se registra en la base de datos de gestión, por lo que un fallo no puede exponer una bóveda parcial.
+
+La exportación se basa en listas de permisos y determinista. `.gnosi`, plugins, tiendas de confianza, correo, basura, historial, contenido ejecutable, archivos de entorno, enlaces, archivos ilegibles y contenido sobredimensionado. Una vista previa lista todos los archivos incluidos y excluidos y escanea archivos de texto delimitados para valores de credencial. Los hallazgos requieren reconocimiento explícito. Los complementos recomendados son identificadores en el manifiesto; el código de complemento ejecutable nunca viaja dentro de una plantilla Vault.
+
+La presentación pública es independiente de la exportación y requiere acceso del administrador. Utiliza un bróker de moderación opcional en lugar de una credencial GitHub incrustada en Gnosi.
+
 ## Variantes de la moneda
 
 - Los Etags rancios rechazan sobrescrituras.
@@ -72,6 +91,8 @@ La eliminación ordinaria es recuperable: las páginas y los activos relacionado
 renombrar o borrar.
 - Las rutas absolutas recibidas de un cliente se resuelven bajo raíces aprobadas.
 - Los enlaces de Symlinks y la trayectoria transversal no pueden escapar del límite de bóveda seleccionado.
+- La extracción de plantillas no puede publicar un directorio parcial ni registrarlo antes.
+- Las exportaciones de plantillas no pueden incluir contenido de plugins en tiempo de ejecución o estado de ejecución.
 - Los viajes de ida y vuelta de Markdown preservan contenido sensible a la fuga y sintaxis wikilink.
 
 ## Interfaz

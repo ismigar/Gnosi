@@ -4,6 +4,7 @@ last_verified: 2026-08-27
 source_paths:
   - backend/api/vault_routes.py
   - backend/api/vaults_routes.py
+  - backend/domains/vault
   - backend/services/graph_service.py
   - backend/services/page_sidecar.py
   - backend/services/files_provider
@@ -32,7 +33,7 @@ sovereignty.
 ```mermaid
 sequenceDiagram
     participant UI as Vault UI or editor
-    participant R as vault_routes
+    participant R as Vault domain API
     participant C as Vault context
     participant F as File provider
     participant I as Page and link indexes
@@ -51,6 +52,21 @@ Page identity is separate from title and path. Front matter is normalized at
 write boundaries while user-authored keys are preserved. Internal-only state
 belongs in `.gnosi` sidecars when exposing it in front matter would pollute or
 destabilize portable content.
+
+## Backend boundary
+
+Page reads and writes, previews, duplication, history, and trash are implemented
+under `backend/domains/vault`. This package separates strict request schemas,
+route adapters, application services, repositories, and the single owner of
+page caches and locks. New Vault behavior belongs in that domain boundary.
+
+`backend/api/vault_routes.py` remains a temporary compatibility and composition
+facade while the rest of the legacy router is split. It injects existing
+platform operations and re-exports supported Python symbols, but it does not own
+the extracted page handlers. The migration preserves HTTP paths, status codes,
+payloads, dependencies, background callbacks, and the deterministic OpenAPI
+document. Each extraction must reduce the facade's source guardrail allowance;
+it may never add a new exception for code under `backend/domains`.
 
 ## Indexes and caches
 

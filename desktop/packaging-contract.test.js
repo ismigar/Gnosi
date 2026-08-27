@@ -108,6 +108,9 @@ test('the frozen backend keeps required standard-library and media modules', () 
   assert.doesNotMatch(buildScript, /pip install/);
   assert.doesNotMatch(buildScript, /requirements[^\s]*\.txt/);
   assert.doesNotMatch(buildScript, /VENV_DIR="\$ELECTRON_DIR\/\.venv-python"/);
+  assert.match(buildScript, /repository_dir = os\.path\.dirname\(backend_dir\)/);
+  assert.match(buildScript, /pathex=\['\{repository_dir\}'\]/);
+  assert.doesNotMatch(buildScript, /pathex=\['\{backend_dir\}'\]/);
   assert.doesNotMatch(buildScript, /excludes=\[[^\]]*['"]unittest['"]/s);
   assert.doesNotMatch(buildScript, /excludes=\[[^\]]*['"]PIL['"]/s);
   assert.match(pyproject, /"defusedxml>=0\.7\.1"/);

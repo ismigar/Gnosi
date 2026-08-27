@@ -126,6 +126,44 @@ from backend.services.table_system_dates import (
     ensure_system_date_properties,
     stamp_system_dates,
 )
+from backend.domains.vault.schemas.pages import (
+    PageInfo,
+    PagePatchRequest,
+    PageSaveRequest,
+    SidebarPageInfo,
+    TablePagesSnapshot,
+    _BulkWarmPayload,
+)
+from backend.domains.vault.pages.state import page_state
+from backend.domains.vault.pages.identifiers import (
+    HISTORY_TIMESTAMP_RE as _HISTORY_TIMESTAMP_RE,
+    PAGE_ID_RE as _PAGE_ID_RE,
+    validate_history_timestamp as _validate_history_timestamp,
+    validate_safe_page_id as _validate_safe_page_id,
+)
+from backend.domains.vault.pages.cache import (
+    PAGES_RESPONSE_CACHE_TTL as _PAGES_RESP_CACHE_TTL,
+    PREVIEW_CACHE_MAX as _PREVIEW_CACHE_MAX,
+    get_cached_page_response as _pages_cache_get,
+    get_cached_preview as _preview_cache_get,
+    get_indexer_status,
+    get_page_write_lock as _get_page_write_lock,
+    invalidate_cached_preview as _preview_cache_invalidate,
+    invalidate_page_responses as _pages_cache_invalidate_all,
+    set_cached_page_response as _pages_cache_set,
+    set_cached_preview as _preview_cache_set,
+    set_indexer_status as _set_indexer_status,
+)
+from backend.domains.vault.history.repository import HistoryRepository
+from backend.domains.vault.api import history as history_api
+from backend.domains.vault.api import trash as trash_api
+from backend.domains.vault.api import pages_queries as page_queries_api
+from backend.domains.vault.pages import create_service as page_create_service
+from backend.domains.vault.api import pages_duplicate as page_duplicate_api
+from backend.domains.vault.pages import save_service as page_save_service
+from backend.domains.vault.pages import patch_service as page_patch_service
+from backend.domains.vault.api import pages_commands as page_commands_api
+from backend.domains.vault.trash.repository import TrashRepository
 
 
 def _table_by_id(table_id: str) -> Optional[dict]:
@@ -212,6 +250,10 @@ def __getattr__(name: str):
     }
     if name in path_keys:
         return get_p(path_keys[name])
+    if name == "_last_vault_sync_time":
+        return page_state.last_vault_sync_time
+    if name == "_page_write_locks_guard":
+        return page_state.write_locks_guard
     raise AttributeError(f"module {__name__} has no attribute {name}")
 
 
@@ -233,8 +275,7 @@ def _clear_page_index_cache():
             _bump_page_index_version(v_str)
         _page_id_to_path.clear()
         _page_index_initialized.clear()
-        global _last_vault_sync_time
-        _last_vault_sync_time = 0.0
+        page_state.last_vault_sync_time = 0.0
         log.info("♻️ Page index cache cleared (forcing a rebuild on the next access).")
         # Without this, `_page_index_initialized[v_str]` stays True and the next
         # call to `_get_cached_page_entries` would silently return []
@@ -295,19 +336,6 @@ def sync_to_google_calendar_if_needed(
 # or initialized on demand in each route via get_p().
 
 
-class PageSaveRequest(BaseModel):
-    title: str
-    content: str
-    parent_id: Optional[str] = None
-    is_database: bool = False
-    metadata: dict = {}
-    # Optimistic concurrency: client sends the etag it last received from GET.
-    # If the file changed in the meantime (sync from another device, external
-    # editor, etc.), the server rejects the write with 409 unless `force=True`.
-    expected_etag: Optional[str] = None
-    force: bool = False
-
-
 class DrawingSaveRequest(BaseModel):
     title: str
     data: dict
@@ -332,59 +360,10 @@ class CommentUpdateRequest(BaseModel):
     resolved: Optional[bool] = None
 
 
-class PageInfo(BaseModel):
-    id: str
-    title: str
-    parent_id: Optional[str] = None
-    is_database: bool = False
-    metadata: dict = {}
-    last_modified: str
-    created_time: Optional[str] = None  # file creation date (st_birthtime)
-    size: int
-    folder: str = (
-        ""  # relative folder path inside the vault (e.g. "Databases/Gnosi/Resources")
-    )
-    path: Optional[str] = None  # Absolute file path
-    resolved_table_id: Optional[str] = None
-
-
-class PagePatchRequest(BaseModel):
-    title: Optional[str] = None
-    content: Optional[str] = None
-    metadata: Optional[dict] = None
-    parent_id: Optional[str] = None
-    is_database: Optional[bool] = None
-    # Metadata keys to REMOVE from the frontmatter. The PATCH does a merge
-    # (`metadata.update`), which can't remove keys; this allows deleting
-    # local (ad-hoc) properties that don't belong to the table's schema.
-    remove_metadata_keys: Optional[list] = None
-    # Optimistic concurrency (same semantics as PageSaveRequest)
-    expected_etag: Optional[str] = None
-    force: bool = False
-
-
 class OpenResourceRequest(BaseModel):
     zotero_uri: Optional[str] = None
     file_path: Optional[str] = None
     attachments: Optional[object] = None
-
-
-class SidebarPageInfo(BaseModel):
-    id: str
-    title: str
-    parent_id: Optional[str] = None
-    is_database: bool = False
-    metadata: dict = {}
-    last_modified: str
-    folder: str = ""
-    resolved_table_id: Optional[str] = None
-
-
-class TablePagesSnapshot(BaseModel):
-    table_id: str
-    raw_count: int
-    visible_count: int
-    pages: List[PageInfo]
 
 
 class CustomIconsRequest(BaseModel):
@@ -448,11 +427,11 @@ def get_custom_icons_path():
 _table_recalc_lock = threading.Lock()
 _table_recalc_state = {}
 _TABLE_RECALC_COOLDOWN_SECONDS = 0.5
-_page_index_lock = threading.Lock()
+_page_index_lock = page_state.index_lock
 # Page index also partitioned per vault
-_page_index_entries: Dict[str, Dict[str, Dict[str, Any]]] = {}
-_page_index_initialized: Dict[str, bool] = {}
-_page_id_to_path: Dict[str, Dict[str, str]] = {} # Cache for fast ID -> Path lookups per vault
+_page_index_entries = page_state.index_entries
+_page_index_initialized = page_state.index_initialized
+_page_id_to_path = page_state.id_to_path  # Cache for fast ID -> Path lookups per vault
 # Cooldown for the vault index cache's automatic rescan. Raised from
 # 60s to 600s because every rescan does a stat() on ~4200 OneDrive files
 # (5-10 ms each = 20-40s of total I/O) which saturates the File Provider and
@@ -462,7 +441,6 @@ _page_id_to_path: Dict[str, Dict[str, str]] = {} # Cache for fast ID -> Path loo
 # outside the backend). 10 min is enough for this case and leaves the backend
 # responsive the rest of the time.
 _VAULT_SYNC_COOLDOWN_SECONDS = 600
-_last_vault_sync_time = 0.0
 
 # Version counter bumped at every mutation of `_page_index_entries[v_str]`
 # (load-from-disk, full replace, partial update, stale prune, page
@@ -471,7 +449,7 @@ _last_vault_sync_time = 0.0
 # `_table_index_cache`, superseded by `_get_pages_for_table`, was the only
 # consumer; the counter is kept as a mechanism for future
 # derived caches and as a cheap signal that "the index has changed".)
-_page_index_version: Dict[str, int] = {}
+_page_index_version = page_state.index_version
 # ── PageInfo micro-cache (TTL ~1.5s) ──────────────────────────────────
 # The endpoints `/pages`, `/by-table`, `/sidebar/summary`, `/global-index`
 # fire at the same time on every frontend navigation. Without this cache,
@@ -485,9 +463,8 @@ _page_index_version: Dict[str, int] = {}
 # several tables (changes to title, table_id, etc.) and the cost of
 # rebuilding is very cheap once the loop has a cache_hit on the bytes
 # that follow.
-_pages_resp_cache_lock = threading.Lock()
-_pages_resp_cache: Dict[str, tuple[float, List[Any]]] = {}
-_PAGES_RESP_CACHE_TTL = 1.5  # seconds
+_pages_resp_cache_lock = page_state.response_cache_lock
+_pages_resp_cache = page_state.response_cache
 
 # ── Per-page write serialization ─────────────────────────────────────
 # Without mutual exclusion keyed by `page_id`, two overlapping PATCHes to
@@ -499,62 +476,7 @@ _PAGES_RESP_CACHE_TTL = 1.5  # seconds
 # also resolve a stale path (404). An asyncio.Lock per page_id forces the
 # second caller to wait until the first has finished its read + rename +
 # cache update, so `find_page_path` always returns the current path.
-_page_write_locks: Dict[str, asyncio.Lock] = {}
-_page_write_locks_guard = asyncio.Lock() if False else None  # set lazily at first use
-
-
-async def _get_page_write_lock(page_id: str) -> asyncio.Lock:
-    """Returns (creating if necessary) the asyncio.Lock for a given page_id.
-
-    A short critical section guards the dict itself; the returned lock is
-    then held by the caller for the whole write. Locks are never removed
-    (a page_id is stable for the page's lifetime and dict growth is
-    bounded by the number of pages).
-
-    """
-    global _page_write_locks_guard
-    if _page_write_locks_guard is None:
-        _page_write_locks_guard = asyncio.Lock()
-    async with _page_write_locks_guard:
-        lock = _page_write_locks.get(page_id)
-        if lock is None:
-            lock = asyncio.Lock()
-            _page_write_locks[page_id] = lock
-        return lock
-
-
-def _pages_cache_get(key: str) -> Optional[List[Any]]:
-    """Return the list cached under `key` if the entry is still valid.
-
-    We don't copy the list to save memory/CPU: consumers must
-    treat the output as immutable or make a copy before mutating it.
-    The cache loop itself does rely on nobody replacing the individual
-    PageInfo objects — only the `.metadata` read for
-    `expand_metadata_for_response` does that at the call site (see endpoint).
-    
-    """
-    now = time.monotonic()
-    with _pages_resp_cache_lock:
-        item = _pages_resp_cache.get(key)
-        if item is None:
-            return None
-        ts, val = item
-        if (now - ts) > _PAGES_RESP_CACHE_TTL:
-            # Stale — delete it and make the caller redo
-            _pages_resp_cache.pop(key, None)
-            return None
-        return val
-
-
-def _pages_cache_set(key: str, value: List[Any]) -> None:
-    with _pages_resp_cache_lock:
-        _pages_resp_cache[key] = (time.monotonic(), value)
-
-
-def _pages_cache_invalidate_all() -> None:
-    """Called whenever any PATCH/PUT/DELETE modifies the vault."""
-    with _pages_resp_cache_lock:
-        _pages_resp_cache.clear()
+_page_write_locks = page_state.write_locks
 
 
 def _vault_cache_key() -> str:
@@ -591,27 +513,8 @@ def get_page_index_cache_path(v_str: Optional[str] = None):
 # (OneDrive FUSE) this can take 10-60s and block the asyncio event loop.
 # We track status in-memory so the UI can show "indexing…" and so the warmup
 # only runs once per vault per process.
-_indexer_status_lock = threading.Lock()
-_indexer_status_by_vault: Dict[str, Dict[str, Any]] = {}
-
-
-def _set_indexer_status(v_str: str, **fields):
-    with _indexer_status_lock:
-        cur = _indexer_status_by_vault.setdefault(
-            v_str,
-            {"state": "idle", "started_at": None, "finished_at": None,
-             "files_indexed": 0, "error": None},
-        )
-        cur.update(fields)
-
-
-def get_indexer_status(v_str: str) -> Dict[str, Any]:
-    with _indexer_status_lock:
-        return dict(_indexer_status_by_vault.get(
-            v_str,
-            {"state": "idle", "started_at": None, "finished_at": None,
-             "files_indexed": 0, "error": None},
-        ))
+_indexer_status_lock = page_state.indexer_status_lock
+_indexer_status_by_vault = page_state.indexer_status_by_vault
 
 
 # ── Preview cache (in-memory) ───────────────────────────────────────────────
@@ -623,52 +526,18 @@ def get_indexer_status(v_str: str) -> Dict[str, Any]:
 # are instant until the .md is modified. Size limited so it doesn't grow
 # unchecked in large vaults. Real LRU (OrderedDict.move_to_end on every
 # access), not just insertion FIFO.
-from collections import OrderedDict as _OrderedDict
-
-_preview_cache_lock = threading.Lock()
-_preview_cache: "_OrderedDict[str, Dict[str, Any]]" = _OrderedDict()  # page_id -> {mtime, short, full}
-_PREVIEW_CACHE_MAX = 1000
-
-
-def _preview_cache_get(page_id: str, mtime: float, full: bool) -> Optional[Dict[str, Any]]:
-    """Return the cached response if the mtime matches; None on a miss or
-    if `full` is requested but we only have the short version cached.
-
-    On every hit, move the entry to the end of the OrderedDict (LRU): this way
-    `popitem(last=False)` always evicts the least recently accessed entry, not the
-    oldest by insertion.
-    
-    """
-    with _preview_cache_lock:
-        cached = _preview_cache.get(page_id)
-        if not cached or cached.get("mtime") != mtime:
-            return None
-        _preview_cache.move_to_end(page_id)
-        return cached.get("full" if full else "short")
-
-
-def _preview_cache_set(page_id: str, mtime: float, short: Dict[str, Any], full: Dict[str, Any]) -> None:
-    """Save the response and move it to the end (LRU). If it exceeds the maximum size,
-    evict the least recently accessed entry."""
-    with _preview_cache_lock:
-        if page_id in _preview_cache:
-            _preview_cache.move_to_end(page_id)
-        elif len(_preview_cache) >= _PREVIEW_CACHE_MAX:
-            _preview_cache.popitem(last=False)
-        _preview_cache[page_id] = {"mtime": mtime, "short": short, "full": full}
-
-
-def _preview_cache_invalidate(page_id: str) -> None:
-    with _preview_cache_lock:
-        _preview_cache.pop(page_id, None)
+_preview_cache_lock = page_state.preview_cache_lock
+_preview_cache = page_state.preview_cache  # page_id -> {mtime, short, full}
+_PREVIEW_WARM_PER_ITEM_TIMEOUT_S = 30.0
+_PREVIEW_WARM_CONCURRENCY = 8
 
 
 # In-flight dedup: if two concurrent requests ask for the same preview and
 # both fall into the miss, without this mapping they would do the work at the same time. To
 # efficiency and to avoid stressing OneDrive with duplicate requests, they share
 # the same Future.
-_preview_inflight: Dict[str, "asyncio.Future[Tuple[Dict[str, Any], Dict[str, Any], float]]"] = {}
-_preview_inflight_lock = threading.Lock()
+_preview_inflight = page_state.preview_inflight
+_preview_inflight_lock = page_state.preview_inflight_lock
 
 
 def _index_warmup_enabled(v_path: Path) -> bool:
@@ -727,8 +596,7 @@ def kickoff_index_warmup(v_path: Path) -> None:
     # immediately (4243 OneDrive stats ≈ 20-40s competing with the PATCH
     # requests from the user). This function's warmup already takes care of populating
     # the cache; the periodic sync is only needed every `_VAULT_SYNC_COOLDOWN_SECONDS`.
-    global _last_vault_sync_time
-    _last_vault_sync_time = time.monotonic()
+    page_state.last_vault_sync_time = time.monotonic()
     # Load the body cache persisted to disk. Without this, the first
     # `_rebuild_link_index` post-restart had to read ~3500 files
     # from OneDrive (~80-140s observed). With the disk cache loaded, we only
@@ -3701,7 +3569,7 @@ def _get_pages_snapshot(
     if cached is not None:
         return cached
 
-    global _last_vault_sync_time, _last_google_calendar_sync_time
+    global _last_google_calendar_sync_time
     search_paths = None
     enabled_calendar_tables = []
     registry = load_registry()
@@ -3730,8 +3598,8 @@ def _get_pages_snapshot(
         now = time.monotonic()
         
         # 1. Disk Index Sync (Vault)
-        if now - _last_vault_sync_time > _VAULT_SYNC_COOLDOWN_SECONDS:
-            _last_vault_sync_time = now
+        if now - page_state.last_vault_sync_time > _VAULT_SYNC_COOLDOWN_SECONDS:
+            page_state.last_vault_sync_time = now
             background_tasks.add_task(_get_cached_page_entries, search_paths, True)
             log.info("📡 Background sync triggered for page index.")
         
@@ -3785,7 +3653,7 @@ def _get_pages_snapshot(
                     pruned_any = True
             if pruned_any:
                 _bump_page_index_version(v_str)
-        _last_vault_sync_time = 0.0
+        page_state.last_vault_sync_time = 0.0
         log.info(f"🗑️ Pruned {len(stale_paths)} stale page entries from cache.")
 
     folder_to_table = _build_table_folder_index(registry)
@@ -4056,123 +3924,74 @@ def _get_pages_for_table(table_id: str) -> List[PageInfo]:
     return pages
 
 
-@router.get("/pages", response_model=List[PageInfo])
-async def list_pages(
-    background_tasks: BackgroundTasks,
-    only_calendar: bool = Query(False),
-    folder: Optional[str] = Query(
-        None,
-        description="If provided, only pages whose folder starts with this prefix are returned.",
-    ),
-    limit: Optional[int] = Query(
-        None,
-        ge=1,
-        le=10000,
-        description="Maximum number of pages to return. Default: no limit.",
-    ),
-    offset: int = Query(0, ge=0),
-):
-    """Lists all pages in the root flatly by iterating through UUID.md files.
-    Returns cached data instantly and triggers a background refresh.
-
-    The vault can hold thousands of pages (calendar events, mail metadata,
-    test fixtures…). Without `folder`/`limit`/`offset` filters, naive callers
-    get the full snapshot — useful for the sidebar tree, expensive otherwise.
-    """
-    pages = await asyncio.to_thread(
-        _get_pages_snapshot,
-        only_calendar=only_calendar,
-        background_tasks=background_tasks,
-    )
-
-    # Safety net: if the snapshot is empty but the on-disk cache exists with
-    # entries, it means we're in an intermediate moment (warmup, post-rescan)
-    # where `_page_index_entries` is not yet repopulated. We return 503 so that
-    # the client retries with backoff, instead of showing the empty sidebar.
-    if not pages and not folder and offset == 0:
-        try:
-            cache_path = get_page_index_cache_path()
-            if cache_path and cache_path.exists() and cache_path.stat().st_size > 2:
-                raise HTTPException(
-                    status_code=503,
-                    detail="Page index is warming up; retry shortly.",
-                    headers={"Retry-After": "2"},
-                )
-        except HTTPException:
-            raise
-        except Exception:
-            pass
-
-    if folder:
-        prefix = folder.strip("/")
-        pages = [p for p in pages if (p.folder or "").startswith(prefix)]
-    if limit is not None:
-        pages = pages[offset:offset + limit]
-    elif offset:
-        pages = pages[offset:]
-    return pages
-
-
-@router.get("/pages/by-table/{table_id}", response_model=List[PageInfo])
-async def list_pages_by_table(table_id: str, include_templates: bool = Query(True)):
-    """Returns only pages from a specific table to avoid loading the entire Vault.
-
-    Fast-path via `_get_pages_for_table`: `PageInfo` is only built for
-    the entries of the requested table, not for the ~4200 of the entire vault
-    (saving ~1s/call). Before, moreover, there was a RESIDUAL call to
-    `_get_pages_by_table_id` (the previous per-table index mechanism) whose
-    result was discarded on the following line: since its
-    cache was invalidated on every version bump (every PATCH/create), the first
-    call after an edit would rebuild the index for ALL tables just to throw it away.
-    
-    """
-    filtered = await asyncio.to_thread(_get_pages_for_table, table_id)
-    if not include_templates:
-        filtered = [p for p in filtered if not p.metadata.get("is_template")]
-    # Lazily re-fetch metadata for files with a metadata stub (partial cache).
-    # Cost: only the files of this table, not the entire vault.
-    await asyncio.to_thread(_refresh_table_pages_metadata, filtered)
+def _enrich_table_query_pages(table_id: str, pages: List[PageInfo]) -> None:
+    _refresh_table_pages_metadata(pages)
     table_obj = _table_by_id(table_id)
-    await asyncio.to_thread(
-        _vf_inject_for_table, table_obj, filtered,
+    _vf_inject_for_table(table_obj, pages, _vf_page_loader)
+    if table_obj:
+        for page in pages:
+            page.metadata = to_response_names(page.metadata or {}, table_obj)
+
+
+def _enrich_single_query_page(
+    metadata: Dict[str, Any],
+    page_id: str,
+    file_path: Path,
+) -> Tuple[Dict[str, Any], str, Optional[str]]:
+    folder, table_id = _resolve_page_context_from_path(metadata, file_path)
+    table_obj = _table_by_id(table_id)
+    _vf_inject_for_single_page(
+        table_obj,
+        str(metadata.get("id") or page_id),
+        metadata,
         _vf_page_loader,
     )
     if table_obj:
-        for p in filtered:
-            p.metadata = to_response_names(p.metadata or {}, table_obj)
-    return filtered
+        metadata = to_response_names(metadata, table_obj)
+    return metadata, folder, table_id
 
 
-@router.get("/pages/by-table/{table_id}/snapshot", response_model=TablePagesSnapshot)
-async def list_pages_by_table_snapshot(table_id: str):
-    """Returns canonical snapshot per table: raw + real visible.
+def _cached_page_entry_count(vault_key: str) -> int:
+    with _page_index_lock:
+        return len(_page_index_entries.get(vault_key, {}))
 
-    This route avoids divergences between frontend sessions and establishes
-     a single source of truth for the count of visible records.
-    """
-    # Fast-path: only pages from the requested table (see
-    # `_get_pages_for_table`).
-    raw_pages = await asyncio.to_thread(_get_pages_for_table, table_id)
-    visible_pages = _canonical_visible_table_pages(table_id, raw_pages)
 
-    # Lazy re-fetch of the frontmatter for files with a metadata stub.
-    await asyncio.to_thread(_refresh_table_pages_metadata, visible_pages)
-
-    table_obj = _table_by_id(table_id)
-    await asyncio.to_thread(
-        _vf_inject_for_table, table_obj, visible_pages,
-        _vf_page_loader,
+page_queries_api.configure(
+    page_queries_api.PageQueryDependencies(
+        get_pages_snapshot=_get_pages_snapshot,
+        page_index_cache_path=lambda: get_page_index_cache_path(),
+        get_pages_for_table=lambda table_id: _get_pages_for_table(table_id),
+        enrich_table_pages=_enrich_table_query_pages,
+        visible_table_pages=_canonical_visible_table_pages,
+        active_vault_path=get_active_vault_path,
+        get_indexer_status=get_indexer_status,
+        cached_entry_count=_cached_page_entry_count,
+        find_page=lambda page_id, *, allow_full_scan=True: find_page_path(
+            page_id,
+            allow_full_scan=allow_full_scan,
+        ),
+        materialize_page=lambda path, label: _materialize_if_online_only(
+            path,
+            label,
+        ),
+        read_dashboard=lambda path: _read_dashboard_file(path),
+        is_dashboard=lambda path: _is_dashboard_file_path(path),
+        parse_frontmatter=parse_frontmatter,
+        enrich_single_page=_enrich_single_query_page,
+        file_etag=file_etag,
+        fetch_preview=lambda path, page_id: _fetch_preview_with_cache(
+            path,
+            page_id,
+        ),
+        warm_preview=lambda page_id: _bulk_warm_one(page_id),
+        preview_concurrency=_PREVIEW_WARM_CONCURRENCY,
+        preview_timeout_seconds=_PREVIEW_WARM_PER_ITEM_TIMEOUT_S,
     )
-    if table_obj:
-        for p in visible_pages:
-            p.metadata = to_response_names(p.metadata or {}, table_obj)
-
-    return TablePagesSnapshot(
-        table_id=table_id,
-        raw_count=len(raw_pages),
-        visible_count=len(visible_pages),
-        pages=visible_pages,
-    )
+)
+page_queries_api.register_catalog_routes(router)
+list_pages = page_queries_api.list_pages
+list_pages_by_table = page_queries_api.list_pages_by_table
+list_pages_by_table_snapshot = page_queries_api.list_pages_by_table_snapshot
 
 
 @router.get("/virtual-fields")
@@ -4181,45 +4000,9 @@ async def list_virtual_fields():
     return {"computers": _vf_list_specs()}
 
 
-@router.get("/indexer-status")
-async def get_indexer_status_endpoint():
-    """Expose the page-index warmup status so the UI can show 'indexing…'.
-
-    States:
-      - idle:    no indexing has been requested yet
-      - running: warmup in progress (UI may still receive partial results
-                 from the cache; full scan ongoing)
-      - ready:   index is complete and serving requests
-      - error:   warmup failed (see `error`)
-    """
-    v_path = get_active_vault_path()
-    if not v_path:
-        return {"state": "no_vault", "files_indexed": 0}
-    status = get_indexer_status(str(v_path))
-    # Also surface a count from in-memory cache so the UI can show progress
-    with _page_index_lock:
-        cached = len(_page_index_entries.get(str(v_path), {}))
-    status["cached_entries"] = cached
-    return status
-
-
-@router.get("/sidebar/summary", response_model=List[SidebarPageInfo])
-async def list_sidebar_summary():
-    """Returns a lightweight summary of pages for the sidebar."""
-    pages = _get_pages_snapshot()
-    return [
-        SidebarPageInfo(
-            id=p.id,
-            title=p.title,
-            parent_id=p.parent_id,
-            is_database=p.is_database,
-            metadata=p.metadata,
-            last_modified=p.last_modified,
-            folder=p.folder,
-            resolved_table_id=p.resolved_table_id,
-        )
-        for p in pages
-    ]
+page_queries_api.register_status_routes(router)
+get_indexer_status_endpoint = page_queries_api.get_indexer_status_endpoint
+list_sidebar_summary = page_queries_api.list_sidebar_summary
 
 
 def _get_unique_filepath(target_dir: Path, name: str, extension: str = ".md") -> Path:
@@ -4240,7 +4023,7 @@ def _get_unique_filepath(target_dir: Path, name: str, extension: str = ".md") ->
         counter += 1
 
 
-_user_label_cache: Dict[str, str] = {}
+_user_label_cache = page_state.user_label_cache
 
 
 def _resolve_user_label(user_id: Optional[str]) -> str:
@@ -4287,229 +4070,137 @@ def _stamp_author(metadata: dict, user_id: Optional[str], is_create: bool) -> No
     metadata["last_edited_at"] = now
 
 
-@router.post("/pages", dependencies=[Depends(require_role("editor"))])
-async def create_page(request: PageSaveRequest, background_tasks: BackgroundTasks, context: WorkspaceContext = Depends(get_workspace_context)):
-    """Creates a new page with a UUID ID."""
-    page_id = str(uuid.uuid4())
+def _prepare_create_table_metadata(
+    metadata: Dict[str, Any],
+) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]]]:
+    table = _table_by_id(get_table_id(metadata))
+    if not table:
+        return metadata, None
+    metadata, _ = to_storage_names(metadata, table)
+    stamp_system_dates(metadata, table, is_create=True)
+    for prop in table.get("properties") or []:
+        if prop.get("type") not in option_catalogs_service.OPTION_TYPES:
+            continue
+        default = str(
+            option_catalogs_service.get_prop_config(prop).get("default_option") or ""
+        ).strip()
+        if not default:
+            continue
+        if action_rules_service.read_prop_value(metadata, prop) in (None, "", []):
+            key = action_rules_service.effect_write_key(metadata, prop)
+            if key:
+                metadata[key] = [default] if prop.get("type") == "multi_select" else default
+    return metadata, table
 
-    # Build the initial metadata.
-    metadata = request.metadata.copy()
-    metadata["id"] = page_id
-    metadata = normalize_metadata_ids(metadata)
-    metadata = normalize_table_context(metadata)
-    _table_for_meta = _table_by_id(get_table_id(metadata))
-    if _table_for_meta:
-        metadata, _ = to_storage_names(metadata, _table_for_meta)
-        stamp_system_dates(metadata, _table_for_meta, is_create=True)
-        # Default option (config.default_option) for option fields: when
-        # creating a record with the field empty, the default value is applied
-        # from the catalog (for example, Status → Draft). Never overwrites a value that
-        # arrives with the request.
-        for _prop in _table_for_meta.get("properties") or []:
-            if _prop.get("type") not in option_catalogs_service.OPTION_TYPES:
-                continue
-            _default = str(
-                option_catalogs_service.get_prop_config(_prop).get("default_option") or ""
-            ).strip()
-            if not _default:
-                continue
-            if action_rules_service.read_prop_value(metadata, _prop) in (None, "", []):
-                _dkey = action_rules_service.effect_write_key(metadata, _prop)
-                if _dkey:
-                    metadata[_dkey] = (
-                        [_default] if _prop.get("type") == "multi_select" else _default
-                    )
-    metadata["id"] = page_id
-    metadata["title"] = request.title
-    if request.parent_id:
-        metadata["parent_id"] = request.parent_id
-    if request.is_database:
-        metadata["is_database"] = True
-    if metadata.get("is_dashboard") is True:
-        # Dashboards are markdown; the content_format=json flag was legacy.
-        metadata.pop("content_format", None)
 
-    # Apply automations and formulas during creation as well (old_metadata empty).
-    # Runs on the thread pool because formulas/rollups can be CPU-heavy and read
-    # many files, which would otherwise block the event loop.
+def _index_created_page(page_id: str, file_path: Path) -> None:
     try:
-        metadata = await asyncio.to_thread(
-            get_rule_engine().process_updates, page_id, {}, metadata
+        vault_path = get_active_vault_path()
+        if not vault_path:
+            return
+        vault_key = str(vault_path)
+        new_entry = _build_page_cache_entry(file_path, file_path.stat())
+        with _page_index_lock:
+            _page_index_entries.setdefault(vault_key, {})[str(file_path)] = new_entry
+            _page_id_to_path.setdefault(vault_key, {})[page_id] = str(file_path)
+            _bump_page_index_version(vault_key)
+        path_resolver.add_file(vault_path, page_id, file_path)
+    except Exception as exc:
+        log.warning(
+            "Could not insert new page into index cache, falling back to clear: %s",
+            exc,
         )
-    except Exception as e:
-        log.error(f"Error processing automations on create for {page_id}: {e}")
+        _clear_page_index_cache()
 
-    # Authorship: stamps creator + last editor (real per-page attribution).
-    _stamp_author(metadata, getattr(context, "user_id", None), is_create=True)
 
-    metadata = _persist_metadata_assets(metadata)
-
-    # Every new resource added (a table with a 'Citation Key' column) must remain
-    # citable, not just the one coming from the metadata lookup. An EXPLICIT key
-    # in the payload (create-from-source suggestion that went stale, API caller)
-    # must not collide with an existing record's — collisions silently shadow
-    # one of the two in citeproc.
-    metadata = _ensure_recursos_citation_key(metadata, _table_for_meta)
-    metadata = _dedupe_citation_key(metadata, page_id)
-
-    # Create-from-source: fill the structured `Autoría` column (never the legacy
-    # `Authors` text one) so the import populates the field the user maintains
-    # instead of a duplicate. After the Citation Key so it still sees `Authors`.
-    metadata = _fill_autoria_from_authors(metadata, _table_for_meta)
-
-    is_template = metadata.get("is_template") is True
-    is_dashboard = metadata.get("is_dashboard") is True
-    is_daily = str(metadata.get("note_type") or "").strip().lower() == "daily"
-
-    # Determine destination directory
-    if is_template:
-        target_dir = get_p("PLANTILLES")
-    elif is_daily:
-        target_dir = get_p("DAILY")
-    elif is_calendar_entry(metadata):
-        target_dir = get_p("CALENDAR")
-    elif is_dashboard:
-        target_dir = get_p("DASHBOARDS")
-    else:
-        table_folder = _resolve_table_folder_from_metadata(metadata)
-        target_dir = table_folder if table_folder else get_p("WIKI")
-
-    target_dir.mkdir(parents=True, exist_ok=True)
-
-    # Defense in depth against duplicates: if the payload already carries a
-    # stable `metadata.id` (e.g. a "create missing page" retry, or a client
-    # retrying after a timeout) AND a page with that id already exists on
-    # disk, reuse it instead of minting a fresh UUID and writing a second
-    # file. This mirrors the canonical-id scan the PUT handler does. The
-    # common case (no explicit id) is unaffected — a fresh UUID is minted
-    # above and no scan runs.
-    requested_id = str(metadata.get("id") or "").strip()
-    existing_path_for_id: Optional[Path] = None
-    if requested_id and _canonicalize_id(requested_id):
-        canonical = _canonicalize_id(requested_id)
-        try:
-            for candidate in target_dir.iterdir():
-                if not candidate.is_file() or candidate.suffix != ".md":
-                    continue
-                try:
-                    raw_existing = candidate.read_text(encoding="utf-8")
-                    fm_existing, _ = parse_frontmatter(raw_existing, candidate)
-                    if _canonicalize_id(str(fm_existing.get("id", ""))) == canonical:
-                        existing_path_for_id = candidate
-                        break
-                except Exception:
-                    continue
-        except Exception:
-            existing_path_for_id = None
-    if existing_path_for_id is not None:
-        # Reuse the existing page: overwrite its id so frontmatter is consistent
-        # and skip allocating a new filename, which would otherwise produce a
-        # "{title} (2).md" duplicate.
-        page_id = str(metadata.get("id") or page_id)
-        file_path = existing_path_for_id
-        log.info(f"♻️ Reusing existing page for id {page_id}: {file_path}")
-    else:
-        # All page types (including Dashboards) are markdown with
-        # frontmatter. The JSON was a legacy format that has already been removed.
-        file_path = _get_unique_filepath(target_dir, request.title, extension=".md")
-
-    log.info(f"Creating new page at: {file_path.absolute()}")
-
+def _queue_planning_recalculation(background_tasks: BackgroundTasks) -> None:
     try:
-        # Snapshot of relation fields BEFORE writing (save_page_md decorates
-        # in-place) to propagate the inverse sync (background, below).
-        _rel_new_snapshot = dict(metadata)
-        save_page_md(file_path, metadata, request.content)
-        table_id = get_table_id(metadata)
-        if table_id:
-            background_tasks.add_task(
-                _recompute_cross_record_formulas_for_table, table_id, page_id
-            )
-        
-        # Inserts the new page directly into the cache instead of clearing it.
-        # Clearing the cache caused the next call to GET /api/vault/pages
-        # to return [] until a force_refresh finished (~1-2s over OneDrive),
-        # which caused the frontend to create the new tab and, right after,
-        # the cleanup `useEffect` effect would filter it out because its id still
-        # was not in `pages` → blank editor and the table showed 0 records.
-        try:
-            v_path = get_active_vault_path()
-            if v_path:
-                v_str = str(v_path)
-                stat_result = file_path.stat()
-                new_entry = _build_page_cache_entry(file_path, stat_result)
-                with _page_index_lock:
-                    _page_index_entries.setdefault(v_str, {})[str(file_path)] = new_entry
-                    _page_id_to_path.setdefault(v_str, {})[page_id] = str(file_path)
-                    _bump_page_index_version(v_str)
-                # PathResolver: without this the new page wouldn't enter the
-                # file list until the full rescan (600s cooldown) and
-                # /unlinked-mentions i rule_engine.find_path no la veien.
-                path_resolver.add_file(v_path, page_id, file_path)
-        except Exception as e:
-            # If we can't insert, we go to plan B (safe rebuild) so as not to serve
-            # a partially inconsistent cache.
-            log.warning(f"Could not insert new page into index cache, falling back to clear: {e}")
-            _clear_page_index_cache()
+        from backend.services.planning_scheduler import enqueue_recalculation
 
-        # The snapshot response micro-cache (`_pages_resp_cache`, TTL 1.5s)
-        # is NOT refreshed when updating `_page_index_entries`. Without invalidating it
-        # here, a call to `_get_pages_snapshot()` within the TTL returns a
-        # snapshot WITHOUT this new page. Real consequence: the idempotency
-        # of `translate-row` looks up existing translations via snapshot; right
-        # after creating the first subitem, a quick re-translation of the same
-        # language doesn't find it and CREATES A DUPLICATE ("… (2).md") instead
-        # after updating it. PATCH/PUT/DELETE already invalidate the micro-cache; the
-        # creations (`create_page`) must also do so for consistency.
-        _pages_cache_invalidate_all()
-
-        # Proactively add to the page index cache to prevent 404 errors
-        # when the frontend immediately fetches the new page by ID.
-        _add_page_to_index_cache(file_path)
-
-        background_tasks.add_task(update_link_index_for_page, file_path)
-
-        # Project planning owns derived schedules, not editable Markdown facts.
-        # Queue a coalesced refresh after every page mutation; the scheduler
-        # filters to the configured task table and only writes auto boundaries
-        # when their source ETag still matches.
-        try:
-            from backend.services.planning_scheduler import enqueue_recalculation
-            background_tasks.add_task(enqueue_recalculation, Path(get_active_vault_path()))
-        except Exception as error:
-            log.debug("Could not queue planning recalculation: %s", error)
-
-        # Bidirectional sync: when creating a page with relation fields,
-        # populate the INVERSE field of the referenced pages (old empty → all are
-        # new relationships). Run in the background defensively.
         background_tasks.add_task(
-            _propagate_relation_inverse,
-            page_id, get_table_id(metadata), {}, _rel_new_snapshot,
+            enqueue_recalculation,
+            Path(get_active_vault_path()),
         )
+    except Exception as exc:
+        log.debug("Could not queue planning recalculation: %s", exc)
 
-        rel_folder, resolved_table_id = _resolve_page_context_from_path(
-            metadata, file_path
-        )
-        try:
-            from backend.services import plugin_events
-            plugin_events.emit("page:created", {"page_id": page_id, "title": request.title})
-        except Exception:  # noqa: BLE001
-            pass
-        return {
-            "status": "created",
-            "id": page_id,
-            "title": request.title,
-            "metadata": metadata,
-            "content": request.content,
-            "folder": rel_folder,
-            "resolved_table_id": resolved_table_id,
-            "message": "Page created",
-        }
-    except Exception as e:
-        log.error(f"Error creating the page: {e}")
-        raise HTTPException(
-            status_code=500, detail="Error writing the page file"
-        )
+
+def _emit_page_created(page_id: str, title: str) -> None:
+    try:
+        from backend.services import plugin_events
+
+        plugin_events.emit("page:created", {"page_id": page_id, "title": title})
+    except Exception:  # noqa: BLE001
+        pass
+
+
+_CREATE_PAGE_DEPENDENCIES = page_create_service.CreatePageDependencies(
+    new_id=lambda: str(uuid.uuid4()),
+    normalize_metadata=lambda metadata: normalize_table_context(
+        normalize_metadata_ids(metadata)
+    ),
+    prepare_table_metadata=_prepare_create_table_metadata,
+    process_updates=lambda page_id, old, new: get_rule_engine().process_updates(
+        page_id,
+        old,
+        new,
+    ),
+    stamp_author=lambda metadata, user_id, is_create: _stamp_author(
+        metadata,
+        user_id,
+        is_create,
+    ),
+    persist_assets=lambda metadata: _persist_metadata_assets(metadata),
+    ensure_citation_key=lambda metadata, table: _ensure_recursos_citation_key(
+        metadata,
+        table,
+    ),
+    dedupe_citation_key=lambda metadata, page_id: _dedupe_citation_key(
+        metadata,
+        page_id,
+    ),
+    fill_authorship=lambda metadata, table: _fill_autoria_from_authors(
+        metadata,
+        table,
+    ),
+    path_for=lambda key: get_p(key),
+    is_calendar_entry=lambda metadata: is_calendar_entry(metadata),
+    table_folder=lambda metadata: _resolve_table_folder_from_metadata(metadata),
+    canonicalize_id=lambda page_id: _canonicalize_id(page_id),
+    parse_frontmatter=lambda content, path: parse_frontmatter(content, path),
+    unique_file_path=lambda directory, name, extension: _get_unique_filepath(
+        directory,
+        name,
+        extension,
+    ),
+    save_page=lambda path, metadata, content: save_page_md(path, metadata, content),
+    get_table_id=lambda metadata: get_table_id(metadata),
+    recompute_formulas=_recompute_cross_record_formulas_for_table,
+    index_created_page=_index_created_page,
+    invalidate_page_responses=lambda: _pages_cache_invalidate_all(),
+    add_page_index=lambda path: _add_page_to_index_cache(path),
+    update_link_index=lambda path: update_link_index_for_page(path),
+    queue_planning=_queue_planning_recalculation,
+    propagate_relations=lambda page_id, table_id, old, new: _propagate_relation_inverse(
+        page_id,
+        table_id,
+        old,
+        new,
+    ),
+    resolve_page_context=lambda metadata, path: _resolve_page_context_from_path(
+        metadata,
+        path,
+    ),
+    emit_created=_emit_page_created,
+)
+
+
+create_page = page_commands_api.register_create_route(
+    router,
+    editor_dependency=require_role("editor"),
+    workspace_context_dependency=get_workspace_context,
+    dependencies=_CREATE_PAGE_DEPENDENCIES,
+)
 
 
 _DAILY_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -5845,47 +5536,6 @@ def _canonicalize_id(page_id: Any) -> str:
     return s
 
 
-# Strict allow-list for IDs used as a path SEGMENT in the
-# filesystem. Blocks path traversal (`..`, `/`, `\`, NUL, leading dot).
-# Reason: routes like `/pages/{page_id}/history` build `VAULT / .history /
-# {page_id}` and, without validation, `page_id="..".rmtree()` would delete the entire
-# Vault. Defense in depth even though the routes are gated by role.
-_PAGE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
-# History timestamp format: `YYYYMMDD_HHMMSS` (see `_create_page_version`).
-_HISTORY_TIMESTAMP_RE = re.compile(r"^\d{8}_\d{6}$")
-
-
-def _validate_safe_page_id(page_id: str) -> str:
-    """Validates that page_id is safe to use as a path segment.
-
-    Rejects:
-      - Empty / whitespace only.
-      - Contains `..`, `/`, `\\`, NUL byte.
-      - Starts with `.` (hidden files) or is exactly `.` or `..`.
-      - Characters outside `[A-Za-z0-9_-]`.
-
-    Returns the stripped id. Raises HTTPException(400) if invalid.
-    
-    """
-    pid = str(page_id or "").strip()
-    if not pid or not _PAGE_ID_RE.match(pid) or pid.startswith("."):
-        raise HTTPException(status_code=400, detail="Invalid page_id")
-    return pid
-
-
-def _validate_history_timestamp(timestamp: str) -> str:
-    """Validates that a history timestamp has the `YYYYMMDD_HHMMSS` format.
-
-    Without this, `timestamp="../foo"` would allow reading or overwriting
-    .md files outside the page's history directory.
-    
-    """
-    ts = str(timestamp or "").strip()
-    if not ts or not _HISTORY_TIMESTAMP_RE.match(ts):
-        raise HTTPException(status_code=400, detail="Invalid timestamp")
-    return ts
-
-
 def find_page_path(page_id: str, *, allow_full_scan: bool = True) -> Optional[Path]:
     """Seeks the path of an .md file by ID recursively using an optimized in-memory index.
 
@@ -5957,8 +5607,7 @@ def find_page_path(page_id: str, *, allow_full_scan: bool = True) -> Optional[Pa
 
     if stale_detected:
         # Force immediate rescan on next list_pages call
-        global _last_vault_sync_time
-        _last_vault_sync_time = 0.0
+        page_state.last_vault_sync_time = 0.0
         log.info(f"🗑️ Stale cache entry detected for page {page_id}. Rescan scheduled.")
 
     # 3. Last Resort Fallback: Direct file lookups (Avoid if possible)
@@ -6102,80 +5751,8 @@ async def _ensure_materialized_or_503(p: Path, label: str = "") -> None:
         )
 
 
-@router.get("/pages/{page_id}")
-async def get_page(page_id: str):
-    """Returns the full content of a page by ID."""
-    # Page lookup walks the FS — push it off the asyncio event loop so a slow
-    # OneDrive stat() can't block other concurrent requests.
-    file_path = await asyncio.to_thread(find_page_path, page_id)
-
-    if not file_path or not file_path.exists():
-        raise HTTPException(
-            status_code=404, detail=f"Page not found (ID: {page_id})"
-        )
-
-    # Proactive warmup: if the file is online-only, materialize it before
-    # reading it. Without this, opening a page for a dataless file gave a 500
-    # (EDEADLK) even with the warmup daemon alive, because this path —unlike
-    # the preview— didn't request materialization.
-    await _materialize_if_online_only(file_path, page_id)
-
-    def _read_and_parse():
-        if _is_dashboard_file_path(file_path):
-            return _read_dashboard_file(file_path)
-        # OneDrive sync can return Errno 35 (Resource deadlock avoided)
-        # for up to 5 seconds while it's stabilizing a file. Retries
-        # up to 8 times with exponential backoff: 0.05, 0.1, 0.2, 0.4, 0.8,
-        # 1.0, 1.0, 1.0 (4.55s total). If it still fails even so, then
-        # OneDrive has a serious problem and we return it as a 500.
-        last_error = None
-        delays = [0.05, 0.1, 0.2, 0.4, 0.8, 1.0, 1.0, 1.0]
-        for attempt in range(len(delays) + 1):
-            try:
-                raw_content = file_path.read_text(encoding="utf-8")
-                return parse_frontmatter(raw_content, file_path)
-            except OSError as e:
-                last_error = e
-                if e.errno == 35 and attempt < len(delays):
-                    time.sleep(delays[attempt])
-                    continue
-                raise
-        if last_error:
-            raise last_error
-        return {}, ""
-
-    try:
-        metadata, body = await asyncio.to_thread(_read_and_parse)
-        rel_folder, resolved_table_id = _resolve_page_context_from_path(
-            metadata, file_path
-        )
-        _table_obj = _table_by_id(resolved_table_id)
-        await asyncio.to_thread(
-            _vf_inject_for_single_page,
-            _table_obj,
-            str(metadata.get("id") or page_id),
-            metadata,
-            _vf_page_loader,
-        )
-        # Backward compatibility: the old frontend reads metadata by name of
-        # field; expand id-keys with the corresponding name (without deleting id).
-        if _table_obj:
-            metadata = to_response_names(metadata, _table_obj)
-        return {
-            "id": str(metadata.get("id") or page_id),
-            "title": metadata.get("title", ""),
-            "metadata": metadata,
-            "content": body.strip(),
-            "folder": rel_folder,
-            "resolved_table_id": resolved_table_id,
-            # Etag for optimistic concurrency. Client should echo this in the
-            # next PUT — if the file moved/changed (cloud sync, external edit)
-            # the server returns 409 instead of overwriting.
-            "etag": file_etag(file_path),
-        }
-    except Exception as e:
-        log.error(f"Error reading page {page_id}: {e}")
-        raise HTTPException(status_code=500, detail="Error reading target file")
+page_queries_api.register_page_route(router)
+get_page = page_queries_api.get_page
 
 
 def _build_preview_excerpt(body: str, max_chars: int = 320) -> str:
@@ -10767,68 +10344,14 @@ async def _fetch_preview_with_cache(
             _preview_inflight.pop(page_id, None)
 
 
-@router.get("/pages/{page_id}/preview")
-async def get_page_preview(page_id: str, full: bool = False):
-    """Preview of a page (title + excerpt/body + icon/cover + images).
-
-    By default returns only `excerpt` (for wikilink tooltips).
-    With `?full=true`, it also returns `body_md` (full markdown for rendering
-    in the feed) and `images` (list of image URLs from the body).
-
-    In-memory cache invalidated by mtime + in-flight dedup per id:
-      - The first call pays the real cost (warmup + read + parse, ~ms if
-        already local, ~seconds if still online-only).
-      - Subsequent calls are instantaneous until the .md is modified.
-      - If two concurrent requests ask for the same id, they share
-        the same work (not duplicated).
-
-    OneDrive's Errno 35 degrades to empty (preview is not critical).
-    
-    """
-    file_path = await asyncio.to_thread(find_page_path, page_id)
-
-    if not file_path or not file_path.exists():
-        raise HTTPException(
-            status_code=404, detail=f"Page not found (ID: {page_id})"
-        )
-
-    try:
-        short, full_resp, _ = await _fetch_preview_with_cache(file_path, page_id)
-        return full_resp if full else short
-    except OSError as e:
-        if e.errno == 35:
-            base = {
-                "id": page_id,
-                "title": "",
-                "excerpt": "",
-                "icon": None,
-                "cover": None,
-            }
-            if full:
-                base["body_md"] = ""
-                base["images"] = []
-            return base
-        log.error(f"Error reading preview for page {page_id}: {e}")
-        raise HTTPException(status_code=500, detail="Error reading preview")
-    except Exception as e:
-        log.error(f"Error generating preview for {page_id}: {e}")
-        raise HTTPException(status_code=500, detail="Error generating page preview")
-
-
-class _BulkWarmPayload(BaseModel):
-    ids: List[str]
-
-
 # Per-item timeout inside the bulk warmup. Covers pathological cases where
 # `materialize` or `read_text` can hang (OneDrive lock, FUSE hang,
 # etc.) without stopping the whole batch. The daemon already has its own timeout
 # (ONEDRIVE_WARMUP_TIMEOUT, default 90s); this is its upper bound at
 # the backend coordination level.
-_PREVIEW_WARM_PER_ITEM_TIMEOUT_S = 30.0
 # Bulk concurrency: high enough to parallelize, low enough that it doesn't
 # saturate OneDrive's File Provider. Matches the limit that was previously
 # the frontend used to impose.
-_PREVIEW_WARM_CONCURRENCY = 8
 
 
 async def _bulk_warm_one(pid: str) -> str:
@@ -10869,632 +10392,354 @@ async def _bulk_warm_one(pid: str) -> str:
         return "failed"
 
 
-@router.post("/pages/preview/warm")
-async def bulk_warm_previews(payload: _BulkWarmPayload):
-    """Parallel pre-warmup of previews for a list of ids.
-
-    Use case: the frontend, when mounting a view (feed/table/gallery) with
-    dozens of items, calls this endpoint once with all the ids. The
-    backend triggers OneDrive warmup + read + parse + cache for each item
-    in parallel (limited concurrency). The individual `/preview`
-    requests the frontend makes afterward will be instantaneous (cache
-    hit) instead of waiting ~5s each.
-
-    Robust against:
-      - **Orphan/stale ids** (pointing to already-deleted files):
-        `allow_full_scan=False` avoids a full vault rglob for each one
-        — a single deleted id doesn't block the whole batch.
-      - **Slow/stuck materializations**: per-item timeout
-        (`_PREVIEW_WARM_PER_ITEM_TIMEOUT_S`). The daemon has its own
-        timeout but this is its upper bound at the backend.
-      - **Individual errors**: each warmup fails silently (`failed += 1`);
-        never propagates to the batch or changes the HTTP status.
-      - **Concurrent calls**: in-flight dedup per id (see
-        `_bulk_warm_one`).
-
-    Returns counters: total requested, cached (skip), successfully
-    warmed, failed.
-    
-    """
-    ids = list(dict.fromkeys(payload.ids or []))  # dedup while keeping order
-    if not ids:
-        return {"requested": 0, "cached": 0, "warmed": 0, "failed": 0}
-
-    sem = asyncio.Semaphore(_PREVIEW_WARM_CONCURRENCY)
-
-    async def _bounded(pid: str) -> str:
-        async with sem:
-            try:
-                return await asyncio.wait_for(
-                    _bulk_warm_one(pid),
-                    timeout=_PREVIEW_WARM_PER_ITEM_TIMEOUT_S,
-                )
-            except asyncio.TimeoutError:
-                log.warning(
-                    "bulk warmup timeout per %s (>%ss)",
-                    pid, _PREVIEW_WARM_PER_ITEM_TIMEOUT_S,
-                )
-                return "failed"
-            except Exception as e:
-                log.debug(f"bulk warmup outer falla per {pid}: {e}")
-                return "failed"
-
-    results = await asyncio.gather(*[_bounded(pid) for pid in ids])
-    cached_n = sum(1 for r in results if r == "cached")
-    warmed_n = sum(1 for r in results if r == "warmed")
-    failed_n = sum(1 for r in results if r == "failed")
-    return {
-        "requested": len(ids),
-        "cached": cached_n,
-        "warmed": warmed_n,
-        "failed": failed_n,
-    }
+page_queries_api.register_preview_routes(router)
+get_page_preview = page_queries_api.get_page_preview
+bulk_warm_previews = page_queries_api.bulk_warm_previews
 
 
-@router.put("/pages/{page_id}", dependencies=[Depends(require_role("editor"))])
-async def save_page(
-    page_id: str, request: PageSaveRequest, background_tasks: BackgroundTasks,
-    context: WorkspaceContext = Depends(get_workspace_context),
-):
-    """Saves or updates a page existing or re-adapting its UUID."""
-    # FS lookup off the asyncio loop — slow stat()/rglob() on OneDrive should
-    # never paralyze other concurrent requests. Skip the full-vault rglob
-    # fallback: if the page id isn't in the cache, treat it as "new note" and
-    # let the create branch run (much faster). Existing notes are always
-    # cached after the indexer warmup.
-    file_path = await asyncio.to_thread(
-        find_page_path, page_id, allow_full_scan=False
+def _prepare_save_metadata(
+    metadata: Dict[str, Any],
+    file_path: Optional[Path],
+) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]]]:
+    metadata = normalize_table_context(normalize_metadata_ids(metadata))
+    table = _table_by_id(get_table_id(metadata))
+    if not table:
+        return metadata, None
+    metadata, _ = to_storage_names(metadata, table)
+    created_fallback = None
+    try:
+        if file_path and file_path.exists():
+            stat_result = file_path.stat()
+            created_fallback = datetime.fromtimestamp(
+                getattr(stat_result, "st_birthtime", 0) or stat_result.st_ctime,
+                tz=timezone.utc,
+            ).isoformat()
+    except OSError:
+        pass
+    stamp_system_dates(
+        metadata,
+        table,
+        is_create=not bool(file_path),
+        created_fallback=created_fallback,
     )
+    return metadata, table
 
-    # Optimistic concurrency check: if the client submitted an expected_etag,
-    # confirm the on-disk file hasn't changed since they GET'd it. This
-    # protects against the "edit on laptop + edit on phone" personal-mode
-    # case without needing real locks. Pass `force=True` to override.
-    if file_path and file_path.exists() and request.expected_etag and not request.force:
-        current = file_etag(file_path)
-        if current and current != request.expected_etag:
-            log.info(
-                f"⚠️ etag mismatch for {page_id}: expected={request.expected_etag} "
-                f"current={current}. Refusing to overwrite."
-            )
-            raise HTTPException(
-                status_code=409,
-                detail={
-                    "error": "etag_mismatch",
-                    "message": (
-                        "The file has changed since you opened it, probably because "
-                        "another device synchronized it. Reload it or resend with "
-                        "force=true to overwrite it."
-                    ),
-                    "current_etag": current,
-                    "expected_etag": request.expected_etag,
-                },
-            )
 
-    async with await _get_page_write_lock(page_id):
-        metadata = request.metadata.copy()
-        metadata = normalize_metadata_ids(metadata)
-        metadata = normalize_table_context(metadata)
-        _table_for_meta = _table_by_id(get_table_id(metadata))
-        if _table_for_meta:
-            metadata, _ = to_storage_names(metadata, _table_for_meta)
-            created_fallback = None
-            try:
-                if file_path and file_path.exists():
-                    created_fallback = datetime.fromtimestamp(
-                        getattr(file_path.stat(), "st_birthtime", 0)
-                        or file_path.stat().st_ctime,
-                        tz=timezone.utc,
-                    ).isoformat()
-            except OSError:
-                pass
-            stamp_system_dates(
-                metadata,
-                _table_for_meta,
-                is_create=not bool(file_path),
-                created_fallback=created_fallback,
-            )
-        metadata["id"] = page_id
-        metadata["title"] = request.title
-        if request.parent_id is not None:
-            metadata["parent_id"] = request.parent_id
-
-        if request.is_database:
-            metadata["is_database"] = True
-        if metadata.get("is_dashboard") is True:
-            # Dashboards are markdown; the content_format=json flag was legacy.
-            metadata.pop("content_format", None)
-
-        is_template = metadata.get("is_template") is True
-        is_dashboard = metadata.get("is_dashboard") is True
-        if not file_path:
-            # If it doesn't exist, we create it in the correct folder according to metadata.
-            if is_template:
-                target_dir = get_p("PLANTILLES")
-            elif is_calendar_entry(metadata):
-                target_dir = get_p("CALENDAR")
-            elif is_dashboard:
-                target_dir = get_p("DASHBOARDS")
-            else:
-                table_folder = _resolve_table_folder_from_metadata(metadata)
-                target_dir = table_folder if table_folder else get_p("WIKI")
-
-            target_dir.mkdir(parents=True, exist_ok=True)
-            # Defense against duplicates: if the index cache did not have the page
-            # but the file DOES exist in the target directory (incomplete index
-            # due to Errno 35 'Resource deadlock' on OneDrive, etc.), we reuse
-            # that file instead of creating "{title} (2).md". Without this, every
-            # consecutive PUT would generate a new file and the page would appear
-            # duplicated in the sidebar with inconsistent states.
-            canonical = _canonicalize_id(page_id)
-            existing_local = None
-            try:
-                for candidate in target_dir.iterdir():
-                    if not candidate.is_file() or candidate.suffix != ".md":
-                        continue
-                    try:
-                        raw_existing = candidate.read_text(encoding="utf-8")
-                        fm_existing, _ = parse_frontmatter(raw_existing, candidate)
-                        if _canonicalize_id(str(fm_existing.get("id", ""))) == canonical:
-                            existing_local = candidate
-                            break
-                    except Exception:
-                        continue
-            except Exception:
-                existing_local = None
-
-            if existing_local is not None:
-                file_path = existing_local
-                # Repopulates the cache so future calls don't redo
-                # this scan.
-                with _page_index_lock:
-                    from backend.services.context_vars import get_active_vault_path
-                    v_root = get_active_vault_path()
-                    if v_root:
-                        _page_id_to_path.setdefault(str(v_root), {})[page_id] = str(file_path)
-                log.info(f"♻️ Reusing existing file for {page_id}: {file_path}")
-            else:
-                safe_name = _safe_filename(request.title, target_dir)
-                file_path = target_dir / f"{safe_name}.md"
+def _locate_save_file(
+    page_id: str,
+    title: str,
+    metadata: Dict[str, Any],
+    file_path: Optional[Path],
+) -> Path:
+    if file_path is None:
+        if metadata.get("is_template") is True:
+            target_dir = get_p("PLANTILLES")
+        elif is_calendar_entry(metadata):
+            target_dir = get_p("CALENDAR")
+        elif metadata.get("is_dashboard") is True:
+            target_dir = get_p("DASHBOARDS")
         else:
-            metadata["id"] = page_id
-            orig_file_path = file_path
-            file_path = ensure_correct_page_location(file_path, metadata)
-            file_path = _rename_page_file_to_match_title(file_path, request.title)
-            if file_path != orig_file_path:
-                _remove_page_from_index_cache(page_id, orig_file_path)
-                _add_page_to_index_cache(file_path)
-                with _page_index_lock:
-                    from backend.services.context_vars import get_active_vault_path
-                    v_r = get_active_vault_path()
-                    if v_r:
-                        _page_id_to_path.setdefault(str(v_r), {})[page_id] = str(file_path)
-
-        # Read previous metadata to detect manual overrides — off the event loop
-        # so a slow OneDrive read doesn't block other concurrent requests.
-        def _read_old_meta():
-            if not file_path or not file_path.exists():
-                return {}, ""
-            try:
-                raw_content = file_path.read_text(encoding="utf-8")
-                md, bd = parse_frontmatter(raw_content, file_path)
-                return md, bd
-            except Exception:
-                return {}, ""
-        old_metadata, old_body = await asyncio.to_thread(_read_old_meta)
-        # We capture the previous title to detect changes at the end and rewrite
-        # the wikilinks `[[Old Title]]` → `[[New Title]]`. PUT can receive both
-        # `request.title` as `metadata.title` (consolidated into `metadata`).
-        previous_title = str(old_metadata.get("title") or "").strip() if old_metadata else ""
-
-        # Apply automations and formulas (on the thread pool: CPU-heavy formulas /
-        # cross-record rollups read many files and would block the event loop).
+            target_dir = _resolve_table_folder_from_metadata(metadata) or get_p("WIKI")
+        target_dir.mkdir(parents=True, exist_ok=True)
+        canonical = _canonicalize_id(page_id)
         try:
-            metadata = await asyncio.to_thread(
-                get_rule_engine().process_updates, page_id, old_metadata, metadata
-            )
-        except Exception as e:
-            log.error(f"Error processing automations for {page_id}: {e}")
-
-        # Authorship: stamps the last editor (and creator if the page is new).
-        _stamp_author(metadata, getattr(context, "user_id", None), is_create=not bool(old_metadata))
-
-        metadata = _persist_metadata_assets(metadata)
-
-        # Saving a resource from the browser must also guarantee its Citation Key —
-        # and keep a key edited in the properties panel unique (same guard as the
-        # grid PATCH; see `_dedupe_citation_key`).
-        metadata = _ensure_recursos_citation_key(metadata, _table_for_meta)
-        metadata = _dedupe_citation_key(metadata, page_id)
-
-        def _write_now():
-            # Both the version backup and the actual file write are real I/O on
-            # OneDrive — pushed onto a worker thread together so the request
-            # path stays unblocked. All page types (including Dashboards)
-            # are written as markdown with frontmatter.
-            if file_path and file_path.exists():
-                _create_page_version(page_id, file_path)
-            save_page_md(file_path, metadata, request.content)
-
-        try:
-            await asyncio.to_thread(_write_now)
-
-            # Refreshes the in-memory INDEX with the NEW metadata (id→path + the entry
-            # in full). Previously only the id→path map was updated, leaving the
-            # metadata of the STALE entry in `_page_index_entries` → `GET /pages` and
-            # `/by-table` served the OLD value until the rescan (cooldown 600s);
-            # reproduced: PUT of QAField old→NEW and by-table kept showing "old".
-            _refresh_page_index_entry(file_path, metadata, request.content)
-
-            # Invalidates the PageInfo TTL micro-cache (see PATCH for the rationale).
-            _pages_cache_invalidate_all()
-
-            background_tasks.add_task(update_link_index_for_page, file_path)
-
-            # If the title has changed, rewrites the literal-title wikilinks in
-            # the pages that reference this one. See rewrite_wikilinks_on_title_change.
-            new_title = str(metadata.get("title") or request.title or "").strip()
-            if previous_title and new_title and previous_title != new_title:
-                background_tasks.add_task(
-                    rewrite_wikilinks_on_title_change,
-                    page_id,
-                    previous_title,
-                    new_title,
-                )
-
-            table_id = get_table_id(metadata)
-            if table_id:
-                background_tasks.add_task(
-                    _recompute_cross_record_formulas_for_table, table_id, page_id
-                )
-            sync_to_google_calendar_if_needed(metadata, background_tasks)
-            # If this page is an original with translations, flag them stale when the
-            # edit touched translatable content (background; cheap no-op otherwise).
-            background_tasks.add_task(
-                _propagate_translation_staleness,
-                page_id, old_metadata, metadata, old_body, request.content,
-            )
-            rel_folder, resolved_table_id = _resolve_page_context_from_path(
-                metadata, file_path
-            )
-            return {
-                "status": "success",
-                "id": page_id,
-                "title": metadata.get("title", request.title),
-                "metadata": metadata,
-                "content": request.content,
-                "folder": rel_folder,
-                "resolved_table_id": resolved_table_id,
-                "etag": file_etag(file_path),  # New etag for next save's optimistic check
-                "message": "Page saved successfully",
-            }
-        except Exception as e:
-            log.error(f"Error saving page {page_id}: {e}")
-            raise HTTPException(status_code=500, detail="Error writing file to disk")
-
-
-@router.patch("/pages/{page_id}", dependencies=[Depends(require_role("editor"))])
-async def patch_page(
-    page_id: str, request: PagePatchRequest, background_tasks: BackgroundTasks,
-    context: WorkspaceContext = Depends(get_workspace_context),
-):
-    """Partial update of a page (e.g., metadata only)."""
-    # We combine find_page_path + (etag check) + read_file into a single
-    # `asyncio.to_thread`. Previously there were 2 (or 3 with etag), each with
-    # ~10-30 ms of dispatch overhead to the pool. Without changing the
-    # its own semantics; grouping them saves ~30-60 ms per PATCH.
-    expected_etag = request.expected_etag
-    force = request.force
-
-    # Serialize writes/deletes per page_id: two overlapping PATCHes to the
-    # same page (e.g. rapid title typing) interleave — PATCH #1 renames
-    # `Old.md` → `New.md` and repoints the cache, PATCH #2 (already past
-    # its find_page_path) then reads/renames the stale `Old.md` and 500s.
-    # The lock forces PATCH #2 to wait until #1 has finished the rename +
-    # cache update, so find_page_path always returns the current path.
-    async with await _get_page_write_lock(page_id):
-
-        def _find_and_read():
-            fp = _find_page_path_for_write(page_id)
-            if not fp:
-                return None, None, None, None, None
-            # Concurrency check before the read (same as before).
-            current = None
-            if expected_etag and not force:
-                current = file_etag(fp)
-                if current and current != expected_etag:
-                    # We return the current_etag to the caller so it can generate the 409.
-                    return fp, None, None, None, current
-            if _is_dashboard_file_path(fp):
-                md, bd = _read_dashboard_file(fp)
-                return fp, md, bd, None, current
-            raw_content = fp.read_text(encoding="utf-8")
-            md, bd = parse_frontmatter(raw_content, fp)
-            return fp, md, bd, raw_content, current
-
-        file_path, metadata, body, original_raw_content, current_etag = (
-            await asyncio.to_thread(_find_and_read)
-        )
-        if not file_path:
-            raise HTTPException(status_code=404, detail="Page not found")
-        if expected_etag and not force and current_etag and current_etag != expected_etag:
-            log.info(
-                f"⚠️ etag mismatch (PATCH) for {page_id}: "
-                f"expected={expected_etag} current={current_etag}"
-            )
-            raise HTTPException(
-                status_code=409,
-                detail={
-                    "error": "etag_mismatch",
-                    "message": (
-                        "The file has changed since you opened it. Reload it or "
-                        "resend with force=true to overwrite it."
-                    ),
-                    "current_etag": current_etag,
-                    "expected_etag": expected_etag,
-                },
-            )
-
-        try:
-
-            # Snapshot of the original frontmatter BEFORE mutating anything. The RuleEngine
-            # needs to compare "what was in the file" with "what was requested
-            # change"; before, this snapshot was obtained by rereading the file
-            # a second time (`_read_original`), which paid for a read
-            # an extra round-trip to OneDrive (~100-300 ms) for each PATCH. The content of the
-            # file doesn't change between the first read and the rule engine — only
-            # potentially its path (rename/move) — so a `dict()`
-            # is equivalent and much cheaper.
-            original_metadata_snapshot = dict(metadata)
-
-            # We capture the previous title BEFORE mutating `metadata`. If it changes, at the
-            # end of the PATCH we'll launch a background task that rewrites the
-            # wikilinks `[[Old Title]]` → `[[New Title]]` in all the pages
-            # that reference it.
-            previous_title = str(metadata.get("title") or "").strip()
-
-            if request.title is not None:
-                metadata["title"] = request.title
-            if request.parent_id is not None:
-                metadata["parent_id"] = request.parent_id
-            if request.is_database is not None:
-                metadata["is_database"] = request.is_database
-            if request.metadata is not None:
-                # Merge metadata
-                metadata.update(request.metadata)
-            # `metadata.update` cannot remove keys: to DELETE properties
-            # (e.g. local/ad-hoc fields from the panel) they must be removed here.
-            if request.remove_metadata_keys:
-                for _rk in request.remove_metadata_keys:
-                    metadata.pop(_rk, None)
-
-            content = request.content if request.content is not None else body
-
-            # Normalize legacy IDs.
-            metadata = normalize_metadata_ids(metadata)
-            metadata = normalize_table_context(metadata)
-            table_for_meta = _table_by_id(get_table_id(metadata))
-            if table_for_meta:
-                metadata, _ = to_storage_names(metadata, table_for_meta)
-                created_fallback = None
+            for candidate in target_dir.iterdir():
+                if not candidate.is_file() or candidate.suffix != ".md":
+                    continue
                 try:
-                    stat_result = file_path.stat()
-                    created_fallback = datetime.fromtimestamp(
-                        getattr(stat_result, "st_birthtime", 0) or stat_result.st_ctime,
-                        tz=timezone.utc,
-                    ).isoformat()
-                except OSError:
-                    pass
-                stamp_system_dates(
-                    metadata,
-                    table_for_meta,
-                    is_create=False,
-                    created_fallback=created_fallback,
-                )
-            if metadata.get("is_dashboard") is True:
-                # Dashboards are markdown with frontmatter, like any other
-                # page; `content_format=json` was a legacy tag. If the
-                # current frontmatter still carries it, we remove it so it doesn't get written
-                # to disk. The reverse that used to be here (setting `content_format=json`
-                # and converting the file to `.json`) caused corruption: the PATCH
-                # renamed `Bitàcora.md` → `Bitàcora.json`, wrote a body
-                # empty via some error path, and the page ended up returning 500.
-                metadata.pop("content_format", None)
-
-            metadata["id"] = page_id
-            orig_file_path = file_path
-            # Move if type changes (template / non-template)
-            file_path = ensure_correct_page_location(file_path, metadata)
-            # NOTE: Do NOT call `_ensure_page_extension` for dashboards. The rule
-            # of the project is "pages (including dashboards) are always Markdown";
-            # changing the extension to `.json` when `is_dashboard=True` is the bug that
-            # broke Bitàcora. The function is kept in the code to still read
-            # legacy `.json`, but the renaming isn't forced here.
-            if request.title is not None:
-                file_path = _rename_page_file_to_match_title(file_path, request.title)
-
-            if file_path != orig_file_path:
-                _remove_page_from_index_cache(page_id, orig_file_path)
-                _add_page_to_index_cache(file_path)
-                with _page_index_lock:
-                    from backend.services.context_vars import get_active_vault_path
-                    v_r = get_active_vault_path()
-                    if v_r:
-                        _page_id_to_path.setdefault(str(v_r), {})[page_id] = str(file_path)
-
-            # Rule engine + asset persistence + writing. `original_metadata_snapshot`
-            # captured at the start already saves a file read; the
-            # `process_updates` runs on the thread pool because it could invoke
-            # CPU-heavy formulas on tables with rules.
-            try:
-                metadata = await asyncio.to_thread(
-                    get_rule_engine().process_updates,
-                    page_id, original_metadata_snapshot, metadata,
-                )
-            except Exception as e:
-                log.error(f"Error processing automations for {page_id}: {e}")
-
-            # Authorship: stamps the last editor (created_* is preserved if already present).
-            _stamp_author(metadata, getattr(context, "user_id", None), is_create=False)
-
-            metadata = _persist_metadata_assets(metadata)
-
-            # Partial edits (e.g. filling in cells in the grid) must also
-            # leave the resource citable if it didn't already have a key — and a
-            # hand-typed key must not collide with another record's (the collision
-            # silently shadows one of the two in citeproc).
-            metadata = _ensure_recursos_citation_key(metadata)
-            metadata = _dedupe_citation_key(metadata, page_id)
-
-            # Snapshot of the relation fields (clean ids) BEFORE writing: `save_page_md`
-            # decorates in-place (id→[[Title|id]]), so we capture it now to propagate
-            # the inverse sync to the other side (background task, further below).
-            _rel_new_snapshot = dict(metadata)
-
-            def _write_now():
-                save_page_md(file_path, metadata, content)
-            await asyncio.to_thread(_write_now)
-
-            # Updates the `_page_index_entries` cache IMMEDIATELY with the new
-            # metadata. Without this, the next GET /api/vault/pages returns the
-            # cached (old) metadata and the frontend reverts the recent changes
-            # — bug visible when you change an icon/cover and the sidebar loses it
-            # after a fetchPages. We also invalidate the bodies cache and the
-            # iter_docs cache so /backlinks reflects the changes.
-            try:
-                from backend.services.context_vars import get_active_vault_path
-                v_path = get_active_vault_path()
-                if v_path:
-                    v_str = str(v_path)
-                    try:
-                        stat_result = file_path.stat()
-                        # We build the entry from the in-memory data without
-                        # re-read the file (`_build_page_cache_entry`
-                        # used to read frontmatter from disk — ~100-300 ms on OneDrive
-                        # for each PATCH).
-                        new_entry = _build_cache_entry_from_memory(
-                            file_path, stat_result, metadata, content or ""
-                        )
+                    raw_existing = candidate.read_text(encoding="utf-8")
+                    existing_metadata, _ = parse_frontmatter(raw_existing, candidate)
+                    if (
+                        _canonicalize_id(str(existing_metadata.get("id", "")))
+                        == canonical
+                    ):
                         with _page_index_lock:
-                            _page_index_entries.setdefault(v_str, {})[str(file_path)] = new_entry
-                            new_id = new_entry.get("id")
-                            if new_id:
-                                _page_id_to_path.setdefault(v_str, {})[new_id] = str(file_path)
-                            _bump_page_index_version(v_str)
-                        # PathResolver: in a RENAME (title) the file changes
-                        # path; without re-registering it, find_path (rule_engine) and
-                        # the file list from /unlinked-mentions pointed to the
-                        # old path until the full rescan (600s cooldown).
-                        path_resolver.add_file(v_path, new_id or page_id, file_path)
-                    except Exception as e:
-                        log.debug(f"Cache update after PATCH failed for {page_id}: {e}")
-                with _body_cache_lock:
-                    _body_cache.pop(str(file_path), None)
-                # Invalidates the PageInfo TTL micro-cache so that the next
-                # `/by-table` or `/pages` doesn't return the pre-PATCH version (~1.5 s
-                # stale state would be visible in the frontend on autosave).
-                _pages_cache_invalidate_all()
-                # The cite_key_index rebuilds itself on a page-COUNT change, so editing a
-                # `Citation Key` in place goes unnoticed: the picker and, above all,
-                # Word/LibreOffice keep resolving the OLD key (and the new one returns
-                # `resolved: false`) until an unrelated page is created or the backend
-                # restarts. Editing the key is exactly the "critical change" the
-                # heuristic can't see, so we invalidate explicitly.
-                if str(original_metadata_snapshot.get("Citation Key") or "") != str(metadata.get("Citation Key") or ""):
-                    _invalidate_cite_key_index()
-                # Surgical update of `_iter_docs_cache`: we do NOT invalidate
-                # the whole list. Invalidating it (the old `docs = None`) caused
-                # the next call to `/backlinks`, `/global-index` or
-                # `_rebuild_link_index` would traverse 3500+ OneDrive files
-                # (~138 s observed). Here we replace the specific entry in-place
-                # with the new content that we already have in memory.
-                with _iter_docs_lock:
-                    _dc_entry = _iter_docs_cache.get(v_str)
-                    docs = _dc_entry.get("docs") if _dc_entry else None
-                    if docs is not None:
-                        path_str = str(file_path)
-                        new_doc = (
-                            Path(path_str),
-                            dict(metadata),
-                            content if content is not None else "",
-                            _is_dashboard_file_path(file_path),
+                            vault_root = get_active_vault_path()
+                            if vault_root:
+                                _page_id_to_path.setdefault(str(vault_root), {})[
+                                    page_id
+                                ] = str(candidate)
+                        log.info("Reusing existing file for %s: %s", page_id, candidate)
+                        return candidate
+                except Exception:
+                    continue
+        except OSError:
+            pass
+        return target_dir / f"{_safe_filename(title, target_dir)}.md"
+
+    original_path = file_path
+    file_path = ensure_correct_page_location(file_path, metadata)
+    file_path = _rename_page_file_to_match_title(file_path, title)
+    if file_path != original_path:
+        _remove_page_from_index_cache(page_id, original_path)
+        _add_page_to_index_cache(file_path)
+        with _page_index_lock:
+            vault_root = get_active_vault_path()
+            if vault_root:
+                _page_id_to_path.setdefault(str(vault_root), {})[page_id] = str(
+                    file_path
+                )
+    return file_path
+
+
+def _read_save_page(file_path: Path) -> Tuple[Dict[str, Any], str]:
+    if not file_path.exists():
+        return {}, ""
+    try:
+        return parse_frontmatter(file_path.read_text(encoding="utf-8"), file_path)
+    except Exception:
+        return {}, ""
+
+
+def _write_save_page_with_version(
+    page_id: str,
+    file_path: Path,
+    metadata: Dict[str, Any],
+    content: str,
+) -> None:
+    if file_path.exists():
+        _create_page_version(page_id, file_path)
+    save_page_md(file_path, metadata, content)
+
+
+_SAVE_PAGE_DEPENDENCIES = page_save_service.SavePageDependencies(
+    find_page=lambda page_id, *, allow_full_scan=True: find_page_path(
+        page_id,
+        allow_full_scan=allow_full_scan,
+    ),
+    file_etag=file_etag,
+    get_page_write_lock=lambda page_id: _get_page_write_lock(page_id),
+    prepare_metadata=_prepare_save_metadata,
+    locate_file=_locate_save_file,
+    read_page=_read_save_page,
+    process_updates=lambda page_id, old, new: get_rule_engine().process_updates(
+        page_id,
+        old,
+        new,
+    ),
+    stamp_author=lambda metadata, user_id, is_create: _stamp_author(
+        metadata,
+        user_id,
+        is_create,
+    ),
+    persist_assets=lambda metadata: _persist_metadata_assets(metadata),
+    ensure_citation_key=lambda metadata, table: _ensure_recursos_citation_key(
+        metadata,
+        table,
+    ),
+    dedupe_citation_key=lambda metadata, page_id: _dedupe_citation_key(
+        metadata,
+        page_id,
+    ),
+    write_with_version=_write_save_page_with_version,
+    refresh_page_index=lambda path, metadata, content: _refresh_page_index_entry(
+        path,
+        metadata,
+        content,
+    ),
+    invalidate_page_responses=lambda: _pages_cache_invalidate_all(),
+    update_link_index=lambda: update_link_index_for_page,
+    rewrite_wikilinks=lambda: rewrite_wikilinks_on_title_change,
+    get_table_id=lambda metadata: get_table_id(metadata),
+    recompute_formulas=lambda: _recompute_cross_record_formulas_for_table,
+    sync_calendar=lambda metadata, tasks: sync_to_google_calendar_if_needed(
+        metadata,
+        tasks,
+    ),
+    propagate_translation=lambda: _propagate_translation_staleness,
+    resolve_page_context=lambda metadata, path: _resolve_page_context_from_path(
+        metadata,
+        path,
+    ),
+)
+
+
+def _find_and_read_patch_page(
+    page_id: str,
+    expected_etag: Optional[str],
+    force: bool,
+) -> page_patch_service.PatchReadResult:
+    file_path = _find_page_path_for_write(page_id)
+    if not file_path:
+        return None, None, None, None, None
+    current_etag = None
+    if expected_etag and not force:
+        current_etag = file_etag(file_path)
+        if current_etag and current_etag != expected_etag:
+            return file_path, None, None, None, current_etag
+    if _is_dashboard_file_path(file_path):
+        metadata, body = _read_dashboard_file(file_path)
+        return file_path, metadata, body, None, current_etag
+    raw_content = file_path.read_text(encoding="utf-8")
+    metadata, body = parse_frontmatter(raw_content, file_path)
+    return file_path, metadata, body, raw_content, current_etag
+
+
+def _prepare_patch_metadata(
+    metadata: Dict[str, Any],
+    file_path: Path,
+) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]]]:
+    metadata = normalize_table_context(normalize_metadata_ids(metadata))
+    table = _table_by_id(get_table_id(metadata))
+    if table:
+        metadata, _ = to_storage_names(metadata, table)
+        created_fallback = None
+        try:
+            stat_result = file_path.stat()
+            created_fallback = datetime.fromtimestamp(
+                getattr(stat_result, "st_birthtime", 0) or stat_result.st_ctime,
+                tz=timezone.utc,
+            ).isoformat()
+        except OSError:
+            pass
+        stamp_system_dates(
+            metadata,
+            table,
+            is_create=False,
+            created_fallback=created_fallback,
+        )
+    if metadata.get("is_dashboard") is True:
+        metadata.pop("content_format", None)
+    return metadata, table
+
+
+def _relocate_patch_file(
+    page_id: str,
+    file_path: Path,
+    metadata: Dict[str, Any],
+    title: Optional[str],
+) -> Path:
+    original_path = file_path
+    file_path = ensure_correct_page_location(file_path, metadata)
+    if title is not None:
+        file_path = _rename_page_file_to_match_title(file_path, title)
+    if file_path != original_path:
+        _remove_page_from_index_cache(page_id, original_path)
+        _add_page_to_index_cache(file_path)
+        with _page_index_lock:
+            vault_root = get_active_vault_path()
+            if vault_root:
+                _page_id_to_path.setdefault(str(vault_root), {})[page_id] = str(
+                    file_path
+                )
+    return file_path
+
+
+def _update_patch_caches(
+    page_id: str,
+    file_path: Path,
+    metadata: Dict[str, Any],
+    content: str,
+    original_metadata: Dict[str, Any],
+) -> None:
+    try:
+        vault_path = get_active_vault_path()
+        vault_key = str(vault_path) if vault_path else ""
+        if vault_path:
+            try:
+                new_entry = _build_cache_entry_from_memory(
+                    file_path,
+                    file_path.stat(),
+                    metadata,
+                    content,
+                )
+                with _page_index_lock:
+                    _page_index_entries.setdefault(vault_key, {})[
+                        str(file_path)
+                    ] = new_entry
+                    new_id = new_entry.get("id")
+                    if new_id:
+                        _page_id_to_path.setdefault(vault_key, {})[new_id] = str(
+                            file_path
                         )
-                        for i, doc in enumerate(docs):
-                            if str(doc[0]) == path_str:
-                                docs[i] = new_doc
-                                break
-                        else:
-                            docs.append(new_doc)
-            except Exception as e:
-                log.debug(f"Cache invalidation after PATCH failed: {e}")
-
-            # Background backup: versioning to `.history/` no longer blocks
-            # the response. If we have the original `raw_content` (markdown case),
-            # we write it directly with the "from_content" helper; for
-            # for dashboards we use the classic version that does `shutil.copy2` (fast
-            # because dashboard .json files are small).
-            if original_raw_content is not None:
-                background_tasks.add_task(
-                    _create_page_version_from_content, page_id, original_raw_content
+                    _bump_page_index_version(vault_key)
+                path_resolver.add_file(
+                    vault_path,
+                    new_id or page_id,
+                    file_path,
                 )
-            else:
-                background_tasks.add_task(_create_page_version, page_id, file_path)
+            except Exception as exc:
+                log.debug("Cache update after PATCH failed for %s: %s", page_id, exc)
+        with _body_cache_lock:
+            _body_cache.pop(str(file_path), None)
+        _pages_cache_invalidate_all()
+        if str(original_metadata.get("Citation Key") or "") != str(
+            metadata.get("Citation Key") or ""
+        ):
+            _invalidate_cite_key_index()
+        if vault_key:
+            with _iter_docs_lock:
+                cache_entry = _iter_docs_cache.get(vault_key)
+                docs = cache_entry.get("docs") if cache_entry else None
+                if docs is not None:
+                    path_str = str(file_path)
+                    new_doc = (
+                        Path(path_str),
+                        dict(metadata),
+                        content,
+                        _is_dashboard_file_path(file_path),
+                    )
+                    for index, document in enumerate(docs):
+                        if str(document[0]) == path_str:
+                            docs[index] = new_doc
+                            break
+                    else:
+                        docs.append(new_doc)
+    except Exception as exc:
+        log.debug("Cache invalidation after PATCH failed: %s", exc)
 
-            background_tasks.add_task(update_link_index_for_page, file_path)
 
-            # If the title has changed, rewrites the literal-title wikilinks
-            # in the pages that reference this one. update_link_index_for_page
-            # from the previous background task will update the modified sources.
-            new_title = str(metadata.get("title") or "").strip()
-            if previous_title and new_title and previous_title != new_title:
-                background_tasks.add_task(
-                    rewrite_wikilinks_on_title_change,
-                    page_id,
-                    previous_title,
-                    new_title,
-                )
+_PATCH_PAGE_DEPENDENCIES = page_patch_service.PatchPageDependencies(
+    find_and_read=_find_and_read_patch_page,
+    get_page_write_lock=lambda page_id: _get_page_write_lock(page_id),
+    prepare_metadata=_prepare_patch_metadata,
+    relocate_file=_relocate_patch_file,
+    process_updates=lambda page_id, old, new: get_rule_engine().process_updates(
+        page_id,
+        old,
+        new,
+    ),
+    stamp_author=lambda metadata, user_id, is_create: _stamp_author(
+        metadata,
+        user_id,
+        is_create,
+    ),
+    persist_assets=lambda metadata: _persist_metadata_assets(metadata),
+    ensure_citation_key=lambda metadata: _ensure_recursos_citation_key(metadata),
+    dedupe_citation_key=lambda metadata, page_id: _dedupe_citation_key(
+        metadata,
+        page_id,
+    ),
+    save_page=lambda path, metadata, content: save_page_md(path, metadata, content),
+    update_caches=_update_patch_caches,
+    create_content_version=lambda: _create_page_version_from_content,
+    create_file_version=lambda: _create_page_version,
+    update_link_index=lambda: update_link_index_for_page,
+    rewrite_wikilinks=lambda: rewrite_wikilinks_on_title_change,
+    get_table_id=lambda metadata: get_table_id(metadata),
+    recompute_formulas=lambda: _recompute_cross_record_formulas_for_table,
+    sync_calendar=lambda metadata, tasks: sync_to_google_calendar_if_needed(
+        metadata,
+        tasks,
+    ),
+    propagate_translation=lambda: _propagate_translation_staleness,
+    propagate_relations=lambda: _propagate_relation_inverse,
+    resolve_page_context=lambda metadata, path: _resolve_page_context_from_path(
+        metadata,
+        path,
+    ),
+    file_etag=file_etag,
+    safe_error_detail=safe_error_detail,
+)
 
-            table_id = get_table_id(metadata)
-            if table_id:
-                background_tasks.add_task(
-                    _recompute_cross_record_formulas_for_table, table_id, page_id
-                )
-            sync_to_google_calendar_if_needed(metadata, background_tasks)
-            # If this page is an original with translations, flag them stale when the
-            # edit touched translatable content (background; cheap no-op otherwise).
-            background_tasks.add_task(
-                _propagate_translation_staleness,
-                page_id, original_metadata_snapshot, metadata, body, content,
-            )
-            # Bidirectional relation sync: propagates changes in the relation
-            # fields to the INVERSE field of the pages on the other side (or the views
-            # embedded ones, which filter by the inverse, come out empty). Background.
-            background_tasks.add_task(
-                _propagate_relation_inverse,
-                page_id, get_table_id(metadata),
-                dict(original_metadata_snapshot), _rel_new_snapshot,
-            )
 
-            rel_folder, resolved_table_id = _resolve_page_context_from_path(
-                metadata, file_path
-            )
-            return {
-                "status": "success",
-                "id": page_id,
-                "title": metadata.get("title", ""),
-                "metadata": metadata,
-                "content": content,
-                "folder": rel_folder,
-                "resolved_table_id": resolved_table_id,
-                "etag": file_etag(file_path),  # Echo back for next save
-                "message": "Page partially updated",
-            }
-        except Exception as e:
-            log.error(f"Error patching page {page_id}: {e}")
-            raise HTTPException(
-                status_code=500,
-                detail=safe_error_detail(e, f"PATCH /pages/{page_id}"),
-            )
+save_page, patch_page = page_commands_api.register_write_routes(
+    router,
+    editor_dependency=require_role("editor"),
+    workspace_context_dependency=get_workspace_context,
+    save_dependencies=_SAVE_PAGE_DEPENDENCIES,
+    patch_dependencies=_PATCH_PAGE_DEPENDENCIES,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -11507,9 +10752,12 @@ TRASH_RETENTION_DAYS = 90
 def _trash_root() -> Path:
     """Root of the Vault trash. Call it only from worker threads
     (it touches the filesystem). Creates the directory if it doesn't exist."""
-    root = get_p("VAULT") / ".trash"
-    root.mkdir(parents=True, exist_ok=True)
-    return root
+    return TrashRepository(
+        get_p("VAULT"),
+        retention_days=TRASH_RETENTION_DAYS,
+        parse_frontmatter=parse_frontmatter,
+        write_json=safe_write_json,
+    ).root()
 
 
 def _trash_entry_dir(page_id: str) -> Path:
@@ -11517,10 +10765,12 @@ def _trash_entry_dir(page_id: str) -> Path:
     # `_trash_root() / page_id` resolve to the vault itself, and `shutil.rmtree`
     # would then wipe the whole vault. HTTP handlers already call
     # `_validate_safe_page_id`; this backstops every other caller.
-    pid = str(page_id or "").strip()
-    if not pid or pid in (".", "..") or "/" in pid or "\\" in pid or "\x00" in pid:
-        raise ValueError(f"Unsafe trash entry id: {page_id!r}")
-    return _trash_root() / pid
+    return TrashRepository(
+        get_p("VAULT"),
+        retention_days=TRASH_RETENTION_DAYS,
+        parse_frontmatter=parse_frontmatter,
+        write_json=safe_write_json,
+    ).entry_dir(page_id)
 
 
 def _move_page_to_trash(page_id: str, file_path: Path) -> Dict[str, Any]:
@@ -11531,83 +10781,12 @@ def _move_page_to_trash(page_id: str, file_path: Path) -> Dict[str, Any]:
     `asyncio.to_thread` from the HTTP handler.
     
     """
-    vault_root = get_p("VAULT")
-    entry_dir = _trash_entry_dir(page_id)
-
-    # A trash slot may already exist for this id. Two cases must be told apart:
-    #   1. The source file is GONE  → a genuine idempotent re-delete (double-click
-    #      or a race where a prior request already moved this same file). Return
-    #      the existing sidecar unchanged.
-    #   2. The source file still EXISTS → the slot belongs to a *different* file
-    #      that carries the same id (duplicate-id collision) or to an older
-    #      snapshot of the same page trashed earlier. Returning early here would
-    #      report "deleted" without moving the live file, so it reappears on the
-    #      next index rebuild (rglob re-picks it up). Drop the stale slot and
-    #      re-trash for real. The trash is keyed by id, so one id keeps one entry:
-    #      last-deleted wins (the older snapshot would be auto-purged anyway).
-    existing_sidecar = entry_dir / "_trash.json"
-    if existing_sidecar.exists():
-        if not file_path.exists():
-            try:
-                return json.loads(existing_sidecar.read_text(encoding="utf-8"))
-            except Exception:
-                # Corrupted sidecar: we'll overwrite it.
-                pass
-        else:
-            log.warning(
-                "Trash slot %s already occupied while trashing a live file (%s); "
-                "overwriting the stale entry to avoid the page reappearing.",
-                page_id,
-                file_path,
-            )
-            shutil.rmtree(entry_dir, ignore_errors=True)
-
-    entry_dir.mkdir(parents=True, exist_ok=True)
-
-    # Read the frontmatter before moving (for the title and the table_id).
-    title = ""
-    table_id: Optional[str] = None
-    original_parent_id: Optional[str] = None
-    try:
-        raw_content = file_path.read_text(encoding="utf-8")
-        page_meta, _ = parse_frontmatter(raw_content, file_path)
-        title = str(page_meta.get("title") or "")
-        table_id = page_meta.get("table_id") or page_meta.get("database_table_id")
-        original_parent_id = page_meta.get("parent_id")
-    except Exception as meta_exc:
-        log.warning(f"Could not read frontmatter for {page_id}: {meta_exc}")
-
-    # `original_path` is relative to the Vault root because the absolute path
-    # changes between machines (OneDrive at /Users/x vs /Users/y).
-    try:
-        relative_original_path = str(file_path.relative_to(vault_root))
-    except ValueError:
-        # The file is not inside the Vault; we treat this as a 500 in the handler.
-        raise RuntimeError(
-            f"Page file {file_path} is outside the Vault root {vault_root}"
-        )
-
-    size_bytes = 0
-    try:
-        size_bytes = file_path.stat().st_size
-    except Exception:
-        pass
-
-    target_md = entry_dir / "page.md"
-    shutil.move(str(file_path), str(target_md))
-
-    sidecar = {
-        "id": page_id,
-        "title": title,
-        "deleted_at": datetime.now(tz=timezone.utc).isoformat(),
-        "original_path": relative_original_path,
-        "original_parent_id": original_parent_id,
-        "table_id": table_id,
-        "size_bytes": size_bytes,
-        "extension": file_path.suffix or ".md",
-    }
-    safe_write_json(existing_sidecar, sidecar, indent=2)
-    return sidecar
+    return TrashRepository(
+        get_p("VAULT"),
+        retention_days=TRASH_RETENTION_DAYS,
+        parse_frontmatter=parse_frontmatter,
+        write_json=safe_write_json,
+    ).move_page(page_id, file_path)
 
 
 def _restore_page_from_trash(page_id: str) -> Dict[str, Any]:
@@ -11618,84 +10797,23 @@ def _restore_page_from_trash(page_id: str) -> Dict[str, Any]:
     if the sidecar path escapes the Vault (anti-path-traversal defense).
     
     """
-    vault_root = get_p("VAULT")
-    # Resolving the vault_root before comparing avoids false positives on
-    # filesystems with symlinks (e.g. macOS /var → /private/var) where
-    # `target.resolve()` returns the canonical path but `vault_root` doesn't.
-    vault_root_resolved = vault_root.resolve()
-    entry_dir = _trash_entry_dir(page_id)
-    sidecar_path = entry_dir / "_trash.json"
-    if not sidecar_path.exists():
-        raise FileNotFoundError(f"No trash entry for {page_id}")
-
-    sidecar = json.loads(sidecar_path.read_text(encoding="utf-8"))
-    original_rel = sidecar.get("original_path") or f"{page_id}.md"
-    target = (vault_root / original_rel).resolve()
-    # `Path.is_relative_to` (Python 3.9+) avoids the classic
-    # `startswith` bug with shared prefixes (e.g. `/vault` is a prefix of
-    # `/vault2` but is not its parent).
-    if not target.is_relative_to(vault_root_resolved):
-        raise PermissionError(f"original_path escapes Vault: {original_rel}")
-    if target.exists():
-        raise FileExistsError(str(target))
-
-    target.parent.mkdir(parents=True, exist_ok=True)
-    source_md = entry_dir / "page.md"
-    if not source_md.exists():
-        # Some old restores might have saved the file with
-        # the original name; we look for any .md/.json inside entry_dir.
-        candidates = [
-            p for p in entry_dir.iterdir()
-            if p.is_file() and p.suffix in {".md", ".json"} and p.name != "_trash.json"
-        ]
-        if not candidates:
-            raise FileNotFoundError(f"page.md missing in {entry_dir}")
-        source_md = candidates[0]
-
-    shutil.move(str(source_md), str(target))
-    shutil.rmtree(entry_dir, ignore_errors=True)
-    return {**sidecar, "restored_path": str(target.relative_to(vault_root_resolved))}
+    return TrashRepository(
+        get_p("VAULT"),
+        retention_days=TRASH_RETENTION_DAYS,
+        parse_frontmatter=parse_frontmatter,
+        write_json=safe_write_json,
+    ).restore_page(page_id)
 
 
 def _read_trash_entries() -> List[Dict[str, Any]]:
     """Reads all `.trash/*/_trash.json` sidecars. Tolerates entries without
     a sidecar (they are returned with `deleted_at=None` and a fallback title)."""
-    root = _trash_root()
-    entries: List[Dict[str, Any]] = []
-    now_utc = datetime.now(tz=timezone.utc)
-    for entry_dir in root.iterdir():
-        if not entry_dir.is_dir():
-            continue
-        sidecar_path = entry_dir / "_trash.json"
-        if sidecar_path.exists():
-            try:
-                data = json.loads(sidecar_path.read_text(encoding="utf-8"))
-            except Exception as exc:
-                log.warning(f"Sidecar corrupt a {entry_dir}: {exc}")
-                data = {"id": entry_dir.name, "title": "(corrupt)", "deleted_at": None}
-        else:
-            data = {"id": entry_dir.name, "title": "(sense metadades)", "deleted_at": None}
-        # Calculation of `days_remaining`. If there is no `deleted_at`, it stays None.
-        days_remaining = None
-        if data.get("deleted_at"):
-            try:
-                deleted_dt = datetime.fromisoformat(str(data["deleted_at"]))
-                # Legacy/external sidecars may store a tz-naive timestamp;
-                # assume UTC so subtracting a tz-aware `now_utc` doesn't raise.
-                if deleted_dt.tzinfo is None:
-                    deleted_dt = deleted_dt.replace(tzinfo=timezone.utc)
-                days_elapsed = (now_utc - deleted_dt).days
-                days_remaining = max(0, TRASH_RETENTION_DAYS - days_elapsed)
-            except Exception:
-                pass
-        data["days_remaining"] = days_remaining
-        entries.append(data)
-    # Order: most recent first; corrupt ones (deleted_at=None) at the end.
-    entries.sort(
-        key=lambda e: (e.get("deleted_at") or ""),
-        reverse=True,
-    )
-    return entries
+    return TrashRepository(
+        get_p("VAULT"),
+        retention_days=TRASH_RETENTION_DAYS,
+        parse_frontmatter=parse_frontmatter,
+        write_json=safe_write_json,
+    ).list_entries()
 
 
 async def _materialize_trash_sidecar(page_id: str) -> None:
@@ -11818,8 +10936,7 @@ def _purge_trash_entry(page_id: str) -> Dict[str, Any]:
 
 def _force_index_rescan() -> None:
     """Invalidates the index cache to force a rescan on the next listing."""
-    global _last_vault_sync_time
-    _last_vault_sync_time = 0.0
+    page_state.last_vault_sync_time = 0.0
     _clear_page_index_cache()
 
 
@@ -11931,243 +11048,53 @@ def _add_page_to_index_cache(file_path: Path) -> None:
     _pages_cache_invalidate_all()
 
 
-@router.delete("/pages/{page_id}", dependencies=[Depends(require_role("editor"))])
-async def delete_page(page_id: str):
-    """Soft-delete: moves the page to `.trash/{page_id}/`.
+def _emit_page_deleted_event(page_id: str) -> None:
+    try:
+        from backend.services import plugin_events
 
-    Replaces the previous destructive deletion. The actual purge only happens
-    via `DELETE /trash/{id}` or via the `purge_trash` cron after 90 days.
-    See `docs/dev_memory/directives/vault_trash.md`.
-
-    """
-    async with await _get_page_write_lock(page_id):
-        page_id = _validate_safe_page_id(page_id)
-        file_path = await asyncio.to_thread(find_page_path, page_id)
-        if not file_path or not file_path.exists():
-            raise HTTPException(status_code=404, detail="Page not found")
-
-        try:
-            sidecar = await asyncio.to_thread(_move_page_to_trash, page_id, file_path)
-            await asyncio.to_thread(remove_from_link_index, page_id)
-            _remove_page_from_index_cache(page_id, file_path)
-            try:
-                from backend.services import plugin_events
-                plugin_events.emit("page:deleted", {"page_id": page_id})
-            except Exception:  # noqa: BLE001
-                pass
-            deleted_at_iso = sidecar.get("deleted_at")
-            restorable_until = None
-            if deleted_at_iso:
-                try:
-                    restorable_until = (
-                        datetime.fromisoformat(deleted_at_iso)
-                        + timedelta(days=TRASH_RETENTION_DAYS)
-                    ).isoformat()
-                except Exception:
-                    pass
-            return {
-                "status": "soft_deleted",
-                "id": page_id,
-                "deleted_at": deleted_at_iso,
-                "title": sidecar.get("title"),
-                "original_path": sidecar.get("original_path"),
-                "retention_days": TRASH_RETENTION_DAYS,
-                "restorable_until": restorable_until,
-            }
-        except Exception as e:
-            log.error(f"Error soft-deleting page {page_id}: {e}")
-            raise HTTPException(
-                status_code=500,
-                detail=safe_error_detail(e, "DELETE /pages/{page_id}"),
-            )
+        plugin_events.emit("page:deleted", {"page_id": page_id})
+    except Exception:  # noqa: BLE001
+        pass
 
 
-@router.post(
-    "/pages/{page_id}/restore",
-    dependencies=[Depends(require_role("editor"))],
+trash_api.configure(
+    trash_api.TrashDependencies(
+        retention_days=TRASH_RETENTION_DAYS,
+        validate_page_id=_validate_safe_page_id,
+        get_page_write_lock=lambda page_id: _get_page_write_lock(page_id),
+        find_page=lambda page_id: find_page_path(page_id),
+        move_page=lambda page_id, file_path: _move_page_to_trash(
+            page_id,
+            file_path,
+        ),
+        remove_link_index=lambda page_id: remove_from_link_index(page_id),
+        remove_page_index=lambda page_id, path: _remove_page_from_index_cache(
+            page_id,
+            path,
+        ),
+        emit_page_deleted=_emit_page_deleted_event,
+        materialize_sidecar=lambda page_id: _materialize_trash_sidecar(page_id),
+        materialize_all_sidecars=lambda: _materialize_all_trash_sidecars(),
+        restore_page=lambda page_id: _restore_page_from_trash(page_id),
+        add_page_index=lambda path: _add_page_to_index_cache(path),
+        vault_root=lambda: get_p("VAULT"),
+        read_entries=lambda: _read_trash_entries(),
+        trash_root=lambda: _trash_root(),
+        purge_entry=lambda page_id: _purge_trash_entry(page_id),
+        safe_error_detail=safe_error_detail,
+    )
 )
-async def restore_page(page_id: str):
-    """Restores a page from the trash to its `original_path`."""
-    page_id = _validate_safe_page_id(page_id)
-    await _materialize_trash_sidecar(page_id)
-    try:
-        result = await asyncio.to_thread(_restore_page_from_trash, page_id)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="Trash entry not found")
-    except FileExistsError as exc:
-        raise HTTPException(
-            status_code=409,
-            detail=f"A file already exists at the target path: {exc}",
-        )
-    except PermissionError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-    except Exception as e:
-        log.error(f"Error restoring page {page_id}: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=safe_error_detail(e, "POST /pages/{page_id}/restore"),
-        )
-
-    # Inserts the entry into the index cache instead of clearing it entirely (which
-    # left the table flickering empty after the "Undo" toast).
-    vault_root = get_p("VAULT")
-    restored_rel = result.get("restored_path")
-    if vault_root and restored_rel:
-        # No .resolve() here: the index is keyed by the UNRESOLVED vault path
-        # (rglob over get_p("VAULT")). Resolving diverges when the vault root
-        # goes through a symlink (macOS /tmp -> /private/tmp) and the entry
-        # would fail relative_to() inside _build_page_cache_entry.
-        _add_page_to_index_cache(vault_root / restored_rel)
-    return {
-        "status": "restored",
-        "id": page_id,
-        "restored_path": restored_rel,
-        "title": result.get("title"),
-    }
-
-
-@router.get("/trash", dependencies=[Depends(require_role("admin"))])
-async def list_trash(q: Optional[str] = Query(None)):
-    """Lists the trash entries, ordered by `deleted_at` desc.
-
-    Optional `?q=` filter support on the title (case-insensitive).
-    
-    """
-    # Proactive warmup: materializes the online-only sidecars before reading them
-    # on the thread. Without this, OneDrive's dataless _trash.json files crash with
-    # EDEADLK and the entries come out as "(corrupt)" (they can neither be listed nor
-    # restore/purge). Same pattern as get_page (#272).
-    await _materialize_all_trash_sidecars()
-    try:
-        entries = await asyncio.to_thread(_read_trash_entries)
-    except Exception as e:
-        log.error(f"Error reading trash: {e}")
-        raise HTTPException(
-            status_code=500, detail=safe_error_detail(e, "GET /trash")
-        )
-
-    if q:
-        needle = q.lower().strip()
-        entries = [
-            e for e in entries
-            if needle in str(e.get("title") or "").lower()
-        ]
-    return {"items": entries, "retention_days": TRASH_RETENTION_DAYS}
-
-
-@router.delete("/trash", dependencies=[Depends(require_role("admin"))])
-async def empty_trash():
-    """Empties the whole trash in ONE single request (definitive purge).
-
-    Replaces the old pattern of N client-side `DELETE /trash/{id}` requests.
-    With ~100 entries, the client fired ~100 concurrent DELETEs and each
-    one held a DB pool connection (via the workspace/role dependencies)
-    for the entire request, exhausting the `QueuePool` (size 20 +
-    overflow 30) → many requests timed out at 30s and returned 500.
-    `Promise.allSettled` on the frontend hid these 500s and the trash wasn't
-    emptied ("doesn't work"). Doing it all server-side uses ONE connection and
-    tolerates per-entry errors (it reports the real count).
-    
-    """
-    def _empty_all() -> Dict[str, Any]:
-        root = _trash_root()
-        purged = 0
-        failed = 0
-        freed = 0
-        failed_ids: List[str] = []
-        # We materialize the list before iterating: we purge (rmtree) inside the loop
-        # and we don't want to mutate the directory while the lazy iterator is traversing it.
-        for entry_dir in list(root.iterdir()):
-            if not entry_dir.is_dir():
-                continue
-            try:
-                res = _purge_trash_entry(entry_dir.name)
-                purged += 1
-                freed += int(res.get("freed_bytes") or 0)
-            except Exception as exc:
-                failed += 1
-                failed_ids.append(entry_dir.name)
-                log.warning(
-                    f"Purge failed while emptying the trash for {entry_dir.name}: {exc}"
-                )
-        return {
-            "purged_count": purged,
-            "failed_count": failed,
-            "failed_ids": failed_ids,
-            "freed_bytes": freed,
-        }
-
-    try:
-        result = await asyncio.to_thread(_empty_all)
-    except Exception as e:
-        log.error(f"Error emptying trash: {e}")
-        raise HTTPException(
-            status_code=500, detail=safe_error_detail(e, "DELETE /trash")
-        )
-    return {"status": "emptied", **result}
-
-
-@router.delete(
-    "/trash/{page_id}",
-    dependencies=[Depends(require_role("admin"))],
+trash_api.register_routes(
+    router,
+    editor_dependencies=[Depends(require_role("editor"))],
+    admin_dependencies=[Depends(require_role("admin"))],
 )
-async def purge_trash_entry(page_id: str):
-    """Immediately purge a trash entry (irreversible)."""
-    page_id = _validate_safe_page_id(page_id)
-    await _materialize_trash_sidecar(page_id)
-    try:
-        result = await asyncio.to_thread(_purge_trash_entry, page_id)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="Trash entry not found")
-    except Exception as e:
-        log.error(f"Error purging trash entry {page_id}: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=safe_error_detail(e, "DELETE /trash/{page_id}"),
-        )
-    return {"status": "purged", **result}
-
-
-def purge_expired_trash(now: Optional[datetime] = None) -> Dict[str, Any]:
-    """Public function invoked by the SchedulerManager's `purge_trash` cron.
-
-    Iterates over all `.trash/` entries and purges those with
-    `deleted_at` older than `TRASH_RETENTION_DAYS`. Tolerates corrupt
-    sidecars (skips them without purging — manual purge required).
-    
-    """
-    now_utc = now or datetime.now(tz=timezone.utc)
-    root = _trash_root()
-    purged = 0
-    freed = 0
-    skipped = 0
-    for entry_dir in root.iterdir():
-        if not entry_dir.is_dir():
-            continue
-        sidecar_path = entry_dir / "_trash.json"
-        if not sidecar_path.exists():
-            skipped += 1
-            continue
-        try:
-            data = json.loads(sidecar_path.read_text(encoding="utf-8"))
-            deleted_dt = datetime.fromisoformat(str(data["deleted_at"]))
-            # Assume UTC for tz-naive legacy sidecars so the subtraction below
-            # doesn't raise (which would leave expired entries un-purged forever).
-            if deleted_dt.tzinfo is None:
-                deleted_dt = deleted_dt.replace(tzinfo=timezone.utc)
-        except Exception:
-            skipped += 1
-            continue
-        if (now_utc - deleted_dt).days < TRASH_RETENTION_DAYS:
-            continue
-        try:
-            res = _purge_trash_entry(entry_dir.name)
-            purged += 1
-            freed += int(res.get("freed_bytes") or 0)
-        except Exception as exc:
-            log.warning(f"Purge failed for {entry_dir.name}: {exc}")
-            skipped += 1
-    return {"purged_count": purged, "freed_bytes": freed, "skipped": skipped}
+delete_page = trash_api.delete_page
+restore_page = trash_api.restore_page
+list_trash = trash_api.list_trash
+empty_trash = trash_api.empty_trash
+purge_trash_entry = trash_api.purge_trash_entry
+purge_expired_trash = trash_api.purge_expired_trash
 
 
 @router.post("/upload-cover", dependencies=[Depends(require_role("editor"))])
@@ -13795,73 +12722,40 @@ async def unsplash_search(query: str = Query(...), page: int = Query(1)):
         raise HTTPException(status_code=502, detail="Error fetching from Unsplash API")
 
 
-@router.post("/pages/{page_id}/duplicate", dependencies=[Depends(require_role("editor"))])
-async def duplicate_page(page_id: str, background_tasks: BackgroundTasks):
-    """Duplicates an existing page and returns the new ID."""
-    source_path = find_page_path(page_id)
-
-    if not source_path or not source_path.exists():
-        raise HTTPException(
-            status_code=404, detail="Source page not found (non-existent ID)"
-        )
-
-    try:
-        if _is_dashboard_file_path(source_path):
-            metadata, body = _read_dashboard_file(source_path)
-        else:
-            raw_content = source_path.read_text(encoding="utf-8")
-            metadata, body = parse_frontmatter(raw_content, source_path)
-
-        # New UUID and metadata adjustments
-        new_page_id = str(uuid.uuid4())
-        new_metadata = metadata.copy()
-        new_metadata["id"] = new_page_id
-
-        # Add prefix "(Copy)" to the title
-        old_title = metadata.get("title", "Untitled")
-        new_title = f"{old_title} (Copy)"
-        new_metadata["title"] = new_title
-
-        # Copies are created in the same directory as the original
-        if _is_dashboard_file_path(source_path):
-            new_file_path = source_path.parent / f"{new_page_id}.json"
-            _write_dashboard_file(
-                file_path=new_file_path,
-                page_id=new_page_id,
-                title=new_title,
-                metadata=new_metadata,
-                content=body,
-                parent_id=new_metadata.get("parent_id"),
-                is_database=bool(new_metadata.get("is_database")),
-            )
-        else:
-            new_file_path = source_path.parent / f"{new_page_id}.md"
-            # A copy is a new resource: we regenerate the key so it doesn't
-            # collide with the original's (which the citation index
-            # would shadow, leaving one of the two unresolvable).
-            new_metadata = _ensure_recursos_citation_key(new_metadata, regenerate=True)
-            save_page_md(new_file_path, new_metadata, body)
-
-        # Registers the copy in the IN-MEMORY page index (the same helper that
-        # the trash restore uses). Without this, the copy remained INVISIBLE:
-        # `find_page_path` could not find it in the cache and, with the index initialized,
-        # skips the fallback rglob ("probably deleted") → GET/PATCH/
-        # DELETE requests for the copy returned 404 until a full index rebuild
-        # (reproduced: the file existed on disk but the API denied it).
-        _add_page_to_index_cache(new_file_path)
-
-        background_tasks.add_task(update_link_index_for_page, new_file_path)
-
-        return {
-            "status": "created",
-            "id": new_page_id,
-            "message": "Page duplicated",
-            "title": new_title,
-        }
-
-    except Exception as e:
-        log.error(f"Error duplicating page {page_id}: {e}")
-        raise HTTPException(status_code=500, detail="Error duplicating target file")
+page_duplicate_api.configure(
+    page_duplicate_api.DuplicatePageDependencies(
+        find_page=lambda page_id: find_page_path(page_id),
+        is_dashboard=lambda path: _is_dashboard_file_path(path),
+        read_dashboard=lambda path: _read_dashboard_file(path),
+        parse_frontmatter=lambda content, path: parse_frontmatter(content, path),
+        new_id=lambda: str(uuid.uuid4()),
+        write_dashboard=lambda path, page_id, title, metadata, content: _write_dashboard_file(
+            file_path=path,
+            page_id=page_id,
+            title=title,
+            metadata=metadata,
+            content=content,
+            parent_id=metadata.get("parent_id"),
+            is_database=bool(metadata.get("is_database")),
+        ),
+        ensure_citation_key=lambda metadata: _ensure_recursos_citation_key(
+            metadata,
+            regenerate=True,
+        ),
+        save_page=lambda path, metadata, content: save_page_md(
+            path,
+            metadata,
+            content,
+        ),
+        add_page_index=lambda path: _add_page_to_index_cache(path),
+        update_link_index=lambda: update_link_index_for_page,
+    )
+)
+page_duplicate_api.register_routes(
+    router,
+    editor_dependencies=[Depends(require_role("editor"))],
+)
+duplicate_page = page_duplicate_api.duplicate_page
 
 
 # ── Global id→title index with disk persistence + stale-while-revalidate ───
@@ -14147,7 +13041,7 @@ def _load_body_cache_from_disk() -> bool:
 # (every navigation between views). 10 min is more than enough: files
 # rarely disappear outside the app's own flow, and the
 # `find_page_path` code already invalidates stale entries individually when it detects them.
-_last_stale_check: dict = {"ts": 0.0}
+_last_stale_check = page_state.last_stale_check
 _STALE_CHECK_TTL = 600.0
 
 
@@ -18774,38 +17668,11 @@ def _create_page_version(page_id: str, file_path: Path, force: bool = False):
     the restore (reproduced: restoring v1 with v3 on disk lost v3 forever).
     
     """
-    if not file_path or not file_path.exists():
-        return
-
-    history_base = get_p("VAULT") / ".history" / page_id
-    history_base.mkdir(parents=True, exist_ok=True)
-
-    # 10-minute cooldown (600 seconds) to avoid saturating with auto-saves
-    COOLDOWN = 600
-
-    # Check the last saved version to respect cooldown
-    versions = sorted(history_base.glob("*.md"))
-    if versions and not force:
-        last_version = versions[-1]
-        try:
-            if time.time() - last_version.stat().st_mtime < COOLDOWN:
-                return
-        except Exception:
-            pass
-
-    # Name = timestamp in seconds. With `force` it can coincide with a snapshot
-    # existing from the same second: we advance the timestamp until a free name
-    # in order to never overwrite a previous version.
-    ts_dt = datetime.now()
-    version_path = history_base / f"{ts_dt.strftime('%Y%m%d_%H%M%S')}.md"
-    while version_path.exists():
-        ts_dt += timedelta(seconds=1)
-        version_path = history_base / f"{ts_dt.strftime('%Y%m%d_%H%M%S')}.md"
-    try:
-        shutil.copy2(file_path, version_path)
-        log.info(f"Page version created: {version_path}")
-    except Exception as e:
-        log.warning(f"Could not create version for {page_id}: {e}")
+    HistoryRepository(get_p("VAULT")).create_file_version(
+        page_id,
+        file_path,
+        force=force,
+    )
 
 
 def _create_page_version_from_content(page_id: str, original_content: str):
@@ -18820,138 +17687,37 @@ def _create_page_version_from_content(page_id: str, original_content: str):
     Keeps the original 10 min cooldown.
     
     """
-    if not original_content:
-        return
-    history_base = get_p("VAULT") / ".history" / page_id
-    try:
-        history_base.mkdir(parents=True, exist_ok=True)
-    except Exception:
-        return
-    COOLDOWN = 600
-    versions = sorted(history_base.glob("*.md"))
-    if versions:
-        last_version = versions[-1]
-        try:
-            if time.time() - last_version.stat().st_mtime < COOLDOWN:
-                return
-        except Exception:
-            pass
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    version_path = history_base / f"{timestamp}.md"
-    try:
-        version_path.write_text(original_content, encoding="utf-8")
-        log.info(f"Page version created (bg): {version_path}")
-    except Exception as e:
-        log.warning(f"Could not create version (bg) for {page_id}: {e}")
+    HistoryRepository(get_p("VAULT")).create_content_version(
+        page_id,
+        original_content,
+    )
 
 
-@router.get("/pages/{page_id}/history")
-async def get_page_history(page_id: str):
-    """Returns the list of available versions for a page."""
-    page_id = _validate_safe_page_id(page_id)
-    history_base = get_p("VAULT") / ".history" / page_id
-    if not history_base.exists():
-        return []
-    
-    versions = []
-    # Glob returns files, we sort them descending by name (which is the timestamp)
-    for f in sorted(history_base.glob("*.md"), key=lambda x: x.name, reverse=True):
-        ts_str = f.stem
-        try:
-            # Try to format the timestamp to make it readable
-            dt = datetime.strptime(ts_str, "%Y%m%d_%H%M%S")
-            readable_ts = dt.strftime("%Y-%m-%d %H:%M:%S")
-        except Exception:
-            readable_ts = ts_str
-            
-        versions.append({
-            "id": ts_str,
-            "timestamp": readable_ts,
-            "size": f.stat().st_size
-        })
-    return versions
-
-
-@router.get("/pages/{page_id}/history/{timestamp}")
-async def get_page_version_content(page_id: str, timestamp: str):
-    """Returns the content of a specific version."""
-    page_id = _validate_safe_page_id(page_id)
-    timestamp = _validate_history_timestamp(timestamp)
-    version_path = get_p("VAULT") / ".history" / page_id / f"{timestamp}.md"
-    if not version_path.exists():
-        raise HTTPException(status_code=404, detail="Version not found")
-    
-    try:
-        raw_content = version_path.read_text(encoding="utf-8")
-        metadata, body = parse_frontmatter(raw_content, version_path)
-        return {
-            "id": page_id,
-            "version_id": timestamp,
-            "metadata": metadata,
-            "content": body.strip()
-        }
-    except Exception as e:
-        log.error(f"Error reading version {timestamp} of {page_id}: {e}")
-        raise HTTPException(status_code=500, detail="Error reading the version")
-
-
-@router.post("/pages/{page_id}/history/restore/{timestamp}", dependencies=[Depends(require_role("editor"))])
-async def restore_page_version(page_id: str, timestamp: str, background_tasks: BackgroundTasks):
-    """Restores a page to a previous version."""
-    page_id = _validate_safe_page_id(page_id)
-    timestamp = _validate_history_timestamp(timestamp)
-    version_path = get_p("VAULT") / ".history" / page_id / f"{timestamp}.md"
-    if not version_path.exists():
-        raise HTTPException(status_code=404, detail="Version not found")
-    
-    file_path = find_page_path(page_id)
-    if not file_path:
-         raise HTTPException(status_code=404, detail="Current page not found")
-
-    # Save current version (state just before restoration) just in case.
-    # `force=True`: this snapshot is the SAFETY NET for an
-    # explicit destructive action; with the normal cooldown it was silently discarded
-    # if there had been an edit <10 min ago and the current state was lost.
-    _create_page_version(page_id, file_path, force=True)
-    
-    try:
-        shutil.copy2(version_path, file_path)
-        log.info(f"Page {page_id} restored to version {timestamp}")
-        
-        # Optionally recompute formulas if page belongs to a table
-        raw_content = file_path.read_text(encoding="utf-8")
-        metadata, _ = parse_frontmatter(raw_content, file_path)
-        table_id = get_table_id(metadata)
-        if table_id:
-            background_tasks.add_task(_recompute_cross_record_formulas_for_table, table_id, page_id)
-            
-        return {"status": "success", "message": "Page restored successfully"}
-    except Exception as e:
-        log.error(f"Error restoring version {timestamp} of {page_id}: {e}")
-        raise HTTPException(status_code=500, detail="Error restoring the version")
-
-
-@router.delete("/pages/{page_id}/history", dependencies=[Depends(require_role("admin"))])
-async def purge_page_history(page_id: str):
-    """Deletes all version history of a page.
-
-    Important: `page_id` must pass `_validate_safe_page_id` BEFORE
-    building the path. Without this, `page_id=".."` would do
-    `shutil.rmtree(VAULT/.history/..)` = deleting the entire Vault.
-    
-    """
-    page_id = _validate_safe_page_id(page_id)
-    history_base = get_p("VAULT") / ".history" / page_id
-    if not history_base.exists():
-        return {"status": "success", "message": "No history to delete"}
-    
-    try:
-        shutil.rmtree(history_base)
-        log.info(f"Page history for {page_id} purged")
-        return {"status": "success", "message": "History deleted successfully"}
-    except Exception as e:
-        log.error(f"Error purging history for {page_id}: {e}")
-        raise HTTPException(status_code=500, detail="Error deleting history")
+history_api.configure(
+    history_api.HistoryDependencies(
+        vault_root=lambda: get_p("VAULT"),
+        validate_page_id=_validate_safe_page_id,
+        validate_timestamp=_validate_history_timestamp,
+        parse_frontmatter=parse_frontmatter,
+        find_page=lambda page_id: find_page_path(page_id),
+        create_page_version=lambda page_id, file_path, force: _create_page_version(
+            page_id,
+            file_path,
+            force=force,
+        ),
+        get_table_id=get_table_id,
+        recompute_formulas=_recompute_cross_record_formulas_for_table,
+    )
+)
+history_api.register_routes(
+    router,
+    editor_dependencies=[Depends(require_role("editor"))],
+    admin_dependencies=[Depends(require_role("admin"))],
+)
+get_page_history = history_api.get_page_history
+get_page_version_content = history_api.get_page_version_content
+restore_page_version = history_api.restore_page_version
+purge_page_history = history_api.purge_page_history
 
 
 # ---------------------------------------------------------------------------
