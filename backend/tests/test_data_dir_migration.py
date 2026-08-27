@@ -151,6 +151,14 @@ def test_destination_verification_failure_rolls_back_atomic_move(tmp_path, monke
     assert journal["status"] == "failed"
     assert journal["rollback"] == "automatic"
 
+    monkeypatch.setattr(migration, "inventory_tree", real_inventory)
+    completed = migrate_data_dir(source, destination, writers_stopped=True)
+
+    assert completed["status"] == "completed"
+    assert completed["failures"][0]["rollback"] == "automatic"
+    assert "error" not in completed
+    assert "rollback" not in completed
+
 
 def test_external_symlink_is_rejected(tmp_path):
     source = _source_fixture(tmp_path)
@@ -181,3 +189,24 @@ def test_writer_confirmation_is_mandatory(tmp_path):
     source = _source_fixture(tmp_path)
     with pytest.raises(DataMigrationError, match="Stop every Gnosi writer"):
         migrate_data_dir(source, tmp_path / "new-data")
+
+
+def test_sqlite_sidecars_are_not_durable_inventory_or_copy_payload(tmp_path):
+    source = _source_fixture(tmp_path)
+    database = source / "system" / "management.sqlite"
+    sidecars = [
+        database.with_name(database.name + suffix)
+        for suffix in ("-wal", "-shm", "-journal")
+    ]
+    for sidecar in sidecars:
+        sidecar.write_bytes(b"ephemeral")
+
+    inventory = migration.inventory_tree(source, hashes=True)
+    staging = tmp_path / "staging"
+    migration._copy_tree(source, staging)
+
+    for sidecar in sidecars:
+        relative = sidecar.relative_to(source).as_posix()
+        assert relative not in inventory
+        assert not (staging / relative).exists()
+    assert (staging / "system" / "management.sqlite").is_file()

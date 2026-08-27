@@ -8,7 +8,7 @@ import os
 import shutil
 import sqlite3
 import uuid
-from contextlib import AbstractContextManager
+from contextlib import AbstractContextManager, closing
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -124,13 +124,22 @@ def _is_sqlite(path: Path) -> bool:
         return False
 
 
+def _is_ephemeral_sqlite_sidecar(path: Path) -> bool:
+    """Return whether `path` is a sidecar for an actual adjacent SQLite file."""
+    for suffix in ("-wal", "-shm", "-journal"):
+        if path.name.endswith(suffix):
+            database = path.with_name(path.name[: -len(suffix)])
+            return _is_sqlite(database)
+    return False
+
+
 def verify_sqlite_databases(root: Path, *, checkpoint: bool) -> list[dict[str, Any]]:
     """Checkpoint and integrity-check every SQLite database below `root`."""
     results = []
     for path in sorted(candidate for candidate in root.rglob("*") if _is_sqlite(candidate)):
         relative = path.relative_to(root).as_posix()
         try:
-            with sqlite3.connect(str(path), timeout=10) as connection:
+            with closing(sqlite3.connect(str(path), timeout=10)) as connection:
                 checkpoint_result = None
                 if checkpoint:
                     checkpoint_result = list(connection.execute("PRAGMA wal_checkpoint(TRUNCATE)"))[0]
@@ -183,6 +192,8 @@ def inventory_tree(root: Path, *, hashes: bool) -> dict[str, dict[str, Any]]:
         for name in filenames:
             path = directory_path / name
             relative = path.relative_to(root).as_posix()
+            if _is_ephemeral_sqlite_sidecar(path):
+                continue
             if path.is_symlink():
                 target = path.resolve()
                 if not _is_relative_to(target, resolved_root):
@@ -237,6 +248,8 @@ def _copy_tree(source: Path, staging: Path) -> None:
         for name in filenames:
             source_path = source_dir / name
             target_path = target_dir / name
+            if _is_ephemeral_sqlite_sidecar(source_path):
+                continue
             if source_path.is_symlink():
                 if not target_path.exists() and not target_path.is_symlink():
                     target_path.symlink_to(os.readlink(source_path))
@@ -334,6 +347,16 @@ def migrate_data_dir(
                 raise DataMigrationError("Existing migration journal targets different paths")
             if journal.get("status") in {"completed", "finalized"}:
                 return journal
+            if journal.get("status") == "failed":
+                journal.setdefault("failures", []).append(
+                    {
+                        "at": journal.get("updated_at"),
+                        "error": journal.get("error"),
+                        "rollback": journal.get("rollback"),
+                    }
+                )
+                journal.pop("error", None)
+                journal.pop("rollback", None)
         else:
             plan = plan_data_migration(source_path, destination_path, force_copy=force_copy)
             journal = _new_journal(source_path, destination_path, plan["method"])
