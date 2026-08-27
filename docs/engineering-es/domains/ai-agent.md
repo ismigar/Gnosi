@@ -109,6 +109,9 @@ las dimensiones categóricas, los campos de archivo/URL, los valores fijos y las
 relaciones antes de modificar el esquema. Después crea roles y relaciones
 canónicos, revalida los campos de índice, guarda atómicamente y actualiza las
 páginas del sistema.
+`backend/domains/configuration/llm_wiki_schema.py` gestiona por separado la
+reparación idempotente de los campos Brain y la consolidación de una relación
+canónica por fuente, incluidos alias, metadatos de página y vistas contextuales.
 
 ## Fallo y invariantes de seguridad
 

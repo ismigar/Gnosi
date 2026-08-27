@@ -157,6 +157,9 @@ les dimensions catégorielles, les champs fichier/URL, les valeurs fixes et les
 relations avant toute mutation du schéma. Il crée ensuite les rôles et relations
 canoniques, revalide les champs d'index, enregistre atomiquement et actualise les
 pages système.
+`backend/domains/configuration/llm_wiki_schema.py` gère séparément la réparation
+idempotente des champs Brain et la consolidation d'une relation canonique par
+source, y compris les alias, les métadonnées de page et les vues contextuelles.
 
 ## Invariants de défaillance et de sécurité
 

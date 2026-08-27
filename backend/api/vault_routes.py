@@ -3283,6 +3283,7 @@ _COMMENTS_DEPENDENCIES = comments_api.CommentDependencies(
 # Plugin configuration domain composition.
 # ---------------------------------------------------------------------------
 from backend.domains.configuration import llm_wiki as llm_wiki_configuration
+from backend.domains.configuration import llm_wiki_schema
 from backend.domains.configuration import plugin_state
 from backend.domains.configuration.api import plugin_lifecycle
 from backend.domains.configuration.api import plugin_models
@@ -4350,74 +4351,50 @@ def _ensure_default_db_group() -> None:
         log.info("🧠 Created the `gnosi_vault_db` database group in the sidebar registry")
 
 
+_BRAIN_SCHEMA_DEPENDENCIES = llm_wiki_schema.BrainSchemaDependencies(
+    registry_mutation=lambda: registry_mutation(),
+    load_registry=lambda: load_registry(),
+    save_registry=lambda registry: save_registry(registry),
+    schema=lambda locale: _brain_schema(locale),
+    schema_token=lambda value: _brain_schema_token(value),
+    role_tokens=lambda role: _brain_role_tokens(role),
+    new_property=lambda role, name, property_type, table_id: _brain_property(
+        role,
+        name,
+        property_type,
+        brain_table_id=table_id,
+    ),
+    new_uuid=lambda: str(uuid.uuid4()),
+    source_name=lambda locale: _brain_source_name(locale),
+    source_singular_tokens=frozenset(_BRAIN_SOURCE_SINGULAR_TOKENS),
+    source_plural_tokens=frozenset(_BRAIN_SOURCE_PLURAL_TOKENS),
+    migrate_source_metadata=lambda brain_id, canonical_name, legacy_names: (
+        _migrate_brain_source_metadata(brain_id, canonical_name, legacy_names)
+    ),
+    normalize_source_views=lambda brain_id, source_id, canonical_name, names: (
+        _normalize_brain_source_views(
+            brain_id,
+            source_id,
+            canonical_name,
+            names,
+        )
+    ),
+    logger=log,
+)
+
+
 def ensure_brain_table_schema(
     table_id: str,
     locale: str = "en",
     property_id_hints: Optional[dict[str, str]] = None,
 ) -> int:
     """Add missing Brain fields and stable property ids idempotently."""
-    if not table_id:
-        return 0
-    added = 0
-    with registry_mutation():
-        reg = load_registry()
-        table = next(
-            (t for t in reg.get("tables", []) or [] if t.get("id") == table_id), None
-        )
-        if not table:
-            return 0
-        props = table.setdefault("properties", [])
-        existing = {_brain_schema_token(prop.get("name")) for prop in props}
-        for role, name, property_type in _brain_schema(locale):
-            equivalent_tokens = _brain_role_tokens(role)
-            if not (equivalent_tokens & existing):
-                props.append(_brain_property(
-                    role,
-                    name,
-                    property_type,
-                    brain_table_id=table_id,
-                ))
-                existing.add(_brain_schema_token(name))
-                added += 1
-        repaired = 0
-        used_ids = {
-            str(prop.get("id") or "")
-            for prop in props
-            if str(prop.get("id") or "")
-        }
-        hints = property_id_hints or {}
-        for prop in props:
-            if prop.get("id"):
-                continue
-            token = _brain_schema_token(prop.get("name"))
-            hinted_id = str(hints.get(token) or "")
-            prop["id"] = (
-                hinted_id
-                if hinted_id and hinted_id not in used_ids
-                else str(uuid.uuid4())
-            )
-            used_ids.add(str(prop["id"]))
-            repaired += 1
-        for prop in props:
-            if prop.get("type") != "relation":
-                continue
-            property_token = _brain_schema_token(prop.get("name"))
-            if property_token in _brain_role_tokens("based_on"):
-                if not prop.get("relation_database_id"):
-                    prop["relation_database_id"] = table_id
-                    repaired += 1
-                if prop.get("cardinality") != "many-to-many":
-                    prop["cardinality"] = "many-to-many"
-                    repaired += 1
-        if added or repaired:
-            save_registry(reg)
-            log.info(
-                "LLM Wiki Brain schema updated: %d fields added and %d properties repaired in %s",
-                added,
-                repaired,
-                table_id,
-            )
-    return added
+    return llm_wiki_schema.ensure_brain_table_schema(
+        table_id,
+        locale,
+        property_id_hints,
+        _BRAIN_SCHEMA_DEPENDENCIES,
+    )
 
 
 def _brain_schema_token(value: object) -> str:
@@ -4717,137 +4694,12 @@ def ensure_brain_source_relation(
     A singular relation is preferred, duplicate plural relations are merged and
     removed, and resource-page views are normalized to filter by the host page.
     """
-    if not brain_table_id or not source_table_id:
-        return ""
-    canonical_name = _brain_source_name(locale)
-    legacy_names: set[str] = set()
-    source_names: set[str] = {canonical_name}
-    relation_id = ""
-    with registry_mutation():
-        registry = load_registry()
-        brain = next(
-            (table for table in registry.get("tables", []) or [] if table.get("id") == brain_table_id),
-            None,
-        )
-        source = next(
-            (table for table in registry.get("tables", []) or [] if table.get("id") == source_table_id),
-            None,
-        )
-        if not brain or not source:
-            return ""
-        properties = brain.setdefault("properties", [])
-        compatible = [
-            prop for prop in properties
-            if prop.get("type") == "relation"
-            and str(prop.get("relation_database_id") or "") == source_table_id
-            and _brain_schema_token(prop.get("name")) not in _brain_role_tokens("based_on")
-        ]
-        compatible.sort(
-            key=lambda prop: (
-                _brain_schema_token(prop.get("name")) not in _BRAIN_SOURCE_SINGULAR_TOKENS,
-                _brain_schema_token(prop.get("name")) in _BRAIN_SOURCE_PLURAL_TOKENS,
-            )
-        )
-        changed = False
-        if compatible:
-            canonical = compatible[0]
-        else:
-            used_names = {str(prop.get("name") or "").casefold() for prop in properties}
-            name = canonical_name
-            if name.casefold() in used_names:
-                base_name = f"{canonical_name} · {source.get('name') or source_table_id}"
-                name = base_name
-                suffix = 2
-                while name.casefold() in used_names:
-                    name = f"{base_name} {suffix}"
-                    suffix += 1
-            canonical = {
-                "id": str(uuid.uuid4()),
-                "name": name,
-                "type": "relation",
-                "relation_database_id": source_table_id,
-                "cardinality": "many-to-one",
-            }
-            properties.append(canonical)
-            compatible = [canonical]
-            changed = True
-
-        original_name = str(canonical.get("name") or canonical_name)
-        original_token = _brain_schema_token(original_name)
-        used_by_others = {
-            str(prop.get("name") or "").casefold()
-            for prop in properties
-            if prop is not canonical
-        }
-        if original_token in _BRAIN_SOURCE_PLURAL_TOKENS:
-            replacement_name = canonical_name
-            suffix = 2
-            if replacement_name.casefold() in used_by_others:
-                base_name = f"{canonical_name} · {source.get('name') or source_table_id}"
-                replacement_name = base_name
-                while replacement_name.casefold() in used_by_others:
-                    replacement_name = f"{base_name} {suffix}"
-                    suffix += 1
-            canonical["name"] = replacement_name
-            legacy_names.add(original_name)
-            changed = True
-        canonical_name = str(canonical.get("name") or canonical_name)
-        source_names.add(canonical_name)
-
-        if not canonical.get("id"):
-            canonical["id"] = str(uuid.uuid4())
-            changed = True
-        if canonical.get("cardinality") != "many-to-one":
-            canonical["cardinality"] = "many-to-one"
-            changed = True
-
-        duplicates = [prop for prop in compatible if prop is not canonical]
-        for duplicate in duplicates:
-            duplicate_name = str(duplicate.get("name") or "")
-            if duplicate_name:
-                legacy_names.add(duplicate_name)
-                source_names.add(duplicate_name)
-        aliases = [
-            str(alias)
-            for alias in canonical.get("aliases") or []
-            if str(alias).strip() and str(alias) != canonical_name
-        ]
-        for name in sorted(legacy_names):
-            if name and name not in aliases:
-                aliases.append(name)
-        if aliases != (canonical.get("aliases") or []):
-            canonical["aliases"] = aliases
-            changed = True
-        if duplicates:
-            duplicate_ids = {id(prop) for prop in duplicates}
-            brain["properties"] = [
-                prop for prop in properties if id(prop) not in duplicate_ids
-            ]
-            changed = True
-
-        relation_id = str(canonical.get("id") or "")
-        if changed:
-            save_registry(registry)
-            log.info(
-                "LLM Wiki consolidated the source relation %s in Brain %s",
-                relation_id,
-                brain_table_id,
-            )
-
-    migrated = _migrate_brain_source_metadata(
-        brain_table_id,
-        canonical_name,
-        legacy_names,
-    )
-    if migrated:
-        log.info("LLM Wiki migrated %d Brain pages to %s", migrated, canonical_name)
-    _normalize_brain_source_views(
+    return llm_wiki_schema.ensure_brain_source_relation(
         brain_table_id,
         source_table_id,
-        canonical_name,
-        source_names | legacy_names,
+        locale,
+        _BRAIN_SCHEMA_DEPENDENCIES,
     )
-    return relation_id
 
 
 def _normalize_brain_page_contract(

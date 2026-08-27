@@ -439,6 +439,9 @@ tables, categorical dimensions, file/URL fields, fixed values and relation
 targets before any schema mutation. It then provisions the canonical roles and
 source relations, revalidates eligible index fields, persists atomically and
 refreshes the system pages through late-bound facade ports.
+`backend/domains/configuration/llm_wiki_schema.py` separately owns idempotent
+Brain-field repair and consolidation of one canonical source relation, including
+legacy aliases, page metadata and contextual embedded views.
 
 ## Failure and safety invariants
 

@@ -106,6 +106,9 @@ nombre exacte d'eines i motius accionables per a qualsevol degradació.
 les dimensions categòriques, els camps de fitxer/URL, els valors fixos i les
 relacions abans de mutar l'esquema. Després crea els rols i relacions canònics,
 revalida els camps d'índex, desa atòmicament i actualitza les pàgines del sistema.
+`backend/domains/configuration/llm_wiki_schema.py` gestiona separadament la
+reparació idempotent dels camps Brain i la consolidació d'una relació canònica
+per font, incloent-hi àlies, metadades de pàgina i vistes contextuals.
 
 ## Ha fallat i seguretat envaris
 
