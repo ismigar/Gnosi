@@ -1,17 +1,12 @@
 """Configuration persistence tests for declarative UI locales."""
 
 import asyncio
-import importlib.util
 from pathlib import Path
 from types import SimpleNamespace
 
 import yaml
 
-
-_CONFIG_ROUTES_PATH = Path(__file__).resolve().parents[1] / "api" / "config_routes.py"
-_SPEC = importlib.util.spec_from_file_location("config_routes_under_test", _CONFIG_ROUTES_PATH)
-config_routes = importlib.util.module_from_spec(_SPEC)
-_SPEC.loader.exec_module(config_routes)
+from backend.domains.configuration.api import settings as config_routes
 
 
 class _Request:

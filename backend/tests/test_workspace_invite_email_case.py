@@ -14,7 +14,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-import backend.api.workspace_routes as wr
+from backend.domains.workspace.api import routes as wr
 from backend.data.management_db import Base, get_mgmt_db
 from backend.models.management import Membership, User, Workspace
 from backend.services.workspace_service import WorkspaceContext, get_workspace_context
