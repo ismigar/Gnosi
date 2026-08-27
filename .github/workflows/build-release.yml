@@ -78,7 +78,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Setup uv
-        uses: astral-sh/setup-uv@v10
+        uses: astral-sh/setup-uv@v10.0.1
         with:
           version: '0.9.15'
       - name: Install frozen Node dependencies
@@ -137,7 +137,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Setup uv
-        uses: astral-sh/setup-uv@v10
+        uses: astral-sh/setup-uv@v10.0.1
         with:
           version: '0.9.15'
       - name: Install and build
@@ -195,7 +195,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Setup uv
-        uses: astral-sh/setup-uv@v10
+        uses: astral-sh/setup-uv@v10.0.1
         with:
           version: '0.9.15'
       - name: Install and build
@@ -236,7 +236,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Setup uv
-        uses: astral-sh/setup-uv@v10
+        uses: astral-sh/setup-uv@v10.0.1
         with:
           version: '0.9.15'
       - name: Define release tag

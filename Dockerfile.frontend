@@ -5,6 +5,7 @@ WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@11.19.0 --activate
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY patches/ patches/
 COPY scripts/verify-toolchain.mjs scripts/verify-toolchain.mjs
 COPY frontend/package.json frontend/package.json
 COPY desktop/package.json desktop/package.json
