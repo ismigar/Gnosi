@@ -138,6 +138,7 @@ from backend.domains.vault.pages.state import page_state
 from backend.domains.vault.pages import index_entries as page_index_entries
 from backend.domains.vault.pages import index_service as page_index_service
 from backend.domains.vault.pages import markdown_writer as page_markdown_writer
+from backend.domains.vault.pages import metadata_mutations
 from backend.domains.vault.pages import resolver as page_resolver
 from backend.domains.vault.pages import tags as tags_query
 from backend.domains.vault.pages.index_entries import (
@@ -5974,6 +5975,28 @@ def _collect_table_reference_metas(table_id: str, wanted: Optional[set]) -> List
     )
 
 
+def _metadata_mutation_dependencies() -> metadata_mutations.MetadataMutationDependencies:
+    return metadata_mutations.MetadataMutationDependencies(
+        registry_mutation=lambda: registry_mutation(),
+        load_registry=lambda: load_registry(),
+        save_registry=lambda registry: save_registry(registry),
+        new_id=lambda: str(uuid.uuid4()),
+        page_snapshot=lambda: _get_pages_snapshot(),
+        find_page=lambda page_id: find_page_path(page_id),
+        parse_frontmatter=lambda content, path: parse_frontmatter(content, path),
+        save_page=lambda path, metadata, body: save_page_md(path, metadata, body),
+        file_etag=lambda path: file_etag(path),
+        refresh_page_index=lambda path, metadata, body: _refresh_page_index_entry(
+            path, metadata, body
+        ),
+        invalidate_citation_index=lambda: _invalidate_cite_key_index(),
+        invalidate_page_cache=lambda: _pages_cache_invalidate_all(),
+        table_id=lambda metadata: get_table_id(metadata),
+        table_by_id=lambda table_id: _table_by_id(table_id),
+        page_write_lock=lambda page_id: _get_page_write_lock(page_id),
+    )
+
+
 @router.post("/promote-zotero-extra", dependencies=[Depends(require_role("editor"))])
 async def promote_zotero_extra(payload: dict = Body(...)):
     """Promotes a `Zotero Extras` field to its own registry column.
@@ -5998,120 +6021,10 @@ async def promote_zotero_extra(payload: dict = Body(...)):
       4. Rewrites via `save_page_md`.
     
     """
-    table_id = (payload.get('table_id') or '').strip()
-    zotero_field = (payload.get('zotero_field') or '').strip()
-    column_name = (payload.get('column_name') or zotero_field).strip()
-    column_type = (payload.get('column_type') or 'text').strip()
-    page_ids_arg = payload.get('page_ids')
-    expected_etags = payload.get('expected_etags') or {}
-
-    if not table_id or not zotero_field:
-        raise HTTPException(status_code=400, detail="table_id i zotero_field són obligatoris")
-
-    # 1. Create or reuse the property (entire registration cycle under lock).
-    #    Page migration (async, further below) goes OUTSIDE: it doesn't touch the registry.
-    with registry_mutation():
-        registry = load_registry()
-        table = next((t for t in registry.get('tables', []) if t.get('id') == table_id), None)
-        if not table:
-            raise HTTPException(status_code=404, detail=f"Table {table_id} no trobada")
-
-        props = table.setdefault('properties', [])
-        existing = next(
-            (p for p in props if (p.get('name') or '').strip() == column_name),
-            None,
-        )
-        column_created = False
-        if existing is None:
-            new_prop = {
-                'id': str(uuid.uuid4()),
-                'name': column_name,
-                'type': column_type,
-            }
-            props.append(new_prop)
-            save_registry(registry)
-            existing = new_prop
-            column_created = True
-
-    # 2. Determine the set of pages to migrate.
-    if isinstance(page_ids_arg, list) and page_ids_arg:
-        candidate_ids = [str(p) for p in page_ids_arg]
-    else:
-        candidate_ids = []
-        pages = _get_pages_snapshot()
-        for p in pages:
-            if getattr(p, 'resolved_table_id', None) != table_id:
-                continue
-            try:
-                fp = find_page_path(getattr(p, 'id', '') or '')
-                if not fp:
-                    continue
-                meta, _ = parse_frontmatter(fp.read_text(encoding='utf-8'), fp)
-                extras = meta.get('Zotero Extras')
-                if isinstance(extras, dict) and zotero_field in extras:
-                    candidate_ids.append(getattr(p, 'id'))
-            except OSError:
-                continue
-
-    migrated, skipped, conflicts, errors = [], [], [], []
-
-    def _migrate(pid: str):
-        fp = find_page_path(pid)
-        if not fp or not fp.exists():
-            return ('error', "not_found")
-        # PR ETag (Path A): optional, not breaking — an old client that doesn't
-        # passes expected_etags keeps working exactly as before.
-        exp = expected_etags.get(pid)
-        if exp:
-            current = file_etag(fp)
-            if current and current != exp:
-                return ('conflict', {"expected_etag": exp, "current_etag": current})
-        try:
-            raw = fp.read_text(encoding='utf-8')
-            md, body = parse_frontmatter(raw, fp)
-            extras = md.get('Zotero Extras')
-            if not isinstance(extras, dict) or zotero_field not in extras:
-                return ('skip', None)
-            value = extras.pop(zotero_field)
-            if not extras:
-                md.pop('Zotero Extras', None)
-            else:
-                md['Zotero Extras'] = extras
-            md[column_name] = value
-            save_page_md(fp, md, body or '')
-            # Index refresh (like the bulk/PATCH): without this, the metadata
-            # migrated stayed stale in the grid until the rescan.
-            _refresh_page_index_entry(fp, md, body or '')
-            return ('ok', file_etag(fp))
-        except (OSError, ValueError) as e:
-            return ('error', str(e))
-
-    for pid in candidate_ids:
-        result, info = await asyncio.to_thread(_migrate, pid)
-        if result == 'ok':
-            migrated.append({"page_id": pid, "etag": info})
-        elif result == 'skip':
-            skipped.append(pid)
-        elif result == 'conflict':
-            conflicts.append({"page_id": pid, **info})
-        else:
-            errors.append({"page_id": pid, "error": info})
-
-    if migrated:
-        _invalidate_cite_key_index()
-        _pages_cache_invalidate_all()
-
-    return {
-        "column_created": column_created,
-        "column_id": existing.get('id'),
-        "column_name": column_name,
-        "migrated": len(migrated),
-        "migrated_ids": [m["page_id"] for m in migrated],
-        "migrated_with_etags": migrated,
-        "skipped": skipped,
-        "conflicts": conflicts,
-        "errors": errors,
-    }
+    return await metadata_mutations.promote_zotero_extra(
+        payload,
+        _metadata_mutation_dependencies(),
+    )
 
 
 @router.post("/bulk-update-metadata", dependencies=[Depends(require_role("editor"))])
@@ -6148,193 +6061,19 @@ async def bulk_update_metadata(payload: dict = Body(...)):
     with the new etag.
     
     """
-    page_ids = payload.get('page_ids') or []
-    updates = payload.get('updates') or {}
-    remove_keys = payload.get('remove') or []
-    expected_etags = payload.get('expected_etags') or {}
-    if not isinstance(page_ids, list) or not page_ids:
-        raise HTTPException(status_code=400, detail="page_ids ha de ser una llista no buida")
-    if not isinstance(updates, dict) or (not updates and not remove_keys):
-        raise HTTPException(status_code=400, detail="updates o remove són obligatoris")
-
-    updated, errors, skipped, conflicts = [], [], [], []
-
-    def _apply(pid: str):
-        fp = find_page_path(pid)
-        if not fp or not fp.exists():
-            return ('error', "not_found")
-        exp = expected_etags.get(pid)
-        if exp:
-            current = file_etag(fp)
-            if current and current != exp:
-                return ('conflict', {"expected_etag": exp, "current_etag": current})
-        try:
-            raw = fp.read_text(encoding='utf-8')
-            md, body = parse_frontmatter(raw, fp)
-            original_md = dict(md)
-            for k, v in (updates or {}).items():
-                if v is None or v == '':
-                    md.pop(k, None)
-                else:
-                    md[k] = v
-            for k in remove_keys:
-                md.pop(k, None)
-            if md == original_md:
-                return ('skip', None)
-            save_page_md(fp, md, body or '')
-            # Refreshes the in-memory index with the NEW metadata (as the PATCH
-            # for a single page does). Without this, `GET /pages` and `/by-table`
-            # served the OLD metadata from `_page_index_entries` until the
-            # next full rescan (600s cooldown) → the bulk edit "didn't
-            # stick" in the grid (reproduced: updated=2 but by-table
-            # kept showing the previous value).
-            try:
-                v_path = get_active_vault_path()
-                if v_path:
-                    v_str = str(v_path)
-                    new_entry = _build_cache_entry_from_memory(fp, fp.stat(), md, body or '')
-                    with _page_index_lock:
-                        _page_index_entries.setdefault(v_str, {})[str(fp)] = new_entry
-                        _page_id_to_path.setdefault(v_str, {})[md.get("id") or pid] = str(fp)
-                        _bump_page_index_version(v_str)
-                with _body_cache_lock:
-                    _body_cache.pop(str(fp), None)
-            except Exception as exc:
-                log.debug(f"bulk-update: index refresh failed for {pid}: {exc}")
-            return ('ok', file_etag(fp))
-        except (OSError, ValueError) as e:
-            return ('error', str(e))
-
-    for pid in page_ids:
-        result, info = await asyncio.to_thread(_apply, pid)
-        if result == 'ok':
-            updated.append({"page_id": pid, "etag": info})
-        elif result == 'skip':
-            skipped.append(pid)
-        elif result == 'conflict':
-            conflicts.append({"page_id": pid, **info})
-        else:
-            errors.append({"page_id": pid, "error": info})
-
-    if updated:
-        _invalidate_cite_key_index()
-        # The response micro-cache (`_pages_resp_cache`, TTL ~1.5s) is NOT
-        # refreshes when updating `_page_index_entries`; without invalidating it,
-        # a `/pages`/`/by-table` within the TTL would return the pre-bulk snapshot.
-        _pages_cache_invalidate_all()
-
-    return {
-        "updated": len(updated),
-        "updated_ids": [u["page_id"] for u in updated],
-        "updated_with_etags": updated,
-        "skipped": skipped,
-        "conflicts": conflicts,
-        "errors": errors,
-    }
+    return await metadata_mutations.bulk_update_metadata(
+        payload,
+        _metadata_mutation_dependencies(),
+    )
 
 
 @router.post("/bulk-apply-template", dependencies=[Depends(require_role("editor"))])
 async def bulk_apply_template(payload: dict = Body(...)):
     """Apply a table template body and declared properties to selected rows."""
-    page_ids = payload.get("page_ids") or []
-    template_id = str(payload.get("template_id") or "").strip()
-    expected_etags = payload.get("expected_etags") or {}
-    if not isinstance(page_ids, list) or not page_ids:
-        raise HTTPException(status_code=400, detail="page_ids must be a non-empty list")
-    if not template_id:
-        raise HTTPException(status_code=400, detail="template_id is required")
-
-    def _read_template():
-        template_path = find_page_path(template_id)
-        if not template_path or not template_path.exists():
-            return None, None, None
-        raw = template_path.read_text(encoding="utf-8")
-        metadata, body = parse_frontmatter(raw, template_path)
-        return template_path, metadata, body or ""
-
-    try:
-        _template_path, template_metadata, template_body = await asyncio.to_thread(_read_template)
-    except (OSError, ValueError) as exc:
-        raise HTTPException(status_code=400, detail=f"Could not read template: {exc}") from exc
-    if not template_metadata:
-        raise HTTPException(status_code=404, detail="Template not found")
-    if template_metadata.get("is_template") is not True:
-        raise HTTPException(status_code=400, detail="Selected page is not a template")
-
-    table_id = get_table_id(template_metadata)
-    table = _table_by_id(table_id)
-    if not table:
-        raise HTTPException(status_code=400, detail="Template does not belong to a table")
-
-    # Each property can be stored by its name, id, or legacy alias. Copy only
-    # schema-declared values: frontmatter such as title, id, table context and
-    # sidecar flags must always remain specific to the target record.
-    property_keys = []
-    for prop in table.get("properties") or []:
-        keys = [prop.get("name"), prop.get("id"), *(prop.get("aliases") or [])]
-        keys = [str(key) for key in keys if key]
-        template_key = next((key for key in keys if key in template_metadata), None)
-        if template_key:
-            property_keys.append((keys, template_key))
-
-    updated, errors, skipped, conflicts = [], [], [], []
-
-    for page_id in dict.fromkeys(str(pid) for pid in page_ids if pid):
-        async with await _get_page_write_lock(page_id):
-            def _apply():
-                page_path = find_page_path(page_id)
-                if not page_path or not page_path.exists():
-                    return "error", "not_found"
-                expected_etag = expected_etags.get(page_id)
-                if expected_etag:
-                    current_etag = file_etag(page_path)
-                    if current_etag and current_etag != expected_etag:
-                        return "conflict", {
-                            "expected_etag": expected_etag,
-                            "current_etag": current_etag,
-                        }
-                raw = page_path.read_text(encoding="utf-8")
-                metadata, current_body = parse_frontmatter(raw, page_path)
-                if metadata.get("is_template") is True:
-                    return "error", "target_is_template"
-                if get_table_id(metadata) != table_id:
-                    return "error", "different_table"
-                next_metadata = dict(metadata)
-                for candidate_keys, template_key in property_keys:
-                    target_key = next((key for key in candidate_keys if key in metadata), template_key)
-                    next_metadata[target_key] = template_metadata[template_key]
-                if next_metadata == metadata and current_body == template_body:
-                    return "skip", None
-                save_page_md(page_path, next_metadata, template_body)
-                _refresh_page_index_entry(page_path, next_metadata, template_body)
-                with _body_cache_lock:
-                    _body_cache.pop(str(page_path), None)
-                return "ok", file_etag(page_path)
-
-            try:
-                result, info = await asyncio.to_thread(_apply)
-            except (OSError, ValueError) as exc:
-                result, info = "error", str(exc)
-        if result == "ok":
-            updated.append({"page_id": page_id, "etag": info})
-        elif result == "skip":
-            skipped.append(page_id)
-        elif result == "conflict":
-            conflicts.append({"page_id": page_id, **info})
-        else:
-            errors.append({"page_id": page_id, "error": info})
-
-    if updated:
-        _invalidate_cite_key_index()
-        _pages_cache_invalidate_all()
-    return {
-        "updated": len(updated),
-        "updated_ids": [item["page_id"] for item in updated],
-        "updated_with_etags": updated,
-        "skipped": skipped,
-        "conflicts": conflicts,
-        "errors": errors,
-    }
+    return await metadata_mutations.bulk_apply_template(
+        payload,
+        _metadata_mutation_dependencies(),
+    )
 
 
 (

@@ -129,6 +129,11 @@ Registries are written atomically and refreshed after batch metadata changes.
 Cached snapshots are invalidated when source records or the schema revision
 changes.
 
+Bulk field edits, Zotero Extra promotion, and template application share one
+typed page-mutation service. Each target is isolated, checks an optional ETag,
+refreshes the page index after a write, and reports skips, conflicts, and errors
+without aborting the remaining rows.
+
 Page-property editors use field-aware controls. `select` and `status` fields
 render as single-value option pickers; status catalogs are strict and do not
 expose inline option creation or deletion. The table grid and page-property

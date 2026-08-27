@@ -53,6 +53,11 @@ Les revisions d' esquema protegeixen un client per a desar una llista de camp m�
 
 Els Registres s' escriuen atòmiques i es refrescen després de canviar les metadades per lots. Les instantànies Cacheades són validades quan els registres d' origen o els canvis de revisió de l' esquema.
 
+L'edició massiva de camps, la promoció de Zotero Extras i l'aplicació de
+plantilles comparteixen un servei tipat de mutació de pàgines. Cada registre
+comprova l'ETag opcional, refresca l'índex després d'escriure i informa de salts,
+conflictes i errors sense interrompre la resta de files.
+
 ## Planificació de projecte
 
 Planificació consumeix camps de tasques estructurades i produeix una planificació autoritiva en comptes de duplicar la lògica de planificació a la IU. El motor normalitza les dependències, calendaris, restriccions, recursos, data, progrés i direcció de planificació. Calcula dates, puntuacions crítiques, avisos i assignacions de recursos.

@@ -86,6 +86,11 @@ Les révisions de schéma protègent un client de sauvegarder une liste de champ
 
 Les enregistrements sont écrits atomiquement et rafraîchis après les changements de métadonnées par lot. Les instantanés cachés sont invalidés lorsque les enregistrements source ou la révision du schéma changent.
 
+Les modifications groupées, la promotion des champs Zotero Extras et
+l'application de modèles partagent un service typé de mutation des pages. Chaque
+cible vérifie l'ETag facultatif, actualise l'index après écriture et signale les
+omissions, conflits et erreurs sans interrompre les autres lignes.
+
 Les éditeurs de propriété de pages utilisent des commandes de champ. `select` et `status` les champs sont rendus comme des sélectionneurs d'options à valeur unique; les catalogues d'état sont stricts et ne dévoilent pas la création ou la suppression d'options en ligne. La grille de table et le panneau de propriété de page doivent conserver le même type de champ et la même sémantique d'option.
 
 ## Planification des projets

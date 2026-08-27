@@ -53,6 +53,11 @@ Las revisiones de esquemas protegen a un cliente de guardar una lista de campos 
 
 Las registros se escriben atómicamente y se actualizan después de cambios en los metadatos por lotes. Las instantáneas en cacheado se invalidan cuando cambian los registros de origen o la revisión del esquema.
 
+La edición masiva de campos, la promoción de Zotero Extras y la aplicación de
+plantillas comparten un servicio tipado de mutación de páginas. Cada registro
+comprueba el ETag opcional, actualiza el índice después de escribir e informa de
+omisiones, conflictos y errores sin interrumpir las demás filas.
+
 ## Planificación de proyectos
 
 La planificación consume campos de tareas estructurados y produce un horario autorizado en lugar de duplicar la lógica de programación en la interfaz de usuario. El motor normaliza dependencias, calendarios, duraciones, limitaciones, recursos, plazos, progreso y dirección de programación. Luego calcula fechas, holgura, tareas críticas, advertencias y asignaciones de recursos.
