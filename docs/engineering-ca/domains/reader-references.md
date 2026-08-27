@@ -1,11 +1,12 @@
 ---
 status: implemented
-last_verified: 2026-08-21
+last_verified: 2026-08-28
 source_paths:
   - backend/api/reader.py
   - backend/models/reader.py
   - backend/models/pdf_annotation.py
   - backend/api/vault_routes.py
+  - backend/domains/vault/citations/exporting.py
   - backend/api/literature_routes.py
   - backend/services/literature_models.py
   - backend/services/academic_connectors.py
@@ -18,6 +19,7 @@ source_paths:
   - frontend/src/components/ResourcesPluginConfig.jsx
   - frontend/src/components/Vault/ZoteroReaderTab.jsx
 tests:
+  - backend/tests/test_vault_export_domain_contract.py
   - backend/tests/test_citation_key_and_pubmed.py
   - backend/tests/test_references_io.py
   - backend/tests/test_llm_wiki_pdf_annotations.py
@@ -71,6 +73,11 @@ flowchart LR
 ```
 
 Els valors CSL es derivaen de la matèria de referència usant mapes de camp explícits. Llista de noms, dates, tipus d' element, escapat de BibTeX/LaTeX, i Zotero `extra` Les metadades requereixen normalització. L' esquema adversat protegeix els tipus d' element compatibles i camps des de la deriva de dalt a baix.
+
+`backend/domains/vault/citations/exporting.py` gestiona la neteja del Markdown,
+la resolució del subconjunt de citacions, els marcadors de bibliografia,
+l'execució de Pandoc i el paquet de descàrrega. La ruta de compatibilitat
+conserva la signatura pública i injecta els ports de fitxers, CSL i processos.
 
 ## Lector i anotacions
 

@@ -522,6 +522,7 @@ from backend.domains.vault.links import parsing as link_parsing
 from backend.domains.vault.links.schemas import LinkMentionsRequest
 from backend.domains.vault.links.state import LinkIndexView, link_index_state
 from backend.domains.vault.citations import authors as citation_authors
+from backend.domains.vault.citations import exporting as citation_exporting
 from backend.domains.vault.citations import formatting as citation_formatting
 from backend.domains.vault.citations import io_api as citation_io_api
 from backend.domains.vault.citations import keys as citation_keys
@@ -3909,6 +3910,30 @@ def _pandoc_bin() -> str:
     )
 
 
+def _run_export_pandoc(command: list[str], working_directory: Path):
+    return _ext_subprocess.run(
+        command,
+        cwd=working_directory,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+
+
+_CITATION_EXPORT_DEPENDENCIES = citation_exporting.ExportDependencies(
+    find_page=lambda page_id: find_page_path(page_id),
+    active_vault_path=lambda: get_active_vault_path(),
+    ensure_citation_index=lambda vault_path: _ensure_cite_key_index(vault_path),
+    parse_frontmatter=lambda content, path: parse_frontmatter(content, path),
+    metadata_to_csl=lambda title, metadata: _recursos_metadata_to_csl(title, metadata),
+    resolve_csl_path=lambda style: _resolve_csl_path(style),
+    pandoc_binary=lambda: _pandoc_bin(),
+    temporary_directory=lambda prefix: _ext_tempfile.TemporaryDirectory(prefix=prefix),
+    run_process=_run_export_pandoc,
+    pandoc_missing_message=lambda: _PANDOC_MISSING_MSG,
+)
+
+
 (
     format_citation,
     format_citations,
@@ -3941,133 +3966,12 @@ async def export_page(
     If pandoc is unavailable or fails, 500 with stderr.
     
     """
-    file_path = await asyncio.to_thread(find_page_path, page_id)
-    if not file_path:
-        raise HTTPException(status_code=404, detail="Page not found")
-    raw = file_path.read_text(encoding='utf-8')
-    # Strip frontmatter; pandoc would understand it but it usually contains fields that don't
-    # we want in the final docx.
-    body = raw
-    if body.startswith('---'):
-        m = re.match(r'^---\n.*?\n---\n', body, re.DOTALL)
-        if m:
-            body = body[m.end():]
-
-    # Identifies citation keys in the body (both [@key] bracketed and naked @key)
-    keys = set()
-    for m in re.finditer(r'\[@([a-z][a-z0-9_:-]*(?:\s*;\s*@[a-z][a-z0-9_:-]*)*)\]', body, re.IGNORECASE):
-        for k in m.group(1).split(';'):
-            kk = k.strip().lstrip('@').strip()
-            if kk:
-                keys.add(kk)
-    # Naked keys: the editor renders them as citation chips (mirror of
-    # `CITATION_NAKED_RE` in markdown-mapper.js) and pandoc parses them natively,
-    # so leaving them out of refs.json produced a bold "(**key?**)" plus a
-    # "citation not found" warning instead of a formatted citation.
-    for m in re.finditer(r'(?:^|[\s(])@([a-z][a-z0-9_:-]*)\b', body, re.IGNORECASE | re.MULTILINE):
-        keys.add(m.group(1))
-
-    # Builds CSL-JSON for the subset
-    csl_items = []
-    if keys:
-        v_path = get_active_vault_path()
-        if v_path:
-            idx = _ensure_cite_key_index(str(v_path))
-            for k in keys:
-                entry = idx.get(k)
-                if not entry:
-                    continue
-                # Read the whole page to get the metadata
-                try:
-                    page_path = await asyncio.to_thread(find_page_path, entry['id'])
-                    if not page_path:
-                        continue
-                    raw_page = page_path.read_text(encoding='utf-8')
-                    meta, _ = parse_frontmatter(raw_page, page_path)
-                    csl_item = _recursos_metadata_to_csl(entry.get('title') or '', meta)
-                    if csl_item:
-                        csl_items.append(csl_item)
-                except OSError:
-                    continue
-
-    # Locates the .csl style. They used to live in the frontend's public/, also accessible
-    # via filesystem if the backend and frontend share the repo.
-    # Shared resolver, NOT a local copy: this used to duplicate the style map and
-    # the `/app/...`-only candidate list, so it kept silently exporting with
-    # pandoc's default style after `_resolve_csl_path` was fixed for native mode,
-    # and it was missing the `modern-language-association` id the Word add-in
-    # actually sends.
-    csl_path = _resolve_csl_path(csl)
-
-    # Invoke pandoc in a temporary directory
-    with _ext_tempfile.TemporaryDirectory(prefix='gnosi_export_') as tmpdir:
-        tmp = Path(tmpdir)
-        (tmp / 'input.md').write_text(body, encoding='utf-8')
-        if csl_items:
-            (tmp / 'refs.json').write_text(json.dumps(csl_items, ensure_ascii=False), encoding='utf-8')
-        # We replace our own `{{bibliography}}` marker with the syntax
-        # native to pandoc-citeproc — which injects the bibliography in place.
-        # Also a final section if it wasn't there.
-        content = (tmp / 'input.md').read_text(encoding='utf-8')
-        # Style/locale groups must mirror the frontend serializer
-        # (markdown-mapper.js): the style id is a free string that admits digits
-        # ('apa-6th-edition' and most of the CSL commons repo). `[a-z-]+` left
-        # such markers unreplaced, so the literal `{{bibliography:apa-6th-edition}}`
-        # text ended up in the exported document and the bibliography moved to
-        # the end instead of the marker.
-        _BIB_MARKER_RE = r'\{\{bibliography(?::[a-z][a-z0-9-]*)?(?::[a-zA-Z-]+)?\}\}'
-        if '{{bibliography}}' in content or re.search(_BIB_MARKER_RE, content):
-            # Pandoc uses `# References` or `:::refs` or the end of the document
-            # as the bibliography location. We replace our syntax with
-            # a heading + ref div.
-            content = re.sub(_BIB_MARKER_RE,
-                             '## Bibliografia\n\n::: {#refs}\n:::', content)
-            (tmp / 'input.md').write_text(content, encoding='utf-8')
-        ext_map = {'docx':'docx','odt':'odt','html':'html','pdf':'pdf','tex':'tex','markdown':'md'}
-        out_name = f'output.{ext_map[format]}'
-        cmd = [_pandoc_bin(), 'input.md', '-o', out_name]
-        if csl_items:
-            cmd += ['--citeproc', '--bibliography', 'refs.json']
-            if csl_path:
-                cmd += ['--csl', str(csl_path)]
-        if format in ('docx', 'odt', 'pdf'):
-            cmd += ['--standalone']
-        cmd += ['--metadata', f'lang={locale}']
-        try:
-            result = _ext_subprocess.run(
-                cmd, cwd=tmp, capture_output=True, text=True, timeout=60,
-            )
-        except FileNotFoundError:
-            raise HTTPException(status_code=500, detail=_PANDOC_MISSING_MSG)
-        except _ext_subprocess.TimeoutExpired:
-            raise HTTPException(status_code=504, detail="pandoc timeout after 60s")
-        if result.returncode != 0:
-            raise HTTPException(
-                status_code=500,
-                detail=f"pandoc failed: {result.stderr[:500]}",
-            )
-        out_path = tmp / out_name
-        if not out_path.exists():
-            raise HTTPException(status_code=500, detail="pandoc no ha generat sortida")
-        # We read the bytes (the TemporaryDirectory will be deleted on exit)
-        data = out_path.read_bytes()
-
-    # Generates a clean download name
-    safe_title = re.sub(r'[^A-Za-z0-9._-]+', '_', file_path.stem)[:80] or 'document'
-    download_name = f'{safe_title}.{ext_map[format]}'
-    media = {
-        'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'odt': 'application/vnd.oasis.opendocument.text',
-        'html': 'text/html',
-        'pdf': 'application/pdf',
-        'tex': 'application/x-latex',
-        'markdown': 'text/markdown',
-    }[format]
-    from fastapi.responses import Response
-    return Response(
-        content=data,
-        media_type=media,
-        headers={'Content-Disposition': f'attachment; filename="{download_name}"'},
+    return await citation_exporting.export_page(
+        page_id,
+        format,
+        csl,
+        locale,
+        _CITATION_EXPORT_DEPENDENCIES,
     )
 
 

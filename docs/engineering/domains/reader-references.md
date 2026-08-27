@@ -1,11 +1,12 @@
 ---
 status: implemented
-last_verified: 2026-08-21
+last_verified: 2026-08-28
 source_paths:
   - backend/api/reader.py
   - backend/models/reader.py
   - backend/models/pdf_annotation.py
   - backend/api/vault_routes.py
+  - backend/domains/vault/citations/exporting.py
   - backend/api/literature_routes.py
   - backend/services/literature_models.py
   - backend/services/academic_connectors.py
@@ -18,6 +19,7 @@ source_paths:
   - frontend/src/components/ResourcesPluginConfig.jsx
   - frontend/src/components/Vault/ZoteroReaderTab.jsx
 tests:
+  - backend/tests/test_vault_export_domain_contract.py
   - backend/tests/test_citation_key_and_pubmed.py
   - backend/tests/test_references_io.py
   - backend/tests/test_llm_wiki_pdf_annotations.py
@@ -105,6 +107,11 @@ CSL values are derived from reference front matter using explicit field
 mappings. Name lists, dates, item types, escaped BibTeX/LaTeX, and Zotero
 `extra` metadata require normalization. The pinned schema protects compatible
 item types and fields from upstream drift.
+
+`backend/domains/vault/citations/exporting.py` owns Markdown cleanup, citation
+subset resolution, bibliography-marker replacement, Pandoc invocation and
+download packaging for Vault exports. The compatibility route retains its
+public signature and injects late-bound filesystem, CSL and process ports.
 
 ## Reader and annotations
 
