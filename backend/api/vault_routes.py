@@ -137,6 +137,7 @@ from backend.domains.vault.schemas.pages import (
 from backend.domains.vault.pages.state import page_state
 from backend.domains.vault.pages import index_entries as page_index_entries
 from backend.domains.vault.pages import index_service as page_index_service
+from backend.domains.vault.pages import markdown_writer as page_markdown_writer
 from backend.domains.vault.pages import resolver as page_resolver
 from backend.domains.vault.pages import tags as tags_query
 from backend.domains.vault.pages.index_entries import (
@@ -1370,6 +1371,44 @@ def refresh_view_snapshots(dry_run: bool = False) -> Dict[str, Any]:
     )
 
 
+_PAGE_MARKDOWN_WRITER_DEPENDENCIES = page_markdown_writer.MarkdownWriterDependencies(
+    is_dashboard_file=lambda path: _is_dashboard_file_path(path),
+    read_dashboard_file=lambda path: _read_dashboard_file(path),
+    parse_frontmatter=lambda content, path: parse_frontmatter(content, path),
+    new_uuid=lambda: str(uuid.uuid4()),
+    get_table_id=lambda metadata: get_table_id(metadata),
+    table_by_id=lambda table_id: _table_by_id(table_id),
+    to_storage_names=lambda metadata, table: to_storage_names(metadata, table)[0],
+    strip_virtual_keys=lambda metadata, table: _strip_virtual_keys(metadata, table),
+    relation_keys=lambda table: relation_keys_from_table(table),
+    decorate_relations=lambda metadata, relation_keys: decorate_relation_wikilinks(
+        metadata,
+        relation_keys=relation_keys,
+        id_to_title=_link_index_title_for,
+        title_to_id=_link_index_unique_id_for_title,
+    ),
+    persist_sidecar=lambda metadata, path: persist_sidecar_from(metadata, path),
+    dump_yaml=lambda metadata: yaml.dump(
+        metadata,
+        default_flow_style=False,
+        sort_keys=False,
+        allow_unicode=True,
+        width=4096,
+    ),
+    inject_view_snapshots=lambda body, page_id: inject_view_snapshots(
+        body,
+        resolve_ids=_resolve_view_row_ids,
+        id_to_title=_link_index_title_for,
+        host_page_id=page_id,
+        config_for=_view_snapshot_config,
+        resolve_table=_resolve_view_table,
+    ),
+    compact_view_fences=lambda body: compact_view_fences(body),
+    write_text=lambda path, content: safe_write_text(path, content),
+    logger=log,
+)
+
+
 def save_page_md(file_path: Path, metadata: dict, body: str) -> None:
     """Writes an .md page with frontmatter / sidecar separation.
 
@@ -1386,115 +1425,12 @@ def save_page_md(file_path: Path, metadata: dict, body: str) -> None:
     `vault_persist_by_name.md` directive.
     
     """
-    # ANTI-LOSS GUARD — "mutilated frontmatter" regression (see the red flag at
-    # `wikilink_interactions.md`). A page without `id` in the frontmatter gets indexed
-    # by file name (`metadata.get("id") or file_path.stem`), so that
-    # and ALL wikilinks by UUID pointing to it start silently returning 404.
-    # No legitimate caller reaches here without `id` (create_page always sets it;
-    # PATCH/PUT preserve it from the read frontmatter). If it does get here —e.g. because
-    # `parse_frontmatter` has returned `{}` when reading a truncated/online-only file
-    # of OneDrive and the PATCH only added `parent_id`— we recover the `id` from the
-    # file on disk (frontmatter, or via regex over the raw text if the YAML is
-    # corrupted); if everything fails, we generate a new one. We NEVER write an `.md` without `id`.
-    if not str((metadata or {}).get("id") or "").strip():
-        recovered_id = None
-        recovered_title = None
-        try:
-            if file_path.exists():
-                existing_raw = file_path.read_text(encoding="utf-8")
-                try:
-                    if _is_dashboard_file_path(file_path):
-                        existing_md, _ = _read_dashboard_file(file_path)
-                    else:
-                        existing_md, _ = parse_frontmatter(existing_raw, file_path)
-                    recovered_id = str((existing_md or {}).get("id") or "").strip() or None
-                    recovered_title = (existing_md or {}).get("title")
-                except Exception:
-                    pass
-                if not recovered_id:
-                    # Corrupted YAML: regex-based rescue from the raw text.
-                    _m = re.search(
-                        r"(?mi)^\s*id:\s*['\"]?"
-                        r"([0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12})",
-                        existing_raw,
-                    )
-                    if _m:
-                        recovered_id = _m.group(1).strip()
-        except Exception as e:
-            log.warning(f"save_page_md: could not recover the id for {file_path}: {e}")
-        metadata = dict(metadata or {})
-        if recovered_id:
-            metadata["id"] = recovered_id
-            if not str(metadata.get("title") or "").strip():
-                metadata["title"] = recovered_title or file_path.stem
-            log.error(
-                f"save_page_md: metadata WITHOUT an id for {file_path}; recovered from disk "
-                f"({recovered_id}). A caller is dropping frontmatter; investigate "
-                f"(the note was NOT corrupted)."
-            )
-        else:
-            _new_id = str(uuid.uuid4())
-            metadata["id"] = _new_id
-            if not str(metadata.get("title") or "").strip():
-                metadata["title"] = file_path.stem
-            log.error(
-                f"save_page_md: metadata WITHOUT 'id' for {file_path} and not recoverable from "
-                f"disk; assigned new id {_new_id} to avoid corruption. Investigate the caller."
-            )
-
-    _table = None
-    try:
-        _tid = get_table_id(metadata)
-        if _tid:
-            _table = _table_by_id(_tid)
-            if _table:
-                metadata, _ = to_storage_names(metadata, _table)
-                # We never persist a derived field (`type:'virtual'`): the value
-                # it's injected on READ. If the frontend resends the injected value,
-                # we discard it before writing to the .md.
-                metadata = _strip_virtual_keys(metadata, _table)
-    except Exception as e:  # defensive: a resolution failure must not block the write
-        log.debug(f"to_storage_names ha fallat per {file_path}: {e}")
-    try:
-        _relation_keys = relation_keys_from_table(_table) or None
-        metadata = decorate_relation_wikilinks(
-            metadata,
-            relation_keys=_relation_keys,
-            id_to_title=_link_index_title_for,
-            title_to_id=_link_index_unique_id_for_title,
-        )
-    except Exception as e:  # defensive: never block a save because of decoration
-        log.debug(f"Relationship decoration failed for {file_path}: {e}")
-    fm_meta = persist_sidecar_from(metadata, file_path)
-    if not fm_meta:
-        frontmatter = "---\n---\n"
-    else:
-        yaml_str = yaml.dump(
-            fm_meta, default_flow_style=False, sort_keys=False, allow_unicode=True,
-            width=4096,
-        )
-        frontmatter = f"---\n{yaml_str}---\n"
-    # WRITE boundary of the view snapshot: after each fence
-    # ```gnosi-view``` writes the [[Title|id]] list of the pages the view
-    # returns (portability: Obsidian/Drupal/plain readers). Self-healing and
-    # idempotent; defensive (never blocks a save). Mirrors the decoration of
-    # relations, but in the body instead of the frontmatter.
-    try:
-        body = inject_view_snapshots(
-            body,
-            resolve_ids=_resolve_view_row_ids,
-            id_to_title=_link_index_title_for,
-            host_page_id=metadata.get("id"),
-            config_for=_view_snapshot_config,
-            resolve_table=_resolve_view_table,
-        )
-        # Hides the view definition: visible fence → HTML comment (Obsidian
-        # and plain readers don't display it). After injecting the snapshot, which
-        # still needs to find the fence.
-        body = compact_view_fences(body)
-    except Exception as e:  # defensive: never block a save because of the snapshot
-        log.debug(f"View snapshot failed for {file_path}: {e}")
-    safe_write_text(file_path, f"{frontmatter}\n{(body or '').lstrip()}")
+    return page_markdown_writer.save_page_markdown(
+        file_path,
+        metadata,
+        body,
+        _PAGE_MARKDOWN_WRITER_DEPENDENCIES,
+    )
 
 
 def normalize_metadata_ids(metadata: dict) -> dict:

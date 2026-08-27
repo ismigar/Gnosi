@@ -13,6 +13,7 @@ source_paths:
   - frontend/src/pages/VaultDashboard.jsx
   - frontend/src/components/Vault
 tests:
+  - backend/tests/test_vault_markdown_writer_domain_contract.py
   - backend/tests/test_purge_cleanup.py
   - backend/tests/test_purge_inverse_relations.py
   - backend/tests/test_e2e_etag_concurrency.py
@@ -48,6 +49,11 @@ sequenceDiagram
 ```
 
 L'identité de la page est séparée du titre et du chemin. La matière avant est normalisée aux limites de l'écriture tandis que les clés autorisées par l'utilisateur sont préservées. `.gnosi` les sidecars lorsqu'ils le déposent devant la matière pollueraient ou déstabiliseraient le contenu portable.
+
+`pages/markdown_writer.py` est la frontière canonique de sérialisation: il
+récupère ou crée l'identifiant stable, transforme les clés de schéma, retire les
+champs virtuels, stocke l'état interne dans le sidecar, décore les relations
+portables et matérialise les vues avant l'écriture atomique.
 
 ## Limites de l'arrière-pays
 

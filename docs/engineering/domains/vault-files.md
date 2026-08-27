@@ -16,6 +16,7 @@ source_paths:
   - frontend/src/pages/VaultDashboard.jsx
   - frontend/src/components/Vault
 tests:
+  - backend/tests/test_vault_markdown_writer_domain_contract.py
   - backend/tests/test_purge_cleanup.py
   - backend/tests/test_purge_inverse_relations.py
   - backend/tests/test_e2e_etag_concurrency.py
@@ -59,6 +60,11 @@ Page identity is separate from title and path. Front matter is normalized at
 write boundaries while user-authored keys are preserved. Internal-only state
 belongs in `.gnosi` sidecars when exposing it in front matter would pollute or
 destabilize portable content.
+
+`pages/markdown_writer.py` is the canonical serialization boundary: it recovers
+or creates a missing stable ID, maps schema keys to storage names, strips
+virtual fields, writes internal state to the sidecar, decorates portable
+relations and materializes view snapshots before the atomic file write.
 
 ## Backend boundary
 

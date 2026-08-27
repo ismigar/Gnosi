@@ -13,6 +13,7 @@ source_paths:
   - frontend/src/pages/VaultDashboard.jsx
   - frontend/src/components/Vault
 tests:
+  - backend/tests/test_vault_markdown_writer_domain_contract.py
   - backend/tests/test_purge_cleanup.py
   - backend/tests/test_purge_inverse_relations.py
   - backend/tests/test_e2e_etag_concurrency.py
@@ -48,6 +49,11 @@ sequenceDiagram
 ```
 
 La identidad de página está separada del título y la ruta. La materia frontal se normaliza en los límites de escritura mientras se conservan las claves de usuario. `.gnosi` sidecars cuando se expone en la materia delantera contaminaría o desestabilizaría el contenido portátil.
+
+`pages/markdown_writer.py` es el límite canónico de serialización: recupera o
+crea el identificador estable, transforma las claves del esquema, elimina los
+campos virtuales, guarda el estado interno en el sidecar, decora relaciones
+portátiles y materializa las vistas antes de la escritura atómica.
 
 ## Límite del motor
 

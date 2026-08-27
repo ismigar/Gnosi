@@ -13,6 +13,7 @@ source_paths:
   - frontend/src/pages/VaultDashboard.jsx
   - frontend/src/components/Vault
 tests:
+  - backend/tests/test_vault_markdown_writer_domain_contract.py
   - backend/tests/test_purge_cleanup.py
   - backend/tests/test_purge_inverse_relations.py
   - backend/tests/test_e2e_etag_concurrency.py
@@ -48,6 +49,11 @@ sequenceDiagram
 ```
 
 La identitat de pàgina està separada del títol i del camí. La matèria frontal està normalitzada en la recerca d' escriptura mentre que les claus de l' usuari- author són preservades. L' estat intern només pertany a `.gnosi` Els llocs secundaris quan l'exposassin al tema d'entrada contaminarien o contaminarien contingut portàtil.
+
+`pages/markdown_writer.py` és el límit canònic de serialització: recupera o crea
+l'identificador estable, transforma les claus d'esquema, elimina camps virtuals,
+desa l'estat intern al sidecar, decora relacions portàtils i materialitza les
+vistes abans de l'escriptura atòmica.
 
 ## Límit del dorsal
 
