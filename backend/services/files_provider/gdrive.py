@@ -6,9 +6,8 @@ framework just like OneDrive and iCloud:
 - Materialization triggered by `open()/read()`.
 - Typical path: `~/Library/CloudStorage/GoogleDrive-<account>/...`.
 
-Therefore, the `scripts/runtime/onedrive_warmup_daemon.py` daemon is reusable
-without changes. This class exists only to provide the log entry
-(`FilesProvider actiu: gdrive`) and to allow dedicated env vars.
+The configured host helper is provider-neutral. This class provides the log
+identity and dedicated `GDRIVE_*` settings without inheriting OneDrive repair.
 
 Notes:
 - The **old Drive File Stream** (version < 2021) mounted its own FUSE
@@ -18,26 +17,25 @@ Notes:
   which has a different detection method (xattr `OFFLINE`). This class
   only covers macOS — Windows would be left for a later phase.
 
-See `docs/dev_memory/directives/files_provider_abstraction.md`.
+See `docs/engineering/domains/vault-files.md`.
 """
 
 from __future__ import annotations
 
-import os
 from typing import Optional
 
-from .onedrive import OneDriveProvider
+from .on_demand import OnDemandFilesProvider
 
 
-class GoogleDriveProvider(OneDriveProvider):
+class GoogleDriveProvider(OnDemandFilesProvider):
     """Google Drive (Drive for Desktop) on macOS, via File Provider.
 
-    Reuses the logic of `OneDriveProvider`; it only changes the `name`
-    and prioritizes `GDRIVE_*` env vars before falling back to `ONEDRIVE_*`.
-    
+    Shares provider-neutral hydration and has no OneDrive recovery behavior.
+
     """
 
     name = "gdrive"
+    env_prefix = "GDRIVE"
 
     def __init__(
         self,
@@ -47,11 +45,6 @@ class GoogleDriveProvider(OneDriveProvider):
         container_root: str = "/vault",
         max_concurrent_warmups: int = 2,
     ) -> None:
-        warmup_url = warmup_url or os.environ.get("GDRIVE_WARMUP_URL")
-        if warmup_timeout_s is None:
-            env = os.environ.get("GDRIVE_WARMUP_TIMEOUT")
-            if env is not None:
-                warmup_timeout_s = float(env)
         super().__init__(
             warmup_url=warmup_url,
             warmup_timeout_s=warmup_timeout_s,

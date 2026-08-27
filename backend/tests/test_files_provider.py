@@ -1,7 +1,7 @@
 """Unit tests for `backend.services.files_provider`.
 
 Validate the contract of the multi-provider abstraction layer (see
-`docs/dev_memory/directives/files_provider_abstraction.md`):
+`docs/engineering/domains/vault-files.md`):
 
 - `LocalProvider`, `OneDriveProvider`, `iCloudDriveProvider` honor
   the `FilesProvider` interface.
@@ -9,7 +9,8 @@ Validate the contract of the multi-provider abstraction layer (see
   based on env vars (explicit `GNOSI_FILES_PROVIDER` + `VAULT_HOST_PATH`
   heuristic).
 - The singleton is built only once (lazy + thread-safe).
-- iCloud prioritizes `ICLOUD_*` env vars before falling back to `ONEDRIVE_*`.
+- Provider-specific environment values and recovery behavior do not leak
+  between vendors.
 
 Does NOT cover:
     - Real call to the HTTP daemon (requires the daemon running on the host).
@@ -31,10 +32,12 @@ import pytest
 
 import backend.services.files_provider as fp
 from backend.services.files_provider import (
+    DropboxProvider,
     FilesProvider,
     GoogleDriveProvider,
     LocalProvider,
     NextCloudProvider,
+    OnDemandFilesProvider,
     OneDriveProvider,
     get_files_provider,
     iCloudDriveProvider,
@@ -48,13 +51,24 @@ ENV_KEYS = (
     "VAULT_HOST_PATH",
     "ONEDRIVE_WARMUP_URL",
     "ONEDRIVE_WARMUP_TIMEOUT",
+    "ONEDRIVE_WARMUP_MODE",
+    "ONEDRIVE_AUTO_RESTART",
     "ICLOUD_WARMUP_URL",
     "ICLOUD_WARMUP_TIMEOUT",
+    "ICLOUD_WARMUP_MODE",
     "GDRIVE_WARMUP_URL",
     "GDRIVE_WARMUP_TIMEOUT",
+    "GDRIVE_WARMUP_MODE",
     "NEXTCLOUD_WARMUP_URL",
     "NEXTCLOUD_WARMUP_TIMEOUT",
+    "NEXTCLOUD_WARMUP_MODE",
     "NEXTCLOUD_PLACEHOLDER_EXT",
+    "DROPBOX_WARMUP_URL",
+    "DROPBOX_WARMUP_TIMEOUT",
+    "DROPBOX_WARMUP_MODE",
+    "FILEPROVIDER_WARMUP_URL",
+    "FILEPROVIDER_WARMUP_TIMEOUT",
+    "FILEPROVIDER_WARMUP_MODE",
 )
 
 
@@ -70,6 +84,7 @@ def _reset_provider_state(monkeypatch):
 
 
 # --- Heuristic detection ------------------------------------------------
+
 
 def test_default_no_env_returns_local():
     assert get_files_provider().name == "local"
@@ -99,9 +114,8 @@ def test_icloud_mobile_documents_path_detected(monkeypatch):
     p = get_files_provider()
     assert p.name == "icloud"
     assert isinstance(p, iCloudDriveProvider)
-    # iCloud inherits from OneDrive: the `isinstance(OneDriveProvider)` detection
-    # is still True but the name is "icloud".
-    assert isinstance(p, OneDriveProvider)
+    assert isinstance(p, OnDemandFilesProvider)
+    assert not isinstance(p, OneDriveProvider)
 
 
 def test_icloud_literal_in_path_case_insensitive(monkeypatch):
@@ -116,6 +130,7 @@ def test_explicit_icloud_overrides_heuristic(monkeypatch):
 
 
 # --- Heuristic: GoogleDrive and NextCloud ---------------------------------
+
 
 def test_gdrive_path_detected(monkeypatch):
     monkeypatch.setenv(
@@ -140,6 +155,26 @@ def test_nextcloud_path_detected_case_insensitive(monkeypatch):
     assert isinstance(p, NextCloudProvider)
 
 
+def test_dropbox_cloudstorage_path_detected(monkeypatch):
+    monkeypatch.setenv(
+        "VAULT_HOST_PATH",
+        "/Users/foo/Library/CloudStorage/Dropbox/Gnosi",
+    )
+    provider = get_files_provider()
+    assert provider.name == "dropbox"
+    assert isinstance(provider, DropboxProvider)
+
+
+def test_unknown_macos_file_provider_path_uses_generic_adapter(monkeypatch):
+    monkeypatch.setenv(
+        "VAULT_HOST_PATH",
+        "/Users/foo/Library/CloudStorage/FutureCloud/Gnosi",
+    )
+    provider = get_files_provider()
+    assert provider.name == "fileprovider"
+    assert type(provider) is OnDemandFilesProvider
+
+
 def test_explicit_gdrive_override(monkeypatch):
     monkeypatch.setenv("GNOSI_FILES_PROVIDER", "gdrive")
     assert get_files_provider().name == "gdrive"
@@ -148,6 +183,16 @@ def test_explicit_gdrive_override(monkeypatch):
 def test_explicit_nextcloud_override(monkeypatch):
     monkeypatch.setenv("GNOSI_FILES_PROVIDER", "nextcloud")
     assert get_files_provider().name == "nextcloud"
+
+
+def test_explicit_fileprovider_override(monkeypatch):
+    monkeypatch.setenv("GNOSI_FILES_PROVIDER", "fileprovider")
+    assert get_files_provider().name == "fileprovider"
+
+
+def test_explicit_dropbox_override(monkeypatch):
+    monkeypatch.setenv("GNOSI_FILES_PROVIDER", "dropbox")
+    assert get_files_provider().name == "dropbox"
 
 
 def test_onedrive_takes_precedence_over_other_keywords(monkeypatch):
@@ -161,7 +206,7 @@ def test_onedrive_takes_precedence_over_other_keywords(monkeypatch):
 
 
 def test_unknown_explicit_falls_back_to_heuristic(monkeypatch, caplog):
-    monkeypatch.setenv("GNOSI_FILES_PROVIDER", "dropbox")
+    monkeypatch.setenv("GNOSI_FILES_PROVIDER", "unknown-cloud")
     # Without VAULT_HOST_PATH → the heuristic returns `local`.
     p = get_files_provider()
     assert p.name == "local"
@@ -171,6 +216,7 @@ def test_unknown_explicit_falls_back_to_heuristic(monkeypatch, caplog):
 
 # --- Singleton ----------------------------------------------------------
 
+
 def test_get_files_provider_returns_same_instance():
     a = get_files_provider()
     b = get_files_provider()
@@ -178,6 +224,7 @@ def test_get_files_provider_returns_same_instance():
 
 
 # --- LocalProvider ------------------------------------------------------
+
 
 def test_local_is_never_online_only(tmp_path):
     p = LocalProvider()
@@ -193,6 +240,7 @@ def test_local_materialize_is_noop_true(tmp_path):
 
 
 # --- OneDriveProvider ---------------------------------------------------
+
 
 def test_onedrive_is_online_only_normal_file_returns_false(tmp_path):
     p = OneDriveProvider()
@@ -219,7 +267,7 @@ def test_onedrive_is_online_only_returns_false_on_stat_error(tmp_path):
 
 def test_onedrive_default_warmup_url_docker(monkeypatch):
     """In Docker the warmup default targets the host daemon in daemon mode."""
-    monkeypatch.setattr("backend.services.files_provider.onedrive._is_docker", lambda: True)
+    monkeypatch.setattr("backend.services.files_provider.on_demand._is_docker", lambda: True)
     p = OneDriveProvider()
     assert p.warmup_url == "http://host.docker.internal:5009/warmup"
     assert p.warmup_mode == "daemon"
@@ -230,8 +278,8 @@ def test_onedrive_default_warmup_native_macos(monkeypatch):
     """On native macOS (no Docker) the default is LaunchServices "open" mode and
     the daemon URL — used only if forced back to daemon — is the loopback one.
     This is what lets native installs work without exporting ONEDRIVE_WARMUP_MODE."""
-    monkeypatch.setattr("backend.services.files_provider.onedrive._is_docker", lambda: False)
-    monkeypatch.setattr("backend.services.files_provider.onedrive.sys.platform", "darwin")
+    monkeypatch.setattr("backend.services.files_provider.on_demand._is_docker", lambda: False)
+    monkeypatch.setattr("backend.services.files_provider.on_demand.sys.platform", "darwin")
     monkeypatch.delenv("ONEDRIVE_WARMUP_MODE", raising=False)
     p = OneDriveProvider()
     assert p.warmup_mode == "open"
@@ -248,9 +296,11 @@ def test_onedrive_env_vars_override(monkeypatch):
 
 # --- iCloudDriveProvider ------------------------------------------------
 
-def test_icloud_inherits_from_onedrive():
+
+def test_icloud_inherits_provider_neutral_runtime():
     p = iCloudDriveProvider()
-    assert isinstance(p, OneDriveProvider)
+    assert isinstance(p, OnDemandFilesProvider)
+    assert not isinstance(p, OneDriveProvider)
     assert p.name == "icloud"
 
 
@@ -261,10 +311,10 @@ def test_icloud_prefers_icloud_env_over_onedrive(monkeypatch):
     assert p.warmup_url == "http://icloud:6000/warmup"
 
 
-def test_icloud_falls_back_to_onedrive_env_when_no_icloud(monkeypatch):
+def test_icloud_does_not_inherit_onedrive_env(monkeypatch):
     monkeypatch.setenv("ONEDRIVE_WARMUP_URL", "http://shared:5009/warmup")
     p = iCloudDriveProvider()
-    assert p.warmup_url == "http://shared:5009/warmup"
+    assert p.warmup_url != "http://shared:5009/warmup"
 
 
 def test_icloud_timeout_from_icloud_env(monkeypatch):
@@ -275,9 +325,11 @@ def test_icloud_timeout_from_icloud_env(monkeypatch):
 
 # --- GoogleDriveProvider -------------------------------------------------
 
-def test_gdrive_inherits_and_has_correct_name():
+
+def test_gdrive_inherits_provider_neutral_runtime():
     p = GoogleDriveProvider()
-    assert isinstance(p, OneDriveProvider)
+    assert isinstance(p, OnDemandFilesProvider)
+    assert not isinstance(p, OneDriveProvider)
     assert p.name == "gdrive"
 
 
@@ -288,10 +340,10 @@ def test_gdrive_prefers_gdrive_env_over_onedrive(monkeypatch):
     assert p.warmup_url == "http://gdrive:7000/warmup"
 
 
-def test_gdrive_falls_back_to_onedrive_env(monkeypatch):
+def test_gdrive_does_not_inherit_onedrive_env(monkeypatch):
     monkeypatch.setenv("ONEDRIVE_WARMUP_URL", "http://shared:5009/warmup")
     p = GoogleDriveProvider()
-    assert p.warmup_url == "http://shared:5009/warmup"
+    assert p.warmup_url != "http://shared:5009/warmup"
 
 
 def test_gdrive_timeout_from_gdrive_env(monkeypatch):
@@ -302,10 +354,12 @@ def test_gdrive_timeout_from_gdrive_env(monkeypatch):
 
 # --- NextCloudProvider ---------------------------------------------------
 
+
 def test_nextcloud_name_and_inheritance():
     p = NextCloudProvider()
     assert p.name == "nextcloud"
-    assert isinstance(p, OneDriveProvider)
+    assert isinstance(p, OnDemandFilesProvider)
+    assert not isinstance(p, OneDriveProvider)
     assert isinstance(p, FilesProvider)
 
 
@@ -325,6 +379,14 @@ def test_nextcloud_is_online_only_by_extension(tmp_path):
     f = tmp_path / "doc.nc-virt"
     f.write_bytes(b"placeholder")
     assert p.is_online_only(f) is True
+
+
+def test_nextcloud_is_online_only_by_file_provider_blocks(tmp_path):
+    provider = NextCloudProvider()
+    path = tmp_path / "document.md"
+    path.write_text("placeholder")
+    fake = SimpleNamespace(st_size=12345, st_blocks=0)
+    assert provider.is_online_only(path, stat_result=fake) is True
 
 
 def test_nextcloud_is_online_only_normal_file(tmp_path):
@@ -347,7 +409,27 @@ def test_nextcloud_prefers_own_env(monkeypatch):
     assert p.warmup_url == "http://nextcloud:8000/warmup"
 
 
+@pytest.mark.parametrize(
+    "provider_cls",
+    [iCloudDriveProvider, GoogleDriveProvider, NextCloudProvider, DropboxProvider],
+)
+def test_non_onedrive_provider_has_no_onedrive_recovery(provider_cls, monkeypatch):
+    monkeypatch.setenv("ONEDRIVE_AUTO_RESTART", "1")
+    provider = provider_cls()
+    assert not hasattr(provider, "_auto_restart")
+    assert asyncio.run(provider._recover_after_failed_warmup()) is False
+
+
+def test_provider_modes_do_not_leak_between_vendors(monkeypatch):
+    monkeypatch.setenv("ONEDRIVE_WARMUP_MODE", "direct")
+    monkeypatch.setenv("GDRIVE_WARMUP_MODE", "daemon")
+    assert OneDriveProvider().warmup_mode == "direct"
+    assert GoogleDriveProvider().warmup_mode == "daemon"
+    assert iCloudDriveProvider().warmup_mode != "direct"
+
+
 # --- Contract: all comply with FilesProvider ----------------------------
+
 
 @pytest.mark.parametrize(
     "cls",
@@ -357,6 +439,8 @@ def test_nextcloud_prefers_own_env(monkeypatch):
         iCloudDriveProvider,
         GoogleDriveProvider,
         NextCloudProvider,
+        DropboxProvider,
+        OnDemandFilesProvider,
     ],
 )
 def test_provider_class_satisfies_interface(cls):

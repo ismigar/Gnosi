@@ -12,7 +12,7 @@ from .base import FilesProvider
 class LocalProvider(FilesProvider):
     """Provider for vaults on local disk. No file is online-only;
     `materialize()` is a no-op.
-    
+
     """
 
     name = "local"
