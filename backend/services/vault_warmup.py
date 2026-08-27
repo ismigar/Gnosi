@@ -23,7 +23,7 @@ import os
 from pathlib import Path
 from typing import List
 
-from backend.services.files_provider import get_files_provider
+from backend.platform.files import get_files_provider
 
 log = logging.getLogger(__name__)
 

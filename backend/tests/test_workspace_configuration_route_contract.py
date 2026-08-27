@@ -46,3 +46,15 @@ def test_legacy_facades_export_the_domain_router_singletons() -> None:
     assert legacy_config.router is settings.router
     assert legacy_environment.router is environment.router
     assert legacy_credentials.router is credentials.router
+
+
+def test_legacy_facades_preserve_historical_public_symbols() -> None:
+    assert legacy_workspace.create_workspace is workspace.create_workspace
+    assert legacy_workspace.revoke_vault_access is workspace.revoke_vault_access
+    assert legacy_config.get_config is settings.get_config
+    assert legacy_config.deep_merge is settings.deep_merge
+    assert legacy_environment.ENV_PATH is environment.ENV_PATH
+    assert legacy_environment.write_env_file is environment.write_env_file
+    assert legacy_credentials.CredentialSet is credentials.CredentialSet
+    assert legacy_credentials.CREDENTIAL_KEYS is credentials.CREDENTIAL_KEYS
+    assert legacy_credentials.migrate_from_env is credentials.migrate_from_env

@@ -1,4 +1,4 @@
-"""Unit tests for `backend.services.files_provider`.
+"""Unit tests for `backend.platform.files`.
 
 Validate the contract of the multi-provider abstraction layer (see
 `docs/engineering/domains/vault-files.md`):
@@ -30,8 +30,10 @@ from types import SimpleNamespace
 
 import pytest
 
-import backend.services.files_provider as fp
-from backend.services.files_provider import (
+import backend.platform.files as fp
+import backend.services.files_provider as legacy_fp
+from backend.services.files_provider.onedrive import OneDriveProvider as LegacyOneDriveProvider
+from backend.platform.files import (
     DropboxProvider,
     FilesProvider,
     GoogleDriveProvider,
@@ -42,6 +44,13 @@ from backend.services.files_provider import (
     get_files_provider,
     iCloudDriveProvider,
 )
+
+
+def test_legacy_provider_imports_are_compatibility_aliases():
+    assert legacy_fp.get_files_provider is get_files_provider
+    assert legacy_fp.FilesProvider is FilesProvider
+    assert legacy_fp.OneDriveProvider is OneDriveProvider
+    assert LegacyOneDriveProvider is OneDriveProvider
 
 
 # --- Fixtures -----------------------------------------------------------
@@ -267,7 +276,7 @@ def test_onedrive_is_online_only_returns_false_on_stat_error(tmp_path):
 
 def test_onedrive_default_warmup_url_docker(monkeypatch):
     """In Docker the warmup default targets the host daemon in daemon mode."""
-    monkeypatch.setattr("backend.services.files_provider.on_demand._is_docker", lambda: True)
+    monkeypatch.setattr("backend.platform.files.on_demand._is_docker", lambda: True)
     p = OneDriveProvider()
     assert p.warmup_url == "http://host.docker.internal:5009/warmup"
     assert p.warmup_mode == "daemon"
@@ -278,8 +287,8 @@ def test_onedrive_default_warmup_native_macos(monkeypatch):
     """On native macOS (no Docker) the default is LaunchServices "open" mode and
     the daemon URL — used only if forced back to daemon — is the loopback one.
     This is what lets native installs work without exporting ONEDRIVE_WARMUP_MODE."""
-    monkeypatch.setattr("backend.services.files_provider.on_demand._is_docker", lambda: False)
-    monkeypatch.setattr("backend.services.files_provider.on_demand.sys.platform", "darwin")
+    monkeypatch.setattr("backend.platform.files.on_demand._is_docker", lambda: False)
+    monkeypatch.setattr("backend.platform.files.on_demand.sys.platform", "darwin")
     monkeypatch.delenv("ONEDRIVE_WARMUP_MODE", raising=False)
     p = OneDriveProvider()
     assert p.warmup_mode == "open"

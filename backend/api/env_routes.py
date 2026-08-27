@@ -3,6 +3,20 @@
 Remove this historical import path in Gnosi PR6.
 """
 
-from backend.domains.configuration.api.environment import router
+from backend.domains.configuration.api.environment import (
+    ENV_PATH,
+    get_env,
+    parse_env_file,
+    router,
+    update_env,
+    write_env_file,
+)
 
-__all__ = ["router"]
+__all__ = [
+    "ENV_PATH",
+    "get_env",
+    "parse_env_file",
+    "router",
+    "update_env",
+    "write_env_file",
+]

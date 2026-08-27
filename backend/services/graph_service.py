@@ -115,7 +115,7 @@ def _request_dir_warmup(dir_path: Path) -> None:
     walk's skip+log behaviour is already the correct degradation.
     """
     try:
-        from backend.services.files_provider.onedrive import _default_warmup_mode
+        from backend.platform.files.onedrive import _default_warmup_mode
         mode = (os.environ.get("ONEDRIVE_WARMUP_MODE") or _default_warmup_mode()).strip().lower()
         if mode != "open":
             return
