@@ -58,6 +58,10 @@ plantillas comparten un servicio tipado de mutación de páginas. Cada registro
 comprueba el ETag opcional, actualiza el índice después de escribir e informa de
 omisiones, conflictos y errores sin interrumpir las demás filas.
 
+Los estados introducidos por reglas de acción se persisten de forma idempotente
+desde el dominio de tablas. Un error del registro queda anotado y no hace fallar
+la acción original.
+
 ## Planificación de proyectos
 
 La planificación consume campos de tareas estructurados y produce un horario autorizado en lugar de duplicar la lógica de programación en la interfaz de usuario. El motor normaliza dependencias, calendarios, duraciones, limitaciones, recursos, plazos, progreso y dirección de programación. Luego calcula fechas, holgura, tareas críticas, advertencias y asignaciones de recursos.

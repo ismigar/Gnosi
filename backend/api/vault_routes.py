@@ -220,6 +220,7 @@ from backend.domains.vault.tables import lifecycle as table_lifecycle
 from backend.domains.vault.tables import options as table_options
 from backend.domains.vault.tables import rows as table_rows
 from backend.domains.vault.tables import schema as table_schema
+from backend.domains.vault.tables import status_options as table_status_options
 from backend.domains.vault.views import api as vault_views
 from backend.domains.vault.views import schema as vault_view_schema
 from backend.domains.vault.views import snapshots as vault_view_snapshots
@@ -9990,49 +9991,32 @@ def _ensure_status_options_persisted(table_id: str, values: list) -> None:
     incomplete catalog). Called when an action_rules effect has had to create an
     option on the table's in-memory copy — it reapplies the change
     on a fresh load and persists it."""
-    try:
-        with registry_mutation():
-            reg = load_registry()
-            table = next(
-                (t for t in reg.get("tables", []) if t.get("id") == table_id), None
-            )
-            if not table:
-                return
-            prop = option_catalogs_service.find_role_prop(
-                table, option_catalogs_service.ROLE_STATUS
-            )
-            if not prop:
-                return
-            wanted = [(str(v), "") for v in values if str(v or "").strip()]
-            if not wanted:
-                return
-            if option_catalogs_service.is_global_status_prop(prop):
-                catalog = reg.setdefault("option_catalogs", {}).setdefault(
-                    option_catalogs_service.STATUS_CATALOG_REF, []
-                )
-                names = {
-                    option["name"]
-                    for option in option_catalogs_service.normalize_options(catalog)
-                }
-                changed = False
-                for value, group in wanted:
-                    if value in names:
-                        continue
-                    option = {"name": value, "color": option_catalogs_service.auto_color(value)}
-                    if group:
-                        option["group"] = group
-                    catalog.append(option)
-                    names.add(value)
-                    changed = True
-                if changed:
-                    reg["option_catalogs"][option_catalogs_service.STATUS_CATALOG_REF] = option_catalogs_service.normalize_options(catalog)
-                    save_registry(reg)
-            elif option_catalogs_service.ensure_options_exist(prop, wanted):
-                save_registry(reg)
-    except Exception as exc:
-        log.warning(
-            f"action_rules: could not persist the expanded catalog for {table_id}: {exc}"
-        )
+    dependencies = table_status_options.StatusOptionDependencies(
+        registry_mutation=lambda: registry_mutation(),
+        load_registry=lambda: load_registry(),
+        save_registry=lambda registry: save_registry(registry),
+        find_role_property=lambda table, role: option_catalogs_service.find_role_prop(
+            table,
+            role,
+        ),
+        status_role=option_catalogs_service.ROLE_STATUS,
+        is_global_status_property=lambda prop: option_catalogs_service.is_global_status_prop(
+            prop
+        ),
+        status_catalog_reference=option_catalogs_service.STATUS_CATALOG_REF,
+        normalize_options=lambda options: option_catalogs_service.normalize_options(options),
+        auto_color=lambda value: option_catalogs_service.auto_color(value),
+        ensure_options_exist=lambda prop, wanted: option_catalogs_service.ensure_options_exist(
+            prop,
+            wanted,
+        ),
+        logger=log,
+    )
+    table_status_options.ensure_status_options_persisted(
+        table_id,
+        values,
+        dependencies,
+    )
 
 
 _TRANSLATION_LOOKUP_DEPENDENCIES = translation_lookup.TranslationLookupDependencies(

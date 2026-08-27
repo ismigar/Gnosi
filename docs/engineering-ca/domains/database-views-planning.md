@@ -58,6 +58,9 @@ plantilles comparteixen un servei tipat de mutació de pàgines. Cada registre
 comprova l'ETag opcional, refresca l'índex després d'escriure i informa de salts,
 conflictes i errors sense interrompre la resta de files.
 
+Els estats introduïts per regles d'acció es persisteixen idempotentment des del
+domini de taules. Un error del registre queda al log i no fa fallar l'acció original.
+
 ## Planificació de projecte
 
 Planificació consumeix camps de tasques estructurades i produeix una planificació autoritiva en comptes de duplicar la lògica de planificació a la IU. El motor normalitza les dependències, calendaris, restriccions, recursos, data, progrés i direcció de planificació. Calcula dates, puntuacions crítiques, avisos i assignacions de recursos.

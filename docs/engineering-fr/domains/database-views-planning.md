@@ -93,6 +93,10 @@ omissions, conflits et erreurs sans interrompre les autres lignes.
 
 Les éditeurs de propriété de pages utilisent des commandes de champ. `select` et `status` les champs sont rendus comme des sélectionneurs d'options à valeur unique; les catalogues d'état sont stricts et ne dévoilent pas la création ou la suppression d'options en ligne. La grille de table et le panneau de propriété de page doivent conserver le même type de champ et la même sémantique d'option.
 
+Les statuts introduits par les règles d'action sont persistés de façon idempotente
+par le domaine des tables. Une erreur du registre est journalisée sans faire
+échouer l'action d'origine.
+
 ## Planification des projets
 
 La planification consomme des champs de tâches structurés et produit un calendrier faisant autorité plutôt que de doubler la logique de planification dans l'interface utilisateur. Le moteur normalise les dépendances, les calendriers, les durées, les contraintes, les ressources, les échéances, les progrès et la direction de l'horaire.

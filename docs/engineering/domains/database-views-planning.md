@@ -139,6 +139,10 @@ render as single-value option pickers; status catalogs are strict and do not
 expose inline option creation or deletion. The table grid and page-property
 panel must preserve the same field type and option semantics.
 
+Status values introduced by action rules are persisted idempotently through the
+table domain. Registry failures are logged but never turn the originating rule
+into a failed user action.
+
 ## Project planning
 
 Planning consumes structured task fields and produces an authoritative schedule
