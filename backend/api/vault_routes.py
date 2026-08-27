@@ -3299,6 +3299,7 @@ _COMMENTS_DEPENDENCIES = comments_api.CommentDependencies(
 # Plugin configuration domain composition.
 # ---------------------------------------------------------------------------
 from backend.domains.configuration import llm_wiki as llm_wiki_configuration
+from backend.domains.configuration import llm_wiki_records
 from backend.domains.configuration import llm_wiki_schema
 from backend.domains.configuration import plugin_state
 from backend.domains.configuration.api import plugin_lifecycle
@@ -4689,6 +4690,38 @@ def ensure_brain_source_relation(
     )
 
 
+def _brain_record_dependencies() -> llm_wiki_records.BrainRecordDependencies:
+    from backend.services import llm_wiki_config, llm_wiki_storage
+
+    return llm_wiki_records.BrainRecordDependencies(
+        table_by_id=lambda table_id: _table_by_id(table_id),
+        pages_for_table=lambda table_id: _get_pages_for_table(table_id),
+        parse_frontmatter=lambda content, path: parse_frontmatter(content, path),
+        source_title=lambda metadata, path, table, source: _llm_wiki_source_title(
+            metadata,
+            path,
+            table,
+            source,
+        ),
+        merge_page_metadata=lambda metadata, page_id: llm_wiki_storage.merge_page_metadata(
+            metadata,
+            page_id,
+        ),
+        prepare_managed_markdown=lambda metadata: llm_wiki_storage.prepare_managed_markdown(
+            metadata
+        ),
+        save_page=lambda path, metadata, body: save_page_md(path, metadata, body),
+        register_page=lambda path: register_page_in_index(path),
+        metadata_note_type=lambda metadata: llm_wiki_config.metadata_note_type(metadata),
+        note_type_value=lambda kind, config, prop: llm_wiki_config.note_type_value(
+            kind,
+            config,
+            prop,
+        ),
+        logger=log,
+    )
+
+
 def _normalize_brain_page_contract(
     metadata: dict,
     config: dict,
@@ -4696,75 +4729,13 @@ def _normalize_brain_page_contract(
     source_titles: dict[tuple[str, str], str],
 ) -> bool:
     """Normalize visible note types, source cardinality, and source labels."""
-    from backend.services import llm_wiki_config
-
-    before = json.dumps(metadata, sort_keys=True, ensure_ascii=False, default=str)
-    props_by_id = {
-        str(prop.get("id") or ""): prop
-        for prop in brain_table.get("properties") or []
-        if isinstance(prop, dict) and prop.get("id")
-    }
-    note_type_id = str((config.get("brain_roles") or {}).get("note_type") or "")
-    note_type_prop = props_by_id.get(note_type_id)
-    note_type_name = str((note_type_prop or {}).get("name") or "")
-    stored_kind = llm_wiki_config.metadata_note_type(metadata)
-    managed_role = str(metadata.get("llm_wiki_role") or "")
-    semantic_kind = (
-        "reading"
-        if stored_kind == "lectura"
-        else stored_kind
+    return llm_wiki_records.normalize_brain_page_contract(
+        metadata,
+        config,
+        brain_table,
+        source_titles,
+        _brain_record_dependencies(),
     )
-    if not semantic_kind and managed_role.endswith("-index"):
-        semantic_kind = "index"
-    if semantic_kind and note_type_name:
-        metadata[note_type_name] = llm_wiki_config.note_type_value(
-            semantic_kind,
-            config,
-            note_type_prop,
-        )
-
-    source_names: set[str] = set()
-    source_relations: dict[str, dict] = {}
-    for source in config.get("source_tables") or []:
-        relation = props_by_id.get(str(source.get("relation_property_id") or ""))
-        if not relation:
-            continue
-        relation_name = str(relation.get("name") or "")
-        if relation_name:
-            source_names.add(relation_name)
-            source_names.update(
-                str(alias)
-                for alias in relation.get("aliases") or []
-                if str(alias).strip()
-            )
-            source_relations[str(source.get("table_id") or "")] = relation
-
-    if stored_kind == "permanent":
-        for name in source_names:
-            metadata.pop(name, None)
-    else:
-        source_table_id = str(metadata.get("llm_wiki_source_table_id") or "")
-        resource_id = str(metadata.get("llm_wiki_resource_id") or "")
-        source_title = source_titles.get((source_table_id, resource_id))
-        relation = source_relations.get(source_table_id)
-        if source_title and resource_id:
-            metadata["llm_wiki_resource_title"] = source_title
-            if relation and (semantic_kind == "reading" or managed_role == "resource-index"):
-                relation_name = str(relation.get("name") or "")
-                for alias in relation.get("aliases") or []:
-                    metadata.pop(str(alias), None)
-                metadata[relation_name] = [f"[[{source_title}|{resource_id}]]"]
-            if managed_role == "resource-index":
-                locale = str(config.get("ui_locale") or "en").split("-", 1)[0].lower()
-                prefix = {
-                    "ca": "Índex",
-                    "en": "Index",
-                    "es": "Índice",
-                    "fr": "Index",
-                }.get(locale, "Index")
-                metadata["title"] = f"{prefix} · {source_title}"
-
-    return before != json.dumps(metadata, sort_keys=True, ensure_ascii=False, default=str)
 
 
 def _normalize_existing_brain_pages(
@@ -4772,66 +4743,11 @@ def _normalize_existing_brain_pages(
     config: dict,
 ) -> int:
     """Migrate existing managed notes to the current singular-source contract."""
-    from backend.services import llm_wiki_storage
-
-    brain_table = _table_by_id(brain_table_id) or {}
-    source_titles: dict[tuple[str, str], str] = {}
-    for source in config.get("source_tables") or []:
-        source_table_id = str(source.get("table_id") or "")
-        source_table = _table_by_id(source_table_id) or {}
-        for page in _get_pages_for_table(source_table_id) or []:
-            resource_id = str(getattr(page, "id", "") or "")
-            path_value = getattr(page, "path", None)
-            path = Path(path_value) if path_value else None
-            metadata = getattr(page, "metadata", None) or {}
-            if path and path.exists() and not metadata:
-                try:
-                    metadata, _body = parse_frontmatter(
-                        path.read_text(encoding="utf-8"),
-                        path,
-                    )
-                except Exception as error:
-                    log.warning("Could not read source title from %s: %s", path, error)
-            if resource_id and path:
-                source_titles[(source_table_id, resource_id)] = _llm_wiki_source_title(
-                    metadata,
-                    path,
-                    source_table,
-                    source,
-                )
-
-    migrated = 0
-    for page in _get_pages_for_table(brain_table_id) or []:
-        path_value = getattr(page, "path", None)
-        path = Path(path_value) if path_value else None
-        if not path or not path.exists():
-            continue
-        try:
-            raw_metadata, body = parse_frontmatter(path.read_text(encoding="utf-8"), path)
-            page_id = str(
-                getattr(page, "id", "")
-                or raw_metadata.get("id")
-                or ""
-            )
-            metadata = llm_wiki_storage.merge_page_metadata(raw_metadata, page_id)
-            contract_changed = _normalize_brain_page_contract(
-                metadata,
-                config,
-                brain_table,
-                source_titles,
-            )
-            portable_metadata = llm_wiki_storage.prepare_managed_markdown(metadata)
-            portable_metadata.pop("note_type", None)
-            if not contract_changed and portable_metadata == raw_metadata:
-                continue
-            save_page_md(path, portable_metadata, body)
-            register_page_in_index(path)
-            migrated += 1
-        except Exception as error:
-            log.warning("Could not normalize a managed Brain page in %s: %s", path, error)
-    if migrated:
-        log.info("LLM Wiki normalized %d existing Brain pages", migrated)
-    return migrated
+    return llm_wiki_records.normalize_existing_brain_pages(
+        brain_table_id,
+        config,
+        _brain_record_dependencies(),
+    )
 
 
 def _reconcile_llm_wiki_source_contract(cfg: dict) -> dict:

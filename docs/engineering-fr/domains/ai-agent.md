@@ -160,6 +160,8 @@ pages système.
 `backend/domains/configuration/llm_wiki_schema.py` gère séparément la réparation
 idempotente des champs Brain et la consolidation d'une relation canonique par
 source, y compris les alias, les métadonnées de page et les vues contextuelles.
+`backend/domains/configuration/llm_wiki_records.py` normalise les notes gérées
+existantes, les libellés de source et les titres localisés des index de ressource.
 
 ## Invariants de défaillance et de sécurité
 

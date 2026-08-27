@@ -442,6 +442,8 @@ refreshes the system pages through late-bound facade ports.
 `backend/domains/configuration/llm_wiki_schema.py` separately owns idempotent
 Brain-field repair and consolidation of one canonical source relation, including
 legacy aliases, page metadata and contextual embedded views.
+`backend/domains/configuration/llm_wiki_records.py` normalizes existing managed
+notes, source labels and localized resource-index titles without owning HTTP routes.
 
 ## Failure and safety invariants
 

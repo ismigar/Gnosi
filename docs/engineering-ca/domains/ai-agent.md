@@ -109,6 +109,8 @@ revalida els camps d'índex, desa atòmicament i actualitza les pàgines del sis
 `backend/domains/configuration/llm_wiki_schema.py` gestiona separadament la
 reparació idempotent dels camps Brain i la consolidació d'una relació canònica
 per font, incloent-hi àlies, metadades de pàgina i vistes contextuals.
+`backend/domains/configuration/llm_wiki_records.py` normalitza les notes
+gestionades existents, les etiquetes de font i els títols localitzats dels índexs.
 
 ## Ha fallat i seguretat envaris
 
