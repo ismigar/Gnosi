@@ -7,7 +7,7 @@ set -euo pipefail
 BASE="$(cd "$(dirname "$0")/../.." && pwd)"           # Gnosi
 LA="$HOME/Library/LaunchAgents"
 LOGS="$HOME/Library/Logs/Gnosi"
-PATH_ENV="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+PATH_ENV="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
 mkdir -p "$LA" "$LOGS"
 
 write_plist() {
