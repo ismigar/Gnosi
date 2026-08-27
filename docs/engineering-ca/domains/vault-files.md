@@ -79,6 +79,10 @@ l'ordre de les rutes.
 
 L' índex de pàgina accelera el llistat, resolució d' identificador, accés frontal- minatter i cerca. La resolució d' índex del wikilink resol els enllaços que s' enganxen per tal que la pàgina reanomena referències. Els cossos i els registres analitzats no es repeteixen. Cada cau es deriva i ha de tolerar una refució freda.
 
+`links/document_inventory.py` gestiona l'inventari TTL per vault dels enllaços
+globals. Exclou historial i paperera, aïlla fitxers il·legibles, inclou els
+dashboards JSON i recorre el disc si l'índex del proveïdor encara no està disponible.
+
 Primer s' inicia un carrega les instantànies de disc vàlides, després comença a refrescar el treball. Es marca un escàner parcial de fitxer i no es pot reemplaçar un cau complet. Els errors de fitxer s' aïllaran de manera que un únic espai de substitució en línia o orfe no elimina la resta de la caixa volta d' una resposta.
 
 `pages/index_entries.py` és responsable de la lectura limitada del frontmatter,

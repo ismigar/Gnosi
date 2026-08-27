@@ -106,6 +106,10 @@ and search. The wikilink index resolves inbound links so page renames can update
 references. Body and parsed-document caches avoid repeated reads. Every cache
 is derived and must tolerate a cold rebuild.
 
+`links/document_inventory.py` owns the per-vault TTL inventory used by global
+links. It excludes history and trash, isolates unreadable files, includes JSON
+dashboards, and falls back to a disk walk while the provider index is unavailable.
+
 Startup first loads valid disk snapshots, then starts refresh work. A partial
 file-provider scan is marked partial and cannot replace a known complete cache.
 Per-file failures are isolated so one online-only or orphaned placeholder does

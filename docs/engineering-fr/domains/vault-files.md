@@ -80,6 +80,10 @@ changent pas.
 
 L'index de page accélère la liste, la résolution d'identification, l'accès au front-mate et la recherche. L'index wikilink résout les liens entrants afin que les renoms de page puissent mettre à jour les références. Les caches de corps et de documents analysés évitent les lectures répétées. Chaque cache est dérivée et doit tolérer une reconstruction froide.
 
+`links/document_inventory.py` gère l'inventaire TTL par vault des liens globaux.
+Il exclut l'historique et la corbeille, isole les fichiers illisibles, inclut les
+tableaux de bord JSON et parcourt le disque si l'index fournisseur est indisponible.
+
 Démarrer charge d'abord des instantanés de disque valides, puis démarre le travail de rafraîchissement. Un scan partiel du fournisseur de fichiers est marqué de manière partielle et ne peut remplacer un cache complet connu. Les défaillances par fichier sont isolées de sorte qu'un marqueur de place en ligne ou orphelin ne supprime pas le reste de la voûte d'une réponse.
 
 `pages/index_entries.py` est responsable des lectures bornées du frontmatter,

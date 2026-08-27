@@ -535,6 +535,7 @@ from backend.domains.vault.links.api import overview as link_overview_api
 from backend.domains.vault.links.api import preview as link_preview_api
 from backend.domains.vault.links.api.dependencies import LinkApiDependencies
 from backend.domains.vault.links import index_service as link_index_service
+from backend.domains.vault.links import document_inventory as link_document_inventory
 from backend.domains.vault.links import parsing as link_parsing
 from backend.domains.vault.links.schemas import LinkMentionsRequest
 from backend.domains.vault.links.state import LinkIndexView, link_index_state
@@ -8087,61 +8088,20 @@ def _iter_linkable_page_documents() -> List[tuple[Path, Dict[str, Any], str, boo
     file instead of O(read).
     
     """
-    now = time.time()
-    vkey = _current_vault_key()
-    entry = _iter_docs_cache.get(vkey)
-    cached = entry.get("docs") if entry else None
-    cached_ts = entry.get("ts", 0.0) if entry else 0.0
-    if cached is not None and (now - cached_ts) < _ITER_DOCS_TTL:
-        return cached
-
-    with _iter_docs_lock:
-        # Re-check under lock to avoid two concurrent builds
-        entry = _iter_docs_cache.get(vkey)
-        cached = entry.get("docs") if entry else None
-        cached_ts = entry.get("ts", 0.0) if entry else 0.0
-        if cached is not None and (time.time() - cached_ts) < _ITER_DOCS_TTL:
-            return cached
-
-        docs: List[tuple[Path, Dict[str, Any], str, bool]] = []
-
-        # We use PathResolver (cache pre-warmed at startup) for the list of
-        # files, avoiding a slow rglob on OneDrive. If the cache is not yet
-        # ready, list_all_files falls back to rglob.
-        vault_path = get_p("VAULT")
-        if vault_path and vault_path.exists():
-            try:
-                from backend.services.path_resolver import path_resolver
-                all_files = path_resolver.list_all_files(vault_path)
-            except Exception:
-                all_files = list(vault_path.rglob("*.md"))
-
-            for file_path in all_files:
-                # Skip version snapshots (.history) and soft-deleted pages
-                # (.trash): trashed pages must not appear in the global
-                # id→title index — otherwise they show up in the `[[`
-                # wikilink autocomplete until they are purged.
-                if ".history" in file_path.parts or ".trash" in file_path.parts:
-                    continue
-                try:
-                    parsed = _get_parsed_document(file_path)
-                    if parsed is None:
-                        continue
-                    metadata, body = parsed
-                    docs.append((file_path, metadata, body, False))
-                except Exception as e:
-                    log.warning(f"Error parsing linkable page {file_path.name}: {e}")
-
-        if get_p("DASHBOARDS") and get_p("DASHBOARDS").exists():
-            for file_path in get_p("DASHBOARDS").rglob("*.json"):
-                try:
-                    metadata, body = _read_dashboard_file(file_path)
-                    docs.append((file_path, metadata, body, True))
-                except Exception as e:
-                    log.warning(f"Error parsing dashboard page {file_path.name}: {e}")
-
-        _iter_docs_cache[vkey] = {"docs": docs, "ts": time.time()}
-        return docs
+    dependencies = link_document_inventory.DocumentInventoryDependencies(
+        now=time.time,
+        current_vault_key=lambda: _current_vault_key(),
+        cache=_iter_docs_cache,
+        cache_lock=_iter_docs_lock,
+        cache_ttl=_ITER_DOCS_TTL,
+        vault_path=lambda: get_p("VAULT"),
+        list_markdown=lambda vault_path: path_resolver.list_all_files(vault_path),
+        parsed_document=lambda file_path: _get_parsed_document(file_path),
+        dashboards_path=lambda: get_p("DASHBOARDS"),
+        read_dashboard=lambda file_path: _read_dashboard_file(file_path),
+        logger=log,
+    )
+    return link_document_inventory.linkable_documents(dependencies)
 
 
 def _read_parsed_doc_cache_snapshot():

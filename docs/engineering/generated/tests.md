@@ -12,7 +12,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | --- | ---: | ---: |
 | Playwright | 19 | 49 |
 | Vitest | 89 | 347 |
-| pytest | 237 | 1856 |
+| pytest | 238 | 1858 |
 
 ## Files
 
@@ -322,6 +322,7 @@ Regenerate with `python pipeline/skills/technical_documentation/scripts/generate
 | pytest | [`backend/tests/test_vault_export_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_export_domain_contract.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_vault_formula_recalculation_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_formula_recalculation_domain_contract.py) | 3 | Python AST |
 | pytest | [`backend/tests/test_vault_legacy_facade.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_legacy_facade.py) | 3 | Python AST |
+| pytest | [`backend/tests/test_vault_link_document_inventory_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_link_document_inventory_domain_contract.py) | 2 | Python AST |
 | pytest | [`backend/tests/test_vault_markdown_writer_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_markdown_writer_domain_contract.py) | 1 | Python AST |
 | pytest | [`backend/tests/test_vault_metadata_lookup_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_metadata_lookup_domain_contract.py) | 5 | Python AST |
 | pytest | [`backend/tests/test_vault_metadata_mutations_domain_contract.py`](https://github.com/ismigar/Gnosi/blob/main/backend/tests/test_vault_metadata_mutations_domain_contract.py) | 4 | Python AST |
