@@ -46,6 +46,13 @@ jobs:
           enable-cache: true
       - run: uv sync --frozen
       - run: uv run ruff check backend pipeline scripts extensions/mcp/drupal-proxy
+      - run: uv run python scripts/check-source-guardrails.py --require-pruned
+      - name: Strict type-check of extracted backend boundaries
+        run: >-
+          uv run mypy --strict --follow-imports=skip
+          --allow-untyped-decorators --allow-subclassing-any
+          --ignore-missing-imports backend/app backend/domains backend/platform
+          backend/services/files_provider
       - run: uv run python -m compileall -q backend pipeline scripts extensions
       - run: uv run pytest
 

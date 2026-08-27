@@ -255,7 +255,7 @@ def _resolve_attachment_path(raw: str, vault_root: Path) -> Optional[Path]:
 
 
 def _materialize(path: Path) -> None:
-    from backend.services.files_provider import get_files_provider
+    from backend.platform.files import get_files_provider
 
     provider = get_files_provider()
     if not provider.is_online_only(path):

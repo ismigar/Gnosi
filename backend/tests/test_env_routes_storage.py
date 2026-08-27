@@ -3,8 +3,8 @@ import json
 
 from starlette.requests import Request
 
-import backend.api.env_routes as env_routes
-import backend.api.credentials_routes as credentials_routes
+from backend.domains.configuration.api import credentials as credentials_routes
+from backend.domains.configuration.api import environment as env_routes
 
 
 class FakeKeychain:

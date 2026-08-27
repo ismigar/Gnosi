@@ -98,7 +98,7 @@ from backend.services.view_snapshot import (
 from backend.services.relation_links import _decorate_item as _decorate_relation_item
 from backend.services.workspace_service import get_workspace_context, WorkspaceContext
 from backend.services.media_service import media_service
-from backend.services.files_provider import get_files_provider
+from backend.platform.files import get_files_provider
 from backend.api.virtual_fields import (
     inject_for_table as _vf_inject_for_table,
     inject_for_single_page as _vf_inject_for_single_page,
@@ -12549,7 +12549,7 @@ async def delete_media_view(view_id: str):
 _VAULT_IMAGE_SEMAPHORE = asyncio.Semaphore(3)
 
 # The detection + materialization of cloud-on-demand files lives in
-# `backend.services.files_provider`. The instance (OneDriveProvider or
+# `backend.platform.files`. The instance (OneDriveProvider or
 # LocalProvider) is decided by the factory based on env vars; here we only
 # we consume. See docs/dev_memory/directives/files_provider_abstraction.md.
 

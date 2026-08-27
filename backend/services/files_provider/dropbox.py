@@ -1,12 +1,5 @@
-"""Dropbox adapter for macOS File Provider based folders."""
+"""Compatibility facade for :mod:`backend.platform.files.dropbox`."""
 
-from __future__ import annotations
+from backend.platform.files.dropbox import DropboxProvider
 
-from .on_demand import OnDemandFilesProvider
-
-
-class DropboxProvider(OnDemandFilesProvider):
-    """Hydrate Dropbox placeholders without vendor process side effects."""
-
-    name = "dropbox"
-    env_prefix = "DROPBOX"
+__all__ = ["DropboxProvider"]

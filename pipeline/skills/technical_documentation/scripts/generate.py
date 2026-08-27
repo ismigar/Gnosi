@@ -85,6 +85,7 @@ class RouterRegistration:
     prefix: str
     tags: tuple[str, ...]
     line: int
+    source: str = "backend/server.py"
 
 
 @dataclass(frozen=True)
@@ -274,9 +275,12 @@ def is_owned_inventory_file(path: Path) -> bool:
     return path.suffix not in {".oxt", ".pyc", ".pyo"}
 
 
-def parse_router_registration(server_path: Path) -> list[RouterRegistration]:
+def parse_router_registration(
+    composition_path: Path,
+    app_root: Path,
+) -> list[RouterRegistration]:
     """Read statically declared `app.include_router` registrations."""
-    tree = ast.parse(read_text(server_path), filename=str(server_path))
+    tree = ast.parse(read_text(composition_path), filename=str(composition_path))
     registrations: list[RouterRegistration] = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
@@ -291,9 +295,54 @@ def parse_router_registration(server_path: Path) -> list[RouterRegistration]:
                 prefix=constant_string(keyword(node, "prefix")),
                 tags=string_list(keyword(node, "tags")),
                 line=node.lineno,
+                source=relative_posix(composition_path, app_root),
             )
         )
     return sorted(registrations, key=lambda item: item.line)
+
+
+def _python_module_path(app_root: Path, dotted_module: str) -> Path | None:
+    """Resolve an owned dotted Python module without importing it."""
+    candidate = app_root / f"{dotted_module.replace('.', '/')}.py"
+    if candidate.is_file():
+        return candidate
+    package = app_root / dotted_module.replace(".", "/") / "__init__.py"
+    return package if package.is_file() else None
+
+
+def _import_target(path: Path, imported_name: str, app_root: Path) -> Path | None:
+    """Resolve one statically imported name to an owned source module."""
+    tree = ast.parse(read_text(path), filename=str(path))
+    for node in tree.body:
+        if isinstance(node, ast.ImportFrom) and node.module:
+            for alias in node.names:
+                local_name = alias.asname or alias.name
+                if local_name != imported_name:
+                    continue
+                direct = _python_module_path(app_root, f"{node.module}.{alias.name}")
+                return direct or _python_module_path(app_root, node.module)
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                local_name = alias.asname or alias.name.rsplit(".", 1)[-1]
+                if local_name == imported_name:
+                    return _python_module_path(app_root, alias.name)
+    return None
+
+
+def resolve_registered_router(
+    registration: RouterRegistration,
+    composition_path: Path,
+    app_root: Path,
+) -> Path | None:
+    """Follow a registered router alias through a compatibility facade."""
+    path = _import_target(composition_path, registration.module, app_root)
+    visited: set[Path] = set()
+    while path is not None and path not in visited:
+        visited.add(path)
+        if declares_router(path):
+            return path
+        path = _import_target(path, "router", app_root)
+    return None
 
 
 def route_decorator_details(call: ast.Call) -> tuple[tuple[str, ...], str] | None:
@@ -406,10 +455,15 @@ def declares_router(path: Path) -> bool:
     )
 
 
-def parse_direct_app_routes(server_path: Path, app_root: Path) -> list[RouteOperation]:
+def parse_direct_app_routes(source_path: Path, app_root: Path) -> list[RouteOperation]:
     """Extract routes declared directly on the FastAPI application."""
-    tree = ast.parse(read_text(server_path), filename=str(server_path))
+    tree = ast.parse(read_text(source_path), filename=str(source_path))
     operations: list[RouteOperation] = []
+    functions = {
+        node.name: node
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
     for node in tree.body:
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
@@ -426,35 +480,72 @@ def parse_direct_app_routes(server_path: Path, app_root: Path) -> list[RouteOper
                         method=method,
                         path=route_path,
                         handler=node.name,
-                        module=relative_posix(server_path, app_root),
+                        module=relative_posix(source_path, app_root),
                         line=node.lineno,
                         tags=string_list(keyword(decorator, "tags")),
                         guards=dependency_summary(node, decorator),
                         summary=first_doc_line(node, node.name),
                     )
                 )
+    for call in (node for node in ast.walk(tree) if isinstance(node, ast.Call)):
+        if expression_name(call.func) != "app.add_api_route" or len(call.args) < 2:
+            continue
+        route_path = constant_string(call.args[0], "<dynamic-path>")
+        handler_name = expression_name(call.args[1]) or "<dynamic-handler>"
+        methods = string_list(keyword(call, "methods")) or ("ANY",)
+        handler = functions.get(handler_name)
+        dependencies = keyword(call, "dependencies")
+        guards = safe_unparse(dependencies, limit=120) if dependencies else "—"
+        for method in methods:
+            operations.append(
+                RouteOperation(
+                    method=method.upper(),
+                    path=route_path,
+                    handler=handler_name,
+                    module=relative_posix(source_path, app_root),
+                    line=call.lineno,
+                    tags=string_list(keyword(call, "tags")),
+                    guards=guards,
+                    summary=first_doc_line(handler, handler_name)
+                    if handler is not None
+                    else handler_name.replace("_", " ").capitalize(),
+                )
+            )
     return operations
 
 
 def build_api_catalog(app_root: Path) -> str:
     """Generate a source-traceable FastAPI route catalog."""
     server_path = app_root / "backend" / "server.py"
-    registrations = parse_router_registration(server_path)
-    registration_by_module = {item.module: item for item in registrations}
-    route_modules = {
-        path.stem: path
-        for path in sorted((app_root / "backend" / "api").glob("*.py"))
+    composition_path = app_root / "backend" / "app" / "routes.py"
+    if not composition_path.is_file():
+        composition_path = server_path
+    registrations = parse_router_registration(composition_path, app_root)
+    mounted: list[tuple[RouterRegistration, Path]] = []
+    for registration in registrations:
+        path = resolve_registered_router(registration, composition_path, app_root)
+        if path is not None:
+            mounted.append((registration, path))
+
+    discovered_paths = {
+        path
+        for root in (app_root / "backend" / "api", app_root / "backend" / "domains")
+        for path in python_files(root, include_tests=False)
         if path.name != "__init__.py" and declares_router(path)
     }
-    operations: list[RouteOperation] = parse_direct_app_routes(server_path, app_root)
-    for module, path in route_modules.items():
-        operations.extend(
-            parse_route_module(path, app_root, registration_by_module.get(module))
-        )
+    mounted_paths = {path for _, path in mounted}
+    unregistered = sorted(discovered_paths - mounted_paths)
+
+    operations: list[RouteOperation] = []
+    for source_path in (server_path, app_root / "backend" / "app" / "factory.py"):
+        if source_path.is_file():
+            operations.extend(parse_direct_app_routes(source_path, app_root))
+    for registration, path in mounted:
+        operations.extend(parse_route_module(path, app_root, registration))
+    for path in unregistered:
+        operations.extend(parse_route_module(path, app_root, None))
     operations.sort(key=lambda item: (item.path, item.method, item.module, item.line))
 
-    registered = {item.module for item in registrations}
-    unregistered = sorted(set(route_modules) - registered)
     lines = generated_header(
         "API catalog",
         "Static inventory of FastAPI route decorators and router registrations. "
@@ -483,7 +574,7 @@ def build_api_catalog(app_root: Path) -> str:
                     f"`{item.module}.router`",
                     f"`{item.prefix or '/'}`",
                     markdown_cell(", ".join(item.tags)),
-                    source_link("backend/server.py", item.line),
+                    source_link(item.source, item.line),
                 ]
             )
             + " |"
@@ -519,12 +610,12 @@ def build_api_catalog(app_root: Path) -> str:
     if unregistered:
         lines.append(
             "These files contain an `APIRouter` or route-oriented module name but are not "
-            "mounted by `backend/server.py`. They may be obsolete, imported indirectly, or "
+            "mounted by the FastAPI composition registry. They may be obsolete, imported indirectly, or "
             "under development and require human review."
         )
         lines.append("")
-        for module in unregistered:
-            lines.append(f"- {source_link(relative_posix(route_modules[module], app_root))}")
+        for path in unregistered:
+            lines.append(f"- {source_link(relative_posix(path, app_root))}")
     else:
         lines.append("Every route module is registered.")
     lines.append("")
@@ -1231,7 +1322,10 @@ def build_repository_inventory(app_root: Path, project_root: Path) -> str:
     ]
     frontend_all = frontend_files(app_root / "frontend" / "src")
     frontend_tests = [path for path in frontend_all if TEST_NAME_RE.match(path.name)]
-    route_registrations = parse_router_registration(app_root / "backend" / "server.py")
+    route_composition = app_root / "backend" / "app" / "routes.py"
+    if not route_composition.is_file():
+        route_composition = app_root / "backend" / "server.py"
+    route_registrations = parse_router_registration(route_composition, app_root)
     directives = sorted((project_root / "docs" / "dev_memory" / "directives").glob("*.md"))
     skills = sorted((app_root / "pipeline" / "skills").glob("*/SKILL.md"))
 
