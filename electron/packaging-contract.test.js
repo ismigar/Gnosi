@@ -101,6 +101,7 @@ test('the frozen backend keeps required standard-library and media modules', () 
 
   assert.match(buildScript, /requirements-e2e\.txt/);
   assert.match(buildScript, /GNOSI_PYTHON_CMD/);
+  assert.match(buildScript, /pip==25\.3/);
   assert.match(buildScript, /requested Python command not found/);
   assert.match(buildScript, /--only-binary=cryptography/);
   assert.match(buildScript, /mktemp -d .*gnosi-python-venv\.XXXXXX/);

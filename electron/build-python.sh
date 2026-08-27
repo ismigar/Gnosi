@@ -92,7 +92,10 @@ fi
 
 echo ""
 echo "3. Installing dependencies into the virtual environment..."
-$PYTHON_VENV -m pip install --upgrade pip setuptools wheel
+# pip 26 rejects package-index responses whose Content-Type is hidden or
+# rewritten by the Windows runner's network layer. Keep the final pip 25 line
+# until that runner path can guarantee a supported Simple API content type.
+$PYTHON_VENV -m pip install --upgrade "pip==25.3" setuptools wheel
 $PYTHON_VENV -m pip install pyinstaller
 
 # A source-built cryptography can link to a runner-level OpenSSL while

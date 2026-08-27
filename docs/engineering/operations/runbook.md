@@ -1,14 +1,16 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-27
 source_paths:
   - sh/run_native_dev.sh
   - sh/run_native_frontend.sh
   - sh/native_watchdog.sh
   - docker-compose.yml
   - backend/config/paths_config.py
+  - electron/build-python.sh
 tests:
   - e2e/tests/anon/smoke.spec.ts
+  - electron/packaging-contract.test.js
 ---
 
 # Operations runbook
@@ -109,6 +111,16 @@ the Pages workflow publishes the portal at
 the generated-reference and validator steps before the Pages artifact. Confirm
 that repository Pages uses GitHub Actions as its publishing source and that the
 `github-pages` environment permits deployments from `main`.
+
+## Desktop release packaging
+
+The Electron packaging script creates a clean temporary Python environment for
+each platform build. Keep that environment on pip 25.3 while the self-hosted
+Windows runner's network path can rewrite PyPI Simple API responses without a
+supported Content-Type. pip 26 rejects that response before dependency
+resolution and can incorrectly report that a published package, such as
+`python-multipart`, has no available versions. A version change must pass the
+Electron packaging contract and a real Windows release job before publication.
 
 ## Incident learning
 
