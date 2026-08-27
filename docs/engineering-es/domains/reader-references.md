@@ -42,6 +42,10 @@ Este dominio combina la lectura de feed/newsletter con un gestor de referencia c
 
 Las referencias ingresan a través de DOI, ISBN, arXiv, PMID, BibTeX, RIS, archivos o URLs web. Los solucionadores de identificadores y el servidor de traducción Zotero producen metadatos específicos del proveedor. Normalizadores lo asignan al esquema de referencia configurado, generan una clave de cita estable, deduplican candidatos y escriben un registro de Vault.
 
+La orquestación de consulta, que es solo de lectura, reside en el dominio de citas,
+mantiene la prioridad DOI → arXiv → PMID → ISBN → URL y hace pasar las URL del
+usuario por el descargador protegido contra SSRF antes de sugerir cualquier campo.
+
 Translation-server es un sidecar opcional. La operación nativa puede ejecutarse sin ella; los solucionadores específicos de identificador y las referencias existentes continúan funcionando. Los fallos de traducción web devuelven errores procesables en lugar de un registro vacío exitoso.
 
 ## Descubrimiento académico federal

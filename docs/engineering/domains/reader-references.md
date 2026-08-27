@@ -47,6 +47,10 @@ Identifier resolvers and Zotero translation-server produce provider-specific
 metadata. Normalizers map it to the configured reference schema, generate a
 stable citation key, deduplicate candidates, and write a Vault record.
 
+The read-only lookup orchestration lives in the citations domain, preserves the
+DOI → arXiv → PMID → ISBN → URL priority, and routes user URLs through the
+SSRF-hardened downloader before suggesting any field.
+
 Translation-server is an optional sidecar. Native operation may run without it;
 identifier-specific resolvers and existing references continue to work. Web
 translation failures return actionable errors rather than an empty successful

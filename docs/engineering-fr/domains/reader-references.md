@@ -27,6 +27,10 @@ Ce domaine combine lecture de flux/bulletins avec un gestionnaire de référence
 
 Les références entrent par DOI, ISBN, arXiv, PMID, BibTeX, RIS, fichiers ou URLs web. Les résolveurs d'identification et le serveur de traduction Zotero produisent des métadonnées spécifiques au fournisseur. Les normalisateurs les mapent dans le schéma de référence configuré, génèrent une clé de citation stable, dédouplient les candidats et écrivent un enregistrement de Vault.
 
+L'orchestration de recherche, strictement en lecture seule, réside dans le domaine
+des citations, conserve la priorité DOI → arXiv → PMID → ISBN → URL et fait passer
+les URL utilisateur par le téléchargeur protégé contre les SSRF avant toute suggestion.
+
 Le serveur de traduction est un sidecar optionnel. L'opération native peut fonctionner sans lui; les résolveurs spécifiques à l'identifiant et les références existantes continuent de fonctionner. Les erreurs de traduction Web retournent des erreurs résiliables plutôt qu'un enregistrement vidé réussi.
 
 ## Parcours de citation

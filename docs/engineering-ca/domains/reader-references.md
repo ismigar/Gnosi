@@ -42,6 +42,10 @@ Aquest domini combina la lectura de fonts/news lletres amb un gestor de referèn
 
 Les referències entren a través del DOI, ISBN, arXiv, PMID, BibTeX, RIS, fitxers o URL web. Els identificadors i el servidor de traducció Zo- servidor produeixen metadades específiques del proveïdor. Normalitza els mapes a l' esquema de referència configurat, genera una clau de citació estable, candidats de desuplicats, i escriu un registre de continguts.
 
+L'orquestració de consulta, que és només de lectura, viu al domini de citacions,
+manté la prioritat DOI → arXiv → PMID → ISBN → URL i fa passar les URL aportades
+per l'usuari pel descarregador protegit contra SSRF abans de suggerir cap camp.
+
 El servidor de traducció és un port opcional. L' operació nativa pot executar- se sense ell; els resoldors específics d' identificador i les referències existents continuen treballant. Els errors de traducció web retornen errors no vàlids en lloc d' un registre buit.
 
 ## Un descobriment acadèmic Federed

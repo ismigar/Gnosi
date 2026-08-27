@@ -530,6 +530,7 @@ from backend.domains.vault.citations import formatting as citation_formatting
 from backend.domains.vault.citations import io_api as citation_io_api
 from backend.domains.vault.citations import keys as citation_keys
 from backend.domains.vault.citations import keys_api as citation_keys_api
+from backend.domains.vault.citations import metadata_lookup
 from backend.domains.vault.citations import references_api as citation_references_api
 from backend.domains.vault.citations import search as citation_search
 from backend.domains.vault.citations.references_api import (
@@ -5651,95 +5652,22 @@ async def lookup_metadata(payload: dict = Body(...)):
     modifies the Vault: it only suggests; the frontend accepts fields individually.
     
     """
-    doi = _normalize_doi(payload.get('doi') or '') or _normalize_doi(payload.get('url') or '')
-    arxiv_id = _normalize_arxiv(payload.get('arxiv') or '') or _normalize_arxiv(payload.get('url') or '')
-    pmid = _normalize_pmid(payload.get('pmid') or '')
-    isbn = _normalize_isbn(payload.get('isbn') or '')
-    url = (payload.get('url') or '').strip()
-
-    if doi:
-        body = await asyncio.to_thread(_http_get, f'https://api.crossref.org/works/{doi}')
-        if body:
-            try:
-                data = json.loads(body)
-                work = data.get('message') or {}
-                if work:
-                    return {
-                        'source': 'crossref',
-                        'identifier': doi,
-                        'suggested': _normalize_suggested_item_type(_inject_citation_key(_crossref_to_recursos(work))),
-                        'error': None,
-                    }
-            except json.JSONDecodeError:
-                pass
-        return {'source': 'crossref', 'identifier': doi, 'suggested': {}, 'error': 'CrossRef returned no valid data'}
-
-    if arxiv_id:
-        body = await asyncio.to_thread(_http_get, f'http://export.arxiv.org/api/query?id_list={arxiv_id}')
-        if body:
-            sug = _normalize_suggested_item_type(_inject_citation_key(_arxiv_to_recursos(body)))
-            if sug:
-                return {
-                    'source': 'arxiv',
-                    'identifier': arxiv_id,
-                    'suggested': sug,
-                    'error': None,
-                }
-        return {'source': 'arxiv', 'identifier': arxiv_id, 'suggested': {}, 'error': 'arXiv returned no data'}
-
-    if pmid:
-        body = await asyncio.to_thread(
-            _http_get,
-            f'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id={pmid}&retmode=json&version=2.0',
-        )
-        if body:
-            try:
-                data = json.loads(body)
-                doc = (data.get('result') or {}).get(pmid) or {}
-                if doc and not doc.get('error'):
-                    return {
-                        'source': 'pubmed',
-                        'identifier': pmid,
-                        'suggested': _normalize_suggested_item_type(_inject_citation_key(_pubmed_to_recursos(doc))),
-                        'error': None,
-                    }
-            except json.JSONDecodeError:
-                pass
-        return {'source': 'pubmed', 'identifier': pmid, 'suggested': {}, 'error': 'PubMed returned no data'}
-
-    if isbn:
-        body = await asyncio.to_thread(
-            _http_get,
-            f'https://openlibrary.org/api/books?bibkeys=ISBN:{isbn}&format=json&jscmd=data',
-        )
-        if body:
-            try:
-                data = json.loads(body)
-                book = data.get(f'ISBN:{isbn}') or {}
-                if book:
-                    return {
-                        'source': 'openlibrary',
-                        'identifier': isbn,
-                        'suggested': _normalize_suggested_item_type(_inject_citation_key(_openlibrary_to_recursos(book))),
-                        'error': None,
-                    }
-            except json.JSONDecodeError:
-                pass
-        return {'source': 'openlibrary', 'identifier': isbn, 'suggested': {}, 'error': "Open Library has no data for this ISBN"}
-
-    if url and url.startswith(('http://', 'https://')):
-        # User-supplied URL: fetch through the SSRF-hardened helper.
-        body = await asyncio.to_thread(_http_get_public, url)
-        if body:
-            return {
-                'source': 'url',
-                'identifier': url,
-                'suggested': _normalize_suggested_item_type(_inject_citation_key(_html_meta_to_recursos(body, url))),
-                'error': None,
-            }
-        return {'source': 'url', 'identifier': url, 'suggested': {}, 'error': "Could not download the page"}
-
-    return {'source': None, 'identifier': None, 'suggested': {}, 'error': 'No valid identifier (DOI/arXiv/PMID/ISBN/URL)'}
+    dependencies = metadata_lookup.MetadataLookupDependencies(
+        normalize_doi=lambda raw: _normalize_doi(raw),
+        normalize_arxiv=lambda raw: _normalize_arxiv(raw),
+        normalize_pmid=lambda raw: _normalize_pmid(raw),
+        normalize_isbn=lambda raw: _normalize_isbn(raw),
+        http_get=lambda url: _http_get(url),
+        http_get_public=lambda url: _http_get_public(url),
+        crossref_to_metadata=lambda work: _crossref_to_recursos(work),
+        arxiv_to_metadata=lambda body: _arxiv_to_recursos(body),
+        pubmed_to_metadata=lambda document: _pubmed_to_recursos(document),
+        openlibrary_to_metadata=lambda book: _openlibrary_to_recursos(book),
+        html_to_metadata=lambda body, url: _html_meta_to_recursos(body, url),
+        inject_citation_key=lambda metadata: _inject_citation_key(metadata),
+        normalize_item_type=lambda metadata: _normalize_suggested_item_type(metadata),
+    )
+    return await metadata_lookup.resolve_metadata(payload, dependencies)
 
 
 generate_citation_key_endpoint = citation_keys_api.register_route(
