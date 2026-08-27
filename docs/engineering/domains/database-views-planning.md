@@ -1,8 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-08-16
+last_verified: 2026-08-28
 source_paths:
   - backend/api/vault_routes.py
+  - backend/domains/vault/tables/formula_recalculation.py
   - backend/api/vault_views_routes.py
   - backend/api/planning_routes.py
   - backend/services/table_system_dates.py
@@ -19,6 +20,7 @@ source_paths:
   - frontend/src/utils/projectPlanning.js
   - frontend/src/utils/vaultFilters.js
 tests:
+  - backend/tests/test_vault_formula_recalculation_domain_contract.py
   - backend/tests/test_table_system_dates.py
   - backend/tests/test_migrate_table_system_dates.py
   - backend/tests/test_table_view_name_hygiene.py
@@ -98,6 +100,11 @@ values run before rollups that aggregate relations, and dependent formulas are
 resolved without allowing cycles to recurse indefinitely. Backend and frontend
 representations must agree on checkbox truthiness, percentages, empty values,
 and option identifiers.
+
+Cross-record changes are serialized per table by
+`tables/formula_recalculation.py`. Concurrent requests are coalesced into a
+pending pass; every visible row is recomputed, changed Markdown is written, and
+the page index and response cache are refreshed only after successful writes.
 
 Saved-view sort criteria are applied in array order with a stable multi-key
 comparison. Empty property values always follow populated values in both

@@ -1,7 +1,8 @@
 ---
 status: implemented
-last_verified: 2026-08-02
+last_verified: 2026-08-28
 source_paths:
+  - backend/domains/vault/tables/formula_recalculation.py
   - backend/api/vault_views_routes.py
   - backend/api/planning_routes.py
   - backend/services/planning_engine.py
@@ -9,6 +10,7 @@ source_paths:
   - frontend/src/components/Vault/VaultTable.jsx
   - frontend/src/pages/ProjectPlanningPage.jsx
 tests:
+  - backend/tests/test_vault_formula_recalculation_domain_contract.py
   - backend/tests/test_view_snapshot.py
   - backend/tests/test_planning_engine.py
   - backend/tests/test_project_planning.py
@@ -39,6 +41,11 @@ flowchart LR
 Els valors amb tipus de camp declarat han de ser comparats com el seu tipus de camp declarat. L' entrada de text només pot representar tots els valors de filtre; data, caixa de selecció, número, relació, seleccioneu i multivalor normalitzar els camps mitjançant operadors de camp compatible amb el camp.
 
 L' avaluació derivada del camp té una ordre explícita. Les fórmules que depenen dels valors en brut que s' executen abans de que les relacions agregades i dependre de fórmules es resolin sense permetre que els cicles es repeteixin indefinidament. El dorsal i les representacions dels frontals han d' estar d' acord amb la veritat, percentatges, valors buits i identificadors d' opció.
+
+`tables/formula_recalculation.py` serialitza per taula els canvis entre
+registres. Les peticions concurrents es fusionen en una passada pendent; es
+recalculen totes les files visibles i només després d'una escriptura correcta
+s'actualitzen l'índex de pàgines i la memòria cau de respostes.
 
 ## Evolucionació d' esquemes i d'acordència
 

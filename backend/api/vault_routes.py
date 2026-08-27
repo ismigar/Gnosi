@@ -200,6 +200,7 @@ from backend.domains.vault.registry.repository import (
 )
 from backend.domains.vault.registry.state import registry_state
 from backend.domains.vault.tables import api as table_collection_api
+from backend.domains.vault.tables import formula_recalculation
 from backend.domains.vault.tables import lifecycle as table_lifecycle
 from backend.domains.vault.tables import options as table_options
 from backend.domains.vault.tables import rows as table_rows
@@ -779,7 +780,7 @@ def get_custom_icons_path():
     return assets_api.get_custom_icons_path()
 
 _table_recalc_lock = threading.Lock()
-_table_recalc_state = {}
+_table_recalc_state: dict[str, formula_recalculation.RecalculationState] = {}
 _TABLE_RECALC_COOLDOWN_SECONDS = 0.5
 _page_index_lock = page_state.index_lock
 # Page index also partitioned per vault
@@ -2679,109 +2680,43 @@ def _resolve_page_context_from_path(
     )
 
 
+_FORMULA_RECALCULATION_DEPENDENCIES = (
+    formula_recalculation.FormulaRecalculationDependencies(
+        lock=_table_recalc_lock,
+        states=_table_recalc_state,
+        monotonic=lambda: time.monotonic(),
+        cooldown_seconds=_TABLE_RECALC_COOLDOWN_SECONDS,
+        vault_root=lambda: get_p("VAULT"),
+        parse_frontmatter=lambda content, path: parse_frontmatter(content, path),
+        table_has_cross_record_formulas=lambda table_id: (
+            get_rule_engine().table_has_cross_record_formulas(table_id)
+        ),
+        process_updates=lambda page_id, old, new: get_rule_engine().process_updates(
+            page_id,
+            old,
+            new,
+        ),
+        save_page=lambda path, metadata, body: save_page_md(path, metadata, body),
+        refresh_page_index=lambda path, metadata, body: _refresh_page_index_entry(
+            path,
+            metadata,
+            body,
+        ),
+        invalidate_pages_cache=lambda: _pages_cache_invalidate_all(),
+        logger=log,
+    )
+)
+
+
 def _recompute_cross_record_formulas_for_table(
     table_id: str, exclude_page_id: Optional[str] = None
 ):
     """Recomputes cross-record formulas for a table after changes in a row."""
-    if not table_id:
-        return
-
-    with _table_recalc_lock:
-        state = _table_recalc_state.setdefault(
-            table_id, {"running": False, "pending": False, "last_run": 0.0}
-        )
-        now = time.monotonic()
-        if state["running"]:
-            state["pending"] = True
-            return
-        if now - state["last_run"] < _TABLE_RECALC_COOLDOWN_SECONDS:
-            state["pending"] = True
-            return
-        state["running"] = True
-
-    try:
-        while True:
-            with _table_recalc_lock:
-                state = _table_recalc_state.setdefault(
-                    table_id, {"running": True, "pending": False, "last_run": 0.0}
-                )
-                state["pending"] = False
-
-            try:
-                if not get_rule_engine().table_has_cross_record_formulas(table_id):
-                    break
-            except Exception as e:
-                log.warning(
-                    f"Could not validate cross-record formulas for table {table_id}: {e}"
-                )
-                break
-
-            any_written = False
-            for file_path in get_p("VAULT").rglob("*.md"):
-                if any(part.startswith('.') for part in file_path.relative_to(get_p("VAULT")).parts):
-                    continue
-
-                try:
-                    raw = file_path.read_text(encoding="utf-8")
-                    metadata, body = parse_frontmatter(raw, file_path)
-                except Exception:
-                    continue
-
-                page_id = str(metadata.get("id") or file_path.stem)
-                if exclude_page_id and page_id == exclude_page_id:
-                    continue
-                if metadata.get("is_template") is True:
-                    continue
-
-                row_table_id = metadata.get("database_table_id") or metadata.get(
-                    "table_id"
-                )
-                if row_table_id != table_id:
-                    continue
-
-                original = metadata.copy()
-                try:
-                    updated = get_rule_engine().process_updates(
-                        page_id, original, original.copy()
-                    )
-                except Exception as e:
-                    log.warning(
-                        f"Error recomputing row {page_id} from table {table_id}: {e}"
-                    )
-                    continue
-
-                if updated == original:
-                    continue
-
-                try:
-                    save_page_md(file_path, updated, body)
-                    # Index refresh with the recomputed rollup: without this,
-                    # the new value wasn't visible in `/by-table`/`/pages` until the
-                    # next rescan (same family as #732/#735/#758/PUT). We flag that
-                    # the micro-cache needs to be invalidated at the end of the step.
-                    _refresh_page_index_entry(file_path, updated, body)
-                    any_written = True
-                except Exception as e:
-                    log.warning(f"Error saving recomputation for {page_id}: {e}")
-
-            if any_written:
-                _pages_cache_invalidate_all()
-
-            with _table_recalc_lock:
-                state = _table_recalc_state.setdefault(
-                    table_id, {"running": True, "pending": False, "last_run": 0.0}
-                )
-                state["last_run"] = time.monotonic()
-                rerun = state["pending"]
-
-            if not rerun:
-                break
-    finally:
-        with _table_recalc_lock:
-            state = _table_recalc_state.setdefault(
-                table_id, {"running": False, "pending": False, "last_run": 0.0}
-            )
-            state["running"] = False
+    return formula_recalculation.recompute_cross_record_formulas_for_table(
+        table_id,
+        exclude_page_id,
+        _FORMULA_RECALCULATION_DEPENDENCIES,
+    )
 
 
 def _vf_page_loader(table_id: str) -> List[PageInfo]:

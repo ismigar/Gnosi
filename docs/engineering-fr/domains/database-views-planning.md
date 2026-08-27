@@ -1,8 +1,9 @@
 ---
 status: implemented
-last_verified: 2026-08-16
+last_verified: 2026-08-28
 source_paths:
   - backend/api/vault_routes.py
+  - backend/domains/vault/tables/formula_recalculation.py
   - backend/api/vault_views_routes.py
   - backend/api/planning_routes.py
   - backend/services/table_system_dates.py
@@ -19,6 +20,7 @@ source_paths:
   - frontend/src/utils/projectPlanning.js
   - frontend/src/utils/vaultFilters.js
 tests:
+  - backend/tests/test_vault_formula_recalculation_domain_contract.py
   - backend/tests/test_table_system_dates.py
   - backend/tests/test_migrate_table_system_dates.py
   - backend/tests/test_table_view_name_hygiene.py
@@ -68,6 +70,11 @@ flowchart LR
 Les valeurs dactylographiées doivent être comparées comme leur type de champ déclaré. L'entrée de texte ne peut pas représenter chaque valeur de filtre; la date, la case à cocher, le nombre, la relation, les champs de sélection et de valeurs multiples se normalisent par l'intermédiaire des opérateurs conscients de champ.
 
 L'évaluation de champ dérivé a un ordre explicite. Les formules qui dépendent des valeurs brutes exécutées avant les groupures que les relations agrégées, et les formules dépendantes sont résolues sans permettre aux cycles de se récidiver indéfiniment. Les représentations de l'arrière-plan et de la front-end doivent convenir de la vérité de la case à cocher, des pourcentages, des valeurs vides et des identifiants d'option.
+
+`tables/formula_recalculation.py` sérialise par table les changements entre
+enregistrements. Les requêtes concurrentes sont regroupées en une passe en
+attente; toutes les lignes visibles sont recalculées et l'index des pages et le
+cache des réponses ne sont actualisés qu'après une écriture réussie.
 
 Les critères de tri de la vue enregistrée sont appliqués en ordre de tableau avec une comparaison stable multi-clés. Les valeurs des propriétés vides suivent toujours les valeurs poolées dans les directions ascendante et décroissante, en correspondant à la sémantique de la vue de notion importée. Les vues de front et les instantanés de pointage de l'arrière utilisent la même règle pour que leur ordre d'enregistrement ne puisse pas dériver.
 
