@@ -156,6 +156,6 @@ def test_private_release_serializes_shared_host_builds():
     }
     assert workflow["jobs"]["build-macos"]["strategy"]["max-parallel"] == 1
     assert workflow["jobs"]["build-windows"]["needs"] == "build-macos"
-    assert workflow_source.count("node-version: '22.22.2'") == 4
+    assert workflow_source.count("node-version: '22.22.2'") == 5
     assert "npm ci --dry-run" in workflow_source
     assert "npm install" not in workflow_source

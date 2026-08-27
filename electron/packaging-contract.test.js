@@ -212,3 +212,14 @@ test('manual releases package the workflow commit and provision Windows Git befo
   assert.match(windowsJob, /- name: Ensure Git is available[\s\S]*?- name: Checkout/);
   assert.match(windowsJob, /Git\\cmd/);
 });
+
+test('the final release job provisions Node before rendering public notes', () => {
+  const workflow = fs.readFileSync(releaseWorkflowPath, 'utf8');
+  const releaseJob = workflow.match(/  release:\n([\s\S]*)$/)?.[1];
+
+  assert.ok(releaseJob, 'the release workflow must define a final release job');
+  assert.match(
+    releaseJob,
+    /uses: actions\/setup-node@v7[\s\S]*?node-version: '22\.22\.2'[\s\S]*?- name: Render public release notes/,
+  );
+});
