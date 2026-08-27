@@ -1,0 +1,182 @@
+{
+  "families": {
+    "action_confirmations": {
+      "branch": "action_confirmations",
+      "head": "actions_0002",
+      "revisions": {
+        "actions_0001": [
+          "548f9f882d9ecde971fac8dad576d921f6a5df9fba9a2a5923f3df9487347f5d"
+        ],
+        "actions_0002": [
+          "4ab3aa6fcba96944c68655149325d66fbac148af2aecb7db56404d8de293dedc"
+        ]
+      }
+    },
+    "agent_replay": {
+      "branch": "agent_replay",
+      "head": "replay_0001",
+      "revisions": {
+        "replay_0001": [
+          "4e78a2a3b03f80610b5964cf6cbef5b52531f271f5505823b28cbbcf43c64106"
+        ]
+      }
+    },
+    "capability_audit": {
+      "branch": "capability_audit",
+      "head": "capability_audit_0001",
+      "revisions": {
+        "capability_audit_0001": [
+          "049ba1a56b5f6f4794b80fe91bf9157f00ac133abfddeff2cfabd83a000742eb"
+        ]
+      }
+    },
+    "capability_automations": {
+      "branch": "capability_automations",
+      "head": "automations_0001",
+      "revisions": {
+        "automations_0001": [
+          "1e9d72ada165cc2287049f277d4ec4c039e31171309ef8f5868a6be6681a6626"
+        ]
+      }
+    },
+    "capability_health": {
+      "branch": "capability_health",
+      "head": "health_0001",
+      "revisions": {
+        "health_0001": [
+          "d30113f44ac5fca77e913692d3ff2f34510dc13366343a033098564f7a5febba"
+        ]
+      }
+    },
+    "durable_jobs": {
+      "branch": "durable_jobs",
+      "head": "jobs_0001",
+      "revisions": {
+        "jobs_0001": [
+          "ead86d92a1cceca320728888800dacbef2fe59f520dee36ac09ed04a725f6b96"
+        ]
+      }
+    },
+    "management": {
+      "branch": "management",
+      "head": "mgmt_0005",
+      "revisions": {
+        "mgmt_0001": [
+          "89c8f34c9345afb6d1dcb594eb1b9a7df4409d8cdfdbdfb652b1bdac121d3ec0"
+        ],
+        "mgmt_0002": [
+          "e65acf3e830fe845a62fbbfd3322dbbb7be5615ce381a14db611fcefdd7a8936"
+        ],
+        "mgmt_0003": [
+          "d9066054e6781f2c4ed92782c7d6945e683ff87ba34e9c3e29f8178921bba255"
+        ],
+        "mgmt_0004": [
+          "954d05dc644c522a633227e15ee22e02196f686a04c752268a2b4bc2221d4d19"
+        ],
+        "mgmt_0005": [
+          "1a4b4a5d64f9a34670410ad0939ed56f2cb3c86dfce20cef882b82c9a3c457f0"
+        ]
+      }
+    },
+    "model_evaluations": {
+      "branch": "model_evaluations",
+      "head": "evaluations_0001",
+      "revisions": {
+        "evaluations_0001": [
+          "b5532eb5e9998b31935cf87be002704ae44ab10a9a2f49aa51109afff52e46f1"
+        ]
+      }
+    },
+    "notebooks": {
+      "branch": "notebooks",
+      "head": "notebooks_0005",
+      "revisions": {
+        "notebooks_0001": [
+          "70600ffc3121e0daeb4b04bfbb21531b8dde88108399bc9c82e7b34549482ab2"
+        ],
+        "notebooks_0002": [
+          "6f9b778d8fc5ee165bb0abfec972b791c97ee0f3095917079c11e978d880877b"
+        ],
+        "notebooks_0003": [
+          "ec4816e59383f83bcc95cc6e356088a8424a9c55e97dc6c1f68f8c933e4269dd"
+        ],
+        "notebooks_0004": [
+          "b64de792fe5cf69c79dbf44a542d5fdf7239b803d39f808c8b5d966c95b65ff0"
+        ],
+        "notebooks_0005": [
+          "3a51195ba8f925c6b738eebd890fe6f62ead0ec407a370c60f55e77d0994130b"
+        ]
+      }
+    },
+    "personal_memory": {
+      "branch": "personal_memory",
+      "head": "personal_memory_0001",
+      "revisions": {
+        "personal_memory_0001": [
+          "1651265a70e14096ea1e22456bf82f558dc41ffd01d791f902302287d089153f"
+        ]
+      }
+    },
+    "quality_telemetry": {
+      "branch": "quality_telemetry",
+      "head": "quality_0001",
+      "revisions": {
+        "quality_0001": [
+          "c1e0b154bcd1501c28e9a1de0b07d87614f90d44f125c138c8f0ccc6751da9ae"
+        ]
+      }
+    },
+    "semantic_memory": {
+      "branch": "semantic_memory",
+      "head": "semantic_memory_0001",
+      "revisions": {
+        "semantic_memory_0001": [
+          "f01207d81d7308af597ded42a1489e7a87d904a49318545145fa27f87020c2be"
+        ]
+      }
+    },
+    "stream_journal": {
+      "branch": "stream_journal",
+      "head": "stream_journal_0001",
+      "revisions": {
+        "stream_journal_0001": [
+          "9b0e66d4d78ce43ce78ac72f417b839a0cecb92042f76efbbe467706ab6e9822"
+        ]
+      }
+    },
+    "tool_registry": {
+      "branch": "tool_registry",
+      "head": "tool_registry_0001",
+      "revisions": {
+        "tool_registry_0001": [
+          "dd4813d8caee14ca8cac353b3aa2f01d0728c9ba497a2554fb4e67150d40db5e"
+        ]
+      }
+    },
+    "turn_claims": {
+      "branch": "turn_claims",
+      "head": "turns_0001",
+      "revisions": {
+        "turns_0001": [
+          "b50252d541cc12fd040aaba97037e9a6ec2bb559acedb78fdf48c6db3935f268"
+        ]
+      }
+    },
+    "vault": {
+      "branch": "vault",
+      "head": "vault_0003",
+      "revisions": {
+        "vault_0001": [
+          "052cdba1380f92bc46d65efdd3b62a94b157db4530df5a05a390611b60b8b363"
+        ],
+        "vault_0002": [
+          "607f30411129b1af58e961e2a310ad75af6de06d3857235225a6f5f7b3e56cc1"
+        ],
+        "vault_0003": [
+          "a2268b99896693af1af19a6238f79b1446740f8885de296f2f7bde4975037ef1"
+        ]
+      }
+    }
+  },
+  "format": "gnosi-schema-fingerprints-v1"
+}

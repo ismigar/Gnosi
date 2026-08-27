@@ -19,7 +19,6 @@ def _scope(**overrides):
 
 def test_audit_retains_keys_but_not_argument_values(tmp_path, monkeypatch):
     monkeypatch.setenv("GNOSI_DATA_DIR", str(tmp_path))
-    capability_audit._schema_ready.clear()
 
     capability_audit.record_capability_event(
         _scope(),
@@ -41,7 +40,6 @@ def test_audit_retains_keys_but_not_argument_values(tmp_path, monkeypatch):
 
 def test_audit_is_exact_scope_bound(tmp_path, monkeypatch):
     monkeypatch.setenv("GNOSI_DATA_DIR", str(tmp_path))
-    capability_audit._schema_ready.clear()
     capability_audit.record_capability_event(
         _scope(),
         tool_id="core.reader.search",

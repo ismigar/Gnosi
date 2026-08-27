@@ -66,44 +66,20 @@ class ToolRegistry:
             # POSIX semantics that FUSE-mounted clouds don't honour.
             db_path = cfg.paths.get("TOOL_REGISTRY_DB")
             if not db_path:
-                # Fallback when LOCAL_DATA isn't configured for some reason.
-                project_root = Path(__file__).resolve().parents[4]
-                db_path = project_root / "data" / "tool_registry.sqlite"
+                from backend.config.data_dir import resolve_data_dir
 
-        try:
-            db_path.parent.mkdir(parents=True, exist_ok=True)
-            self.db_path = db_path
-            self._init_db_schema()
-            self._initialized = True
-        except Exception as e:
-            from backend.config.logger_config import get_logger
-            get_logger(__name__).warning(
-                f"Could not init tool_registry SQLite at {db_path}: {e}; falling back to in-memory."
-            )
-            self.db_path = ":memory:"
-            self._init_db_schema()
-            self._initialized = True
+                db_path = resolve_data_dir() / "system" / "tool_registry.sqlite"
 
-    def _init_db_schema(self):
-        """Initialize database schema."""
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS tools (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT UNIQUE NOT NULL,
-                    description TEXT NOT NULL,
-                    code TEXT NOT NULL,
-                    status TEXT NOT NULL DEFAULT 'pending',
-                    risk_level TEXT NOT NULL,
-                    created_at TEXT NOT NULL,
-                    approved_at TEXT,
-                    rejected_at TEXT,
-                    rejection_reason TEXT
-                )
-            """)
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_tools_name ON tools(name)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_tools_status ON tools(status)")
-            conn.commit()
+        db_path = Path(db_path)
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        from backend.migrations.runner import (
+            data_dir_for_database,
+            ensure_database_schema_once,
+        )
+
+        ensure_database_schema_once(db_path, "tool_registry", data_dir_for_database(db_path))
+        self.db_path = db_path
+        self._initialized = True
 
     def search_existing(
         self, description: str, threshold: float = 0.7

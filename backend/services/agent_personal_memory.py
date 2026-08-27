@@ -48,26 +48,15 @@ def _path() -> Path:
 
 
 def _connect() -> sqlite3.Connection:
-    connection = sqlite3.connect(_path(), timeout=30)
+    path = _path()
+    from backend.migrations.runner import (
+        data_dir_for_database,
+        ensure_database_schema_once,
+    )
+
+    ensure_database_schema_once(path, "personal_memory", data_dir_for_database(path))
+    connection = sqlite3.connect(path, timeout=30)
     connection.row_factory = sqlite3.Row
-    connection.execute(
-        """CREATE TABLE IF NOT EXISTS personal_memories (
-            memory_id TEXT PRIMARY KEY,
-            scope_hash TEXT NOT NULL,
-            text TEXT NOT NULL,
-            category TEXT NOT NULL,
-            provenance TEXT NOT NULL,
-            enabled INTEGER NOT NULL DEFAULT 1,
-            expires_at TEXT,
-            revision INTEGER NOT NULL DEFAULT 1,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        )"""
-    )
-    connection.execute(
-        "CREATE INDEX IF NOT EXISTS idx_personal_memories_scope "
-        "ON personal_memories(scope_hash, updated_at DESC)"
-    )
     return connection
 
 

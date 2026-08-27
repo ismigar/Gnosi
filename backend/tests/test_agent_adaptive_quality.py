@@ -24,7 +24,6 @@ def test_capability_health_persists_latency_and_quarantine(tmp_path, monkeypatch
         "load_params",
         lambda strict_env=False: _local_config(tmp_path),
     )
-    capability_health._SCHEMA_READY.clear()
     descriptor = SimpleNamespace(id="tool.persistent", name="persistent")
 
     capability_health.record_capability_failure(
@@ -57,7 +56,6 @@ def test_reviewed_vocabulary_is_reversible_and_expands_inventory(
         "load_params",
         lambda strict_env=False: _local_config(tmp_path),
     )
-    semantic_memory._SCHEMA_READY.clear()
     vault = tmp_path / "vault"
 
     rows = semantic_memory.add_association(

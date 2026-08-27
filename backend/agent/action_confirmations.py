@@ -6,7 +6,6 @@ import json
 import os
 import re
 import sqlite3
-import threading
 import time
 import uuid
 from contextlib import contextmanager
@@ -88,8 +87,6 @@ _context: ContextVar[Optional[Dict[str, str]]] = ContextVar(
     "agent_action_confirmation_context",
     default=None,
 )
-_schema_lock = threading.Lock()
-_schema_ready: set[str] = set()
 
 
 def _database_path() -> Path:
@@ -149,65 +146,21 @@ def _maintain_rows(connection: sqlite3.Connection, now: float) -> None:
 
 def _connect() -> sqlite3.Connection:
     path = _database_path()
+    from backend.migrations.runner import (
+        data_dir_for_database,
+        ensure_database_schema_once,
+    )
+
+    ensure_database_schema_once(
+        path,
+        "action_confirmations",
+        data_dir_for_database(path),
+    )
     connection = sqlite3.connect(str(path), timeout=10)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA journal_mode=WAL")
     connection.execute("PRAGMA busy_timeout=10000")
     _restrict_database_permissions(path)
-    key = str(path)
-    if key not in _schema_ready:
-        with _schema_lock:
-            if key not in _schema_ready:
-                connection.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS pending_agent_actions (
-                        id TEXT PRIMARY KEY,
-                        action TEXT NOT NULL,
-                        arguments_json TEXT NOT NULL,
-                        preview_json TEXT NOT NULL,
-                        vault_scope TEXT NOT NULL,
-                        workspace_id TEXT NOT NULL,
-                        user_id TEXT NOT NULL,
-                        role TEXT NOT NULL,
-                        agent_id TEXT NOT NULL,
-                        session_id TEXT NOT NULL,
-                        created_at REAL NOT NULL,
-                        expires_at REAL NOT NULL,
-                        status TEXT NOT NULL,
-                        result_json TEXT,
-                        error TEXT,
-                        completed_at REAL,
-                        claimed_at REAL
-                    )
-                    """
-                )
-                columns = {
-                    str(row["name"])
-                    for row in connection.execute(
-                        "PRAGMA table_info(pending_agent_actions)"
-                    )
-                }
-                if "claimed_at" not in columns:
-                    connection.execute(
-                        "ALTER TABLE pending_agent_actions ADD COLUMN claimed_at REAL"
-                    )
-                connection.execute(
-                    """
-                    CREATE INDEX IF NOT EXISTS idx_pending_agent_actions_expiry
-                    ON pending_agent_actions(status, expires_at)
-                    """
-                )
-                connection.execute(
-                    """
-                    CREATE INDEX IF NOT EXISTS idx_pending_agent_actions_scope
-                    ON pending_agent_actions(
-                        vault_scope, workspace_id, user_id, agent_id, session_id,
-                        status
-                    )
-                    """
-                )
-                connection.commit()
-                _schema_ready.add(key)
     with connection:
         _maintain_rows(connection, time.time())
     _restrict_database_permissions(path)

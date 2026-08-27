@@ -124,8 +124,6 @@ Total: **256 modules** and **103240 source lines**.
 | Module | Lines | Classes | Functions | Async | Documented declarations | Purpose signal |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | [`backend/__init__.py`](https://github.com/ismigar/Gnosi/blob/main/backend/__init__.py) | 0 | 0 | 0 | 0 | 0 | No module docstring |
-| [`backend/migrate_memberships.py`](https://github.com/ismigar/Gnosi/blob/main/backend/migrate_memberships.py) | 30 | 0 | 0 | 0 | 0 | Syntax could not be parsed |
-| [`backend/migrate_memberships_final.py`](https://github.com/ismigar/Gnosi/blob/main/backend/migrate_memberships_final.py) | 30 | 0 | 0 | 0 | 0 | Syntax could not be parsed |
 | [`backend/patch_sources.py`](https://github.com/ismigar/Gnosi/blob/main/backend/patch_sources.py) | 36 | 0 | 1 | 0 | 0 | No module docstring |
 | [`backend/scratch_sync.py`](https://github.com/ismigar/Gnosi/blob/main/backend/scratch_sync.py) | 30 | 0 | 1 | 0 | 0 | No module docstring |
 | [`backend/server.py`](https://github.com/ismigar/Gnosi/blob/main/backend/server.py) | 514 | 0 | 5 | 4 | 3 | No module docstring |

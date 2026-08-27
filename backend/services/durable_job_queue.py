@@ -48,31 +48,17 @@ def queue_path() -> Path:
 
 
 def _connect() -> sqlite3.Connection:
-    connection = sqlite3.connect(queue_path(), timeout=30, isolation_level=None)
+    path = queue_path()
+    from backend.migrations.runner import (
+        data_dir_for_database,
+        ensure_database_schema_once,
+    )
+
+    ensure_database_schema_once(path, "durable_jobs", data_dir_for_database(path))
+    connection = sqlite3.connect(path, timeout=30, isolation_level=None)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA journal_mode=WAL")
     connection.execute("PRAGMA busy_timeout=30000")
-    connection.execute(
-        """CREATE TABLE IF NOT EXISTS agent_jobs (
-            job_id TEXT PRIMARY KEY,
-            job_type TEXT NOT NULL,
-            idempotency_key TEXT NOT NULL UNIQUE,
-            payload TEXT NOT NULL,
-            state TEXT NOT NULL,
-            attempts INTEGER NOT NULL DEFAULT 0,
-            max_attempts INTEGER NOT NULL DEFAULT 3,
-            available_at TEXT NOT NULL,
-            lease_until TEXT,
-            worker_id TEXT,
-            result TEXT,
-            error TEXT,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        )"""
-    )
-    connection.execute(
-        "CREATE INDEX IF NOT EXISTS idx_agent_jobs_ready ON agent_jobs(state, available_at)"
-    )
     return connection
 
 

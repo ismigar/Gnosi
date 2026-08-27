@@ -50,9 +50,7 @@ def _scope(**overrides):
 def isolated_confirmation_database(tmp_path, monkeypatch):
     database = tmp_path / "confirmations.sqlite"
     monkeypatch.setattr(action_confirmations, "_database_path", lambda: database)
-    action_confirmations._schema_ready.clear()
     yield database
-    action_confirmations._schema_ready.clear()
 
 
 def _prepare():

@@ -5,7 +5,6 @@ import hashlib
 import json
 import os
 import sqlite3
-import threading
 import time
 from contextlib import contextmanager
 from pathlib import Path
@@ -17,8 +16,6 @@ from backend.config.app_config import load_params
 RETENTION_SECONDS = 180 * 24 * 60 * 60
 MAX_EVENTS_PER_USER = 2_000
 REVIEW_STATES = {"pending_review", "accepted", "rejected"}
-_SCHEMA_LOCK = threading.Lock()
-_SCHEMA_READY: set[str] = set()
 
 
 def _database_path() -> Path:
@@ -39,66 +36,17 @@ def _restrict_permissions(path: Path) -> None:
 
 def _connect() -> sqlite3.Connection:
     path = _database_path()
+    from backend.migrations.runner import (
+        data_dir_for_database,
+        ensure_database_schema_once,
+    )
+
+    ensure_database_schema_once(path, "quality_telemetry", data_dir_for_database(path))
     connection = sqlite3.connect(str(path), timeout=10)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA journal_mode=WAL")
     connection.execute("PRAGMA busy_timeout=10000")
     _restrict_permissions(path)
-    key = str(path)
-    if key not in _SCHEMA_READY:
-        with _SCHEMA_LOCK:
-            if key not in _SCHEMA_READY:
-                connection.executescript(
-                    """
-                    CREATE TABLE IF NOT EXISTS agent_quality_events (
-                        id TEXT PRIMARY KEY,
-                        vault_scope TEXT NOT NULL,
-                        workspace_id TEXT NOT NULL,
-                        user_id TEXT NOT NULL,
-                        agent_hash TEXT NOT NULL,
-                        session_hash TEXT NOT NULL,
-                        turn_hash TEXT NOT NULL,
-                        signal TEXT NOT NULL,
-                        rating TEXT,
-                        error_code TEXT,
-                        language TEXT NOT NULL,
-                        mode TEXT NOT NULL,
-                        domains_json TEXT NOT NULL,
-                        route TEXT NOT NULL,
-                        execution TEXT NOT NULL,
-                        output_strategy TEXT NOT NULL,
-                        required_tool TEXT,
-                        verification_status TEXT,
-                        limitations_json TEXT NOT NULL,
-                        tool_names_json TEXT NOT NULL,
-                        duration_bucket TEXT NOT NULL,
-                        created_at REAL NOT NULL,
-                        updated_at REAL NOT NULL
-                    );
-                    CREATE INDEX IF NOT EXISTS idx_agent_quality_scope_time
-                    ON agent_quality_events (
-                        vault_scope, workspace_id, user_id, updated_at DESC
-                    );
-                    CREATE TABLE IF NOT EXISTS agent_eval_candidates (
-                        id TEXT PRIMARY KEY,
-                        vault_scope TEXT NOT NULL,
-                        workspace_id TEXT NOT NULL,
-                        user_id TEXT NOT NULL,
-                        signature TEXT NOT NULL,
-                        review_status TEXT NOT NULL,
-                        occurrence_count INTEGER NOT NULL,
-                        first_seen REAL NOT NULL,
-                        last_seen REAL NOT NULL,
-                        scenario_json TEXT NOT NULL,
-                        synthetic_case_json TEXT NOT NULL,
-                        created_at REAL NOT NULL,
-                        updated_at REAL NOT NULL,
-                        UNIQUE (vault_scope, workspace_id, user_id, signature)
-                    );
-                    """
-                )
-                connection.commit()
-                _SCHEMA_READY.add(key)
     cutoff = time.time() - RETENTION_SECONDS
     connection.execute(
         "DELETE FROM agent_quality_events WHERE updated_at <= ?", (cutoff,)

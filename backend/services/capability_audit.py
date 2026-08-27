@@ -4,7 +4,6 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
-import threading
 import time
 import uuid
 from contextlib import contextmanager
@@ -16,8 +15,6 @@ from backend.config.app_config import load_params
 
 RETENTION_SECONDS = 30 * 24 * 60 * 60
 MAX_EVENTS_PER_SCOPE = 500
-_schema_lock = threading.Lock()
-_schema_ready: set[str] = set()
 
 
 def _database_path() -> Path:
@@ -38,48 +35,17 @@ def _restrict_permissions(path: Path) -> None:
 
 def _connect() -> sqlite3.Connection:
     path = _database_path()
+    from backend.migrations.runner import (
+        data_dir_for_database,
+        ensure_database_schema_once,
+    )
+
+    ensure_database_schema_once(path, "capability_audit", data_dir_for_database(path))
     connection = sqlite3.connect(str(path), timeout=10)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA journal_mode=WAL")
     connection.execute("PRAGMA busy_timeout=10000")
     _restrict_permissions(path)
-    key = str(path)
-    if key not in _schema_ready:
-        with _schema_lock:
-            if key not in _schema_ready:
-                connection.execute(
-                    """
-                    CREATE TABLE IF NOT EXISTS capability_audit_events (
-                        id TEXT PRIMARY KEY,
-                        vault_scope TEXT NOT NULL,
-                        workspace_id TEXT NOT NULL,
-                        user_id TEXT NOT NULL,
-                        role TEXT NOT NULL,
-                        agent_id TEXT NOT NULL,
-                        session_id TEXT NOT NULL,
-                        tool_id TEXT NOT NULL,
-                        tool_name TEXT NOT NULL,
-                        effects_json TEXT NOT NULL,
-                        status TEXT NOT NULL,
-                        argument_keys_json TEXT NOT NULL,
-                        result_kind TEXT NOT NULL,
-                        error_code TEXT,
-                        duration_ms INTEGER NOT NULL,
-                        created_at REAL NOT NULL
-                    )
-                    """
-                )
-                connection.execute(
-                    """
-                    CREATE INDEX IF NOT EXISTS idx_capability_audit_scope_time
-                    ON capability_audit_events (
-                        vault_scope, workspace_id, user_id,
-                        agent_id, session_id, created_at DESC
-                    )
-                    """
-                )
-                connection.commit()
-                _schema_ready.add(key)
     connection.execute(
         "DELETE FROM capability_audit_events WHERE created_at <= ?",
         (time.time() - RETENTION_SECONDS,),

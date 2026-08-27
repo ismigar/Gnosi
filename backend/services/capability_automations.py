@@ -7,7 +7,6 @@ import json
 import os
 import re
 import sqlite3
-import threading
 import time
 import uuid
 from contextlib import contextmanager
@@ -22,8 +21,6 @@ from backend.config.app_config import load_params
 
 
 AUTOMATION_ID_RE = re.compile(r"^[a-f0-9]{32}$")
-_schema_lock = threading.Lock()
-_schema_ready: set[str] = set()
 
 
 class AutomationConflictError(RuntimeError):
@@ -54,60 +51,21 @@ def _restrict_permissions(path: Path) -> None:
 
 def _connect() -> sqlite3.Connection:
     path = _database_path()
+    from backend.migrations.runner import (
+        data_dir_for_database,
+        ensure_database_schema_once,
+    )
+
+    ensure_database_schema_once(
+        path,
+        "capability_automations",
+        data_dir_for_database(path),
+    )
     connection = sqlite3.connect(str(path), timeout=10)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA journal_mode=WAL")
     connection.execute("PRAGMA busy_timeout=10000")
     _restrict_permissions(path)
-    key = str(path)
-    if key not in _schema_ready:
-        with _schema_lock:
-            if key not in _schema_ready:
-                connection.executescript(
-                    """
-                    CREATE TABLE IF NOT EXISTS capability_automations (
-                        id TEXT PRIMARY KEY,
-                        vault_scope TEXT NOT NULL,
-                        vault_path TEXT NOT NULL,
-                        workspace_id TEXT NOT NULL,
-                        user_id TEXT NOT NULL,
-                        role TEXT NOT NULL,
-                        name TEXT NOT NULL,
-                        agent_id TEXT NOT NULL,
-                        skill_id TEXT NOT NULL,
-                        instruction TEXT NOT NULL,
-                        interval_minutes INTEGER NOT NULL,
-                        enabled INTEGER NOT NULL,
-                        max_runs_per_day INTEGER NOT NULL,
-                        max_ai_calls_per_run INTEGER NOT NULL,
-                        max_runtime_seconds INTEGER NOT NULL,
-                        next_run_at REAL,
-                        last_run_at REAL,
-                        last_status TEXT NOT NULL,
-                        created_at REAL NOT NULL,
-                        updated_at REAL NOT NULL,
-                        revision TEXT NOT NULL
-                    );
-                    CREATE INDEX IF NOT EXISTS idx_capability_automations_due
-                    ON capability_automations (enabled, next_run_at);
-                    CREATE TABLE IF NOT EXISTS capability_automation_runs (
-                        id TEXT PRIMARY KEY,
-                        automation_id TEXT NOT NULL,
-                        status TEXT NOT NULL,
-                        ai_calls INTEGER NOT NULL,
-                        confirmation_count INTEGER NOT NULL,
-                        error_code TEXT,
-                        started_at REAL NOT NULL,
-                        finished_at REAL,
-                        FOREIGN KEY (automation_id)
-                            REFERENCES capability_automations(id) ON DELETE CASCADE
-                    );
-                    CREATE INDEX IF NOT EXISTS idx_capability_automation_runs
-                    ON capability_automation_runs (automation_id, started_at DESC);
-                    """
-                )
-                connection.commit()
-                _schema_ready.add(key)
     return connection
 
 

@@ -19,7 +19,6 @@ from backend.config.app_config import load_params
 MAX_ASSOCIATIONS_PER_VAULT = 500
 MAX_TERMS_PER_ASSOCIATION = 24
 _LOCK = threading.RLock()
-_SCHEMA_READY: set[str] = set()
 
 
 def _database_path() -> Path:
@@ -30,31 +29,16 @@ def _database_path() -> Path:
 
 def _connect() -> sqlite3.Connection:
     path = _database_path()
+    from backend.migrations.runner import (
+        data_dir_for_database,
+        ensure_database_schema_once,
+    )
+
+    ensure_database_schema_once(path, "semantic_memory", data_dir_for_database(path))
     connection = sqlite3.connect(str(path), timeout=10)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA journal_mode=WAL")
     connection.execute("PRAGMA busy_timeout=10000")
-    key = str(path)
-    with _LOCK:
-        if key not in _SCHEMA_READY:
-            connection.executescript(
-                """
-                CREATE TABLE IF NOT EXISTS semantic_associations (
-                    id TEXT PRIMARY KEY,
-                    vault_scope TEXT NOT NULL,
-                    trigger_term TEXT NOT NULL,
-                    related_term TEXT NOT NULL,
-                    created_by TEXT NOT NULL,
-                    created_at REAL NOT NULL,
-                    updated_at REAL NOT NULL,
-                    UNIQUE(vault_scope, trigger_term, related_term)
-                );
-                CREATE INDEX IF NOT EXISTS idx_semantic_associations_scope
-                ON semantic_associations(vault_scope, trigger_term, updated_at DESC);
-                """
-            )
-            connection.commit()
-            _SCHEMA_READY.add(key)
     try:
         os.chmod(path, 0o600)
     except OSError:

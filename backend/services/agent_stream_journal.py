@@ -52,22 +52,19 @@ def _fernet() -> Fernet:
 
 def _connect() -> sqlite3.Connection:
     db_path, _key = _paths()
+    from backend.migrations.runner import (
+        data_dir_for_database,
+        ensure_database_schema_once,
+    )
+
+    ensure_database_schema_once(
+        db_path,
+        "stream_journal",
+        data_dir_for_database(db_path),
+    )
     connection = sqlite3.connect(db_path, timeout=30)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA journal_mode=WAL")
-    connection.execute(
-        """CREATE TABLE IF NOT EXISTS stream_events (
-            stream_id TEXT NOT NULL,
-            scope_hash TEXT NOT NULL,
-            sequence INTEGER NOT NULL,
-            payload BLOB NOT NULL,
-            created_at REAL NOT NULL,
-            PRIMARY KEY(stream_id, sequence)
-        )"""
-    )
-    connection.execute(
-        "CREATE INDEX IF NOT EXISTS idx_stream_events_expiry ON stream_events(created_at)"
-    )
     return connection
 
 

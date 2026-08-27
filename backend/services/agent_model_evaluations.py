@@ -27,38 +27,15 @@ def _path() -> Path:
 
 
 def _connect() -> sqlite3.Connection:
-    connection = sqlite3.connect(_path(), timeout=30)
+    path = _path()
+    from backend.migrations.runner import (
+        data_dir_for_database,
+        ensure_database_schema_once,
+    )
+
+    ensure_database_schema_once(path, "model_evaluations", data_dir_for_database(path))
+    connection = sqlite3.connect(path, timeout=30)
     connection.row_factory = sqlite3.Row
-    connection.execute(
-        """CREATE TABLE IF NOT EXISTS model_evaluations (
-            evaluation_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            provider TEXT NOT NULL,
-            model TEXT NOT NULL,
-            agent_id TEXT NOT NULL,
-            score REAL NOT NULL,
-            passed INTEGER NOT NULL,
-            total INTEGER NOT NULL,
-            latency_ms INTEGER NOT NULL,
-            input_tokens INTEGER NOT NULL DEFAULT 0,
-            output_tokens INTEGER NOT NULL DEFAULT 0,
-            estimated_cost_usd REAL NOT NULL DEFAULT 0,
-            failure_codes TEXT NOT NULL DEFAULT '[]',
-            created_at TEXT NOT NULL
-        )"""
-    )
-    columns = {
-        str(row[1]) for row in connection.execute(
-            "PRAGMA table_info(model_evaluations)"
-        ).fetchall()
-    }
-    if "estimated_cost_usd" not in columns:
-        connection.execute(
-            "ALTER TABLE model_evaluations ADD COLUMN estimated_cost_usd REAL NOT NULL DEFAULT 0"
-        )
-    connection.execute(
-        "CREATE INDEX IF NOT EXISTS idx_model_evaluations_route "
-        "ON model_evaluations(provider, model, created_at DESC)"
-    )
     return connection
 
 

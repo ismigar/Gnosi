@@ -113,8 +113,6 @@ Total: **227 módulos** y **89775 líneas de origen**.
 | Módulo | Líneas | Clases | Funciones | Async | Declaraciones documentadas | Señal de propósito |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | ["backend/__init__.py»](https://github.com/ismigar/Gnosi/blob/main/backend/__init__.py) | 0 | 0 | 0 | 0 | 0 | Sin docstring de módulo |
-| ["backend/migrate_miembros.py».](https://github.com/ismigar/Gnosi/blob/main/backend/migrate_memberships.py) | 30 | 0 | 0 | 0 | 0 | No se pudo analizar la sintaxis |
-| ["backend/migrate_Miembros_final.py».](https://github.com/ismigar/Gnosi/blob/main/backend/migrate_memberships_final.py) | 30 | 0 | 0 | 0 | 0 | No se pudo analizar la sintaxis |
 | ["backend/patch"_sources.py»](https://github.com/ismigar/Gnosi/blob/main/backend/patch_sources.py) | 36 | 0 | 1 | 0 | 0 | Sin docstring de módulo |
 | ["backend/scratch"_sync.py».](https://github.com/ismigar/Gnosi/blob/main/backend/scratch_sync.py) | 30 | 0 | 1 | 0 | 0 | Sin docstring de módulo |
 | [`backend/server.py`](https://github.com/ismigar/Gnosi/blob/main/backend/server.py) | 501 | 0 | 5 | 4 | 3 | Sin docstring de módulo |

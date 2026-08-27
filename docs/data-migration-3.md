@@ -76,3 +76,34 @@ destructive reverse database migrations. Finalization removes only an empty
 pre-migration destination scaffold; it never deletes a preserved cross-volume
 source. Remove an old source manually only after the complete Gnosi 3
 acceptance matrix has passed.
+
+## SQLite schema upgrades
+
+Gnosi upgrades its own SQLite databases through independent Alembic revision
+lines for management, dynamic vaults, notebooks and each durable auxiliary
+store. Startup accepts only an empty database, an exact reviewed Gnosi 2.x
+schema fingerprint or an already versioned database. An unknown or drifted
+schema stops startup without modifying the file.
+
+Before starting Gnosi 3 against an existing data directory, stop every writer
+and run the explicit migrator:
+
+```bash
+uv run python scripts/migrate-schemas.py --data-dir "/absolute/data/directory"
+uv run python scripts/migrate-schemas.py --data-dir "/absolute/data/directory" --check
+```
+
+Every changed database receives an integrity-checked, SHA-256-recorded backup
+under `backups/schema-migrations/`. The JSON Lines migration report contains
+database identities relative to the data directory and no row values. Schema
+rollback is deliberately file-based: stop writers and restore the verified
+backup instead of running a destructive Alembic downgrade.
+
+Developers can audit a data directory without reading row values and verify
+that the committed compatibility manifest is reproducible:
+
+```bash
+uv run python scripts/audit-sqlite-schemas.py "/absolute/data/directory"
+uv run python scripts/generate-schema-fingerprints.py \
+  --output /tmp/gnosi-schema-fingerprints.json
+```

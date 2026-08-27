@@ -29,12 +29,15 @@ def _path() -> Path:
 
 
 def _connect() -> sqlite3.Connection:
-    connection = sqlite3.connect(_path(), timeout=30)
-    connection.execute("PRAGMA journal_mode=WAL")
-    connection.execute(
-        "CREATE TABLE IF NOT EXISTS replay_events (event_id TEXT PRIMARY KEY, trace_id TEXT NOT NULL, event_type TEXT NOT NULL, attributes TEXT NOT NULL, created_at TEXT NOT NULL)"
+    path = _path()
+    from backend.migrations.runner import (
+        data_dir_for_database,
+        ensure_database_schema_once,
     )
-    connection.execute("CREATE INDEX IF NOT EXISTS idx_replay_trace ON replay_events(trace_id, created_at)")
+
+    ensure_database_schema_once(path, "agent_replay", data_dir_for_database(path))
+    connection = sqlite3.connect(path, timeout=30)
+    connection.execute("PRAGMA journal_mode=WAL")
     return connection
 
 
